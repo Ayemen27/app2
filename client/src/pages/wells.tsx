@@ -80,6 +80,34 @@ export default function WellsPage() {
   const [showAddPumpPowerDialog, setShowAddPumpPowerDialog] = useState(false);
   const [newPumpPower, setNewPumpPower] = useState("");
 
+  // جلب بيانات الإكمال التلقائي
+  const { data: ownerNames = [] } = useQuery({
+    queryKey: ['autocomplete/ownerNames', selectedProjectId],
+    queryFn: async () => {
+      const response = await apiRequest('/api/autocomplete?category=ownerNames');
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    enabled: !!selectedProjectId
+  });
+
+  const { data: fanTypes = [] } = useQuery({
+    queryKey: ['autocomplete/fanTypes', selectedProjectId],
+    queryFn: async () => {
+      const response = await apiRequest('/api/autocomplete?category=fanTypes');
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    enabled: !!selectedProjectId
+  });
+
+  const { data: pumpPowers = [] } = useQuery({
+    queryKey: ['autocomplete/pumpPowers', selectedProjectId],
+    queryFn: async () => {
+      const response = await apiRequest('/api/autocomplete?category=pumpPowers');
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    enabled: !!selectedProjectId
+  });
+
   // تعيين الزر العائم عند دخول الصفحة
   useEffect(() => {
     const handleFloatingAction = () => {
@@ -183,34 +211,6 @@ export default function WellsPage() {
       addOwnerNameMutation.mutate(value);
     }
   };
-
-  // جلب بيانات الإكمال التلقائي
-  const { data: ownerNames = [] } = useQuery({
-    queryKey: ['autocomplete/ownerNames', selectedProjectId],
-    queryFn: async () => {
-      const response = await apiRequest('/api/autocomplete?category=ownerNames');
-      return Array.isArray(response.data) ? response.data : [];
-    },
-    enabled: !!selectedProjectId
-  });
-
-  const { data: fanTypes = [] } = useQuery({
-    queryKey: ['autocomplete/fanTypes', selectedProjectId],
-    queryFn: async () => {
-      const response = await apiRequest('/api/autocomplete?category=fanTypes');
-      return Array.isArray(response.data) ? response.data : [];
-    },
-    enabled: !!selectedProjectId
-  });
-
-  const { data: pumpPowers = [] } = useQuery({
-    queryKey: ['autocomplete/pumpPowers', selectedProjectId],
-    queryFn: async () => {
-      const response = await apiRequest('/api/autocomplete?category=pumpPowers');
-      return Array.isArray(response.data) ? response.data : [];
-    },
-    enabled: !!selectedProjectId
-  });
 
   // إنشاء بئر
   const createWellMutation = useMutation({
@@ -416,412 +416,412 @@ export default function WellsPage() {
 
       {/* نموذج إضافة بئر جديد */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-            <DialogHeader className="pb-2">
-              <DialogTitle>إضافة بئر جديد</DialogTitle>
-            </DialogHeader>
-            <div className="overflow-y-auto flex-1 px-4 py-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">رقم البئر *</Label>
-                  <Input
-                    type="number"
-                    value={formData.wellNumber || ''}
-                    onChange={(e) => setFormData({ ...formData, wellNumber: parseInt(e.target.value) })}
-                    placeholder="أدخل رقم البئر"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">اسم المالك *</Label>
-                  <SearchableSelect
-                    value={formData.ownerName || ''}
-                    onValueChange={handleOwnerNameChange}
-                    options={ownerNames.map((name: string) => ({ value: name, label: name }))}
-                    placeholder="اختر أو اكتب اسم المالك"
-                    searchPlaceholder="ابحث عن اسم المالك..."
-                    showSearch={true}
-                    allowCustom={true}
-                    onCustomAdd={(value) => addOwnerNameMutation.mutate(value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">المنطقة *</Label>
-                  <SearchableSelect
-                    value={formData.region || ''}
-                    onValueChange={(value) => setFormData({ ...formData, region: value })}
-                    options={regions.map(region => ({ value: region, label: region }))}
-                    placeholder="اختر المنطقة"
-                    searchPlaceholder="ابحث عن المنطقة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
-                  <Input
-                    type="number"
-                    value={formData.wellDepth || ''}
-                    onChange={(e) => setFormData({ ...formData, wellDepth: parseInt(e.target.value) })}
-                    placeholder="أدخل عمق البئر"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عدد الألواح *</Label>
-                  <Input
-                    type="number"
-                    value={formData.numberOfPanels || ''}
-                    onChange={(e) => setFormData({ ...formData, numberOfPanels: parseInt(e.target.value) })}
-                    placeholder="أدخل عدد الألواح"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عدد القواعد *</Label>
-                  <Input
-                    type="number"
-                    value={formData.numberOfBases || ''}
-                    onChange={(e) => setFormData({ ...formData, numberOfBases: parseInt(e.target.value) })}
-                    placeholder="أدخل عدد القواعد"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عدد المواسير *</Label>
-                  <Input
-                    type="number"
-                    value={formData.numberOfPipes || ''}
-                    onChange={(e) => setFormData({ ...formData, numberOfPipes: parseInt(e.target.value) })}
-                    placeholder="أدخل عدد المواسير"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
-                  <Input
-                    type="number"
-                    value={formData.waterLevel || ''}
-                    onChange={(e) => setFormData({ ...formData, waterLevel: parseInt(e.target.value) })}
-                    placeholder="أدخل مستوى الماء"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1 mb-1">
-                    <Label className="text-sm font-semibold flex-1">نوع المروحة</Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={() => setShowAddFanTypeDialog(true)}
-                    >
-                      + إضافة
-                    </Button>
-                  </div>
-                  <SearchableSelect
-                    value={formData.fanType || ''}
-                    onValueChange={(value) => setFormData({ ...formData, fanType: value })}
-                    options={fanTypes.map((type: string) => ({ value: type, label: type }))}
-                    placeholder="اختر نوع المروحة"
-                    searchPlaceholder="ابحث عن نوع المروحة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1 mb-1">
-                    <Label className="text-sm font-semibold flex-1">قوة المضخة</Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={() => setShowAddPumpPowerDialog(true)}
-                    >
-                      + إضافة
-                    </Button>
-                  </div>
-                  <SearchableSelect
-                    value={formData.pumpPower ? String(formData.pumpPower) : ''}
-                    onValueChange={(value) => setFormData({ ...formData, pumpPower: parseInt(value) })}
-                    options={pumpPowers.map((power: any) => ({ value: String(power), label: String(power) }))}
-                    placeholder="اختر قوة المضخة"
-                    searchPlaceholder="ابحث عن قوة المضخة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label className="text-sm font-semibold">الحالة</Label>
-                  <SearchableSelect
-                    value={formData.status || ''}
-                    onValueChange={(value) => setFormData({ ...formData, status: value as any })}
-                    options={[
-                      { value: 'pending', label: 'لم يبدأ' },
-                      { value: 'in_progress', label: 'قيد التنفيذ' },
-                      { value: 'completed', label: 'منجز' }
-                    ]}
-                    placeholder="اختر الحالة"
-                    searchPlaceholder="ابحث عن الحالة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label className="text-sm font-semibold">الملاحظات</Label>
-                  <Input
-                    value={formData.notes || ''}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="أضف ملاحظات اختيارية"
-                    className="h-10 text-base"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowAddDialog(false)} size="sm">إلغاء</Button>
-              <Button 
-                onClick={() => {
-                  if (!formData.wellNumber || !formData.ownerName || !formData.region || !formData.wellDepth || !formData.numberOfPanels || !formData.numberOfPipes || !formData.numberOfBases) {
-                    toast({
-                      title: "تنبيه",
-                      description: "يرجى ملء جميع الحقول الإجبارية",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  createWellMutation.mutate(formData);
-                }} 
-                size="sm"
-                disabled={!formData.wellNumber || !formData.ownerName || !formData.region || !formData.wellDepth || !formData.numberOfPanels || !formData.numberOfPipes || !formData.numberOfBases}
-              >
-                {createWellMutation.isPending ? 'جاري...' : 'إضافة'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* نموذج إضافة نوع مروحة جديد */}
-        <Dialog open={showAddFanTypeDialog} onOpenChange={setShowAddFanTypeDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>إضافة نوع مروحة جديد</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>اسم نوع المروحة</Label>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="pb-2">
+            <DialogTitle>إضافة بئر جديد</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 px-4 py-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">رقم البئر *</Label>
                 <Input
-                  placeholder="مثال: مروحة سقفية"
-                  value={newFanType}
-                  onChange={(e) => setNewFanType(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addFanTypeMutation.mutate(newFanType)}
+                  type="number"
+                  value={formData.wellNumber || ''}
+                  onChange={(e) => setFormData({ ...formData, wellNumber: parseInt(e.target.value) })}
+                  placeholder="أدخل رقم البئر"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">اسم المالك *</Label>
+                <SearchableSelect
+                  value={formData.ownerName || ''}
+                  onValueChange={handleOwnerNameChange}
+                  options={ownerNames.map((name: string) => ({ value: name, label: name }))}
+                  placeholder="اختر أو اكتب اسم المالك"
+                  searchPlaceholder="ابحث عن اسم المالك..."
+                  showSearch={true}
+                  allowCustom={true}
+                  onCustomAdd={(value) => addOwnerNameMutation.mutate(value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">المنطقة *</Label>
+                <SearchableSelect
+                  value={formData.region || ''}
+                  onValueChange={(value) => setFormData({ ...formData, region: value })}
+                  options={regions.map(region => ({ value: region, label: region }))}
+                  placeholder="اختر المنطقة"
+                  searchPlaceholder="ابحث عن المنطقة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
+                <Input
+                  type="number"
+                  value={formData.wellDepth || ''}
+                  onChange={(e) => setFormData({ ...formData, wellDepth: parseInt(e.target.value) })}
+                  placeholder="أدخل عمق البئر"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عدد الألواح *</Label>
+                <Input
+                  type="number"
+                  value={formData.numberOfPanels || ''}
+                  onChange={(e) => setFormData({ ...formData, numberOfPanels: parseInt(e.target.value) })}
+                  placeholder="أدخل عدد الألواح"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عدد القواعد *</Label>
+                <Input
+                  type="number"
+                  value={formData.numberOfBases || ''}
+                  onChange={(e) => setFormData({ ...formData, numberOfBases: parseInt(e.target.value) })}
+                  placeholder="أدخل عدد القواعد"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عدد المواسير *</Label>
+                <Input
+                  type="number"
+                  value={formData.numberOfPipes || ''}
+                  onChange={(e) => setFormData({ ...formData, numberOfPipes: parseInt(e.target.value) })}
+                  placeholder="أدخل عدد المواسير"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
+                <Input
+                  type="number"
+                  value={formData.waterLevel || ''}
+                  onChange={(e) => setFormData({ ...formData, waterLevel: parseInt(e.target.value) })}
+                  placeholder="أدخل مستوى الماء"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1 mb-1">
+                  <Label className="text-sm font-semibold flex-1">نوع المروحة</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setShowAddFanTypeDialog(true)}
+                  >
+                    + إضافة
+                  </Button>
+                </div>
+                <SearchableSelect
+                  value={formData.fanType || ''}
+                  onValueChange={(value) => setFormData({ ...formData, fanType: value })}
+                  options={fanTypes.map((type: string) => ({ value: type, label: type }))}
+                  placeholder="اختر نوع المروحة"
+                  searchPlaceholder="ابحث عن نوع المروحة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1 mb-1">
+                  <Label className="text-sm font-semibold flex-1">قوة المضخة</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setShowAddPumpPowerDialog(true)}
+                  >
+                    + إضافة
+                  </Button>
+                </div>
+                <SearchableSelect
+                  value={formData.pumpPower ? String(formData.pumpPower) : ''}
+                  onValueChange={(value) => setFormData({ ...formData, pumpPower: parseInt(value) })}
+                  options={pumpPowers.map((power: any) => ({ value: String(power), label: String(power) }))}
+                  placeholder="اختر قوة المضخة"
+                  searchPlaceholder="ابحث عن قوة المضخة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-sm font-semibold">الحالة</Label>
+                <SearchableSelect
+                  value={formData.status || ''}
+                  onValueChange={(value) => setFormData({ ...formData, status: value as any })}
+                  options={[
+                    { value: 'pending', label: 'لم يبدأ' },
+                    { value: 'in_progress', label: 'قيد التنفيذ' },
+                    { value: 'completed', label: 'منجز' }
+                  ]}
+                  placeholder="اختر الحالة"
+                  searchPlaceholder="ابحث عن الحالة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-sm font-semibold">الملاحظات</Label>
+                <Input
+                  value={formData.notes || ''}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="أضف ملاحظات اختيارية"
+                  className="h-10 text-base"
                 />
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowAddFanTypeDialog(false)} size="sm">إلغاء</Button>
-              <Button onClick={() => addFanTypeMutation.mutate(newFanType)} size="sm">
-                {addFanTypeMutation.isPending ? 'جاري...' : 'إضافة'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button variant="outline" onClick={() => setShowAddDialog(false)} size="sm">إلغاء</Button>
+            <Button 
+              onClick={() => {
+                if (!formData.wellNumber || !formData.ownerName || !formData.region || !formData.wellDepth || !formData.numberOfPanels || !formData.numberOfPipes || !formData.numberOfBases) {
+                  toast({
+                    title: "تنبيه",
+                    description: "يرجى ملء جميع الحقول الإجبارية",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                createWellMutation.mutate(formData);
+              }} 
+              size="sm"
+              disabled={createWellMutation.isPending || !formData.wellNumber || !formData.ownerName || !formData.region || !formData.wellDepth || !formData.numberOfPanels || !formData.numberOfPipes || !formData.numberOfBases}
+            >
+              {createWellMutation.isPending ? 'جاري...' : 'إضافة'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* نموذج إضافة قوة مضخة جديدة */}
-        <Dialog open={showAddPumpPowerDialog} onOpenChange={setShowAddPumpPowerDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>إضافة قوة مضخة جديدة</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>قوة المضخة</Label>
+      {/* نموذج إضافة نوع مروحة جديد */}
+      <Dialog open={showAddFanTypeDialog} onOpenChange={setShowAddFanTypeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إضافة نوع مروحة جديد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>اسم نوع المروحة</Label>
+              <Input
+                placeholder="مثال: مروحة سقفية"
+                value={newFanType}
+                onChange={(e) => setNewFanType(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addFanTypeMutation.mutate(newFanType)}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowAddFanTypeDialog(false)} size="sm">إلغاء</Button>
+            <Button onClick={() => addFanTypeMutation.mutate(newFanType)} size="sm">
+              {addFanTypeMutation.isPending ? 'جاري...' : 'إضافة'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* نموذج إضافة قوة مضخة جديدة */}
+      <Dialog open={showAddPumpPowerDialog} onOpenChange={setShowAddPumpPowerDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إضافة قوة مضخة جديدة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>قوة المضخة</Label>
+              <Input
+                placeholder="مثال: 1.5 أو 2.0"
+                value={newPumpPower}
+                onChange={(e) => setNewPumpPower(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addPumpPowerMutation.mutate(newPumpPower)}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowAddPumpPowerDialog(false)} size="sm">إلغاء</Button>
+            <Button onClick={() => addPumpPowerMutation.mutate(newPumpPower)} size="sm">
+              {addPumpPowerMutation.isPending ? 'جاري...' : 'إضافة'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* نموذج تعديل بئر */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="pb-2">
+            <DialogTitle>تعديل بيانات البئر</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 px-4 py-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">رقم البئر *</Label>
                 <Input
-                  placeholder="مثال: 1.5 أو 2.0"
-                  value={newPumpPower}
-                  onChange={(e) => setNewPumpPower(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addPumpPowerMutation.mutate(newPumpPower)}
+                  type="number"
+                  value={selectedWell?.wellNumber || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, wellNumber: parseInt(e.target.value) })}
+                  placeholder="أدخل رقم البئر"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">اسم المالك *</Label>
+                <SearchableSelect
+                  value={selectedWell?.ownerName || ''}
+                  onValueChange={(value) => setSelectedWell({ ...selectedWell, ownerName: value })}
+                  options={ownerNames.map((name: string) => ({ value: name, label: name }))}
+                  placeholder="اختر اسم المالك"
+                  searchPlaceholder="ابحث عن اسم المالك..."
+                  showSearch={true}
+                  allowCustom={true}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">المنطقة *</Label>
+                <SearchableSelect
+                  value={selectedWell?.region || ''}
+                  onValueChange={(value) => setSelectedWell({ ...selectedWell, region: value })}
+                  options={regions.map(region => ({ value: region, label: region }))}
+                  placeholder="اختر المنطقة"
+                  searchPlaceholder="ابحث عن المنطقة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
+                <Input
+                  type="number"
+                  value={selectedWell?.wellDepth || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, wellDepth: parseInt(e.target.value) })}
+                  placeholder="أدخل عمق البئر"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عدد الألواح *</Label>
+                <Input
+                  type="number"
+                  value={selectedWell?.numberOfPanels || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPanels: parseInt(e.target.value) })}
+                  placeholder="أدخل عدد الألواح"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عدد القواعد *</Label>
+                <Input
+                  type="number"
+                  value={selectedWell?.numberOfBases || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, numberOfBases: parseInt(e.target.value) })}
+                  placeholder="أدخل عدد القواعد"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">عدد المواسير *</Label>
+                <Input
+                  type="number"
+                  value={selectedWell?.numberOfPipes || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPipes: parseInt(e.target.value) })}
+                  placeholder="أدخل عدد المواسير"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
+                <Input
+                  type="number"
+                  value={selectedWell?.waterLevel || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, waterLevel: parseInt(e.target.value) })}
+                  placeholder="أدخل مستوى الماء"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">نوع المروحة</Label>
+                <SearchableSelect
+                  value={selectedWell?.fanType || ''}
+                  onValueChange={(value) => setSelectedWell({ ...selectedWell, fanType: value })}
+                  options={fanTypes.map((type: string) => ({ value: type, label: type }))}
+                  placeholder="اختر نوع المروحة"
+                  searchPlaceholder="ابحث عن نوع المروحة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">قوة المضخة</Label>
+                <SearchableSelect
+                  value={selectedWell?.pumpPower ? String(selectedWell.pumpPower) : ''}
+                  onValueChange={(value) => setSelectedWell({ ...selectedWell, pumpPower: parseInt(value) })}
+                  options={pumpPowers.map((power: any) => ({ value: String(power), label: String(power) }))}
+                  placeholder="اختر قوة المضخة"
+                  searchPlaceholder="ابحث عن قوة المضخة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">الحالة</Label>
+                <SearchableSelect
+                  value={selectedWell?.status || ''}
+                  onValueChange={(value) => setSelectedWell({ ...selectedWell, status: value as any })}
+                  options={[
+                    { value: 'pending', label: 'لم يبدأ' },
+                    { value: 'in_progress', label: 'قيد التنفيذ' },
+                    { value: 'completed', label: 'منجز' }
+                  ]}
+                  placeholder="اختر الحالة"
+                  searchPlaceholder="ابحث عن الحالة..."
+                  showSearch={true}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">نسبة الإنجاز (%)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={selectedWell?.completionPercentage || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, completionPercentage: parseInt(e.target.value) })}
+                  placeholder="أدخل نسبة الإنجاز"
+                  className="h-10 text-base"
+                />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label className="text-sm font-semibold">الملاحظات</Label>
+                <Input
+                  value={selectedWell?.notes || ''}
+                  onChange={(e) => setSelectedWell({ ...selectedWell, notes: e.target.value })}
+                  placeholder="أضف ملاحظات اختيارية"
+                  className="h-10 text-base"
                 />
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowAddPumpPowerDialog(false)} size="sm">إلغاء</Button>
-              <Button onClick={() => addPumpPowerMutation.mutate(newPumpPower)} size="sm">
-                {addPumpPowerMutation.isPending ? 'جاري...' : 'إضافة'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* نموذج تعديل بئر */}
-            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-            <DialogHeader className="pb-2">
-              <DialogTitle>تعديل بيانات البئر</DialogTitle>
-            </DialogHeader>
-            <div className="overflow-y-auto flex-1 px-4 py-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">رقم البئر *</Label>
-                  <Input
-                    type="number"
-                    value={selectedWell?.wellNumber || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, wellNumber: parseInt(e.target.value) })}
-                    placeholder="أدخل رقم البئر"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">اسم المالك *</Label>
-                  <SearchableSelect
-                    value={selectedWell?.ownerName || ''}
-                    onValueChange={(value) => setSelectedWell({ ...selectedWell, ownerName: value })}
-                    options={ownerNames.map((name: string) => ({ value: name, label: name }))}
-                    placeholder="اختر أو اكتب اسم المالك"
-                    searchPlaceholder="ابحث عن اسم المالك..."
-                    showSearch={true}
-                    allowCustom={true}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">المنطقة *</Label>
-                  <SearchableSelect
-                    value={selectedWell?.region || ''}
-                    onValueChange={(value) => setSelectedWell({ ...selectedWell, region: value })}
-                    options={regions.map(region => ({ value: region, label: region }))}
-                    placeholder="اختر المنطقة"
-                    searchPlaceholder="ابحث عن المنطقة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
-                  <Input
-                    type="number"
-                    value={selectedWell?.wellDepth || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, wellDepth: parseInt(e.target.value) })}
-                    placeholder="أدخل عمق البئر"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عدد الألواح *</Label>
-                  <Input
-                    type="number"
-                    value={selectedWell?.numberOfPanels || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPanels: parseInt(e.target.value) })}
-                    placeholder="أدخل عدد الألواح"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عدد القواعد *</Label>
-                  <Input
-                    type="number"
-                    value={selectedWell?.numberOfBases || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, numberOfBases: parseInt(e.target.value) })}
-                    placeholder="أدخل عدد القواعد"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">عدد المواسير *</Label>
-                  <Input
-                    type="number"
-                    value={selectedWell?.numberOfPipes || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPipes: parseInt(e.target.value) })}
-                    placeholder="أدخل عدد المواسير"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
-                  <Input
-                    type="number"
-                    value={selectedWell?.waterLevel || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, waterLevel: parseInt(e.target.value) })}
-                    placeholder="أدخل مستوى الماء"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">نوع المروحة</Label>
-                  <SearchableSelect
-                    value={selectedWell?.fanType || ''}
-                    onValueChange={(value) => setSelectedWell({ ...selectedWell, fanType: value })}
-                    options={fanTypes.map((type: string) => ({ value: type, label: type }))}
-                    placeholder="اختر نوع المروحة"
-                    searchPlaceholder="ابحث عن نوع المروحة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm font-semibold">قوة المضخة</Label>
-                  <SearchableSelect
-                    value={selectedWell?.pumpPower ? String(selectedWell.pumpPower) : ''}
-                    onValueChange={(value) => setSelectedWell({ ...selectedWell, pumpPower: parseInt(value) })}
-                    options={pumpPowers.map((power: any) => ({ value: String(power), label: String(power) }))}
-                    placeholder="اختر قوة المضخة"
-                    searchPlaceholder="ابحث عن قوة المضخة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label className="text-sm font-semibold">الحالة</Label>
-                  <SearchableSelect
-                    value={selectedWell?.status || ''}
-                    onValueChange={(value) => setSelectedWell({ ...selectedWell, status: value as any })}
-                    options={[
-                      { value: 'pending', label: 'لم يبدأ' },
-                      { value: 'in_progress', label: 'قيد التنفيذ' },
-                      { value: 'completed', label: 'منجز' }
-                    ]}
-                    placeholder="اختر الحالة"
-                    searchPlaceholder="ابحث عن الحالة..."
-                    showSearch={true}
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label className="text-sm font-semibold">نسبة الإنجاز (%)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={selectedWell?.completionPercentage || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, completionPercentage: parseInt(e.target.value) })}
-                    placeholder="أدخل نسبة الإنجاز"
-                    className="h-10 text-base"
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label className="text-sm font-semibold">الملاحظات</Label>
-                  <Input
-                    value={selectedWell?.notes || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, notes: e.target.value })}
-                    placeholder="أضف ملاحظات اختيارية"
-                    className="h-10 text-base"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2 justify-end pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowEditDialog(false)} size="sm">إلغاء</Button>
-              <Button 
-                onClick={() => {
-                  if (!selectedWell?.wellNumber || !selectedWell?.ownerName || !selectedWell?.region || !selectedWell?.wellDepth || !selectedWell?.numberOfPanels || !selectedWell?.numberOfPipes || !selectedWell?.numberOfBases) {
-                    toast({
-                      title: "تنبيه",
-                      description: "يرجى ملء جميع الحقول الإجبارية",
-                      variant: "destructive"
-                    });
-                    return;
-                  }
-                  updateWellMutation.mutate(selectedWell || {});
-                }} 
-                size="sm"
-                disabled={!selectedWell?.wellNumber || !selectedWell?.ownerName || !selectedWell?.region || !selectedWell?.wellDepth || !selectedWell?.numberOfPanels || !selectedWell?.numberOfPipes || !selectedWell?.numberOfBases}
-              >
-                {updateWellMutation.isPending ? 'جاري...' : 'حفظ'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          </div>
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button variant="outline" onClick={() => setShowEditDialog(false)} size="sm">إلغاء</Button>
+            <Button 
+              onClick={() => {
+                if (!selectedWell?.wellNumber || !selectedWell?.ownerName || !selectedWell?.region || !selectedWell?.wellDepth || !selectedWell?.numberOfPanels || !selectedWell?.numberOfPipes || !selectedWell?.numberOfBases) {
+                  toast({
+                    title: "تنبيه",
+                    description: "يرجى ملء جميع الحقول الإجبارية",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                updateWellMutation.mutate(selectedWell || {});
+              }} 
+              size="sm"
+              disabled={updateWellMutation.isPending || !selectedWell?.wellNumber || !selectedWell?.ownerName || !selectedWell?.region || !selectedWell?.wellDepth || !selectedWell?.numberOfPanels || !selectedWell?.numberOfPipes || !selectedWell?.numberOfBases}
+            >
+              {updateWellMutation.isPending ? 'جاري...' : 'حفظ'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* قائمة الآبار بالبطاقات الموحدة */}
       <UnifiedCardGrid columns={2}>
@@ -862,7 +862,11 @@ export default function WellsPage() {
               {
                 icon: Trash2,
                 label: 'حذف',
-                onClick: () => deleteWellMutation.mutate(well.id),
+                onClick: () => {
+                  if (confirm('هل أنت متأكد من حذف هذا البئر؟')) {
+                    deleteWellMutation.mutate(well.id);
+                  }
+                },
                 color: 'red'
               }
             ]}

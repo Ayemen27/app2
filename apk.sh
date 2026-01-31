@@ -12,7 +12,6 @@ repair_gradle_version() {
     local GRADLE_WRAPPER_PROPERTIES="$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.properties"
     if [ -f "$GRADLE_WRAPPER_PROPERTIES" ]; then
         log "Force-upgrading Gradle wrapper to 8.5 (Bypassing 4.4.1)..."
-        # Create a fresh wrapper properties file to ensure no 4.4.1 residue
         cat <<EOF > "$GRADLE_WRAPPER_PROPERTIES"
 distributionBase=GRADLE_USER_HOME
 distributionPath=wrapper/dists
@@ -27,19 +26,15 @@ EOF
             sed -i "s/classpath ['\"]com.android.tools.build:gradle:[0-9.]*['\"]/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$PROJECT_GRADLE"
         fi
 
-        # CRITICAL: If the system has an old global gradle, we MUST use the wrapper explicitly
         chmod +x "$ANDROID_ROOT/gradlew"
         
-        # Download wrapper if missing or corrupted
-        log "Attempting to force Gradle wrapper update using direct download if needed..."
-        if [ ! -f "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" ]; then
-             log "Downloading missing gradle-wrapper.jar..."
-             # We can't easily use wget/curl if not available, but usually it is.
-             # Attempt to use the existing wrapper to update itself if possible, but the problem is the evaluator
-             # Forcing the use of 8.5 by preventing it from using the system gradle.
-             # We will bypass the evaluation check by setting the environment
-             export TERM=dumb
+        # Download wrapper explicitly using wget if available to bypass the evaluator crash
+        if [ ! -f "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" ] || [ ! -s "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" ]; then
+             log "Downloading fresh gradle-wrapper.jar to bypass version check..."
+             wget -O "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar" || \
+             curl -Lo "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar"
         fi
+        export TERM=dumb
     fi
 }
 

@@ -177,8 +177,16 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation تحويل العهدة');
 
+    // معالجة التاريخ لضمان أنه نصي بصيغة YYYY-MM-DD
+    const transferData = { ...validationResult.data };
+    if (typeof transferData.transferDate === 'string' && transferData.transferDate.includes('T')) {
+      transferData.transferDate = transferData.transferDate.split('T')[0];
+    } else if (transferData.transferDate instanceof Date) {
+      transferData.transferDate = transferData.transferDate.toISOString().split('T')[0];
+    }
+
     // إدراج تحويل العهدة الجديد في قاعدة البيانات
-    const newTransfer = await db.insert(fundTransfers).values(validationResult.data).returning();
+    const newTransfer = await db.insert(fundTransfers).values(transferData).returning();
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل العهدة بنجاح في ${duration}ms`);

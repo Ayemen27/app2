@@ -31,6 +31,44 @@ EOF
 wget -qO "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" "https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar"
 chmod +x "$ANDROID_ROOT/gradlew"
 
+# 3.1 Pre-build validation
+log "Running Pre-build validation..."
+
+# Check google-services.json
+if [ ! -f "$ANDROID_ROOT/app/google-services.json" ]; then
+    log "❌ ERROR: google-services.json is missing!"
+    exit 1
+fi
+
+# Extract package name from google-services.json
+GS_PACKAGE=$(grep -o '"package_name": "[^"]*"' "$ANDROID_ROOT/app/google-services.json" | head -n 1 | cut -d'"' -f4)
+# Extract applicationId from build.gradle
+GRADLE_PACKAGE=$(grep "applicationId" "$ANDROID_ROOT/app/build.gradle" | sed 's/.*"\(.*\)".*/\1/')
+
+if [ "$GS_PACKAGE" != "$GRADLE_PACKAGE" ]; then
+    log "❌ ERROR: Package mismatch!"
+    log "   google-services.json: $GS_PACKAGE"
+    log "   build.gradle: $GRADLE_PACKAGE"
+    exit 1
+fi
+log "✅ Package names match: $GS_PACKAGE"
+
+# Check signing keystore
+DEBUG_KEYSTORE="/home/administrator/.android/debug.keystore"
+if [ ! -f "$DEBUG_KEYSTORE" ]; then
+    log "⚠️ WARNING: debug.keystore not found. Creating a new one..."
+    mkdir -p /home/administrator/.android
+    keytool -genkey -v -keystore "$DEBUG_KEYSTORE" -alias AndroidDebugKey -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storepass android -keypass android
+fi
+
+# Test Firebase connection (Verify API key in JSON)
+API_KEY=$(grep -o '"current_key": "[^"]*"' "$ANDROID_ROOT/app/google-services.json" | head -n 1 | cut -d'"' -f4)
+if [ -z "$API_KEY" ]; then
+    log "❌ ERROR: No API key found in google-services.json"
+    exit 1
+fi
+log "✅ Firebase API Key detected"
+
 # 4. Repair build.gradle files
 sed -i "s/classpath ['\"]com.android.tools.build:gradle:[0-9.]*['\"]/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$ANDROID_ROOT/build.gradle"
 sed -i 's/minSdk [0-9]*/minSdk 24/g' "$ANDROID_ROOT/app/build.gradle"
@@ -52,9 +90,11 @@ EOF
 fi
 
 # 5. Execute build using the wrapper's JAR directly with Java 21
-# This bypasses the shell script and any system-level Gradle interference
 log "Starting Final Build Attempt..."
 cd "$ANDROID_ROOT"
+# Use Java 21 to run the wrapper directly for cleaning
+"$JAVA_HOME/bin/java" -Dorg.gradle.appname=gradlew -classpath "gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain clean --no-daemon
+# Now build
 "$JAVA_HOME/bin/java" -Dorg.gradle.appname=gradlew -classpath "gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain assembleDebug --no-daemon
 
 # 6. Verify and Copy

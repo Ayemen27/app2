@@ -32,9 +32,17 @@ EOF
         log "Enforcing environment variables..."
         export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
         export ANDROID_HOME="/home/administrator/android-sdk"
+        # Reset PATH to prioritize Java 21 and remove system gradle paths
         export PATH="$JAVA_HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$ANDROID_HOME/tools:$ANDROID_HOME/platform-tools"
+        
+        # REMOVE SYSTEM GRADLE FROM PATH COMPLETELY
+        export PATH=$(echo $PATH | tr ":" "\n" | grep -v "gradle" | tr "\n" ":" | sed 's/:$//')
+        
         export TERM=dumb
         unset GRADLE_HOME
+        
+        log "Downloading fresh gradle-wrapper.jar if needed..."
+        wget -O "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar" || true
     fi
 }
 
@@ -44,6 +52,7 @@ APP_GRADLE="$ANDROID_ROOT/app/build.gradle"
 MANIFEST="$ANDROID_ROOT/app/src/main/AndroidManifest.xml"
 
 repair_gradle_version
+# IMPORTANT: Use the wrapper explicitly
 GRADLE_EXEC="./gradlew"
 
 log "Repairing Project Files for SDK 35 compatibility..."
@@ -61,12 +70,10 @@ grep -q "tools:overrideLibrary" "$MANIFEST" || {
 sed -i '/<uses-sdk/d' "$MANIFEST"
 sed -i '/<application/i \    <uses-sdk tools:overrideLibrary="com.getcapacitor.community.database.sqlite, com.getcapacitor.community.pushnotifications" \/>' "$MANIFEST"
 
-find /home/administrator/app2/node_modules -name "AndroidManifest.xml" -exec sed -i 's/package="[^"]*"//g' {} + 2>/dev/null || true
-find /home/administrator/app2/node_modules -name "build.gradle" -exec sed -i '/androidx.multidex:multidex/d' {} + 2>/dev/null || true
-
 log "Starting Professional Build with SDK 35..."
 cd "$ANDROID_ROOT" && chmod +x gradlew
-$GRADLE_EXEC clean assembleDebug >> "$LOG_FILE" 2>&1 || {
+# Execute build using the wrapper directly with Java 21
+$GRADLE_EXEC assembleDebug >> "$LOG_FILE" 2>&1 || {
     log "Retrying with skip-lint..."
     $GRADLE_EXEC assembleDebug -x lint >> "$LOG_FILE" 2>&1 || error_exit "Build failed. Check $LOG_FILE"
 }

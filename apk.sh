@@ -34,13 +34,21 @@ chmod +x "$ANDROID_ROOT/gradlew"
 # 4. Repair build.gradle files
 sed -i "s/classpath ['\"]com.android.tools.build:gradle:[0-9.]*['\"]/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$ANDROID_ROOT/build.gradle"
 sed -i 's/minSdk [0-9]*/minSdk 24/g' "$ANDROID_ROOT/app/build.gradle"
-sed -i 's/compileSdk [0-9]*/compileSdk 34/g' "$ANDROID_ROOT/app/build.gradle"
+sed -i 's/compileSdk [0-9]*/compileSdk 35/g' "$ANDROID_ROOT/app/build.gradle"
 sed -i 's/targetSdk [0-9]*/targetSdk 34/g' "$ANDROID_ROOT/app/build.gradle"
 
-# 4.1 Ensure proper signing for debug (common cause for parse error)
-log "Ensuring debug signing configuration..."
-if ! grep -q "signingConfig signingConfigs.debug" "$ANDROID_ROOT/app/build.gradle"; then
-    sed -i '/buildTypes {/a \        debug {\n            signingConfig signingConfigs.debug\n        }' "$ANDROID_ROOT/app/build.gradle"
+# 4.1 Force resolution for androidx.core:core-ktx to prevent build failure on SDK 35
+log "Patching build.gradle to handle SDK 35 dependencies..."
+if ! grep -q "configurations.all" "$ANDROID_ROOT/app/build.gradle"; then
+    cat <<EOF >> "$ANDROID_ROOT/app/build.gradle"
+
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.13.1'
+        force 'androidx.core:core-ktx:1.13.1'
+    }
+}
+EOF
 fi
 
 # 5. Execute build using the wrapper's JAR directly with Java 21

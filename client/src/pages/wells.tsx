@@ -420,20 +420,20 @@ export default function WellsPage() {
             <DialogHeader className="pb-2">
               <DialogTitle>إضافة بئر جديد</DialogTitle>
             </DialogHeader>
-            <div className="overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-2 pr-4">
-                <div>
-                  <Label className="text-sm">رقم البئر *</Label>
+            <div className="overflow-y-auto flex-1 px-4 py-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">رقم البئر *</Label>
                   <Input
                     type="number"
                     value={formData.wellNumber || ''}
                     onChange={(e) => setFormData({ ...formData, wellNumber: parseInt(e.target.value) })}
                     placeholder="أدخل رقم البئر"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">اسم المالك *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">اسم المالك *</Label>
                   <SearchableSelect
                     value={formData.ownerName || ''}
                     onValueChange={handleOwnerNameChange}
@@ -445,8 +445,8 @@ export default function WellsPage() {
                     onCustomAdd={(value) => addOwnerNameMutation.mutate(value)}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">المنطقة *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">المنطقة *</Label>
                   <SearchableSelect
                     value={formData.region || ''}
                     onValueChange={(value) => setFormData({ ...formData, region: value })}
@@ -456,59 +456,59 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">عمق البئر (متر) *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
                   <Input
                     type="number"
                     value={formData.wellDepth || ''}
                     onChange={(e) => setFormData({ ...formData, wellDepth: parseInt(e.target.value) })}
                     placeholder="أدخل عمق البئر"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">عدد الألواح *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عدد الألواح *</Label>
                   <Input
                     type="number"
                     value={formData.numberOfPanels || ''}
                     onChange={(e) => setFormData({ ...formData, numberOfPanels: parseInt(e.target.value) })}
                     placeholder="أدخل عدد الألواح"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">عدد القواعد *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عدد القواعد *</Label>
                   <Input
                     type="number"
                     value={formData.numberOfBases || ''}
                     onChange={(e) => setFormData({ ...formData, numberOfBases: parseInt(e.target.value) })}
                     placeholder="أدخل عدد القواعد"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">عدد المواسير *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عدد المواسير *</Label>
                   <Input
                     type="number"
                     value={formData.numberOfPipes || ''}
                     onChange={(e) => setFormData({ ...formData, numberOfPipes: parseInt(e.target.value) })}
                     placeholder="أدخل عدد المواسير"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">مستوى الماء (متر)</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
                   <Input
                     type="number"
                     value={formData.waterLevel || ''}
                     onChange={(e) => setFormData({ ...formData, waterLevel: parseInt(e.target.value) })}
                     placeholder="أدخل مستوى الماء"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
+                <div className="space-y-1">
                   <div className="flex items-center gap-1 mb-1">
-                    <Label className="text-sm flex-1">نوع المروحة</Label>
+                    <Label className="text-sm font-semibold flex-1">نوع المروحة</Label>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -527,9 +527,9 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div>
+                <div className="space-y-1">
                   <div className="flex items-center gap-1 mb-1">
-                    <Label className="text-sm flex-1">قوة المضخة</Label>
+                    <Label className="text-sm font-semibold flex-1">قوة المضخة</Label>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -548,8 +548,8 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">الحالة</Label>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-sm font-semibold">الحالة</Label>
                   <SearchableSelect
                     value={formData.status || ''}
                     onValueChange={(value) => setFormData({ ...formData, status: value as any })}
@@ -563,13 +563,13 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div className="col-span-2">
-                  <Label className="text-sm">الملاحظات</Label>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-sm font-semibold">الملاحظات</Label>
                   <Input
                     value={formData.notes || ''}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="أضف ملاحظات اختيارية"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
               </div>
@@ -650,25 +650,24 @@ export default function WellsPage() {
         </Dialog>
 
         {/* نموذج تعديل بئر */}
-        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader className="pb-2">
-              <DialogTitle>تعديل البئر #{selectedWell?.wellNumber}</DialogTitle>
+              <DialogTitle>تعديل بيانات البئر</DialogTitle>
             </DialogHeader>
-            <div className="overflow-y-auto flex-1">
-              <div className="grid grid-cols-2 gap-2 pr-4">
-                <div>
-                  <Label className="text-sm">رقم البئر *</Label>
+            <div className="overflow-y-auto flex-1 px-4 py-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">رقم البئر *</Label>
                   <Input
                     type="number"
                     value={selectedWell?.wellNumber || ''}
                     onChange={(e) => setSelectedWell({ ...selectedWell, wellNumber: parseInt(e.target.value) })}
                     placeholder="أدخل رقم البئر"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">اسم المالك *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">اسم المالك *</Label>
                   <SearchableSelect
                     value={selectedWell?.ownerName || ''}
                     onValueChange={(value) => setSelectedWell({ ...selectedWell, ownerName: value })}
@@ -679,8 +678,8 @@ export default function WellsPage() {
                     allowCustom={true}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">المنطقة *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">المنطقة *</Label>
                   <SearchableSelect
                     value={selectedWell?.region || ''}
                     onValueChange={(value) => setSelectedWell({ ...selectedWell, region: value })}
@@ -690,58 +689,58 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">عدد الألواح *</Label>
-                  <Input
-                    type="number"
-                    value={selectedWell?.numberOfPanels || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPanels: parseInt(e.target.value) })}
-                    placeholder="أدخل عدد الألواح"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm">عمق البئر (متر) *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
                   <Input
                     type="number"
                     value={selectedWell?.wellDepth || ''}
                     onChange={(e) => setSelectedWell({ ...selectedWell, wellDepth: parseInt(e.target.value) })}
                     placeholder="أدخل عمق البئر"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">عدد القواعد *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عدد الألواح *</Label>
+                  <Input
+                    type="number"
+                    value={selectedWell?.numberOfPanels || ''}
+                    onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPanels: parseInt(e.target.value) })}
+                    placeholder="أدخل عدد الألواح"
+                    className="h-10 text-base"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عدد القواعد *</Label>
                   <Input
                     type="number"
                     value={selectedWell?.numberOfBases || ''}
                     onChange={(e) => setSelectedWell({ ...selectedWell, numberOfBases: parseInt(e.target.value) })}
                     placeholder="أدخل عدد القواعد"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">عدد المواسير *</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">عدد المواسير *</Label>
                   <Input
                     type="number"
                     value={selectedWell?.numberOfPipes || ''}
                     onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPipes: parseInt(e.target.value) })}
                     placeholder="أدخل عدد المواسير"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">مستوى الماء (متر)</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
                   <Input
                     type="number"
                     value={selectedWell?.waterLevel || ''}
                     onChange={(e) => setSelectedWell({ ...selectedWell, waterLevel: parseInt(e.target.value) })}
                     placeholder="أدخل مستوى الماء"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">نوع المروحة</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">نوع المروحة</Label>
                   <SearchableSelect
                     value={selectedWell?.fanType || ''}
                     onValueChange={(value) => setSelectedWell({ ...selectedWell, fanType: value })}
@@ -751,8 +750,8 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">قوة المضخة</Label>
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">قوة المضخة</Label>
                   <SearchableSelect
                     value={selectedWell?.pumpPower ? String(selectedWell.pumpPower) : ''}
                     onValueChange={(value) => setSelectedWell({ ...selectedWell, pumpPower: parseInt(value) })}
@@ -762,8 +761,8 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">الحالة</Label>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-sm font-semibold">الحالة</Label>
                   <SearchableSelect
                     value={selectedWell?.status || ''}
                     onValueChange={(value) => setSelectedWell({ ...selectedWell, status: value as any })}
@@ -777,25 +776,25 @@ export default function WellsPage() {
                     showSearch={true}
                   />
                 </div>
-                <div>
-                  <Label className="text-sm">نسبة الإكمال %</Label>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-sm font-semibold">نسبة الإنجاز (%)</Label>
                   <Input
                     type="number"
-                    value={selectedWell?.completionPercentage || ''}
-                    onChange={(e) => setSelectedWell({ ...selectedWell, completionPercentage: parseInt(e.target.value) })}
-                    placeholder="أدخل نسبة الإكمال"
-                    className="h-9 text-sm"
                     min="0"
                     max="100"
+                    value={selectedWell?.completionPercentage || ''}
+                    onChange={(e) => setSelectedWell({ ...selectedWell, completionPercentage: parseInt(e.target.value) })}
+                    placeholder="أدخل نسبة الإنجاز"
+                    className="h-10 text-base"
                   />
                 </div>
-                <div className="col-span-2">
-                  <Label className="text-sm">الملاحظات</Label>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-sm font-semibold">الملاحظات</Label>
                   <Input
                     value={selectedWell?.notes || ''}
                     onChange={(e) => setSelectedWell({ ...selectedWell, notes: e.target.value })}
                     placeholder="أضف ملاحظات اختيارية"
-                    className="h-9 text-sm"
+                    className="h-10 text-base"
                   />
                 </div>
               </div>

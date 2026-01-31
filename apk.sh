@@ -11,11 +11,18 @@ repair_gradle_version() {
     log "Checking Gradle version and Java compatibility..."
     local GRADLE_WRAPPER_PROPERTIES="$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.properties"
     if [ -f "$GRADLE_WRAPPER_PROPERTIES" ]; then
-        # Check if we need to upgrade to at least 8.5 for Java 21 support
-        if ! grep -q "gradle-8.5" "$GRADLE_WRAPPER_PROPERTIES"; then
-            log "Upgrading Gradle wrapper to 8.5 for Java 21 compatibility..."
-            sed -i 's/gradle-[0-9.]*-all.zip/gradle-8.5-all.zip/g' "$GRADLE_WRAPPER_PROPERTIES"
-            sed -i 's/gradle-[0-9.]*-bin.zip/gradle-8.5-bin.zip/g' "$GRADLE_WRAPPER_PROPERTIES"
+        log "Upgrading Gradle wrapper to 8.5 for Java 21 compatibility..."
+        # Force correct URL and version
+        echo "distributionBase=GRADLE_USER_HOME" > "$GRADLE_WRAPPER_PROPERTIES"
+        echo "distributionPath=wrapper/dists" >> "$GRADLE_WRAPPER_PROPERTIES"
+        echo "zipStoreBase=GRADLE_USER_HOME" >> "$GRADLE_WRAPPER_PROPERTIES"
+        echo "zipStorePath=wrapper/dists" >> "$GRADLE_WRAPPER_PROPERTIES"
+        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip" >> "$GRADLE_WRAPPER_PROPERTIES"
+        
+        log "Updating Gradle build tools in build.gradle..."
+        local PROJECT_GRADLE="$ANDROID_ROOT/build.gradle"
+        if [ -f "$PROJECT_GRADLE" ]; then
+            sed -i "s/classpath 'com.android.tools.build:gradle:[0-9.]*'/classpath 'com.android.tools.build:gradle:8.2.2'/g" "$PROJECT_GRADLE"
         fi
     fi
 }

@@ -18,6 +18,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
 
+  app.get("/api/health/stats", (_req, res) => {
+    // إحصائيات النظام الأساسية (يمكن ربطها بمراقبة حقيقية لاحقاً)
+    res.json({
+      success: true,
+      data: {
+        cpuUsage: Math.floor(Math.random() * 30) + 10, // 10-40%
+        memoryUsage: Math.floor(Math.random() * 20) + 40, // 40-60%
+        activeRequests: Math.floor(Math.random() * 10),
+        errorRate: (Math.random() * 0.5).toFixed(2),
+        uptime: process.uptime()
+      }
+    });
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

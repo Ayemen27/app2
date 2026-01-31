@@ -31,7 +31,6 @@ EOF
         # Bypass the system's old Gradle by using the wrapper directly with Java 21
         log "Setting JAVA_HOME to ensure Java 21 is used..."
         export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
-        # Fix PATH carefully to not break common commands like tee/sed
         export PATH="$JAVA_HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         
         # Download wrapper explicitly using wget if available to bypass the evaluator crash
@@ -41,6 +40,14 @@ EOF
              curl -Lo "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar"
         fi
         export TERM=dumb
+        
+        # ENSURE ANDROID_HOME IS SET Corrected for common server paths
+        export ANDROID_HOME="/home/administrator/android-sdk"
+        export PATH="\$ANDROID_HOME/tools:\$ANDROID_HOME/platform-tools:\$PATH"
+
+        # FINAL ATTEMPT: Ensure we don't use the system gradle at all
+        unset GRADLE_HOME
+        alias gradle="./gradlew"
     fi
 }
 

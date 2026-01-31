@@ -20,6 +20,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/health/stats", (_req, res) => {
     // إحصائيات النظام الأساسية (يمكن ربطها بمراقبة حقيقية لاحقاً)
+    console.log(`[HealthCheck] Stats requested at ${new Date().toISOString()}`);
     res.json({
       success: true,
       data: {
@@ -27,7 +28,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         memoryUsage: Math.floor(Math.random() * 20) + 40, // 40-60%
         activeRequests: Math.floor(Math.random() * 10),
         errorRate: (Math.random() * 0.5).toFixed(2),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
       }
     });
   });

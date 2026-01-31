@@ -1,7 +1,12 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">AgentForge</string>
-    <string name="title_activity_main">AgentForge</string>
-    <string name="package_name">com.replit.agentforge</string>
-    <string name="custom_url_scheme">com.replit.agentforge</string>
+    <string name="app_name">AXION</string>
+    <string name="title_activity_main">AXION</string>
+    <string name="package_name">com.axion.app</string>
+    <string name="custom_url_scheme">com.axion.app</string>
+    <string name="google_app_id">1:364100399820:android:e60953c720fc45d11cc869</string>
+    <string name="google_api_key">AIzaSyCRguKSOk0lkjxNt4OJIsk12KBddVLmaxI</string>
+    <string name="firebase_database_url">https://app2-eb4df.firebaseio.com</string>
+    <string name="google_storage_bucket">app2-eb4df.firebasestorage.app</string>
+    <string name="project_id">app2-eb4df</string>
 </resources>

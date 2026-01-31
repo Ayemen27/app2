@@ -2043,7 +2043,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       });
     }
     
-    // استخدام التاريخ المحول - Fix: Use let or directly use normalizedDate
+    // استخدام التاريخ المحول - Fix: Use finalDate to avoid assignment to constant
     const finalDate = normalizedDate;
 
     // جلب جميع البيانات المطلوبة

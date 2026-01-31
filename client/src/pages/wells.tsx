@@ -821,6 +821,7 @@ export default function WellsPage() {
             </div>
           </DialogContent>
         </Dialog>
+      )}
 
       {/* قائمة الآبار بالبطاقات الموحدة */}
       <UnifiedCardGrid columns={2}>

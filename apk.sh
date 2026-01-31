@@ -28,6 +28,12 @@ EOF
 
         chmod +x "$ANDROID_ROOT/gradlew"
         
+        # Bypass the system's old Gradle by using the wrapper directly with Java 21
+        log "Setting JAVA_HOME to ensure Java 21 is used..."
+        export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
+        # Fix PATH carefully to not break common commands like tee/sed
+        export PATH="$JAVA_HOME/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        
         # Download wrapper explicitly using wget if available to bypass the evaluator crash
         if [ ! -f "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" ] || [ ! -s "$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.jar" ]; then
              log "Downloading fresh gradle-wrapper.jar to bypass version check..."

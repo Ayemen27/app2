@@ -11,11 +11,19 @@
 - **منع المجاملة:** تقديم الواقع التقني كما هو.
 
 ## الهيكل التقني
-- **Backend:** Express.js مع Drizzle ORM.
+- **Backend:** Express.js مع Drizzle ORM (PostgreSQL).
 - **Frontend:** React + Tailwind CSS + Shadcn UI.
+- **Data Logic:** Offline-first باستخدام IndexedDB ومزامنة WebSocket.
+- **Layout:** هيكلية LayoutShell مع دعم كامل للـ Sidebar (RTL).
 - **Services:** نظام مراقبة (Signoz), إدارة أسرار, ووكيل ذكاء اصطناعي (OpenAI/ModelManager).
 
-## آخر التغييرات (29 يناير 2026)
-- تغيير العلامة التجارية بالكامل إلى AXION | أكسيون.
-- تحديث الشعارات والاسم في جميع صفحات الدخول والتسجيل والقائمة الجانبية.
-- توحيد الألوان بناءً على الهوية البصرية الجديدة (Blue #3b82f6).
+## نموذج البيانات (Data Model)
+- **Users:** إدارة الصلاحيات (Admin/User) والمصادقة متعددة العوامل (MFA).
+- **Projects & Wells:** تتبع دقيق لمشاريع الآبار، العمق، المواسير، وحالة الإنجاز.
+- **Accounting:** إدارة الميزانيات، عهد المشاريع، أجور العمال، ومدفوعات الموردين.
+- **Sync:** نظام مزامنة متقدم (isLocal, synced, pendingSync).
+
+## آخر التغييرات (31 يناير 2026)
+- تثبيت القواعد الاحترافية للوكيل الذكي (Professional AI Agent Rules).
+- فحص وتحليل هيكلية التطبيق (Offline-first architecture).
+- توثيق تكامل قاعدة البيانات PostgreSQL المحلية.

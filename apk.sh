@@ -7,11 +7,25 @@ mkdir -p "$APK_OUTPUT_DIR"
 log() { echo -e "\e[32m>>> $1\e[0m" | tee -a "$LOG_FILE"; }
 error_exit() { echo -e "\e[31m❌ ERROR: $1\e[0m" | tee -a "$LOG_FILE"; exit 1; }
 
+repair_gradle_version() {
+    log "Checking Gradle version and Java compatibility..."
+    local GRADLE_WRAPPER_PROPERTIES="$ANDROID_ROOT/gradle/wrapper/gradle-wrapper.properties"
+    if [ -f "$GRADLE_WRAPPER_PROPERTIES" ]; then
+        # Check if we need to upgrade to at least 8.5 for Java 21 support
+        if ! grep -q "gradle-8.5" "$GRADLE_WRAPPER_PROPERTIES"; then
+            log "Upgrading Gradle wrapper to 8.5 for Java 21 compatibility..."
+            sed -i 's/gradle-[0-9.]*-all.zip/gradle-8.5-all.zip/g' "$GRADLE_WRAPPER_PROPERTIES"
+            sed -i 's/gradle-[0-9.]*-bin.zip/gradle-8.5-bin.zip/g' "$GRADLE_WRAPPER_PROPERTIES"
+        fi
+    fi
+}
+
 log "Starting AXION Master Build Engine v5.1.0"
 ANDROID_ROOT="/home/administrator/app2/android"
 APP_GRADLE="$ANDROID_ROOT/app/build.gradle"
 MANIFEST="$ANDROID_ROOT/app/src/main/AndroidManifest.xml"
 
+repair_gradle_version
 log "Repairing Project Files for SDK 35 compatibility..."
 # Resetting build.gradle to a clean state with SDK 35
 sed -i 's/minSdk [0-9]*/minSdk 23/g' "$APP_GRADLE"

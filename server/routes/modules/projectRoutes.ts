@@ -2043,8 +2043,8 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       });
     }
     
-    // استخدام التاريخ المحول
-    date = normalizedDate;
+    // استخدام التاريخ المحول - Fix: Use let or directly use normalizedDate
+    const finalDate = normalizedDate;
 
     // جلب جميع البيانات المطلوبة
     const [
@@ -2057,7 +2057,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       projectInfo
     ] = await Promise.all([
       db.select().from(fundTransfers)
-        .where(and(eq(fundTransfers.projectId, projectId), gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`${date}::date`), lt(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`(${date}::date + interval '1 day')`))),
+        .where(and(eq(fundTransfers.projectId, projectId), gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`${finalDate}::date`), lt(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`(${finalDate}::date + interval '1 day')`))),
       db.select({
         id: workerAttendance.id,
         workerId: workerAttendance.workerId,
@@ -2070,15 +2070,15 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       })
       .from(workerAttendance)
       .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-      .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, date))),
+      .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, finalDate))),
       db.select().from(materialPurchases)
-        .where(and(eq(materialPurchases.projectId, projectId), eq(materialPurchases.purchaseDate, date))),
+        .where(and(eq(materialPurchases.projectId, projectId), eq(materialPurchases.purchaseDate, finalDate))),
       db.select().from(transportationExpenses)
-        .where(and(eq(transportationExpenses.projectId, projectId), eq(transportationExpenses.date, date))),
+        .where(and(eq(transportationExpenses.projectId, projectId), eq(transportationExpenses.date, finalDate))),
       db.select().from(workerTransfers)
-        .where(and(eq(workerTransfers.projectId, projectId), eq(workerTransfers.transferDate, date))),
+        .where(and(eq(workerTransfers.projectId, projectId), eq(workerTransfers.transferDate, finalDate))),
       db.select().from(workerMiscExpenses)
-        .where(and(eq(workerMiscExpenses.projectId, projectId), eq(workerMiscExpenses.date, date))),
+        .where(and(eq(workerMiscExpenses.projectId, projectId), eq(workerMiscExpenses.date, finalDate))),
       db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
     ]);
 
@@ -2098,10 +2098,10 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
     let carriedForwardSource = 'none';
 
     try {
-      console.log(`💰 [API] حساب الرصيد المرحل لتاريخ: ${date}`);
+      console.log(`💰 [API] حساب الرصيد المرحل لتاريخ: ${finalDate}`);
 
       // حساب التاريخ السابق
-      const currentDate = new Date(date);
+      const currentDate = new Date(finalDate);
       const previousDate = new Date(currentDate);
       previousDate.setDate(currentDate.getDate() - 1);
       const previousDateStr = previousDate.toISOString().split('T')[0];
@@ -2116,7 +2116,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       .from(dailyExpenseSummaries)
       .where(and(
         eq(dailyExpenseSummaries.projectId, projectId),
-        lt(dailyExpenseSummaries.date, date)
+        lt(dailyExpenseSummaries.date, finalDate)
       ))
       .orderBy(desc(dailyExpenseSummaries.date))
       .limit(1);
@@ -2161,7 +2161,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
     const remainingBalance = carriedForward + totalIncome - totalExpenses;
 
     const responseData = {
-      date,
+      date: finalDate,
       projectName: projectInfo[0]?.name || 'مشروع غير معروف',
       projectId,
       carriedForward: parseFloat(carriedForward.toFixed(2)),
@@ -2183,7 +2183,7 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
     res.json({
       success: true,
       data: responseData,
-      message: `تم جلب المصروفات اليومية لتاريخ ${date} بنجاح`,
+      message: `تم جلب المصروفات اليومية لتاريخ ${finalDate} بنجاح`,
       processingTime: duration
     });
 
@@ -2489,11 +2489,11 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
       });
     }
     
-    // استخدام التاريخ المحول
-    date = normalizedDate;
+    // استخدام التاريخ المحول - Fix: Use finalDate to avoid assignment to constant
+    const finalDate = normalizedDate;
 
     // حساب التاريخ السابق
-    const currentDate = new Date(date);
+    const currentDate = new Date(finalDate);
     const previousDate = new Date(currentDate);
     previousDate.setDate(currentDate.getDate() - 1);
     const previousDateStr = previousDate.toISOString().split('T')[0];
@@ -2512,7 +2512,7 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
       .from(dailyExpenseSummaries)
       .where(and(
         eq(dailyExpenseSummaries.projectId, projectId),
-        lt(dailyExpenseSummaries.date, date)
+        lt(dailyExpenseSummaries.date, finalDate)
       ))
       .orderBy(desc(dailyExpenseSummaries.date))
       .limit(1);
@@ -2561,7 +2561,7 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
       data: {
         balance: previousBalance.toString(),
         previousDate: previousDateStr,
-        currentDate: date,
+        currentDate: finalDate,
         source
       },
       message: `تم حساب الرصيد المتبقي من يوم ${previousDateStr} بنجاح`,

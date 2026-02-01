@@ -82,21 +82,23 @@ export function SearchToolbar({
     switch (filter.type) {
       case 'date':
         return (
-          <div onClick={(e) => e.stopPropagation()} className="relative group">
-            <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
+          <div onClick={(e) => e.stopPropagation()} className="relative group mb-2">
+            <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[11px] font-bold text-slate-500 group-focus-within:text-primary z-20 transition-all">
               تاريخ محدد
             </Label>
-            <DatePickerField
-              value={value ? new Date(value) : undefined}
-              onChange={(date) => {
-                onFilterChange?.(filter.key, date);
-                if (date) {
-                  onFilterChange?.('dateRange', undefined);
-                }
-              }}
-              placeholder={filter.placeholder}
-              className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-3 text-right text-sm w-full transition-all"
-            />
+            <div className="border-2 border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+              <DatePickerField
+                value={value ? new Date(value) : undefined}
+                onChange={(date) => {
+                  onFilterChange?.(filter.key, date);
+                  if (date) {
+                    onFilterChange?.('dateRange', undefined);
+                  }
+                }}
+                placeholder={filter.placeholder}
+                className="h-14 border-0 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm w-full font-medium"
+              />
+            </div>
           </div>
         );
       
@@ -104,62 +106,68 @@ export function SearchToolbar({
         const fromValue = value?.from ? (value.from instanceof Date ? value.from : new Date(value.from)) : undefined;
         const toValue = value?.to ? (value.to instanceof Date ? value.to : new Date(value.to)) : undefined;
         return (
-          <div onClick={(e) => e.stopPropagation()} className="grid grid-cols-2 gap-3 pt-1">
+          <div onClick={(e) => e.stopPropagation()} className="grid grid-cols-2 gap-4 pt-2 mb-2">
             <div className="relative group">
-              <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
+              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[11px] font-bold text-slate-500 group-focus-within:text-primary z-20 transition-all">
                 من تاريخ
               </Label>
-              <DatePickerField
-                value={fromValue}
-                onChange={(date) => {
-                  const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
-                  currentRange.from = date;
-                  if (date) onFilterChange?.('specificDate', undefined);
-                  onFilterChange?.(filter.key, currentRange);
-                }}
-                placeholder="من"
-                className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-3 text-right text-sm w-full transition-all"
-              />
+              <div className="border-2 border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+                <DatePickerField
+                  value={fromValue}
+                  onChange={(date) => {
+                    const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
+                    currentRange.from = date;
+                    if (date) onFilterChange?.('specificDate', undefined);
+                    onFilterChange?.(filter.key, currentRange);
+                  }}
+                  placeholder="من"
+                  className="h-14 border-0 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm w-full font-medium"
+                />
+              </div>
             </div>
             <div className="relative group">
-              <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
+              <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[11px] font-bold text-slate-500 group-focus-within:text-primary z-20 transition-all">
                 إلى تاريخ
               </Label>
-              <DatePickerField
-                value={toValue}
-                onChange={(date) => {
-                  const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
-                  currentRange.to = date;
-                  onFilterChange?.(filter.key, currentRange);
-                }}
-                placeholder="إلى"
-                className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-3 text-right text-sm w-full transition-all"
-              />
+              <div className="border-2 border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+                <DatePickerField
+                  value={toValue}
+                  onChange={(date) => {
+                    const currentRange = (typeof value === 'object' && value !== null) ? { ...value } : {};
+                    currentRange.to = date;
+                    onFilterChange?.(filter.key, currentRange);
+                  }}
+                  placeholder="إلى"
+                  className="h-14 border-0 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm w-full font-medium"
+                />
+              </div>
             </div>
           </div>
         );
       
       default:
         return (
-          <div onClick={(e) => e.stopPropagation()} className="relative group">
-            <Label className="absolute -top-2 right-4 px-1 bg-white dark:bg-gray-950 text-[10px] font-bold text-slate-400 group-focus-within:text-primary z-10">
+          <div onClick={(e) => e.stopPropagation()} className="relative group mb-2">
+            <Label className="absolute -top-2.5 right-4 px-2 bg-white dark:bg-gray-950 text-[11px] font-bold text-slate-500 group-focus-within:text-primary z-20 transition-all">
               {filter.label}
             </Label>
-            <Select
-              value={String(value || filter.defaultValue || 'all')}
-              onValueChange={(v) => onFilterChange?.(filter.key, v)}
-            >
-              <SelectTrigger className="h-12 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-primary/5 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm transition-all">
-                <SelectValue placeholder={filter.placeholder || filter.label} />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl shadow-2xl border-slate-200 dark:border-slate-800">
-                {filter.options?.map((option) => (
-                  <SelectItem key={option.value} value={String(option.value)} className="rounded-xl my-1 py-3 text-right">
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="border-2 border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
+              <Select
+                value={String(value || filter.defaultValue || 'all')}
+                onValueChange={(v) => onFilterChange?.(filter.key, v)}
+              >
+                <SelectTrigger className="h-14 border-0 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm font-medium">
+                  <SelectValue placeholder={filter.placeholder || filter.label} />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl shadow-2xl border-slate-200 dark:border-slate-800">
+                  {filter.options?.map((option) => (
+                    <SelectItem key={option.value} value={String(option.value)} className="rounded-xl my-1 py-3 text-right">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         );
     }
@@ -264,13 +272,11 @@ export function SearchToolbar({
           </SheetTrigger>
           <SheetContent 
             side="bottom"
-            className="h-[80vh] sm:h-[75vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-[1001]"
+            className="h-[85vh] sm:h-[80vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-[1001]"
             dir="rtl"
-            onPointerDownOutside={(e) => e.preventDefault()}
-            onInteractOutside={(e) => e.preventDefault()}
           >
-            <div className="flex flex-col h-full relative p-6">
-              <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col h-full relative p-6 pb-0">
+              <div className="flex items-center justify-between mb-8 flex-shrink-0">
                 <div className="flex items-center gap-4">
                   <SheetClose asChild>
                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
@@ -281,13 +287,13 @@ export function SearchToolbar({
                     تصفية النتائج
                   </SheetTitle>
                 </div>
-                <div className="h-1 w-12 bg-slate-300 dark:bg-slate-700 rounded-full" />
+                <div className="h-1.5 w-12 bg-slate-200 dark:bg-slate-800 rounded-full" />
               </div>
               
-              <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pb-32">
-                <div className="space-y-6 max-w-xl mx-auto px-1">
+              <div className="flex-1 space-y-8 overflow-y-auto custom-scrollbar px-1 pb-32 pt-2">
+                <div className="space-y-10 max-w-xl mx-auto">
                   {filters.map((filter) => (
-                    <div key={filter.key}>
+                    <div key={filter.key} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                       {renderFilterInput(filter)}
                     </div>
                   ))}
@@ -301,7 +307,7 @@ export function SearchToolbar({
                 )}
               </div>
 
-              <div className="absolute bottom-6 left-6 right-6 z-40">
+              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-gray-950 dark:via-gray-950/95 z-50">
                 <div className="max-w-xl mx-auto">
                   <Button 
                     className="w-full h-14 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/30 bg-primary hover:bg-primary/90 text-primary-foreground transition-all active:scale-[0.98] border-none"

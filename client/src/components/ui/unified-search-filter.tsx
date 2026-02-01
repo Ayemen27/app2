@@ -315,25 +315,24 @@ export function UnifiedSearchFilter({
             </SheetTrigger>
             <SheetContent 
               side="bottom"
-              className="h-[80vh] sm:h-[75vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)]"
+              className="h-[85vh] sm:h-[80vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)]"
               dir="rtl"
-              onPointerDownOutside={(e) => e.preventDefault()}
-              onInteractOutside={(e) => e.preventDefault()}
             >
-              <div className="flex flex-col h-full relative p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <SheetClose asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 hover:bg-muted transition-all">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </SheetClose>
-                  <SheetTitle className="text-lg font-bold text-center flex-1 mr-8">
-                    اختر الفلتر
-                  </SheetTitle>
-                </div>
-                
-                <div className="flex-1 space-y-6 overflow-y-auto custom-scrollbar pb-32">
-                  <div className="space-y-6 max-w-xl mx-auto">
+            <div className="flex flex-col h-full relative p-6 pb-0">
+              <div className="flex items-center justify-between mb-8 flex-shrink-0">
+                <SheetClose asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-muted transition-all">
+                    <X className="h-5 w-5" />
+                  </Button>
+                </SheetClose>
+                <SheetTitle className="text-xl font-bold text-center flex-1 mr-8">
+                  تصفية النتائج
+                </SheetTitle>
+                <div className="h-1.5 w-12 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
+              
+              <div className="flex-1 space-y-8 overflow-y-auto custom-scrollbar px-1 pb-32 pt-2">
+                <div className="space-y-10 max-w-xl mx-auto">
                     {filters.map((filter) => (
                       <div key={filter.key} className={cn(
                         "relative group",
@@ -364,7 +363,7 @@ export function UnifiedSearchFilter({
                   )}
                 </div>
 
-                <div className="absolute bottom-6 left-6 right-6 z-40">
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-gray-950 dark:via-gray-950/95 z-50">
                   <div className="max-w-xl mx-auto">
                     <Button 
                       className="w-full h-14 text-lg font-bold rounded-2xl shadow-xl shadow-red-500/20 bg-[#e31e33] hover:bg-[#c41a2c] text-white transition-all active:scale-[0.98]"

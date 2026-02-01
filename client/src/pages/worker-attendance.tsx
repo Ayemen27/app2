@@ -384,6 +384,12 @@ export default function WorkerAttendance() {
             record.workDays = "0";
             console.log(`💳 سحب مقدم - فرض workDays = 0`);
           } else if (record.workDays !== undefined) {
+            // التحقق من أن عدد الأيام أكبر من 0 في حالة الحضور العادي
+            const days = parseFloat(record.workDays.toString());
+            if (isNaN(days) || days <= 0) {
+              const worker = workers.find(w => w.id === record.workerId);
+              throw new Error(`يرجى إدخال عدد أيام العمل للعامل ${worker?.name || ''}`);
+            }
             // تحويل workDays إلى string لتجنب خطأ الـ validation في السيرفر
             record.workDays = record.workDays.toString();
           }

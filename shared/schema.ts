@@ -266,8 +266,6 @@ export const workerAttendance = pgTable("worker_attendance", {
 }, (table) => ({
   // قيد فريد لمنع تسجيل حضور مكرر لنفس العامل في نفس اليوم
   uniqueWorkerDate: sql`UNIQUE (worker_id, attendance_date, project_id)`,
-  // قيد لمنع تسجيل حضور بقيم صفرية
-  checkWorkDays: sql`CHECK (work_days > 0)`
 }));
 
 // Suppliers (الموردين)

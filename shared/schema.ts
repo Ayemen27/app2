@@ -195,7 +195,8 @@ export const workers = pgTable("workers", {
   ...syncFields,
 });
 
-// Wells table (جدول الآبار) - يجب تعريفه بعد workers وقبل workerAttendance
+// Wells table (جدول الآبار) - يدير بيانات الآبار والملاك والمواقع والخصائص الفنية
+// تم تحسين هذا الجدول لدعم تتبع حالة الإنجاز ونسب التنفيذ تلقائياً
 export const wells = pgTable("wells", {
   id: serial("id").primaryKey(),
   projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),

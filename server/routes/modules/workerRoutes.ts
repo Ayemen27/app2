@@ -696,8 +696,17 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       });
     }
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.transferDate === undefined) {
+      body.transferDate = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
-    const validationResult = insertWorkerTransferSchema.partial().safeParse(req.body);
+    const validationResult = insertWorkerTransferSchema.partial().safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
@@ -930,8 +939,17 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
       });
     }
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.date === undefined) {
+      body.date = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
-    const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(req.body);
+    const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
@@ -1557,8 +1575,17 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       });
     }
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.transferDate === undefined) {
+      body.transferDate = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
-    const validationResult = insertWorkerTransferSchema.partial().safeParse(req.body);
+    const validationResult = insertWorkerTransferSchema.partial().safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
@@ -1787,8 +1814,17 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
       });
     }
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.date === undefined) {
+      body.date = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
-    const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(req.body);
+    const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;

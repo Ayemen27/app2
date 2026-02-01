@@ -258,8 +258,17 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       });
     }
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.transferDate === undefined) {
+      body.transferDate = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
-    const validationResult = insertFundTransferSchema.partial().safeParse(req.body);
+    const validationResult = insertFundTransferSchema.partial().safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
@@ -549,8 +558,17 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
     console.log('🏗️ [API] طلب إضافة تحويل أموال مشروع جديد من المستخدم:', (req as any).user?.email);
     console.log('📋 [API] بيانات تحويل المشروع المرسلة:', req.body);
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.transferDate === undefined) {
+      body.transferDate = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema
-    const validationResult = insertProjectFundTransferSchema.safeParse(req.body);
+    const validationResult = insertProjectFundTransferSchema.safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
@@ -766,8 +784,17 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
   try {
     console.log('👷‍♂️ [API] إضافة تحويل عامل جديد:', req.body);
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.transferDate === undefined) {
+      body.transferDate = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema
-    const validationResult = insertWorkerTransferSchema.safeParse(req.body);
+    const validationResult = insertWorkerTransferSchema.safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;
@@ -1026,8 +1053,17 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
   try {
     console.log('💸 [API] إضافة مصروف عامل متنوع جديد:', req.body);
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.date === undefined) {
+      body.date = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema
-    const validationResult = insertWorkerMiscExpenseSchema.safeParse(req.body);
+    const validationResult = insertWorkerMiscExpenseSchema.safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;

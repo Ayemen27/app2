@@ -267,7 +267,14 @@ export async function syncOfflineData(): Promise<void> {
             }
             
             successCount++;
-            updateSyncState({ latency: requestLatency });
+            updateSyncState({ latency: requestLatency, pendingCount: pending.length - successCount });
+          } else {
+            // إذا لم تنجح الاستجابة، قد يكون هناك خطأ في البيانات، نحتاج لتجاوزه لمنع تعليق الطابور
+            console.error(`❌ [Sync] فشل مزامنة العنصر ${item.id} - سيتم المحاولة لاحقاً أو تخطيه`);
+            if (retryCount > MAX_RETRIES) {
+               await removeSyncQueueItem(item.id);
+               console.warn(`⚠️ [Sync] تم تخطي العنصر ${item.id} بعد تجاوز محاولات المزامنة`);
+            }
           }
       } catch (e) {
         retryCount++;

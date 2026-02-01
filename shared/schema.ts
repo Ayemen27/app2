@@ -375,6 +375,25 @@ export const workerBalances = pgTable("worker_balances", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Daily Activity Logs (سجلات النشاط اليومي)
+export const dailyActivityLogs = pgTable("daily_activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  engineerId: varchar("engineer_id").notNull().references(() => users.id),
+  logDate: text("log_date").notNull(), // YYYY-MM-DD
+  activityTitle: text("activity_title").notNull(),
+  description: text("description"),
+  progressPercentage: integer("progress_percentage").default(0),
+  weatherConditions: text("weather_conditions"),
+  images: jsonb("images").default([]), // Array of image URLs/metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertDailyActivityLogSchema = createInsertSchema(dailyActivityLogs).omit({ id: true, createdAt: true, updatedAt: true });
+export type DailyActivityLog = typeof dailyActivityLogs.$inferSelect;
+export type InsertDailyActivityLog = z.infer<typeof insertDailyActivityLogSchema>;
+
 // Daily expense summaries (ملخص المصروفات اليومية)
 export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

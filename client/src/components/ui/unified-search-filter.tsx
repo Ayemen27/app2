@@ -79,7 +79,7 @@ function AsyncSelectFilter({
       <SelectTrigger className="h-9">
         <SelectValue placeholder={loading ? (config.loadingText || 'جاري التحميل...') : config.placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="z-[10002]" position="popper">
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
@@ -251,7 +251,7 @@ export function UnifiedSearchFilter({
               <SelectTrigger className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium">
                 <SelectValue placeholder={filter.placeholder || `اختر ${filter.label}`} />
               </SelectTrigger>
-              <SelectContent className="rounded-2xl shadow-2xl border-2">
+              <SelectContent className="rounded-2xl shadow-2xl border-2 z-[10002]" position="popper">
                 {filter.options?.map((option) => (
                   <SelectItem key={option.value} value={String(option.value)} className="rounded-xl my-1 py-3 text-right">
                     {option.label}
@@ -317,6 +317,8 @@ export function UnifiedSearchFilter({
               side="bottom"
               className="h-[85vh] sm:h-[80vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-y-auto border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-[10001]"
               dir="rtl"
+              onPointerDownOutside={(e) => e.preventDefault()}
+              onInteractOutside={(e) => e.preventDefault()}
             >
             <div className="flex flex-col h-full relative p-6 pb-0">
               <div className="flex items-center justify-between mb-8 flex-shrink-0">

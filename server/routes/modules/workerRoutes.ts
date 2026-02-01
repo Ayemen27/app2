@@ -1355,10 +1355,27 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       notes: req.body.notes || validationResult.data.notes || "" // تأكد من جلب الملاحظات من جسم الطلب
     };
 
-    // إدراج حضور العامل الجديد في قاعدة البيانات
+    // إدراج حضور العامل أو تحديثه إذا كان مكرراً (Upsert Pattern للمعايير العالمية)
     console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
     console.log('📝 [API] البيانات المُدرجة تشمل الملاحظات:', { notes: dataWithCalculatedFields.notes });
-    const newAttendance = await db.insert(workerAttendance).values([dataWithCalculatedFields]).returning();
+    
+    const newAttendance = await db.insert(workerAttendance)
+      .values([dataWithCalculatedFields])
+      .onConflictDoUpdate({
+        target: [workerAttendance.workerId, workerAttendance.attendanceDate, workerAttendance.projectId],
+        set: {
+          workDays: dataWithCalculatedFields.workDays,
+          dailyWage: dataWithCalculatedFields.dailyWage,
+          actualWage: dataWithCalculatedFields.actualWage,
+          totalPay: dataWithCalculatedFields.totalPay,
+          paidAmount: dataWithCalculatedFields.paidAmount,
+          remainingAmount: dataWithCalculatedFields.remainingAmount,
+          paymentType: dataWithCalculatedFields.paymentType,
+          notes: dataWithCalculatedFields.notes,
+          updatedAt: new Date()
+        }
+      })
+      .returning();
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء حضور العامل بنجاح في ${duration}ms:`, {

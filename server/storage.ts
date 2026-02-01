@@ -1291,19 +1291,16 @@ export class DatabaseStorage implements IStorage {
   async getPreviousDayBalance(projectId: string, currentDate: string): Promise<string> {
     console.log(`Getting previous day balance for project ${projectId}, date: ${currentDate}`);
     
-    const result = await db.select()
+    const [result] = await db.select()
       .from(dailyExpenseSummaries)
       .where(and(
         eq(dailyExpenseSummaries.projectId, projectId),
         sql`${dailyExpenseSummaries.date} < ${currentDate}`
       ))
-      .orderBy(sql`${dailyExpenseSummaries.date} DESC`)
+      .orderBy(desc(dailyExpenseSummaries.date))
       .limit(1);
     
-    // إجبار إعادة الحساب التراكمي إذا وجدنا رصيداً سالباً مشبوهاً أو لضمان الدقة في حالة عدم وجود ملخص
-    // سنقوم دائماً بالحساب التراكمي من البداية لضمان عدم تأثر الأيام القادمة بأخطاء الحساب القديمة
-    // إلا إذا كان هناك ملخص موثوق (تم تحديثه مؤخراً)
-    return "RECALCULATE_REQUIRED";
+    return result?.remainingBalance || "0";
   }
 
   // إزالة الملخصات المكررة للتاريخ الواحد

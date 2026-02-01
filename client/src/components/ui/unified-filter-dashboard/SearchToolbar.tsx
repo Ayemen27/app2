@@ -272,8 +272,20 @@ export function SearchToolbar({
           </SheetTrigger>
           <SheetContent 
             side="bottom"
-            className="h-[85vh] sm:h-[80vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-[50]"
+            className="h-[85vh] sm:h-[80vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-[10001]"
             dir="rtl"
+            onPointerDownOutside={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('.rdp') || target.closest('[role="listbox"]') || target.closest('.relative')) {
+                e.preventDefault();
+              }
+            }}
+            onInteractOutside={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('.rdp') || target.closest('[role="listbox"]')) {
+                e.preventDefault();
+              }
+            }}
           >
             <div className="flex flex-col h-full relative p-6 pb-0">
               <div className="flex items-center justify-between mb-8 flex-shrink-0">

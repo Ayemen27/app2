@@ -349,6 +349,22 @@ export default function WorkerAttendance() {
   });
 
   const saveAttendanceMutation = useMutation({
+    onMutate: async (attendanceRecords: InsertWorkerAttendance[]) => {
+      console.log("💾 بدء حفظ سجلات الحضور للعمال (Optimistic):", attendanceRecords.length);
+      // التحقق من صحة البيانات قبل المحاولة
+      for (const record of attendanceRecords) {
+        if ((record as any).recordType !== "advance") {
+          const days = parseFloat(record.workDays?.toString() || "0");
+          if (isNaN(days) || days <= 0) {
+            const worker = workers.find(w => w.id === record.workerId);
+            const errorMsg = `يرجى إدخال عدد أيام العمل للعامل ${worker?.name || ''}`;
+            toast({ title: "خطأ في البيانات", description: errorMsg, variant: "destructive" });
+            throw new Error(errorMsg);
+          }
+        }
+      }
+      // ... باقي الكود
+    },
     mutationFn: async (attendanceRecords: InsertWorkerAttendance[]) => {
       console.log("💾 بدء حفظ سجلات الحضور للعمال:", attendanceRecords.length);
 

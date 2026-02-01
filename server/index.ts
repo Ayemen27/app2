@@ -55,8 +55,14 @@ Sentry.init({
   tracesSampleRate: 1.0,
 });
 
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
+// The request handler must be the first middleware on the app
+// Sentry v7+ uses different middleware approach or we need to check the version
+// For Sentry v10, it's often Sentry.setupExpressErrorHandler(app) or similar
+// But to fix the immediate crash based on the log:
+if (Sentry.Handlers) {
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
+}
 
 // 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
 app.use((req, res, next) => {
@@ -619,7 +625,9 @@ if (envConfig.NODE_ENV !== "production") {
 }
 
 // ✅ **Error Handler Middleware** - Moved after static/vite
-app.use(Sentry.Handlers.errorHandler());
+if (Sentry.Handlers) {
+  app.use(Sentry.Handlers.errorHandler());
+}
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";

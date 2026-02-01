@@ -361,11 +361,21 @@ export default function MaterialPurchase() {
   const materialNames = Array.isArray(materials) ? materials.map(m => m.name) : [];
   const materialUnits = Array.isArray(materials) ? Array.from(new Set(materials.map(m => m.unit))) : [];
 
-  // جلب الفئات الفعلية من المشتريات بدلاً من جدول المواد فقط
-  const { data: purchaseList = [] } = useQuery<any[]>({
+  const { data: purchaseListData = [] } = useQuery<any>({
     queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate],
     enabled: !!selectedProjectId,
+    queryFn: async () => {
+      const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases?date=${selectedDate}`, "GET");
+      return response;
+    }
   });
+
+  const purchaseList = useMemo(() => {
+    if (purchaseListData && purchaseListData.data && Array.isArray(purchaseListData.data)) {
+      return purchaseListData.data;
+    }
+    return Array.isArray(purchaseListData) ? purchaseListData : [];
+  }, [purchaseListData]);
 
   const materialCategories = useMemo(() => {
     const categoriesFromMaterials = Array.isArray(materials) ? materials.map(m => m.category) : [];

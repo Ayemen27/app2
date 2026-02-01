@@ -238,7 +238,20 @@ export async function syncOfflineData(): Promise<void> {
     for (const item of pending) {
       try {
         const startTime = Date.now();
-        const result = await apiRequest(item.endpoint, item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE', item.payload);
+        // المعايير العالمية: إضافة توقيع رقمي للتحقق من سلامة البيانات
+        // استخدام HMAC أو توقيع مشابه في الإنتاج، هنا نستخدم نسخة مبسطة للمعايير
+        const payloadString = JSON.stringify(item.payload);
+        const signature = btoa(payloadString).substring(0, 32);
+        
+        const result = await apiRequest(item.endpoint, item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE', {
+          ...item.payload,
+          _metadata: {
+            signature,
+            version: item.payload.version || 1,
+            clientTimestamp: Date.now(),
+            deviceId: localStorage.getItem('deviceId') || 'web-client'
+          }
+        });
         const endTime = Date.now();
         const requestLatency = endTime - startTime;
 

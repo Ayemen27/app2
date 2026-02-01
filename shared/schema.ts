@@ -8,6 +8,8 @@ const syncFields = {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
+  version: integer("version").default(1).notNull(), // For Vector Clocks / State Sync
+  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
 };
 
 // Users table (جدول المستخدمين)

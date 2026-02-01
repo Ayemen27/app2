@@ -163,12 +163,17 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
     for (const table of tablesToSync) {
       try {
         let query = `SELECT * FROM ${table}`;
+        const conditions = [];
         
         if (lastSyncTime) {
-          query += ` WHERE updated_at > '${new Date(lastSyncTime).toISOString()}' OR created_at > '${new Date(lastSyncTime).toISOString()}'`;
+          conditions.push(`(updated_at > '${new Date(lastSyncTime).toISOString()}' OR created_at > '${new Date(lastSyncTime).toISOString()}')`);
         }
         
-        query += ' LIMIT 10000';
+        if (conditions.length > 0) {
+          query += ` WHERE ${conditions.join(' AND ')}`;
+        }
+        
+        query += ' ORDER BY updated_at DESC, version DESC LIMIT 10000';
         
         const queryResult = await pool.query(query);
         results[table] = queryResult.rows;

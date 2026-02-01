@@ -351,16 +351,16 @@ export default function WorkerAttendance() {
   const saveAttendanceMutation = useMutation({
     onMutate: async (attendanceRecords: InsertWorkerAttendance[]) => {
       console.log("💾 بدء حفظ سجلات الحضور للعمال (Optimistic):", attendanceRecords.length);
-      // التحقق من صحة البيانات قبل المحاولة
+      // التحقق من صحة البيانات: يجب إدخال إما أيام عمل أو مبلغ مالي
       for (const record of attendanceRecords) {
-        if ((record as any).recordType !== "advance") {
-          const days = parseFloat(record.workDays?.toString() || "0");
-          if (isNaN(days) || days <= 0) {
-            const worker = workers.find(w => w.id === record.workerId);
-            const errorMsg = `يرجى إدخال عدد أيام العمل للعامل ${worker?.name || ''}`;
-            toast({ title: "خطأ في البيانات", description: errorMsg, variant: "destructive" });
-            throw new Error(errorMsg);
-          }
+        const days = parseFloat(record.workDays?.toString() || "0");
+        const amount = parseFloat(record.paidAmount?.toString() || "0");
+        
+        if (days <= 0 && amount <= 0) {
+          const worker = workers.find(w => w.id === record.workerId);
+          const errorMsg = `يرجى إدخال عدد أيام العمل أو مبلغ مالي للعامل ${worker?.name || ''}`;
+          toast({ title: "بيانات ناقصة", description: errorMsg, variant: "destructive" });
+          throw new Error(errorMsg);
         }
       }
       // ... باقي الكود
@@ -395,17 +395,20 @@ export default function WorkerAttendance() {
 
           console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.attendanceDate}`);
 
+          // التحقق من صحة البيانات: يجب إدخال إما أيام عمل أو مبلغ مالي
+          const daysNum = parseFloat(record.workDays?.toString() || "0");
+          const amountNum = parseFloat(record.paidAmount?.toString() || "0");
+
+          if (daysNum <= 0 && amountNum <= 0) {
+            const worker = workers.find(w => w.id === record.workerId);
+            throw new Error(`يرجى إدخال عدد أيام العمل أو مبلغ مالي للعامل ${worker?.name || ''}`);
+          }
+
           // إذا كان نوع السجل = سحب (advance)، فرض workDays = 0
           if ((record as any).recordType === "advance") {
             record.workDays = "0";
             console.log(`💳 سحب مقدم - فرض workDays = 0`);
           } else if (record.workDays !== undefined) {
-            // التحقق من أن عدد الأيام أكبر من 0 في حالة الحضور العادي
-            const days = parseFloat(record.workDays.toString());
-            if (isNaN(days) || days <= 0) {
-              const worker = workers.find(w => w.id === record.workerId);
-              throw new Error(`يرجى إدخال عدد أيام العمل للعامل ${worker?.name || ''}`);
-            }
             // تحويل workDays إلى string لتجنب خطأ الـ validation في السيرفر
             record.workDays = record.workDays.toString();
           }

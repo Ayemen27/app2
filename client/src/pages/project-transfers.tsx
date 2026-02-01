@@ -276,7 +276,7 @@ export default function ProjectTransfers() {
       toProjectId: transfer.toProjectId,
       amount: transfer.amount,
       transferReason: transfer.transferReason || "",
-      transferDate: transfer.transferDate,
+      transferDate: transfer.transferDate || new Date().toISOString().split('T')[0],
       description: transfer.description || "",
     });
     setShowCreateModal(true);

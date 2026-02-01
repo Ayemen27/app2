@@ -147,8 +147,17 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
   try {
     console.log('💰 [API] إضافة تحويل عهدة جديد:', req.body);
 
+    // Map old frontend fields to schema fields if necessary
+    const body = { ...req.body };
+    if (body.fundAmount !== undefined && body.amount === undefined) {
+      body.amount = body.fundAmount;
+    }
+    if (body.selectedDate !== undefined && body.transferDate === undefined) {
+      body.transferDate = body.selectedDate;
+    }
+
     // Validation باستخدام insert schema
-    const validationResult = insertFundTransferSchema.safeParse(req.body);
+    const validationResult = insertFundTransferSchema.safeParse(body);
 
     if (!validationResult.success) {
       const duration = Date.now() - startTime;

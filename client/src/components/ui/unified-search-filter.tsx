@@ -315,7 +315,7 @@ export function UnifiedSearchFilter({
             </SheetTrigger>
             <SheetContent 
               side="bottom"
-              className="h-[85vh] sm:h-[80vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)]"
+              className="h-[85vh] sm:h-[80vh] sm:max-w-2xl rounded-t-[2.5rem] p-0 overflow-hidden border-t-0 bg-white dark:bg-gray-950 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] z-[50]"
               dir="rtl"
             >
             <div className="flex flex-col h-full relative p-6 pb-0">

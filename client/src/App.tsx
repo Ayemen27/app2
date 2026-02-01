@@ -99,6 +99,8 @@ import { startPerformanceMonitoring } from './offline/performance-monitor';
 initializeStorage().catch(console.error);
 startPerformanceMonitoring(30000); // مراقبة كل 30 ثانية
 
+const AdminMonitoring = lazy(() => import("./pages/admin-monitoring"));
+
 function Router() {
   useWebSocketSync();
 
@@ -261,6 +263,13 @@ function Router() {
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
             <AIChatPage />
+          </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/monitoring">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <AdminMonitoring />
           </Suspense>
         </AdminRoute>
       </Route>

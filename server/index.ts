@@ -1,3 +1,19 @@
+import * as Sentry from "@sentry/node";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
+import { ExpressInstrumentation } from "@opentelemetry/instrumentation-express";
+
+// Initialize OpenTelemetry
+const provider = new NodeTracerProvider();
+provider.register();
+registerInstrumentations({
+  instrumentations: [
+    new HttpInstrumentation(),
+    new ExpressInstrumentation(),
+  ],
+});
+
 import express, { type Request, Response, NextFunction } from "express";
 import { initializeEnvironment } from './utils/env-loader';
 // تهيئة البيئة فوراً قبل أي استيراد آخر
@@ -33,6 +49,14 @@ const setupSession = (app: express.Express) => {
 
 
 const app = express();
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: 1.0,
+});
+
+app.use(Sentry.Handlers.requestHandler());
+app.use(Sentry.Handlers.tracingHandler());
 
 // 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
 app.use((req, res, next) => {
@@ -595,6 +619,7 @@ if (envConfig.NODE_ENV !== "production") {
 }
 
 // ✅ **Error Handler Middleware** - Moved after static/vite
+app.use(Sentry.Handlers.errorHandler());
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";

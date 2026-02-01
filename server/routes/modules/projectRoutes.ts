@@ -1821,9 +1821,6 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
       });
     }
     
-    // استخدام التاريخ المحول
-    date = normalizedDate;
-
     // التحقق من وجود المشروع أولاً
     console.log('🔍 [API] التحقق من وجود المشروع...');
     const projectExists = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
@@ -1866,7 +1863,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
           updated_at,
           project_name
         FROM daily_summary_mv
-        WHERE project_id = ${projectId} AND summary_date = ${date}
+        WHERE project_id = ${projectId} AND summary_date = ${normalizedDate}
         LIMIT 1
       `);
 
@@ -1900,7 +1897,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
       .leftJoin(projects, eq(dailyExpenseSummaries.projectId, projects.id))
       .where(and(
         eq(dailyExpenseSummaries.projectId, projectId),
-        eq(dailyExpenseSummaries.date, date)
+        eq(dailyExpenseSummaries.date, normalizedDate)
       ))
       .limit(1);
 

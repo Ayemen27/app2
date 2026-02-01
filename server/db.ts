@@ -106,6 +106,25 @@ let dbInstance: any;
 let isEmergencyMode = false;
 let sqliteInstance: Database.Database | null = null;
 
+// أداة تنفيذ SQL آمنة مع دعم التدقيق الآلي (Enterprise Standard)
+export const executeSql = async (sqlQuery: string, params: any[] = [], userId?: string) => {
+  const result = await pool.query(sqlQuery, params);
+  
+  // نظام التدقيق الآلي (Audit Logging) للمعايير العالمية
+  if (userId && /INSERT|UPDATE|DELETE/i.test(sqlQuery)) {
+    try {
+      await pool.query(
+        'INSERT INTO audit_logs (user_id, action, meta, created_at) VALUES ($1, $2, $3, NOW())',
+        [userId, 'SQL_EXECUTION', JSON.stringify({ query: sqlQuery, rowCount: result.rowCount })]
+      );
+    } catch (auditError) {
+      console.error('❌ [Audit] فشل تسجيل التدقيق:', auditError);
+    }
+  }
+  
+  return result;
+};
+
 try {
   if (isAndroid) {
     sqliteInstance = new Database(sqliteDbPath, { timeout: 120000 });

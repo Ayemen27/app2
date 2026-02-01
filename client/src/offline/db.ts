@@ -214,6 +214,8 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
               store.createIndex('_pendingSync', '_pendingSync');
               // @ts-ignore
               store.createIndex('version', 'version'); // New index for State Sync
+              // @ts-ignore
+              store.createIndex('lastModifiedAt', 'lastModifiedAt');
             }
           }
         }

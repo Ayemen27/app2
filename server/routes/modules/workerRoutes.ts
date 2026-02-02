@@ -1355,6 +1355,29 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       notes: req.body.notes || validationResult.data.notes || "" // تأكد من جلب الملاحظات من جسم الطلب
     };
 
+    // التحقق من وجود سجل مماثل لمنع التكرار (نفس التاريخ، العامل، المشروع، المبلغ، وأيام العمل)
+    const existingAttendance = await db.select()
+      .from(workerAttendance)
+      .where(and(
+        eq(workerAttendance.workerId, validationResult.data.workerId),
+        eq(workerAttendance.projectId, validationResult.data.projectId),
+        eq(workerAttendance.date, attendanceDate),
+        sql`CAST(${workerAttendance.paidAmount} AS DECIMAL(15,2)) = CAST(${validationResult.data.paidAmount} AS DECIMAL(15,2))`,
+        sql`CAST(${workerAttendance.workDays} AS DECIMAL(15,2)) = CAST(${workDays} AS DECIMAL(15,2))`
+      ))
+      .limit(1);
+
+    if (existingAttendance.length > 0) {
+      const duration = Date.now() - startTime;
+      console.warn('⚠️ [API] محاولة تسجيل حضور مكرر:', validationResult.data);
+      return res.status(409).json({
+        success: false,
+        error: 'سجل مكرر',
+        message: 'تم تسجيل هذا الحضور بالفعل (نفس العامل، التاريخ، المشروع، المبلغ، وأيام العمل)',
+        processingTime: duration
+      });
+    }
+
     // إدراج حضور العامل أو تحديثه إذا كان مكرراً (Upsert Pattern للمعايير العالمية)
     console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
     console.log('📝 [API] البيانات المُدرجة تشمل الملاحظات:', { notes: dataWithCalculatedFields.notes });

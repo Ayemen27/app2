@@ -194,7 +194,12 @@ export default function BackupManager() {
   });
 
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
+    return logs.map(log => ({
+      ...log,
+      filename: log.filename || log.path || `backup-${log.id}`,
+      status: log.status || 'success',
+      createdAt: log.createdAt || log.timestamp
+    })).filter(log => {
       const matchesSearch = !searchValue || 
         log.filename.toLowerCase().includes(searchValue.toLowerCase());
       const matchesStatus = filterValues.status === "all" || log.status === filterValues.status;

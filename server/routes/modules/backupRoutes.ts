@@ -37,7 +37,15 @@ router.get("/logs", async (req, res) => {
           message: `نسخة احتياطية: ${f}`,
           timestamp: stats.mtime.toISOString(),
           path: f,
-          size: stats.size
+          size: stats.size,
+          // Add data property for frontend consistency
+          data: {
+            id: index + 1,
+            message: `نسخة احتياطية: ${f}`,
+            timestamp: stats.mtime.toISOString(),
+            path: f,
+            size: stats.size
+          }
         };
       })
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());

@@ -9,10 +9,12 @@ import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
 import {
   fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries, workers, workerAttendance, materials,
-  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertMaterialSchema
+  insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertMaterialSchema,
+  insertDailyExpenseSummarySchema
 } from '@shared/schema';
 import { requireAuth } from '../../middleware/auth.js';
 import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
+import { storage } from '../../storage';
 
 export const financialRouter = express.Router();
 
@@ -86,6 +88,48 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
     }
   } catch (error: any) {
     return sendError(res, 'فشل في جلب الملخص المالي', 500, [{ message: error.message }]);
+  }
+});
+
+/**
+ * 📝 ملخص المصروفات اليومية
+ * Daily Expense Summaries
+ */
+
+// جلب ملخص يومي محدد
+financialRouter.get('/daily-expense-summaries', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { projectId, date } = req.query;
+    if (!projectId || !date) {
+      return sendError(res, 'معرف المشروع والتاريخ مطلوبان', 400);
+    }
+
+    const summary = await storage.getDailyExpenseSummary(projectId as string, date as string);
+    return sendSuccess(res, summary, 'تم جلب الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
+  } catch (error: any) {
+    return sendError(res, 'فشل في جلب الملخص اليومي', 500, [{ message: error.message }]);
+  }
+});
+
+// حفظ أو تحديث ملخص يومي
+financialRouter.post('/daily-expense-summaries', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    console.log('📝 [API] حفظ ملخص مصروفات يومي جديد:', req.body);
+    const body = req.body;
+
+    // التحقق من صحة البيانات باستخدام Zod schema
+    const result = insertDailyExpenseSummarySchema.safeParse(body);
+    if (!result.success) {
+      return sendError(res, 'بيانات الملخص غير صحيحة', 400, result.error.errors);
+    }
+
+    const summary = await storage.createOrUpdateDailyExpenseSummary(result.data);
+    return sendSuccess(res, summary, 'تم حفظ الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في حفظ الملخص اليومي:', error);
+    return sendError(res, 'فشل في حفظ الملخص اليومي', 500, [{ message: error.message }]);
   }
 });
 

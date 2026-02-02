@@ -2073,7 +2073,14 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
       })
       .from(workerAttendance)
       .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-      .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, finalDate))),
+      .where(and(
+        eq(workerAttendance.projectId, projectId), 
+        eq(workerAttendance.date, finalDate),
+        or(
+          sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
+          sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
+        )
+      )),
       db.select().from(materialPurchases)
         .where(and(eq(materialPurchases.projectId, projectId), eq(materialPurchases.purchaseDate, finalDate))),
       db.select().from(transportationExpenses)
@@ -2248,7 +2255,13 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
       })
       .from(workerAttendance)
       .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-      .where(eq(workerAttendance.projectId, projectId))
+      .where(and(
+        eq(workerAttendance.projectId, projectId),
+        or(
+          sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
+          sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
+        )
+      ))
       .orderBy(desc(workerAttendance.date)),
       db.select().from(materialPurchases)
         .where(eq(materialPurchases.projectId, projectId))
@@ -2318,7 +2331,10 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
     workerAttendanceResult.forEach(a => {
       const dateStr = extractDate(a);
       const group = initDateGroup(dateStr);
-      group.workerAttendance.push({ ...a, projectName });
+      // التأكد من شمول من لديهم مبالغ مدفوعة أو أيام عمل
+      if (parseFloat(a.workDays || '0') > 0 || parseFloat(a.paidAmount || '0') > 0) {
+        group.workerAttendance.push({ ...a, projectName });
+      }
     });
 
     // تجميع مشتريات المواد حسب التاريخ

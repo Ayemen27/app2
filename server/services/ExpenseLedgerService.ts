@@ -184,7 +184,7 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')`, [projectId]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل')`, [projectId]),
-          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND CAST(paid_amount AS DECIMAL) > 0`, [projectId]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND (CAST(paid_amount AS DECIMAL) > 0 OR CAST(work_days AS DECIMAL) > 0)`, [projectId]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1`, [projectId]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1`, [projectId]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = $1`, [projectId]),
@@ -206,7 +206,7 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date = $2::date`, [projectId, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date = $2::date`, [projectId, cleanDate]),
-          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND CAST(paid_amount AS DECIMAL) > 0 AND attendance_date::date = $2::date`, [projectId, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND (CAST(paid_amount AS DECIMAL) > 0 OR CAST(work_days AS DECIMAL) > 0) AND attendance_date::date = $2::date`, [projectId, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date = $2::date`, [projectId, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [projectId, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date = $2::date`, [projectId, cleanDate]),
@@ -228,7 +228,7 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
-          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND CAST(paid_amount AS DECIMAL) > 0 AND attendance_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND (CAST(paid_amount AS DECIMAL) > 0 OR CAST(work_days AS DECIMAL) > 0) AND attendance_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date BETWEEN $2::date AND $3::date`, [projectId, cleanDateFrom, cleanDateTo]),

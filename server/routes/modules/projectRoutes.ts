@@ -157,7 +157,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           })
           .from(workerAttendance)
           .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
-          .where(eq(workerAttendance.date, date as string))
+          .where(and(
+            eq(workerAttendance.date, date as string),
+            or(
+              sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
+              sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
+            )
+          ))
           .orderBy(desc(workerAttendance.date))
         : db.select({
             id: workerAttendance.id,

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { BackupService } from "../../services/BackupService";
-import { storage } from "../../storage";
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
@@ -22,11 +23,22 @@ router.post("/run", async (req, res) => {
 // GET /api/backups/logs
 router.get("/logs", async (req, res) => {
   try {
-    // Mocking logs for now or fetching from storage if implemented
-    const logs = [
-      { id: 1, timestamp: new Date().toISOString(), status: "success", message: "Backup completed successfully" }
-    ];
-    res.json({ success: true, data: logs });
+    const backupsDir = path.resolve(process.cwd(), 'backups');
+    if (!fs.existsSync(backupsDir)) {
+      return res.json({ success: true, logs: [] });
+    }
+
+    const files = fs.readdirSync(backupsDir)
+      .filter(f => f.endsWith('.db'))
+      .map((f, index) => ({
+        id: index + 1,
+        message: `نسخة احتياطية: ${f}`,
+        timestamp: fs.statSync(path.join(backupsDir, f)).mtime.toISOString(),
+        path: f
+      }))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    res.json({ success: true, logs: files });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

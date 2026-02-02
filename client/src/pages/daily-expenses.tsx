@@ -255,7 +255,7 @@ function DailyExpensesContent() {
   });
 
   // استعلام جلب بيانات الحضور لليوم المحدد
-  const { data: attendanceData = [] } = useQuery<WorkerAttendance[]>({
+  const { data: attendanceData = [], refetch: refetchAttendance } = useQuery<WorkerAttendance[]>({
     queryKey: ["/api/worker-attendance", selectedProjectId, selectedDate],
     queryFn: async () => {
       if (!selectedProjectId || !selectedDate) return [];
@@ -629,7 +629,8 @@ function DailyExpensesContent() {
     refetchDailyExpenses();
     refetchProjectTransfers();
     refetchFinancial();
-  }, [queryClient, refetchDailyExpenses, refetchProjectTransfers, refetchFinancial]);
+    refetchAttendance();
+  }, [queryClient, refetchDailyExpenses, refetchProjectTransfers, refetchFinancial, refetchAttendance]);
 
   // استخلاص البيانات من dailyExpensesData - محسّن
   const { 
@@ -2748,15 +2749,19 @@ function DailyExpensesContent() {
                     </div>
                     <div className="max-h-[200px] overflow-y-auto p-1">
                       <SelectItem value="none" className="text-xs">اختر العامل</SelectItem>
-                      {workers && workers.length > 0 ? (
-                        workers
+                      {availableWorkers && availableWorkers.length > 0 ? (
+                        availableWorkers
                           .filter(w => !searchValue || (w.name && w.name.toLowerCase().includes(searchValue.toLowerCase())))
                           .map((worker) => (
                             <SelectItem key={`worker-select-${worker.id}`} value={worker.id?.toString() || "none"} className="text-xs">
                               {worker.name}
                             </SelectItem>
                           ))
-                      ) : null}
+                      ) : (
+                        <SelectItem value="none" disabled className="text-xs">
+                          لا يوجد عمال متاحين (الكل مسجل)
+                        </SelectItem>
+                      )}
                     </div>
                   </SelectContent>
                 </Select>

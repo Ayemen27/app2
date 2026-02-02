@@ -2186,7 +2186,7 @@ function DailyExpensesContent() {
                   emphasis: true
                 },
                 { 
-                  label: "المصروفات", 
+                  label: "إجمالي المصروفات", 
                   value: formatCurrency(cardData.totalExpenses || 0), 
                   icon: TrendingDown, 
                   color: "danger",
@@ -2255,7 +2255,7 @@ function DailyExpensesContent() {
               emphasis: true
             },
             { 
-              label: "المصروفات", 
+              label: "إجمالي المصروفات", 
               value: formatCurrency(totals.totalExpenses), 
               icon: TrendingDown, 
               color: "danger",

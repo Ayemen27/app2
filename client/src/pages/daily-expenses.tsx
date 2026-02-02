@@ -613,13 +613,39 @@ function DailyExpensesContent() {
     refetchFinancial();
   }, [queryClient, refetchDailyExpenses, refetchProjectTransfers, refetchFinancial]);
 
-  // استخراج البيانات من الاستجابة الموحدة
-  const todayFundTransfers = dailyExpensesData?.fundTransfers || [];
-  const todayWorkerAttendance = dailyExpensesData?.workerAttendance || [];
-  const todayTransportation = dailyExpensesData?.transportationExpenses || [];
-  const todayMaterialPurchases = dailyExpensesData?.materialPurchases || [];
-  const todayWorkerTransfers = dailyExpensesData?.workerTransfers || [];
-  const todayMiscExpenses = dailyExpensesData?.miscExpenses || [];
+  // استخلاص البيانات من dailyExpensesData - محسّن
+  const { 
+    todayFundTransfers, 
+    todayWorkerAttendance, 
+    todayTransportation, 
+    todayMaterialPurchases, 
+    todayWorkerTransfers, 
+    todayMiscExpenses 
+  } = useMemo(() => {
+    // إذا لم تكن البيانات موجودة، نستخدم مصفوفات فارغة
+    if (!dailyExpensesData) {
+      return {
+        todayFundTransfers: [],
+        todayWorkerAttendance: [],
+        todayTransportation: [],
+        todayMaterialPurchases: [],
+        todayWorkerTransfers: [],
+        todayMiscExpenses: []
+      };
+    }
+
+    // استخراج البيانات مع التأكد من أنها مصفوفات
+    const data = dailyExpensesData.data || dailyExpensesData;
+    
+    return {
+      todayFundTransfers: Array.isArray(data.fundTransfers) ? data.fundTransfers : [],
+      todayWorkerAttendance: Array.isArray(data.workerAttendance) ? data.workerAttendance : [],
+      todayTransportation: Array.isArray(data.transportationExpenses) ? data.transportationExpenses : [],
+      todayMaterialPurchases: Array.isArray(data.materialPurchases) ? data.materialPurchases : [],
+      todayWorkerTransfers: Array.isArray(data.workerTransfers) ? data.workerTransfers : [],
+      todayMiscExpenses: Array.isArray(data.miscExpenses) ? data.miscExpenses : []
+    };
+  }, [dailyExpensesData]);
 
   // معالجة آمنة للبيانات - التأكد من أن البيانات مصفوفات
   const safeAttendance = Array.isArray(todayWorkerAttendance) ? todayWorkerAttendance : [];

@@ -20,7 +20,7 @@ if (typeof window !== 'undefined') {
   };
 }
 import NotFound from "./pages/not-found";
-import Dashboard from "./pages/dashboard";
+import Dashboard from "./pages/Dashboard";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";

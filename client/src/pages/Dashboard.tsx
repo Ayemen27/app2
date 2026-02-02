@@ -4,26 +4,30 @@ import { LayoutDashboard, HardHat, Drill, Briefcase } from "lucide-react";
 
 export default function Dashboard() {
   // Queries for stats (assuming API endpoints exist or will be created)
-  const { data: projects } = useQuery({ queryKey: ["/api/projects"] });
-  const { data: workers } = useQuery({ queryKey: ["/api/workers"] });
-  const { data: wells } = useQuery({ queryKey: ["/api/wells"] });
+  const { data: projectsData } = useQuery({ queryKey: ["/api/projects"] });
+  const { data: workersData } = useQuery({ queryKey: ["/api/workers"] });
+  const { data: wellsData } = useQuery({ queryKey: ["/api/wells"] });
+
+  const projects = Array.isArray(projectsData) ? projectsData : (projectsData as any)?.data || [];
+  const workers = Array.isArray(workersData) ? workersData : (workersData as any)?.data || [];
+  const wells = Array.isArray(wellsData) ? wellsData : (wellsData as any)?.data || [];
 
   const stats = [
     {
       title: "إجمالي المشاريع",
-      value: projects?.length || 0,
+      value: projects.length,
       icon: Briefcase,
       description: "المشاريع القائمة والمكتملة",
     },
     {
       title: "القوى العاملة",
-      value: workers?.length || 0,
+      value: workers.length,
       icon: HardHat,
       description: "المهندسين والعمال المسجلين",
     },
     {
       title: "الآبار المنفذة",
-      value: wells?.length || 0,
+      value: wells.length,
       icon: Drill,
       description: "آبار المياه الجاري تنفيذها",
     },

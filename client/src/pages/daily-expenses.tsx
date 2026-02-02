@@ -240,12 +240,12 @@ function DailyExpensesContent() {
     placeholderData: (previousData: any) => previousData,
   };
 
+  // جلب معلومات العمال
   const { data: workers = [], error: workersError } = useQuery<Worker[]>({
     queryKey: ["/api/workers"],
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/workers", "GET");
-        // ... (rest of the logic remains same)
         return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
       } catch (error) {
         return [];
@@ -253,6 +253,24 @@ function DailyExpensesContent() {
     },
     ...queryOptions
   });
+
+  // استعلام جلب بيانات الحضور لليوم المحدد
+  const { data: attendanceData = [] } = useQuery<WorkerAttendance[]>({
+    queryKey: ["/api/worker-attendance", selectedProjectId, selectedDate],
+    queryFn: async () => {
+      if (!selectedProjectId || !selectedDate) return [];
+      const response = await apiRequest(`/api/worker-attendance?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
+      return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
+    },
+    enabled: !!selectedProjectId && !!selectedDate
+  });
+
+  // العمال المتاحين للإضافة (الذين ليس لديهم سجل حضور في هذا اليوم)
+  const availableWorkers = useMemo(() => {
+    return workers.filter(worker => 
+      !attendanceData.some(attendance => attendance.workerId === worker.id)
+    );
+  }, [workers, attendanceData]);
 
   const { data: projects = [], error: projectsError } = useQuery<Project[]>({
     queryKey: ["/api/projects"],

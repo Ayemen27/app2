@@ -105,7 +105,14 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
       return sendError(res, 'معرف المشروع والتاريخ مطلوبان', 400);
     }
 
-    const summary = await storage.getDailyExpenseSummary(projectId as string, date as string);
+    // تنظيف التاريخ لضمان صيغة YYYY-MM-DD
+    let cleanDate = date as string;
+    if (cleanDate.includes('T')) {
+      cleanDate = cleanDate.split('T')[0];
+    }
+
+    console.log(`🔍 [API] جلب الملخص اليومي للمشروع ${projectId} بتاريخ ${cleanDate}`);
+    const summary = await storage.getDailyExpenseSummary(projectId as string, cleanDate);
     return sendSuccess(res, summary, 'تم جلب الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
   } catch (error: any) {
     return sendError(res, 'فشل في جلب الملخص اليومي', 500, [{ message: error.message }]);

@@ -9,7 +9,7 @@ export const syncFields = {
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
   version: integer("version").default(1).notNull(), // For Vector Clocks / State Sync
-  lastModifiedBy: varchar("last_modified_by").references(() => users.id),
+  lastModifiedBy: varchar("last_modified_by"),
 };
 
 // Users table (جدول المستخدمين)
@@ -36,6 +36,10 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login"),
   ...syncFields,
 });
+
+// Update syncFields after users is defined
+(syncFields as any).lastModifiedBy = varchar("last_modified_by").references(() => users.id);
+
 
 // Refresh Tokens table (جدول توكنات التحديث)
 export const refreshTokens = pgTable("refresh_tokens", {

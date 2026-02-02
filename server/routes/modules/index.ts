@@ -21,7 +21,7 @@ import { reportRouter } from './reportRoutes.js';
 import activityRouter from './activityRoutes.js';
 import aiRouter from './aiRoutes.js';
 import syncRouter from './syncRoutes.js';
-import securityRouter from './securityRouter.js'; // Ensure this matches actual file name if it was securityRoutes.ts
+import securityRouter from './securityRoutes.js';
 import backupRouter from './backupRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 

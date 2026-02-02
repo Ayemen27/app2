@@ -68,7 +68,7 @@ export class BackupService {
       targetInstance.exec("BEGIN TRANSACTION;");
 
       // استخراج جداول CREATE TABLE
-      const createTableRegex = /CREATE TABLE\s+(?:public\.)?(\w+)\s+\((.*?)\);/gs;
+      const createTableRegex = /CREATE TABLE\s+(?:public\.)?(\w+)\s+\(([\s\S]*?)\);/g;
       let match;
       while ((match = createTableRegex.exec(sqlContent)) !== null) {
         const tableName = match[1];
@@ -93,7 +93,7 @@ export class BackupService {
       }
 
       // استخراج بيانات COPY - تحسين المنطق ليشمل جميع الجداول والبيانات
-      const copyRegex = /COPY (?:public\.)?(\w+)\s+\((.*?)\)\s+FROM stdin;(.*?)\\\./gs;
+      const copyRegex = /COPY (?:public\.)?(\w+)\s+\((.*?)\)\s+FROM stdin;([\s\S]*?)\\\./g;
       while ((match = copyRegex.exec(sqlContent)) !== null) {
         const tableName = match[1];
         const cols = match[2].replace(/"/g, "`");

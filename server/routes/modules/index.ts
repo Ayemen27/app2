@@ -21,7 +21,8 @@ import { reportRouter } from './reportRoutes.js';
 import activityRouter from './activityRoutes.js';
 import aiRouter from './aiRoutes.js';
 import syncRouter from './syncRoutes.js';
-import securityRouter from './securityRoutes.js'; // إضافة مسارات الأمان
+import securityRouter from './securityRouter.js'; // Ensure this matches actual file name if it was securityRoutes.ts
+import backupRouter from './backupRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 
 /**
@@ -50,6 +51,10 @@ export function registerOrganizedRoutes(app: Express) {
   // تم نقلها للأعلى لضمان الأولوية القصوى
   app.use('/api/ai', aiRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الوكيل الذكي: /api/ai');
+
+  // مسارات النسخ الاحتياطي
+  app.use('/api/backups', backupRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات النسخ الاحتياطي: /api/backups');
 
   // مسارات المشاريع
   app.use('/api/projects', projectRouter);

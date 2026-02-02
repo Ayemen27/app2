@@ -19,6 +19,31 @@ export class BackupService {
     console.log("⏰ [BackupService] Auto backup scheduler started");
   }
 
+  static async runBackup() {
+    try {
+      console.log("💾 [BackupService] Starting manual backup...");
+      const backupsDir = path.resolve(process.cwd(), 'backups');
+      if (!fs.existsSync(backupsDir)) {
+        fs.mkdirSync(backupsDir, { recursive: true });
+      }
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupPath = path.join(backupsDir, `backup-${timestamp}.db`);
+      
+      if (fs.existsSync(this.LOCAL_DB_PATH)) {
+        fs.copyFileSync(this.LOCAL_DB_PATH, backupPath);
+        console.log(`✅ [BackupService] Backup created: ${backupPath}`);
+        return { success: true, message: "تم إنشاء النسخة الاحتياطية بنجاح", path: backupPath };
+      } else {
+        console.warn("⚠️ [BackupService] Local database file not found for backup");
+        return { success: false, message: "ملف قاعدة البيانات غير موجود" };
+      }
+    } catch (error: any) {
+      console.error("❌ [BackupService] Backup failed:", error);
+      return { success: false, message: `فشل النسخ الاحتياطي: ${error.message}` };
+    }
+  }
+
   static async restoreFromFile(filePath: string): Promise<boolean> {
     try {
       console.log(`📂 [BackupService] فك ضغط الملف: ${filePath}`);

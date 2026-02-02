@@ -29,13 +29,17 @@ router.get("/logs", async (req, res) => {
     }
 
     const files = fs.readdirSync(backupsDir)
-      .filter(f => f.endsWith('.db') || f.endsWith('.json'))
-      .map((f, index) => ({
-        id: index + 1,
-        message: `نسخة احتياطية: ${f}`,
-        timestamp: fs.statSync(path.join(backupsDir, f)).mtime.toISOString(),
-        path: f
-      }))
+      .filter(f => f.endsWith('.db') || f.endsWith('.json') || f.endsWith('.sql.gz'))
+      .map((f, index) => {
+        const stats = fs.statSync(path.join(backupsDir, f));
+        return {
+          id: index + 1,
+          message: `نسخة احتياطية: ${f}`,
+          timestamp: stats.mtime.toISOString(),
+          path: f,
+          size: stats.size
+        };
+      })
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     res.json({ success: true, logs: files });

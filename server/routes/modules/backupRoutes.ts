@@ -29,7 +29,7 @@ router.get("/logs", async (req, res) => {
     }
 
     const files = fs.readdirSync(backupsDir)
-      .filter(f => f.endsWith('.db'))
+      .filter(f => f.endsWith('.db') || f.endsWith('.json'))
       .map((f, index) => ({
         id: index + 1,
         message: `نسخة احتياطية: ${f}`,

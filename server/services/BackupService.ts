@@ -21,33 +21,74 @@ export class BackupService {
 
   static async runBackup() {
     try {
-      console.log("💾 [BackupService] Starting manual backup...");
+      console.log("💾 [BackupService] Starting real PostgreSQL backup...");
       const backupsDir = path.resolve(process.cwd(), 'backups');
       if (!fs.existsSync(backupsDir)) {
         fs.mkdirSync(backupsDir, { recursive: true });
       }
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupPath = path.join(backupsDir, `backup-${timestamp}.db`);
+      const backupPath = path.join(backupsDir, `backup-${timestamp}.json`);
       
-      // Use the actual database connection for a proper backup
-      // If we are using PostgreSQL, we should export the data
-      // For now, if local.db doesn't exist, we might be in a different environment
-      if (fs.existsSync(this.LOCAL_DB_PATH)) {
-        fs.copyFileSync(this.LOCAL_DB_PATH, backupPath);
-        console.log(`✅ [BackupService] Backup created: ${backupPath}`);
-        return { success: true, message: "تم إنشاء النسخة الاحتياطية بنجاح", path: backupPath };
-      } else {
-        // Alternative: If PostgreSQL is used, create a JSON/SQL export
-        console.log("ℹ️ [BackupService] local.db not found, creating data export instead");
-        const exportData = {
-          timestamp: new Date().toISOString(),
-          info: "Data export from current storage state"
-        };
-        fs.writeFileSync(backupPath, JSON.stringify(exportData));
-        console.log(`✅ [BackupService] Data export created: ${backupPath}`);
-        return { success: true, message: "تم إنشاء نسخة من البيانات بنجاح", path: backupPath };
+      // Get all tables from schema
+      const tables = [
+        'users', 'projects', 'workers', 'worker_types', 'fund_transfers', 
+        'worker_attendance', 'materials', 'material_purchases', 
+        'transportation_expenses', 'daily_expense_summaries', 
+        'worker_transfers', 'worker_balances', 'autocomplete_data',
+        'worker_misc_expenses', 'suppliers', 'supplier_payments',
+        'wells', 'well_tasks', 'well_expenses', 'refresh_tokens', 'audit_logs'
+      ];
+
+      const backupData: Record<string, any[]> = {};
+      
+      // Import pool dynamically to avoid circular dependencies
+      const { pool } = await import('../db');
+      
+      let tablesSuccessfullyBackedUp = 0;
+      for (const tableName of tables) {
+        try {
+          // Use double quotes for table names to handle mixed case/reserved words
+          const result = await pool.query(`SELECT * FROM "${tableName}"`);
+          backupData[tableName] = result.rows;
+          tablesSuccessfullyBackedUp++;
+        } catch (e: any) {
+          console.warn(`⚠️ [BackupService] Could not backup table ${tableName}:`, e.message);
+          // Try without quotes as fallback
+          try {
+             const resultFallback = await pool.query(`SELECT * FROM ${tableName}`);
+             backupData[tableName] = resultFallback.rows;
+             tablesSuccessfullyBackedUp++;
+          } catch (innerError: any) {
+             console.error(`❌ [BackupService] Final failure for table ${tableName}:`, innerError.message);
+          }
+        }
       }
+
+      const totalRows = Object.values(backupData).reduce((acc, rows) => acc + rows.length, 0);
+      
+      // Write the file first
+      fs.writeFileSync(backupPath, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        version: "1.1",
+        totalRows,
+        tablesCount: tablesSuccessfullyBackedUp,
+        data: backupData
+      }, null, 2));
+
+      // Verify the file was actually written and has content
+      if (!fs.existsSync(backupPath) || fs.statSync(backupPath).size < 10) {
+        throw new Error("فشل كتابة ملف النسخة الاحتياطية أو الملف فارغ");
+      }
+
+      console.log(`✅ [BackupService] Real data backup created: ${backupPath} (${totalRows} rows)`);
+      return { 
+        success: true, 
+        message: `تم إنشاء نسخة احتياطية حقيقية بنجاح (${totalRows} سجل في ${tablesSuccessfullyBackedUp} جدول)`, 
+        path: backupPath,
+        tablesCount: tablesSuccessfullyBackedUp,
+        totalRows
+      };
     } catch (error: any) {
       console.error("❌ [BackupService] Backup failed:", error);
       return { success: false, message: `فشل النسخ الاحتياطي: ${error.message}` };

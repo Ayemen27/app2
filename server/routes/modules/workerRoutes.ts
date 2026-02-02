@@ -51,10 +51,20 @@ import { sendSuccess, sendError } from '../../middleware/api-response.js';
 
 workerRouter.get('/workers', async (req: Request, res: Response) => {
   try {
-    const workersList = await db.select().from(workers).orderBy(workers.createdAt);
-    return sendSuccess(res, workersList, `تم جلب ${workersList.length} عامل بنجاح`);
+    const workersList = await db.select().from(workers).orderBy(workers.name);
+    console.log(`👷 [API] تم جلب ${workersList.length} عامل`);
+    res.json({
+      success: true,
+      data: workersList,
+      message: `تم جلب ${workersList.length} عامل بنجاح`
+    });
   } catch (error: any) {
-    return sendError(res, "فشل في جلب قائمة العمال", 500, [{ message: error.message }]);
+    console.error('❌ [API] خطأ في جلب العمال:', error);
+    res.status(500).json({
+      success: false,
+      error: "فشل في جلب قائمة العمال",
+      message: error.message
+    });
   }
 });
 

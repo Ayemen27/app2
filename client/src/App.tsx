@@ -143,7 +143,7 @@ function Router() {
 
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={ProjectsPage} />
       <Route path="/deployment" component={DeploymentConsole} />
       <Route path="/projects" component={ProjectsPage} />
       <Route path="/workers" component={WorkersPage} />

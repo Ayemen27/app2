@@ -105,16 +105,38 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
       return sendError(res, 'معرف المشروع والتاريخ مطلوبان', 400);
     }
 
-    // تنظيف التاريخ لضمان صيغة YYYY-MM-DD
+    // تنظيف التاريخ لضمان صيغة YYYY-MM-DD ومطابقته لما هو مخزن
     let cleanDate = date as string;
     if (cleanDate.includes('T')) {
       cleanDate = cleanDate.split('T')[0];
+    } else if (cleanDate.includes(' ')) {
+      // التعامل مع التواريخ التي تحتوي على وقت (مثل 2026-01-15 12:00:00)
+      cleanDate = cleanDate.split(' ')[0];
     }
 
     console.log(`🔍 [API] جلب الملخص اليومي للمشروع ${projectId} بتاريخ ${cleanDate}`);
-    const summary = await storage.getDailyExpenseSummary(projectId as string, cleanDate);
+    
+    // البحث في قاعدة البيانات باستخدام التاريخ المنظف
+    // نستخدم db مباشرة لتجنب التخمين في storage interface
+    const results = await db.select()
+      .from(dailyExpenseSummaries)
+      .where(
+        and(
+          eq(dailyExpenseSummaries.projectId, projectId as string),
+          eq(dailyExpenseSummaries.date, cleanDate)
+        )
+      )
+      .limit(1);
+    
+    const summary = results[0] || null;
+    
+    if (!summary) {
+      return sendSuccess(res, null, 'لا يوجد ملخص لهذا التاريخ', { processingTime: Date.now() - startTime });
+    }
+
     return sendSuccess(res, summary, 'تم جلب الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
   } catch (error: any) {
+    console.error('❌ [API] خطأ في جلب الملخص اليومي:', error);
     return sendError(res, 'فشل في جلب الملخص اليومي', 500, [{ message: error.message }]);
   }
 });

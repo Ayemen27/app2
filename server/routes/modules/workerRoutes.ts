@@ -1107,13 +1107,12 @@ workerRouter.post('/worker-types', async (req: Request, res: Response) => {
 
 /**
  * 📊 جلب حضور العمال لمشروع محدد
- * GET /projects/:projectId/worker-attendance
+ * GET /api/worker-attendance
  */
-workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, res: Response) => {
+workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const {projectId} = req.params;
-    const {date} = req.query;
+    const { projectId, date } = req.query;
 
     console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}${date ? ` للتاريخ: ${date}` : ''}`);
 
@@ -1125,13 +1124,107 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
       });
     }
 
+    // تنظيف التاريخ إذا وجد
+    let cleanDate = date as string;
+    if (cleanDate && cleanDate.includes(' ')) {
+      cleanDate = cleanDate.split(' ')[0];
+    } else if (cleanDate && cleanDate.includes('T')) {
+      cleanDate = cleanDate.split('T')[0];
+    }
+
     // بناء الاستعلام مع إمكانية الفلترة بالتاريخ
     let whereCondition;
 
-    if (date) {
+    if (cleanDate) {
+      whereCondition = and(
+        eq(workerAttendance.projectId, projectId as string),
+        eq(workerAttendance.attendanceDate, cleanDate)
+      )!;
+    } else {
+      whereCondition = eq(workerAttendance.projectId, projectId as string);
+    }
+
+    const attendance = await db.select({
+      id: workerAttendance.id,
+      workerId: workerAttendance.workerId,
+      projectId: workerAttendance.projectId,
+      date: workerAttendance.date,
+      attendanceDate: workerAttendance.attendanceDate,
+      startTime: workerAttendance.startTime,
+      endTime: workerAttendance.endTime,
+      workDescription: workerAttendance.workDescription,
+      workDays: workerAttendance.workDays,
+      dailyWage: workerAttendance.dailyWage,
+      actualWage: workerAttendance.actualWage,
+      paidAmount: workerAttendance.paidAmount,
+      remainingAmount: workerAttendance.remainingAmount,
+      paymentType: workerAttendance.paymentType,
+      isPresent: workerAttendance.isPresent,
+      createdAt: workerAttendance.createdAt,
+      workerName: workers.name
+    })
+    .from(workerAttendance)
+    .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+    .where(whereCondition)
+    .orderBy(workerAttendance.attendanceDate);
+
+    const duration = Date.now() - startTime;
+    console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
+
+    res.json({
+      success: true,
+      data: attendance,
+      message: `تم جلب ${attendance.length} سجل حضور للمشروع${cleanDate ? ` في التاريخ ${cleanDate}` : ''}`,
+      processingTime: duration
+    });
+
+  } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error('❌ [API] خطأ في جلب حضور العمال:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      error: error.message,
+      processingTime: duration
+    });
+  }
+});
+
+/**
+ * 📊 جلب حضور العمال لمشروع محدد (مسار قديم للتوافق)
+ * GET /projects/:projectId/worker-attendance
+ */
+workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const {projectId} = req.params;
+    const {date} = req.query;
+
+    console.log(`📊 [API] جلب حضور العمال للمشروع (مسار قديم): ${projectId}${date ? ` للتاريخ: ${date}` : ''}`);
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        error: 'معرف المشروع مطلوب',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    // تنظيف التاريخ إذا وجد
+    let cleanDate = date as string;
+    if (cleanDate && cleanDate.includes(' ')) {
+      cleanDate = cleanDate.split(' ')[0];
+    } else if (cleanDate && cleanDate.includes('T')) {
+      cleanDate = cleanDate.split('T')[0];
+    }
+
+    // بناء الاستعلام مع إمكانية الفلترة بالتاريخ
+    let whereCondition;
+
+    if (cleanDate) {
       whereCondition = and(
         eq(workerAttendance.projectId, projectId),
-        eq(workerAttendance.date, date as string)
+        eq(workerAttendance.attendanceDate, cleanDate)
       )!;
     } else {
       whereCondition = eq(workerAttendance.projectId, projectId);
@@ -1159,7 +1252,7 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
     .from(workerAttendance)
     .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
     .where(whereCondition)
-    .orderBy(workerAttendance.date);
+    .orderBy(workerAttendance.attendanceDate);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
@@ -1167,7 +1260,7 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
     res.json({
       success: true,
       data: attendance,
-      message: `تم جلب ${attendance.length} سجل حضور للمشروع${date ? ` في التاريخ ${date}` : ''}`,
+      message: `تم جلب ${attendance.length} سجل حضور للمشروع${cleanDate ? ` في التاريخ ${cleanDate}` : ''}`,
       processingTime: duration
     });
 

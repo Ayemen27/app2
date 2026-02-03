@@ -342,24 +342,43 @@ healthRouter.get('/stats', async (_req: Request, res: Response) => {
 /**
  * فحص حالة الطوارئ (Android Monitoring)
  */
-healthRouter.get('/system/emergency-status', requireAuth, (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    emergencyMode: (global as any).isEmergencyMode || false,
-    timestamp: new Date().toISOString()
-  });
+healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { BackupService } = await import('../../services/BackupService');
+    const backupStatus = BackupService.getAutoBackupStatus();
+    const { healthMonitor } = await import('../../services/HealthMonitor');
+    const integrity = await healthMonitor.checkIntegrity();
+
+    res.json({
+      success: true,
+      emergencyMode: (global as any).isEmergencyMode || false,
+      timestamp: new Date().toISOString(),
+      data: {
+        isEmergencyMode: (global as any).isEmergencyMode || false,
+        dbType: backupStatus.enabled ? "النسخ التلقائي مبرمج" : "يدوي",
+        integrity: integrity
+      }
+    });
+  } catch (error: any) {
+    res.json({
+      success: true,
+      emergencyMode: (global as any).isEmergencyMode || false,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 /**
  * سجلات النسخ الاحتياطي (Admin only)
  */
-healthRouter.get('/backups/logs', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
-  res.json({
-    success: true,
-    logs: [
-      { id: 1, message: "Backup successful", timestamp: new Date().toISOString() }
-    ]
-  });
+healthRouter.get('/backups/logs', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { BackupService } = await import('../../services/BackupService');
+    const logs = await BackupService.listAutoBackups();
+    res.json(logs);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 console.log('🏥 [HealthRouter] تم تهيئة مسارات الصحة والمراقبة');

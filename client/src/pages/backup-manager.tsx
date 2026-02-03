@@ -46,6 +46,10 @@ export default function BackupManager() {
   const { data: logsData, isLoading, refetch } = useQuery<BackupLog[]>({
     queryKey: ["/api/backups/logs"],
     refetchInterval: 5000,
+    select: (data: any) => {
+      // Handle both direct array and nested logs property
+      return Array.isArray(data) ? data : (data?.logs || []);
+    }
   });
 
   const logs = useMemo(() => Array.isArray(logsData) ? logsData : [], [logsData]);

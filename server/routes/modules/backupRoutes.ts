@@ -25,7 +25,7 @@ router.get("/logs", async (req, res) => {
   try {
     const backupsDir = path.resolve(process.cwd(), 'backups');
     if (!fs.existsSync(backupsDir)) {
-      return res.json({ success: true, logs: [] });
+      return res.json([]);
     }
 
     const files = fs.readdirSync(backupsDir)
@@ -34,24 +34,19 @@ router.get("/logs", async (req, res) => {
         const stats = fs.statSync(path.join(backupsDir, f));
         return {
           id: index + 1,
-          message: `نسخة احتياطية: ${f}`,
-          timestamp: stats.mtime.toISOString(),
+          filename: f,
           path: f,
-          size: stats.size,
-          // Add data property for frontend consistency
-          data: {
-            id: index + 1,
-            message: `نسخة احتياطية: ${f}`,
-            timestamp: stats.mtime.toISOString(),
-            path: f,
-            size: stats.size
-          }
+          size: (stats.size / (1024 * 1024)).toFixed(2), // Convert to MB
+          status: 'success',
+          createdAt: stats.mtime.toISOString(),
+          timestamp: stats.mtime.toISOString()
         };
       })
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    res.json({ success: true, logs: files });
+    res.json(files);
   } catch (error: any) {
+    console.error("❌ [BackupRoute] Error fetching logs:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

@@ -294,30 +294,12 @@ function Router() {
   );
 }
 
-import { initSilentSyncObserver } from "./offline/silent-sync";
 import { initializeNativePush, requestAllPermissions } from "./services/capacitorPush";
 import { Capacitor } from "@capacitor/core";
 
 import SystemCheckPage from "./pages/SystemCheckPage";
 
 function App() {
-  useEffect(() => {
-    initSilentSyncObserver();
-    
-    // تم تعطيل ميزات الهاتف الأصلية لتجنب تجميد الواجهة
-    /*
-    if (Capacitor.isNativePlatform()) {
-      const initNativeFeatures = async () => {
-        try {
-          console.log('📱 [Native] بدء تهيئة الميزات الأصلية...');
-        } catch (err) {
-          console.error('❌ خطأ حرج في تهيئة الميزات الأصلية:', err);
-        }
-      };
-      initNativeFeatures();
-    }
-    */
-  }, []);
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

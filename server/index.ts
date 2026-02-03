@@ -444,15 +444,17 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
   }
 });
 
+import { BackupService } from './services/BackupService';
+
 // ✅ **Backup Status Endpoints**
 app.get("/api/backups/status", requireAuth, (req: Request, res: Response) => {
   try {
-    const status = getAutoBackupStatus();
+    const status = BackupService.getAutoBackupStatus();
     res.json({
       success: true,
       data: {
         ...status,
-        nextBackupInMinutes: Math.round(status.nextBackupIn / 60000),
+        nextBackupInMinutes: Math.round((status.nextBackupIn || 0) / 60000),
         lastBackupSizeMB: status.lastBackupSize ? (status.lastBackupSize / 1024 / 1024).toFixed(2) : null
       }
     });
@@ -463,7 +465,7 @@ app.get("/api/backups/status", requireAuth, (req: Request, res: Response) => {
 
 app.get("/api/backups/list", requireAuth, (req: Request, res: Response) => {
   try {
-    const backups = listAutoBackups();
+    const backups = BackupService.listAutoBackups();
     res.json({
       success: true,
       data: backups.map(b => ({
@@ -479,17 +481,17 @@ app.get("/api/backups/list", requireAuth, (req: Request, res: Response) => {
 
 app.post("/api/backups/trigger", requireAuth, async (req: Request, res: Response) => {
   try {
-    const result = await triggerManualBackup();
+    const result = await BackupService.runBackup();
     if (result.success) {
       res.json({
         success: true,
-        message: 'تم إنشاء النسخة الاحتياطية بنجاح',
+        message: 'تم إنشاء النسخة الاحتياطية بنجاح وإرسالها إلى تلجرام',
         data: {
           file: result.file,
           sizeMB: (result.size / 1024 / 1024).toFixed(2),
           tables: result.tablesCount,
           rows: result.rowsCount,
-          durationSeconds: (result.duration / 1000).toFixed(1)
+          durationSeconds: ((result.duration || 0) / 1000).toFixed(1)
         }
       });
     } else {

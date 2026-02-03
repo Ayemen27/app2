@@ -17,6 +17,14 @@ export class BackupService {
 
   static startAutoBackupScheduler() {
     console.log("⏰ [BackupService] Auto backup scheduler started");
+    // تشغيل النسخ الاحتياطي التلقائي كل 6 ساعات (أو حسب الإعدادات)
+    const intervalHours = Number(process.env.BACKUP_INTERVAL_HOURS) || 6;
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+    
+    setInterval(async () => {
+      console.log("⏰ [BackupService] Running scheduled auto backup...");
+      await this.runBackup();
+    }, intervalMs);
   }
 
   static async runBackup() {
@@ -82,17 +90,98 @@ export class BackupService {
       }
 
       console.log(`✅ [BackupService] Real data backup created: ${backupPath} (${totalRows} rows)`);
+
+      // 📤 إرسال النسخة الاحتياطية إلى تلجرام
+      await this.sendBackupToTelegram(backupPath, totalRows);
+
       return { 
         success: true, 
         message: `تم إنشاء نسخة احتياطية حقيقية بنجاح (${totalRows} سجل في ${tablesSuccessfullyBackedUp} جدول)`, 
         path: backupPath,
         tablesCount: tablesSuccessfullyBackedUp,
-        totalRows
+        totalRows,
+        file: path.basename(backupPath),
+        size: fs.statSync(backupPath).size,
+        rowsCount: totalRows,
+        duration: 0 // Will be calculated if needed
       };
     } catch (error: any) {
       console.error("❌ [BackupService] Backup failed:", error);
-      return { success: false, message: `فشل النسخ الاحتياطي: ${error.message}` };
+      return { success: false, message: `فشل النسخ الاحتياطي: ${error.message}`, error: error.message };
     }
+  }
+
+  static async sendBackupToTelegram(backupPath: string, totalRows: number) {
+    try {
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+      
+      if (botToken && chatId) {
+        console.log("📤 [BackupService] Sending backup to Telegram...");
+        const TelegramBot = (await import('node-telegram-bot-api')).default;
+        const bot = new TelegramBot(botToken, { polling: false });
+        
+        await bot.sendDocument(chatId, backupPath, {
+          caption: `📦 نسخة احتياطية جديدة\n📅 التاريخ: ${new Date().toLocaleString('ar-EG')}\n📊 السجلات: ${totalRows}\n📂 الملف: ${path.basename(backupPath)}`
+        });
+        console.log("✅ [BackupService] Backup sent to Telegram successfully");
+        return true;
+      } else {
+        console.warn("⚠️ [BackupService] Telegram configuration missing (TOKEN or CHAT_ID)");
+        return false;
+      }
+    } catch (tgError: any) {
+      console.error("❌ [BackupService] Failed to send backup to Telegram:", tgError.message);
+      return false;
+    }
+  }
+
+  static getAutoBackupStatus() {
+    const backupsDir = path.resolve(process.cwd(), 'backups');
+    let lastBackup = null;
+    let lastBackupSize = 0;
+    let lastBackupTime = null;
+
+    if (fs.existsSync(backupsDir)) {
+      const files = fs.readdirSync(backupsDir)
+        .filter(f => f.endsWith('.json'))
+        .map(f => ({ name: f, stats: fs.statSync(path.join(backupsDir, f)) }))
+        .sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs);
+
+      if (files.length > 0) {
+        lastBackup = files[0].name;
+        lastBackupSize = files[0].stats.size;
+        lastBackupTime = files[0].stats.mtime.toISOString();
+      }
+    }
+
+    return {
+      enabled: process.env.BACKUP_ENABLED === 'true',
+      interval: Number(process.env.BACKUP_INTERVAL_HOURS) || 6,
+      lastBackup,
+      lastBackupSize,
+      lastBackupTime,
+      nextBackupIn: 0 // This would need a tracker to be accurate
+    };
+  }
+
+  static listAutoBackups() {
+    const backupsDir = path.resolve(process.cwd(), 'backups');
+    if (!fs.existsSync(backupsDir)) return [];
+
+    return fs.readdirSync(backupsDir)
+      .filter(f => f.endsWith('.json') || f.endsWith('.sql.gz'))
+      .map(f => {
+        const stats = fs.statSync(path.join(backupsDir, f));
+        return {
+          name: f,
+          path: f,
+          size: stats.size,
+          timestamp: stats.mtime.toISOString(),
+          time: stats.mtime.toISOString()
+        };
+      })
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   static async restoreFromFile(filePath: string): Promise<boolean> {

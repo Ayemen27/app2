@@ -14,6 +14,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register Organized Routes (Projects, Financial, etc.)
   registerOrganizedRoutes(app);
 
+  // تشغيل جدولة النسخ الاحتياطي التلقائي
+  const { BackupService } = await import('./services/BackupService');
+  BackupService.startAutoBackupScheduler();
+
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
   });

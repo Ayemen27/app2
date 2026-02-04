@@ -37,6 +37,7 @@ import ProjectTransactionsPage from "./pages/project-transactions-simple";
 import ProjectFundCustody from "./pages/project-fund-custody";
 
 import ProjectsPage from "./pages/projects";
+import DashboardPage from "./pages/dashboard";
 import WorkersPage from "./pages/workers";
 import BackupManager from "./pages/backup-manager";
 import NotificationsPage from "./pages/notifications";
@@ -142,7 +143,7 @@ function Router() {
 
   return (
     <Switch>
-      <Route path="/" component={ProjectsPage} />
+      <Route path="/" component={DashboardPage} />
       <Route path="/deployment" component={DeploymentConsole} />
       <Route path="/projects" component={ProjectsPage} />
       <Route path="/workers" component={WorkersPage} />

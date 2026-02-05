@@ -256,10 +256,9 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
         processingTime: Date.now() - startTime
       });
     }
+    console.log('✅ [API] نجح validation تحويل العهدة');
 
-    } catch (error: any) {
-      console.error('❌ [Financial] خطأ في معالجة التاريخ:', error);
-    }
+    // معالجة التاريخ لضمان أنه نصي بصيغة YYYY-MM-DD
     const transferData = { ...validationResult.data };
     if (typeof transferData.transferDate === 'string' && transferData.transferDate.includes('T')) {
       transferData.transferDate = transferData.transferDate.split('T')[0];

@@ -239,9 +239,9 @@ export async function syncOfflineData(): Promise<void> {
       try {
         const startTime = Date.now();
         // المعايير العالمية: إضافة توقيع رقمي للتحقق من سلامة البيانات
-        // استخدام HMAC أو توقيع مشابه في الإنتاج، هنا نستخدم نسخة مبسطة للمعايير
+        // استخدام HMAC أو توقيع مشابه في الإنتاج، هنا نستخدم نسخة مبسطة للمعايير يدعم العربية
         const payloadString = JSON.stringify(item.payload);
-        const signature = btoa(payloadString).substring(0, 32);
+        const signature = btoa(encodeURIComponent(payloadString).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode(parseInt(p1, 16)))).substring(0, 32);
         
         const result = await apiRequest(item.endpoint, item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE', {
           ...item.payload,

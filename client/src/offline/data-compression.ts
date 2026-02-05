@@ -13,11 +13,11 @@ export interface CompressionStats {
 }
 
 /**
- * ضغط سلسلة نصية باستخدام LZ4-like algorithm بسيط
+ * ضغط سلسلة نصية باستخدام LZ4-like algorithm بسيط يدعم العربية
  */
 function compressString(str: string): string {
   try {
-    const compressed = btoa(str); // Base64 encoding as simple compression
+    const compressed = btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode(parseInt(p1, 16)))); 
     return compressed.length < str.length ? compressed : str;
   } catch {
     return str;
@@ -25,11 +25,11 @@ function compressString(str: string): string {
 }
 
 /**
- * فك ضغط سلسلة نصية
+ * فك ضغط سلسلة نصية يدعم العربية
  */
 function decompressString(str: string): string {
   try {
-    const decompressed = atob(str);
+    const decompressed = decodeURIComponent(Array.prototype.map.call(atob(str), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
     return decompressed;
   } catch {
     return str;

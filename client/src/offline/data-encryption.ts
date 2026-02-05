@@ -8,13 +8,39 @@
 const SENSITIVE_FIELDS = ['password', 'token', 'secret', 'apiKey', 'ssn', 'bankAccount'];
 
 /**
- * تشفير بسيط باستخدام base64 (للإنتاج استخدم crypto-js أو tweetnacl)
+ * دالة مساعدة لتحويل النص إلى Base64 يدعم UTF-8
+ */
+function utf8_to_b64(str: string): string {
+  try {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+      function(match, p1) {
+        return String.fromCharCode(parseInt(p1, 16));
+      }));
+  } catch (e) {
+    return btoa(str);
+  }
+}
+
+/**
+ * دالة مساعدة لفك Base64 يدعم UTF-8
+ */
+function b64_to_utf8(str: string): string {
+  try {
+    return decodeURIComponent(Array.prototype.map.call(atob(str), function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+  } catch (e) {
+    return atob(str);
+  }
+}
+
+/**
+ * تشفير بسيط باستخدام base64 يدعم العربية
  */
 export function encryptValue(value: string): string {
   try {
     if (!value) return value;
-    // للإنتاج: استخدم مكتبة تشفير حقيقية
-    return btoa(value);
+    return utf8_to_b64(value);
   } catch (error) {
     console.warn('⚠️ [Encryption] فشل التشفير:', error);
     return value;
@@ -27,7 +53,7 @@ export function encryptValue(value: string): string {
 export function decryptValue(encryptedValue: string): string {
   try {
     if (!encryptedValue) return encryptedValue;
-    return atob(encryptedValue);
+    return b64_to_utf8(encryptedValue);
   } catch (error) {
     console.warn('⚠️ [Encryption] فشل فك التشفير:', error);
     return encryptedValue;

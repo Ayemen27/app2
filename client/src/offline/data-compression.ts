@@ -78,7 +78,7 @@ export async function getCompressionStats(entityName: EntityName): Promise<Compr
     const db = await getDB();
     const records = await db.getAll(entityName as any);
     
-    const originalSize = records.reduce((sum, r) => sum + calculateObjectSize(r), 0);
+    const originalSize = records.reduce((sum: number, r: any) => sum + calculateObjectSize(r), 0);
     // تقدير توفير الضغط: 20-30% عادة
     const compressedSize = Math.round(originalSize * 0.75);
     

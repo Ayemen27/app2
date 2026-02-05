@@ -1688,9 +1688,20 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       quantity: validated.quantity,
       unit: validated.unit,
       unitPrice: validated.unitPrice,
-      totalAmount: validated.totalAmount,
+      totalAmount: validated.totalAmount || (parseFloat(validated.quantity) * parseFloat(validated.unitPrice)).toString(),
       purchaseDate: validated.purchaseDate
     } as any;
+
+    // التحقق من أن المبلغ الإجمالي أكبر من صفر لتجنب مخالفة قيد قاعدة البيانات
+    if (parseFloat(purchaseData.totalAmount) <= 0) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'فشل في إضافة المشتراة المادية',
+        message: 'يجب أن يكون المبلغ الإجمالي أكبر من صفر',
+        processingTime: duration
+      });
+    }
 
     if (purchaseData.purchaseType === 'نقد' || purchaseData.purchaseType === 'نقداً') {
       purchaseData.paidAmount = purchaseData.totalAmount;

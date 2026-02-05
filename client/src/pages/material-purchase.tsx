@@ -62,6 +62,15 @@ export default function MaterialPurchase() {
   const [quantity, setQuantity] = useState<string>("");
   const [unitPrice, setUnitPrice] = useState<string>("");
   const [paymentType, setPaymentType] = useState<string>("نقد");
+
+  const isFreeStorage = paymentType === "مخزن";
+
+  // Effect to handle zeroing prices when "مخزن" is selected
+  useEffect(() => {
+    if (isFreeStorage) {
+      setUnitPrice("0");
+    }
+  }, [isFreeStorage]);
   const [supplierName, setSupplierName] = useState<string>("");
   const [invoiceNumber, setInvoiceNumber] = useState<string>("");
   const [invoiceDate, setInvoiceDate] = useState<string>(getCurrentDate());
@@ -1116,7 +1125,8 @@ export default function MaterialPurchase() {
                   value={unitPrice}
                   onChange={(e) => setUnitPrice(e.target.value)}
                   placeholder="0.00"
-                  className="text-center arabic-numbers"
+                  disabled={isFreeStorage}
+                  className={`text-center arabic-numbers ${isFreeStorage ? "cursor-not-allowed opacity-50 bg-muted" : ""}`}
                 />
               </div>
               <div>
@@ -1125,14 +1135,15 @@ export default function MaterialPurchase() {
                   type="number"
                   value={calculateTotal()}
                   readOnly
-                  className="text-center arabic-numbers bg-muted"
+                  disabled={isFreeStorage}
+                  className={`text-center arabic-numbers ${isFreeStorage ? "bg-muted cursor-not-allowed" : "bg-muted"}`}
                 />
               </div>
             </div>
 
             {/* Payment Type */}
             <div>
-              <Label className="block text-sm font-medium text-foreground">نوع الدفع</Label>
+              <Label className="block text-sm font-medium text-foreground">نوع التوريد</Label>
               <RadioGroup value={paymentType} onValueChange={setPaymentType} className="flex gap-4">
                 <div className="flex items-center space-x-reverse space-x-2">
                   <RadioGroupItem value="نقد" id="cash" />
@@ -1143,8 +1154,8 @@ export default function MaterialPurchase() {
                   <Label htmlFor="credit" className="text-sm">آجل</Label>
                 </div>
                 <div className="flex items-center space-x-reverse space-x-2">
-                  <RadioGroupItem value="توريد" id="supply" />
-                  <Label htmlFor="supply" className="text-sm">توريد</Label>
+                  <RadioGroupItem value="مخزن" id="storage" />
+                  <Label htmlFor="storage" className="text-sm">مخزن</Label>
                 </div>
               </RadioGroup>
             </div>

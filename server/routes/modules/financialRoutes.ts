@@ -257,14 +257,14 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('✅ [API] نجح validation تحويل العهدة');
-
-    // معالجة التاريخ لضمان أنه نصي بصيغة YYYY-MM-DD
+    } catch (error: any) {
+      console.error('❌ [Financial] خطأ في معالجة التاريخ:', error);
+    }
     const transferData = { ...validationResult.data };
     if (typeof transferData.transferDate === 'string' && transferData.transferDate.includes('T')) {
       transferData.transferDate = transferData.transferDate.split('T')[0];
-    } else if (transferData.transferDate instanceof Date) {
-      transferData.transferDate = transferData.transferDate.toISOString().split('T')[0];
+    } else if ((transferData.transferDate as any) instanceof Date) {
+      transferData.transferDate = (transferData.transferDate as any).toISOString().split('T')[0];
     }
 
     // إدراج تحويل العهدة الجديد في قاعدة البيانات

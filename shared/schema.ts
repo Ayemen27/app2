@@ -708,13 +708,13 @@ export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance)
 export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, createdAt: true });
 export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, createdAt: true }).extend({
   purchaseDate: dateStringSchema,
-  quantity: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
-  unit: z.string().min(1, "وحدة القياس مطلوبة").default("كيس"), // وحدة القياس المطلوبة مع قيمة افتراضية
-  unitPrice: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
-  totalAmount: z.coerce.string(), // تحويل إلى string للتوافق مع نوع decimal
-  purchaseType: z.string().default("نقد"), // قيمة افتراضية للنوع
-  paidAmount: z.coerce.string().default("0"), // المبلغ المدفوع
-  remainingAmount: z.coerce.string().default("0"), // المتبقي
+  quantity: z.coerce.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن تكون الكمية 0 أو أكثر"), 
+  unit: z.string().min(1, "وحدة القياس مطلوبة").default("كيس"), 
+  unitPrice: z.coerce.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون سعر الوحدة 0 أو أكثر"), 
+  totalAmount: z.coerce.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون إجمالي المبلغ 0 أو أكثر"), 
+  purchaseType: z.string().default("نقد"), 
+  paidAmount: z.coerce.string().default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المدفوع 0 أو أكثر"), 
+  remainingAmount: z.coerce.string().default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المتبقي 0 أو أكثر"), 
 });
 export const insertTransportationExpenseSchema = createInsertSchema(transportationExpenses).omit({ id: true, createdAt: true }).extend({
   date: dateStringSchema,

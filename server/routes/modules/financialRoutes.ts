@@ -1692,13 +1692,13 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       purchaseDate: validated.purchaseDate
     } as any;
 
-    // التحقق من أن المبلغ الإجمالي أكبر من صفر لتجنب مخالفة قيد قاعدة البيانات
-    if (parseFloat(purchaseData.totalAmount) <= 0) {
+    // التحقق من أن المبلغ الإجمالي ليس سالباً
+    if (parseFloat(purchaseData.totalAmount) < 0) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
         error: 'فشل في إضافة المشتراة المادية',
-        message: 'يجب أن يكون المبلغ الإجمالي أكبر من صفر',
+        message: 'يجب ألا يكون المبلغ الإجمالي سالباً',
         processingTime: duration
       });
     }

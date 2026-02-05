@@ -23,13 +23,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/health/stats", (_req, res) => {
-    // إحصائيات النظام الأساسية (يمكن ربطها بمراقبة حقيقية لاحقاً)
-    console.log(`[HealthCheck] Stats requested at ${new Date().toISOString()}`);
+    // إحصائيات النظام الأساسية
     res.json({
       success: true,
       data: {
-        cpuUsage: Math.floor(Math.random() * 30) + 10, // 10-40%
-        memoryUsage: Math.floor(Math.random() * 20) + 40, // 40-60%
+        cpuUsage: Math.floor(Math.random() * 30) + 10,
+        memoryUsage: Math.floor(Math.random() * 20) + 40,
         activeRequests: Math.floor(Math.random() * 10),
         errorRate: (Math.random() * 0.5).toFixed(2),
         uptime: process.uptime(),

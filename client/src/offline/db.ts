@@ -169,7 +169,8 @@ const ALL_STORES = [
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
   'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
   'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates', 
-  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData'
+  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'workerMiscExpenses',
+  'autocompleteData', 'printSettings', 'workerTypes'
 ] as const;
 
 // فتح أو إنشاء قاعدة البيانات المحلية (مرآة 100% من الخادم)
@@ -345,17 +346,17 @@ export async function performLocalOperation(
   const id = payload.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2));
   const record = { ...payload, id, _isLocal: true, _pendingSync: true };
 
-  if (storage) {
+  if (storage && (storage as any).set) {
     // 🛠️ تنفيذ مباشر على SQLite الحقيقي
     if (action === 'delete') {
-      await storage.delete(tableName, id);
+      await (storage as any).delete(tableName, id);
     } else {
-      await storage.set(tableName, id, record);
+      await (storage as any).set(tableName, id, record);
     }
     
     // إضافة للطابور في SQLite
     const queueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
-    await storage.set('syncQueue', queueId, {
+    await (storage as any).set('syncQueue', queueId, {
       id: queueId,
       action,
       endpoint,

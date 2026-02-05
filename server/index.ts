@@ -550,10 +550,19 @@ app.post("/api/backups/trigger", requireAuth, async (req: Request, res: Response
   // ✅ تسجيل authRouter من authRoutes.ts (يحتوي على forgot-password, reset-password)
   app.use('/api/auth', authRouter);
 
+  // ✅ إضافة مسار /api/auth/me المتوافق مع طلبات الواجهة الأمامية
+  app.get("/api/auth/me", (req, res) => {
+    // @ts-ignore
+    if (req.user) {
+      // @ts-ignore
+      res.json({ success: true, user: req.user });
+    } else {
+      res.status(401).json({ success: false, message: "غير مصرح" });
+    }
+  });
+
   // ✅ تسجيل مسارات المزامنة بأولوية مطلقة قبل أي توجيه آخر
-import { sql } from 'drizzle-orm';
-import { pool } from './db';
-app.all("/api/sync/full-backup", async (req, res) => {
+  app.all("/api/sync/full-backup", async (req, res) => {
   try {
     const tables = ['projects', 'workers', 'materials', 'suppliers', 'worker_attendance', 'material_purchases', 'transportation_expenses', 'fund_transfers', 'wells', 'project_types', 'users'];
     const results: any = {};

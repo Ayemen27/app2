@@ -232,8 +232,8 @@ function DailyExpensesContent() {
   };
 
   const queryOptions = {
-    staleTime: 1000 * 60 * 10, // 10 minutes
-    gcTime: 1000 * 60 * 60, // 60 minutes
+    staleTime: 1000 * 60 * 30, // 30 minutes
+    gcTime: 1000 * 60 * 120, // 120 minutes
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnMount: false,

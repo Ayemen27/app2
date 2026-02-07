@@ -9,9 +9,9 @@ import speakeasy from 'speakeasy';
 
 // إعدادات التشفير
 const CRYPTO_CONFIG = {
-  saltRounds: 10, // قوة تشفير bcrypt محسنة للأداء (10 = ~100ms, 12 = ~1.5s)
-  totpWindow: 2, // نافزة TOTP (عدد الفترات الزمنية المقبولة)
-  totpStep: 30, // خطوة TOTP بالثواني
+  saltRounds: 12, // زيادة القوة التشفيرية من 10 إلى 12 لتحسين الأمان (مع مراعاة توازن الأداء)
+  totpWindow: 1, // تقليل نافذة القبول لزيادة الأمان
+  totpStep: 30,
   encryptionKey: process.env.ENCRYPTION_KEY,
   encryptionSalt: process.env.ENCRYPTION_SALT,
   algorithm: 'aes-256-gcm',

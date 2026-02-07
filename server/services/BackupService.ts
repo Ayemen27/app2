@@ -45,7 +45,10 @@ export class BackupService {
         'transportation_expenses', 'daily_expense_summaries', 
         'worker_transfers', 'worker_balances', 'autocomplete_data',
         'worker_misc_expenses', 'suppliers', 'supplier_payments',
-        'wells', 'well_tasks', 'well_expenses', 'refresh_tokens', 'audit_logs'
+        'wells', 'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs',
+        'project_types', 'project_fund_transfers', 'report_templates', 
+        'emergency_users', 'refresh_tokens', 'audit_logs', 'notifications', 
+        'notification_read_states', 'equipment', 'equipment_movements'
       ];
 
       const backupData: Record<string, any[]> = {};

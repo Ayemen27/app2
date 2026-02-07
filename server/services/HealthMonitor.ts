@@ -122,16 +122,20 @@ class HealthMonitor {
 
   private async checkDatabase(): Promise<{ status: boolean; latency?: number; error?: string }> {
     const start = Date.now();
-    
     try {
       const isConnected = await checkDBConnection();
       const latency = Date.now() - start;
       
+      if (latency > 1000) {
+        console.warn(`⚠️ [Database] Slow connection detected: ${latency}ms`);
+      }
+
       return {
         status: isConnected,
         latency
       };
     } catch (error: any) {
+      console.error('❌ [Database] Connection error:', error.message);
       return {
         status: false,
         latency: Date.now() - start,

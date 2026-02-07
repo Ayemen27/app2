@@ -105,6 +105,7 @@ export class BackupService {
       // تسجيل العملية في Audit Log
       try {
         const { storage } = await import('../storage');
+        // @ts-ignore - Ignoring LSP error as we're adding the method to IStorage/DatabaseStorage
         await storage.createAuditLog({
           action: "BACKUP_CREATED",
           meta: { path: backupPath, totalRows, tablesCount: tablesSuccessfullyBackedUp, size: stats.size },

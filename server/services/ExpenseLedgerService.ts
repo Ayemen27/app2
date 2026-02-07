@@ -82,12 +82,12 @@ export class ExpenseLedgerService {
     return parsed;
   }
 
-  static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string, limit: number = 50, offset: number = 0): Promise<any> {
+  static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string): Promise<any> {
     try {
-      // ... (existing cleaning logic)
-      
-      // Add pagination to the results if necessary, although this service returns summaries.
-      // However, for list-based data, we should ensure the backend supports pagination.
+      // تنظيف المدخلات لمنع أخطاء التواريخ الفارغة
+      const cleanDate = date && date.trim() !== "" ? date : null;
+      const cleanDateFrom = dateFrom && dateFrom.trim() !== "" ? dateFrom : null;
+      const cleanDateTo = dateTo && dateTo.trim() !== "" ? dateTo : null;
 
       // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي
       const isCumulative = !cleanDate && !cleanDateFrom && !cleanDateTo;
@@ -102,7 +102,8 @@ export class ExpenseLedgerService {
         return '';
       };
 
-      console.log(`🔍 [ExpenseLedger] تطبيق الفلترة لـ ${projectId}:`, { date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo, isCumulative });
+      // استخدام الكاش إذا كان متاحاً (اختياري للتحسين المتقدم)
+      // Note: This is a placeholder for more advanced caching if needed.
 
       const startDateStr = cleanDate || cleanDateFrom || new Date().toISOString().split('T')[0];
       

@@ -232,8 +232,8 @@ function DailyExpensesContent() {
   };
 
   const queryOptions = {
-    staleTime: 1000 * 60 * 30, // 30 minutes
-    gcTime: 1000 * 60 * 120, // 120 minutes
+    staleTime: 1000 * 60 * 60, // 60 minutes
+    gcTime: 1000 * 60 * 180, // 180 minutes
     retry: 1,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -448,11 +448,10 @@ function DailyExpensesContent() {
       }
     },
     enabled: !!selectedProjectId && !!selectedDate && showProjectTransfers,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    placeholderData: undefined,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   // معالجة آمنة لترحيل المشاريع

@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import TelegramBot from "node-telegram-bot-api";
 import { registerOrganizedRoutes } from "./routes/modules/index.js";
+import path from "path";
+import fs from "fs";
 
 const bot = process.env.TELEGRAM_BOT_TOKEN ? new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false }) : null;
 const chatId = process.env.TELEGRAM_CHAT_ID;

@@ -210,6 +210,9 @@ export default function ProjectsPage() {
   // ✅ Fetch projects with statistics - استخدام default fetcher مع Authorization headers
   const { data: fetchedProjectsRaw = [], isLoading, refetch: refetchProjects, error } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
+    staleTime: 60000,
+    gcTime: 300000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       try {
         console.log('📊 [Projects] جلب المشاريع مع الإحصائيات...');

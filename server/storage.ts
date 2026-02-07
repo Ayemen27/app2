@@ -362,7 +362,7 @@ export class DatabaseStorage implements IStorage {
   // Cache للإحصائيات - تحسين الأداء الفائق للمشاريع 
   private projectStatsCache: Map<string, { data: any, timestamp: number }> = new Map();
   
-  private readonly CACHE_DURATION = 1 * 60 * 1000; // تقليل مدة الكاش لدقيقة واحدة لتحسين التزامن
+  private readonly CACHE_DURATION = 30 * 1000; // تقليل مدة الكاش لـ 30 ثانية لسرعة التحديث مع الحفاظ على الأداء
 
   // Projects
   async getProjects(): Promise<Project[]> {

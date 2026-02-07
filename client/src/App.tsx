@@ -290,6 +290,11 @@ function Router() {
           <DatabaseManager />
         </AdminRoute>
       </Route>
+      <Route path="/admin/sync">
+        <AdminRoute>
+          <SyncManagementPage />
+        </AdminRoute>
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -299,6 +304,7 @@ import { initializeNativePush, requestAllPermissions } from "./services/capacito
 import { Capacitor } from "@capacitor/core";
 
 import SystemCheckPage from "./pages/SystemCheckPage";
+import SyncManagementPage from "./pages/system/SyncManagementPage";
 
 function App() {
   return (

@@ -36,6 +36,7 @@ export function registerOrganizedRoutes(app: Express) {
 
   // مسارات الصحة والمراقبة (عامة)
   app.use('/api', healthRouter);
+  app.use('/api/admin', healthRouter);
 
   // ملاحظة: تم نقل مسارات المصادقة إلى routes/auth.ts لتجنب التضارب
 

@@ -73,6 +73,26 @@ healthRouter.get('/health/full', async (req: Request, res: Response) => {
 /**
  * فحص سلامة البيانات
  */
+healthRouter.get('/data-health', async (req: Request, res: Response) => {
+  try {
+    const result = await healthMonitor.checkIntegrity();
+    res.json({
+      success: true,
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      status: 'failed',
+      issues: [error.message]
+    });
+  }
+});
+
+/**
+ * فحص سلامة البيانات (مسار بديل)
+ */
 healthRouter.get('/health/integrity', async (req: Request, res: Response) => {
   try {
     const result = await healthMonitor.checkIntegrity();

@@ -681,6 +681,7 @@ export const insertProjectSchema = createInsertSchema(projects).omit({ id: true,
 export const insertWorkerSchema = createInsertSchema(workers).omit({ id: true, createdAt: true });
 export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({ id: true, createdAt: true }).extend({
   transferDate: dateStringSchema,
+  amount: z.preprocess((val) => (val === null || val === undefined) ? "0" : val.toString(), z.string()),
 });
 export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, createdAt: true }).extend({
   attendanceDate: dateStringSchema,

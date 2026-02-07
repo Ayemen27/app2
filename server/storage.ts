@@ -352,7 +352,7 @@ export interface IStorage {
   toggleTableRLS(tableName: string, enable: boolean): Promise<any>;
   getTablePolicies(tableName: string): Promise<any[]>;
   analyzeSecurityThreats(): Promise<any>;
-
+  exportData(): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {

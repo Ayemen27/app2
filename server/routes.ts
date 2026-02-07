@@ -19,7 +19,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   BackupService.startAutoBackupScheduler();
 
   app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      version: "1.0.0-global-standard"
+    });
+  });
+
+  app.post("/api/admin/backup", async (_req, res) => {
+    try {
+      const { BackupService } = await import('./services/BackupService');
+      const path = await BackupService.createFullBackup();
+      res.json({ success: true, message: "Backup created", path });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   app.get("/api/health/stats", (_req, res) => {

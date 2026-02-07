@@ -310,11 +310,12 @@ export class ExpenseLedgerService {
   static async getAllProjectsStats(date?: string, dateFrom?: string, dateTo?: string): Promise<ProjectFinancialSummary[]> {
     try {
       const projectsList = await pool.query(`SELECT id, name FROM projects WHERE is_active = true ORDER BY created_at`);
-      const results: ProjectFinancialSummary[] = [];
-      for (const project of projectsList.rows) {
-        const summary = await this.getProjectFinancialSummary(project.id as string, date, dateFrom, dateTo);
-        results.push(summary);
-      }
+      
+      // تنفيذ الطلبات بالتوازي بدلاً من التسلسل لتقليل وقت الاستجابة الإجمالي
+      const results = await Promise.all(projectsList.rows.map(project => 
+        this.getProjectFinancialSummary(project.id as string, date, dateFrom, dateTo)
+      ));
+      
       return results;
     } catch (error) {
       console.error('❌ [ExpenseLedger] خطأ في جلب إحصائيات جميع المشاريع:', error);

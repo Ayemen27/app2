@@ -82,12 +82,12 @@ export class ExpenseLedgerService {
     return parsed;
   }
 
-  static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string): Promise<any> {
+  static async getProjectFinancialSummary(projectId: string, date?: string, dateFrom?: string, dateTo?: string, limit: number = 50, offset: number = 0): Promise<any> {
     try {
-      // تنظيف المدخلات لمنع أخطاء التواريخ الفارغة
-      const cleanDate = date && date.trim() !== "" ? date : null;
-      const cleanDateFrom = dateFrom && dateFrom.trim() !== "" ? dateFrom : null;
-      const cleanDateTo = dateTo && dateTo.trim() !== "" ? dateTo : null;
+      // ... (existing cleaning logic)
+      
+      // Add pagination to the results if necessary, although this service returns summaries.
+      // However, for list-based data, we should ensure the backend supports pagination.
 
       // إذا لم يكن هناك تاريخ محدد، نعتبره عرض تراكمي
       const isCumulative = !cleanDate && !cleanDateFrom && !cleanDateTo;

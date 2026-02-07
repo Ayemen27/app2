@@ -266,6 +266,23 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
       transferData.transferDate = (transferData.transferDate as any).toISOString().split('T')[0];
     }
 
+    // التحقق المسبق من رقم التحويل لمنع أخطاء التكرار
+    if (transferData.transferNumber) {
+      const existing = await db.select()
+        .from(fundTransfers)
+        .where(eq(fundTransfers.transferNumber, transferData.transferNumber))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'رقم التحويل موجود مسبقاً',
+          message: `رقم التحويل ${transferData.transferNumber} مسجل بالفعل في النظام بتاريخ ${existing[0].transferDate}`,
+          processingTime: Date.now() - startTime
+        });
+      }
+    }
+
     // إدراج تحويل العهدة الجديد في قاعدة البيانات
     const newTransfer = await db.insert(fundTransfers).values(transferData).returning();
 

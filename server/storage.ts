@@ -1289,9 +1289,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPreviousDayBalance(projectId: string, currentDate: string): Promise<string> {
+    const cacheKey = `prev-balance-${projectId}-${currentDate}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < 30000)) {
+      return cached.data;
+    }
+
     console.log(`Getting previous day balance for project ${projectId}, date: ${currentDate}`);
     
-    const [result] = await db.select()
+    const [result] = await db.select({ remainingBalance: dailyExpenseSummaries.remainingBalance })
       .from(dailyExpenseSummaries)
       .where(and(
         eq(dailyExpenseSummaries.projectId, projectId),
@@ -1300,7 +1306,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(dailyExpenseSummaries.date))
       .limit(1);
     
-    return result?.remainingBalance || "0";
+    const balance = result?.remainingBalance || "0";
+    this.cache.set(cacheKey, { data: balance, timestamp: Date.now() });
+    return balance;
   }
 
   // إزالة الملخصات المكررة للتاريخ الواحد

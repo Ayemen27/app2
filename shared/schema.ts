@@ -35,7 +35,9 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastLogin: timestamp("last_login"),
   ...syncFields,
-});
+}, (table) => ({
+  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+}));
 
 // Update syncFields after users is defined
 (syncFields as any).lastModifiedBy = varchar("last_modified_by").references(() => users.id);
@@ -163,7 +165,9 @@ export const projectTypes = pgTable("project_types", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
-});
+}, (table) => ({
+  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+}));
 
 // Projects table
 export const projects = pgTable("projects", {
@@ -186,7 +190,9 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
   ...syncFields,
-});
+}, (table) => ({
+  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+}));
 
 // Workers table
 export const workers = pgTable("workers", {
@@ -199,7 +205,9 @@ export const workers = pgTable("workers", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
-});
+}, (table) => ({
+  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+}));
 
 // Wells table (جدول الآبار) - يدير بيانات الآبار والملاك والمواقع والخصائص الفنية
 // تم تحسين هذا الجدول لدعم تتبع حالة الإنجاز ونسب التنفيذ تلقائياً
@@ -228,7 +236,9 @@ export const wells = pgTable("wells", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   ...syncFields,
-});
+}, (table) => ({
+  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+}));
 
 // Fund transfers (تحويلات العهدة)
 export const fundTransfers = pgTable("fund_transfers", {

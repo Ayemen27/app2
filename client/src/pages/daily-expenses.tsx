@@ -448,8 +448,8 @@ function DailyExpensesContent() {
       }
     },
     enabled: !!selectedProjectId && !!selectedDate && showProjectTransfers,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15, // 15 minutes
+    staleTime: 1000 * 60 * 60, // 60 minutes
+    gcTime: 1000 * 60 * 180, // 180 minutes
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });

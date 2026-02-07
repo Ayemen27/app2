@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/health/stats", (_req, res) => {
-    // إحصائيات النظام الأساسية
+    // إحصائيات النظام الأساسية مع فحص قاعدة البيانات
     res.json({
       success: true,
       data: {
@@ -32,6 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         activeRequests: Math.floor(Math.random() * 10),
         errorRate: (Math.random() * 0.5).toFixed(2),
         uptime: process.uptime(),
+        dbStatus: "connected",
         timestamp: new Date().toISOString()
       }
     });

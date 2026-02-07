@@ -128,14 +128,14 @@ export default function ProjectFundCustody() {
     return filtered;
   }, [allTransfers, searchValue, filterValues]);
 
-  const { summary, isLoading: isLoadingSummary } = useFinancialSummary();
+  const { totals, isLoading: isLoadingSummary, refetch: refetchSummary } = useFinancialSummary();
 
   // Calculate Stats
   const stats = useMemo(() => {
     return {
       total: allTransfers.length,
-      totalAmount: summary?.totalIncome || allTransfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
-      currentBalance: summary?.totalProjectBalance || 0,
+      totalAmount: (totals as any)?.totalIncome || allTransfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
+      currentBalance: (totals as any)?.totalBalance || 0,
       filtered: filteredTransfers.length,
       today: filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
       thisWeek: filteredTransfers.filter(t => {
@@ -145,7 +145,7 @@ export default function ProjectFundCustody() {
         return date >= weekAgo && date <= today;
       }).length,
     };
-  }, [allTransfers, filteredTransfers, summary]);
+  }, [allTransfers, filteredTransfers, totals]);
 
   // Mutations
   const createTransferMutation = useMutation({
@@ -299,7 +299,7 @@ export default function ProjectFundCustody() {
         {
           key: 'totalExpenses',
           label: "إجمالي المنصرف",
-          value: summary?.totalCashExpenses || 0,
+          value: (totals as any)?.totalCashExpenses || 0,
           icon: TrendingUp,
           color: "red",
           formatter: formatCurrency

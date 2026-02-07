@@ -36,7 +36,7 @@ export const users = pgTable("users", {
   lastLogin: timestamp("last_login"),
   ...syncFields,
 }, (table) => ({
-  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+  // Define constraints if needed
 }));
 
 // Update syncFields after users is defined

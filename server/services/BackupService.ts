@@ -88,8 +88,30 @@ export class BackupService {
       }, null, 2));
 
       // Verify the file was actually written and has content
-      if (!fs.existsSync(backupPath) || fs.statSync(backupPath).size < 10) {
-        throw new Error("فشل كتابة ملف النسخة الاحتياطية أو الملف فارغ");
+      const stats = fs.statSync(backupPath);
+      if (!fs.existsSync(backupPath) || stats.size < 100) {
+        throw new Error("فشل التحقق من سلامة الملف: الملف مفقود أو حجمه غير منطقي");
+      }
+
+      // Integrity Check: Parse and verify structure
+      const content = fs.readFileSync(backupPath, 'utf8');
+      const parsed = JSON.parse(content);
+      if (!parsed.data || Object.keys(parsed.data).length === 0) {
+        throw new Error("فشل التحقق من سلامة البيانات: النسخة الاحتياطية فارغة");
+      }
+
+      console.log(`✅ [BackupService] Backup Integrity Verified: ${backupPath} (${stats.size} bytes)`);
+
+      // تسجيل العملية في Audit Log
+      try {
+        const { storage } = await import('../storage');
+        await storage.createAuditLog({
+          action: "BACKUP_CREATED",
+          meta: { path: backupPath, totalRows, tablesCount: tablesSuccessfullyBackedUp, size: stats.size },
+          createdAt: new Date()
+        });
+      } catch (logErr) {
+        console.warn("⚠️ [BackupService] Failed to log backup action:", logErr);
       }
 
       console.log(`✅ [BackupService] Real data backup created: ${backupPath} (${totalRows} rows)`);

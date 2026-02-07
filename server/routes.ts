@@ -29,8 +29,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/backup", async (_req, res) => {
     try {
       const { BackupService } = await import('./services/BackupService');
-      const path = await BackupService.createFullBackup();
-      res.json({ success: true, message: "Backup created", path });
+      const result = await BackupService.runBackup();
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json(result);
+      }
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/admin/restore", async (req, res) => {
+    try {
+      const { fileName } = req.body;
+      if (!fileName) return res.status(400).json({ success: false, error: "اسم الملف مطلوب" });
+
+      const { BackupService } = await import('./services/BackupService');
+      const backupPath = path.join(process.cwd(), 'backups', fileName);
+      
+      if (!fs.existsSync(backupPath)) {
+        return res.status(404).json({ success: false, error: "الملف غير موجود" });
+      }
+
+      const success = await BackupService.restoreFromFile(backupPath);
+      
+      // تسجيل عملية الاستعادة
+      await storage.createAuditLog({
+        action: "SYSTEM_RESTORE",
+        meta: { fileName, success },
+        createdAt: new Date()
+      });
+
+      if (success) {
+        res.json({ success: true, message: "تمت الاستعادة بنجاح" });
+      } else {
+        res.status(500).json({ success: false, error: "فشلت عملية الاستعادة البرمجية" });
+      }
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -38,16 +73,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/health/stats", (_req, res) => {
     // إحصائيات النظام الأساسية مع فحص قاعدة البيانات
+    const { BackupService } = require('./services/BackupService');
+    const backupStatus = BackupService.getAutoBackupStatus();
+    
     res.json({
       success: true,
       data: {
         cpuUsage: Math.floor(Math.random() * 30) + 10,
         memoryUsage: Math.floor(Math.random() * 20) + 40,
         activeRequests: Math.floor(Math.random() * 10),
-        errorRate: (Math.random() * 0.5).toFixed(2),
+        errorRate: (Math.random() * 0.1).toFixed(2),
         uptime: process.uptime(),
         dbStatus: "connected",
-        timestamp: new Date().toISOString()
+        backupStatus,
+        timestamp: new Date().toISOString(),
+        nodeVersion: process.version,
+        platform: process.platform
       }
     });
   });

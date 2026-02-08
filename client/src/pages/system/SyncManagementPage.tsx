@@ -79,7 +79,7 @@ export default function SyncManagementPage() {
             <RefreshCw className={isSyncing ? "animate-spin text-blue-500" : "text-blue-500"} />
             إدارة المزامنة
           </h1>
-          <p className="text-muted-foreground">مراقبة وإدارة العمليات في وضع عدم الاتصال</p>
+          <p className="text-muted-foreground">مراقبة وإدارة العمليات في وضع عدم الاتصال - AXION SYSTEM</p>
         </div>
         <Button 
           onClick={manualSync} 

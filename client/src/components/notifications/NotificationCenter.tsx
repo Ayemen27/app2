@@ -122,7 +122,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
             id: 'system-welcome',
             type: 'system',
             title: 'مرحباً بك',
-            message: 'مرحباً بك في نظام أوركس بروفيشنال',
+            message: 'مرحباً بك في نظام AXION SYSTEM',
             priority: 3,
             createdAt: new Date().toISOString(),
             isRead: false,

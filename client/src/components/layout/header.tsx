@@ -99,7 +99,7 @@ export default function Header() {
     },
   });
 
-  const currentPage = pageInfo[location] || { title: 'أوركس بروفيشنال', icon: HardHat };
+  const currentPage = pageInfo[location] || { title: 'AXION SYSTEM', icon: HardHat };
   const PageIcon = currentPage.icon;
 
   const handleProjectSelect = (projectId: string, projectName: string) => {
@@ -115,7 +115,7 @@ export default function Header() {
         </div>
         <div className="flex flex-col justify-center">
           <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white">{currentPage.title}</h1>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">Orax System</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">AXION SYSTEM</p>
         </div>
       </div>
       

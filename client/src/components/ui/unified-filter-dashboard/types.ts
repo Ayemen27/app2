@@ -95,6 +95,9 @@ export interface UnifiedFilterDashboardProps {
   compact?: boolean;
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
+  title?: string;
+  subtitle?: string;
+  hideHeader?: boolean;
 }
 
 export const colorVariants: Record<ColorVariant, {

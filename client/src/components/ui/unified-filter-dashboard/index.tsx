@@ -25,6 +25,9 @@ export function UnifiedFilterDashboard({
   compact = false,
   viewMode,
   onViewModeChange,
+  title,
+  subtitle,
+  hideHeader = false,
 }: UnifiedFilterDashboardProps) {
   const hasActiveFilters = filters.some(filter => {
     const value = filterValues[filter.key];
@@ -35,6 +38,13 @@ export function UnifiedFilterDashboard({
 
   return (
     <div className={cn('space-y-2', className)}>
+      {!hideHeader && (title || subtitle) && (
+        <div className="mb-4">
+          {title && <h2 className="text-2xl font-bold">{title}</h2>}
+          {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
+        </div>
+      )}
+      
       {statsRows && statsRows.length > 0 && (
         <StatsStrip rows={statsRows} />
       )}

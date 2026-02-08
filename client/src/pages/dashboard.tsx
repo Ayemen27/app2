@@ -104,9 +104,6 @@ export default function Dashboard() {
   // جلب المشاريع مع الإحصائيات
   const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects/with-stats"],
-    staleTime: 60000, // 1 minute
-    gcTime: 300000, // 5 minutes
-    refetchOnWindowFocus: false,
     queryFn: async () => {
       try {
         console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');

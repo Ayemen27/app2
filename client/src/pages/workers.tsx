@@ -613,7 +613,7 @@ export default function WorkersPage() {
         onFilterChange={handleFilterChange}
         onSearchChange={setSearchValue}
         searchValue={searchValue}
-        onResetFilters={handleResetFilters}
+        onReset={handleResetFilters}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
       />

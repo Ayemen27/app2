@@ -1,7 +1,7 @@
 import { 
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
-  ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw
+  ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText
 } from "lucide-react";
 import { 
   Sidebar,

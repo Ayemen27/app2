@@ -47,7 +47,7 @@ export default function DatabaseManager() {
       try {
         const db = await getDB();
         const stats: Record<string, number> = {};
-        const stores = Array.from(db.objectStoreNames);
+        const stores = Array.from(db.objectStoreNames) as string[];
         
         for (const store of stores) {
           try {
@@ -90,7 +90,7 @@ export default function DatabaseManager() {
           <p className="text-muted-foreground">نظام المراقبة الموحد للقواعد المركزية والمحلية</p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          <Badge variant={syncState.isOnline ? "success" : "destructive"} className="px-4 py-1">
+          <Badge variant={syncState.isOnline ? "default" : "destructive"} className="px-4 py-1">
             {syncState.isOnline ? <Wifi className="w-3 h-3 ml-2" /> : <WifiOff className="w-3 h-3 ml-2" />}
             {syncState.isOnline ? "Online" : "Offline / Emergency"}
           </Badge>
@@ -100,6 +100,13 @@ export default function DatabaseManager() {
           </Button>
         </div>
       </div>
+
+      <UnifiedSearchFilter
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+        onReset={onReset}
+        searchPlaceholder="بحث في الجداول والقواعد..."
+      />
 
       <UnifiedStats
         stats={[
@@ -118,7 +125,7 @@ export default function DatabaseManager() {
           },
           {
             title: "العمليات المعلقة",
-            value: syncState.pendingCount,
+            value: syncState.pendingCount.toString(),
             icon: Clock,
             color: syncState.pendingCount > 0 ? "orange" : "blue"
           },
@@ -137,26 +144,13 @@ export default function DatabaseManager() {
             key={i}
             title={db.name}
             subtitle={db.status === 'online' || db.status === 'active' ? 'Active' : 'Standby'}
-            icon={db.name.includes('Central') ? Server : db.name.includes('Supabase') ? Globe : HardDrive}
-          >
-            <div className="space-y-4 pt-2">
-              <div className="flex justify-between items-end">
-                <span className="text-2xl font-black font-mono tracking-tighter">{db.latency !== 'N/A' ? db.latency : '--'}</span>
-                <span className="text-[10px] text-muted-foreground font-medium uppercase">Response Time</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-3 border-t">
-                <div className="flex flex-col">
-                  <span className="text-muted-foreground font-bold text-[10px] uppercase">Tables</span>
-                  <span className="font-bold text-lg">{db.tablesCount}</span>
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-muted-foreground font-bold text-[10px] uppercase">Integrity</span>
-                  <span className="font-bold text-green-600 text-sm">VALIDATED</span>
-                </div>
-              </div>
-              <Progress value={100} className={`h-1.5 ${db.status === 'online' || db.status === 'active' ? 'bg-green-500/20' : 'bg-slate-500/20'}`} />
-            </div>
-          </UnifiedCard>
+            titleIcon={db.name.includes('Central') ? Server : db.name.includes('Supabase') ? Globe : HardDrive}
+            fields={[
+              { label: "Response Time", value: db.latency !== 'N/A' ? db.latency : '--', emphasis: true },
+              { label: "Tables", value: db.tablesCount },
+              { label: "Integrity", value: "VALIDATED", color: "success" }
+            ]}
+          />
         ))}
       </UnifiedCardGrid>
 
@@ -170,14 +164,6 @@ export default function DatabaseManager() {
                     <ArrowRightLeft className="h-5 w-5 text-blue-500" />
                     مطابقة البيانات (Cloud vs Local)
                   </CardTitle>
-                </div>
-                <div className="w-64">
-                  <Input 
-                    placeholder="بحث في الجداول..." 
-                    value={searchValue}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    className="h-8 text-xs"
-                  />
                 </div>
               </div>
             </CardHeader>
@@ -201,7 +187,7 @@ export default function DatabaseManager() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Progress value={Math.min(100, (row.clientCount / (row.serverCount || 1)) * 100)} className="h-1.5 w-16" />
-                            <Badge variant={row.diff === 0 ? "success" : "warning"} className="text-[10px] py-0 px-2">
+                            <Badge variant={row.diff === 0 ? "default" : "secondary"} className="text-[10px] py-0 px-2">
                               {row.diff === 0 ? 'مطابق' : `فارق ${row.diff}`}
                             </Badge>
                           </div>
@@ -253,28 +239,25 @@ export default function DatabaseManager() {
             </CardContent>
           </Card>
 
-          <UnifiedCard title="نشاط التزامن" icon={RefreshCw}>
-            <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Success Rate</span>
-                  <span className="text-lg font-black font-mono text-green-600">99.9%</span>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold block mb-1">Latency</span>
-                  <span className="text-lg font-black font-mono text-blue-600">{syncState.latency || 0}ms</span>
-                </div>
-              </div>
+          <UnifiedCard 
+            title="نشاط التزامن" 
+            titleIcon={RefreshCw}
+            fields={[
+              { label: "Success Rate", value: "99.9%", color: "success", emphasis: true },
+              { label: "Latency", value: `${syncState.latency || 0}ms`, color: "info" }
+            ]}
+            footer={
               <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 rounded-xl text-center">
                 <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-relaxed">
                   يتم مزامنة البيانات كل 30 ثانية بشكل تلقائي لضمان استمرارية العمل في جميع الظروف.
                 </p>
               </div>
-            </div>
-          </UnifiedCard>
+            }
+          />
         </div>
       </div>
     </div>
+
   );
 }
 

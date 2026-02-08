@@ -855,6 +855,7 @@ export default function ProjectsPage() {
     <>
       <div className="space-y-2 p-2">
         <UnifiedFilterDashboard
+          hideHeader={true}
           statsRows={statsRowsConfig}
           searchValue={searchValue}
           onSearchChange={setSearchValue}

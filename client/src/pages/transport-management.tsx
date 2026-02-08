@@ -600,6 +600,7 @@ export default function TransportManagement() {
           </Dialog>
 
           <UnifiedFilterDashboard
+            hideHeader={true}
             filters={filters}
             filterValues={{
               ...filterValues,

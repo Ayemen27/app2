@@ -1026,6 +1026,7 @@ export default function MaterialPurchase() {
     <div className="p-4 slide-in">
       {/* لوحة الإحصائيات والفلترة الموحدة - شبكة 3×2 */}
       <UnifiedFilterDashboard
+        hideHeader={true}
         statsRows={statsRowsConfig}
         searchValue={searchValue}
         onSearchChange={setSearchValue}

@@ -413,93 +413,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 fade-in space-y-4">
-      {/* قسم آخر الإجراءات - تم نقله إلى الأسفل */}
-      {/* {recentActivities.length > 0 && (
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Activity className="h-5 w-5 text-blue-600" />
-              آخر الإجراءات
-              <Badge variant="secondary" className="mr-auto">
-                {recentActivities.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 max-h-96 overflow-y-auto">
-            {recentActivities.slice(0, 10).map((activity: any, index: number) => (
-              <div
-                key={activity.id || index}
-                className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-blue-100 dark:border-blue-800 hover:shadow-md transition-shadow"
-              >
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-                  <div className="flex items-start gap-2">
-                    <User className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">من</div>
-                      <div className="font-medium text-foreground">{activity.userName || 'غير محدد'}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Building2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">أين</div>
-                      <div className="font-medium text-foreground truncate">{activity.projectName || 'جميع المشاريع'}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <ArrowRightLeft className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">كيف</div>
-                      <Badge variant={
-                        activity.actionType === 'transfer' ? 'default' :
-                        activity.actionType === 'expense' ? 'destructive' :
-                        activity.actionType === 'income' ? 'success' :
-                        'secondary'
-                      } className="text-xs">
-                        {activity.actionLabel || activity.actionType}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Calendar className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">التاريخ</div>
-                      <div className="font-medium text-foreground">{formatDate(activity.createdAt)}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Clock className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-xs text-muted-foreground">الوقت</div>
-                      <div className="font-medium text-foreground" dir="ltr">
-                        {new Date(activity.createdAt).toLocaleTimeString('ar-SA', { 
-                          hour: '2-digit', 
-                          minute: '2-digit',
-                          hour12: true 
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {activity.amount && (
-                  <div className="mt-2 pt-2 border-t border-blue-100 dark:border-blue-800 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-semibold text-green-600">
-                      {formatCurrency(activity.amount)}
-                    </span>
-                    {activity.description && (
-                      <span className="text-xs text-muted-foreground mr-auto truncate">
-                        {activity.description}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )} */}
-
+      {/* قسم المراقبة والإحصائيات */}
       <div className="mb-4">
         {monitoringStats && (
           <div className="mb-6">
@@ -513,14 +427,14 @@ export default function Dashboard() {
                   title: "استهلاك المعالج",
                   value: `${monitoringStats.cpuUsage}%`,
                   icon: Activity,
-                  color: monitoringStats.cpuUsage > 80 ? "red" : "blue",
+                  color: "blue",
                   status: monitoringStats.cpuUsage > 80 ? "critical" : "normal"
                 },
                 {
                   title: "استهلاك الذاكرة",
                   value: `${monitoringStats.memoryUsage}%`,
                   icon: Package,
-                  color: monitoringStats.memoryUsage > 85 ? "orange" : "teal",
+                  color: "teal",
                   status: monitoringStats.memoryUsage > 85 ? "warning" : "normal"
                 },
                 {
@@ -533,7 +447,7 @@ export default function Dashboard() {
                   title: "معدل الخطأ",
                   value: `${monitoringStats.errorRate}%`,
                   icon: TrendingDown,
-                  color: monitoringStats.errorRate > 5 ? "red" : "green",
+                  color: "green",
                   status: monitoringStats.errorRate > 5 ? "critical" : "normal"
                 }
               ]}

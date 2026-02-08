@@ -82,14 +82,14 @@ export default function DatabaseManager() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+        <div className="hidden">
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <DatabaseZap className="h-7 w-7 text-blue-500" />
             إدارة ومراقبة قواعد البيانات
           </h1>
           <p className="text-muted-foreground">نظام المراقبة الموحد للقواعد المركزية والمحلية</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
           <Badge variant={syncState.isOnline ? "success" : "destructive"} className="px-4 py-1">
             {syncState.isOnline ? <Wifi className="w-3 h-3 ml-2" /> : <WifiOff className="w-3 h-3 ml-2" />}
             {syncState.isOnline ? "Online" : "Offline / Emergency"}

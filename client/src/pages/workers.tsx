@@ -606,8 +606,8 @@ export default function WorkersPage() {
     <div className="container mx-auto p-4 space-y-4">
       <UnifiedFilterDashboard
         hideHeader={true}
-        title="إدارة العمال والموظفين"
-        subtitle="متابعة بيانات العمال، أجورهم، وحالاتهم الوظيفية بشكل متكامل"
+        title=""
+        subtitle=""
         statsRows={statsRowsConfig}
         filters={filtersConfig}
         onFilterChange={handleFilterChange}

@@ -1027,6 +1027,7 @@ export default function MaterialPurchase() {
       {/* لوحة الإحصائيات والفلترة الموحدة - شبكة 3×2 */}
       <UnifiedFilterDashboard
         hideHeader={true}
+        title=""
         statsRows={statsRowsConfig}
         searchValue={searchValue}
         onSearchChange={setSearchValue}

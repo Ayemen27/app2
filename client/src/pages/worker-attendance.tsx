@@ -1027,6 +1027,8 @@ export default function WorkerAttendance() {
       {/* لوحة الإحصائيات والفلترة الموحدة */}
       {selectedProjectId && (
         <UnifiedFilterDashboard
+          hideHeader={true}
+          title=""
           statsRows={statsRowsConfig}
           searchValue={searchValue}
           onSearchChange={setSearchValue}

@@ -2103,6 +2103,7 @@ function DailyExpensesContent() {
       {/* لوحة الإحصائيات والفلترة الموحدة */}
       <UnifiedFilterDashboard
         hideHeader={true}
+        title=""
         statsRows={statsRowsConfig}
         searchValue={searchValue}
         onSearchChange={setSearchValue}

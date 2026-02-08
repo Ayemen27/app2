@@ -34,7 +34,7 @@ export default function DatabaseManager() {
     onReset
   } = useUnifiedFilter({}, '');
 
-  const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery({
+  const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<any>({
     queryKey: ["/api/admin/data-health"],
   });
 

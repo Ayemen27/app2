@@ -125,6 +125,8 @@
     direction: rtl;
     overflow: hidden !important;
     height: 100% !important;
+    position: fixed;
+    width: 100%;
   }
 
   #root {

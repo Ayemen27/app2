@@ -39,10 +39,10 @@ export function LayoutShell({
     return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <SyncProgressTracker />
-      <div className="flex min-h-[100dvh] w-full bg-background overflow-hidden" dir="rtl">
+      <div className="flex h-[100dvh] w-full bg-background overflow-hidden" dir="rtl">
         <AppSidebar />
-        <SidebarInset className="flex flex-col flex-1 min-h-[100dvh] overflow-hidden relative">
-          <div className="layout-shell flex flex-col min-h-[100dvh] overflow-hidden relative">
+        <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden relative">
+          <div className="layout-shell flex flex-col h-full overflow-hidden relative">
             {showHeader && !isCustomHeaderPage && (
               <header className="layout-header flex-shrink-0 w-full border-b bg-white dark:bg-slate-900 shadow-sm relative z-30">
                 <div className="flex h-[60px] items-center px-4 gap-4">
@@ -57,7 +57,7 @@ export function LayoutShell({
               </header>
             )}
             
-            <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch overscroll-none pb-[90px] md:pb-0">
+            <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch pb-[calc(72px+env(safe-area-inset-bottom,0px)+16px)] md:pb-0">
               <div className={isCustomHeaderPage ? "h-full" : "layout-content p-4 md:p-6 max-w-7xl mx-auto w-full"}>
                 {children}
               </div>

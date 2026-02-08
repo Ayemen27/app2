@@ -57,14 +57,14 @@ export function LayoutShell({
               </header>
             )}
             
-            <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch overscroll-none pb-[80px]">
+            <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch overscroll-none pb-[90px] md:pb-0">
               <div className={isCustomHeaderPage ? "h-full" : "layout-content p-4 md:p-6 max-w-7xl mx-auto w-full"}>
                 {children}
               </div>
             </main>
             
             {showNav && !hideNav && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 h-[72px] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center safe-area-bottom">
+              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 h-[72px] pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center">
                 <div className="w-full h-full flex items-center justify-center">
                   <BottomNavigation />
                 </div>

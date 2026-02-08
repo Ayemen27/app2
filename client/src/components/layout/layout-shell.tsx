@@ -39,10 +39,10 @@ export function LayoutShell({
     return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <SyncProgressTracker />
-      <div className="flex h-screen w-full bg-background overflow-hidden" dir="rtl">
+      <div className="flex min-h-[100dvh] w-full bg-background overflow-hidden" dir="rtl">
         <AppSidebar />
-        <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden relative">
-          <div className="layout-shell flex flex-col h-full overflow-hidden relative">
+        <SidebarInset className="flex flex-col flex-1 min-h-[100dvh] overflow-hidden relative">
+          <div className="layout-shell flex flex-col min-h-[100dvh] overflow-hidden relative">
             {showHeader && !isCustomHeaderPage && (
               <header className="layout-header flex-shrink-0 w-full border-b bg-white dark:bg-slate-900 shadow-sm relative z-30">
                 <div className="flex h-[60px] items-center px-4 gap-4">
@@ -64,8 +64,8 @@ export function LayoutShell({
             </main>
             
             {showNav && !hideNav && (
-              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 h-[72px] pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center">
-                <div className="w-full h-full flex items-center justify-center">
+              <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-8px_20px_rgba(0,0,0,0.1)] flex items-center justify-center pointer-events-auto">
+                <div className="w-full h-[72px] flex items-center justify-center">
                   <BottomNavigation />
                 </div>
               </div>

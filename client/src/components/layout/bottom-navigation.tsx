@@ -138,7 +138,7 @@ export default function BottomNavigation() {
 
   return (
     <nav 
-      className="bg-white dark:bg-slate-900 flex-shrink-0 h-full w-full relative z-[50] pb-[env(safe-area-inset-bottom)]"
+      className="bg-white dark:bg-slate-900 flex-shrink-0 h-full w-full relative z-[50]"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex justify-around items-center h-full w-full max-w-screen-xl mx-auto px-2 relative">

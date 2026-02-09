@@ -259,22 +259,22 @@ export function StatsCard({
     <Card className={cn(
       colors.border, 
       colors.bg, 
-      "border-l-4 border-2 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-[100px] rounded-2xl overflow-hidden shadow-sm"
+      "border-l-4 border-2 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-[75px] sm:h-[100px] rounded-xl sm:rounded-2xl overflow-hidden shadow-sm"
     )}>
-      <CardContent className="p-4 flex flex-col justify-center h-full bg-gradient-to-br from-white/10 to-transparent">
-        <div className="flex items-center justify-between gap-3">
+      <CardContent className="p-2 sm:p-4 flex flex-col justify-center h-full bg-gradient-to-br from-white/10 to-transparent">
+        <div className="flex items-center justify-between gap-1.5 sm:gap-3">
           <div className="flex-1 min-w-0">
             <LabelWithTooltip>
-              <p className="text-xs font-black text-muted-foreground/80 uppercase tracking-widest truncate mb-1">
+              <p className="text-[9px] sm:text-xs font-black text-muted-foreground/80 uppercase tracking-tight sm:tracking-widest truncate mb-0.5 sm:mb-1">
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <p className={cn("text-2xl font-black font-mono tracking-tighter leading-none", colors.text)}>
+            <p className={cn("text-lg sm:text-2xl font-black font-mono tracking-tighter leading-none", colors.text)}>
               {displayValue}
             </p>
           </div>
-          <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ring-4 ring-white/50 dark:ring-black/10", colors.iconBg)}>
-            <Icon className={cn("h-6 w-6", colors.iconColor)} />
+          <div className={cn("h-8 w-8 sm:h-12 sm:w-12 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ring-2 sm:ring-4 ring-white/50 dark:ring-black/10", colors.iconBg)}>
+            <Icon className={cn("h-4 w-4 sm:h-6 sm:w-6", colors.iconColor)} />
           </div>
         </div>
       </CardContent>

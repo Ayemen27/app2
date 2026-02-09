@@ -41,14 +41,14 @@ export function UnifiedStats({
   // إذا كان hideHeader = true، نعرض البطائق فقط بدون أي شيء آخر
   if (hideHeader) {
     return (
-      <div className={`grid ${gridCols[columns]} gap-2 sm:gap-3`}>
+      <div className={`grid ${gridCols[columns]} gap-1.5 sm:gap-3`}>
         {stats.map((stat, index) => (
           <div key={index} className="relative">
             {stat.status === "critical" && (
-              <div className="absolute -top-2 -right-2 h-3 w-3 bg-red-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 bg-red-500 rounded-full animate-pulse z-10" />
             )}
             {stat.status === "warning" && (
-              <div className="absolute -top-2 -right-2 h-3 w-3 bg-amber-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 bg-amber-500 rounded-full animate-pulse z-10" />
             )}
 
             <StatsCard
@@ -114,14 +114,14 @@ export function UnifiedStats({
         </div>
       )}
 
-      <div className={`grid ${gridCols[columns]} gap-2 sm:gap-3`}>
+      <div className={`grid ${gridCols[columns]} gap-1.5 sm:gap-3`}>
         {stats.map((stat, index) => (
           <div key={index} className="relative">
             {stat.status === "critical" && (
-              <div className="absolute -top-2 -right-2 h-3 w-3 bg-red-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 bg-red-500 rounded-full animate-pulse z-10" />
             )}
             {stat.status === "warning" && (
-              <div className="absolute -top-2 -right-2 h-3 w-3 bg-amber-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 bg-amber-500 rounded-full animate-pulse z-10" />
             )}
 
             <StatsCard

@@ -197,66 +197,6 @@ export class BackupService {
     }
   }
 
-  static async testConnection(target: 'local' | 'cloud') {
-    try {
-      if (target === 'local') {
-        const db = new sqlite3(this.LOCAL_DB_PATH);
-        db.close();
-        return { success: true, message: "تم الاتصال بقاعدة البيانات المحلية بنجاح" };
-      } else {
-        const { pool } = await import('../db');
-        const client = await pool.connect();
-        const res = await client.query('SELECT current_database()');
-        client.release();
-        return { success: true, message: `تم الاتصال بالقاعدة السحابية: ${res.rows[0].current_database}` };
-      }
-    } catch (error: any) {
-      return { success: false, message: `فشل الاتصال: ${error.message}` };
-    }
-  }
-
-  static async analyzeDatabase(target: 'local' | 'cloud') {
-    try {
-      const { pool } = await import('../db');
-      const client = target === 'cloud' ? await pool.connect() : null;
-      
-      const tables = [
-        'users', 'projects', 'workers', 'worker_types', 'fund_transfers', 
-        'worker_attendance', 'materials', 'material_purchases', 
-        'transportation_expenses', 'daily_expense_summaries', 
-        'worker_transfers', 'worker_balances', 'autocomplete_data',
-        'worker_misc_expenses', 'suppliers', 'supplier_payments',
-        'wells', 'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs',
-        'project_types', 'project_fund_transfers', 'report_templates', 
-        'emergency_users', 'refresh_tokens', 'audit_logs', 'notifications', 
-        'notification_read_states', 'equipment', 'equipment_movements'
-      ];
-
-      const report = [];
-      for (const table of tables) {
-        try {
-          let exists = false;
-          if (target === 'cloud' && client) {
-            const res = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [table]);
-            exists = res.rows[0].exists;
-          } else {
-            const sqlite = new sqlite3(this.LOCAL_DB_PATH);
-            const res = sqlite.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(table);
-            exists = !!res;
-            sqlite.close();
-          }
-          report.push({ table, status: exists ? 'exists' : 'missing' });
-        } catch (e) {
-          report.push({ table, status: 'error', error: (e as any).message });
-        }
-      }
-      if (client) client.release();
-      return { success: true, report };
-    } catch (error: any) {
-      return { success: false, message: error.message };
-    }
-  }
-
   static async sendBackupToTelegram(backupPath: string, totalRows: number) {
     try {
       const botToken = process.env.TELEGRAM_BOT_TOKEN;

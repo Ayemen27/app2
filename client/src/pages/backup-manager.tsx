@@ -14,7 +14,9 @@ import {
   Trash2,
   Calendar,
   Globe,
-  Monitor
+  Monitor,
+  Badge,
+  CheckCircle2
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -309,12 +311,12 @@ export default function BackupManager() {
   });
 
   const filteredLogs = useMemo(() => {
-    return logs.map(log => ({
+    return logs.map((log: any) => ({
       ...log,
       filename: log.filename || log.path || `backup-${log.id}`,
       status: log.status || 'success',
       createdAt: log.createdAt || log.timestamp
-    })).filter(log => {
+    })).filter((log: any) => {
       const matchesSearch = !searchValue || 
         log.filename.toLowerCase().includes(searchValue.toLowerCase());
       const matchesStatus = filterValues.status === "all" || log.status === filterValues.status;
@@ -322,7 +324,7 @@ export default function BackupManager() {
     });
   }, [logs, searchValue, filterValues.status]);
 
-  const lastBackup = logs.find(l => l.status === 'success');
+  const lastBackup = logs.find((l: any) => l.status === 'success');
 
   const { data: emergencyStatus } = useQuery<any>({
     queryKey: ["/api/system/emergency-status"],
@@ -395,8 +397,7 @@ export default function BackupManager() {
             label: "ربط Google Drive",
             icon: HardDrive,
             onClick: handleGDriveAuth,
-            variant: "outline",
-            className: "border-primary text-primary"
+            variant: "outline"
           },
           {
             key: "run-backup",
@@ -404,8 +405,7 @@ export default function BackupManager() {
             icon: backupMutation.isPending ? Loader2 : ShieldCheck,
             onClick: () => backupMutation.mutate(),
             disabled: backupMutation.isPending,
-            variant: "default",
-            className: backupMutation.isPending ? "animate-pulse" : ""
+            variant: "default"
           }
         ]}
       />

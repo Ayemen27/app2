@@ -55,13 +55,29 @@ export default function BackupManager() {
   const { toast } = useToast();
   const [isRestoring, setIsRestoring] = useState<number | null>(null);
   const [selectedLog, setSelectedLog] = useState<BackupLog | null>(null);
-  const [restoreTarget, setRestoreTarget] = useState<'local' | 'cloud'>('local');
+  const [restoreTarget, setRestoreTarget] = useState<'local' | 'cloud' | 'all'>('local');
   const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [backupProgress, setBackupProgress] = useState(0);
+  const [restoreProgress, setRestoreProgress] = useState(0);
+  const [isSuccessfullyRestored, setIsSuccessfullyRestored] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     status: "all",
   });
+
+  const { data: health, isLoading: healthLoading } = useQuery<any>({
+    queryKey: ["/api/admin/data-health"],
+  });
+
+  const availableDatabases = useMemo(() => {
+    if (!health?.data?.databases) return [{ id: 'local', name: 'الجهاز المحلي', description: 'SQLite', type: 'local' }];
+    return health.data.databases.map((db: any) => ({
+      id: db.name.toLowerCase().includes('central') ? 'cloud' : 'local',
+      name: db.name,
+      description: db.status || 'Active',
+      type: db.name.toLowerCase().includes('central') ? 'cloud' : 'local'
+    }));
+  }, [health]);
 
   const { data: logsData, isLoading, refetch } = useQuery<BackupLog[]>({
     queryKey: ["/api/backups/logs"],
@@ -157,21 +173,46 @@ export default function BackupManager() {
 
   const restoreMutation = useMutation({
     mutationFn: async ({ id, target, fileName }: { id: number; target: string; fileName: string }) => {
-      // Use the general admin restore endpoint which handles both targets
-      const res = await apiRequest("/api/admin/restore", "POST", { fileName, target });
-      return res;
+      // محاكاة تقدم الاستعادة للتأثيرات الاحترافية
+      setRestoreProgress(10);
+      const progressInterval = setInterval(() => {
+        setRestoreProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 5;
+        });
+      }, 200);
+
+      try {
+        const res = await apiRequest("/api/admin/restore", "POST", { fileName, target });
+        clearInterval(progressInterval);
+        setRestoreProgress(100);
+        return res;
+      } catch (err) {
+        clearInterval(progressInterval);
+        setRestoreProgress(0);
+        throw err;
+      }
     },
     onSuccess: (data: any) => {
+      setIsSuccessfullyRestored(true);
       toast({ 
-        title: "اكتملت الاستعادة", 
-        description: data.message || "تمت استعادة البيانات بنجاح",
+        title: "اكتملت الاستعادة بنجاح", 
+        description: data.message || "تمت مزامنة واستعادة جميع الجداول المختارة بنجاح.",
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
-      setTimeout(() => window.location.reload(), 2000);
+      setTimeout(() => window.location.reload(), 2500);
     },
     onSettled: () => {
       setIsRestoring(null);
-      setIsRestoreDialogOpen(false);
-      setSelectedLog(null);
+      setTimeout(() => {
+        if (!isSuccessfullyRestored) {
+          setIsRestoreDialogOpen(false);
+          setRestoreProgress(0);
+        }
+      }, 2000);
     }
   });
 
@@ -506,31 +547,42 @@ export default function BackupManager() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold block text-right">اختر قاعدة البيانات المستهدفة:</label>
+            <div className="space-y-3">
+              <label className="text-sm font-bold block text-right flex items-center gap-2">
+                <Database className="h-4 w-4 text-primary" />
+                اختر قاعدة البيانات المستهدفة (اكتشاف تلقائي):
+              </label>
               <Select 
                 value={restoreTarget} 
                 onValueChange={(val: any) => setRestoreTarget(val)}
               >
-                <SelectTrigger className="w-full rounded-xl border-2 h-12">
-                  <SelectValue placeholder="اختر القاعدة" />
+                <SelectTrigger className="w-full rounded-2xl border-2 h-14 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-white transition-all">
+                  <SelectValue placeholder="اختر القاعدة المكتشفة" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="local" className="flex items-center gap-2 py-3">
-                    <div className="flex items-center gap-2">
-                      <Monitor className="h-4 w-4 text-blue-500" />
-                      <div className="text-right">
-                        <p className="font-bold">الجهاز المحلي (Offline/Emergency)</p>
-                        <p className="text-[10px] text-muted-foreground">استعادة إلى قاعدة بيانات SQLite المحلية</p>
+                <SelectContent className="rounded-2xl border-2 shadow-2xl">
+                  {availableDatabases.map((db) => (
+                    <SelectItem key={db.id} value={db.type} className="flex items-center gap-2 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                      <div className="flex items-center gap-3 w-full">
+                        <div className={`p-2 rounded-xl ${db.type === 'cloud' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {db.type === 'cloud' ? <Globe className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+                        </div>
+                        <div className="text-right flex-1">
+                          <p className="font-black text-sm">{db.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{db.description}</p>
+                        </div>
+                        {db.type === 'cloud' && <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold">ONLINE</Badge>}
+                        {db.type === 'local' && <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold">OFFLINE</Badge>}
                       </div>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="cloud" className="flex items-center gap-2 py-3">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-emerald-500" />
-                      <div className="text-right">
-                        <p className="font-bold">السحابة (Cloud Database)</p>
-                        <p className="text-[10px] text-muted-foreground">استعادة إلى قاعدة بيانات PostgreSQL المركزية</p>
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="all" className="flex items-center gap-2 py-4 cursor-pointer border-t mt-2">
+                    <div className="flex items-center gap-3 w-full">
+                      <div className="p-2 rounded-xl bg-purple-100 text-purple-600">
+                        <RefreshCw className="h-5 w-5" />
+                      </div>
+                      <div className="text-right flex-1">
+                        <p className="font-black text-sm text-purple-700">جميع القواعد المكتشفة</p>
+                        <p className="text-[10px] text-purple-500/70 font-medium">استعادة متزامنة (Full Sync Restore)</p>
                       </div>
                     </div>
                   </SelectItem>
@@ -538,33 +590,78 @@ export default function BackupManager() {
               </Select>
             </div>
             
-            <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border-2 border-amber-200 dark:border-amber-800">
-              <p className="text-xs text-amber-800 dark:text-amber-200 font-medium leading-relaxed">
-                ⚠️ تنبيه: سيتم استبدال جميع البيانات الحالية في القاعدة المختارة. تأكد من أنك تملك صلاحيات كافية لهذا الإجراء.
-              </p>
-            </div>
+            {isRestoring !== null && (
+              <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="flex justify-between items-center text-[11px] font-black text-primary uppercase tracking-widest">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    جاري حقن البيانات...
+                  </span>
+                  <span>{restoreProgress}%</span>
+                </div>
+                <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border shadow-inner">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 transition-all duration-500 ease-out shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+                    style={{ width: `${restoreProgress}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-center text-muted-foreground font-medium animate-pulse">
+                  يتم الآن التحقق من صحة الجداول، إيقاف المفاتيح الخارجية، واستبدال السجلات...
+                </p>
+              </div>
+            )}
+
+            {isSuccessfullyRestored && (
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-[1.5rem] border-2 border-emerald-200 dark:border-emerald-800 animate-in zoom-in-95 duration-500 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 shrink-0">
+                  <CheckCircle2 className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-emerald-800 dark:text-emerald-200 leading-tight">
+                    تمت الاستعادة بنجاح!
+                  </p>
+                  <p className="text-[11px] text-emerald-600/80 font-medium mt-1">
+                    سيتم إعادة تحميل النظام لتطبيق التغييرات فوراً.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {!isRestoring && !isSuccessfullyRestored && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border-2 border-amber-200 dark:border-amber-800">
+                <p className="text-xs text-amber-800 dark:text-amber-200 font-medium leading-relaxed">
+                  ⚠️ تنبيه: سيتم استبدال جميع البيانات الحالية في القاعدة المختارة. تأكد من أنك تملك صلاحيات كافية لهذا الإجراء.
+                </p>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="gap-2 sm:justify-start">
+          <DialogFooter className="gap-3 sm:justify-start">
             <Button 
               variant="outline" 
               onClick={() => setIsRestoreDialogOpen(false)}
-              className="rounded-xl px-6"
+              className="rounded-2xl px-6 h-12 border-2 font-bold hover:bg-slate-50 transition-all"
+              disabled={isRestoring !== null || isSuccessfullyRestored}
             >
               إلغاء
             </Button>
             <Button 
               variant="default" 
-              className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-8 font-bold"
+              className="bg-slate-900 hover:bg-black dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-2xl px-10 h-12 font-black text-base shadow-xl hover:shadow-2xl transition-all active:scale-95 disabled:opacity-50"
               onClick={confirmRestore}
-              disabled={isRestoring !== null}
+              disabled={isRestoring !== null || isSuccessfullyRestored}
             >
               {isRestoring !== null ? (
                 <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                  جاري الاستعادة...
+                  <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                  جاري المعالجة...
                 </>
-              ) : "تأكيد الاستعادة"}
+              ) : (
+                <>
+                  <RotateCcw className="ml-2 h-5 w-5" />
+                  بدء الاستعادة الآمنة
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

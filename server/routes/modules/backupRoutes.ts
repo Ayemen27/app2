@@ -20,6 +20,28 @@ router.post("/run", async (req, res) => {
   }
 });
 
+// POST /api/backups/test-connection
+router.post("/test-connection", async (req, res) => {
+  try {
+    const { target } = req.body;
+    const result = await BackupService.testConnection(target);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/backups/analyze
+router.post("/analyze", async (req, res) => {
+  try {
+    const { target } = req.body;
+    const result = await BackupService.analyzeDatabase(target);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/backups/logs
 router.get("/logs", async (req, res) => {
   try {

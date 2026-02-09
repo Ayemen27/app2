@@ -221,6 +221,36 @@ export default function BackupManager() {
     setIsRestoreDialogOpen(true);
   };
 
+  const [analysisReport, setAnalysisReport] = useState<any[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const analyzeMutation = useMutation({
+    mutationFn: async (target: string) => {
+      setIsAnalyzing(true);
+      const res = await apiRequest("/api/backups/analyze", "POST", { target });
+      return res;
+    },
+    onSuccess: (data) => {
+      setAnalysisReport(data.report || []);
+      toast({ title: "اكتمل التحليل", description: "تم فحص جميع الجداول بنجاح" });
+    },
+    onSettled: () => setIsAnalyzing(false)
+  });
+
+  const testConnectionMutation = useMutation({
+    mutationFn: async (target: string) => {
+      const res = await apiRequest("/api/backups/test-connection", "POST", { target });
+      return res;
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: data.success ? "اتصال ناجح" : "فشل الاتصال", 
+        description: data.message,
+        variant: data.success ? "default" : "destructive"
+      });
+    }
+  });
+
   const confirmRestore = () => {
     if (!selectedLog) return;
     setIsRestoring(selectedLog.id);
@@ -552,42 +582,75 @@ export default function BackupManager() {
                 <Database className="h-4 w-4 text-primary" />
                 اختر قاعدة البيانات المستهدفة (اكتشاف تلقائي):
               </label>
-              <Select 
-                value={restoreTarget} 
-                onValueChange={(val: any) => setRestoreTarget(val)}
-              >
-                <SelectTrigger className="w-full rounded-2xl border-2 h-14 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-white transition-all">
-                  <SelectValue placeholder="اختر القاعدة المكتشفة" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-2 shadow-2xl">
-                  {availableDatabases.map((db) => (
-                    <SelectItem key={db.id} value={db.type} className="flex items-center gap-2 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <div className="flex gap-2">
+                <Select 
+                  value={restoreTarget} 
+                  onValueChange={(val: any) => setRestoreTarget(val)}
+                >
+                  <SelectTrigger className="w-full rounded-2xl border-2 h-14 bg-slate-50/50 dark:bg-slate-900/50 hover:bg-white transition-all">
+                    <SelectValue placeholder="اختر القاعدة المكتشفة" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl border-2 shadow-2xl">
+                    {availableDatabases.map((db) => (
+                      <SelectItem key={db.id} value={db.type} className="flex items-center gap-2 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <div className="flex items-center gap-3 w-full">
+                          <div className={`p-2 rounded-xl ${db.type === 'cloud' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                            {db.type === 'cloud' ? <Globe className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+                          </div>
+                          <div className="text-right flex-1">
+                            <p className="font-black text-sm">{db.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{db.description}</p>
+                          </div>
+                          {db.type === 'cloud' && <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold">ONLINE</Badge>}
+                          {db.type === 'local' && <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold">OFFLINE</Badge>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="all" className="flex items-center gap-2 py-4 cursor-pointer border-t mt-2">
                       <div className="flex items-center gap-3 w-full">
-                        <div className={`p-2 rounded-xl ${db.type === 'cloud' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                          {db.type === 'cloud' ? <Globe className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+                        <div className="p-2 rounded-xl bg-purple-100 text-purple-600">
+                          <RefreshCw className="h-5 w-5" />
                         </div>
                         <div className="text-right flex-1">
-                          <p className="font-black text-sm">{db.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{db.description}</p>
+                          <p className="font-black text-sm text-purple-700">جميع القواعد المكتشفة</p>
+                          <p className="text-[10px] text-purple-500/70 font-medium">استعادة متزامنة (Full Sync Restore)</p>
                         </div>
-                        {db.type === 'cloud' && <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold">ONLINE</Badge>}
-                        {db.type === 'local' && <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold">OFFLINE</Badge>}
                       </div>
                     </SelectItem>
-                  ))}
-                  <SelectItem value="all" className="flex items-center gap-2 py-4 cursor-pointer border-t mt-2">
-                    <div className="flex items-center gap-3 w-full">
-                      <div className="p-2 rounded-xl bg-purple-100 text-purple-600">
-                        <RefreshCw className="h-5 w-5" />
-                      </div>
-                      <div className="text-right flex-1">
-                        <p className="font-black text-sm text-purple-700">جميع القواعد المكتشفة</p>
-                        <p className="text-[10px] text-purple-500/70 font-medium">استعادة متزامنة (Full Sync Restore)</p>
-                      </div>
+                  </SelectContent>
+                </Select>
+                <Button 
+                  variant="outline" 
+                  className="h-14 px-4 rounded-2xl"
+                  onClick={() => testConnectionMutation.mutate(restoreTarget)}
+                >
+                  <RefreshCw className={`h-5 w-5 ${testConnectionMutation.isPending ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+
+              <Button 
+                variant="secondary" 
+                className="w-full h-12 rounded-xl text-xs"
+                onClick={() => analyzeMutation.mutate(restoreTarget)}
+                disabled={isAnalyzing}
+              >
+                {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <ShieldCheck className="h-4 w-4 ml-2" />}
+                فحص هيكل الجداول قبل الاستعادة
+              </Button>
+
+              {analysisReport.length > 0 && (
+                <div className="max-h-40 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border text-[10px] space-y-1">
+                  <p className="font-bold mb-2">تقرير فحص الهيكل:</p>
+                  {analysisReport.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-1">
+                      <span>{item.table}</span>
+                      <span className={item.status === 'exists' ? 'text-green-600 font-bold' : 'text-rose-600 font-bold'}>
+                        {item.status === 'exists' ? 'موجود' : 'غير موجود'}
+                      </span>
                     </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                  ))}
+                </div>
+              )}
             </div>
             
             {isRestoring !== null && (

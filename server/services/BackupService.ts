@@ -417,6 +417,143 @@ export class BackupService {
           revoked BOOLEAN DEFAULT false NOT NULL,
           expires_at TIMESTAMP NOT NULL,
           created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'worker_types': `CREATE TABLE IF NOT EXISTS worker_types (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) UNIQUE NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'worker_transfers': `CREATE TABLE IF NOT EXISTS worker_transfers (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          worker_id VARCHAR NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+          from_project_id VARCHAR NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          to_project_id VARCHAR NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          transfer_date TEXT NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'worker_misc_expenses': `CREATE TABLE IF NOT EXISTS worker_misc_expenses (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          worker_id VARCHAR NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+          project_id VARCHAR NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          amount DECIMAL(15,2) NOT NULL,
+          description TEXT NOT NULL,
+          expense_date TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'supplier_payments': `CREATE TABLE IF NOT EXISTS supplier_payments (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          supplier_id VARCHAR NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+          amount DECIMAL(15,2) NOT NULL,
+          payment_date TEXT NOT NULL,
+          payment_method TEXT DEFAULT 'نقد',
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'well_task_accounts': `CREATE TABLE IF NOT EXISTS well_task_accounts (
+          id SERIAL PRIMARY KEY,
+          task_id INTEGER NOT NULL REFERENCES well_tasks(id) ON DELETE CASCADE,
+          account_name TEXT NOT NULL,
+          balance DECIMAL(15,2) DEFAULT '0',
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'well_expenses': `CREATE TABLE IF NOT EXISTS well_expenses (
+          id SERIAL PRIMARY KEY,
+          well_id INTEGER NOT NULL REFERENCES wells(id) ON DELETE CASCADE,
+          category TEXT NOT NULL,
+          amount DECIMAL(15,2) NOT NULL,
+          description TEXT,
+          expense_date TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'well_audit_logs': `CREATE TABLE IF NOT EXISTS well_audit_logs (
+          id SERIAL PRIMARY KEY,
+          well_id INTEGER NOT NULL REFERENCES wells(id) ON DELETE CASCADE,
+          action TEXT NOT NULL,
+          meta JSONB,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'project_fund_transfers': `CREATE TABLE IF NOT EXISTS project_fund_transfers (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          project_id VARCHAR NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          amount DECIMAL(15,2) NOT NULL,
+          transfer_type TEXT NOT NULL,
+          transfer_date TEXT NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'report_templates': `CREATE TABLE IF NOT EXISTS report_templates (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          structure JSONB NOT NULL,
+          is_active BOOLEAN DEFAULT true NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'emergency_users': `CREATE TABLE IF NOT EXISTS emergency_users (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          username TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          role TEXT DEFAULT 'admin' NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'notification_read_states': `CREATE TABLE IF NOT EXISTS notification_read_states (
+          id SERIAL PRIMARY KEY,
+          notification_id INTEGER NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+          user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          read_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          UNIQUE(notification_id, user_id)
+        )`,
+        'equipment_movements': `CREATE TABLE IF NOT EXISTS equipment_movements (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          equipment_id VARCHAR NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+          from_project_id VARCHAR REFERENCES projects(id) ON DELETE SET NULL,
+          to_project_id VARCHAR REFERENCES projects(id) ON DELETE SET NULL,
+          movement_date TEXT NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'auth_user_sessions': `CREATE TABLE IF NOT EXISTS auth_user_sessions (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          session_token TEXT UNIQUE NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          ip_address TEXT,
+          user_agent TEXT,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'email_verification_tokens': `CREATE TABLE IF NOT EXISTS email_verification_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token TEXT NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'password_reset_tokens': `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id SERIAL PRIMARY KEY,
+          user_id VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token TEXT NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )`,
+        'autocomplete_data': `CREATE TABLE IF NOT EXISTS autocomplete_data (
+          id SERIAL PRIMARY KEY,
+          type TEXT NOT NULL,
+          value TEXT NOT NULL,
+          usage_count INTEGER DEFAULT 1,
+          last_used TIMESTAMP DEFAULT NOW(),
+          UNIQUE(type, value)
+        )`,
+        'daily_expense_summaries': `CREATE TABLE IF NOT EXISTS daily_expense_summaries (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          project_id VARCHAR NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          summary_date TEXT NOT NULL,
+          total_materials DECIMAL(15,2) DEFAULT '0',
+          total_workers DECIMAL(15,2) DEFAULT '0',
+          total_transport DECIMAL(15,2) DEFAULT '0',
+          grand_total DECIMAL(15,2) DEFAULT '0',
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          UNIQUE(project_id, summary_date)
         )`
       };
 

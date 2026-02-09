@@ -604,7 +604,7 @@ export default function BackupManager() {
                     <SelectValue placeholder="اختر القاعدة المكتشفة" />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-2 shadow-2xl">
-                    {availableDatabases.map((db) => (
+                    {availableDatabases.map((db: any) => (
                       <SelectItem key={db.id} value={db.type} className="flex items-center gap-2 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <div className="flex items-center gap-3 w-full">
                           <div className={`p-2 rounded-xl ${db.type === 'cloud' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>

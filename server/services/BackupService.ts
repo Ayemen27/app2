@@ -50,6 +50,7 @@ export class BackupService {
       let tablesSuccessfullyBackedUp = 0;
       for (const tableName of tables) {
         try {
+          // Normalize table name to lowercase to avoid "no such table" errors in case sensitive DBs
           const result = await pool.query(`SELECT * FROM "${tableName.toLowerCase()}"`);
           backupData[tableName] = result.rows;
           tablesSuccessfullyBackedUp++;
@@ -203,10 +204,17 @@ export class BackupService {
         db.transaction(() => {
           for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
             if (rows.length === 0) continue;
-            db.prepare(`DELETE FROM "${tableName}"`).run();
+            // التحقق من وجود الجدول أولاً لتجنب خطأ SQLITE_ERROR
+            const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableName.toLowerCase());
+            if (!tableExists) {
+              console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in local DB, skipping...`);
+              continue;
+            }
+
+            db.prepare(`DELETE FROM "${tableName.toLowerCase()}"`).run();
             const columns = Object.keys(rows[0]);
             const placeholders = columns.map(() => '?').join(', ');
-            const stmt = db.prepare(`INSERT INTO "${tableName}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
+            const stmt = db.prepare(`INSERT INTO "${tableName.toLowerCase()}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
             for (const row of rows) {
               stmt.run(Object.values(row));
             }

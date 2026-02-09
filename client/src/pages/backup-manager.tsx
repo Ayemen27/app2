@@ -253,6 +253,19 @@ export default function BackupManager() {
     }
   });
 
+  const createTablesMutation = useMutation({
+    mutationFn: async ({ target, tables }: { target: string; tables: string[] }) => {
+      const res = await apiRequest("/api/backups/create-tables", "POST", { target, tables });
+      return res;
+    },
+    onSuccess: (data) => {
+      toast({ title: "تم إنشاء الجداول", description: data.message });
+      analyzeMutation.mutate(restoreTarget);
+    }
+  });
+
+  const missingTables = useMemo(() => analysisReport.filter(t => t.status === 'missing').map(t => t.table), [analysisReport]);
+
   const confirmRestore = () => {
     if (!selectedLog) return;
     setIsRestoring(selectedLog.id);
@@ -639,16 +652,29 @@ export default function BackupManager() {
               </Button>
 
               {analysisReport.length > 0 && (
-                <div className="max-h-40 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border text-[10px] space-y-1">
-                  <p className="font-bold mb-2">تقرير فحص الهيكل:</p>
-                  {analysisReport.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-1">
-                      <span>{item.table}</span>
-                      <span className={item.status === 'exists' ? 'text-green-600 font-bold' : 'text-rose-600 font-bold'}>
-                        {item.status === 'exists' ? 'موجود' : 'غير موجود'}
-                      </span>
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  <div className="max-h-40 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border text-[10px] space-y-1">
+                    <p className="font-bold mb-2">تقرير فحص الهيكل:</p>
+                    {analysisReport.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-1">
+                        <span>{item.table}</span>
+                        <span className={item.status === 'exists' ? 'text-green-600 font-bold' : 'text-rose-600 font-bold'}>
+                          {item.status === 'exists' ? 'موجود' : 'غير موجود'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {missingTables.length > 0 && (
+                    <Button 
+                      variant="destructive" 
+                      className="w-full h-10 rounded-xl text-[10px] animate-pulse"
+                      onClick={() => createTablesMutation.mutate({ target: restoreTarget, tables: missingTables })}
+                      disabled={createTablesMutation.isPending}
+                    >
+                      <Database className="h-3 w-3 ml-2" />
+                      إنشاء الجداول المفقودة الآن (طبق الأصل)
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

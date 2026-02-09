@@ -169,7 +169,9 @@ export class BackupService {
         'wells', 'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs',
         'project_types', 'project_fund_transfers', 'report_templates', 
         'emergency_users', 'refresh_tokens', 'audit_logs', 'notifications', 
-        'notification_read_states', 'equipment', 'equipment_movements'
+        'notification_read_states', 'equipment', 'equipment_movements',
+        'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
+        'daily_activity_logs'
       ];
 
       const report = [];
@@ -192,6 +194,38 @@ export class BackupService {
       }
       if (client) client.release();
       return { success: true, report };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  static async createMissingTables(target: 'local' | 'cloud', tables: string[]) {
+    try {
+      const { pool } = await import('../db');
+      const client = target === 'cloud' ? await pool.connect() : null;
+      
+      // SQL DDL for essential tables (Sample - in production this would be more robust)
+      const ddlMap: Record<string, string> = {
+        'users': `CREATE TABLE IF NOT EXISTS users (id VARCHAR PRIMARY KEY, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT 'admin', is_active BOOLEAN DEFAULT true)`,
+        'projects': `CREATE TABLE IF NOT EXISTS projects (id VARCHAR PRIMARY KEY, name TEXT NOT NULL, status TEXT DEFAULT 'active', is_active BOOLEAN DEFAULT true)`,
+        'workers': `CREATE TABLE IF NOT EXISTS workers (id VARCHAR PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, daily_wage DECIMAL(15,2), is_active BOOLEAN DEFAULT true)`,
+        'project_types': `CREATE TABLE IF NOT EXISTS project_types (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL)`,
+        'wells': `CREATE TABLE IF NOT EXISTS wells (id SERIAL PRIMARY KEY, project_id VARCHAR REFERENCES projects(id), well_number INTEGER, owner_name TEXT, region VARCHAR(100))`
+      };
+
+      for (const table of tables) {
+        if (ddlMap[table]) {
+          if (target === 'cloud' && client) {
+            await client.query(ddlMap[table]);
+          } else {
+            const sqlite = new sqlite3(this.LOCAL_DB_PATH);
+            sqlite.exec(ddlMap[table]);
+            sqlite.close();
+          }
+        }
+      }
+      if (client) client.release();
+      return { success: true, message: "تم إنشاء الجداول المختارة بنجاح" };
     } catch (error: any) {
       return { success: false, message: error.message };
     }

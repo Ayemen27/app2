@@ -42,6 +42,17 @@ router.post("/analyze", async (req, res) => {
   }
 });
 
+// POST /api/backups/create-tables
+router.post("/create-tables", async (req, res) => {
+  try {
+    const { target, tables } = req.body;
+    const result = await (BackupService as any).createMissingTables?.(target, tables);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/backups/logs
 router.get("/logs", async (req, res) => {
   try {

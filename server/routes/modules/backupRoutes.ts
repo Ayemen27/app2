@@ -73,6 +73,16 @@ router.post("/create-tables", async (req, res) => {
   }
 });
 
+// GET /api/backups/databases
+router.get("/databases", async (req, res) => {
+  try {
+    const dbs = await BackupService.getAvailableDatabases();
+    res.json({ success: true, databases: dbs });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/backups/logs
 router.get("/logs", async (req, res) => {
   try {

@@ -71,15 +71,14 @@ export default function BackupManager() {
     queryKey: ["/api/admin/data-health"],
   });
 
+  const { data: dbListData } = useQuery<{ success: boolean; databases: any[] }>({
+    queryKey: ["/api/backups/databases"],
+  });
+
   const availableDatabases = useMemo(() => {
-    if (!health?.data?.databases) return [{ id: 'local', name: 'الجهاز المحلي', description: 'SQLite', type: 'local' }];
-    return health.data.databases.map((db: any) => ({
-      id: db.name.toLowerCase().includes('central') ? 'cloud' : 'local',
-      name: db.name,
-      description: db.status || 'Active',
-      type: db.name.toLowerCase().includes('central') ? 'cloud' : 'local'
-    }));
-  }, [health]);
+    if (!dbListData?.databases) return [{ id: 'central', name: 'Central DB' }];
+    return dbListData.databases;
+  }, [dbListData]);
 
   const { data: logsData, isLoading, refetch } = useQuery<BackupLog[]>({
     queryKey: ["/api/backups/logs"],
@@ -253,7 +252,8 @@ export default function BackupManager() {
       toast({ 
         title: data.success ? "اتصال ناجح" : "فشل الاتصال", 
         description: data.message,
-        variant: data.success ? "default" : "destructive"
+        variant: data.success ? "default" : "destructive",
+        className: data.success ? "bg-green-50 border-green-200 text-green-800" : ""
       });
     }
   });
@@ -610,21 +610,19 @@ export default function BackupManager() {
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-2 shadow-2xl">
                     {availableDatabases.map((db: any) => (
-                      <SelectItem key={db.id} value={db.type} className="flex items-center gap-2 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                      <SelectItem key={db.id} value={db.id} className="flex items-center gap-2 py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                         <div className="flex items-center gap-3 w-full">
-                          <div className={`p-2 rounded-xl ${db.type === 'cloud' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                            {db.type === 'cloud' ? <Globe className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+                          <div className={`p-2 rounded-xl ${db.id === 'central' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                            {db.id === 'central' ? <Globe className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
                           </div>
                           <div className="text-right flex-1">
                             <p className="font-black text-sm">{db.name}</p>
-                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{db.description}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight">{db.id}</p>
                           </div>
-                          {db.type === 'cloud' && <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-bold">ONLINE</Badge>}
-                          {db.type === 'local' && <Badge className="bg-blue-500/10 text-blue-600 border-none text-[9px] font-bold">OFFLINE</Badge>}
                         </div>
                       </SelectItem>
                     ))}
-                    <SelectItem value="all" className="flex items-center gap-2 py-4 cursor-pointer border-t mt-2">
+                    <SelectItem value="local" className="flex items-center gap-2 py-4 cursor-pointer border-t mt-2">
                       <div className="flex items-center gap-3 w-full">
                         <div className="p-2 rounded-xl bg-purple-100 text-purple-600">
                           <RefreshCw className="h-5 w-5" />

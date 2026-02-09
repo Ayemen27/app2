@@ -208,28 +208,100 @@ export class BackupService {
     };
   }
 
-  static async restoreBackup(filename: string, target: 'local' | 'cloud') {
+  static async getAvailableDatabases() {
+    const dbs = [];
+    const envContent = fs.readFileSync(path.resolve(process.cwd(), '.env'), 'utf8');
+    
+    // البحث عن جميع الروابط التي تبدأ بـ DATABASE_URL_
+    // Use a standard while loop to avoid --downlevelIteration issues with matchAll
+    const regex = /DATABASE_URL_([a-zA-Z0-9_]+)=(.+)/g;
+    let match;
+    while ((match = regex.exec(envContent)) !== null) {
+      dbs.push({
+        id: match[1].toLowerCase(),
+        name: match[1].replace(/_/g, ' '),
+        url: match[2].trim()
+      });
+    }
+
+    // إضافة الخيارات الافتراضية إذا لم تكن موجودة
+    if (!dbs.find(d => d.id === 'central')) {
+      const centralUrl = process.env.DATABASE_URL_CENTRAL;
+      if (centralUrl) {
+        dbs.push({ id: 'central', name: 'Central DB', url: centralUrl });
+      }
+    }
+    
+    return dbs.filter(d => d.url);
+  }
+
+  static async testConnection(target: string) {
+    try {
+      let targetUrl = '';
+      if (target === 'central') {
+        targetUrl = process.env.DATABASE_URL_CENTRAL || '';
+      } else {
+        const dbs = await this.getAvailableDatabases();
+        const db = dbs.find(d => d.id === target.toLowerCase());
+        if (db) targetUrl = db.url;
+      }
+
+      if (!targetUrl) throw new Error("لم يتم العثور على رابط الاتصال");
+
+      const { Pool } = await import('pg');
+      const testPool = new Pool({ 
+        connectionString: targetUrl,
+        connectionTimeoutMillis: 5000 
+      });
+      
+      const client = await testPool.connect();
+      await client.query('SELECT 1');
+      client.release();
+      await testPool.end();
+
+      return { success: true, message: "تم الاتصال بنجاح بقاعدة البيانات الحقيقية" };
+    } catch (error: any) {
+      return { success: false, message: `فشل الاتصال: ${error.message}` };
+    }
+  }
+
+  static async restoreBackup(filename: string, target: string) {
     try {
       const backupPath = path.join(process.cwd(), 'backups', filename);
       if (!fs.existsSync(backupPath)) throw new Error("الملف غير موجود");
+      
       const content = fs.readFileSync(backupPath, 'utf8');
       const { data } = JSON.parse(content);
       
-    // إيقاف القيود مؤقتاً لضمان عدم حدوث تعارضات في العلاقات
-    if (target === 'cloud') {
-      const { pool } = await import('../db');
-      const client = await pool.connect();
+      // تحديد قاعدة البيانات المستهدفة
+      let targetPool;
+      if (target === 'local' || target === 'central') {
+        const { pool } = await import('../db');
+        targetPool = pool;
+      } else {
+        // اكتشاف الرابط من .env للقاعدة المحددة
+        const dbs = await this.getAvailableDatabases();
+        const selectedDb = dbs.find(d => d.id === target.toLowerCase());
+        if (!selectedDb) throw new Error(`قاعدة البيانات ${target} غير معروفة`);
+        
+        const { Pool } = await import('pg');
+        targetPool = new Pool({ connectionString: selectedDb.url });
+      }
+
+      const client = await targetPool.connect();
       try {
         await client.query('BEGIN');
         await client.query('SET CONSTRAINTS ALL DEFERRED');
         
+        // جلب الجداول الموجودة في النسخة الاحتياطية
+        const backupTables = Object.keys(data);
+
         for (const tableName of backupTables) {
           try {
-            // Verify table exists in cloud
             const tableNameLower = tableName.toLowerCase();
             const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableNameLower]);
             if (!tableRes.rows[0].exists) {
-              console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in Cloud DB, skipping...`);
+              console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in target DB, skipping...`);
               continue;
             }
             await client.query(`TRUNCATE TABLE "${tableNameLower}" RESTART IDENTITY CASCADE`);
@@ -242,9 +314,7 @@ export class BackupService {
           try {
             if (rows.length === 0) continue;
             const tableNameLower = tableName.toLowerCase();
-            const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableNameLower]);
-            if (!tableRes.rows[0].exists) continue;
-
+            
             const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
             for (const row of rows) {
               const values = Object.values(row);
@@ -261,46 +331,9 @@ export class BackupService {
         throw e;
       } finally {
         client.release();
+        if (target !== 'local' && target !== 'central') await targetPool.end();
       }
-    } else {
-      const db = new sqlite3(this.LOCAL_DB_PATH);
-      // Ensure tables exist before restore
-      const schema = await import('../../shared/schema');
-      db.transaction(() => {
-        for (const [key, value] of Object.entries(schema)) {
-          if (value && typeof value === 'object' && (value as any).pgConfig) {
-            const tableName = (value as any).pgConfig.name;
-            const tableNameLower = tableName.toLowerCase();
-            const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableNameLower);
-            if (!tableExists) {
-              console.log(`🛠️ [BackupService] Creating missing local table: ${tableName}`);
-              // Simple create table for SQLite
-              const columns = Object.keys((value as any).columns || {});
-              const colDefs = columns.length > 0 
-                ? columns.map(c => `"${c}" TEXT`).join(', ')
-                : '"id" TEXT PRIMARY KEY';
-              db.prepare(`CREATE TABLE IF NOT EXISTS "${tableNameLower}" (${colDefs})`).run();
-            }
-          }
-        }
 
-        for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
-          if (rows.length === 0) continue;
-          const tableNameLower = tableName.toLowerCase();
-          const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableNameLower);
-          if (!tableExists) continue;
-
-          db.prepare(`DELETE FROM "${tableNameLower}"`).run();
-          const columns = Object.keys(rows[0]);
-          const placeholders = columns.map(() => '?').join(', ');
-          const stmt = db.prepare(`INSERT INTO "${tableNameLower}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
-          for (const row of rows) {
-            stmt.run(Object.values(row));
-          }
-        }
-      })();
-      db.close();
-    }
       return { success: true, message: "تمت الاستعادة بنجاح" };
     } catch (error: any) {
       console.error("❌ [BackupService] Restore failed:", error);

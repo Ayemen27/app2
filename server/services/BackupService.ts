@@ -212,6 +212,7 @@ export class BackupService {
           
           for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
             if (rows.length === 0 || !tables.includes(tableName)) continue;
+            const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
             for (const row of rows) {
               const values = Object.values(row);
               const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');

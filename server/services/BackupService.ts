@@ -147,12 +147,14 @@ export class BackupService {
       const files = fs.readdirSync(backupsDir);
       const backups = files
         .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
-        .map(f => {
+        .map((f, index) => {
           const stats = fs.statSync(path.join(backupsDir, f));
           return {
+            id: index + 1,
             filename: f,
-            size: stats.size,
-            createdAt: stats.birthtime
+            size: (stats.size / (1024 * 1024)).toFixed(2),
+            status: 'success',
+            createdAt: stats.mtime.toISOString()
           };
         })
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

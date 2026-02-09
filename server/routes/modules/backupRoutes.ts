@@ -56,28 +56,12 @@ router.post("/create-tables", async (req, res) => {
 // GET /api/backups/logs
 router.get("/logs", async (req, res) => {
   try {
-    const backupsDir = path.resolve(process.cwd(), 'backups');
-    if (!fs.existsSync(backupsDir)) {
-      return res.json([]);
+    const result = await BackupService.listAutoBackups();
+    if (result.success) {
+      res.json(result.backups);
+    } else {
+      res.status(500).json({ success: false, message: result.message });
     }
-
-    const files = fs.readdirSync(backupsDir)
-      .filter(f => f.endsWith('.db') || f.endsWith('.json') || f.endsWith('.sql.gz'))
-      .map((f, index) => {
-        const stats = fs.statSync(path.join(backupsDir, f));
-        return {
-          id: index + 1,
-          filename: f,
-          path: f,
-          size: (stats.size / (1024 * 1024)).toFixed(2), // Convert to MB
-          status: 'success',
-          createdAt: stats.mtime.toISOString(),
-          timestamp: stats.mtime.toISOString()
-        };
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    res.json(files);
   } catch (error: any) {
     console.error("❌ [BackupRoute] Error fetching logs:", error);
     res.status(500).json({ success: false, message: error.message });

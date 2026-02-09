@@ -138,15 +138,15 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
       
       return res.json({
         success: true,
-        data: data.map(item => item.value),
+        data: data.map((item: any) => item.value),
         message: `تم جلب بيانات ${category} بنجاح`,
         processingTime: duration
       });
     }
     
     // إذا لم تكن هناك فئة، أرجع مجموعة حسب الفئة
-    const grouped: Record<string, typeof data> = {};
-    data.forEach(item => {
+    const grouped: Record<string, any[]> = {};
+    data.forEach((item: any) => {
       if (!grouped[item.category]) {
         grouped[item.category] = [];
       }

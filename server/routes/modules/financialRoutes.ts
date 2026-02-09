@@ -58,7 +58,7 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         cleanDateTo
       );
       
-      const totalSummary = summaries.reduce((acc, s) => ({
+      const totalSummary = summaries.reduce((acc: any, s: any) => ({
         totalIncome: acc.totalIncome + s.income.totalIncome,
         totalCashExpenses: acc.totalCashExpenses + s.expenses.totalCashExpenses,
         totalAllExpenses: acc.totalAllExpenses + s.expenses.totalAllExpenses,

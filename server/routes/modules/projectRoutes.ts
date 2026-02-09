@@ -243,42 +243,42 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     };
 
     // تجميع تحويلات العهد حسب (المشروع + التاريخ)
-    fundTransfersResult.forEach(t => {
+    fundTransfersResult.forEach((t: any) => {
       const dateStr = extractDate(t);
       const group = initProjectDateGroup(t.projectId, dateStr);
       group.fundTransfers.push({ ...t, projectName: group.projectName });
     });
 
     // تجميع حضور العمال حسب (المشروع + التاريخ)
-    workerAttendanceResult.forEach(a => {
+    workerAttendanceResult.forEach((a: any) => {
       const dateStr = extractDate(a);
       const group = initProjectDateGroup(a.projectId, dateStr);
       group.workerAttendance.push({ ...a, projectName: group.projectName });
     });
 
     // تجميع مشتريات المواد حسب (المشروع + التاريخ)
-    materialPurchasesResult.forEach(m => {
+    materialPurchasesResult.forEach((m: any) => {
       const dateStr = extractDate(m);
       const group = initProjectDateGroup(m.projectId, dateStr);
       group.materialPurchases.push({ ...m, projectName: group.projectName });
     });
 
     // تجميع مصاريف النقل حسب (المشروع + التاريخ)
-    transportationResult.forEach(t => {
+    transportationResult.forEach((t: any) => {
       const dateStr = extractDate(t);
       const group = initProjectDateGroup(t.projectId, dateStr);
       group.transportationExpenses.push({ ...t, projectName: group.projectName });
     });
 
     // تجميع تحويلات العمال حسب (المشروع + التاريخ)
-    workerTransfersResult.forEach(w => {
+    workerTransfersResult.forEach((w: any) => {
       const dateStr = extractDate(w);
       const group = initProjectDateGroup(w.projectId, dateStr);
       group.workerTransfers.push({ ...w, projectName: group.projectName });
     });
 
     // تجميع المصاريف المتنوعة حسب (المشروع + التاريخ)
-    miscExpensesResult.forEach(m => {
+    miscExpensesResult.forEach((m: any) => {
       const dateStr = extractDate(m);
       const group = initProjectDateGroup(m.projectId, dateStr);
       group.miscExpenses.push({ ...m, projectName: group.projectName });
@@ -327,12 +327,12 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       });
 
     // حساب الإجماليات العامة
-    const overallTotalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
-    const overallTotalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
-    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+    const overallTotalFundTransfers = fundTransfersResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum: number, w: any) => sum + parseFloat(w.paidAmount || '0'), 0);
+    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum: number, m: any) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const overallTotalTransportation = transportationResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0);
+    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0);
 
     const overallTotalIncome = overallTotalFundTransfers;
     const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;
@@ -1434,11 +1434,49 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
   }
 });
 
-/**
- * 📊 جلب مصاريف النقل لمشروع محدد
- * GET /api/projects/:projectId/transportation-expenses
- */
-projectRouter.get('/:projectId/transportation-expenses', async (req: Request, res: Response) => {
+    /**
+     * POST /api/projects/:projectId/material-purchases
+     * إضافة مشترية مواد لمشروع محدد
+     */
+    projectRouter.post('/:projectId/material-purchases', async (req: Request, res: Response) => {
+      const startTime = Date.now();
+      try {
+        const { projectId } = req.params;
+        const body = { ...req.body, projectId };
+
+        // Validation
+        const validationResult = insertMaterialPurchaseSchema.safeParse(body);
+        if (!validationResult.success) {
+          return res.status(400).json({
+            success: false,
+            error: 'بيانات غير صحيحة',
+            details: validationResult.error.errors,
+            processingTime: Date.now() - startTime
+          });
+        }
+
+        const newPurchase = await db.insert(materialPurchases).values(validationResult.data).returning();
+        
+        res.status(201).json({
+          success: true,
+          data: newPurchase[0],
+          message: 'تمت إضافة المشتريات بنجاح',
+          processingTime: Date.now() - startTime
+        });
+      } catch (error: any) {
+        res.status(500).json({
+          success: false,
+          error: error.message,
+          processingTime: Date.now() - startTime
+        });
+      }
+    });
+
+    /**
+     * 📊 جلب مصاريف النقل لمشروع محدد
+     * GET /api/projects/:projectId/transportation-expenses
+     */
+    projectRouter.get('/:projectId/transportation-expenses', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { projectId } = req.params;
@@ -2093,12 +2131,12 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
     ]);
 
     // حساب المجاميع
-    const totalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const totalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount), 0);
-    const totalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount), 0);
-    const totalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    const totalFundTransfers = fundTransfersResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const totalWorkerWages = workerAttendanceResult.reduce((sum: number, w: any) => sum + parseFloat(w.paidAmount || '0'), 0);
+    const totalMaterialCosts = materialPurchasesResult.reduce((sum: number, m: any) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const totalTransportation = transportationResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const totalWorkerTransfers = workerTransfersResult.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0);
+    const totalMiscExpenses = miscExpensesResult.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0);
 
     const totalIncome = totalFundTransfers;
     const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
@@ -2321,14 +2359,14 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
     };
 
     // تجميع تحويلات العهد حسب التاريخ
-    fundTransfersResult.forEach(t => {
+    fundTransfersResult.forEach((t: any) => {
       const dateStr = extractDate(t);
       const group = initDateGroup(dateStr);
       group.fundTransfers.push({ ...t, projectName });
     });
 
     // تجميع حضور العمال حسب التاريخ
-    workerAttendanceResult.forEach(a => {
+    workerAttendanceResult.forEach((a: any) => {
       const dateStr = extractDate(a);
       const group = initDateGroup(dateStr);
       // التأكد من شمول من لديهم مبالغ مدفوعة أو أيام عمل
@@ -2338,28 +2376,28 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
     });
 
     // تجميع مشتريات المواد حسب التاريخ
-    materialPurchasesResult.forEach(m => {
+    materialPurchasesResult.forEach((m: any) => {
       const dateStr = extractDate(m);
       const group = initDateGroup(dateStr);
       group.materialPurchases.push({ ...m, projectName });
     });
 
     // تجميع مصاريف النقل حسب التاريخ
-    transportationResult.forEach(t => {
+    transportationResult.forEach((t: any) => {
       const dateStr = extractDate(t);
       const group = initDateGroup(dateStr);
       group.transportationExpenses.push({ ...t, projectName });
     });
 
     // تجميع تحويلات العمال حسب التاريخ
-    workerTransfersResult.forEach(w => {
+    workerTransfersResult.forEach((w: any) => {
       const dateStr = extractDate(w);
       const group = initDateGroup(dateStr);
       group.workerTransfers.push({ ...w, projectName });
     });
 
     // تجميع المصاريف المتنوعة حسب التاريخ
-    miscExpensesResult.forEach(m => {
+    miscExpensesResult.forEach((m: any) => {
       const dateStr = extractDate(m);
       const group = initDateGroup(dateStr);
       group.miscExpenses.push({ ...m, projectName });
@@ -2403,12 +2441,12 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
       .sort((a, b) => b.date.localeCompare(a.date)); // ترتيب حسب التاريخ (الأحدث أولاً)
 
     // حساب الإجماليات العامة
-    const overallTotalFundTransfers = fundTransfersResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
-    const overallTotalTransportation = transportationResult.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
-    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+    const overallTotalFundTransfers = fundTransfersResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum: number, w: any) => sum + parseFloat(w.paidAmount || '0'), 0);
+    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum: number, m: any) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const overallTotalTransportation = transportationResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0);
+    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0);
 
     const overallTotalIncome = overallTotalFundTransfers;
     const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;

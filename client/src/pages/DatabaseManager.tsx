@@ -153,8 +153,7 @@ export default function DatabaseManager() {
   return (
     <div className="space-y-4" dir="rtl">
       <UnifiedFilterDashboard
-        title="إدارة قواعد البيانات"
-        subtitle="مراقبة وتحليل وصيانة قواعد البيانات"
+        hideHeader={true}
         statsRows={statsRows}
         searchValue={searchValue}
         onSearchChange={setSearchValue}
@@ -189,21 +188,21 @@ export default function DatabaseManager() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full justify-start flex-wrap gap-1" data-testid="tabs-db-manager">
-          <TabsTrigger value="overview" className="gap-1.5" data-testid="tab-overview">
-            <BarChart3 className="h-4 w-4" /> نظرة عامة
+        <TabsList className="w-full grid grid-cols-5 h-10" data-testid="tabs-db-manager">
+          <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-overview">
+            <BarChart3 className="h-3.5 w-3.5 shrink-0" /> <span className="hidden sm:inline">نظرة عامة</span><span className="sm:hidden">عامة</span>
           </TabsTrigger>
-          <TabsTrigger value="tables" className="gap-1.5" data-testid="tab-tables">
-            <TableIcon className="h-4 w-4" /> الجداول
+          <TabsTrigger value="tables" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-tables">
+            <TableIcon className="h-3.5 w-3.5 shrink-0" /> <span>الجداول</span>
           </TabsTrigger>
-          <TabsTrigger value="integrity" className="gap-1.5" data-testid="tab-integrity">
-            <ShieldCheck className="h-4 w-4" /> سلامة البيانات
+          <TabsTrigger value="integrity" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-integrity">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> <span className="hidden sm:inline">سلامة البيانات</span><span className="sm:hidden">السلامة</span>
           </TabsTrigger>
-          <TabsTrigger value="performance" className="gap-1.5" data-testid="tab-performance">
-            <Activity className="h-4 w-4" /> الأداء
+          <TabsTrigger value="performance" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-performance">
+            <Activity className="h-3.5 w-3.5 shrink-0" /> <span>الأداء</span>
           </TabsTrigger>
-          <TabsTrigger value="maintenance" className="gap-1.5" data-testid="tab-maintenance">
-            <Wrench className="h-4 w-4" /> الصيانة
+          <TabsTrigger value="maintenance" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-maintenance">
+            <Wrench className="h-3.5 w-3.5 shrink-0" /> <span>الصيانة</span>
           </TabsTrigger>
         </TabsList>
 

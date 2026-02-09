@@ -6,7 +6,7 @@ import {
 import { 
   Database, RefreshCw, HardDrive, Server, Globe, 
   ShieldCheck, Activity, Search, Table as TableIcon, DatabaseZap, Wifi, WifiOff,
-  CheckCircle2, Clock, Zap, ArrowRightLeft, Shield, Loader2, SyncIcon
+  CheckCircle2, Clock, Zap, ArrowRightLeft, Shield, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -222,8 +222,14 @@ export default function DatabaseManager() {
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Progress value={Math.min(100, (row.clientCount / (row.serverCount || 1)) * 100)} className="h-1.5 w-16" />
-                            <Badge variant={row.diff === 0 ? "default" : "secondary"} className="text-[10px] py-0 px-2">
-                              {row.diff === 0 ? 'مطابق' : `فارق ${row.diff}`}
+                            <Badge variant={row.diff === 0 ? "default" : (row.diff > 0 ? "destructive" : "secondary")} className="text-[10px] py-0 px-2 shadow-sm border-none">
+                              {row.diff === 0 ? (
+                                <span className="flex items-center gap-1"><CheckCircle2 className="h-2.5 w-2.5" /> مطابق</span>
+                              ) : row.diff > 0 ? (
+                                `نقص ${row.diff}`
+                              ) : (
+                                `زيادة ${Math.abs(row.diff)}`
+                              )}
                             </Badge>
                           </div>
                         </TableCell>

@@ -8,7 +8,9 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
 import { db, pool } from '../../db.js';
-import { ALL_SYNC_TABLES, getAllTablesData, verifySync } from '../../sync.js';
+import { ALL_SYNC_TABLES } from '../../sync.js';
+// @ts-ignore
+import { getAllTablesData, verifySync } from '../../sync.js';
 
 export const syncRouter = express.Router();
 

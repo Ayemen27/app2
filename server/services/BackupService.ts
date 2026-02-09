@@ -244,14 +244,59 @@ export class BackupService {
 
     try {
       if (TelegramService.isEnabled()) {
-        const sent = await TelegramService.sendBackupNotification(result);
-        result.telegramSent = sent;
+        const fileSizeMB = result.sizeBytes ? result.sizeBytes / (1024 * 1024) : 0;
+        const TELEGRAM_FILE_LIMIT_MB = 50;
+
+        if (fileSizeMB > 0 && fileSizeMB <= TELEGRAM_FILE_LIMIT_MB && result.success) {
+          console.log(`📤 [BackupService] إرسال ملف النسخة إلى Telegram (${fileSizeMB.toFixed(2)} MB)...`);
+
+          const now = new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' });
+          const driveStatus = result.driveUploaded
+            ? `✅ Google Drive`
+            : `⚠️ Drive غير مرفوع`;
+
+          const caption = [
+            `💾 <b>نسخة احتياطية - AXION</b>`,
+            `📊 ${result.tablesCount} جدول | ${result.totalRows} سجل`,
+            `💿 ${result.sizeMB} MB | ضغط ${result.compressionRatio}`,
+            `⏱ ${((result.durationMs || 0) / 1000).toFixed(1)} ثانية`,
+            `🔧 ${result.triggeredBy === 'auto' ? 'تلقائي' : 'يدوي'} | ☁️ ${driveStatus}`,
+            `🕐 ${now}`,
+          ].join('\n');
+
+          const fileSent = await TelegramService.sendDocument({
+            filePath,
+            caption,
+            parseMode: 'HTML',
+          });
+          result.telegramSent = fileSent;
+          result.telegramFileSent = fileSent;
+
+          if (fileSent) {
+            console.log('✅ [BackupService] تم إرسال ملف النسخة إلى Telegram');
+          } else {
+            console.warn('⚠️ [BackupService] فشل إرسال الملف - إرسال الإشعار النصي فقط');
+            const sent = await TelegramService.sendBackupNotification(result);
+            result.telegramSent = sent;
+            result.telegramFileSent = false;
+          }
+        } else if (fileSizeMB > TELEGRAM_FILE_LIMIT_MB) {
+          console.log(`⚠️ [BackupService] حجم الملف (${fileSizeMB.toFixed(1)} MB) يتجاوز حد Telegram (${TELEGRAM_FILE_LIMIT_MB} MB) - إرسال إشعار نصي فقط`);
+          const sent = await TelegramService.sendBackupNotification(result);
+          result.telegramSent = sent;
+          result.telegramFileSent = false;
+        } else {
+          const sent = await TelegramService.sendBackupNotification(result);
+          result.telegramSent = sent;
+          result.telegramFileSent = false;
+        }
       } else {
         console.log('ℹ️ [BackupService] Telegram غير مفعّل - تخطي الإشعار');
       }
     } catch (error: any) {
-      console.error('❌ [BackupService] خطأ في إشعار Telegram:', error.message);
+      console.error('❌ [BackupService] خطأ في إشعار/ملف Telegram:', error.message);
       result.telegramSent = false;
+      result.telegramFileSent = false;
     }
   }
 

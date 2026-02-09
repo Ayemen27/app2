@@ -265,16 +265,16 @@ export function StatsCard({
         <div className="flex items-center justify-between gap-1.5 sm:gap-3">
           <div className="flex-1 min-w-0">
             <LabelWithTooltip>
-              <p className="text-[9px] sm:text-xs font-black text-muted-foreground/80 uppercase tracking-tight sm:tracking-widest truncate mb-0.5 sm:mb-1">
+              <p className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-tight truncate mb-0.5">
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <p className={cn("text-lg sm:text-2xl font-black font-mono tracking-tighter leading-none", colors.text)}>
+            <p className={cn("text-xl font-bold font-mono tracking-tighter leading-none", colors.text)}>
               {displayValue}
             </p>
           </div>
-          <div className={cn("h-8 w-8 sm:h-12 sm:w-12 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ring-2 sm:ring-4 ring-white/50 dark:ring-black/10", colors.iconBg)}>
-            <Icon className={cn("h-4 w-4 sm:h-6 sm:w-6", colors.iconColor)} />
+          <div className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ring-2 sm:ring-4 ring-white/50 dark:ring-black/10", colors.iconBg)}>
+            <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", colors.iconColor)} />
           </div>
         </div>
       </CardContent>

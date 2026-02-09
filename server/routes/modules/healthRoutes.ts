@@ -73,7 +73,7 @@ healthRouter.get('/health/full', async (req: Request, res: Response) => {
 /**
  * فحص سلامة البيانات
  */
-healthRouter.get('/data-health', async (req: Request, res: Response) => {
+healthRouter.get('/data-health', requireAuth, async (req: Request, res: Response) => {
   try {
     const result = await healthMonitor.checkIntegrity();
     res.json({
@@ -93,7 +93,7 @@ healthRouter.get('/data-health', async (req: Request, res: Response) => {
 /**
  * فحص سلامة البيانات (مسار بديل)
  */
-healthRouter.get('/health/integrity', async (req: Request, res: Response) => {
+healthRouter.get('/health/integrity', requireAuth, async (req: Request, res: Response) => {
   try {
     const result = await healthMonitor.checkIntegrity();
     res.json({
@@ -164,7 +164,7 @@ healthRouter.post('/health/circuits/:name/reset', requireAuth, (req: Request, re
 /**
  * فحص الاتصال بقواعد البيانات
  */
-healthRouter.get('/health/connections', async (req: Request, res: Response) => {
+healthRouter.get('/health/connections', requireAuth, async (req: Request, res: Response) => {
   try {
     const connectionTest = await smartConnectionManager.runConnectionTest();
     const status = smartConnectionManager.getConnectionStatus();
@@ -334,51 +334,52 @@ healthRouter.get('/schema-check', requireAuth, requireRole('admin'), async (req:
 
 /**
  * GET /api/health/stats
- * جلب إحصائيات النظام لمحاكاة بيانات SigNoz/Prometheus
+ * إحصائيات النظام الحقيقية
  */
-healthRouter.get('/stats', async (_req: Request, res: Response) => {
+healthRouter.get('/stats', requireAuth, async (_req: Request, res: Response) => {
   try {
-    // محاكاة بيانات المراقبة - في الإنتاج سيتم جلبها من SigNoz API
+    const memoryUsage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
+    const totalCpuTime = (cpuUsage.user + cpuUsage.system) / 1000000;
+    const uptimeSeconds = process.uptime();
+    const cpuPercent = Math.min(100, Math.round((totalCpuTime / uptimeSeconds) * 100));
+
     const stats = {
-      cpuUsage: Math.floor(Math.random() * 30) + 10, // 10-40%
-      memoryUsage: Math.floor(Math.random() * 40) + 20, // 20-60%
-      activeRequests: Math.floor(Math.random() * 50) + 5,
-      errorRate: (Math.random() * 2).toFixed(2), // 0-2%
-      uptime: process.uptime()
+      cpuUsage: cpuPercent,
+      memoryUsage: Math.round((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100),
+      memoryDetails: {
+        heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+        heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+        rss: Math.round(memoryUsage.rss / 1024 / 1024),
+        external: Math.round(memoryUsage.external / 1024 / 1024)
+      },
+      uptime: uptimeSeconds
     };
 
-    res.json({
-      success: true,
-      data: stats
-    });
+    res.json({ success: true, data: stats });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'فشل في جلب إحصائيات النظام'
-    });
+    res.status(500).json({ success: false, message: 'فشل في جلب إحصائيات النظام' });
   }
 });
 
-// Alias for compatibility if needed
-healthRouter.get('/health/stats', async (_req: Request, res: Response) => {
+healthRouter.get('/health/stats', requireAuth, async (_req: Request, res: Response) => {
   try {
-    const stats = {
-      cpuUsage: Math.floor(Math.random() * 30) + 10,
-      memoryUsage: Math.floor(Math.random() * 40) + 20,
-      activeRequests: Math.floor(Math.random() * 50) + 5,
-      errorRate: (Math.random() * 2).toFixed(2),
-      uptime: process.uptime()
-    };
+    const memoryUsage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
+    const totalCpuTime = (cpuUsage.user + cpuUsage.system) / 1000000;
+    const uptimeSeconds = process.uptime();
+    const cpuPercent = Math.min(100, Math.round((totalCpuTime / uptimeSeconds) * 100));
 
     res.json({
       success: true,
-      data: stats
+      data: {
+        cpuUsage: cpuPercent,
+        memoryUsage: Math.round((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100),
+        uptime: uptimeSeconds
+      }
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'فشل في جلب إحصائيات النظام'
-    });
+    res.status(500).json({ success: false, message: 'فشل في جلب إحصائيات النظام' });
   }
 });
 
@@ -398,7 +399,7 @@ healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, r
       timestamp: new Date().toISOString(),
       data: {
         isEmergencyMode: (global as any).isEmergencyMode || false,
-        dbType: backupStatus.enabled ? "النسخ التلقائي مبرمج" : "يدوي",
+        dbType: backupStatus.schedulerEnabled ? "النسخ التلقائي مبرمج" : "يدوي",
         integrity: integrity
       }
     });
@@ -412,6 +413,90 @@ healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, r
 });
 
 
-console.log('🏥 [HealthRouter] تم تهيئة مسارات الصحة والمراقبة');
+/**
+ * ===== مسارات إدارة قواعد البيانات المتقدمة =====
+ */
+
+import { DbMetricsService } from '../../services/db-metrics';
+
+healthRouter.get('/db/overview', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  try {
+    const overview = await DbMetricsService.getDatabaseOverview();
+    res.json({ success: true, data: overview });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.get('/db/tables', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  try {
+    const tables = await DbMetricsService.getTablesMetrics();
+    res.json({ success: true, data: tables });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.get('/db/tables/:name', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { name } = req.params;
+    if (!/^[a-z_]+$/.test(name)) {
+      return res.status(400).json({ success: false, error: 'اسم جدول غير صالح' });
+    }
+    const details = await DbMetricsService.getTableDetails(name);
+    res.json({ success: true, data: details });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.get('/db/performance', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  try {
+    const metrics = await DbMetricsService.getPerformanceMetrics();
+    res.json({ success: true, data: metrics });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.get('/db/integrity', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  try {
+    const report = await DbMetricsService.checkDataIntegrity();
+    res.json({ success: true, data: report });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.post('/db/maintenance', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { action, tableName } = req.body;
+    if (!['vacuum', 'analyze', 'reindex'].includes(action)) {
+      return res.status(400).json({ success: false, error: 'عملية غير مدعومة' });
+    }
+    if (tableName && !/^[a-z_]+$/.test(tableName)) {
+      return res.status(400).json({ success: false, error: 'اسم جدول غير صالح' });
+    }
+    const result = await DbMetricsService.runMaintenance(action, tableName);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.post('/db/test-connection', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { connectionString } = req.body;
+    if (!connectionString) {
+      return res.status(400).json({ success: false, error: 'رابط الاتصال مطلوب' });
+    }
+    const result = await DbMetricsService.testConnection(connectionString);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+console.log('🏥 [HealthRouter] تم تهيئة مسارات الصحة والمراقبة وإدارة قواعد البيانات');
 
 export default healthRouter;

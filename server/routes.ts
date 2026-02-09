@@ -20,39 +20,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { BackupService } = await import('./services/BackupService');
   BackupService.startAutoBackupScheduler();
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ 
-      status: "ok", 
-      timestamp: new Date().toISOString(),
-      version: "1.0.0-global-standard"
-    });
-  });
-
-  app.get("/api/health/stats", async (_req, res) => {
-    try {
-      const { BackupService } = await import('./services/BackupService');
-      const backupStatus = BackupService.getAutoBackupStatus();
-      
-      res.json({
-        success: true,
-        data: {
-          cpuUsage: parseFloat((process.cpuUsage().user / 1000000).toFixed(1)),
-          memoryUsage: parseFloat((process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100).toFixed(1)),
-          activeRequests: 0,
-          errorRate: "0.00",
-          uptime: process.uptime(),
-          dbStatus: "connected",
-          backupStatus,
-          timestamp: new Date().toISOString(),
-          nodeVersion: process.version,
-          platform: process.platform
-        }
-      });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1,330 +1,690 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Card, CardContent, CardHeader, CardTitle, CardDescription 
 } from "@/components/ui/card";
 import { 
-  Database, RefreshCw, HardDrive, Server, Globe, 
-  ShieldCheck, Activity, Search, Table as TableIcon, DatabaseZap, Wifi, WifiOff,
-  CheckCircle2, Clock, Zap, ArrowRightLeft, Shield, Loader2
+  Database, RefreshCw, HardDrive, Server, 
+  ShieldCheck, Activity, Search, Table as TableIcon, 
+  Wifi, WifiOff, CheckCircle2, Clock, Zap, 
+  ArrowRightLeft, Shield, Loader2, Settings,
+  BarChart3, Wrench, AlertTriangle, ChevronDown, ChevronUp,
+  Hash, Columns3, FileText, ArrowUpDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { getDB } from "@/offline/db";
-import { verifySyncStatus, SyncState, getSyncState, forceSyncTable } from "@/offline/sync";
-import { UnifiedStats } from "@/components/ui/unified-stats";
-import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
 
 export default function DatabaseManager() {
   const { toast } = useToast();
-  const [syncState, setSyncState] = useState<SyncState>(getSyncState());
-  const [comparison, setComparison] = useState<any>(null);
-  const [localTableStats, setLocalTableStats] = useState<Record<string, number>>({});
-  const [syncingTables, setSyncingTables] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState("overview");
+  const [expandedTable, setExpandedTable] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'size' | 'rows' | 'name'>('size');
 
-  const {
-    searchValue,
-    onSearchChange,
-    onReset
-  } = useUnifiedFilter({}, '');
+  const { searchValue, onSearchChange, onReset } = useUnifiedFilter({}, '');
 
-  const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<any>({
-    queryKey: ["/api/admin/data-health"],
+  const { data: overview, isLoading: overviewLoading, refetch: refetchOverview } = useQuery<any>({
+    queryKey: ["/api/db/overview"],
   });
 
-  const syncMutation = useMutation({
-    mutationFn: async (tableName: string) => {
-      setSyncingTables(prev => ({ ...prev, [tableName]: true }));
-      try {
-        const response = await apiRequest("POST", "/api/sync/instant-sync", { tables: [tableName] });
-        const result = await response.json();
-        
-        if (result.success && result.data[tableName]) {
-          await forceSyncTable(tableName, result.data[tableName]);
-          return result;
-        }
-        throw new Error("فشلت المزامنة");
-      } finally {
-        setSyncingTables(prev => ({ ...prev, [tableName]: false }));
-      }
+  const { data: tables, isLoading: tablesLoading, refetch: refetchTables } = useQuery<any>({
+    queryKey: ["/api/db/tables"],
+  });
+
+  const { data: performance, isLoading: perfLoading, refetch: refetchPerf } = useQuery<any>({
+    queryKey: ["/api/db/performance"],
+  });
+
+  const { data: integrity, isLoading: integrityLoading, refetch: refetchIntegrity } = useQuery<any>({
+    queryKey: ["/api/db/integrity"],
+  });
+
+  const { data: systemStats } = useQuery<any>({
+    queryKey: ["/api/stats"],
+  });
+
+  const maintenanceMutation = useMutation({
+    mutationFn: async ({ action, tableName }: { action: string; tableName?: string }) => {
+      const res = await apiRequest("POST", "/api/db/maintenance", { action, tableName });
+      return res.json();
     },
-    onSuccess: (_, tableName) => {
+    onSuccess: (result) => {
+      const data = result?.data;
       toast({
-        title: "تمت المزامنة",
-        description: `تمت مزامنة جدول ${tableName} بنجاح`,
+        title: data?.success ? "تمت العملية بنجاح" : "فشلت العملية",
+        description: data?.message || "تمت العملية",
+        variant: data?.success ? "default" : "destructive",
       });
-      verifySyncStatus().then(setComparison);
+      refetchAll();
     },
     onError: (error) => {
-      toast({
-        title: "خطأ في المزامنة",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "خطأ", description: error.message, variant: "destructive" });
     }
   });
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSyncState(getSyncState());
-    }, 2000);
+  const refetchAll = () => {
+    refetchOverview();
+    refetchTables();
+    refetchPerf();
+    refetchIntegrity();
+  };
 
-    const loadLocalStats = async () => {
-      try {
-        const db = await getDB();
-        const stats: Record<string, number> = {};
-        const stores = Array.from(db.objectStoreNames) as string[];
-        
-        for (const store of stores) {
-          try {
-            const tx = db.transaction(store, 'readonly');
-            const count = await tx.store.count();
-            stats[store] = count;
-          } catch (e) {
-            stats[store] = 0;
-          }
-        }
-        setLocalTableStats(stats);
-      } catch (err) {
-        console.error("Local stats error:", err);
-      }
-    };
+  const db = overview?.data;
+  const tableList = tables?.data || [];
+  const perf = performance?.data;
+  const integrityData = integrity?.data;
+  const sysStats = systemStats?.data;
 
-    loadLocalStats();
-    verifySyncStatus().then(setComparison);
+  const filteredTables = tableList
+    .filter((t: any) => t.name.toLowerCase().includes(searchValue.toLowerCase()))
+    .sort((a: any, b: any) => {
+      if (sortBy === 'size') return b.totalSizeBytes - a.totalSizeBytes;
+      if (sortBy === 'rows') return b.rowCount - a.rowCount;
+      return a.name.localeCompare(b.name);
+    });
 
-    return () => clearInterval(interval);
-  }, []);
+  const totalRows = tableList.reduce((s: number, t: any) => s + t.rowCount, 0);
+  const totalSizeBytes = tableList.reduce((s: number, t: any) => s + t.totalSizeBytes, 0);
 
-  const stats = health?.data;
-
-  const filteredDifferences = useMemo(() => {
-    if (!comparison?.differences) return [];
-    return comparison.differences.filter((row: any) => 
-      row.table.toLowerCase().includes(searchValue.toLowerCase())
-    );
-  }, [comparison, searchValue]);
+  const integrityScore = integrityData?.score ?? 0;
+  const integrityColor = integrityScore >= 90 ? 'text-emerald-600' : integrityScore >= 75 ? 'text-yellow-600' : 'text-red-600';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-500/10 rounded-2xl border-2 border-blue-500/20 shadow-inner">
-            <DatabaseZap className="h-8 w-8 text-blue-600" />
+    <div className="space-y-6" dir="rtl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-primary/10 rounded-xl">
+            <Database className="h-7 w-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">
-              إدارة قاعدة البيانات
+            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">
+              إدارة قواعد البيانات
             </h1>
-            <p className="text-muted-foreground font-medium">مزامنة وتحليل البيانات بين السحابة والجهاز</p>
+            <p className="text-sm text-muted-foreground">مراقبة وتحليل وصيانة قواعد البيانات</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-2xl border-2 shadow-sm">
-          <Badge variant={syncState.isOnline ? "default" : "destructive"} className="px-6 py-2 rounded-xl text-sm font-bold shadow-sm border-none">
-            {syncState.isOnline ? <Wifi className="w-4 h-4 ml-2" /> : <WifiOff className="w-4 h-4 ml-2" />}
-            {syncState.isOnline ? "متصل" : "غير متصل"}
-          </Badge>
-          <Button onClick={() => { refetchHealth(); verifySyncStatus().then(setComparison); }} variant="outline" className="gap-2 rounded-xl h-11 px-6 border-2 font-bold hover-elevate transition-all">
-            <RefreshCw className={`h-5 w-5 ${healthLoading ? 'animate-spin' : ''}`} />
-            تحديث الحالة
-          </Button>
-        </div>
+        <Button 
+          onClick={refetchAll} 
+          variant="outline" 
+          className="gap-2"
+          data-testid="button-refresh-all"
+        >
+          <RefreshCw className={`h-4 w-4 ${overviewLoading ? 'animate-spin' : ''}`} />
+          تحديث البيانات
+        </Button>
       </div>
 
-      <UnifiedSearchFilter
-        searchValue={searchValue}
-        onSearchChange={onSearchChange}
-        onReset={onReset}
-        searchPlaceholder="بحث في الجداول والقواعد..."
-      />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card data-testid="card-stat-tables">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <TableIcon className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">الجداول</span>
+            </div>
+            <p className="text-2xl font-bold">{overviewLoading ? '...' : db?.totalTables || 0}</p>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-stat-records">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Hash className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">السجلات</span>
+            </div>
+            <p className="text-2xl font-bold">{overviewLoading ? '...' : (db?.totalRows || totalRows).toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-stat-size">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <HardDrive className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">الحجم</span>
+            </div>
+            <p className="text-2xl font-bold">{overviewLoading ? '...' : db?.size || '0 B'}</p>
+          </CardContent>
+        </Card>
+        <Card data-testid="card-stat-integrity">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">سلامة البيانات</span>
+            </div>
+            <p className={`text-2xl font-bold ${integrityColor}`}>
+              {integrityLoading ? '...' : `${integrityScore}%`}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <UnifiedStats
-        stats={[
-          {
-            title: "سلامة البيانات",
-            value: "100%",
-            icon: ShieldCheck,
-            color: "green",
-            status: "normal"
-          },
-          {
-            title: "زمن الاستجابة",
-            value: `${syncState.latency || 0}ms`,
-            icon: Activity,
-            color: "blue"
-          },
-          {
-            title: "العمليات المعلقة",
-            value: syncState.pendingCount.toString(),
-            icon: Clock,
-            color: syncState.pendingCount > 0 ? "orange" : "blue"
-          },
-          {
-            title: "وضع المحرك",
-            value: syncState.isOnline ? "Cloud" : "Edge",
-            icon: Zap,
-            color: "purple"
-          }
-        ]}
-      />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full justify-start flex-wrap gap-1" data-testid="tabs-db-manager">
+          <TabsTrigger value="overview" className="gap-1.5" data-testid="tab-overview">
+            <BarChart3 className="h-4 w-4" /> نظرة عامة
+          </TabsTrigger>
+          <TabsTrigger value="tables" className="gap-1.5" data-testid="tab-tables">
+            <TableIcon className="h-4 w-4" /> الجداول
+          </TabsTrigger>
+          <TabsTrigger value="integrity" className="gap-1.5" data-testid="tab-integrity">
+            <Shield className="h-4 w-4" /> سلامة البيانات
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="gap-1.5" data-testid="tab-performance">
+            <Activity className="h-4 w-4" /> الأداء
+          </TabsTrigger>
+          <TabsTrigger value="maintenance" className="gap-1.5" data-testid="tab-maintenance">
+            <Wrench className="h-4 w-4" /> الصيانة
+          </TabsTrigger>
+        </TabsList>
 
-      <UnifiedCardGrid columns={3}>
-        {stats?.databases.map((db: any, i: number) => (
-          <UnifiedCard 
-            key={i}
-            title={db.name}
-            subtitle={db.status === 'online' || db.status === 'active' ? 'Active' : 'Standby'}
-            titleIcon={db.name.includes('Central') ? Server : db.name.includes('Supabase') ? Globe : HardDrive}
-            fields={[
-              { label: "Response Time", value: db.latency !== 'N/A' ? db.latency : '--', emphasis: true },
-              { label: "Tables", value: db.tablesCount },
-              { label: "Integrity", value: "VALIDATED", color: "success" }
-            ]}
-          />
-        ))}
-      </UnifiedCardGrid>
+        <TabsContent value="overview" className="space-y-4 mt-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Server className="h-5 w-5" />
+                  معلومات القاعدة
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {overviewLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : db ? (
+                  <div className="space-y-2">
+                    <InfoRow label="اسم القاعدة" value={db.name} />
+                    <InfoRow label="الإصدار" value={db.version} />
+                    <InfoRow label="الحجم الكلي" value={db.size} />
+                    <InfoRow label="عدد الجداول" value={db.totalTables} />
+                    <InfoRow label="إجمالي السجلات" value={(db.totalRows || 0).toLocaleString()} />
+                    <InfoRow label="عدد الفهارس" value={db.totalIndexes} />
+                    <InfoRow label="وقت التشغيل" value={db.uptime} />
+                    <InfoRow label="الاتصالات النشطة" value={`${db.activeConnections} / ${db.maxConnections}`} />
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">لا توجد بيانات</p>
+                )}
+              </CardContent>
+            </Card>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-2 shadow-xl rounded-[2rem] overflow-hidden bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800">
-            <CardHeader className="border-b-2 border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/30 py-6 px-8">
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="text-2xl font-black flex items-center gap-3 tracking-tighter">
-                    <div className="p-2 bg-blue-500 rounded-xl shadow-lg shadow-blue-500/20">
-                      <ArrowRightLeft className="h-6 w-6 text-white" />
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  موارد الخادم
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {sysStats ? (
+                  <>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-muted-foreground">استخدام المعالج</span>
+                        <span className="font-medium">{sysStats.cpuUsage}%</span>
+                      </div>
+                      <Progress value={sysStats.cpuUsage} className="h-2" />
                     </div>
-                    مطابقة البيانات (Cloud vs Local)
-                  </CardTitle>
-                  <CardDescription className="font-medium mt-1">مقارنة حية لعدد السجلات بين السيرفر والجهاز المحلي</CardDescription>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-muted-foreground">استخدام الذاكرة</span>
+                        <span className="font-medium">{sysStats.memoryUsage}%</span>
+                      </div>
+                      <Progress value={sysStats.memoryUsage} className="h-2" />
+                    </div>
+                    {sysStats.memoryDetails && (
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-muted/50 rounded-lg p-2">
+                          <span className="text-muted-foreground">Heap مستخدم</span>
+                          <p className="font-medium">{sysStats.memoryDetails.heapUsed} MB</p>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-2">
+                          <span className="text-muted-foreground">RSS</span>
+                          <p className="font-medium">{sysStats.memoryDetails.rss} MB</p>
+                        </div>
+                      </div>
+                    )}
+                    <InfoRow label="وقت التشغيل" value={formatUptime(sysStats.uptime)} />
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {perf && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="h-5 w-5" />
+                  ملخص الأداء
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <MetricCard 
+                    label="نسبة إصابة الذاكرة المؤقتة" 
+                    value={`${perf.cacheHitRatio}%`} 
+                    color={perf.cacheHitRatio > 95 ? 'emerald' : perf.cacheHitRatio > 80 ? 'yellow' : 'red'}
+                  />
+                  <MetricCard 
+                    label="المعاملات الناجحة" 
+                    value={perf.transactionsCommitted?.toLocaleString() || '0'} 
+                    color="blue"
+                  />
+                  <MetricCard 
+                    label="المعاملات المرتجعة" 
+                    value={perf.transactionsRolledBack?.toLocaleString() || '0'} 
+                    color={perf.transactionsRolledBack > 0 ? 'yellow' : 'emerald'}
+                  />
+                  <MetricCard 
+                    label="السجلات الميتة" 
+                    value={perf.deadTuples?.toLocaleString() || '0'} 
+                    color={perf.deadTuples > 1000 ? 'red' : 'emerald'}
+                  />
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0 overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
-                  <TableRow className="hover:bg-transparent border-b-2">
-                    <TableHead className="text-right py-4 px-8 font-bold text-slate-900 dark:text-slate-100">الجدول</TableHead>
-                    <TableHead className="text-center font-bold text-slate-900 dark:text-slate-100">السيرفر (Cloud)</TableHead>
-                    <TableHead className="text-center font-bold text-slate-900 dark:text-slate-100">الجهاز (Local)</TableHead>
-                    <TableHead className="text-right font-bold text-slate-900 dark:text-slate-100">الحالة</TableHead>
-                    <TableHead className="text-center font-bold text-slate-900 dark:text-slate-100">الإجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDifferences.length > 0 ? (
-                    filteredDifferences.map((row: any, idx: number) => (
-                      <TableRow key={idx} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all border-b border-slate-50 dark:border-slate-800 group">
-                        <TableCell className="font-black py-5 px-8 text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-colors">{row.table}</TableCell>
-                        <TableCell className="text-center font-mono font-black text-blue-600 dark:text-blue-400 text-lg">{row.serverCount}</TableCell>
-                        <TableCell className="text-center font-mono font-black text-emerald-600 dark:text-emerald-400 text-lg">{row.clientCount}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-4 justify-end">
-                            <div className="flex-1 max-w-[100px]">
-                              <Progress value={Math.min(100, (row.clientCount / (row.serverCount || 1)) * 100)} className="h-2 rounded-full bg-slate-100 dark:bg-slate-800" />
-                            </div>
-                            <Badge variant={row.diff === 0 ? "default" : (row.diff > 0 ? "destructive" : "secondary")} className="text-[11px] font-black py-1 px-3 shadow-md border-none rounded-lg min-w-[80px] justify-center uppercase">
-                              {row.diff === 0 ? (
-                                <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> مطابق</span>
-                              ) : row.diff > 0 ? (
-                                `نقص ${row.diff}`
-                              ) : (
-                                `زيادة ${Math.abs(row.diff)}`
-                              )}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button 
-                            size="icon" 
-                            variant="ghost"
-                            className="h-10 w-10 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95"
-                            onClick={() => syncMutation.mutate(row.table)}
-                            disabled={syncingTables[row.table]}
-                          >
-                            {syncingTables[row.table] ? (
-                              <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-5 w-5" />
-                            )}
-                          </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="tables" className="space-y-4 mt-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <UnifiedSearchFilter
+              searchValue={searchValue}
+              onSearchChange={onSearchChange}
+              onReset={onReset}
+              searchPlaceholder="بحث في الجداول..."
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">ترتيب:</span>
+              <Button 
+                size="sm" variant={sortBy === 'size' ? 'default' : 'outline'} 
+                onClick={() => setSortBy('size')}
+                data-testid="button-sort-size"
+              >
+                الحجم
+              </Button>
+              <Button 
+                size="sm" variant={sortBy === 'rows' ? 'default' : 'outline'} 
+                onClick={() => setSortBy('rows')}
+                data-testid="button-sort-rows"
+              >
+                السجلات
+              </Button>
+              <Button 
+                size="sm" variant={sortBy === 'name' ? 'default' : 'outline'} 
+                onClick={() => setSortBy('name')}
+                data-testid="button-sort-name"
+              >
+                الاسم
+              </Button>
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              {tablesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">الجدول</TableHead>
+                      <TableHead className="text-center">السجلات</TableHead>
+                      <TableHead className="text-center">الحجم</TableHead>
+                      <TableHead className="text-center">الأعمدة</TableHead>
+                      <TableHead className="text-center">الفهارس</TableHead>
+                      <TableHead className="text-center">تفاصيل</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTables.length > 0 ? filteredTables.map((t: any) => (
+                      <TableRowDetail 
+                        key={t.name} 
+                        table={t} 
+                        expanded={expandedTable === t.name}
+                        onToggle={() => setExpandedTable(expandedTable === t.name ? null : t.name)}
+                        onMaintenance={(action: string) => maintenanceMutation.mutate({ action, tableName: t.name })}
+                        isMaintenanceLoading={maintenanceMutation.isPending}
+                      />
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                          <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                          {searchValue ? "لا توجد نتائج" : "لا توجد جداول"}
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic font-medium">
-                        <div className="flex flex-col items-center gap-3">
-                          <Search className="h-10 w-10 opacity-20" />
-                          {searchValue ? "لا توجد نتائج تطابق البحث" : "جاري فحص مطابقة البيانات..."}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
-        </div>
 
-        <div className="space-y-8">
-          <Card className="border-none shadow-2xl bg-gradient-to-br from-blue-600 via-indigo-700 to-violet-800 text-white overflow-hidden relative rounded-[2rem] h-[280px] flex flex-col justify-center">
-            <div className="absolute top-[-20%] right-[-10%] p-8 opacity-10 animate-pulse">
-              <ShieldCheck size={300} />
+          {tableList.length > 0 && (
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <span>إجمالي: <strong className="text-foreground">{tableList.length}</strong> جدول</span>
+              <span>السجلات: <strong className="text-foreground">{totalRows.toLocaleString()}</strong></span>
+              <span>الحجم: <strong className="text-foreground">{formatBytes(totalSizeBytes)}</strong></span>
             </div>
-            <CardHeader className="pb-4 relative z-10">
-              <div className="bg-white/20 w-fit p-3 rounded-2xl backdrop-blur-md mb-4">
-                <Shield className="h-8 w-8 text-white" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="integrity" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  تقرير سلامة البيانات
+                </CardTitle>
+                <Button 
+                  variant="outline" size="sm" 
+                  onClick={() => refetchIntegrity()}
+                  data-testid="button-recheck-integrity"
+                >
+                  <RefreshCw className={`h-4 w-4 ml-1 ${integrityLoading ? 'animate-spin' : ''}`} />
+                  إعادة الفحص
+                </Button>
               </div>
-              <CardTitle className="text-3xl font-black tracking-tighter">
-                محرك السلامة الذكي
-              </CardTitle>
-              <CardDescription className="text-blue-100 font-medium">نظام مراقبة جودة البيانات الفوري</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6 relative z-10">
-              <div className="bg-white/10 p-6 rounded-[1.5rem] border border-white/20 backdrop-blur-xl shadow-2xl">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <span className="text-[11px] uppercase font-black text-blue-200 tracking-[0.2em]">Data Integrity</span>
-                    <div className="text-5xl font-black font-mono tracking-tighter mt-1">100%</div>
+            <CardContent>
+              {integrityLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : integrityData ? (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`text-5xl font-bold ${integrityColor}`}>
+                      {integrityData.score}%
+                    </div>
+                    <div>
+                      <Badge variant={integrityData.status === 'excellent' ? 'default' : integrityData.status === 'good' ? 'secondary' : 'destructive'}>
+                        {integrityData.status === 'excellent' ? 'ممتاز' : integrityData.status === 'good' ? 'جيد' : integrityData.status === 'warning' ? 'تحذير' : 'حرج'}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        آخر فحص: {new Date(integrityData.timestamp).toLocaleString('ar-SA')}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-none font-black px-3 py-1">SECURE</Badge>
+
+                  <div className="space-y-3">
+                    {integrityData.checks?.map((check: any, i: number) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
+                        {check.status === 'pass' ? (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
+                        ) : check.status === 'warn' ? (
+                          <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+                        )}
+                        <div>
+                          <p className="font-medium text-sm">{check.name}</p>
+                          <p className="text-xs text-muted-foreground">{check.message}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">لا توجد بيانات</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                مؤشرات الأداء
+              </CardTitle>
+              <CardDescription>قياسات حقيقية من محرك PostgreSQL</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {perfLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : perf ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <MetricCard label="نسبة الذاكرة المؤقتة" value={`${perf.cacheHitRatio}%`} color={perf.cacheHitRatio > 95 ? 'emerald' : 'yellow'} />
+                    <MetricCard label="متوسط زمن الاستعلام" value={perf.avgQueryTime > 0 ? `${perf.avgQueryTime} ms` : 'غير متاح'} color="blue" />
+                    <MetricCard label="المعاملات الناجحة" value={perf.transactionsCommitted?.toLocaleString()} color="emerald" />
+                    <MetricCard label="المعاملات المرتجعة" value={perf.transactionsRolledBack?.toLocaleString()} color={perf.transactionsRolledBack > 10 ? 'red' : 'emerald'} />
+                    <MetricCard label="السجلات الحية" value={perf.liveTuples?.toLocaleString()} color="blue" />
+                    <MetricCard label="السجلات الميتة" value={perf.deadTuples?.toLocaleString()} color={perf.deadTuples > 1000 ? 'yellow' : 'emerald'} />
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-muted/30">
+                    <p className="text-xs font-medium mb-2">استخدام الكتل</p>
+                    <div className="flex gap-4 text-xs">
+                      <span>قراءة من القرص: <strong>{perf.blocksRead?.toLocaleString()}</strong></span>
+                      <span>قراءة من الذاكرة: <strong>{perf.blocksHit?.toLocaleString()}</strong></span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">لا توجد بيانات</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="maintenance" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Wrench className="h-5 w-5" />
+                صيانة قاعدة البيانات
+              </CardTitle>
+              <CardDescription>عمليات الصيانة والتحسين - تُنفذ على جميع الجداول</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <MaintenanceAction
+                  title="تنظيف وتحليل"
+                  description="حذف السجلات الميتة وتحديث الإحصائيات"
+                  action="vacuum"
+                  icon={<RefreshCw className="h-5 w-5" />}
+                  onRun={() => maintenanceMutation.mutate({ action: 'vacuum' })}
+                  isLoading={maintenanceMutation.isPending}
+                />
+                <MaintenanceAction
+                  title="تحليل الإحصائيات"
+                  description="تحديث إحصائيات المحسّن للاستعلامات"
+                  action="analyze"
+                  icon={<BarChart3 className="h-5 w-5" />}
+                  onRun={() => maintenanceMutation.mutate({ action: 'analyze' })}
+                  isLoading={maintenanceMutation.isPending}
+                />
+                <MaintenanceAction
+                  title="إعادة بناء الفهارس"
+                  description="إعادة بناء جميع الفهارس لتحسين الأداء"
+                  action="reindex"
+                  icon={<Settings className="h-5 w-5" />}
+                  onRun={() => maintenanceMutation.mutate({ action: 'reindex' })}
+                  isLoading={maintenanceMutation.isPending}
+                />
               </div>
             </CardContent>
           </Card>
-
-          <UnifiedCard 
-            title="نشاط التزامن" 
-            titleIcon={RefreshCw}
-            className="rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 shadow-xl"
-            fields={[
-              { label: "Success Rate", value: "99.9%", color: "success", emphasis: true },
-              { label: "Average Latency", value: `${syncState.latency || 0}ms`, color: "info", emphasis: true }
-            ]}
-            footer={
-              <div className="p-4 bg-amber-500/10 dark:bg-amber-500/5 border-2 border-amber-500/20 rounded-2xl">
-                <p className="text-xs text-amber-700 dark:text-amber-400 font-black leading-relaxed text-center uppercase tracking-wide">
-                  المزامنة التلقائية مفعلة كل 30 ثانية لضمان دقة النظام
-                </p>
-              </div>
-            }
-          />
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
-
   );
 }
 
+function InfoRow({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="flex justify-between items-center py-1.5 border-b border-muted/50 last:border-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium">{value}</span>
+    </div>
+  );
+}
 
+function MetricCard({ label, value, color }: { label: string; value: string; color: string }) {
+  const colorMap: Record<string, string> = {
+    emerald: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400',
+    blue: 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400',
+    yellow: 'bg-yellow-50 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400',
+    red: 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400',
+  };
+  return (
+    <div className={`rounded-lg p-3 ${colorMap[color] || colorMap.blue}`}>
+      <p className="text-xs opacity-80 mb-1">{label}</p>
+      <p className="text-lg font-bold">{value}</p>
+    </div>
+  );
+}
+
+function TableRowDetail({ table, expanded, onToggle, onMaintenance, isMaintenanceLoading }: { 
+  table: any; expanded: boolean; onToggle: () => void; onMaintenance: (action: string) => void; isMaintenanceLoading: boolean;
+}) {
+  const [details, setDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const loadDetails = async () => {
+    if (details) { onToggle(); return; }
+    setDetailsLoading(true);
+    try {
+      const res = await fetch(`/api/db/tables/${table.name}`, { credentials: 'include' });
+      const data = await res.json();
+      setDetails(data?.data);
+    } catch { }
+    setDetailsLoading(false);
+    onToggle();
+  };
+
+  return (
+    <>
+      <TableRow className="hover-elevate cursor-pointer" onClick={loadDetails} data-testid={`row-table-${table.name}`}>
+        <TableCell className="font-medium">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className="font-mono text-xs">{table.name}</span>
+          </div>
+        </TableCell>
+        <TableCell className="text-center font-mono">{table.rowCount.toLocaleString()}</TableCell>
+        <TableCell className="text-center text-xs">{table.totalSize}</TableCell>
+        <TableCell className="text-center">{table.columns}</TableCell>
+        <TableCell className="text-center">{table.indexes}</TableCell>
+        <TableCell className="text-center">
+          {detailsLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+          ) : expanded ? (
+            <ChevronUp className="h-4 w-4 mx-auto" />
+          ) : (
+            <ChevronDown className="h-4 w-4 mx-auto" />
+          )}
+        </TableCell>
+      </TableRow>
+      {expanded && details && (
+        <TableRow>
+          <TableCell colSpan={6} className="bg-muted/20 p-4">
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-medium mb-2 text-muted-foreground">الأعمدة ({details.columns?.length || 0})</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1">
+                  {details.columns?.map((col: any, i: number) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs p-1 rounded bg-background">
+                      <Columns3 className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="font-mono">{col.column_name}</span>
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0">{col.data_type}</Badge>
+                      {col.is_nullable === 'NO' && <Badge variant="outline" className="text-[10px] px-1 py-0">مطلوب</Badge>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {details.indexes?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium mb-2 text-muted-foreground">الفهارس ({details.indexes.length})</p>
+                  <div className="space-y-1">
+                    {details.indexes.map((idx: any, i: number) => (
+                      <p key={i} className="text-xs font-mono text-muted-foreground bg-background p-1 rounded">{idx.indexname}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  size="sm" variant="outline" 
+                  onClick={(e) => { e.stopPropagation(); onMaintenance('vacuum'); }}
+                  disabled={isMaintenanceLoading}
+                  data-testid={`button-vacuum-${table.name}`}
+                >
+                  تنظيف
+                </Button>
+                <Button 
+                  size="sm" variant="outline" 
+                  onClick={(e) => { e.stopPropagation(); onMaintenance('analyze'); }}
+                  disabled={isMaintenanceLoading}
+                  data-testid={`button-analyze-${table.name}`}
+                >
+                  تحليل
+                </Button>
+              </div>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+function MaintenanceAction({ title, description, action, icon, onRun, isLoading }: {
+  title: string; description: string; action: string; icon: React.ReactNode; onRun: () => void; isLoading: boolean;
+}) {
+  return (
+    <div className="border rounded-lg p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="text-muted-foreground">{icon}</div>
+        <div>
+          <p className="font-medium text-sm">{title}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <Button 
+        variant="outline" size="sm" className="w-full gap-1" 
+        onClick={onRun} 
+        disabled={isLoading}
+        data-testid={`button-maintenance-${action}`}
+      >
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        تنفيذ
+      </Button>
+    </div>
+  );
+}
+
+function formatUptime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 24) {
+    const d = Math.floor(h / 24);
+    return `${d} يوم ${h % 24} ساعة`;
+  }
+  return `${h} ساعة ${m} دقيقة`;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}

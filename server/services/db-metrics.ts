@@ -115,10 +115,20 @@ export class DbMetricsService {
     }
 
     if (source === 'supabase') {
+      const dynConn = connMgr.getDynamicConnection('supabase');
+      if (dynConn?.connected && dynConn.pool) return { pool: dynConn.pool };
       if (!status.supabase) return { pool, error: 'Supabase غير متصل' };
       const conn = connMgr.getSmartConnection('sync');
       if (conn.source === 'supabase' && conn.pool) return { pool: conn.pool };
       return { pool, error: 'تعذر الوصول لـ Supabase' };
+    }
+
+    const dynConn = connMgr.getDynamicConnection(source);
+    if (dynConn) {
+      if (!dynConn.connected || !dynConn.pool) {
+        return { pool, error: `قاعدة "${dynConn.label}" غير متصلة` };
+      }
+      return { pool: dynConn.pool };
     }
 
     return { pool };
@@ -158,33 +168,46 @@ export class DbMetricsService {
       connections.push({ id: 'local', label: 'القاعدة المحلية (VPS)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
     }
 
-    if (status.supabase) {
-      try {
-        const { pool: p } = this.getPoolForSource('supabase');
-        const client = await p.connect();
-        const [dbInfo, sizeResult, tableCount, rowsResult] = await Promise.all([
-          client.query('SELECT current_database() as name, version() as version'),
-          client.query('SELECT pg_database_size(current_database()) as size_bytes'),
-          client.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
-          client.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
-        ]);
-        client.release();
+    const dynamicConns = smartConnectionManager.getAllDynamicConnections();
+    for (const dynConn of dynamicConns) {
+      const existingIds = connections.map(c => c.id);
+      if (existingIds.includes(dynConn.key)) continue;
+      
+      if (dynConn.connected && dynConn.pool) {
+        try {
+          const client = await dynConn.pool.connect();
+          const [dbInfo, sizeResult, tableCount, rowsResult] = await Promise.all([
+            client.query('SELECT current_database() as name, version() as version'),
+            client.query('SELECT pg_database_size(current_database()) as size_bytes'),
+            client.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
+            client.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
+          ]);
+          client.release();
+          connections.push({
+            id: dynConn.key,
+            label: dynConn.label,
+            connected: true,
+            dbName: dbInfo.rows[0]?.name || dynConn.dbName || 'unknown',
+            version: (dbInfo.rows[0]?.version || '').split(' ').slice(0, 2).join(' '),
+            size: formatBytes(parseInt(sizeResult.rows[0]?.size_bytes || '0')),
+            tables: parseInt(tableCount.rows[0]?.count || '0'),
+            rows: parseInt(rowsResult.rows[0]?.total || '0'),
+            latency: dynConn.latency ? `${dynConn.latency}ms` : null,
+          });
+        } catch {
+          connections.push({
+            id: dynConn.key, label: dynConn.label, connected: false,
+            dbName: dynConn.dbName || null, version: null, size: null,
+            tables: 0, rows: 0, latency: null
+          });
+        }
+      } else {
         connections.push({
-          id: 'supabase',
-          label: 'Supabase (سحابي)',
-          connected: true,
-          dbName: dbInfo.rows[0]?.name || 'unknown',
-          version: (dbInfo.rows[0]?.version || '').split(' ').slice(0, 2).join(' '),
-          size: formatBytes(parseInt(sizeResult.rows[0]?.size_bytes || '0')),
-          tables: parseInt(tableCount.rows[0]?.count || '0'),
-          rows: parseInt(rowsResult.rows[0]?.total || '0'),
-          latency: metrics?.supabase?.averageLatency || null,
+          id: dynConn.key, label: dynConn.label, connected: false,
+          dbName: dynConn.dbName || null, version: null, size: null,
+          tables: 0, rows: 0, latency: null
         });
-      } catch {
-        connections.push({ id: 'supabase', label: 'Supabase (سحابي)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
       }
-    } else {
-      connections.push({ id: 'supabase', label: 'Supabase (سحابي)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
     }
 
     return connections;

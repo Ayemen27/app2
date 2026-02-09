@@ -18,6 +18,19 @@ const execPromise = promisify(exec);
  * 🧠 مدير الاتصالات الذكي
  * يتعامل مع قواعد البيانات المختلفة تلقائياً
  */
+export interface DynamicConnection {
+  key: string;
+  label: string;
+  pool: Pool;
+  db: any;
+  connected: boolean;
+  url: string;
+  dbName?: string;
+  dbUser?: string;
+  host?: string;
+  latency?: number;
+}
+
 export class SmartConnectionManager {
   private static instance: SmartConnectionManager;
   private localPool: Pool | null = null;
@@ -30,31 +43,40 @@ export class SmartConnectionManager {
   };
   private isProduction = envConfig.isProduction;
   
-  // 📊 تتبع محاولات الاتصال والإحصائيات
-  private connectionMetrics = {
+  private dynamicConnections: Map<string, DynamicConnection> = new Map();
+  
+  private connectionMetrics: Record<string, {
+    totalAttempts: number;
+    successfulAttempts: number;
+    failedAttempts: number;
+    lastAttemptTime: number | null;
+    lastFailureTime: number | null;
+    averageLatency: number;
+    latencyHistory: number[];
+  }> = {
     local: {
       totalAttempts: 0,
       successfulAttempts: 0,
       failedAttempts: 0,
-      lastAttemptTime: null as number | null,
-      lastFailureTime: null as number | null,
+      lastAttemptTime: null,
+      lastFailureTime: null,
       averageLatency: 0,
-      latencyHistory: [] as number[]
+      latencyHistory: []
     },
     supabase: {
       totalAttempts: 0,
       successfulAttempts: 0,
       failedAttempts: 0,
-      lastAttemptTime: null as number | null,
-      lastFailureTime: null as number | null,
+      lastAttemptTime: null,
+      lastFailureTime: null,
       averageLatency: 0,
-      latencyHistory: [] as number[]
+      latencyHistory: []
     }
   };
   
   private autoReconnectInterval: NodeJS.Timeout | null = null;
   private lastReconnectAttempt = 0;
-  private readonly MIN_RECONNECT_INTERVAL = 5000; // مسافة زمنية دنيا 5 ثواني
+  private readonly MIN_RECONNECT_INTERVAL = 5000;
 
   private constructor() {
     this.initialize();
@@ -77,8 +99,8 @@ export class SmartConnectionManager {
     
     await this.initializeLocalConnection();
     await this.initializeSupabaseConnection();
+    await this.discoverAndConnectAllDatabases();
 
-    // فحص وضع الطوارئ التلقائي - لا يتم التفعيل إلا إذا فشلت كل الاتصالات المركزية
     if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
       const isAndroid = process.env.PLATFORM === 'android';
       if (isAndroid) {
@@ -649,16 +671,148 @@ export class SmartConnectionManager {
   }
 
   /**
+   * 🔍 اكتشاف وتوصيل جميع قواعد البيانات من متغيرات البيئة
+   */
+  private async discoverAndConnectAllDatabases(): Promise<void> {
+    const envVars = process.env;
+    const dbUrlPattern = /^DATABASE_URL_(.+)$/;
+    
+    const discoveredKeys: string[] = [];
+    
+    for (const [key, value] of Object.entries(envVars)) {
+      const match = key.match(dbUrlPattern);
+      if (!match || !value) continue;
+      
+      const suffix = match[1].toLowerCase();
+      
+      if (suffix === 'central' || suffix === 'railway') continue;
+      
+      if (value.includes('helium') || value.includes('heliumdb')) continue;
+      
+      if (suffix === 'supabase' && this.connectionStatus.supabase) continue;
+      
+      if (this.dynamicConnections.has(suffix)) continue;
+      
+      discoveredKeys.push(suffix);
+      
+      try {
+        const startTime = Date.now();
+        
+        const isLocalConnection = value.includes('localhost') || value.includes('127.0.0.1');
+        const sslConfig = isLocalConnection ? false : { rejectUnauthorized: false, minVersion: 'TLSv1.2' as const };
+        
+        const newPool = new Pool({
+          connectionString: value,
+          ssl: sslConfig,
+          max: 5,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 30000,
+          keepAlive: true
+        });
+        
+        const db = drizzle(newPool, { schema });
+        
+        const client = await newPool.connect();
+        const result = await client.query('SELECT current_database() as db, current_user as usr');
+        client.release();
+        
+        const latency = Date.now() - startTime;
+        
+        const urlObj = new URL(value);
+        const label = suffix === 'supabase' ? 'Supabase' : 
+                      suffix === 'blackup' ? 'النسخ الاحتياطي' :
+                      suffix.charAt(0).toUpperCase() + suffix.slice(1);
+        
+        this.dynamicConnections.set(suffix, {
+          key: suffix,
+          label,
+          pool: newPool,
+          db,
+          connected: true,
+          url: value,
+          dbName: result.rows[0]?.db,
+          dbUser: result.rows[0]?.usr,
+          host: urlObj.hostname,
+          latency
+        });
+        
+        if (!this.connectionMetrics[suffix]) {
+          this.connectionMetrics[suffix] = {
+            totalAttempts: 1, successfulAttempts: 1, failedAttempts: 0,
+            lastAttemptTime: Date.now(), lastFailureTime: null,
+            averageLatency: latency, latencyHistory: [latency]
+          };
+        }
+        
+        if (suffix === 'supabase' && !this.connectionStatus.supabase) {
+          this.supabasePool = newPool;
+          this.supabaseDb = db;
+          this.connectionStatus.supabase = true;
+        }
+        
+        if (!this.isProduction) {
+          console.log(`✅ [Dynamic DB] اتصال "${label}" نجح:`, {
+            database: result.rows[0]?.db,
+            host: urlObj.hostname,
+            latency: `${latency}ms`
+          });
+        }
+      } catch (error: any) {
+        if (!this.isProduction) {
+          console.warn(`⚠️ [Dynamic DB] فشل الاتصال بـ "${suffix}":`, error.message?.substring(0, 80));
+        }
+        
+        const urlObj = (() => { try { return new URL(value); } catch { return null; } })();
+        this.dynamicConnections.set(suffix, {
+          key: suffix,
+          label: suffix.charAt(0).toUpperCase() + suffix.slice(1),
+          pool: null as any,
+          db: null,
+          connected: false,
+          url: value,
+          host: urlObj?.hostname,
+        });
+      }
+    }
+    
+    if (discoveredKeys.length > 0 && !this.isProduction) {
+      console.log(`🔍 [Dynamic DB] تم اكتشاف ${discoveredKeys.length} قاعدة بيانات إضافية:`, discoveredKeys);
+    }
+  }
+
+  /**
+   * 📋 الحصول على جميع الاتصالات الديناميكية
+   */
+  getAllDynamicConnections(): DynamicConnection[] {
+    return Array.from(this.dynamicConnections.values());
+  }
+
+  /**
+   * 🎯 الحصول على اتصال ديناميكي بالمفتاح
+   */
+  getDynamicConnection(key: string): DynamicConnection | undefined {
+    return this.dynamicConnections.get(key);
+  }
+
+  /**
    * 📝 عرض حالة الاتصالات
    */
   private logConnectionStatus(): void {
     if (this.isProduction) return;
     
     const status = this.getConnectionStatus();
+    const dynamicStatus: Record<string, string> = {};
+    for (const [key, conn] of this.dynamicConnections) {
+      dynamicStatus[`📦 ${conn.label}`] = conn.connected ? `✅ متصل (${conn.dbName || key})` : '❌ غير متصل';
+    }
+    
+    const totalConnected = (status.local ? 1 : 0) + 
+      Array.from(this.dynamicConnections.values()).filter(c => c.connected).length;
+    
     console.log('📊 [Smart Connection Manager] حالة الاتصالات:', {
       '🏠 محلي': status.local ? '✅ متصل' : '❌ غير متصل',
-      '☁️ Supabase': status.supabase ? '✅ متصل' : '❌ غير متصل',
-      '📈 إجمالي الاتصالات': status.totalConnections
+      ...dynamicStatus,
+      '📈 إجمالي الاتصالات': totalConnected
     });
   }
 
@@ -744,10 +898,17 @@ export class SmartConnectionManager {
       closePromises.push(this.supabasePool.end());
     }
 
+    for (const [, conn] of this.dynamicConnections) {
+      if (conn.pool) {
+        closePromises.push(conn.pool.end());
+      }
+    }
+
     await Promise.all(closePromises);
     
     this.connectionStatus.local = false;
     this.connectionStatus.supabase = false;
+    this.dynamicConnections.clear();
 
     console.log('✅ [Smart Connection Manager] تم إغلاق جميع الاتصالات');
   }

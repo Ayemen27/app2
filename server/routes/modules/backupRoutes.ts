@@ -102,18 +102,21 @@ router.get("/databases", async (_req: Request, res: Response) => {
   try {
     const dbs = await BackupService.getAvailableDatabases();
     const safeDbs = dbs.map(db => ({ id: db.id, name: db.name }));
-    res.json({ success: true, databases: safeDbs });
+    res.json({ success: true, data: safeDbs });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, data: [], message: error.message });
   }
 });
 
 router.get("/logs", async (_req: Request, res: Response) => {
   try {
     const result = await BackupService.listBackups();
-    res.json(result);
+    if (!result.success) {
+      return res.status(500).json({ success: false, data: [], message: result.message || 'فشل جلب السجلات' });
+    }
+    res.json({ success: true, data: result.logs || [], total: result.total || 0 });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, data: [], message: error.message });
   }
 });
 
@@ -121,7 +124,7 @@ router.get("/status", async (_req: Request, res: Response) => {
   try {
     const status = BackupService.getAutoBackupStatus();
     const storage = await BackupService.getStorageInfo();
-    res.json({ success: true, status, storage: storage.success ? storage : null });
+    res.json({ success: true, data: { ...status, storage: storage.success ? storage : null } });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

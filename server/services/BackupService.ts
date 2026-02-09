@@ -399,9 +399,9 @@ export class BackupService {
           try {
             const filePath = path.join(BACKUPS_DIR, f);
             const stats = fs.statSync(filePath);
-            
+
             let meta: any = null;
-            if (f.endsWith('.json') && stats.size < 100 * 1024 * 1024) {
+            if (f.endsWith('.json') && stats.size < 500 * 1024) {
               try {
                 const content = fs.readFileSync(filePath, 'utf-8');
                 const parsed = JSON.parse(content);
@@ -418,7 +418,7 @@ export class BackupService {
               format: f.endsWith('.gz') ? 'json.gz' : f.endsWith('.json') ? 'json' : 'sqlite',
               status: 'success',
               createdAt: stats.mtime.toISOString(),
-              tablesCount: meta?.tablesCount || meta?.tables ? Object.keys(meta.tables || {}).length : null,
+              tablesCount: meta?.tablesCount || (meta?.tables ? Object.keys(meta.tables || {}).length : null),
               totalRows: meta?.totalRows || null,
               durationMs: meta?.durationMs || null,
             };

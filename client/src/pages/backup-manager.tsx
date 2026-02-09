@@ -80,31 +80,36 @@ export default function BackupManager() {
     status: "all",
   });
 
-  const { data: statusData } = useQuery<{ success: boolean; status: BackupStatus; storage: any }>({
+  const { data: statusData } = useQuery<BackupStatus & { storage?: any }>({
     queryKey: ["/api/backups/status"],
     refetchInterval: 5000,
   });
 
-  const backupStatus = statusData?.status;
+  const backupStatus = statusData ? {
+    lastRunAt: statusData.lastRunAt,
+    lastSuccessAt: statusData.lastSuccessAt,
+    lastFailureAt: statusData.lastFailureAt,
+    lastError: statusData.lastError,
+    totalSuccess: statusData.totalSuccess,
+    totalFailure: statusData.totalFailure,
+    isRunning: statusData.isRunning,
+    schedulerEnabled: statusData.schedulerEnabled,
+    cronSchedule: statusData.cronSchedule,
+  } as BackupStatus : undefined;
   const storageInfo = statusData?.storage;
 
-  const { data: dbListData } = useQuery<{ success: boolean; databases: any[] }>({
+  const { data: dbList } = useQuery<any[]>({
     queryKey: ["/api/backups/databases"],
   });
 
   const availableDatabases = useMemo(() => {
-    if (!dbListData?.databases) return [{ id: 'local', name: 'LOCAL' }];
-    return dbListData.databases;
-  }, [dbListData]);
+    if (Array.isArray(dbList) && dbList.length > 0) return dbList;
+    return [{ id: 'local', name: 'LOCAL' }];
+  }, [dbList]);
 
   const { data: logsData, isLoading, refetch } = useQuery<BackupLog[]>({
     queryKey: ["/api/backups/logs"],
     refetchInterval: 10000,
-    select: (data: any) => {
-      if (Array.isArray(data)) return data;
-      if (data?.logs && Array.isArray(data.logs)) return data.logs;
-      return [];
-    }
   });
 
   const logs = useMemo(() => Array.isArray(logsData) ? logsData : [], [logsData]);

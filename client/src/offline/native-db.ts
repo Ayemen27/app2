@@ -57,15 +57,11 @@ class SQLiteStorage {
       'securityPolicies', 'securityPolicyImplementations',
       'securityPolicySuggestions', 'securityPolicyViolations',
       'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
-      'toolCategories', 'tools', 'toolMovements', 'toolStock', 'toolReservations',
-      'toolPurchaseItems', 'toolCostTracking', 'toolMaintenanceLogs',
-      'toolUsageAnalytics', 'toolNotifications', 'maintenanceSchedules',
-      'maintenanceTasks', 'wellTasks', 'wellExpenses', 'wellAuditLogs',
-      'wellTaskAccounts', 'messages', 'channels', 'notifications',
-      'notificationReadStates', 'systemNotifications', 'systemEvents', 'actions',
+      'wellTasks', 'wellExpenses', 'wellAuditLogs',
+      'wellTaskAccounts', 'notifications',
+      'notificationReadStates',
       'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
-      'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
-      'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates',
+      'reportTemplates',
       'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'autocompleteData'
     ];
 

@@ -1,12 +1,9 @@
 import { 
   notifications, 
   notificationReadStates, 
-  systemNotifications,
   users,
   type Notification,
-  type InsertNotification,
-  type SystemNotification,
-  type InsertSystemNotification
+  type InsertNotification
 } from "@shared/schema";
 import { db } from "../db";
 import { eq, and, desc, or, inArray, sql } from "drizzle-orm";

@@ -502,7 +502,7 @@ Object.entries(schema).forEach(([key, value]) => {
     const table = value as any;
     const config = getTableConfig(table);
     if (!DATABASE_DDL[config.name]) {
-       DATABASE_DDL[config.name] = \`CREATE TABLE IF NOT EXISTS "\${config.name}" (id serial PRIMARY KEY)\`;
+       DATABASE_DDL[config.name] = `CREATE TABLE IF NOT EXISTS "${config.name}" (id serial PRIMARY KEY)`;
     }
   }
 });

@@ -6,19 +6,19 @@ import { smartConnectionManager } from "./smart-connection-manager";
 
 // قائمة بيضاء للجداول المسموح بالوصول إليها (الموجودة فعلياً في Supabase)
 const ALLOWED_TABLES = [
-  "actions", "ai_system_decisions", "ai_system_logs", "ai_system_metrics", 
-  "ai_system_recommendations", "approvals", "auth_audit_log", "auth_permissions",
+  "ai_system_decisions", "ai_system_logs", "ai_system_metrics", 
+  "ai_system_recommendations", "auth_audit_log", "auth_permissions",
   "auth_role_permissions", "auth_roles", "auth_user_permissions", "auth_user_roles",
   "auth_user_security_settings", "auth_user_sessions", "auth_verification_codes",
-  "autocomplete_data", "autocomplete_stats_mv", "channels", "daily_expense_summaries",
+  "autocomplete_data", "autocomplete_stats_mv", "daily_expense_summaries",
   "equipment", "equipment_movements", "error_logs", "fund_transfers", 
-  "material_purchases", "materials", "messages", "notification_metrics",
+  "material_purchases", "materials", "notification_metrics",
   "notification_queue", "notification_read_states", "notification_settings",
   "notification_templates", "notifications", "print_settings",
   "project_fund_transfers", "projects", "report_templates", "security_policies",
   "security_policy_implementations", "security_policy_suggestions", 
   "security_policy_violations", "supplier_payments", "suppliers", 
-  "system_events", "transportation_expenses", "users", "worker_attendance",
+  "transportation_expenses", "users", "worker_attendance",
   "worker_balances", "worker_misc_expenses", "worker_transfers", 
   "worker_types", "workers"
 ] as const;

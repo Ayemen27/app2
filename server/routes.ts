@@ -91,10 +91,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         data: {
-          cpuUsage: Math.floor(Math.random() * 30) + 10,
-          memoryUsage: Math.floor(Math.random() * 20) + 40,
-          activeRequests: Math.floor(Math.random() * 10),
-          errorRate: (Math.random() * 0.1).toFixed(2),
+          cpuUsage: parseFloat((process.cpuUsage().user / 1000000).toFixed(1)),
+          memoryUsage: parseFloat((process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100).toFixed(1)),
+          activeRequests: 0,
+          errorRate: "0.00",
           uptime: process.uptime(),
           dbStatus: "connected",
           backupStatus,

@@ -62,7 +62,7 @@ const sections = [
       { title: "المصاريف اليومية", url: "/daily-expenses", icon: Calculator },
       { title: "محاسبة الآبار", url: "/well-accounting", icon: Calculator },
       { title: "تقرير التكلفة", url: "/well-cost-report", icon: BarChart3 },
-      { title: "تقارير احترافية", url: "/professional-reports", icon: BarChart3 },
+      { title: "التقارير", url: "/reports", icon: BarChart3 },
     ]
   },
   {

@@ -9,12 +9,12 @@ import { eq, and, sql, gte, lt, lte, desc, or } from 'drizzle-orm';
 import { db } from '../../db';
 import {
   projects, workers, materials, suppliers, materialPurchases, workerAttendance,
-  fundTransfers, transportationExpenses, dailyExpenseSummaries, tools, toolMovements,
+  fundTransfers, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, supplierPayments,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
-  insertDailyExpenseSummarySchema, insertToolSchema, insertToolMovementSchema,
+  insertDailyExpenseSummarySchema,
   insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerBalanceSchema
 } from '../../../shared/schema';
 import { requireAuth } from '../../middleware/auth';

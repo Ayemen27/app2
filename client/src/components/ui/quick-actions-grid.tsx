@@ -93,10 +93,10 @@ export function QuickActionsGrid({ onAddWorker, onAddProject }: QuickActionsGrid
       iconColor: "text-white",
     },
     {
-      id: "professional-reports",
+      id: "reports",
       label: "التقارير",
       icon: BarChart,
-      route: "/professional-reports",
+      route: "/reports",
       gradient: "from-indigo-500 to-indigo-600",
       iconColor: "text-white",
     },

@@ -62,7 +62,7 @@ const allPagesData = [
   {
     category: "التقارير",
     pages: [
-      { path: "/professional-reports", icon: BarChart, label: "التقارير الاحترافية", description: "لوحة تقارير متقدمة مع رسوم بيانية وتحليلات", requireAdmin: false },
+      { path: "/reports", icon: BarChart, label: "التقارير", description: "لوحة تقارير متقدمة مع رسوم بيانية وتحليلات", requireAdmin: false },
     ]
   },
   {

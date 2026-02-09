@@ -107,42 +107,17 @@ export interface BinarJoinDB extends DBSchema {
   permissionAuditLogs: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   userProjectPermissions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   materialCategories: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolCategories: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  tools: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolMovements: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolStock: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolReservations: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolPurchaseItems: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolCostTracking: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolMaintenanceLogs: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolUsageAnalytics: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  toolNotifications: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  maintenanceSchedules: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  maintenanceTasks: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   wellTasks: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   wellExpenses: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   wellAuditLogs: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   wellTaskAccounts: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  messages: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  channels: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   notifications: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   notificationReadStates: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  systemNotifications: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  systemEvents: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  actions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   aiChatSessions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   aiChatMessages: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   aiUsageStats: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   emergencyUsers: { key: string; value: Record<string, any> };
   buildDeployments: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  approvals: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  transactions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  transactionLines: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  journals: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  accounts: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  accountBalances: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  financePayments: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  financeEvents: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   reportTemplates: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   userData: { key: string; value: { id: string; type: string; data: any; syncedAt: number; createdAt: number } };
 }
@@ -160,15 +135,11 @@ const ALL_STORES = [
   'securityPolicies', 'securityPolicyImplementations',
   'securityPolicySuggestions', 'securityPolicyViolations',
   'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
-  'toolCategories', 'tools', 'toolMovements', 'toolStock', 'toolReservations',
-  'toolPurchaseItems', 'toolCostTracking', 'toolMaintenanceLogs',
-  'toolUsageAnalytics', 'toolNotifications', 'maintenanceSchedules',
-  'maintenanceTasks', 'wellTasks', 'wellExpenses', 'wellAuditLogs',
-  'wellTaskAccounts', 'messages', 'channels', 'notifications',
-  'notificationReadStates', 'systemNotifications', 'systemEvents', 'actions',
+  'wellTasks', 'wellExpenses', 'wellAuditLogs',
+  'wellTaskAccounts', 'notifications',
+  'notificationReadStates',
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
-  'approvals', 'transactions', 'transactionLines', 'journals', 'accounts',
-  'accountBalances', 'financePayments', 'financeEvents', 'reportTemplates', 
+  'reportTemplates', 
   'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'workerMiscExpenses',
   'autocompleteData', 'printSettings', 'workerTypes'
 ] as const;

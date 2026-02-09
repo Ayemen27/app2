@@ -242,16 +242,6 @@ function Router() {
           <Reports />
         </Suspense>
       </Route>
-      <Route path="/real-reports">
-        <Suspense fallback={<PageLoader />}>
-          <Reports />
-        </Suspense>
-      </Route>
-      <Route path="/axion-reports">
-        <Suspense fallback={<PageLoader />}>
-          <Reports />
-        </Suspense>
-      </Route>
       <Route path="/users-management">
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>

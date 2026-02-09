@@ -202,23 +202,43 @@ export default function BackupManager() {
         throw err;
       }
     },
+    onMutate: () => {
+      setIsRestoring(selectedLog?.id || 0);
+      setRestoreProgress(10);
+      toast({ 
+        title: "جاري بدء الاستعادة", 
+        description: "يتم الآن تحضير البيانات، يرجى عدم إغلاق الصفحة...",
+      });
+    },
     onSuccess: (data: any) => {
       setIsSuccessfullyRestored(true);
+      setRestoreProgress(100);
       toast({ 
         title: "اكتملت الاستعادة بنجاح", 
         description: data.message || "تمت مزامنة واستعادة جميع الجداول المختارة بنجاح.",
-        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100 z-[100]"
       });
       setTimeout(() => window.location.reload(), 2500);
     },
-    onSettled: () => {
+    onError: (error: any) => {
+      setRestoreProgress(0);
       setIsRestoring(null);
-      setTimeout(() => {
-        if (!isSuccessfullyRestored) {
+      toast({ 
+        title: "فشل الاستعادة", 
+        description: error.message,
+        variant: "destructive",
+        className: "z-[100]"
+      });
+    },
+    onSettled: () => {
+      // Keep state for success animation, otherwise reset
+      if (!isSuccessfullyRestored) {
+        setIsRestoring(null);
+        setTimeout(() => {
           setIsRestoreDialogOpen(false);
           setRestoreProgress(0);
-        }
-      }, 2000);
+        }, 2000);
+      }
     }
   });
 
@@ -253,7 +273,7 @@ export default function BackupManager() {
         title: data.success ? "اتصال ناجح" : "فشل الاتصال", 
         description: data.message,
         variant: data.success ? "default" : "destructive",
-        className: data.success ? "bg-green-50 border-green-200 text-green-800" : ""
+        className: data.success ? "bg-green-50 border-green-200 text-green-800 z-[100]" : "z-[100]"
       });
     }
   });

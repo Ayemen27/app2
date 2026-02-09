@@ -1,32 +1,16 @@
-# مشروع Axion Management System
+# Project Overview
+This is a full-stack JavaScript application built with Vite (frontend) and Express (backend), utilizing Drizzle ORM for data persistence.
 
-## نظرة عامة
-نظام إدارة متكامل يعتمد على تقنيات JavaScript الحديثة لتوفير واجهة مستخدم سلسة وإدارة بيانات فعالة.
+## Project Architecture
+- **Frontend**: Vite + React
+- **Backend**: Express.js
+- **Database**: Drizzle ORM (Postgres)
+- **Shared**: Data models and types in `shared/schema.ts`
 
-## الالتزامات التقنية (Agent Commitments)
-- **الدقة والشفافية**: التصريح الصريح عند عدم المعرفة وتجنب التخمين.
-- **التفكير التحليلي**: اتباع منهجية خطوة بخطوة في حل المشكلات.
-- **الحلول الواقعية**: اختيار الحلول الأكثر كفاءة وقابلية للتنفيذ.
-- **المنع الصارم**: لا مراوغة، لا تعميم، لا اختلاق معلومات، لا مجاملة على حساب الحقيقة.
-- **منع التسرع**: تقييم الخيارات قبل الاعتماد وتقديم الواقع كما هو.
-- **التفكير خارج الصندوق**: اقتراح حلول بديلة ذكية عند الحاجة دون تهور.
-- **قاعدة القرار**: إذا كان الحل غير مؤكد، يتم توضيح نسبة عدم اليقين؛ وإذا كانت المعلومة ناقصة، يتم طلبها بوضوح.
+## Technical Standards
+- Follow `fullstack_js` guidelines.
+- Use `shadcn/ui` components for the frontend.
+- Standardized `data-testid` attributes for testing.
 
-## التقنيات المستخدمة
-- **Frontend**: React, Vite, Tailwind CSS, Shadcn UI.
-- **Backend**: Node.js, Express.
-- **Database**: PostgreSQL with Drizzle ORM.
-- **State Management**: TanStack Query (React Query).
-- **Routing**: Wouter.
-
-## هيكلية المشروع
-- `client/`: كود الواجهة الأمامية.
-- `server/`: كود الواجهة الخلفية والخدمات.
-- `shared/`: النماذج (Schemas) المشتركة بين الأمام والخلف.
-- `www/`: ملفات العرض الثابتة.
-
-## التفضيلات البرمجية
-- الالتزام بمعايير Shadcn UI في التصميم.
-- استخدام `data-testid` لجميع العناصر التفاعلية.
-- تفضيل الحلول الواقعية والقابلة للتنفيذ.
-- استخدام `hover-elevate` و `active-elevate-2` للتفاعلات.
+## Recent Changes
+- 2026-02-09: Initial project documentation created.

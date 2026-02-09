@@ -199,62 +199,79 @@ export class BackupService {
       const content = fs.readFileSync(backupPath, 'utf8');
       const { data } = JSON.parse(content);
       
-      if (target === 'local') {
-        const db = new sqlite3(this.LOCAL_DB_PATH);
-        db.transaction(() => {
-          for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
-            if (rows.length === 0) continue;
-            // التحقق من وجود الجدول أولاً لتجنب خطأ SQLITE_ERROR
+    // إيقاف القيود مؤقتاً لضمان عدم حدوث تعارضات في العلاقات
+    if (target === 'cloud') {
+      const { pool } = await import('../db');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('SET CONSTRAINTS ALL DEFERRED');
+        
+        const backupTables = Object.keys(data as Record<string, any[]>);
+        for (const tableName of backupTables) {
+          // Verify table exists in cloud
+          const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableName.toLowerCase()]);
+          if (!tableRes.rows[0].exists) {
+            console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in Cloud DB, skipping...`);
+            continue;
+          }
+          await client.query(`TRUNCATE TABLE "${tableName.toLowerCase()}" RESTART IDENTITY CASCADE`);
+        }
+        
+        for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
+          if (rows.length === 0) continue;
+          const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableName.toLowerCase()]);
+          if (!tableRes.rows[0].exists) continue;
+
+          const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
+          for (const row of rows) {
+            const values = Object.values(row);
+            const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+            await client.query(`INSERT INTO "${tableName.toLowerCase()}" (${columns}) VALUES (${placeholders})`, values);
+          }
+        }
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+    } else {
+      const db = new sqlite3(this.LOCAL_DB_PATH);
+      // Ensure tables exist before restore
+      const schema = require('../../../shared/schema');
+      db.transaction(() => {
+        for (const [key, value] of Object.entries(schema)) {
+          if (value && typeof value === 'object' && (value as any).pgConfig) {
+            const tableName = (value as any).pgConfig.name;
             const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableName.toLowerCase());
             if (!tableExists) {
-              console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in local DB, skipping...`);
-              continue;
-            }
-
-            db.prepare(`DELETE FROM "${tableName.toLowerCase()}"`).run();
-            const columns = Object.keys(rows[0]);
-            const placeholders = columns.map(() => '?').join(', ');
-            const stmt = db.prepare(`INSERT INTO "${tableName.toLowerCase()}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
-            for (const row of rows) {
-              stmt.run(Object.values(row));
+              console.log(`🛠️ [BackupService] Creating missing local table: ${tableName}`);
+              // Simple create table for SQLite
+              const columns = Object.keys((value as any).columns);
+              const colDefs = columns.map(c => `"${c}" TEXT`).join(', '); // Fallback to TEXT for simplicity in backup
+              db.prepare(`CREATE TABLE IF NOT EXISTS "${tableName.toLowerCase()}" (id TEXT PRIMARY KEY, ${colDefs})`).run();
             }
           }
-        })();
-        db.close();
-      } else {
-        const { pool } = await import('../db');
-        const client = await pool.connect();
-        try {
-          await client.query('BEGIN');
-          // إيقاف القيود مؤقتاً لضمان عدم حدوث تعارضات في العلاقات
-          await client.query('SET CONSTRAINTS ALL DEFERRED');
-          
-          const tables = this.getAllTables();
-          const backupTables = Object.keys(data as Record<string, any[]>);
-          
-          // ترتيب الجداول للحذف (بشكل عكسي إذا لزم الأمر، لكن RESTART IDENTITY CASCADE يعالج معظم الحالات)
-          for (const tableName of backupTables) {
-            if (!tables.includes(tableName)) continue;
-            await client.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE`);
-          }
-          
-          for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
-            if (rows.length === 0 || !tables.includes(tableName)) continue;
-            const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
-            for (const row of rows) {
-              const values = Object.values(row);
-              const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-              await client.query(`INSERT INTO "${tableName}" (${columns}) VALUES (${placeholders})`, values);
-            }
-          }
-          await client.query('COMMIT');
-        } catch (e) {
-          await client.query('ROLLBACK');
-          throw e;
-        } finally {
-          client.release();
         }
-      }
+
+        for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
+          if (rows.length === 0) continue;
+          const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableName.toLowerCase());
+          if (!tableExists) continue;
+
+          db.prepare(`DELETE FROM "${tableName.toLowerCase()}"`).run();
+          const columns = Object.keys(rows[0]);
+          const placeholders = columns.map(() => '?').join(', ');
+          const stmt = db.prepare(`INSERT INTO "${tableName.toLowerCase()}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
+          for (const row of rows) {
+            stmt.run(Object.values(row));
+          }
+        }
+      })();
+      db.close();
+    }
       return { success: true, message: "تمت الاستعادة بنجاح" };
     } catch (error: any) {
       console.error("❌ [BackupService] Restore failed:", error);

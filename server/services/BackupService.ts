@@ -4,6 +4,8 @@ import { createGzip, createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { Readable, Writable } from 'stream';
 import cron from 'node-cron';
+import { TelegramService } from './TelegramService';
+import { GoogleDriveService } from './GoogleDriveService';
 
 const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 const MAX_RETENTION = Number(process.env.BACKUP_MAX_RETENTION) || 20;
@@ -182,7 +184,7 @@ export class BackupService {
       console.log(`✅ [BackupService] نسخ احتياطي ناجح: ${gzFilename}`);
       console.log(`   📊 ${Object.keys(backupData).length} جدول | ${totalRows} صف | ${(compressedSize / 1024 / 1024).toFixed(2)} MB | ضغط ${compressionRatio}% | ${durationMs}ms`);
 
-      return {
+      const result: any = {
         success: true,
         message: `تم النسخ الاحتياطي لـ ${Object.keys(backupData).length} جدول (${totalRows} صف) بنجاح`,
         filename: gzFilename,
@@ -195,14 +197,61 @@ export class BackupService {
         compressionRatio: `${compressionRatio}%`,
         durationMs,
         triggeredBy,
+        driveUploaded: false,
+        telegramSent: false,
       };
+
+      await this.postBackupActions(result, gzPath);
+
+      return result;
     } catch (error: any) {
       this.status.lastFailureAt = new Date().toISOString();
       this.status.lastError = error.message;
       this.status.totalFailure++;
       this.status.isRunning = false;
       console.error('❌ [BackupService] فشل النسخ:', error.message);
+
+      TelegramService.sendBackupNotification({
+        success: false,
+        message: error.message,
+        triggeredBy,
+      }).catch(() => {});
+
       return { success: false, message: error.message };
+    }
+  }
+
+  private static async postBackupActions(result: any, filePath: string): Promise<void> {
+    try {
+      if (GoogleDriveService.isEnabled()) {
+        console.log('☁️ [BackupService] رفع النسخة إلى Google Drive...');
+        const driveResult = await GoogleDriveService.uploadBackupFile(filePath, result.filename);
+        result.driveUploaded = driveResult.success;
+        result.driveUrl = driveResult.webViewLink || null;
+        result.driveFileId = driveResult.fileId || null;
+        if (driveResult.success) {
+          console.log(`✅ [BackupService] تم الرفع إلى Drive: ${driveResult.fileId}`);
+        } else {
+          console.warn(`⚠️ [BackupService] فشل الرفع إلى Drive: ${driveResult.message}`);
+        }
+      } else {
+        console.log('ℹ️ [BackupService] Google Drive غير مفعّل - تخطي الرفع');
+      }
+    } catch (error: any) {
+      console.error('❌ [BackupService] خطأ في رفع Drive:', error.message);
+      result.driveUploaded = false;
+    }
+
+    try {
+      if (TelegramService.isEnabled()) {
+        const sent = await TelegramService.sendBackupNotification(result);
+        result.telegramSent = sent;
+      } else {
+        console.log('ℹ️ [BackupService] Telegram غير مفعّل - تخطي الإشعار');
+      }
+    } catch (error: any) {
+      console.error('❌ [BackupService] خطأ في إشعار Telegram:', error.message);
+      result.telegramSent = false;
     }
   }
 

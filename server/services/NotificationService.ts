@@ -9,6 +9,7 @@ import { db } from "../db";
 import { eq, and, desc, or, inArray, sql } from "drizzle-orm";
 import Mustache from 'mustache';
 import { z } from 'zod';
+import { TelegramService } from './TelegramService';
 
 export interface NotificationPayload {
   type: string;
@@ -97,6 +98,17 @@ export class NotificationService {
       .returning();
 
     console.log(`✅ تم إنشاء الإشعار: ${notification.id}`);
+
+    TelegramService.sendNotification({
+      type: data.type,
+      title: data.title,
+      body: data.body,
+      priority: data.priority,
+      projectId: data.projectId,
+    }).catch((err) => {
+      console.warn(`⚠️ [NotificationService] فشل إرسال تيليجرام: ${err.message}`);
+    });
+
     return notification;
   }
 

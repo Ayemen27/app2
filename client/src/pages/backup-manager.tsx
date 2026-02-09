@@ -193,7 +193,7 @@ export default function BackupManager() {
       }, 200);
 
       try {
-        const res = await apiRequest("/api/admin/restore", "POST", { fileName, target });
+        const res = await apiRequest("/api/backups/restore", "POST", { fileName, target });
         clearInterval(progressInterval);
         setRestoreProgress(100);
         return res;

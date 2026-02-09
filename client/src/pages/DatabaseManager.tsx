@@ -37,28 +37,38 @@ export default function DatabaseManager() {
   });
 
   const overviewUrl = selectedSource !== 'active' ? `/api/db/overview?source=${selectedSource}` : '/api/db/overview';
-  const { data: overview, isLoading: overviewLoading, refetch: refetchOverview } = useQuery<any>({
+  const { data: overview, isLoading: overviewLoading, refetch: refetchOverview, error: overviewError } = useQuery<any>({
     queryKey: [overviewUrl],
+    retry: false,
   });
 
   const tablesUrl = selectedSource !== 'active' ? `/api/db/tables?source=${selectedSource}` : '/api/db/tables';
-  const { data: tables, isLoading: tablesLoading, refetch: refetchTables } = useQuery<any>({
+  const { data: tables, isLoading: tablesLoading, refetch: refetchTables, error: tablesError } = useQuery<any>({
     queryKey: [tablesUrl],
+    retry: false,
   });
 
   const perfUrl = selectedSource !== 'active' ? `/api/db/performance?source=${selectedSource}` : '/api/db/performance';
   const { data: performance, isLoading: perfLoading, refetch: refetchPerf } = useQuery<any>({
     queryKey: [perfUrl],
+    retry: false,
   });
 
   const integrityUrl = selectedSource !== 'active' ? `/api/db/integrity?source=${selectedSource}` : '/api/db/integrity';
   const { data: integrity, isLoading: integrityLoading, refetch: refetchIntegrity } = useQuery<any>({
     queryKey: [integrityUrl],
+    retry: false,
   });
 
+  const sourceError = overviewError || tablesError;
+
+  const [compareSource1, setCompareSource1] = useState("local");
+  const [compareSource2, setCompareSource2] = useState("");
+
+  const compareUrl = `/api/db/compare?source1=${compareSource1}&source2=${compareSource2}`;
   const { data: comparison, isLoading: comparisonLoading, refetch: refetchComparison } = useQuery<any>({
-    queryKey: ["/api/db/compare"],
-    enabled: activeTab === 'compare',
+    queryKey: [compareUrl],
+    enabled: activeTab === 'compare' && !!compareSource1 && !!compareSource2,
   });
 
   const { data: systemStats } = useQuery<any>({
@@ -268,6 +278,25 @@ export default function DatabaseManager() {
         } : undefined}
       />
 
+      {sourceError && selectedSource !== 'active' && (
+        <Card>
+          <CardContent className="py-6">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+              <WifiOff className="h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-medium text-sm">القاعدة المختارة غير متصلة</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  تعذر الاتصال بالقاعدة المحددة. اختر قاعدة أخرى أو تحقق من إعدادات الاتصال.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="mr-auto shrink-0" onClick={() => setSelectedSource('active')} data-testid="button-reset-source">
+                العودة للنشطة
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full grid grid-cols-6 h-10" data-testid="tabs-db-manager">
           <TabsTrigger value="overview" className="gap-1 text-xs sm:text-sm" data-testid="tab-overview">
@@ -473,6 +502,11 @@ export default function DatabaseManager() {
             data={compareData}
             loading={comparisonLoading}
             onRefresh={() => refetchComparison()}
+            connections={connections}
+            source1={compareSource1}
+            source2={compareSource2}
+            onSource1Change={setCompareSource1}
+            onSource2Change={setCompareSource2}
           />
         </TabsContent>
 
@@ -616,37 +650,121 @@ export default function DatabaseManager() {
   );
 }
 
-function ComparisonTab({ data, loading, onRefresh }: { data: any; loading: boolean; onRefresh: () => void }) {
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">جاري مقارنة قواعد البيانات...</p>
-        </div>
-      </div>
-    );
-  }
+function ComparisonTab({ data, loading, onRefresh, connections, source1, source2, onSource1Change, onSource2Change }: {
+  data: any; loading: boolean; onRefresh: () => void;
+  connections: any[]; source1: string; source2: string;
+  onSource1Change: (v: string) => void; onSource2Change: (v: string) => void;
+}) {
+  const connectedDbs = connections.filter((c: any) => c.connected);
+  const noSelection = !source1 || !source2;
 
-  if (!data) {
-    return (
+  return (
+    <div className="space-y-4">
       <Card>
-        <CardContent className="py-12 text-center">
-          <ArrowLeftRight className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
-          <p className="text-lg font-medium mb-2">غير متاح حالياً</p>
-          <p className="text-sm text-muted-foreground mb-4">
-            يجب أن تكون قاعدتا البيانات (المحلية والسحابية) متصلتين لإجراء المقارنة
-          </p>
-          <Button variant="outline" onClick={onRefresh} data-testid="button-retry-compare">
-            <RefreshCw className="h-4 w-4 ml-1" />
-            إعادة المحاولة
-          </Button>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <GitCompareArrows className="h-4 w-4" />
+            اختيار القواعد للمقارنة
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-[150px]">
+              <label className="text-xs text-muted-foreground mb-1 block">القاعدة الأولى</label>
+              <Select value={source1} onValueChange={onSource1Change} data-testid="select-compare-source1">
+                <SelectTrigger data-testid="select-trigger-source1">
+                  <SelectValue placeholder="اختر القاعدة الأولى" />
+                </SelectTrigger>
+                <SelectContent>
+                  {connectedDbs.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id} disabled={c.id === source2}>
+                      {c.label} ({c.dbName || c.id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <ArrowLeftRight className="h-5 w-5 text-muted-foreground mt-4 shrink-0" />
+            <div className="flex-1 min-w-[150px]">
+              <label className="text-xs text-muted-foreground mb-1 block">القاعدة الثانية</label>
+              <Select value={source2} onValueChange={onSource2Change} data-testid="select-compare-source2">
+                <SelectTrigger data-testid="select-trigger-source2">
+                  <SelectValue placeholder="اختر القاعدة الثانية" />
+                </SelectTrigger>
+                <SelectContent>
+                  {connectedDbs.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id} disabled={c.id === source1}>
+                      {c.label} ({c.dbName || c.id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="default" size="default"
+              onClick={onRefresh}
+              disabled={noSelection || loading}
+              className="mt-4"
+              data-testid="button-run-compare"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <GitCompareArrows className="h-4 w-4 ml-1" />}
+              مقارنة
+            </Button>
+          </div>
+          {connectedDbs.length < 2 && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              يجب أن تكون قاعدتان على الأقل متصلتين لإجراء المقارنة
+            </p>
+          )}
         </CardContent>
       </Card>
-    );
-  }
 
-  const totalIssues = data.onlyLocalTables + data.onlySupabaseTables + data.tablesWithDiffRows + data.tablesWithDiffStructure;
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">جاري مقارنة قواعد البيانات...</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && noSelection && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <ArrowLeftRight className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
+            <p className="text-lg font-medium mb-2">اختر قاعدتين</p>
+            <p className="text-sm text-muted-foreground">
+              اختر القاعدة الأولى والثانية من القوائم أعلاه ثم اضغط مقارنة
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !noSelection && !data && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <ArrowLeftRight className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
+            <p className="text-lg font-medium mb-2">غير متاح</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              تأكد أن القاعدتين المختارتين متصلتان ثم أعد المحاولة
+            </p>
+            <Button variant="outline" onClick={onRefresh} data-testid="button-retry-compare">
+              <RefreshCw className="h-4 w-4 ml-1" />
+              إعادة المحاولة
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && data && <ComparisonResults data={data} onRefresh={onRefresh} />}
+    </div>
+  );
+}
+
+function ComparisonResults({ data, onRefresh }: { data: any; onRefresh: () => void }) {
+  const totalIssues = (data.onlySource1Tables || 0) + (data.onlySource2Tables || 0) + (data.tablesWithDiffRows || 0) + (data.tablesWithDiffStructure || 0);
+  const s1Name = data.source1Name || 'المصدر ١';
+  const s2Name = data.source2Name || 'المصدر ٢';
 
   return (
     <div className="space-y-4">
@@ -654,7 +772,7 @@ function ComparisonTab({ data, loading, onRefresh }: { data: any; loading: boole
         <div className="flex items-center gap-2">
           <GitCompareArrows className="h-5 w-5 text-muted-foreground" />
           <span className="text-sm font-medium">
-            {data.localDbName} <ArrowLeftRight className="h-3 w-3 inline mx-1" /> {data.supabaseDbName}
+            {s1Name} <ArrowLeftRight className="h-3 w-3 inline mx-1" /> {s2Name}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -672,8 +790,8 @@ function ComparisonTab({ data, loading, onRefresh }: { data: any; loading: boole
         <CompareStatCard label="متطابقة" value={data.matchingTables} color="emerald" />
         <CompareStatCard label="فرق سجلات" value={data.tablesWithDiffRows} color={data.tablesWithDiffRows > 0 ? "amber" : "emerald"} />
         <CompareStatCard label="فرق هيكلي" value={data.tablesWithDiffStructure} color={data.tablesWithDiffStructure > 0 ? "red" : "emerald"} />
-        <CompareStatCard label="محلي فقط" value={data.onlyLocalTables} color={data.onlyLocalTables > 0 ? "amber" : "emerald"} />
-        <CompareStatCard label="سحابي فقط" value={data.onlySupabaseTables} color={data.onlySupabaseTables > 0 ? "amber" : "emerald"} />
+        <CompareStatCard label={`${s1Name} فقط`} value={data.onlySource1Tables || 0} color={(data.onlySource1Tables || 0) > 0 ? "amber" : "emerald"} />
+        <CompareStatCard label={`${s2Name} فقط`} value={data.onlySource2Tables || 0} color={(data.onlySource2Tables || 0) > 0 ? "amber" : "emerald"} />
       </div>
 
       {data.alerts?.length > 0 && (
@@ -730,11 +848,11 @@ function ComparisonTab({ data, loading, onRefresh }: { data: any; loading: boole
               <TableRow>
                 <TableHead className="text-right">الجدول</TableHead>
                 <TableHead className="text-center">الحالة</TableHead>
-                <TableHead className="text-center">محلي (سجلات)</TableHead>
-                <TableHead className="text-center">سحابي (سجلات)</TableHead>
+                <TableHead className="text-center">{s1Name} (سجلات)</TableHead>
+                <TableHead className="text-center">{s2Name} (سجلات)</TableHead>
                 <TableHead className="text-center">الفرق</TableHead>
-                <TableHead className="text-center">محلي (حجم)</TableHead>
-                <TableHead className="text-center">سحابي (حجم)</TableHead>
+                <TableHead className="text-center">{s1Name} (حجم)</TableHead>
+                <TableHead className="text-center">{s2Name} (حجم)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -743,32 +861,32 @@ function ComparisonTab({ data, loading, onRefresh }: { data: any; loading: boole
                   key={t.name}
                   className={
                     t.status === 'diff_structure' ? 'bg-red-50/50 dark:bg-red-900/10' :
-                    t.status === 'only_local' || t.status === 'only_supabase' ? 'bg-amber-50/50 dark:bg-amber-900/10' :
+                    t.status === 'only_source1' || t.status === 'only_source2' ? 'bg-amber-50/50 dark:bg-amber-900/10' :
                     t.status === 'diff_rows' ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''
                   }
                   data-testid={`compare-row-${t.name}`}
                 >
                   <TableCell className="font-mono text-xs">{t.name}</TableCell>
                   <TableCell className="text-center">
-                    <CompareStatusBadge status={t.status} />
+                    <CompareStatusBadge status={t.status} s1Name={s1Name} s2Name={s2Name} />
                   </TableCell>
                   <TableCell className="text-center font-mono text-xs">
-                    {t.localRows !== null ? t.localRows.toLocaleString() : <span className="text-muted-foreground">-</span>}
+                    {t.source1Rows !== null && t.source1Rows !== undefined ? t.source1Rows.toLocaleString() : <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   <TableCell className="text-center font-mono text-xs">
-                    {t.supabaseRows !== null ? t.supabaseRows.toLocaleString() : <span className="text-muted-foreground">-</span>}
+                    {t.source2Rows !== null && t.source2Rows !== undefined ? t.source2Rows.toLocaleString() : <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   <TableCell className="text-center">
                     {t.rowDiff > 0 ? (
                       <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                        {t.rowDiff > 0 ? '+' : ''}{t.rowDiff.toLocaleString()}
+                        +{t.rowDiff.toLocaleString()}
                       </span>
                     ) : (
                       <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
                     )}
                   </TableCell>
-                  <TableCell className="text-center text-xs">{t.localSize || '-'}</TableCell>
-                  <TableCell className="text-center text-xs">{t.supabaseSize || '-'}</TableCell>
+                  <TableCell className="text-center text-xs">{t.source1Size || '-'}</TableCell>
+                  <TableCell className="text-center text-xs">{t.source2Size || '-'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

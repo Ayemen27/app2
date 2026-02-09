@@ -100,6 +100,7 @@ export class SmartConnectionManager {
     await this.initializeLocalConnection();
     await this.initializeSupabaseConnection();
     await this.discoverAndConnectAllDatabases();
+    await this.discoverDatabasesOnServer();
 
     if (!this.connectionStatus.supabase && !this.connectionStatus.local) {
       const isAndroid = process.env.PLATFORM === 'android';
@@ -777,6 +778,129 @@ export class SmartConnectionManager {
     
     if (discoveredKeys.length > 0 && !this.isProduction) {
       console.log(`🔍 [Dynamic DB] تم اكتشاف ${discoveredKeys.length} قاعدة بيانات إضافية:`, discoveredKeys);
+    }
+  }
+
+  /**
+   * 🔍 اكتشاف جميع قواعد البيانات على الخادم الرئيسي
+   */
+  private async discoverDatabasesOnServer(): Promise<void> {
+    if (!this.localPool || !this.connectionStatus.local) return;
+
+    try {
+      const client = await this.localPool.connect();
+      const result = await client.query(`
+        SELECT datname FROM pg_database 
+        WHERE datistemplate = false 
+        AND datname NOT IN ('postgres', 'template0', 'template1')
+      `);
+      client.release();
+
+      const currentDbUrl = process.env.DATABASE_URL || '';
+      let urlObj: URL;
+      try {
+        urlObj = new URL(currentDbUrl);
+      } catch {
+        return;
+      }
+      
+      const currentDbName = urlObj.pathname.replace('/', '');
+      const discoveredOnServer: string[] = [];
+      const isLocalConnection = currentDbUrl.includes('localhost') || currentDbUrl.includes('127.0.0.1');
+      const sslConfig = isLocalConnection ? false : { rejectUnauthorized: false, minVersion: 'TLSv1.2' as const };
+
+      for (const row of result.rows) {
+        const dbName = row.datname;
+        if (dbName === currentDbName) continue;
+
+        const key = `server_${dbName}`;
+        if (this.dynamicConnections.has(key)) continue;
+
+        const existingKeys = Array.from(this.dynamicConnections.values());
+        const alreadyConnected = existingKeys.some(c => c.dbName === dbName && c.connected);
+        if (alreadyConnected) continue;
+
+        const newUrl = new URL(currentDbUrl);
+        newUrl.pathname = `/${dbName}`;
+        const connString = newUrl.toString();
+
+        try {
+          const startTime = Date.now();
+          const newPool = new Pool({
+            connectionString: connString,
+            ssl: sslConfig,
+            max: 3,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 15000,
+            keepAlive: true
+          });
+
+          const testClient = await newPool.connect();
+          const testResult = await testClient.query('SELECT current_database() as db, current_user as usr');
+          testClient.release();
+          const latency = Date.now() - startTime;
+
+          const labelMap: Record<string, string> = {
+            'app2': 'تطبيق الأندرويد (app2)',
+            'app2_backup': 'نسخة احتياطية (app2_backup)',
+            'app2_plus': 'تطبيق متقدم (app2_plus)',
+            'ai_agents_db': 'وكلاء الذكاء الاصطناعي',
+            'ai_system_db': 'نظام الذكاء الاصطناعي',
+            'admindata': 'بيانات الإدارة',
+          };
+          const label = labelMap[dbName] || dbName;
+
+          this.dynamicConnections.set(key, {
+            key,
+            label,
+            pool: newPool,
+            db: drizzle(newPool, { schema }),
+            connected: true,
+            url: connString,
+            dbName: testResult.rows[0]?.db,
+            dbUser: testResult.rows[0]?.usr,
+            host: urlObj.hostname,
+            latency
+          });
+
+          discoveredOnServer.push(dbName);
+
+          if (!this.connectionMetrics[key]) {
+            this.connectionMetrics[key] = {
+              totalAttempts: 1, successfulAttempts: 1, failedAttempts: 0,
+              lastAttemptTime: Date.now(), lastFailureTime: null,
+              averageLatency: latency, latencyHistory: [latency]
+            };
+          }
+
+          if (!this.isProduction) {
+            console.log(`✅ [Server DB] اكتشاف "${label}" نجح:`, {
+              database: dbName, host: urlObj.hostname, latency: `${latency}ms`
+            });
+          }
+        } catch (error: any) {
+          this.dynamicConnections.set(key, {
+            key,
+            label: dbName,
+            pool: null as any,
+            db: null,
+            connected: false,
+            url: connString,
+            host: urlObj.hostname,
+          });
+          if (!this.isProduction) {
+            console.warn(`⚠️ [Server DB] فشل الاتصال بـ "${dbName}":`, error.message?.substring(0, 80));
+          }
+        }
+      }
+
+      if (discoveredOnServer.length > 0 && !this.isProduction) {
+        console.log(`🔍 [Server DB] تم اكتشاف ${discoveredOnServer.length} قاعدة بيانات على الخادم:`, discoveredOnServer);
+      }
+    } catch (error: any) {
+      if (!this.isProduction) {
+        console.warn('⚠️ [Server DB] فشل فحص قواعد البيانات على الخادم:', error.message?.substring(0, 80));
+      }
     }
   }
 

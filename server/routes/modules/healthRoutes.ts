@@ -482,9 +482,11 @@ healthRouter.get('/db/integrity', requireAuth, requireRole('admin'), async (req:
   }
 });
 
-healthRouter.get('/db/compare', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+healthRouter.get('/db/compare', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const report = await DbMetricsService.compareDatabases();
+    const source1 = req.query.source1 as string | undefined;
+    const source2 = req.query.source2 as string | undefined;
+    const report = await DbMetricsService.compareDatabases(source1, source2);
     if (!report) {
       return res.json({ success: false, error: 'يجب أن تكون القاعدتان متصلتين للمقارنة' });
     }

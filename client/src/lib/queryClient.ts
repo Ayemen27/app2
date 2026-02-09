@@ -288,9 +288,37 @@ export const getQueryFn: <T>(options: {
         clearTimeout(timeoutId);
 
         if (!res.ok) {
+          if (res.status === 401 && retryCount === 0) {
+            console.log('🔄 [QueryClient] 401 - محاولة تجديد التوكن...');
+            const refreshTokenValue = localStorage.getItem("refreshToken");
+            if (refreshTokenValue) {
+              try {
+                const refreshApiBase = ENV.getApiBaseUrl();
+                const refreshUrl = `${refreshApiBase}/api/auth/refresh`;
+                const refreshRes = await fetch(refreshUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refreshToken: refreshTokenValue })
+                });
+                if (refreshRes.ok) {
+                  const refreshData = await refreshRes.json();
+                  const newToken = refreshData.data?.accessToken || refreshData.accessToken;
+                  const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
+                  if (newToken) {
+                    console.log('✅ [QueryClient] تم تجديد التوكن بنجاح، إعادة الطلب...');
+                    localStorage.setItem("accessToken", newToken);
+                    if (newRefresh) localStorage.setItem("refreshToken", newRefresh);
+                    return makeQueryRequest(retryCount + 1);
+                  }
+                }
+              } catch (refreshErr) {
+                console.error('❌ [QueryClient] فشل تجديد التوكن:', refreshErr);
+              }
+            }
+            console.error('❌ [QueryClient] Unauthorized (401) - فشل التجديد');
+            throw new Error(`Authentication Error (401)`);
+          }
           if (res.status === 401) {
-            console.error('❌ [QueryClient] Unauthorized (401) - Silent failure for offline support');
-            // لا نقوم بالتوجيه القسري هنا
             throw new Error(`Authentication Error (401)`);
           }
           const errorData = await res.json().catch(() => ({ message: `Error ${res.status}` }));

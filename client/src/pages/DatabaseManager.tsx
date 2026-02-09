@@ -350,7 +350,7 @@ export default function DatabaseManager() {
                     <InfoRow label="الجداول" value={db.totalTables} />
                     <InfoRow label="السجلات" value={(db.totalRows || 0).toLocaleString()} />
                     <InfoRow label="الفهارس" value={db.totalIndexes} />
-                    <InfoRow label="وقت التشغيل" value={db.uptime} />
+                    <InfoRow label="وقت التشغيل" value={typeof db.uptime === 'object' ? `${db.uptime.days || 0} يوم ${db.uptime.hours || 0} ساعة` : db.uptime} />
                     <InfoRow label="الاتصالات" value={`${db.activeConnections} / ${db.maxConnections}`} />
                   </div>
                 ) : (

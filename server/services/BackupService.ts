@@ -219,15 +219,16 @@ export class BackupService {
     }
 
     // 1. البحث في محتوى ملف .env (للكشف عن القواعد المعرفة يدوياً)
-    const regex = /^DATABASE_URL_([a-zA-Z0-9_]+)=(.+)/gm;
+    const regex = /^DATABASE_URL_([^=]+)=(.+)/gm;
     let match;
     while ((match = regex.exec(envContent)) !== null) {
-      const id = match[1].toLowerCase();
+      const rawId = match[1].trim();
+      const id = rawId.toLowerCase().replace(/\s+/g, '_');
       const url = match[2].trim().replace(/^["']|["']$/g, '');
       if (url && !dbs.find(d => d.id === id)) {
         dbs.push({
           id,
-          name: match[1].replace(/_/g, ' '),
+          name: rawId.replace(/_/g, ' '),
           url
         });
       }

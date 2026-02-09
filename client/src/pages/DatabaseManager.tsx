@@ -6,7 +6,8 @@ import {
   ShieldCheck, Activity, Search, Table as TableIcon,
   CheckCircle2, Zap, Loader2, Settings,
   BarChart3, Wrench, AlertTriangle, ChevronDown, ChevronUp,
-  Columns3, FileText
+  Columns3, FileText, GitCompareArrows, Bell, ArrowLeftRight,
+  Wifi, WifiOff, Cloud, MonitorSmartphone, CircleDot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, ActionButton, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "@/components/ui/select";
 
 export default function DatabaseManager() {
   const { toast } = useToast();
@@ -26,21 +30,35 @@ export default function DatabaseManager() {
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'size' | 'rows' | 'name'>('size');
   const [searchValue, setSearchValue] = useState("");
+  const [selectedSource, setSelectedSource] = useState("active");
 
+  const { data: connectionsData, isLoading: connectionsLoading } = useQuery<any>({
+    queryKey: ["/api/db/connections"],
+  });
+
+  const overviewUrl = selectedSource !== 'active' ? `/api/db/overview?source=${selectedSource}` : '/api/db/overview';
   const { data: overview, isLoading: overviewLoading, refetch: refetchOverview } = useQuery<any>({
-    queryKey: ["/api/db/overview"],
+    queryKey: [overviewUrl],
   });
 
+  const tablesUrl = selectedSource !== 'active' ? `/api/db/tables?source=${selectedSource}` : '/api/db/tables';
   const { data: tables, isLoading: tablesLoading, refetch: refetchTables } = useQuery<any>({
-    queryKey: ["/api/db/tables"],
+    queryKey: [tablesUrl],
   });
 
+  const perfUrl = selectedSource !== 'active' ? `/api/db/performance?source=${selectedSource}` : '/api/db/performance';
   const { data: performance, isLoading: perfLoading, refetch: refetchPerf } = useQuery<any>({
-    queryKey: ["/api/db/performance"],
+    queryKey: [perfUrl],
   });
 
+  const integrityUrl = selectedSource !== 'active' ? `/api/db/integrity?source=${selectedSource}` : '/api/db/integrity';
   const { data: integrity, isLoading: integrityLoading, refetch: refetchIntegrity } = useQuery<any>({
-    queryKey: ["/api/db/integrity"],
+    queryKey: [integrityUrl],
+  });
+
+  const { data: comparison, isLoading: comparisonLoading, refetch: refetchComparison } = useQuery<any>({
+    queryKey: ["/api/db/compare"],
+    enabled: activeTab === 'compare',
   });
 
   const { data: systemStats } = useQuery<any>({
@@ -73,11 +91,13 @@ export default function DatabaseManager() {
     refetchIntegrity();
   };
 
-  const db = overview?.data;
-  const tableList = tables?.data || [];
-  const perf = performance?.data;
-  const integrityData = integrity?.data;
-  const sysStats = systemStats?.data;
+  const connections = Array.isArray(connectionsData) ? connectionsData : (connectionsData?.data || []);
+  const db = overview && typeof overview === 'object' && !Array.isArray(overview) ? overview : null;
+  const tableList = Array.isArray(tables) ? tables : (tables?.data || []);
+  const perf = performance && typeof performance === 'object' && !Array.isArray(performance) ? performance : null;
+  const integrityData = integrity && typeof integrity === 'object' && !Array.isArray(integrity) ? integrity : null;
+  const sysStats = systemStats && typeof systemStats === 'object' ? systemStats : null;
+  const compareData = comparison && typeof comparison === 'object' && !Array.isArray(comparison) ? comparison : null;
 
   const filteredTables = tableList
     .filter((t: any) => t.name.toLowerCase().includes(searchValue.toLowerCase()))
@@ -89,11 +109,20 @@ export default function DatabaseManager() {
 
   const totalRows = tableList.reduce((s: number, t: any) => s + t.rowCount, 0);
   const totalSizeBytes = tableList.reduce((s: number, t: any) => s + t.totalSizeBytes, 0);
-
   const integrityScore = integrityData?.score ?? 0;
+
+  const alertsCount = compareData?.alerts?.length || 0;
+  const criticalAlerts = compareData?.alerts?.filter((a: any) => a.severity === 'critical')?.length || 0;
 
   const statsRows: StatsRowConfig[] = useMemo(() => [{
     items: [
+      {
+        key: 'connections',
+        label: 'الاتصالات',
+        value: connections.filter((c: any) => c.connected).length + '/' + connections.length,
+        icon: Wifi,
+        color: connections.filter((c: any) => c.connected).length === connections.length ? 'emerald' as const : 'amber' as const,
+      },
       {
         key: 'tables',
         label: 'الجداول',
@@ -117,20 +146,18 @@ export default function DatabaseManager() {
       },
       {
         key: 'integrity',
-        label: 'سلامة البيانات',
+        label: 'السلامة',
         value: integrityLoading ? '...' : `${integrityScore}%`,
         icon: ShieldCheck,
         color: integrityScore >= 90 ? 'emerald' as const : integrityScore >= 75 ? 'amber' as const : 'red' as const,
-        showDot: !integrityLoading,
-        dotColor: integrityScore >= 90 ? 'bg-emerald-500' : integrityScore >= 75 ? 'bg-yellow-500' : 'bg-red-500',
       },
     ],
-    columns: 4,
+    columns: 5 as any,
     gap: 'md',
-  }], [db, overviewLoading, integrityScore, integrityLoading, totalRows]);
+  }], [db, overviewLoading, integrityScore, integrityLoading, totalRows, connections]);
 
   const refreshAction: ActionButton[] = [{
-    key: 'refresh',
+    key: 'db-refresh',
     icon: RefreshCw,
     label: 'تحديث',
     onClick: refetchAll,
@@ -152,6 +179,60 @@ export default function DatabaseManager() {
 
   return (
     <div className="space-y-4" dir="rtl">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Select value={selectedSource} onValueChange={setSelectedSource} data-testid="select-db-source">
+          <SelectTrigger className="w-[220px]" data-testid="trigger-db-source">
+            <div className="flex items-center gap-2">
+              {selectedSource === 'active' && <CircleDot className="h-3.5 w-3.5 text-blue-500" />}
+              {selectedSource === 'local' && <MonitorSmartphone className="h-3.5 w-3.5 text-emerald-500" />}
+              {selectedSource === 'supabase' && <Cloud className="h-3.5 w-3.5 text-violet-500" />}
+              <SelectValue placeholder="اختر قاعدة البيانات" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">النشطة (تلقائي)</SelectItem>
+            {connections.map((conn: any) => (
+              <SelectItem key={conn.id} value={conn.id}>
+                <div className="flex items-center gap-2">
+                  {conn.connected ? (
+                    <Wifi className="h-3 w-3 text-emerald-500" />
+                  ) : (
+                    <WifiOff className="h-3 w-3 text-red-500" />
+                  )}
+                  {conn.label}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex items-center gap-2 mr-auto">
+          {connections.map((conn: any) => (
+            <Badge
+              key={conn.id}
+              variant={conn.connected ? "default" : "destructive"}
+              className="text-[11px]"
+              data-testid={`badge-conn-${conn.id}`}
+            >
+              {conn.connected ? <Wifi className="h-3 w-3 ml-1" /> : <WifiOff className="h-3 w-3 ml-1" />}
+              {conn.id === 'local' ? 'محلي' : 'سحابي'}
+              {conn.connected && conn.tables > 0 && ` (${conn.tables})`}
+            </Badge>
+          ))}
+          {alertsCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="text-[11px] cursor-pointer"
+              onClick={() => setActiveTab('compare')}
+              data-testid="badge-alerts-count"
+            >
+              <Bell className="h-3 w-3 ml-1" />
+              {criticalAlerts > 0 ? `${criticalAlerts} تحذير حرج` : `${alertsCount} تنبيه`}
+            </Badge>
+          )}
+        </div>
+      </div>
+
       <UnifiedFilterDashboard
         hideHeader={true}
         statsRows={statsRows}
@@ -188,34 +269,75 @@ export default function DatabaseManager() {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full grid grid-cols-5 h-10" data-testid="tabs-db-manager">
-          <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-overview">
+        <TabsList className="w-full grid grid-cols-6 h-10" data-testid="tabs-db-manager">
+          <TabsTrigger value="overview" className="gap-1 text-xs sm:text-sm" data-testid="tab-overview">
             <BarChart3 className="h-3.5 w-3.5 shrink-0" /> <span className="hidden sm:inline">نظرة عامة</span><span className="sm:hidden">عامة</span>
           </TabsTrigger>
-          <TabsTrigger value="tables" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-tables">
+          <TabsTrigger value="tables" className="gap-1 text-xs sm:text-sm" data-testid="tab-tables">
             <TableIcon className="h-3.5 w-3.5 shrink-0" /> <span>الجداول</span>
           </TabsTrigger>
-          <TabsTrigger value="integrity" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-integrity">
-            <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> <span className="hidden sm:inline">سلامة البيانات</span><span className="sm:hidden">السلامة</span>
+          <TabsTrigger value="compare" className="gap-1 text-xs sm:text-sm relative" data-testid="tab-compare">
+            <GitCompareArrows className="h-3.5 w-3.5 shrink-0" /> <span className="hidden sm:inline">المقارنة</span><span className="sm:hidden">مقارنة</span>
+            {alertsCount > 0 && (
+              <span className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] flex items-center justify-center">
+                {alertsCount > 9 ? '9+' : alertsCount}
+              </span>
+            )}
           </TabsTrigger>
-          <TabsTrigger value="performance" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-performance">
+          <TabsTrigger value="integrity" className="gap-1 text-xs sm:text-sm" data-testid="tab-integrity">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> <span className="hidden sm:inline">السلامة</span><span className="sm:hidden">سلامة</span>
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="gap-1 text-xs sm:text-sm" data-testid="tab-performance">
             <Activity className="h-3.5 w-3.5 shrink-0" /> <span>الأداء</span>
           </TabsTrigger>
-          <TabsTrigger value="maintenance" className="gap-1.5 text-xs sm:text-sm" data-testid="tab-maintenance">
+          <TabsTrigger value="maintenance" className="gap-1 text-xs sm:text-sm" data-testid="tab-maintenance">
             <Wrench className="h-3.5 w-3.5 shrink-0" /> <span>الصيانة</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {connections.map((conn: any) => (
+              <Card key={conn.id} data-testid={`card-connection-${conn.id}`}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {conn.id === 'local' ? <MonitorSmartphone className="h-4 w-4" /> : <Cloud className="h-4 w-4" />}
+                    {conn.label}
+                    {conn.connected ? (
+                      <Badge variant="default" className="mr-auto text-[10px]">متصل</Badge>
+                    ) : (
+                      <Badge variant="destructive" className="mr-auto text-[10px]">غير متصل</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {conn.connected ? (
+                    <div className="space-y-2">
+                      <InfoRow label="اسم القاعدة" value={conn.dbName} />
+                      <InfoRow label="الإصدار" value={conn.version} />
+                      <InfoRow label="الحجم" value={conn.size} />
+                      <InfoRow label="الجداول" value={conn.tables} />
+                      <InfoRow label="السجلات" value={conn.rows?.toLocaleString()} />
+                      {conn.latency && <InfoRow label="زمن الاستجابة" value={conn.latency} />}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center py-6 text-muted-foreground">
+                      <WifiOff className="h-8 w-8 mb-2 opacity-40" />
+                      <p className="text-sm">غير متصل</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Server className="h-5 w-5" />
-                  معلومات القاعدة
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  القاعدة النشطة
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 {overviewLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -224,23 +346,25 @@ export default function DatabaseManager() {
                   <div className="space-y-2">
                     <InfoRow label="اسم القاعدة" value={db.name} />
                     <InfoRow label="الإصدار" value={db.version} />
-                    <InfoRow label="الحجم الكلي" value={db.size} />
-                    <InfoRow label="عدد الجداول" value={db.totalTables} />
-                    <InfoRow label="إجمالي السجلات" value={(db.totalRows || 0).toLocaleString()} />
-                    <InfoRow label="عدد الفهارس" value={db.totalIndexes} />
+                    <InfoRow label="الحجم" value={db.size} />
+                    <InfoRow label="الجداول" value={db.totalTables} />
+                    <InfoRow label="السجلات" value={(db.totalRows || 0).toLocaleString()} />
+                    <InfoRow label="الفهارس" value={db.totalIndexes} />
                     <InfoRow label="وقت التشغيل" value={db.uptime} />
-                    <InfoRow label="الاتصالات النشطة" value={`${db.activeConnections} / ${db.maxConnections}`} />
+                    <InfoRow label="الاتصالات" value={`${db.activeConnections} / ${db.maxConnections}`} />
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">لا توجد بيانات</p>
                 )}
               </CardContent>
             </Card>
+          </div>
 
+          <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
                   موارد الخادم
                 </CardTitle>
               </CardHeader>
@@ -249,14 +373,14 @@ export default function DatabaseManager() {
                   <>
                     <div>
                       <div className="flex justify-between gap-2 text-sm mb-1">
-                        <span className="text-muted-foreground">استخدام المعالج</span>
+                        <span className="text-muted-foreground">المعالج</span>
                         <span className="font-medium">{sysStats.cpuUsage}%</span>
                       </div>
                       <Progress value={sysStats.cpuUsage} className="h-2" />
                     </div>
                     <div>
                       <div className="flex justify-between gap-2 text-sm mb-1">
-                        <span className="text-muted-foreground">استخدام الذاكرة</span>
+                        <span className="text-muted-foreground">الذاكرة</span>
                         <span className="font-medium">{sysStats.memoryUsage}%</span>
                       </div>
                       <Progress value={sysStats.memoryUsage} className="h-2" />
@@ -264,7 +388,7 @@ export default function DatabaseManager() {
                     {sysStats.memoryDetails && (
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="bg-muted/50 rounded-lg p-2">
-                          <span className="text-muted-foreground">Heap مستخدم</span>
+                          <span className="text-muted-foreground">Heap</span>
                           <p className="font-medium">{sysStats.memoryDetails.heapUsed} MB</p>
                         </div>
                         <div className="bg-muted/50 rounded-lg p-2">
@@ -282,21 +406,21 @@ export default function DatabaseManager() {
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {perf && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
-                  ملخص الأداء
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PerformanceMetrics perf={perf} />
-              </CardContent>
-            </Card>
-          )}
+            {perf && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    ملخص الأداء
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PerformanceMetrics perf={perf} />
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="tables" className="space-y-4 mt-4">
@@ -323,6 +447,7 @@ export default function DatabaseManager() {
                       <TableRowDetail
                         key={t.name}
                         table={t}
+                        source={selectedSource}
                         expanded={expandedTable === t.name}
                         onToggle={() => setExpandedTable(expandedTable === t.name ? null : t.name)}
                         onMaintenance={(action: string) => maintenanceMutation.mutate({ action, tableName: t.name })}
@@ -343,12 +468,20 @@ export default function DatabaseManager() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="compare" className="space-y-4 mt-4">
+          <ComparisonTab
+            data={compareData}
+            loading={comparisonLoading}
+            onRefresh={() => refetchComparison()}
+          />
+        </TabsContent>
+
         <TabsContent value="integrity" className="space-y-4 mt-4">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5" />
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" />
                   تقرير سلامة البيانات
                 </CardTitle>
                 <Button
@@ -410,8 +543,8 @@ export default function DatabaseManager() {
         <TabsContent value="performance" className="space-y-4 mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Activity className="h-5 w-5" />
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4" />
                 مؤشرات الأداء
               </CardTitle>
               <CardDescription>قياسات حقيقية من محرك PostgreSQL</CardDescription>
@@ -442,11 +575,11 @@ export default function DatabaseManager() {
         <TabsContent value="maintenance" className="space-y-4 mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Wrench className="h-5 w-5" />
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
                 صيانة قاعدة البيانات
               </CardTitle>
-              <CardDescription>عمليات الصيانة والتحسين - تُنفذ على جميع الجداول</CardDescription>
+              <CardDescription>عمليات الصيانة والتحسين</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-3">
@@ -460,7 +593,7 @@ export default function DatabaseManager() {
                 />
                 <MaintenanceAction
                   title="تحليل الإحصائيات"
-                  description="تحديث إحصائيات المحسّن للاستعلامات"
+                  description="تحديث إحصائيات المحسّن"
                   action="analyze"
                   icon={<BarChart3 className="h-5 w-5" />}
                   onRun={() => maintenanceMutation.mutate({ action: 'analyze' })}
@@ -468,7 +601,7 @@ export default function DatabaseManager() {
                 />
                 <MaintenanceAction
                   title="إعادة بناء الفهارس"
-                  description="إعادة بناء جميع الفهارس لتحسين الأداء"
+                  description="إعادة بناء الفهارس لتحسين الأداء"
                   action="reindex"
                   icon={<Settings className="h-5 w-5" />}
                   onRun={() => maintenanceMutation.mutate({ action: 'reindex' })}
@@ -481,6 +614,204 @@ export default function DatabaseManager() {
       </Tabs>
     </div>
   );
+}
+
+function ComparisonTab({ data, loading, onRefresh }: { data: any; loading: boolean; onRefresh: () => void }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">جاري مقارنة قواعد البيانات...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <ArrowLeftRight className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-30" />
+          <p className="text-lg font-medium mb-2">غير متاح حالياً</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            يجب أن تكون قاعدتا البيانات (المحلية والسحابية) متصلتين لإجراء المقارنة
+          </p>
+          <Button variant="outline" onClick={onRefresh} data-testid="button-retry-compare">
+            <RefreshCw className="h-4 w-4 ml-1" />
+            إعادة المحاولة
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const totalIssues = data.onlyLocalTables + data.onlySupabaseTables + data.tablesWithDiffRows + data.tablesWithDiffStructure;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <GitCompareArrows className="h-5 w-5 text-muted-foreground" />
+          <span className="text-sm font-medium">
+            {data.localDbName} <ArrowLeftRight className="h-3 w-3 inline mx-1" /> {data.supabaseDbName}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            آخر مقارنة: {new Date(data.timestamp).toLocaleString('ar-SA')}
+          </span>
+          <Button variant="outline" size="sm" onClick={onRefresh} data-testid="button-refresh-compare">
+            <RefreshCw className="h-3.5 w-3.5 ml-1" />
+            تحديث
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+        <CompareStatCard label="متطابقة" value={data.matchingTables} color="emerald" />
+        <CompareStatCard label="فرق سجلات" value={data.tablesWithDiffRows} color={data.tablesWithDiffRows > 0 ? "amber" : "emerald"} />
+        <CompareStatCard label="فرق هيكلي" value={data.tablesWithDiffStructure} color={data.tablesWithDiffStructure > 0 ? "red" : "emerald"} />
+        <CompareStatCard label="محلي فقط" value={data.onlyLocalTables} color={data.onlyLocalTables > 0 ? "amber" : "emerald"} />
+        <CompareStatCard label="سحابي فقط" value={data.onlySupabaseTables} color={data.onlySupabaseTables > 0 ? "amber" : "emerald"} />
+      </div>
+
+      {data.alerts?.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              التنبيهات ({data.alerts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {data.alerts.map((alert: any, i: number) => (
+              <div
+                key={i}
+                className={`flex items-start gap-3 p-3 rounded-lg ${
+                  alert.severity === 'critical' ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50' :
+                  alert.severity === 'warning' ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50' :
+                  'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50'
+                }`}
+                data-testid={`alert-${alert.type}-${i}`}
+              >
+                {alert.severity === 'critical' ? (
+                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                ) : alert.severity === 'warning' ? (
+                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                ) : (
+                  <CircleDot className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={alert.severity === 'critical' ? 'destructive' : alert.severity === 'warning' ? 'secondary' : 'outline'} className="text-[10px]">
+                      {alert.severity === 'critical' ? 'حرج' : alert.severity === 'warning' ? 'تحذير' : 'معلومة'}
+                    </Badge>
+                    <span className="font-mono text-xs text-muted-foreground">{alert.table}</span>
+                  </div>
+                  <p className="text-sm mt-1">{alert.message}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TableIcon className="h-4 w-4" />
+            مقارنة الجداول ({data.tables?.length || 0})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-right">الجدول</TableHead>
+                <TableHead className="text-center">الحالة</TableHead>
+                <TableHead className="text-center">محلي (سجلات)</TableHead>
+                <TableHead className="text-center">سحابي (سجلات)</TableHead>
+                <TableHead className="text-center">الفرق</TableHead>
+                <TableHead className="text-center">محلي (حجم)</TableHead>
+                <TableHead className="text-center">سحابي (حجم)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.tables?.map((t: any) => (
+                <TableRow
+                  key={t.name}
+                  className={
+                    t.status === 'diff_structure' ? 'bg-red-50/50 dark:bg-red-900/10' :
+                    t.status === 'only_local' || t.status === 'only_supabase' ? 'bg-amber-50/50 dark:bg-amber-900/10' :
+                    t.status === 'diff_rows' ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''
+                  }
+                  data-testid={`compare-row-${t.name}`}
+                >
+                  <TableCell className="font-mono text-xs">{t.name}</TableCell>
+                  <TableCell className="text-center">
+                    <CompareStatusBadge status={t.status} />
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs">
+                    {t.localRows !== null ? t.localRows.toLocaleString() : <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs">
+                    {t.supabaseRows !== null ? t.supabaseRows.toLocaleString() : <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {t.rowDiff > 0 ? (
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                        {t.rowDiff > 0 ? '+' : ''}{t.rowDiff.toLocaleString()}
+                      </span>
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" />
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center text-xs">{t.localSize || '-'}</TableCell>
+                  <TableCell className="text-center text-xs">{t.supabaseSize || '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {totalIssues === 0 && (
+        <div className="text-center py-8">
+          <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+          <p className="text-lg font-medium text-emerald-600 dark:text-emerald-400">قواعد البيانات متطابقة تماماً</p>
+          <p className="text-sm text-muted-foreground mt-1">جميع الجداول والسجلات متزامنة بين القاعدتين</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompareStatCard({ label, value, color }: { label: string; value: number; color: string }) {
+  const colors = getColorClasses(color);
+  return (
+    <div className={`rounded-xl border p-3 ${colors.bg} ${colors.border}`}>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className={`text-2xl font-bold ${colors.text}`}>{value}</p>
+    </div>
+  );
+}
+
+function CompareStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'match':
+      return <Badge variant="default" className="text-[10px]">متطابق</Badge>;
+    case 'diff_rows':
+      return <Badge variant="secondary" className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">فرق سجلات</Badge>;
+    case 'diff_structure':
+      return <Badge variant="destructive" className="text-[10px]">فرق هيكلي</Badge>;
+    case 'only_local':
+      return <Badge variant="outline" className="text-[10px]">محلي فقط</Badge>;
+    case 'only_supabase':
+      return <Badge variant="outline" className="text-[10px]">سحابي فقط</Badge>;
+    default:
+      return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
+  }
 }
 
 function InfoRow({ label, value }: { label: string; value: any }) {
@@ -511,7 +842,7 @@ function PerformanceMetrics({ perf, extended }: { perf: any; extended?: boolean 
       },
       {
         key: 'rolledback',
-        label: 'المعاملات المرتجعة',
+        label: 'المرتجعة',
         value: perf.transactionsRolledBack?.toLocaleString() || '0',
         icon: AlertTriangle,
         color: (perf.transactionsRolledBack > 10 ? 'red' : 'emerald') as any,
@@ -613,8 +944,8 @@ function getColorClasses(color: string) {
   return map[color] || map.blue;
 }
 
-function TableRowDetail({ table, expanded, onToggle, onMaintenance, isMaintenanceLoading }: {
-  table: any; expanded: boolean; onToggle: () => void; onMaintenance: (action: string) => void; isMaintenanceLoading: boolean;
+function TableRowDetail({ table, source, expanded, onToggle, onMaintenance, isMaintenanceLoading }: {
+  table: any; source: string; expanded: boolean; onToggle: () => void; onMaintenance: (action: string) => void; isMaintenanceLoading: boolean;
 }) {
   const [details, setDetails] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -623,7 +954,8 @@ function TableRowDetail({ table, expanded, onToggle, onMaintenance, isMaintenanc
     if (details) { onToggle(); return; }
     setDetailsLoading(true);
     try {
-      const res = await fetch(`/api/db/tables/${table.name}`, { credentials: 'include' });
+      const sourceParam = source !== 'active' ? `?source=${source}` : '';
+      const res = await fetch(`/api/db/tables/${table.name}${sourceParam}`, { credentials: 'include' });
       const data = await res.json();
       setDetails(data?.data);
     } catch { }
@@ -721,12 +1053,12 @@ function MaintenanceAction({ title, description, action, icon, onRun, isLoading 
           </div>
         </div>
         <Button
-          variant="outline" size="sm" className="w-full gap-1"
+          variant="outline" size="sm" className="w-full"
           onClick={onRun}
           disabled={isLoading}
           data-testid={`button-maintenance-${action}`}
         >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : null}
           تنفيذ
         </Button>
       </CardContent>
@@ -734,20 +1066,19 @@ function MaintenanceAction({ title, description, action, icon, onRun, isLoading 
   );
 }
 
-function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 24) {
-    const d = Math.floor(h / 24);
-    return `${d} يوم ${h % 24} ساعة`;
-  }
-  return `${h} ساعة ${m} دقيقة`;
-}
-
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatUptime(seconds: number): string {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days} يوم ${hours} ساعة`;
+  if (hours > 0) return `${hours} ساعة ${minutes} دقيقة`;
+  return `${minutes} دقيقة`;
 }

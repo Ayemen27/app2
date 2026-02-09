@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { smartConnectionManager } from './smart-connection-manager';
 
 export interface TableMetric {
   name: string;
@@ -50,10 +51,297 @@ export interface PerformanceMetrics {
   blocksHit: number;
 }
 
+export interface TableComparisonItem {
+  name: string;
+  localRows: number | null;
+  supabaseRows: number | null;
+  localSize: string | null;
+  supabaseSize: string | null;
+  localSizeBytes: number;
+  supabaseSizeBytes: number;
+  status: 'match' | 'diff_rows' | 'only_local' | 'only_supabase' | 'diff_structure';
+  rowDiff: number;
+  localColumns: number;
+  supabaseColumns: number;
+}
+
+export interface ComparisonReport {
+  timestamp: string;
+  localDbName: string;
+  supabaseDbName: string;
+  totalTablesLocal: number;
+  totalTablesSupabase: number;
+  matchingTables: number;
+  onlyLocalTables: number;
+  onlySupabaseTables: number;
+  tablesWithDiffRows: number;
+  tablesWithDiffStructure: number;
+  tables: TableComparisonItem[];
+  alerts: ComparisonAlert[];
+}
+
+export interface ComparisonAlert {
+  type: 'missing_table' | 'row_diff' | 'structure_diff' | 'size_diff';
+  severity: 'info' | 'warning' | 'critical';
+  table: string;
+  message: string;
+  details?: any;
+}
+
+export interface ConnectionInfo {
+  id: string;
+  label: string;
+  connected: boolean;
+  dbName: string | null;
+  version: string | null;
+  size: string | null;
+  tables: number;
+  rows: number;
+  latency: string | null;
+}
+
 export class DbMetricsService {
 
-  static async getDatabaseOverview(): Promise<DatabaseOverview> {
-    const client = await pool.connect();
+  static getPoolForSource(source?: string): { pool: any; error?: string } {
+    if (!source || source === 'active') return { pool };
+    const connMgr = smartConnectionManager;
+    const status = connMgr.getConnectionStatus();
+
+    if (source === 'local') {
+      if (!status.local) return { pool, error: 'القاعدة المحلية غير متصلة' };
+      const conn = connMgr.getSmartConnection('read');
+      if (conn.source === 'local' && conn.pool) return { pool: conn.pool };
+      return { pool, error: 'تعذر الوصول للقاعدة المحلية' };
+    }
+
+    if (source === 'supabase') {
+      if (!status.supabase) return { pool, error: 'Supabase غير متصل' };
+      const conn = connMgr.getSmartConnection('sync');
+      if (conn.source === 'supabase' && conn.pool) return { pool: conn.pool };
+      return { pool, error: 'تعذر الوصول لـ Supabase' };
+    }
+
+    return { pool };
+  }
+
+  static async getConnectedDatabases(): Promise<ConnectionInfo[]> {
+    const connections: ConnectionInfo[] = [];
+    const status = smartConnectionManager.getConnectionStatus();
+    const metrics = status.metrics;
+
+    if (status.local) {
+      try {
+        const { pool: p } = this.getPoolForSource('local');
+        const client = await p.connect();
+        const [dbInfo, sizeResult, tableCount, rowsResult] = await Promise.all([
+          client.query('SELECT current_database() as name, version() as version'),
+          client.query('SELECT pg_database_size(current_database()) as size_bytes'),
+          client.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
+          client.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
+        ]);
+        client.release();
+        connections.push({
+          id: 'local',
+          label: 'القاعدة المحلية (VPS)',
+          connected: true,
+          dbName: dbInfo.rows[0]?.name || 'unknown',
+          version: (dbInfo.rows[0]?.version || '').split(' ').slice(0, 2).join(' '),
+          size: formatBytes(parseInt(sizeResult.rows[0]?.size_bytes || '0')),
+          tables: parseInt(tableCount.rows[0]?.count || '0'),
+          rows: parseInt(rowsResult.rows[0]?.total || '0'),
+          latency: metrics?.local?.averageLatency || null,
+        });
+      } catch {
+        connections.push({ id: 'local', label: 'القاعدة المحلية (VPS)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
+      }
+    } else {
+      connections.push({ id: 'local', label: 'القاعدة المحلية (VPS)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
+    }
+
+    if (status.supabase) {
+      try {
+        const { pool: p } = this.getPoolForSource('supabase');
+        const client = await p.connect();
+        const [dbInfo, sizeResult, tableCount, rowsResult] = await Promise.all([
+          client.query('SELECT current_database() as name, version() as version'),
+          client.query('SELECT pg_database_size(current_database()) as size_bytes'),
+          client.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
+          client.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
+        ]);
+        client.release();
+        connections.push({
+          id: 'supabase',
+          label: 'Supabase (سحابي)',
+          connected: true,
+          dbName: dbInfo.rows[0]?.name || 'unknown',
+          version: (dbInfo.rows[0]?.version || '').split(' ').slice(0, 2).join(' '),
+          size: formatBytes(parseInt(sizeResult.rows[0]?.size_bytes || '0')),
+          tables: parseInt(tableCount.rows[0]?.count || '0'),
+          rows: parseInt(rowsResult.rows[0]?.total || '0'),
+          latency: metrics?.supabase?.averageLatency || null,
+        });
+      } catch {
+        connections.push({ id: 'supabase', label: 'Supabase (سحابي)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
+      }
+    } else {
+      connections.push({ id: 'supabase', label: 'Supabase (سحابي)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
+    }
+
+    return connections;
+  }
+
+  static async compareDatabases(): Promise<ComparisonReport | null> {
+    const status = smartConnectionManager.getConnectionStatus();
+    if (!status.local || !status.supabase) return null;
+
+    const { pool: localPool } = this.getPoolForSource('local');
+    const { pool: supabasePool } = this.getPoolForSource('supabase');
+
+    const tablesQuery = `
+      SELECT 
+        t.table_name as name,
+        COALESCE(s.n_live_tup, 0) as row_count,
+        pg_total_relation_size(quote_ident(t.table_name)) as total_size_bytes,
+        pg_size_pretty(pg_total_relation_size(quote_ident(t.table_name))) as total_size,
+        (SELECT COUNT(*) FROM information_schema.columns c WHERE c.table_name = t.table_name AND c.table_schema = 'public') as columns
+      FROM information_schema.tables t
+      LEFT JOIN pg_stat_user_tables s ON s.relname = t.table_name
+      WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+      ORDER BY t.table_name
+    `;
+
+    const dbNameQuery = 'SELECT current_database() as name';
+
+    const [localClient, supabaseClient] = await Promise.all([
+      localPool.connect(),
+      supabasePool.connect(),
+    ]);
+
+    try {
+      const [localTables, supabaseTables, localName, supabaseName] = await Promise.all([
+        localClient.query(tablesQuery),
+        supabaseClient.query(tablesQuery),
+        localClient.query(dbNameQuery),
+        supabaseClient.query(dbNameQuery),
+      ]);
+
+      const localMap = new Map(localTables.rows.map((r: any) => [r.name, r]));
+      const supabaseMap = new Map(supabaseTables.rows.map((r: any) => [r.name, r]));
+      const allTableNames = new Set([...localMap.keys(), ...supabaseMap.keys()]);
+
+      const tables: TableComparisonItem[] = [];
+      const alerts: ComparisonAlert[] = [];
+      let matchCount = 0, onlyLocal = 0, onlySupabase = 0, diffRows = 0, diffStructure = 0;
+
+      for (const name of allTableNames) {
+        const l = localMap.get(name);
+        const s = supabaseMap.get(name);
+
+        if (l && !s) {
+          onlyLocal++;
+          tables.push({
+            name,
+            localRows: parseInt(l.row_count), supabaseRows: null,
+            localSize: l.total_size, supabaseSize: null,
+            localSizeBytes: parseInt(l.total_size_bytes || '0'), supabaseSizeBytes: 0,
+            status: 'only_local', rowDiff: parseInt(l.row_count),
+            localColumns: parseInt(l.columns || '0'), supabaseColumns: 0,
+          });
+          alerts.push({
+            type: 'missing_table', severity: 'warning',
+            table: name,
+            message: `الجدول "${name}" موجود فقط في القاعدة المحلية`,
+          });
+        } else if (!l && s) {
+          onlySupabase++;
+          tables.push({
+            name,
+            localRows: null, supabaseRows: parseInt(s.row_count),
+            localSize: null, supabaseSize: s.total_size,
+            localSizeBytes: 0, supabaseSizeBytes: parseInt(s.total_size_bytes || '0'),
+            status: 'only_supabase', rowDiff: parseInt(s.row_count),
+            localColumns: 0, supabaseColumns: parseInt(s.columns || '0'),
+          });
+          alerts.push({
+            type: 'missing_table', severity: 'warning',
+            table: name,
+            message: `الجدول "${name}" موجود فقط في Supabase`,
+          });
+        } else if (l && s) {
+          const lRows = parseInt(l.row_count);
+          const sRows = parseInt(s.row_count);
+          const lCols = parseInt(l.columns || '0');
+          const sCols = parseInt(s.columns || '0');
+          const rd = Math.abs(lRows - sRows);
+
+          let status: TableComparisonItem['status'] = 'match';
+          if (lCols !== sCols) {
+            status = 'diff_structure';
+            diffStructure++;
+            alerts.push({
+              type: 'structure_diff', severity: 'critical',
+              table: name,
+              message: `اختلاف هيكلي: "${name}" (محلي: ${lCols} عمود، سحابي: ${sCols} عمود)`,
+              details: { localColumns: lCols, supabaseColumns: sCols },
+            });
+          } else if (rd > 0) {
+            status = 'diff_rows';
+            diffRows++;
+            const severity = rd > 100 ? 'critical' : rd > 10 ? 'warning' : 'info';
+            alerts.push({
+              type: 'row_diff', severity,
+              table: name,
+              message: `فرق ${rd.toLocaleString()} سجل في "${name}" (محلي: ${lRows.toLocaleString()}، سحابي: ${sRows.toLocaleString()})`,
+              details: { localRows: lRows, supabaseRows: sRows, diff: rd },
+            });
+          } else {
+            matchCount++;
+          }
+
+          tables.push({
+            name,
+            localRows: lRows, supabaseRows: sRows,
+            localSize: l.total_size, supabaseSize: s.total_size,
+            localSizeBytes: parseInt(l.total_size_bytes || '0'),
+            supabaseSizeBytes: parseInt(s.total_size_bytes || '0'),
+            status, rowDiff: rd,
+            localColumns: lCols, supabaseColumns: sCols,
+          });
+        }
+      }
+
+      tables.sort((a, b) => {
+        const order = { diff_structure: 0, only_local: 1, only_supabase: 2, diff_rows: 3, match: 4 };
+        return (order[a.status] ?? 5) - (order[b.status] ?? 5);
+      });
+      alerts.sort((a, b) => {
+        const order = { critical: 0, warning: 1, info: 2 };
+        return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
+      });
+
+      return {
+        timestamp: new Date().toISOString(),
+        localDbName: localName.rows[0]?.name || 'local',
+        supabaseDbName: supabaseName.rows[0]?.name || 'supabase',
+        totalTablesLocal: localTables.rows.length,
+        totalTablesSupabase: supabaseTables.rows.length,
+        matchingTables: matchCount,
+        onlyLocalTables: onlyLocal,
+        onlySupabaseTables: onlySupabase,
+        tablesWithDiffRows: diffRows,
+        tablesWithDiffStructure: diffStructure,
+        tables,
+        alerts,
+      };
+    } finally {
+      localClient.release();
+      supabaseClient.release();
+    }
+  }
+
+  static async getDatabaseOverview(source?: string): Promise<DatabaseOverview> {
+    const { pool: p } = this.getPoolForSource(source);
+    const client = await p.connect();
     try {
       const [dbInfo, sizeResult, tableCount, connInfo, uptimeResult] = await Promise.all([
         client.query(`SELECT current_database() as name, version() as version`),
@@ -105,8 +393,9 @@ export class DbMetricsService {
     }
   }
 
-  static async getTablesMetrics(): Promise<TableMetric[]> {
-    const client = await pool.connect();
+  static async getTablesMetrics(source?: string): Promise<TableMetric[]> {
+    const { pool: p } = this.getPoolForSource(source);
+    const client = await p.connect();
     try {
       const result = await client.query(`
         SELECT 
@@ -144,8 +433,9 @@ export class DbMetricsService {
     }
   }
 
-  static async getTableDetails(tableName: string): Promise<any> {
-    const client = await pool.connect();
+  static async getTableDetails(tableName: string, source?: string): Promise<any> {
+    const { pool: p } = this.getPoolForSource(source);
+    const client = await p.connect();
     try {
       const [columns, indexes, constraints, sampleCount] = await Promise.all([
         client.query(`
@@ -180,8 +470,9 @@ export class DbMetricsService {
     }
   }
 
-  static async getPerformanceMetrics(): Promise<PerformanceMetrics> {
-    const client = await pool.connect();
+  static async getPerformanceMetrics(source?: string): Promise<PerformanceMetrics> {
+    const { pool: p } = this.getPoolForSource(source);
+    const client = await p.connect();
     try {
       const dbName = (await client.query('SELECT current_database() as name')).rows[0]?.name;
 
@@ -243,8 +534,9 @@ export class DbMetricsService {
     }
   }
 
-  static async checkDataIntegrity(): Promise<IntegrityReport> {
-    const client = await pool.connect();
+  static async checkDataIntegrity(source?: string): Promise<IntegrityReport> {
+    const { pool: p } = this.getPoolForSource(source);
+    const client = await p.connect();
     const checks: IntegrityCheck[] = [];
     let totalScore = 0;
     let maxScore = 0;

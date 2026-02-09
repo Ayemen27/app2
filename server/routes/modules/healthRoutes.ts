@@ -419,18 +419,29 @@ healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, r
 
 import { DbMetricsService } from '../../services/db-metrics';
 
-healthRouter.get('/db/overview', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+healthRouter.get('/db/connections', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
   try {
-    const overview = await DbMetricsService.getDatabaseOverview();
+    const connections = await DbMetricsService.getConnectedDatabases();
+    res.json({ success: true, data: connections });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.get('/db/overview', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const source = req.query.source as string | undefined;
+    const overview = await DbMetricsService.getDatabaseOverview(source);
     res.json({ success: true, data: overview });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-healthRouter.get('/db/tables', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+healthRouter.get('/db/tables', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const tables = await DbMetricsService.getTablesMetrics();
+    const source = req.query.source as string | undefined;
+    const tables = await DbMetricsService.getTablesMetrics(source);
     res.json({ success: true, data: tables });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -440,28 +451,43 @@ healthRouter.get('/db/tables', requireAuth, requireRole('admin'), async (_req: R
 healthRouter.get('/db/tables/:name', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    const source = req.query.source as string | undefined;
     if (!/^[a-z_]+$/.test(name)) {
       return res.status(400).json({ success: false, error: 'اسم جدول غير صالح' });
     }
-    const details = await DbMetricsService.getTableDetails(name);
+    const details = await DbMetricsService.getTableDetails(name, source);
     res.json({ success: true, data: details });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-healthRouter.get('/db/performance', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+healthRouter.get('/db/performance', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const metrics = await DbMetricsService.getPerformanceMetrics();
+    const source = req.query.source as string | undefined;
+    const metrics = await DbMetricsService.getPerformanceMetrics(source);
     res.json({ success: true, data: metrics });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-healthRouter.get('/db/integrity', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+healthRouter.get('/db/integrity', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const report = await DbMetricsService.checkDataIntegrity();
+    const source = req.query.source as string | undefined;
+    const report = await DbMetricsService.checkDataIntegrity(source);
+    res.json({ success: true, data: report });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+healthRouter.get('/db/compare', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
+  try {
+    const report = await DbMetricsService.compareDatabases();
+    if (!report) {
+      return res.json({ success: false, error: 'يجب أن تكون القاعدتان متصلتين للمقارنة' });
+    }
     res.json({ success: true, data: report });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

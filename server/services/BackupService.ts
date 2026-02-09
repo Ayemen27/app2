@@ -143,24 +143,33 @@ export class BackupService {
   static async listAutoBackups() {
     try {
       const backupsDir = path.resolve(process.cwd(), 'backups');
-      if (!fs.existsSync(backupsDir)) return { success: true, backups: [] };
+      if (!fs.existsSync(backupsDir)) return { success: true, logs: [] };
       const files = fs.readdirSync(backupsDir);
-      const backups = files
-        .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
+      const logs = files
+        .filter(f => (f.startsWith('backup-') && (f.endsWith('.json') || f.endsWith('.db'))) || f.startsWith('manual_backup_'))
         .map((f, index) => {
-          const stats = fs.statSync(path.join(backupsDir, f));
-          return {
-            id: index + 1,
-            filename: f,
-            size: (stats.size / (1024 * 1024)).toFixed(2),
-            status: 'success',
-            createdAt: stats.mtime.toISOString()
-          };
+          try {
+            const filePath = path.join(backupsDir, f);
+            const stats = fs.statSync(filePath);
+            return {
+              id: index + 1,
+              filename: f,
+              size: (stats.size / (1024 * 1024)).toFixed(2),
+              status: 'success',
+              createdAt: stats.mtime.toISOString(),
+              destination: f.endsWith('.json') ? 'Local/Cloud' : 'Local'
+            };
+          } catch (e) {
+            return null;
+          }
         })
+        .filter((log): log is any => log !== null)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      return { success: true, backups };
+      
+      return { success: true, logs };
     } catch (error: any) {
-      return { success: false, message: error.message };
+      console.error("❌ [BackupService] Error listing backups:", error);
+      return { success: false, message: error.message, logs: [] };
     }
   }
 

@@ -58,7 +58,8 @@ router.get("/logs", async (req, res) => {
   try {
     const result = await BackupService.listAutoBackups();
     if (result.success) {
-      res.json(result.backups);
+      // Return the result object as expected by the frontend (which handles data.logs or data)
+      res.json(result);
     } else {
       res.status(500).json({ success: false, message: result.message });
     }

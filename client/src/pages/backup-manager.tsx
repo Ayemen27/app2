@@ -85,8 +85,13 @@ export default function BackupManager() {
     queryKey: ["/api/backups/logs"],
     refetchInterval: 5000,
     select: (data: any) => {
+      // Log data for debugging
+      console.log("Backup logs data received:", data);
       // Handle both direct array and nested logs property
-      return Array.isArray(data) ? data : (data?.logs || []);
+      if (Array.isArray(data)) return data;
+      if (data?.logs && Array.isArray(data.logs)) return data.logs;
+      if (data?.backups && Array.isArray(data.backups)) return data.backups;
+      return [];
     }
   });
 

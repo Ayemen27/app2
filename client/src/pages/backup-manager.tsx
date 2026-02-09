@@ -206,6 +206,35 @@ export default function BackupManager() {
     });
   };
 
+  const handleDownload = async (filename: string) => {
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(`/api/backups/download/${filename}`, { headers });
+      if (!response.ok) {
+        throw new Error('فشل التنزيل');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: "فشل التنزيل",
+        description: error.message || "حدث خطأ أثناء تنزيل الملف",
+        variant: "destructive",
+      });
+    }
+  };
+
   const [analysisReport, setAnalysisReport] = useState<any[]>([]);
 
   const analyzeMutation = useMutation({
@@ -425,11 +454,9 @@ export default function BackupManager() {
                       variant="ghost" 
                       size="icon" 
                       data-testid={`button-download-${log.filename}`}
-                      asChild
+                      onClick={() => handleDownload(log.filename)}
                     >
-                      <a href={`/api/backups/download/${log.filename}`} download>
-                        <Download className="h-4 w-4" />
-                      </a>
+                      <Download className="h-4 w-4" />
                     </Button>
                     <Button 
                       variant="ghost" 

@@ -25,16 +25,28 @@ export class BackupService {
   }
 
   private static async getAllTables(): Promise<string[]> {
-    // جلب الجداول ديناميكياً من المخطط المعرف بدلاً من الاعتماد على DDL ثابت
-    const schema = await import('../../shared/schema');
-    const tables: string[] = [];
-    for (const key in schema) {
-      if (schema[key] && typeof schema[key] === 'object' && (schema[key] as any).pgConfig) {
-        tables.push((schema[key] as any).pgConfig.name);
+    try {
+      const { pool } = await import('../db');
+      // جلب قائمة الجداول الحقيقية من قاعدة بيانات PostgreSQL
+      const result = await pool.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_type = 'BASE TABLE'
+      `);
+      
+      const tables = result.rows.map(row => row.table_name);
+      
+      if (tables.length > 0) {
+        console.log(`📋 [BackupService] Found ${tables.length} tables in database:`, tables);
+        return tables;
       }
+    } catch (error: any) {
+      console.warn("⚠️ [BackupService] Error fetching tables from DB:", error.message);
     }
-    // إذا فشل الجلب الديناميكي نستخدم قائمة افتراضية
-    return tables.length > 0 ? tables : ['users', 'projects', 'workers', 'wells', 'audit_logs'];
+
+    // fallback إذا فشل الاستعلام
+    return ['users', 'projects', 'workers', 'suppliers', 'materials', 'wells', 'well_expenses', 'audit_logs', 'notifications'];
   }
 
   static async runBackup() {
@@ -50,12 +62,14 @@ export class BackupService {
       let tablesSuccessfullyBackedUp = 0;
       for (const tableName of tables) {
         try {
-          // Normalize table name to lowercase to avoid "no such table" errors in case sensitive DBs
-          const result = await pool.query(`SELECT * FROM "${tableName.toLowerCase()}"`);
+          // التأكد من استخدام اقتباسات مزدوجة لأسماء الجداول للتعامل مع الحالة الحساسة
+          console.log(`🔍 [BackupService] Querying table: ${tableName}`);
+          const result = await pool.query(`SELECT * FROM "${tableName}"`);
           backupData[tableName] = result.rows;
           tablesSuccessfullyBackedUp++;
+          console.log(`✅ [BackupService] Backed up table: ${tableName} (${result.rows.length} rows)`);
         } catch (e: any) {
-          console.warn(`⚠️ [BackupService] Skipping table ${tableName}: ${e.message}`);
+          console.error(`❌ [BackupService] Failed to back up table ${tableName}:`, e.message);
         }
       }
 
@@ -67,6 +81,8 @@ export class BackupService {
         tablesCount: tablesSuccessfullyBackedUp,
         data: backupData
       }, null, 2));
+
+      console.log(`🏁 [BackupService] Backup completed: ${backupPath} (Total rows: ${totalRows})`);
 
       return { 
         success: true, 

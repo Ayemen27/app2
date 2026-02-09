@@ -411,18 +411,6 @@ healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, r
   }
 });
 
-/**
- * سجلات النسخ الاحتياطي (Admin only)
- */
-healthRouter.get('/backups/logs', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
-  try {
-    const { BackupService } = await import('../../services/BackupService');
-    const logs = await BackupService.listAutoBackups();
-    res.json(logs);
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 console.log('🏥 [HealthRouter] تم تهيئة مسارات الصحة والمراقبة');
 

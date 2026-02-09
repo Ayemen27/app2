@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import sqlite3 from 'better-sqlite3';
+import { DATABASE_DDL } from './ddl/definitions';
 
 export class BackupService {
   private static readonly LOCAL_DB_PATH = path.resolve(process.cwd(), 'local.db');
@@ -114,13 +115,45 @@ export class BackupService {
 
   static async createMissingTables(target: 'local' | 'cloud', tablesToCreate: string[]) {
     try {
-      const { pool } = await import('../db');
-      // In a real high-quality system, we'd use the schema definition directly.
-      // Since Drizzle manages the schema, we rely on the DB being synced.
-      // This function now acts as a verification/log step in Fast Mode.
-      console.log(`🛠️ [BackupService] Verification mode: checking ${tablesToCreate.length} tables`);
-      return { success: true, message: "تم التحقق من هيكلية الجداول" };
+      if (target === 'cloud') {
+        const { pool } = await import('../db');
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          for (const table of tablesToCreate) {
+            const ddl = DATABASE_DDL[table];
+            if (ddl) {
+              await client.query(ddl);
+            }
+          }
+          await client.query('COMMIT');
+        } catch (e) {
+          await client.query('ROLLBACK');
+          throw e;
+        } finally {
+          client.release();
+        }
+      } else {
+        const db = new sqlite3(this.LOCAL_DB_PATH);
+        db.transaction(() => {
+          for (const table of tablesToCreate) {
+            let ddl = DATABASE_DDL[table];
+            if (ddl) {
+              // Convert PG DDL to SQLite compatible
+              ddl = ddl.replace(/SERIAL PRIMARY KEY/gi, 'INTEGER PRIMARY KEY AUTOINCREMENT')
+                       .replace(/gen_random_uuid\(\)/gi, '(lower(hex(randomblob(16))))')
+                       .replace(/JSONB/gi, 'TEXT')
+                       .replace(/TIMESTAMP/gi, 'DATETIME')
+                       .replace(/DECIMAL\(\d+,\d+\)/gi, 'REAL');
+              db.exec(ddl);
+            }
+          }
+        })();
+        db.close();
+      }
+      return { success: true, message: `تم إنشاء ${tablesToCreate.length} جدول مفقود بنجاح` };
     } catch (error: any) {
+      console.error("❌ [BackupService] Table creation failed:", error);
       return { success: false, message: error.message };
     }
   }

@@ -54,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ success: false, error: "الملف غير موجود" });
       }
 
-      const success = await BackupService.restoreFromFile(backupPath, target || 'local');
+      const success = await BackupService.restoreBackup(fileName, target || 'local');
       
       // تسجيل عملية الاستعادة
       await storage.createAuditLog({

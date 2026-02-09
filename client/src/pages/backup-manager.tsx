@@ -643,37 +643,53 @@ export default function BackupManager() {
 
               <Button 
                 variant="secondary" 
-                className="w-full h-12 rounded-xl text-xs"
+                className="w-full h-12 rounded-xl text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-2 border-slate-200 dark:border-slate-700 shadow-sm"
                 onClick={() => analyzeMutation.mutate(restoreTarget)}
                 disabled={isAnalyzing}
               >
                 {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <ShieldCheck className="h-4 w-4 ml-2" />}
-                فحص هيكل الجداول قبل الاستعادة
+                فحص هيكل الجداول قبل الاستعادة (تأكيد التطابق)
               </Button>
 
               {analysisReport.length > 0 && (
-                <div className="space-y-2">
-                  <div className="max-h-40 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border text-[10px] space-y-1">
-                    <p className="font-bold mb-2">تقرير فحص الهيكل:</p>
+                <div className="space-y-3 animate-in fade-in duration-500">
+                  <div className="max-h-48 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border-2 border-slate-100 dark:border-slate-800 text-[11px] space-y-2 shadow-inner">
+                    <p className="font-black text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      تقرير تحليل الهيكل (طبق الأصل):
+                    </p>
                     {analysisReport.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-1">
-                        <span>{item.table}</span>
-                        <span className={item.status === 'exists' ? 'text-green-600 font-bold' : 'text-rose-600 font-bold'}>
-                          {item.status === 'exists' ? 'موجود' : 'غير موجود'}
-                        </span>
+                      <div key={idx} className="flex justify-between items-center border-b border-slate-200/50 dark:border-slate-800/50 pb-2 last:border-0">
+                        <span className="font-mono font-medium">{item.table}</span>
+                        <div className="flex items-center gap-2">
+                          {item.status === 'exists' ? (
+                            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm">موجود ✓</span>
+                          ) : (
+                            <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm animate-pulse">مفقود ✗</span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
                   {missingTables.length > 0 && (
-                    <Button 
-                      variant="destructive" 
-                      className="w-full h-10 rounded-xl text-[10px] animate-pulse"
-                      onClick={() => createTablesMutation.mutate({ target: restoreTarget, tables: missingTables })}
-                      disabled={createTablesMutation.isPending}
-                    >
-                      <Database className="h-3 w-3 ml-2" />
-                      إنشاء الجداول المفقودة الآن (طبق الأصل)
-                    </Button>
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border-2 border-amber-200 dark:border-amber-900/40 space-y-3">
+                      <div className="flex items-start gap-3 text-amber-800 dark:text-amber-200">
+                        <ShieldCheck className="h-5 w-5 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs font-black">تم اكتشاف جداول مفقودة</p>
+                          <p className="text-[10px] opacity-80">يجب بناء الهيكل المطابق (Exact Replica) قبل الاستعادة لضمان سلامة العلاقات.</p>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="default" 
+                        className="w-full h-11 rounded-xl text-xs font-black bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20 active-elevate-2 transition-all"
+                        onClick={() => createTablesMutation.mutate({ target: restoreTarget, tables: missingTables })}
+                        disabled={createTablesMutation.isPending}
+                      >
+                        {createTablesMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Database className="h-4 w-4 ml-2" />}
+                        إنشاء جميع الجداول المفقودة الآن
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}

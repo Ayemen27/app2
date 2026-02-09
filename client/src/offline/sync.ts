@@ -72,9 +72,31 @@ function updateSyncState(updates: Partial<SyncState>) {
   syncListeners.forEach(listener => listener(currentSyncState));
 }
 
+/**
+ * Force sync a single table with new data
+ */
+export async function forceSyncTable(tableName: string, data: any[]) {
+  const db = await getDB();
+  const tx = db.transaction(tableName, 'readwrite');
+  const store = tx.objectStore(tableName);
+  
+  // Clear existing data for this table to ensure clean sync
+  await store.clear();
+  
+  // Add new data
+  for (const item of data) {
+    await store.put(item);
+  }
+  
+  await tx.done;
+  console.log(`✅ [ForceSync] Table ${tableName} synced with ${data.length} records`);
+  return true;
+}
+
 export function getSyncState(): SyncState {
   return { ...currentSyncState };
 }
+
 
 /**
  * حساب وقت الانتظار (Exponential Backoff)

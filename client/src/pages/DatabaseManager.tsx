@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   Card, CardContent, CardHeader, CardTitle, CardDescription 
 } from "@/components/ui/card";
 import { 
   Database, RefreshCw, HardDrive, Server, Globe, 
   ShieldCheck, Activity, Search, Table as TableIcon, DatabaseZap, Wifi, WifiOff,
-  CheckCircle2, Clock, Zap, ArrowRightLeft, Shield
+  CheckCircle2, Clock, Zap, ArrowRightLeft, Shield, Loader2, SyncIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,16 +17,18 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { getDB } from "@/offline/db";
-import { verifySyncStatus, SyncState, getSyncState } from "@/offline/sync";
+import { verifySyncStatus, SyncState, getSyncState, forceSyncTable } from "@/offline/sync";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function DatabaseManager() {
   const { toast } = useToast();
   const [syncState, setSyncState] = useState<SyncState>(getSyncState());
   const [comparison, setComparison] = useState<any>(null);
   const [localTableStats, setLocalTableStats] = useState<Record<string, number>>({});
+  const [syncingTables, setSyncingTables] = useState<Record<string, boolean>>({});
 
   const {
     searchValue,
@@ -36,6 +38,38 @@ export default function DatabaseManager() {
 
   const { data: health, isLoading: healthLoading, refetch: refetchHealth } = useQuery<any>({
     queryKey: ["/api/admin/data-health"],
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async (tableName: string) => {
+      setSyncingTables(prev => ({ ...prev, [tableName]: true }));
+      try {
+        const response = await apiRequest("POST", "/api/sync/instant-sync", { tables: [tableName] });
+        const result = await response.json();
+        
+        if (result.success && result.data[tableName]) {
+          await forceSyncTable(tableName, result.data[tableName]);
+          return result;
+        }
+        throw new Error("فشلت المزامنة");
+      } finally {
+        setSyncingTables(prev => ({ ...prev, [tableName]: false }));
+      }
+    },
+    onSuccess: (_, tableName) => {
+      toast({
+        title: "تمت المزامنة",
+        description: `تمت مزامنة جدول ${tableName} بنجاح`,
+      });
+      verifySyncStatus().then(setComparison);
+    },
+    onError: (error) => {
+      toast({
+        title: "خطأ في المزامنة",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
 
   useEffect(() => {
@@ -167,7 +201,7 @@ export default function DatabaseManager() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader className="bg-slate-50 dark:bg-slate-800/30">
                   <TableRow>
@@ -175,6 +209,7 @@ export default function DatabaseManager() {
                     <TableHead className="text-center">السيرفر (Cloud)</TableHead>
                     <TableHead className="text-center">الجهاز (Local)</TableHead>
                     <TableHead className="text-left">الحالة</TableHead>
+                    <TableHead className="text-center">الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -192,11 +227,26 @@ export default function DatabaseManager() {
                             </Badge>
                           </div>
                         </TableCell>
+                        <TableCell className="text-center">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="h-8 w-8 p-0 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600"
+                            onClick={() => syncMutation.mutate(row.table)}
+                            disabled={syncingTables[row.table]}
+                          >
+                            {syncingTables[row.table] ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-10 text-muted-foreground italic">
+                      <TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
                         {searchValue ? "لا توجد نتائج تطابق البحث" : "جاري فحص مطابقة البيانات..."}
                       </TableCell>
                     </TableRow>
@@ -260,4 +310,5 @@ export default function DatabaseManager() {
 
   );
 }
+
 

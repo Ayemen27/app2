@@ -335,32 +335,57 @@ export class BackupService {
         const backupTables = Object.keys(data);
 
         for (const tableName of backupTables) {
+          const tableNameLower = tableName.toLowerCase();
           try {
-            const tableNameLower = tableName.toLowerCase();
             const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableNameLower]);
+            
             if (!tableRes.rows[0].exists) {
-              console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in target DB, skipping...`);
-              continue;
+              console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in target DB, attempting to create...`);
+              const ddl = DATABASE_DDL[tableNameLower] || DATABASE_DDL[tableName];
+              if (ddl && ddl.length > 50) { // التأكد من أنه DDL حقيقي وليس مجرد اسم
+                await client.query(ddl);
+                console.log(`✅ [BackupService] Table ${tableName} created successfully.`);
+              } else {
+                console.warn(`❌ [BackupService] No valid DDL found for table ${tableName}, skipping...`);
+                continue;
+              }
             }
             await client.query(`TRUNCATE TABLE "${tableNameLower}" RESTART IDENTITY CASCADE`);
           } catch (e: any) {
-            console.error(`❌ [BackupService] Error truncating table ${tableName}:`, e.message);
+            console.error(`❌ [BackupService] Error preparing table ${tableName}:`, e.message);
+            // إذا فشل الجدول، نقوم بإنهاء المعاملة وبدء واحدة جديدة للجداول التالية لتجنب "current transaction is aborted"
+            await client.query('ROLLBACK');
+            await client.query('BEGIN');
+            await client.query('SET CONSTRAINTS ALL DEFERRED');
           }
         }
         
         for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
+          const tableNameLower = tableName.toLowerCase();
           try {
             if (rows.length === 0) continue;
-            const tableNameLower = tableName.toLowerCase();
             
+            // التحقق من وجود الجدول قبل محاولة الإدخال
+            const tableCheck = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableNameLower]);
+            if (!tableCheck.rows[0].exists) continue;
+
             const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
             for (const row of rows) {
               const values = Object.values(row);
               const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-              await client.query(`INSERT INTO "${tableNameLower}" (${columns}) VALUES (${placeholders})`, values);
+              try {
+                await client.query(`INSERT INTO "${tableNameLower}" (${columns}) VALUES (${placeholders})`, values);
+              } catch (insertErr: any) {
+                console.error(`❌ [BackupService] Row insertion failed in ${tableName}:`, insertErr.message);
+                // استمرار المحاولة مع الصف التالي
+              }
             }
           } catch (e: any) {
             console.error(`❌ [BackupService] Error restoring table ${tableName}:`, e.message);
+            // في حالة خطأ فادح في الجدول، نبدأ معاملة جديدة للبقية
+            await client.query('ROLLBACK');
+            await client.query('BEGIN');
+            await client.query('SET CONSTRAINTS ALL DEFERRED');
           }
         }
         await client.query('COMMIT');

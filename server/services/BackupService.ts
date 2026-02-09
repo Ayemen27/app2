@@ -358,6 +358,24 @@ export class BackupService {
           }
         }
 
+        for (const tableName of backupTables) {
+          const tableNameLower = tableName.toLowerCase();
+          try {
+            const seqRes = await client.query(`
+              SELECT pg_get_serial_sequence($1, 'id') as seq_name
+            `, [tableNameLower]);
+            
+            if (seqRes.rows[0]?.seq_name) {
+              const maxRes = await client.query(`SELECT COALESCE(MAX(id), 0) as max_id FROM "${tableNameLower}"`);
+              const maxId = maxRes.rows[0]?.max_id || 0;
+              if (maxId > 0) {
+                await client.query(`SELECT setval($1, $2, true)`, [seqRes.rows[0].seq_name, maxId]);
+                console.log(`🔢 [Restore] إصلاح تسلسل ${tableNameLower}: ${maxId}`);
+              }
+            }
+          } catch (_) {}
+        }
+
         await client.query('COMMIT');
       } catch (e) {
         await client.query('ROLLBACK');

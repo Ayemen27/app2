@@ -26,7 +26,7 @@ export class BackupService {
 
   private static async getAllTables(): Promise<string[]> {
     // جلب الجداول ديناميكياً من المخطط المعرف بدلاً من الاعتماد على DDL ثابت
-    const schema = await import('../../../shared/schema');
+    const schema = await import('../../shared/schema');
     const tables: string[] = [];
     for (const key in schema) {
       if (schema[key] && typeof schema[key] === 'object' && (schema[key] as any).pgConfig) {
@@ -249,7 +249,7 @@ export class BackupService {
     } else {
       const db = new sqlite3(this.LOCAL_DB_PATH);
       // Ensure tables exist before restore
-      const schema = await import('../../../shared/schema');
+      const schema = await import('../../shared/schema');
       db.transaction(() => {
         for (const [key, value] of Object.entries(schema)) {
           if (value && typeof value === 'object' && (value as any).pgConfig) {

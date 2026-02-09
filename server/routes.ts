@@ -28,61 +28,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.post("/api/admin/backup", async (_req, res) => {
-    try {
-      const { BackupService } = await import('./services/BackupService');
-      const result = await BackupService.runBackup();
-      if (result.success) {
-        res.json(result);
-      } else {
-        res.status(500).json(result);
-      }
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  app.post("/api/admin/restore", async (req, res) => {
-    try {
-      const { fileName, target } = req.body;
-      if (!fileName) return res.status(400).json({ success: false, error: "اسم الملف مطلوب" });
-
-      const { BackupService } = await import('./services/BackupService');
-      const backupPath = path.join(process.cwd(), 'backups', fileName);
-      
-      if (!fs.existsSync(backupPath)) {
-        return res.status(404).json({ success: false, error: "الملف غير موجود" });
-      }
-
-      const success = await BackupService.restoreBackup(fileName, target || 'local');
-      
-      // تسجيل عملية الاستعادة
-      await storage.createAuditLog({
-        action: "SYSTEM_RESTORE",
-        meta: { fileName, target: target || 'local', success },
-        createdAt: new Date()
-      });
-
-      if (success) {
-        res.json({ success: true, message: `تمت الاستعادة بنجاح إلى ${target === 'cloud' ? 'السحابة' : 'الجهاز المحلي'}` });
-      } else {
-        res.status(500).json({ success: false, error: "فشلت عملية الاستعادة" });
-      }
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  app.get("/api/backups/logs", async (_req, res) => {
-    try {
-      const { BackupService } = await import('./services/BackupService');
-      const result = await BackupService.listAutoBackups();
-      res.json(result);
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
   app.get("/api/health/stats", async (_req, res) => {
     try {
       const { BackupService } = await import('./services/BackupService');

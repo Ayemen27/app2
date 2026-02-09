@@ -1,27 +1,33 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { BackupService } from "../../services/BackupService";
-import fs from 'fs';
+import { authenticate, requireAdmin, sensitiveOperationsRateLimit } from "../../middleware/auth";
+import type { AuthenticatedRequest } from "../../middleware/auth";
 import path from 'path';
 
 const router = Router();
 
-// POST /api/backups/run
-router.post("/run", async (req, res) => {
+router.use(authenticate as any);
+router.use(requireAdmin as any);
+
+router.post("/run", sensitiveOperationsRateLimit, async (req: Request, res: Response) => {
   try {
-    console.log("🚀 [BackupRoute] Manually triggering backup...");
-    const result = await BackupService.runBackup();
+    const authReq = req as AuthenticatedRequest;
+    const triggeredBy = authReq.user?.email || 'admin';
+    console.log(`🚀 [Backup] نسخ يدوي بواسطة: ${triggeredBy}`);
+    const result = await BackupService.runBackup(triggeredBy);
     res.json(result);
   } catch (error: any) {
-    console.error("❌ [BackupRoute] Error running backup:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST /api/backups/restore
-router.post("/restore", async (req, res) => {
+router.post("/restore", sensitiveOperationsRateLimit, async (req: Request, res: Response) => {
   try {
     const { fileName, target } = req.body;
-    if (!fileName) return res.status(400).json({ success: false, error: "اسم الملف مطلوب" });
+    if (!fileName) return res.status(400).json({ success: false, message: "اسم الملف مطلوب" });
+
+    const authReq = req as AuthenticatedRequest;
+    console.log(`🔄 [Backup] استعادة بواسطة: ${authReq.user?.email} | ملف: ${fileName} | هدف: ${target || 'local'}`);
 
     const result = await BackupService.restoreBackup(fileName, target || 'local');
     if (result.success) {
@@ -30,71 +36,93 @@ router.post("/restore", async (req, res) => {
       res.status(500).json(result);
     }
   } catch (error: any) {
-    console.error("❌ [BackupRoute] Error during restore:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST /api/backups/test-connection
-router.post("/test-connection", async (req, res) => {
+router.get("/download/:filename", async (req: Request, res: Response) => {
   try {
-    const { target } = req.body;
-    // إضافة التحقق من وجود الوظيفة أو تقديم رد افتراضي
-    if (typeof (BackupService as any).testConnection === 'function') {
-      const result = await (BackupService as any).testConnection(target);
+    const { filename } = req.params;
+    const filePath = BackupService.getBackupFilePath(filename);
+    
+    if (!filePath) {
+      return res.status(404).json({ success: false, message: "الملف غير موجود" });
+    }
+
+    const contentType = filename.endsWith('.gz') ? 'application/gzip' : 'application/json';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    const fs = await import('fs');
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.delete("/:filename", sensitiveOperationsRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const authReq = req as AuthenticatedRequest;
+    console.log(`🗑️ [Backup] حذف بواسطة: ${authReq.user?.email} | ملف: ${filename}`);
+    
+    const result = await BackupService.deleteBackup(filename);
+    if (result.success) {
       res.json(result);
     } else {
-      res.json({ success: true, message: "تم التحقق من الاتصال (محاكي)" });
+      res.status(404).json(result);
     }
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST /api/backups/analyze
-router.post("/analyze", async (req, res) => {
+router.post("/test-connection", async (req: Request, res: Response) => {
   try {
     const { target } = req.body;
-    const result = await BackupService.analyzeDatabase(target);
+    const result = await BackupService.testConnection(target);
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST /api/backups/create-tables
-router.post("/create-tables", async (req, res) => {
+router.post("/analyze", async (req: Request, res: Response) => {
   try {
-    const { target, tables } = req.body;
-    const result = await (BackupService as any).createMissingTables?.(target, tables);
+    const { target } = req.body;
+    const result = await BackupService.analyzeDatabase(target || 'local');
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// GET /api/backups/databases
-router.get("/databases", async (req, res) => {
+router.get("/databases", async (_req: Request, res: Response) => {
   try {
     const dbs = await BackupService.getAvailableDatabases();
-    res.json({ success: true, databases: dbs });
+    const safeDbs = dbs.map(db => ({ id: db.id, name: db.name }));
+    res.json({ success: true, databases: safeDbs });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// GET /api/backups/logs
-router.get("/logs", async (req, res) => {
+router.get("/logs", async (_req: Request, res: Response) => {
   try {
-    const result = await BackupService.listAutoBackups();
-    if (result.success) {
-      // Return the result object as expected by the frontend (which handles data.logs or data)
-      res.json(result);
-    } else {
-      res.status(500).json({ success: false, message: result.message });
-    }
+    const result = await BackupService.listBackups();
+    res.json(result);
   } catch (error: any) {
-    console.error("❌ [BackupRoute] Error fetching logs:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get("/status", async (_req: Request, res: Response) => {
+  try {
+    const status = BackupService.getAutoBackupStatus();
+    const storage = await BackupService.getStorageInfo();
+    res.json({ success: true, status, storage: storage.success ? storage : null });
+  } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });

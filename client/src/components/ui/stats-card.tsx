@@ -259,22 +259,22 @@ export function StatsCard({
     <Card className={cn(
       colors.border, 
       colors.bg, 
-      "border-l-4 border-2 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-[75px] sm:h-[100px] rounded-xl sm:rounded-2xl overflow-hidden shadow-sm"
+      "border-l-2 border-1 hover:shadow-lg transition-all duration-300 h-[60px] sm:h-[80px] rounded-lg overflow-hidden shadow-sm"
     )}>
-      <CardContent className="p-2 sm:p-4 flex flex-col justify-center h-full bg-gradient-to-br from-white/10 to-transparent">
-        <div className="flex items-center justify-between gap-1.5 sm:gap-3">
+      <CardContent className="p-1.5 sm:p-3 flex flex-col justify-center h-full">
+        <div className="flex items-center justify-between gap-1 sm:gap-2">
           <div className="flex-1 min-w-0">
             <LabelWithTooltip>
-              <p className="text-[10px] font-bold text-muted-foreground/90 uppercase tracking-tight truncate mb-0.5">
+              <p className="text-[8px] sm:text-[10px] font-medium text-muted-foreground/90 uppercase tracking-tighter truncate mb-0">
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <p className={cn("text-xl font-bold font-mono tracking-tighter leading-none", colors.text)}>
+            <p className={cn("text-sm sm:text-lg font-bold font-mono tracking-tighter leading-none", colors.text)}>
               {displayValue}
             </p>
           </div>
-          <div className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ring-2 sm:ring-4 ring-white/50 dark:ring-black/10", colors.iconBg)}>
-            <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", colors.iconColor)} />
+          <div className={cn("h-7 w-7 sm:h-9 sm:w-9 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm", colors.iconBg)}>
+            <Icon className={cn("h-3.5 w-3.5 sm:h-5 sm:w-5", colors.iconColor)} />
           </div>
         </div>
       </CardContent>

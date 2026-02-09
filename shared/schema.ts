@@ -166,7 +166,7 @@ export const projectTypes = pgTable("project_types", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
 }, (table) => ({
-  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+  uniqueProjectTypeName: sql`UNIQUE ("name")`,
 }));
 
 // Projects table
@@ -191,7 +191,7 @@ export const projects = pgTable("projects", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
   ...syncFields,
 }, (table) => ({
-  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+  uniqueProjectName: sql`UNIQUE ("name")`,
 }));
 
 // Workers table
@@ -206,7 +206,7 @@ export const workers = pgTable("workers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
 }, (table) => ({
-  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+  uniqueWorkerName: sql`UNIQUE ("name")`,
 }));
 
 // Wells table (جدول الآبار) - يدير بيانات الآبار والملاك والمواقع والخصائص الفنية
@@ -237,7 +237,7 @@ export const wells = pgTable("wells", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   ...syncFields,
 }, (table) => ({
-  uniqueProjectTypeName: sql`UNIQUE (${table.name})`,
+  uniqueWellNumberInProject: sql`UNIQUE (project_id, well_number)`,
 }));
 
 // Fund transfers (تحويلات العهدة)

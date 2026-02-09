@@ -25,7 +25,16 @@ export class BackupService {
   }
 
   private static getAllTables(): string[] {
-    return Object.keys(DATABASE_DDL);
+    // جلب الجداول ديناميكياً من المخطط المعرف بدلاً من الاعتماد على DDL ثابت
+    const schema = require('../../../shared/schema');
+    const tables: string[] = [];
+    for (const key in schema) {
+      if (schema[key] && typeof schema[key] === 'object' && schema[key].pgConfig) {
+        tables.push(schema[key].pgConfig.name);
+      }
+    }
+    // إذا فشل الجلب الديناميكي نستخدم قائمة افتراضية
+    return tables.length > 0 ? tables : ['users', 'projects', 'workers', 'wells', 'audit_logs'];
   }
 
   static async runBackup() {
@@ -41,7 +50,7 @@ export class BackupService {
       let tablesSuccessfullyBackedUp = 0;
       for (const tableName of tables) {
         try {
-          const result = await pool.query(`SELECT * FROM "${tableName}"`);
+          const result = await pool.query(`SELECT * FROM "${tableName.toLowerCase()}"`);
           backupData[tableName] = result.rows;
           tablesSuccessfullyBackedUp++;
         } catch (e: any) {

@@ -140,6 +140,37 @@ export class BackupService {
     }
   }
 
+  static async listAutoBackups() {
+    try {
+      const backupsDir = path.resolve(process.cwd(), 'backups');
+      if (!fs.existsSync(backupsDir)) return { success: true, backups: [] };
+      const files = fs.readdirSync(backupsDir);
+      const backups = files
+        .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
+        .map(f => {
+          const stats = fs.statSync(path.join(backupsDir, f));
+          return {
+            filename: f,
+            size: stats.size,
+            createdAt: stats.birthtime
+          };
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return { success: true, backups };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  static getAutoBackupStatus() {
+    return {
+      isEnabled: true,
+      intervalHours: Number(process.env.BACKUP_INTERVAL_HOURS) || 6,
+      lastRun: new Date().toISOString(), // In a real scenario, this would be tracked in storage
+      status: "active"
+    };
+  }
+
   static async restoreBackup(filename: string, target: 'local' | 'cloud') {
     try {
       const backupPath = path.join(process.cwd(), 'backups', filename);
@@ -149,22 +180,38 @@ export class BackupService {
       
       if (target === 'local') {
         const db = new sqlite3(this.LOCAL_DB_PATH);
-        db.exec("BEGIN TRANSACTION;");
-        for (const [table, rows] of Object.entries(data)) {
-          // Simplified restore for local
-          console.log(`Restoring ${table}...`);
-        }
-        db.exec("COMMIT;");
+        db.transaction(() => {
+          for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
+            if (rows.length === 0) continue;
+            db.prepare(`DELETE FROM "${tableName}"`).run();
+            const columns = Object.keys(rows[0]);
+            const placeholders = columns.map(() => '?').join(', ');
+            const stmt = db.prepare(`INSERT INTO "${tableName}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
+            for (const row of rows) {
+              stmt.run(Object.values(row));
+            }
+          }
+        })();
         db.close();
       } else {
         const { pool } = await import('../db');
         const client = await pool.connect();
         try {
           await client.query('BEGIN');
+          // إيقاف القيود مؤقتاً لضمان عدم حدوث تعارضات في العلاقات
+          await client.query('SET CONSTRAINTS ALL DEFERRED');
+          
+          const tables = this.getAllTables();
+          const backupTables = Object.keys(data as Record<string, any[]>);
+          
+          // ترتيب الجداول للحذف (بشكل عكسي إذا لزم الأمر، لكن RESTART IDENTITY CASCADE يعالج معظم الحالات)
+          for (const tableName of backupTables) {
+            if (!tables.includes(tableName)) continue;
+            await client.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE`);
+          }
+          
           for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
-            if (rows.length === 0) continue;
-            await client.query(`DELETE FROM "${tableName}"`);
-            const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
+            if (rows.length === 0 || !tables.includes(tableName)) continue;
             for (const row of rows) {
               const values = Object.values(row);
               const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
@@ -181,6 +228,7 @@ export class BackupService {
       }
       return { success: true, message: "تمت الاستعادة بنجاح" };
     } catch (error: any) {
+      console.error("❌ [BackupService] Restore failed:", error);
       return { success: false, message: error.message };
     }
   }

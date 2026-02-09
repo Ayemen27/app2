@@ -73,26 +73,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/health/stats", (_req, res) => {
-    // إحصائيات النظام الأساسية مع فحص قاعدة البيانات
-    const { BackupService } = require('./services/BackupService');
-    const backupStatus = BackupService.getAutoBackupStatus();
-    
-    res.json({
-      success: true,
-      data: {
-        cpuUsage: Math.floor(Math.random() * 30) + 10,
-        memoryUsage: Math.floor(Math.random() * 20) + 40,
-        activeRequests: Math.floor(Math.random() * 10),
-        errorRate: (Math.random() * 0.1).toFixed(2),
-        uptime: process.uptime(),
-        dbStatus: "connected",
-        backupStatus,
-        timestamp: new Date().toISOString(),
-        nodeVersion: process.version,
-        platform: process.platform
-      }
-    });
+  app.get("/api/backups/logs", async (_req, res) => {
+    try {
+      const { BackupService } = await import('./services/BackupService');
+      const result = await BackupService.listAutoBackups();
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get("/api/health/stats", async (_req, res) => {
+    try {
+      const { BackupService } = await import('./services/BackupService');
+      const backupStatus = BackupService.getAutoBackupStatus();
+      
+      res.json({
+        success: true,
+        data: {
+          cpuUsage: Math.floor(Math.random() * 30) + 10,
+          memoryUsage: Math.floor(Math.random() * 20) + 40,
+          activeRequests: Math.floor(Math.random() * 10),
+          errorRate: (Math.random() * 0.1).toFixed(2),
+          uptime: process.uptime(),
+          dbStatus: "connected",
+          backupStatus,
+          timestamp: new Date().toISOString(),
+          nodeVersion: process.version,
+          platform: process.platform
+        }
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   const httpServer = createServer(app);

@@ -24,13 +24,13 @@ export class BackupService {
     }, intervalMs);
   }
 
-  private static getAllTables(): string[] {
+  private static async getAllTables(): Promise<string[]> {
     // جلب الجداول ديناميكياً من المخطط المعرف بدلاً من الاعتماد على DDL ثابت
-    const schema = require('../../../shared/schema');
+    const schema = await import('../../../shared/schema');
     const tables: string[] = [];
     for (const key in schema) {
-      if (schema[key] && typeof schema[key] === 'object' && schema[key].pgConfig) {
-        tables.push(schema[key].pgConfig.name);
+      if (schema[key] && typeof schema[key] === 'object' && (schema[key] as any).pgConfig) {
+        tables.push((schema[key] as any).pgConfig.name);
       }
     }
     // إذا فشل الجلب الديناميكي نستخدم قائمة افتراضية
@@ -43,7 +43,7 @@ export class BackupService {
       const backupsDir = path.resolve(process.cwd(), 'backups');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const backupPath = path.join(backupsDir, `backup-${timestamp}.json`);
-      const tables = this.getAllTables();
+      const tables = await this.getAllTables();
       const backupData: Record<string, any[]> = {};
       const { pool } = await import('../db');
       
@@ -83,7 +83,7 @@ export class BackupService {
   static async analyzeDatabase(target: 'local' | 'cloud') {
     try {
       const { pool } = await import('../db');
-      const tables = this.getAllTables();
+      const tables = await this.getAllTables();
       const report = [];
       const sqlite = target === 'local' ? new sqlite3(this.LOCAL_DB_PATH) : null;
       
@@ -207,27 +207,36 @@ export class BackupService {
         await client.query('BEGIN');
         await client.query('SET CONSTRAINTS ALL DEFERRED');
         
-        const backupTables = Object.keys(data as Record<string, any[]>);
         for (const tableName of backupTables) {
-          // Verify table exists in cloud
-          const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableName.toLowerCase()]);
-          if (!tableRes.rows[0].exists) {
-            console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in Cloud DB, skipping...`);
-            continue;
+          try {
+            // Verify table exists in cloud
+            const tableNameLower = tableName.toLowerCase();
+            const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableNameLower]);
+            if (!tableRes.rows[0].exists) {
+              console.warn(`⚠️ [BackupService] Table ${tableName} does not exist in Cloud DB, skipping...`);
+              continue;
+            }
+            await client.query(`TRUNCATE TABLE "${tableNameLower}" RESTART IDENTITY CASCADE`);
+          } catch (e: any) {
+            console.error(`❌ [BackupService] Error truncating table ${tableName}:`, e.message);
           }
-          await client.query(`TRUNCATE TABLE "${tableName.toLowerCase()}" RESTART IDENTITY CASCADE`);
         }
         
         for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
-          if (rows.length === 0) continue;
-          const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableName.toLowerCase()]);
-          if (!tableRes.rows[0].exists) continue;
+          try {
+            if (rows.length === 0) continue;
+            const tableNameLower = tableName.toLowerCase();
+            const tableRes = await client.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`, [tableNameLower]);
+            if (!tableRes.rows[0].exists) continue;
 
-          const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
-          for (const row of rows) {
-            const values = Object.values(row);
-            const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
-            await client.query(`INSERT INTO "${tableName.toLowerCase()}" (${columns}) VALUES (${placeholders})`, values);
+            const columns = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
+            for (const row of rows) {
+              const values = Object.values(row);
+              const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+              await client.query(`INSERT INTO "${tableNameLower}" (${columns}) VALUES (${placeholders})`, values);
+            }
+          } catch (e: any) {
+            console.error(`❌ [BackupService] Error restoring table ${tableName}:`, e.message);
           }
         }
         await client.query('COMMIT');
@@ -245,7 +254,8 @@ export class BackupService {
         for (const [key, value] of Object.entries(schema)) {
           if (value && typeof value === 'object' && (value as any).pgConfig) {
             const tableName = (value as any).pgConfig.name;
-            const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableName.toLowerCase());
+            const tableNameLower = tableName.toLowerCase();
+            const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableNameLower);
             if (!tableExists) {
               console.log(`🛠️ [BackupService] Creating missing local table: ${tableName}`);
               // Simple create table for SQLite
@@ -253,20 +263,21 @@ export class BackupService {
               const colDefs = columns.length > 0 
                 ? columns.map(c => `"${c}" TEXT`).join(', ')
                 : '"id" TEXT PRIMARY KEY';
-              db.prepare(`CREATE TABLE IF NOT EXISTS "${tableName.toLowerCase()}" (${columns.length > 0 ? colDefs : colDefs})`).run();
+              db.prepare(`CREATE TABLE IF NOT EXISTS "${tableNameLower}" (${colDefs})`).run();
             }
           }
         }
 
         for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
           if (rows.length === 0) continue;
-          const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableName.toLowerCase());
+          const tableNameLower = tableName.toLowerCase();
+          const tableExists = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(tableNameLower);
           if (!tableExists) continue;
 
-          db.prepare(`DELETE FROM "${tableName.toLowerCase()}"`).run();
+          db.prepare(`DELETE FROM "${tableNameLower}"`).run();
           const columns = Object.keys(rows[0]);
           const placeholders = columns.map(() => '?').join(', ');
-          const stmt = db.prepare(`INSERT INTO "${tableName.toLowerCase()}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
+          const stmt = db.prepare(`INSERT INTO "${tableNameLower}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`);
           for (const row of rows) {
             stmt.run(Object.values(row));
           }

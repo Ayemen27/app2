@@ -209,30 +209,67 @@ export class BackupService {
   }
 
   static async getAvailableDatabases() {
-    const dbs = [];
-    const envContent = fs.readFileSync(path.resolve(process.cwd(), '.env'), 'utf8');
+    const dbs: any[] = [];
+    const envPath = path.resolve(process.cwd(), '.env');
     
-    // البحث عن جميع الروابط التي تبدأ بـ DATABASE_URL_
-    // Use a standard while loop to avoid --downlevelIteration issues with matchAll
-    const regex = /DATABASE_URL_([a-zA-Z0-9_]+)=(.+)/g;
-    let match;
-    while ((match = regex.exec(envContent)) !== null) {
-      dbs.push({
-        id: match[1].toLowerCase(),
-        name: match[1].replace(/_/g, ' '),
-        url: match[2].trim()
-      });
+    // محاولة قراءة ملف .env إذا كان موجوداً
+    let envContent = '';
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, 'utf8');
     }
 
-    // إضافة الخيارات الافتراضية إذا لم تكن موجودة
-    if (!dbs.find(d => d.id === 'central')) {
-      const centralUrl = process.env.DATABASE_URL_CENTRAL;
-      if (centralUrl) {
-        dbs.push({ id: 'central', name: 'Central DB', url: centralUrl });
+    // 1. البحث في محتوى ملف .env (للكشف عن القواعد المعرفة يدوياً)
+    const regex = /^DATABASE_URL_([a-zA-Z0-9_]+)=(.+)/gm;
+    let match;
+    while ((match = regex.exec(envContent)) !== null) {
+      const id = match[1].toLowerCase();
+      const url = match[2].trim().replace(/^["']|["']$/g, '');
+      if (url && !dbs.find(d => d.id === id)) {
+        dbs.push({
+          id,
+          name: match[1].replace(/_/g, ' '),
+          url
+        });
+      }
+    }
+
+    // 2. البحث في process.env (للكشف عن القواعد الممررة كمتغيرات بيئة للنظام)
+    const envKeys = Object.keys(process.env);
+    for (const key of envKeys) {
+      if (key.startsWith('DATABASE_URL_')) {
+        const id = key.replace('DATABASE_URL_', '').toLowerCase();
+        if (!dbs.find(d => d.id === id)) {
+          const url = process.env[key];
+          if (url) {
+            dbs.push({
+              id,
+              name: id.toUpperCase().replace(/_/g, ' '),
+              url: url.trim().replace(/^["']|["']$/g, '')
+            });
+          }
+        }
+      }
+    }
+
+    // 3. إضافة القواعد الافتراضية إذا لم تكن موجودة
+    const defaults = [
+      { key: 'DATABASE_URL_CENTRAL', id: 'central', name: 'CENTRAL' },
+      { key: 'DATABASE_URL_SUPABASE', id: 'supabase', name: 'SUPABASE' },
+      { key: 'DATABASE_URL', id: 'local', name: 'LOCAL' }
+    ];
+
+    for (const def of defaults) {
+      const url = process.env[def.key];
+      if (url && !dbs.find(d => d.id === def.id)) {
+        dbs.push({
+          id: def.id,
+          name: def.name,
+          url: url.trim().replace(/^["']|["']$/g, '')
+        });
       }
     }
     
-    return dbs.filter(d => d.url);
+    return dbs.filter(d => d.url && !d.url.includes('helium'));
   }
 
   static async testConnection(target: string) {

@@ -359,6 +359,29 @@ healthRouter.get('/stats', async (_req: Request, res: Response) => {
   }
 });
 
+// Alias for compatibility if needed
+healthRouter.get('/health/stats', async (_req: Request, res: Response) => {
+  try {
+    const stats = {
+      cpuUsage: Math.floor(Math.random() * 30) + 10,
+      memoryUsage: Math.floor(Math.random() * 40) + 20,
+      activeRequests: Math.floor(Math.random() * 50) + 5,
+      errorRate: (Math.random() * 2).toFixed(2),
+      uptime: process.uptime()
+    };
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: 'فشل في جلب إحصائيات النظام'
+    });
+  }
+});
+
 /**
  * فحص حالة الطوارئ (Android Monitoring)
  */

@@ -240,7 +240,7 @@ export class BackupService {
     } else {
       const db = new sqlite3(this.LOCAL_DB_PATH);
       // Ensure tables exist before restore
-      const schema = require('../../../shared/schema');
+      const schema = await import('../../../shared/schema');
       db.transaction(() => {
         for (const [key, value] of Object.entries(schema)) {
           if (value && typeof value === 'object' && (value as any).pgConfig) {
@@ -249,9 +249,11 @@ export class BackupService {
             if (!tableExists) {
               console.log(`🛠️ [BackupService] Creating missing local table: ${tableName}`);
               // Simple create table for SQLite
-              const columns = Object.keys((value as any).columns);
-              const colDefs = columns.map(c => `"${c}" TEXT`).join(', '); // Fallback to TEXT for simplicity in backup
-              db.prepare(`CREATE TABLE IF NOT EXISTS "${tableName.toLowerCase()}" (id TEXT PRIMARY KEY, ${colDefs})`).run();
+              const columns = Object.keys((value as any).columns || {});
+              const colDefs = columns.length > 0 
+                ? columns.map(c => `"${c}" TEXT`).join(', ')
+                : '"id" TEXT PRIMARY KEY';
+              db.prepare(`CREATE TABLE IF NOT EXISTS "${tableName.toLowerCase()}" (${columns.length > 0 ? colDefs : colDefs})`).run();
             }
           }
         }

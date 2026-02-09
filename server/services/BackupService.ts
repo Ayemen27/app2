@@ -25,25 +25,7 @@ export class BackupService {
   }
 
   private static getAllTables(): string[] {
-    return [
-      'users', 'refresh_tokens', 'audit_logs', 'emergency_users', 'auth_user_sessions',
-      'email_verification_tokens', 'password_reset_tokens', 'project_types', 'projects',
-      'workers', 'wells', 'fund_transfers', 'worker_attendance', 'suppliers', 'materials',
-      'material_purchases', 'supplier_payments', 'transportation_expenses', 'worker_transfers',
-      'worker_balances', 'daily_activity_logs', 'daily_expense_summaries', 'worker_types',
-      'autocomplete_data', 'worker_misc_expenses', 'backup_logs', 'backup_settings',
-      'print_settings', 'project_fund_transfers', 'security_policies', 'security_policy_suggestions',
-      'security_policy_implementations', 'security_policy_violations', 'user_project_permissions',
-      'permission_audit_logs', 'report_templates', 'tool_categories', 'tools', 'tool_stock',
-      'tool_movements', 'tool_maintenance_logs', 'tool_usage_analytics', 'tool_purchase_items',
-      'maintenance_schedules', 'maintenance_tasks', 'tool_cost_tracking', 'tool_reservations',
-      'system_notifications', 'notification_read_states', 'build_deployments', 'tool_notifications',
-      'approvals', 'channels', 'messages', 'actions', 'system_events', 'accounts',
-      'transactions', 'transaction_lines', 'journals', 'finance_payments', 'finance_events',
-      'account_balances', 'notifications', 'ai_chat_sessions', 'ai_chat_messages',
-      'ai_usage_stats', 'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs',
-      'material_categories', 'equipment', 'equipment_movements', 'incidents', 'monitoring_metrics'
-    ];
+    return Object.keys(DATABASE_DDL);
   }
 
   static async runBackup() {

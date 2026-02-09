@@ -153,10 +153,10 @@ export function UnifiedCard({
   return (
     <div
       className={cn(
-        "group relative rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden transition-all duration-200",
-        "hover:shadow-md hover:border-primary/20",
+        "group relative rounded-2xl border-2 bg-card text-card-foreground shadow-sm overflow-hidden transition-all duration-300",
+        "hover:shadow-xl hover:border-primary/30 hover:-translate-y-1",
         onClick && "cursor-pointer",
-        compact ? "p-3" : "p-4",
+        compact ? "p-4" : "p-6",
         className
       )}
       onClick={onClick}

@@ -266,15 +266,15 @@ export function UnifiedSearchFilter({
 
   return (
     <div className={cn('space-y-2', className)}>
-      <div className="flex items-center gap-2 p-2 bg-card border border-border/50 rounded-lg shadow-sm">
+      <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border-2 border-border/50 rounded-2xl shadow-sm transition-all focus-within:border-primary/30 focus-within:shadow-md">
         {showSearch && (
           <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Search className="absolute right-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
             <Input
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={handleSearchChange}
-              className="pr-10 pl-8 h-9 bg-background"
+              className="pr-12 pl-10 h-12 bg-slate-50/50 dark:bg-slate-800/50 border-none rounded-xl font-medium focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
             />
             {searchValue && (
               <Button

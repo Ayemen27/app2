@@ -256,33 +256,26 @@ export function StatsCard({
   
   // الاستايل الافتراضي المحسن - ارتفاع ثابت موحد احترافي
   return (
-    <Card className={`${colors.border} ${colors.bg} border-l-4 hover:shadow-md transition-all duration-200 hover:scale-[1.01] h-[80px]`}>
-      <CardContent className="p-2 sm:p-2.5 flex flex-col justify-center h-full">
-        <div className="flex flex-col items-center text-center gap-0.5">
-          {/* Title and Icon in one row */}
-          <div className="flex items-center justify-center gap-1.5 w-full min-w-0">
+    <Card className={cn(
+      colors.border, 
+      colors.bg, 
+      "border-l-4 border-2 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-[100px] rounded-2xl overflow-hidden shadow-sm"
+    )}>
+      <CardContent className="p-4 flex flex-col justify-center h-full bg-gradient-to-br from-white/10 to-transparent">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
             <LabelWithTooltip>
-              <p 
-                className="text-xs sm:text-sm font-bold text-muted-foreground leading-tight break-words flex-1 min-w-0"
-                title={displayLabel}
-              >
+              <p className="text-xs font-black text-muted-foreground/80 uppercase tracking-widest truncate mb-1">
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <div className={`h-5 w-5 ${colors.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
-              <Icon className={`h-2.5 w-2.5 ${colors.iconColor}`} />
-            </div>
+            <p className={cn("text-2xl font-black font-mono tracking-tighter leading-none", colors.text)}>
+              {displayValue}
+            </p>
           </div>
-          
-          {/* Value centered - خط أصغر */}
-          <p 
-            className={`font-extrabold ${colors.text} leading-none w-full`}
-            style={{ 
-              fontSize: 'clamp(0.9rem, 3.5vw, 1.1rem)'
-            }}
-          >
-            {displayValue}
-          </p>
+          <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner ring-4 ring-white/50 dark:ring-black/10", colors.iconBg)}>
+            <Icon className={cn("h-6 w-6", colors.iconColor)} />
+          </div>
         </div>
       </CardContent>
     </Card>

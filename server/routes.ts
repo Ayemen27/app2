@@ -44,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/restore", async (req, res) => {
     try {
-      const { fileName } = req.body;
+      const { fileName, target } = req.body;
       if (!fileName) return res.status(400).json({ success: false, error: "اسم الملف مطلوب" });
 
       const { BackupService } = await import('./services/BackupService');
@@ -54,19 +54,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ success: false, error: "الملف غير موجود" });
       }
 
-      const success = await BackupService.restoreFromFile(backupPath);
+      const success = await BackupService.restoreFromFile(backupPath, target || 'local');
       
       // تسجيل عملية الاستعادة
       await storage.createAuditLog({
         action: "SYSTEM_RESTORE",
-        meta: { fileName, success },
+        meta: { fileName, target: target || 'local', success },
         createdAt: new Date()
       });
 
       if (success) {
-        res.json({ success: true, message: "تمت الاستعادة بنجاح" });
+        res.json({ success: true, message: `تمت الاستعادة بنجاح إلى ${target === 'cloud' ? 'السحابة' : 'الجهاز المحلي'}` });
       } else {
-        res.status(500).json({ success: false, error: "فشلت عملية الاستعادة البرمجية" });
+        res.status(500).json({ success: false, error: "فشلت عملية الاستعادة" });
       }
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });

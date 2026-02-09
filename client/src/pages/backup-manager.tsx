@@ -12,7 +12,9 @@ import {
   FileText,
   Loader2,
   Trash2,
-  Calendar
+  Calendar,
+  Globe,
+  Monitor
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +24,21 @@ import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filte
 import { Button } from "@/components/ui/button";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Progress } from "@/components/ui/progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BackupLog {
   id: number;
@@ -37,6 +54,9 @@ interface BackupLog {
 export default function BackupManager() {
   const { toast } = useToast();
   const [isRestoring, setIsRestoring] = useState<number | null>(null);
+  const [selectedLog, setSelectedLog] = useState<BackupLog | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<'local' | 'cloud'>('local');
+  const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [backupProgress, setBackupProgress] = useState(0);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
@@ -136,19 +156,39 @@ export default function BackupManager() {
   }, [backupMutation.isPending, backupProgress]);
 
   const restoreMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await apiRequest(`/api/backups/restore/${id}`, "POST");
+    mutationFn: async ({ id, target, fileName }: { id: number; target: string; fileName: string }) => {
+      // Use the general admin restore endpoint which handles both targets
+      const res = await apiRequest("/api/admin/restore", "POST", { fileName, target });
       return res;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast({ 
         title: "اكتملت الاستعادة", 
-        description: "تمت استعادة البيانات بنجاح",
+        description: data.message || "تمت استعادة البيانات بنجاح",
       });
       setTimeout(() => window.location.reload(), 2000);
     },
-    onSettled: () => setIsRestoring(null)
+    onSettled: () => {
+      setIsRestoring(null);
+      setIsRestoreDialogOpen(false);
+      setSelectedLog(null);
+    }
   });
+
+  const handleRestoreClick = (log: BackupLog) => {
+    setSelectedLog(log);
+    setIsRestoreDialogOpen(true);
+  };
+
+  const confirmRestore = () => {
+    if (!selectedLog) return;
+    setIsRestoring(selectedLog.id);
+    restoreMutation.mutate({ 
+      id: selectedLog.id, 
+      target: restoreTarget, 
+      fileName: selectedLog.filename 
+    });
+  };
 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteProgress, setDeleteProgress] = useState(0);
@@ -404,12 +444,7 @@ export default function BackupManager() {
                       size="icon" 
                       className="h-8 w-8 text-orange-600 hover:bg-orange-50"
                       disabled={isRestoring !== null}
-                      onClick={() => {
-                        if (window.confirm("استبدال البيانات الحالية بهذه النسخة؟")) {
-                          setIsRestoring(log.id);
-                          restoreMutation.mutate(log.id);
-                        }
-                      }}
+                      onClick={() => handleRestoreClick(log)}
                     >
                       {isRestoring === log.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -456,6 +491,84 @@ export default function BackupManager() {
           </div>
         )}
       </div>
+
+      <Dialog open={isRestoreDialogOpen} onOpenChange={setIsRestoreDialogOpen}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-orange-600" />
+              تأكيد استعادة البيانات
+            </DialogTitle>
+            <DialogDescription className="text-right">
+              أنت على وشك استعادة البيانات من النسخة: <br/>
+              <span className="font-mono text-xs text-blue-600 font-bold">{selectedLog?.filename}</span>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold block text-right">اختر قاعدة البيانات المستهدفة:</label>
+              <Select 
+                value={restoreTarget} 
+                onValueChange={(val: any) => setRestoreTarget(val)}
+              >
+                <SelectTrigger className="w-full rounded-xl border-2 h-12">
+                  <SelectValue placeholder="اختر القاعدة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local" className="flex items-center gap-2 py-3">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4 text-blue-500" />
+                      <div className="text-right">
+                        <p className="font-bold">الجهاز المحلي (Offline/Emergency)</p>
+                        <p className="text-[10px] text-muted-foreground">استعادة إلى قاعدة بيانات SQLite المحلية</p>
+                      </div>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="cloud" className="flex items-center gap-2 py-3">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-emerald-500" />
+                      <div className="text-right">
+                        <p className="font-bold">السحابة (Cloud Database)</p>
+                        <p className="text-[10px] text-muted-foreground">استعادة إلى قاعدة بيانات PostgreSQL المركزية</p>
+                      </div>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-2xl border-2 border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-amber-800 dark:text-amber-200 font-medium leading-relaxed">
+                ⚠️ تنبيه: سيتم استبدال جميع البيانات الحالية في القاعدة المختارة. تأكد من أنك تملك صلاحيات كافية لهذا الإجراء.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-start">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsRestoreDialogOpen(false)}
+              className="rounded-xl px-6"
+            >
+              إلغاء
+            </Button>
+            <Button 
+              variant="default" 
+              className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl px-8 font-bold"
+              onClick={confirmRestore}
+              disabled={isRestoring !== null}
+            >
+              {isRestoring !== null ? (
+                <>
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  جاري الاستعادة...
+                </>
+              ) : "تأكيد الاستعادة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

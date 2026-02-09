@@ -210,81 +210,104 @@ export class BackupService {
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
-  static async restoreFromFile(filePath: string): Promise<boolean> {
+  static async restoreFromFile(filePath: string, targetDatabase: 'cloud' | 'local' = 'local'): Promise<boolean> {
     try {
-      console.log(`📂 [BackupService] فك ضغط الملف: ${filePath}`);
-      const compressedContent = fs.readFileSync(filePath);
-      const sqlContent = zlib.gunzipSync(compressedContent).toString('utf-8');
-
-      console.log(`🏗️ [BackupService] تهيئة SQLite...`);
-      const targetInstance = new sqlite3(this.LOCAL_DB_PATH);
+      console.log(`📂 [BackupService] فك ضغط الملف: ${filePath} للاستعادة إلى ${targetDatabase}`);
       
-      targetInstance.pragma("foreign_keys = OFF");
-      targetInstance.pragma("journal_mode = OFF");
-      targetInstance.pragma("synchronous = OFF");
-
-      // تنظيف الجداول القديمة
-      const tables = targetInstance.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as {name: string}[];
-      for (const table of tables) {
-        if (table.name !== 'sqlite_sequence') {
-          targetInstance.exec(`DROP TABLE IF EXISTS "${table.name}"`);
-        }
+      let backupData: any;
+      if (filePath.endsWith('.json')) {
+        backupData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      } else if (filePath.endsWith('.gz')) {
+        const compressedContent = fs.readFileSync(filePath);
+        const sqlContent = zlib.gunzipSync(compressedContent).toString('utf-8');
+        // If it's SQL, we might need a different parser, but the current backup is JSON
+        // Let's assume we are handling the JSON format primarily as per runBackup()
+        backupData = JSON.parse(sqlContent);
       }
 
-      targetInstance.exec("BEGIN TRANSACTION;");
-
-      // استخراج جداول CREATE TABLE
-      const createTableRegex = /CREATE TABLE\s+(?:public\.)?(\w+)\s+\(([\s\S]*?)\);/g;
-      let match;
-      while ((match = createTableRegex.exec(sqlContent)) !== null) {
-        const tableName = match[1];
-        const body = match[2];
-        let converted = `CREATE TABLE "${tableName}" (${body});`
-          .replace(/"public"\./g, "")
-          .replace(/"/g, "`")
-          .replace(/character varying(\(\d+\))?/gi, "TEXT")
-          .replace(/timestamp( without time zone)?/gi, "TEXT")
-          .replace(/numeric\(\d+,\d+\)/gi, "NUMERIC")
-          .replace(/boolean/gi, "INTEGER")
-          .replace(/uuid/gi, "TEXT")
-          .replace(/jsonb/gi, "TEXT")
-          .replace(/DEFAULT gen_random_uuid\(\)/gi, "PRIMARY KEY")
-          .replace(/DEFAULT now\(\)/gi, "DEFAULT CURRENT_TIMESTAMP")
-          .replace(/'t'/g, "1")
-          .replace(/'f'/g, "0")
-          .replace(/::[a-z0-9]+/gi, "")
-          .replace(/WITH\s+\([^)]+\)/gi, "");
-        
-        try { targetInstance.exec(converted); } catch (e) { }
+      if (targetDatabase === 'local') {
+        return await this.restoreToLocal(backupData.data);
+      } else {
+        return await this.restoreToCloud(backupData.data);
       }
-
-      // استخراج بيانات COPY - تحسين المنطق ليشمل جميع الجداول والبيانات
-      const copyRegex = /COPY (?:public\.)?(\w+)\s+\((.*?)\)\s+FROM stdin;([\s\S]*?)\\\./g;
-      while ((match = copyRegex.exec(sqlContent)) !== null) {
-        const tableName = match[1];
-        const cols = match[2].replace(/"/g, "`");
-        const data = match[3].trim();
-        if (!data) continue;
-
-        const lines = data.split('\n');
-        const placeholders = cols.split(',').map(() => '?').join(',');
-        const insertStmt = targetInstance.prepare(`INSERT INTO "${tableName}" (${cols}) VALUES (${placeholders})`);
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          const vals = line.split('\t').map(v => v === '\\N' ? null : v);
-          try { insertStmt.run(...vals); } catch (e) { }
-        }
-      }
-
-      targetInstance.exec("COMMIT;");
-      targetInstance.close();
-      console.log("✅ [BackupService] تم استعادة جميع البيانات بنجاح.");
-      return true;
     } catch (error) {
-      console.error('❌ [BackupService] خطأ في الاستعادة الشاملة:', error);
+      console.error('❌ [BackupService] خطأ في الاستعادة:', error);
       return false;
+    }
+  }
+
+  private static async restoreToLocal(data: Record<string, any[]>): Promise<boolean> {
+    try {
+      const targetInstance = new sqlite3(this.LOCAL_DB_PATH);
+      targetInstance.pragma("foreign_keys = OFF");
+      
+      for (const [tableName, rows] of Object.entries(data)) {
+        // Create table if not exists - simple version for SQLite
+        if (rows.length > 0) {
+          const firstRow = rows[0];
+          const columns = Object.keys(firstRow).map(col => `"${col}" TEXT`).join(', ');
+          targetInstance.exec(`CREATE TABLE IF NOT EXISTS "${tableName}" (${columns})`);
+          
+          targetInstance.exec(`DELETE FROM "${tableName}"`);
+          const colNames = Object.keys(firstRow).map(c => `"${c}"`).join(',');
+          const placeholders = Object.keys(firstRow).map(() => '?').join(',');
+          const stmt = targetInstance.prepare(`INSERT INTO "${tableName}" (${colNames}) VALUES (${placeholders})`);
+          
+          const transaction = targetInstance.transaction((items) => {
+            for (const item of items) {
+              const vals = Object.values(item).map(v => typeof v === 'object' ? JSON.stringify(v) : v);
+              stmt.run(...vals);
+            }
+          });
+          transaction(rows);
+        }
+      }
+      targetInstance.close();
+      return true;
+    } catch (e) {
+      console.error("Local restore error:", e);
+      return false;
+    }
+  }
+
+  private static async restoreToCloud(data: Record<string, any[]>): Promise<boolean> {
+    const { pool } = await import('../db');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Disable triggers to avoid issues during restore
+      await client.query('SET session_replication_role = "replica"');
+
+      for (const [tableName, rows] of Object.entries(data)) {
+        if (rows.length === 0) continue;
+
+        // Try to clear table
+        try {
+          await client.query(`TRUNCATE TABLE "${tableName}" RESTART IDENTITY CASCADE`);
+        } catch (e) {
+          await client.query(`DELETE FROM "${tableName}"`);
+        }
+
+        const firstRow = rows[0];
+        const columns = Object.keys(firstRow).map(c => `"${c}"`).join(', ');
+        
+        for (const row of rows) {
+          const keys = Object.keys(row);
+          const values = Object.values(row);
+          const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+          await client.query(`INSERT INTO "${tableName}" (${columns}) VALUES (${placeholders})`, values);
+        }
+      }
+
+      await client.query('SET session_replication_role = "origin"');
+      await client.query('COMMIT');
+      return true;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      console.error("Cloud restore error:", e);
+      return false;
+    } finally {
+      client.release();
     }
   }
 }

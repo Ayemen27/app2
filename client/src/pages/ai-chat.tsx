@@ -441,6 +441,8 @@ export default function AIChatPage() {
                   <div className="relative group">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                     <Input
+                      autoWidth
+                      maxWidth={600}
                       placeholder="البحث في الأرشيف..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}

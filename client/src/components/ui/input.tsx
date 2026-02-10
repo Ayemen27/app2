@@ -146,6 +146,8 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   fieldType?: string;
   validationContext?: string;
   hidePasswordToggle?: boolean;
+  autoWidth?: boolean;
+  maxWidth?: number;
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -163,12 +165,17 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     fieldType,
     validationContext,
     hidePasswordToggle = false,
+    autoWidth = false,
+    maxWidth = 420,
     onChange,
     value: controlledValue,
     ...props 
   }, ref) => {
     const [showPassword, setShowPassword] = React.useState(false);
     const [isFocused, setIsFocused] = React.useState(false);
+    const spanRef = React.useRef<HTMLSpanElement>(null);
+    const [dynamicWidth, setDynamicWidth] = React.useState<number | string>("100%");
+
     const { value: memoryValue, updateValue: updateMemoryValue } = useFormMemory(
       memoryKey || `input-${props.name || 'default'}`,
       typeof controlledValue === 'string' ? controlledValue : ''
@@ -177,13 +184,21 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const currentValue = controlledValue !== undefined ? String(controlledValue) : memoryValue;
     const validation = useInteractiveValidation(currentValue, fieldType, validator, validationContext);
 
+    React.useEffect(() => {
+      if (autoWidth && spanRef.current) {
+        spanRef.current.textContent = currentValue || props.placeholder || "";
+        const newWidth = spanRef.current.offsetWidth + 32; // padding offset
+        setDynamicWidth(Math.max(60, Math.min(newWidth, maxWidth)));
+      } else if (!autoWidth) {
+        setDynamicWidth("100%");
+      }
+    }, [currentValue, autoWidth, props.placeholder, maxWidth]);
+
     const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value;
-      
       if (enableMemory && controlledValue === undefined) {
         updateMemoryValue(newValue);
       }
-      
       onChange?.(e);
     }, [enableMemory, controlledValue, updateMemoryValue, onChange]);
 
@@ -195,7 +210,6 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const hasLeftIcon = leftIcon || loading;
     const hasRightIcon = rightIcon || type === 'password' || (showValidation && validation.message);
 
-    // حساب ألوان التحقق
     const getValidationColor = () => {
       if (validation.isValidating) return 'border-blue-300 ring-blue-100';
       if (!validation.isValid) return 'border-red-300 ring-red-100 focus:border-red-500 focus:ring-red-200';
@@ -204,11 +218,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     };
 
     return (
-      <div className="relative w-full">
+      <div className={cn("relative", autoWidth ? "inline-block" : "w-full")}>
+        {autoWidth && (
+          <span
+            ref={spanRef}
+            className="absolute invisible whitespace-pre font-inherit px-4 py-2.5 text-sm"
+            aria-hidden="true"
+          />
+        )}
         <motion.div
           animate={{ scale: isFocused ? 1.01 : 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          style={{ position: "relative" }}
+          style={{ position: "relative", width: autoWidth ? (typeof dynamicWidth === 'number' ? `${dynamicWidth}px` : dynamicWidth) : "100%" }}
         >
           <input
             type={inputType}
@@ -231,6 +252,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             onBlur={() => setIsFocused(false)}
             {...props}
           />
+          {/* Icons and other elements remain the same */}
 
           {/* أيقونة اليسار */}
           {hasLeftIcon && (

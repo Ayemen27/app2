@@ -34,6 +34,9 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastLogin: timestamp("last_login"),
+  // Refresh Token fields
+  refreshTokenHash: text("refresh_token_hash"),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),

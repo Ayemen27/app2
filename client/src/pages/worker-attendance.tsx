@@ -1176,6 +1176,8 @@ export default function WorkerAttendance() {
                             value={bulkSettings.startTime}
                             onChange={(e) => setBulkSettings(prev => ({ ...prev, startTime: e.target.value }))}
                             className="mt-1"
+                            autoWidth
+                            maxWidth={120}
                           />
                         </div>
                         <div>
@@ -1185,6 +1187,8 @@ export default function WorkerAttendance() {
                             value={bulkSettings.endTime}
                             onChange={(e) => setBulkSettings(prev => ({ ...prev, endTime: e.target.value }))}
                             className="mt-1"
+                            autoWidth
+                            maxWidth={120}
                           />
                         </div>
                         <div>

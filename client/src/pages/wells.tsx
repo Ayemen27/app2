@@ -431,6 +431,7 @@ export default function WellsPage() {
                   placeholder="أدخل رقم البئر"
                   className="h-10 text-base"
                   autoWidth
+                  maxWidth={200}
                 />
               </div>
               <div className="space-y-1">

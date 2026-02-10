@@ -1104,6 +1104,8 @@ export default function MaterialPurchase() {
                   onChange={(e) => setQuantity(e.target.value)}
                   placeholder="0"
                   className="text-center arabic-numbers"
+                  autoWidth
+                  maxWidth={150}
                 />
               </div>
               <div>

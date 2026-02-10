@@ -2343,6 +2343,8 @@ function DailyExpensesContent() {
                     onChange={(e) => setCarriedForward(e.target.value)}
                     placeholder="0"
                     className="text-center arabic-numbers"
+                    autoWidth
+                    maxWidth={200}
                   />
                 </div>
               </div>

@@ -51,11 +51,6 @@ export default function SyncManagementPage() {
     onReset
   } = useUnifiedFilter({ action: 'all', category: 'all', projectId: 'all' }, '');
 
-  const loadPendingItems = async () => {
-    const items = await getPendingSyncQueue();
-    setPendingItems(items);
-  };
-
   useEffect(() => {
     loadPendingItems();
     const interval = setInterval(loadPendingItems, 5000);

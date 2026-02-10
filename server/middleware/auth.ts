@@ -67,25 +67,37 @@ export const sensitiveOperationsRateLimit = rateLimit({
 
 // تم إزالة speedLimiter مؤقتاً - يمكن إضافته لاحقاً عند الحاجة
 
-// دالة مساعدة موحدة لاستخراج التوكن من الطلب
+// دالة مساعدة موحدة لاستخراج التوكن من الطلب - نسخة جذرية تدعم جميع الحالات
 function extractTokenFromReq(req: Request): string | null {
-  const authHeader = req.headers.authorization;
+  // 1. التحقق من ترويسة Authorization (المعيار العالمي)
+  const authHeader = req.headers.authorization || req.headers.Authorization;
   if (authHeader && typeof authHeader === 'string') {
     const parts = authHeader.split(' ');
     if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
+    // دعم إرسال التوكن مباشرة بدون Bearer في بعض تطبيقات الموبايل
+    if (parts.length === 1) return parts[0];
   }
-  if (req.headers['x-auth-token']) return req.headers['x-auth-token'] as string;
-  if (req.headers['token']) return req.headers['token'] as string;
+
+  // 2. التحقق من الترويسات المخصصة الشائعة
+  const customHeaders = ['x-auth-token', 'x-access-token', 'token', 'Authorization'];
+  for (const header of customHeaders) {
+    const value = req.headers[header] || req.headers[header.toLowerCase()];
+    if (value && typeof value === 'string') {
+      if (value.startsWith('Bearer ')) return value.substring(7);
+      return value;
+    }
+  }
   
-  // الكوكيز: التحقق من الأسماء الشائعة
-  if (req.cookies?.accessToken) return req.cookies.accessToken;
-  if (req.cookies?.access_token) return req.cookies.access_token;
-  if (req.cookies?.token) return req.cookies.token;
+  // 3. التحقق من الكوكيز (للمتصفحات)
+  if (req.cookies) {
+    const cookieNames = ['accessToken', 'access_token', 'token', 'jwt'];
+    for (const name of cookieNames) {
+      if (req.cookies[name]) return req.cookies[name];
+    }
+  }
   
-  // Query parameter (للدعم السريع أو الروابط)
-  if (req.query?.token) return req.query.token as string;
-  
-  return null;
+  // 4. التحقق من الجسم (Body) أو الاستعلام (Query) - كحل أخير
+  return (req.query?.token as string) || (req.body?.token as string) || (req.body?.accessToken as string) || null;
 }
 
 import { storage } from '../storage';
@@ -181,33 +193,15 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     let token: string | null = null;
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
 
-    // console.log(`🔍 [AUTH] فحص متقدم - المسار: ${req.method} ${req.originalUrl} | IP: ${ip}`);
-
-    // محاولة استخراج التوكن من مصادر متعددة باستخدام الدالة الموحدة
+    // استخراج التوكن باستخدام الدالة الجذرية المحسنة
     token = extractTokenFromReq(req);
-
-    const userAgent = req.get('user-agent') || '';
-    const isMobile = userAgent.includes('Android') || userAgent.includes('okhttp');
-
-    // سجل إضافي لتشخيص مشاكل الموبايل
-    if (!token && isMobile) {
-      console.warn(`⚠️ [AUTH-MOBILE] محاولة وصول بدون توكن من جهاز أندرويد | المسار: ${req.originalUrl}`);
-      
-      // محاولة البحث عن التوكن في Header بديل قد ترسله تطبيقات الموبايل
-      token = (req.headers['authorization'] as string) || (req.headers['Authorization'] as string);
-      if (token && typeof token === 'string' && token.startsWith('Bearer ')) {
-        token = token.substring(7);
-      }
-      
-      // إذا كان المسؤول الأول يدخل من أندرويد، فقد يكون التوكن في مكان غير متوقع أو مفقود في طلبات معينة
-      // ملاحظة: لا يمكننا السماح بالدخول بدون توكن لأسباب أمنية، لكننا نحسن الاستخراج
-      if (!token && req.path === '/api/auth/refresh') {
-        token = req.body.refreshToken || req.cookies?.refreshToken;
-      }
-    }
 
     // التحقق من وجود الـ token
     if (!token) {
+      // سجل تحذيري في حالة الفشل لتسهيل التتبع
+      const userAgent = req.get('user-agent') || 'unknown';
+      console.warn(`🚨 [AUTH-FAIL] محاولة وصول بدون توكن | المسار: ${req.method} ${req.originalUrl} | IP: ${ip} | UA: ${userAgent}`);
+      
       return res.status(401).json({
         success: false,
         message: 'غير مصرح لك بالوصول - لا يوجد رمز مصادقة',

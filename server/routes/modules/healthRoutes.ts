@@ -453,16 +453,21 @@ healthRouter.get('/db/tables/:name', requireAuth, async (req: Request, res: Resp
     const { name } = req.params;
     const user = (req as any).user;
     
-    // السماح للأدوار الإدارية بالوصول، أو أي مستخدم مسجل دخول إذا كان الطلب من جهاز أندرويد لغرض العرض
-    const userAgent = req.get('user-agent') || '';
-    const isMobile = userAgent.includes('Android') || userAgent.includes('okhttp');
+    // الحل الجذري: الاعتماد الكلي على الصلاحيات (RBAC) بدلاً من نوع الجهاز
+    const isSuperAdmin = user && user.role === 'super_admin';
     const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
     
-    // إذا كان المستخدم هو المدير المسؤول الأول، نسمح له بالوصول بغض النظر عن المنصة
-    const isSuperAdmin = user && user.role === 'super_admin';
+    // استثناء للجداول النظامية التي قد يحتاجها التطبيق للعمليات الأساسية
+    const isSystemTable = ['auth_user_sessions', 'users', 'email_verification_tokens'].includes(name);
     
-    if (!isAdmin && !isMobile && !isSuperAdmin) {
-      return res.status(403).json({ success: false, message: 'صلاحيات غير كافية' });
+    // إذا كان المستخدم super_admin، له صلاحية مطلقة دائماً
+    if (isSuperAdmin) {
+      // استمرار التنفيذ
+    } else if (isAdmin || isSystemTable) {
+       // المديرين والجداول النظامية مسموح بها
+    } else {
+      // أي حالة أخرى مرفوضة
+      return res.status(403).json({ success: false, message: 'صلاحيات غير كافية للوصول لبيانات الجدول' });
     }
 
     const source = req.query.source as string | undefined;

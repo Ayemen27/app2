@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { RefreshCw, CheckCircle, AlertCircle, Database, Table2, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { getDB } from '@/offline/db';
+import { useFloatingButton } from '@/components/layout/floating-button-context';
 
 interface TableComparison {
   tableName: string;
@@ -26,8 +27,9 @@ export default function SyncComparisonPage() {
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'synced' | 'unsynced'>('all');
+  const { setRefreshAction } = useFloatingButton();
 
-  const loadComparison = async () => {
+  const loadComparison = useCallback(async () => {
     setIsLoading(true);
     try {
       // جلب بيانات الخادم الكاملة
@@ -100,11 +102,21 @@ export default function SyncComparisonPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadComparison();
-  }, []);
+  }, [loadComparison]);
+
+  useEffect(() => {
+    setRefreshAction(() => {
+      return () => {
+        loadComparison();
+        toast({ title: 'جاري تحديث بيانات المزامنة...' });
+      };
+    });
+    return () => setRefreshAction(null);
+  }, [loadComparison, setRefreshAction, toast]);
 
   const filtered = comparisons.filter(c => {
     const matchesSearch = c.tableName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -186,6 +198,7 @@ export default function SyncComparisonPage() {
               variant={filterStatus === status ? 'default' : 'outline'}
               onClick={() => setFilterStatus(status)}
               data-testid={`button-filter-${status}`}
+              className={filterStatus === status ? "bg-primary text-primary-foreground border-primary" : "border-input text-foreground hover:bg-accent hover:text-accent-foreground"}
             >
               {status === 'all' ? 'الكل' : status === 'synced' ? 'متزامن' : 'غير متزامن'}
             </Button>
@@ -195,6 +208,7 @@ export default function SyncComparisonPage() {
           onClick={loadComparison}
           disabled={isLoading}
           data-testid="button-refresh-comparison"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           {isLoading ? 'جاري...' : 'تحديث'}

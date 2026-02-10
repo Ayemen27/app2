@@ -467,6 +467,8 @@ export default function ProjectFundCustody() {
                               step="0.01" 
                               placeholder="0" 
                               {...field} 
+                              autoWidth
+                              maxWidth={250}
                               onChange={(e) => field.onChange(e.target.value)}
                               className="h-10 md:h-11 border-2 text-xs md:text-sm" 
                             />

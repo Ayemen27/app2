@@ -463,6 +463,8 @@ export default function EnhancedWorkerCard({
                   onChange={(value) => updateAttendance({ workDescription: value })}
                   placeholder="اكتب وصف العمل المنجز..."
                   category="workDescriptions"
+                  autoWidth
+                  maxWidth={500}
                   className="w-full text-sm"
                 />
               </div>
@@ -475,6 +477,8 @@ export default function EnhancedWorkerCard({
                     value={localAttendance.notes || ""}
                     onChange={(e) => updateAttendance({ notes: e.target.value })}
                     placeholder="أضف ملاحظات..."
+                    autoWidth
+                    maxWidth={500}
                     className="text-sm h-8"
                   />
                 </div>

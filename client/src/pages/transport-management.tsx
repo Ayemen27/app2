@@ -532,6 +532,8 @@ export default function TransportManagement() {
                           value={amount} 
                           onChange={(e) => setAmount(e.target.value)} 
                           placeholder="0.00"
+                          autoWidth
+                          maxWidth={200}
                           className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-7 focus:ring-primary/20 text-xs"
                         />
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">RY</span>

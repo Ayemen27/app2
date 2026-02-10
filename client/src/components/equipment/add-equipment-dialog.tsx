@@ -195,6 +195,8 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                         placeholder="مثال: حفار صغير"
                         className="h-9 text-sm"
                         {...field} 
+                        autoWidth
+                        maxWidth={300}
                         data-testid="input-equipment-name"
                       />
                     </FormControl>
@@ -455,6 +457,8 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                       className="resize-none text-sm min-h-[50px]"
                       rows={2}
                       {...field} 
+                      autoHeight
+                      maxHeight={150}
                       data-testid="textarea-description"
                     />
                   </FormControl>

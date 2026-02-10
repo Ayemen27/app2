@@ -490,7 +490,7 @@ export default function ProjectTransfers() {
                             <FormItem>
                               <FormLabel className="text-xs md:text-sm font-semibold">المبلغ (ريال)</FormLabel>
                               <FormControl>
-                                <Input type="number" step="0.01" placeholder="0" {...field} className="h-10 md:h-11 border-2 text-xs md:text-sm" />
+                                <Input type="number" step="0.01" placeholder="0" {...field} autoWidth maxWidth={250} className="h-10 md:h-11 border-2 text-xs md:text-sm" />
                               </FormControl>
                               <FormMessage className="text-xs" />
                             </FormItem>

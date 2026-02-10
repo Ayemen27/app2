@@ -448,9 +448,19 @@ healthRouter.get('/db/tables', requireAuth, requireRole('admin'), async (req: Re
   }
 });
 
-healthRouter.get('/db/tables/:name', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+healthRouter.get('/db/tables/:name', requireAuth, async (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    const user = (req as any).user;
+    
+    // السماح للأدوار الإدارية بالوصول، أو أي مستخدم مسجل دخول إذا كان الطلب من جهاز أندرويد لغرض العرض
+    const isMobile = req.get('user-agent')?.includes('Android') || req.get('user-agent')?.includes('okhttp');
+    const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
+    
+    if (!isAdmin && !isMobile) {
+      return res.status(403).json({ success: false, message: 'صلاحيات غير كافية' });
+    }
+
     const source = req.query.source as string | undefined;
     if (!/^[a-z_]+$/.test(name)) {
       return res.status(400).json({ success: false, error: 'اسم جدول غير صالح' });

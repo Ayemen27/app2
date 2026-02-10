@@ -248,14 +248,14 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       });
     }
 
-    // إضافة بيانات المستخدم للـ request
+    // إضافة بيانات المستخدم للـ request مع ضمان تحديث الدور من قاعدة البيانات مباشرة
     req.user = {
       id: user.id,
       userId: user.id,
       email: user.email,
       firstName: user.firstName || undefined,
       lastName: user.lastName || undefined,
-      role: user.role,
+      role: user.role || 'user', // استخدام الدور من قاعدة البيانات مباشرة
       isActive: user.isActive,
       mfaEnabled: user.mfaEnabled || undefined,
       sessionId: decoded.sessionId || 'jwt-session'

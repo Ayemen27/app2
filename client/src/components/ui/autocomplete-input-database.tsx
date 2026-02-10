@@ -16,6 +16,8 @@ interface AutocompleteInputProps {
   className?: string;
   type?: string;
   inputMode?: "numeric" | "decimal" | "text" | "search" | "email" | "tel" | "url";
+  autoWidth?: boolean;
+  maxWidth?: number;
 }
 
 export function AutocompleteInput({
@@ -26,7 +28,9 @@ export function AutocompleteInput({
   disabled = false,
   className = "",
   type = "text",
-  inputMode = "text"
+  inputMode = "text",
+  autoWidth = false,
+  maxWidth = 420
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,7 +172,7 @@ export function AutocompleteInput({
   };
 
   return (
-    <div className="relative w-full">
+    <div className={cn("relative", autoWidth ? "inline-block align-bottom" : "w-full")}>
       <Input
         ref={inputRef}
         value={value}
@@ -181,6 +185,8 @@ export function AutocompleteInput({
         className={`arabic-numbers ${className}`}
         type={type}
         inputMode={inputMode}
+        autoWidth={autoWidth}
+        maxWidth={maxWidth}
       />
       
       {isOpen && !disabled && (

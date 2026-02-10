@@ -226,6 +226,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             required
             autoWidth
             maxWidth={400}
+            className="h-10"
           />
         </div>
 

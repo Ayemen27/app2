@@ -186,6 +186,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     React.useEffect(() => {
       if (autoWidth && spanRef.current) {
+        // إنشاء عنصر span مؤقت لحساب العرض بدقة أكبر إذا لزم الأمر
+        // أو استخدام النص الحالي مع اعتبار الخط والحجم
         spanRef.current.textContent = currentValue || props.placeholder || "";
         const newWidth = spanRef.current.offsetWidth + 32; // padding offset
         setDynamicWidth(Math.max(60, Math.min(newWidth, maxWidth)));
@@ -217,19 +219,31 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       return 'border-input focus:border-blue-500 focus:ring-blue-200';
     };
 
+    const containerStyle = React.useMemo(() => {
+      const style: React.CSSProperties = { position: "relative" };
+      if (autoWidth) {
+        style.width = typeof dynamicWidth === 'number' ? `${dynamicWidth}px` : dynamicWidth;
+        style.minWidth = "60px";
+      } else {
+        style.width = "100%";
+      }
+      return style;
+    }, [autoWidth, dynamicWidth]);
+
     return (
-      <div className={cn("relative", autoWidth ? "inline-block" : "w-full")}>
+      <div className={cn("relative", autoWidth ? "inline-block align-bottom" : "w-full")}>
         {autoWidth && (
           <span
             ref={spanRef}
-            className="absolute invisible whitespace-pre font-inherit px-4 py-2.5 text-sm"
+            className="absolute invisible whitespace-pre font-inherit px-4 text-sm pointer-events-none"
+            style={{ font: 'inherit', letterSpacing: 'inherit' }}
             aria-hidden="true"
           />
         )}
         <motion.div
           animate={{ scale: isFocused ? 1.01 : 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          style={{ position: "relative", width: autoWidth ? (typeof dynamicWidth === 'number' ? `${dynamicWidth}px` : dynamicWidth) : "100%" }}
+          style={containerStyle}
         >
           <input
             type={inputType}

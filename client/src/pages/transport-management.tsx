@@ -492,6 +492,8 @@ export default function TransportManagement() {
                         onChange={setDescription}
                         placeholder="مثلاً: نقل عمال، توريد مياه..."
                         className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
+                        autoWidth
+                        maxWidth={400}
                       />
                     </div>
                     <div className="col-span-1 space-y-1">

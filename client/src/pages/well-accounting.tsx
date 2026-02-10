@@ -346,6 +346,8 @@ export default function WellAccounting() {
                           value={taskForm.description}
                           onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
                           placeholder="مثال: إنشاء القاعدة"
+                          autoWidth
+                          maxWidth={400}
                         />
                       </div>
                       <div>
@@ -355,6 +357,9 @@ export default function WellAccounting() {
                           value={taskForm.amount}
                           onChange={(e) => setTaskForm({ ...taskForm, amount: e.target.value })}
                           placeholder="0"
+                          autoWidth
+                          maxWidth={150}
+                          className="h-9"
                         />
                       </div>
                       <Button

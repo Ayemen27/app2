@@ -1271,7 +1271,9 @@ export default function MaterialPurchase() {
                           value={supplierFormNotes}
                           onChange={(e) => setSupplierFormNotes(e.target.value)}
                           placeholder="أي ملاحظات إضافية..."
-                          rows={3}
+                          autoHeight
+                          minRows={3}
+                          maxRows={6}
                         />
                       </div>
 

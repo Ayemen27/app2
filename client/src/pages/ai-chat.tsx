@@ -778,19 +778,21 @@ export default function AIChatPage() {
                   )}
                 </AnimatePresence>
 
-                <textarea
+                <Textarea
                   ref={textareaRef}
                   placeholder="كيف يمكنني مساعدتك في إدارة مشاريعك اليوم؟"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.shiftKey) {
-                      // Allow shift+enter for new lines if needed, 
-                      // but user specifically asked Enter to be new line.
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
                     }
                   }}
-                  rows={1}
-                  className="w-full bg-transparent border-none focus:ring-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 py-3 px-3 text-sm font-medium resize-none min-h-[44px] max-h-48 shadow-none"
+                  className="w-full bg-transparent border-none focus-visible:ring-0 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 py-3 px-3 text-sm font-medium shadow-none"
+                  autoHeight
+                  minRows={1}
+                  maxRows={8}
                 />
                 
                 <div className="flex items-center justify-between px-2 pb-1 mt-1">

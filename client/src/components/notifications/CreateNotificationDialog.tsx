@@ -331,7 +331,14 @@ export function CreateNotificationDialog({
                     <FormItem>
                       <FormLabel>المحتوى</FormLabel>
                       <FormControl>
-                        <Textarea {...field} placeholder="اكتب الرسالة..." rows={4} className="resize-none" />
+                        <Textarea 
+                          {...field} 
+                          placeholder="اكتب الرسالة..." 
+                          className="resize-none" 
+                          autoHeight
+                          minRows={4}
+                          maxRows={10}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

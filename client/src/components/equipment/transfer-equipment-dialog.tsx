@@ -216,9 +216,11 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                   <FormControl>
                     <Textarea 
                       placeholder="ملاحظات أو تفاصيل إضافية..."
-                      className="resize-none text-sm min-h-[50px]"
-                      rows={2}
+                      className="resize-none text-sm"
                       {...field} 
+                      autoHeight
+                      minRows={2}
+                      maxRows={6}
                       data-testid="textarea-transfer-notes"
                     />
                   </FormControl>

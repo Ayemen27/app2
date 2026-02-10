@@ -454,11 +454,11 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                   <FormControl>
                     <Textarea 
                       placeholder="وصف إضافي للمعدة..."
-                      className="resize-none text-sm min-h-[50px]"
-                      rows={2}
+                      className="resize-none text-sm"
                       {...field} 
                       autoHeight
-                      maxHeight={150}
+                      minRows={2}
+                      maxRows={6}
                       data-testid="textarea-description"
                     />
                   </FormControl>

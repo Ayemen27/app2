@@ -587,7 +587,10 @@ export default function TransportManagement() {
                       value={notes} 
                       onChange={(e) => setNotes(e.target.value)} 
                       placeholder="أي ملاحظات إضافية..."
-                      className="min-h-[60px] rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 resize-none py-2 focus:ring-primary/20 text-xs"
+                      className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20 text-xs"
+                      autoHeight
+                      minRows={2}
+                      maxRows={6}
                     />
                   </div>
 

@@ -226,7 +226,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             required
             autoWidth
             maxWidth={400}
-            className="h-10"
+            className="h-11"
           />
         </div>
 
@@ -325,7 +325,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             value={dailyWage}
             onChange={(e) => setDailyWage(e.target.value)}
             placeholder="0"
-            className="text-center arabic-numbers"
+            className="text-center arabic-numbers min-h-11"
             required
             autoWidth
             maxWidth={200}

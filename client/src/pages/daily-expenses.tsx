@@ -2334,19 +2334,19 @@ function DailyExpensesContent() {
                     onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : null)}
                   />
                 </div>
-                <div>
-                  <Label className="block text-sm font-medium text-foreground">المبلغ المتبقي السابق</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    value={carriedForward}
-                    onChange={(e) => setCarriedForward(e.target.value)}
-                    placeholder="0"
-                    className="text-center arabic-numbers"
-                    autoWidth
-                    maxWidth={200}
-                  />
-                </div>
+                  <div className="flex-1">
+                    <Label className="block text-sm font-medium text-foreground">المبلغ المتبقي السابق</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={carriedForward}
+                      onChange={(e) => setCarriedForward(e.target.value)}
+                      placeholder="0"
+                      className="text-center arabic-numbers min-h-11"
+                      autoWidth
+                      maxWidth={200}
+                    />
+                  </div>
               </div>
 
               {/* Fund Transfer Section - الطي الذكية */}

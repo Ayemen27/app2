@@ -190,8 +190,14 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     if (!token && (req.get('user-agent')?.includes('Android') || req.get('user-agent')?.includes('okhttp'))) {
       console.warn(`⚠️ [AUTH-MOBILE] محاولة وصول بدون توكن من جهاز أندرويد | المسار: ${req.originalUrl}`);
       
-      // Allow mobile apps to access refresh endpoint with refreshToken in body/cookies if no Authorization header
-      if (req.path === '/api/auth/refresh') {
+      // Allow mobile apps to access certain endpoints if needed or just log it
+      // For now, let's try to see if token is in other headers mobile might use
+      token = req.headers['authorization'] as string || req.headers['Authorization'] as string;
+      if (token && typeof token === 'string' && token.startsWith('Bearer ')) {
+        token = token.substring(7);
+      }
+      
+      if (!token && req.path === '/api/auth/refresh') {
         token = req.body.refreshToken || req.cookies?.refreshToken;
       }
     }

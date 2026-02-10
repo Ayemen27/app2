@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { X, Search, Trash2 } from 'lucide-react';
 import type { AutocompleteData } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
+import { cn } from "@/lib/utils";
 
 interface AutocompleteInputProps {
   value: string;

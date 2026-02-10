@@ -76,16 +76,17 @@ function extractTokenFromReq(req: Request): string | null {
     const cleanHeader = authHeader.trim();
     
     // التعامل مع Bearer المكرر أو المفقود
-    const bearerRegex = /bearer/gi;
+    const bearerRegex = /bearer\s+/gi;
     if (bearerRegex.test(cleanHeader)) {
       // إزالة كل تكرارات Bearer والمسافات الزائدة
-      // نستخدم التعبير النمطي مع 'gi' لإزالة كل "bearer " بغض النظر عن الحالة
-      const tokenOnly = cleanHeader.replace(/bearer\s+/gi, '').trim();
+      const tokenOnly = cleanHeader.replace(bearerRegex, '').trim();
       return tokenOnly;
     }
     
-    // إذا لم يحتوي على Bearer، نفترض أنه التوكن مباشرة
-    return cleanHeader;
+    // إذا لم يحتوي على Bearer، ربما يكون التوكن مباشرة
+    if (cleanHeader.length > 20) { // طول معقول لتوكن JWT
+      return cleanHeader;
+    }
   }
 
   // 2. التحقق من الترويسات المخصصة الشائعة

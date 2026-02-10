@@ -43,6 +43,8 @@ export default function DatabaseManager() {
     const res = await fetch(url, {
       headers: {
         "Authorization": `Bearer ${cleanToken}`,
+        "x-auth-token": cleanToken,
+        "x-access-token": cleanToken
       },
     });
     if (!res.ok) {

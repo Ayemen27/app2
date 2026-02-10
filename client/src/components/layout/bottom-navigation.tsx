@@ -93,11 +93,12 @@ const allPagesData = [
     ]
   },
   {
-    category: "الذكاء الاصطناعي",
+    category: "الذكاء الاصطناعي والمزامنة",
     pages: [
       { path: "/ai-chat", icon: Brain, label: "الوكيل الذكي", description: "مساعد ذكي لإدارة المشاريع والاستعلامات", requireAdmin: true },
       { path: "/local-db", icon: Database, label: "إدارة القاعدة المحلية", description: "فحص حالة البيانات المحلية والمزامنة", requireAdmin: true },
       { path: "/admin/backups", icon: Shield, label: "النسخ الاحتياطي", description: "إدارة واستعادة النسخ الاحتياطية", requireAdmin: true },
+      { path: "/admin/sync", icon: RefreshCw, label: "إدارة المزامنة", description: "مراقبة حالة المزامنة والتحكم في البيانات", requireAdmin: true },
     ]
   },
 ];

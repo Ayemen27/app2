@@ -109,9 +109,14 @@ export default function AdminNotificationsPage() {
   // تحديث إجراء التحديث العائم عند تغير دالة refetch
   useEffect(() => {
     if (refetch) {
-      setRefreshAction(() => () => refetch());
+      setRefreshAction(() => {
+        return () => {
+          refetch();
+          toast({ title: 'تم تحديث البيانات' });
+        };
+      });
     }
-  }, [refetch, setRefreshAction]);
+  }, [refetch, setRefreshAction, toast]);
 
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: ['user-activity'],
@@ -200,43 +205,12 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-10" dir="rtl">
-      {/* Header */}
-      <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between gap-4 px-4 sm:px-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Bell className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">إشعارات النظام</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">إدارة التواصل والتنبيهات الأمنية</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <CreateNotificationDialog 
-              open={isCreateDialogOpen} 
-              onOpenChange={setIsCreateDialogOpen} 
-              onUpdate={() => refetch()} 
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="gap-2"><Download className="h-4 w-4" /> تصدير</DropdownMenuItem>
-                <DropdownMenuItem className="gap-2"><Upload className="h-4 w-4" /> استيراد</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 text-destructive"><AlertTriangle className="h-4 w-4" /> مسح السجل</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
-
       <main className="container px-4 py-6 sm:px-8 space-y-6">
+        <CreateNotificationDialog 
+          open={isCreateDialogOpen} 
+          onOpenChange={setIsCreateDialogOpen} 
+          onUpdate={() => refetch()} 
+        />
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList className="grid w-full sm:w-auto grid-cols-3 sm:flex gap-2">

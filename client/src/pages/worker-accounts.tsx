@@ -892,6 +892,8 @@ export default function WorkerAccountsPage() {
                     setFormData({...formData, amount: value ? parseFloat(value) : 0});
                   }}
                   placeholder="0.00"
+                  autoWidth
+                  maxWidth={200}
                   min="0"
                   className="text-center arabic-numbers"
                 />
@@ -962,6 +964,8 @@ export default function WorkerAccountsPage() {
                 value={formData.notes}
                 onChange={(value) => setFormData({...formData, notes: value})}
                 placeholder="ملاحظات إضافية..."
+                autoWidth
+                maxWidth={400}
               />
             </div>
 

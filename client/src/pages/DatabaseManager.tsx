@@ -32,31 +32,50 @@ export default function DatabaseManager() {
   const [searchValue, setSearchValue] = useState("");
   const [selectedSource, setSelectedSource] = useState("active");
 
+  const fetchWithAuth = async (url: string) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "فشلت عملية جلب البيانات");
+    }
+    return res.json();
+  };
+
   const { data: connectionsData, isLoading: connectionsLoading } = useQuery<any>({
     queryKey: ["/api/db/connections"],
+    queryFn: () => fetchWithAuth("/api/db/connections"),
   });
 
   const overviewUrl = selectedSource !== 'active' ? `/api/db/overview?source=${selectedSource}` : '/api/db/overview';
   const { data: overview, isLoading: overviewLoading, refetch: refetchOverview, error: overviewError } = useQuery<any>({
     queryKey: [overviewUrl],
+    queryFn: () => fetchWithAuth(overviewUrl),
     retry: false,
   });
 
   const tablesUrl = selectedSource !== 'active' ? `/api/db/tables?source=${selectedSource}` : '/api/db/tables';
   const { data: tables, isLoading: tablesLoading, refetch: refetchTables, error: tablesError } = useQuery<any>({
     queryKey: [tablesUrl],
+    queryFn: () => fetchWithAuth(tablesUrl),
     retry: false,
   });
 
   const perfUrl = selectedSource !== 'active' ? `/api/db/performance?source=${selectedSource}` : '/api/db/performance';
   const { data: performance, isLoading: perfLoading, refetch: refetchPerf } = useQuery<any>({
     queryKey: [perfUrl],
+    queryFn: () => fetchWithAuth(perfUrl),
     retry: false,
   });
 
   const integrityUrl = selectedSource !== 'active' ? `/api/db/integrity?source=${selectedSource}` : '/api/db/integrity';
   const { data: integrity, isLoading: integrityLoading, refetch: refetchIntegrity } = useQuery<any>({
     queryKey: [integrityUrl],
+    queryFn: () => fetchWithAuth(integrityUrl),
     retry: false,
   });
 
@@ -68,11 +87,13 @@ export default function DatabaseManager() {
   const compareUrl = `/api/db/compare?source1=${compareSource1}&source2=${compareSource2}`;
   const { data: comparison, isLoading: comparisonLoading, refetch: refetchComparison } = useQuery<any>({
     queryKey: [compareUrl],
+    queryFn: () => fetchWithAuth(compareUrl),
     enabled: activeTab === 'compare' && !!compareSource1 && !!compareSource2,
   });
 
   const { data: systemStats } = useQuery<any>({
     queryKey: ["/api/stats"],
+    queryFn: () => fetchWithAuth("/api/stats"),
   });
 
   const maintenanceMutation = useMutation({

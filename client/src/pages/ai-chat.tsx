@@ -797,7 +797,7 @@ export default function AIChatPage() {
                 
                 <div className="flex items-center justify-between px-2 pb-1 mt-1">
                   <div className="flex items-center gap-1">
-                    <input 
+                    <Input 
                       type="file" 
                       ref={fileInputRef} 
                       className="hidden" 

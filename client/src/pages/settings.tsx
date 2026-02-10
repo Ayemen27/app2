@@ -204,7 +204,7 @@ export default function SettingsPage() {
                     <Upload className="h-3.5 w-3.5" />
                     استيراد نسخة
                   </Button>
-                  <input 
+                  <Input 
                     type="file" 
                     accept=".json" 
                     className="absolute inset-0 opacity-0 cursor-pointer" 

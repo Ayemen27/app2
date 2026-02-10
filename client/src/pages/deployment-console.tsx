@@ -439,11 +439,11 @@ export default function DeploymentConsole() {
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                  <input
+                  <Input
                     type="checkbox"
                     checked={autoScroll}
                     onChange={(e) => setAutoScroll(e.target.checked)}
-                    className="rounded border-border"
+                    className="rounded border-border w-4 h-4"
                   />
                   التمرير التلقائي
                 </label>

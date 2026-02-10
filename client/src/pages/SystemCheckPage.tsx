@@ -1019,7 +1019,7 @@ export default function SystemCheckPage() {
                 {isRequesting ? <><Loader2 className="w-4 h-4 animate-spin ml-2" />جاري الفحص والتفعيل...</> : <><Shield className="w-4 h-4 ml-2" />تفعيل الصلاحيات وبدء الإعداد</>}
               </Button>
               
-              <input
+              <Input
                 ref={fileInputRef}
                 type="file"
                 accept=".sql,.json,.gz,.gzip,.backup"

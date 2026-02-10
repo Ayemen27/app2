@@ -380,7 +380,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                   <FormLabel className="text-sm font-medium">صورة المعدة</FormLabel>
                   <FormControl>
                     <div className="space-y-2">
-                      <input
+                      <Input
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"

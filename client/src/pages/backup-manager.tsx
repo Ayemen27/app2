@@ -208,7 +208,7 @@ export default function BackupManager() {
 
   const handleDownload = async (filename: string) => {
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       const headers: Record<string, string> = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;

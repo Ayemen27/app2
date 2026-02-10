@@ -33,19 +33,16 @@ export default function DatabaseManager() {
   const [selectedSource, setSelectedSource] = useState("active");
 
   const fetchWithAuth = async (url: string) => {
-    let token = localStorage.getItem("token");
-    if (token && token.startsWith('"') && token.endsWith('"')) {
-      token = token.slice(1, -1);
+    const token = localStorage.getItem("token");
+    // تنظيف التوكن من أي علامات اقتباس أو مسافات
+    let cleanToken = token?.trim() || "";
+    if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
+      cleanToken = cleanToken.slice(1, -1);
     }
     
-    // تأكد من أن التوكن لا يبدأ بـ Bearer قبل إضافته لتجنب التكرار
-    const finalToken = token?.toLowerCase().startsWith('bearer ') 
-      ? token.substring(7).trim() 
-      : token;
-
     const res = await fetch(url, {
       headers: {
-        "Authorization": `Bearer ${finalToken}`,
+        "Authorization": `Bearer ${cleanToken}`,
       },
     });
     if (!res.ok) {

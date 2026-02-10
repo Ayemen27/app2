@@ -75,15 +75,16 @@ function extractTokenFromReq(req: Request): string | null {
     // تنظيف الترويسة من المسافات الزائدة
     const cleanHeader = authHeader.trim();
     
-    // التعامل مع Bearer Bearer (تكرار كلمة Bearer)
-    const bearerMatches = cleanHeader.match(/^Bearer\s+(Bearer\s+)?(.*)$/i);
-    if (bearerMatches && bearerMatches[2]) {
-      return bearerMatches[2].trim();
+    // التعامل مع Bearer المكرر أو المفقود
+    const cleanHeaderLower = cleanHeader.toLowerCase();
+    if (cleanHeaderLower.includes('bearer')) {
+      // إزالة كل تكرارات Bearer (سواء كانت في البداية أو في الوسط)
+      const tokenOnly = cleanHeader.replace(/bearer/gi, '').trim();
+      return tokenOnly;
     }
     
-    const parts = cleanHeader.split(/\s+/);
-    if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
-    if (parts.length === 1) return parts[0];
+    // إذا لم يحتوي على Bearer، نفترض أنه التوكن مباشرة
+    return cleanHeader;
   }
 
   // 2. التحقق من الترويسات المخصصة الشائعة
@@ -239,13 +240,15 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     // التحقق من صحة الـ token
     let decoded;
     try {
+      // طباعة التوكن قبل التحقق للتشخيص (يمكن إزالتها لاحقاً)
+      // console.log(`🔍 [AUTH-DEBUG] Verifying token: "${token.substring(0, 20)}..."`);
       decoded = await verifyToken(token);
     } catch (error: any) {
       if (req.path === '/api/auth/refresh') {
         return next();
       }
 
-      console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${error.message}`);
+      console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${error.message} | Token start: ${token.substring(0, 15)}...`);
 
       if (error.name === 'TokenExpiredError' || error.message?.includes('expired')) {
         return res.status(401).json({

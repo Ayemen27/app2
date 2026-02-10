@@ -348,6 +348,7 @@ export default function WellAccounting() {
                           placeholder="مثال: إنشاء القاعدة"
                           autoWidth
                           maxWidth={400}
+                          className="h-9"
                         />
                       </div>
                       <div>

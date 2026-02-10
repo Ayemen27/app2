@@ -525,6 +525,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const totalDuration = Date.now() - startTime;
       console.log(`❌ [AuthProvider.refreshToken] فشل التجديد نهائياً بعد ${totalDuration}ms و${maxAttempts} محاولات`);
 
+      // تسجيل الخروج تلقائياً عند فشل التجديد نهائياً
+      await logout();
+      window.location.href = '/auth';
+
       return false;
 
     } catch (error) {

@@ -59,7 +59,14 @@ class ApiClient {
             }
           } catch (refreshError) {
             console.error('❌ [API] Refresh failed:', refreshError);
-            // Handle redirect to login if needed
+            // تسجيل الخروج تلقائياً عند فشل التجديد نهائياً
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('user');
+              // إعادة التوجيه لصفحة تسجيل الدخول
+              window.location.href = '/auth';
+            }
           }
         }
       }

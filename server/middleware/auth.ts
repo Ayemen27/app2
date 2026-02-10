@@ -209,6 +209,11 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       });
     }
 
+    // تنظيف التوكن من أي علامات اقتباس محتملة قد تأتي من localStorage
+    if (token.startsWith('"') && token.endsWith('"')) {
+      token = token.slice(1, -1);
+    }
+
     // التحقق من صحة الـ token
     let decoded;
     try {

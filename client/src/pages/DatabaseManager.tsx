@@ -33,7 +33,10 @@ export default function DatabaseManager() {
   const [selectedSource, setSelectedSource] = useState("active");
 
   const fetchWithAuth = async (url: string) => {
-    const token = localStorage.getItem("token");
+    let token = localStorage.getItem("token");
+    if (token && token.startsWith('"') && token.endsWith('"')) {
+      token = token.slice(1, -1);
+    }
     const res = await fetch(url, {
       headers: {
         "Authorization": `Bearer ${token}`,

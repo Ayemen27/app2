@@ -569,12 +569,10 @@ export default function ProjectTransfers() {
                           <FormItem>
                             <FormLabel className="text-sm font-semibold">سبب التحويل</FormLabel>
                             <FormControl>
-                              <AutocompleteInput
-                                category="transferTypes"
-                                placeholder="أدخل السبب"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                className="h-10 md:h-11 border-2"
+                              <Textarea 
+                                placeholder="اكتب سبب التحويل بالتفصيل..." 
+                                className="min-h-[60px] text-xs md:text-sm border-2"
+                                {...field} 
                               />
                             </FormControl>
                             <FormMessage className="text-xs" />
@@ -590,12 +588,10 @@ export default function ProjectTransfers() {
                           <FormItem>
                             <FormLabel className="text-sm font-semibold">الملاحظات (اختياري)</FormLabel>
                             <FormControl>
-                              <AutocompleteInput
-                                category="notes"
-                                placeholder="أدخل أي ملاحظات"
-                                value={field.value || ""}
-                                onChange={field.onChange}
-                                className="border-2 min-h-24 md:min-h-28"
+                              <Textarea 
+                                placeholder="أدخل أي ملاحظات إضافية..." 
+                                className="min-h-[100px] text-xs md:text-sm border-2"
+                                {...field} 
                               />
                             </FormControl>
                             <FormMessage className="text-xs" />

@@ -1,3 +1,4 @@
+import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -217,16 +218,13 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             <User className="h-4 w-4 text-blue-500" />
             اسم العامل *
           </Label>
-          <Input
+          <Textarea
             id="worker-name"
-            type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="أدخل اسم العامل..."
             required
-            autoWidth
-            maxWidth={400}
-            className="h-11"
+            className="min-h-[44px]"
           />
         </div>
 

@@ -18,16 +18,17 @@ const Textarea = React.forwardRef<
       // Reset height to calculate scrollHeight correctly
       textarea.style.height = 'auto';
       
-      const lineHeight = 24; // Approximate line height in pixels
+      const lineHeight = 20; // Reduced for better compact look
       const minHeight = minRows * lineHeight;
-      const maxHeight = maxRows * lineHeight;
       
-      const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+      // Calculate height based on content
+      const scrollHeight = textarea.scrollHeight;
+      const newHeight = Math.max(minHeight, scrollHeight);
       
       textarea.style.height = `${newHeight}px`;
       
-      // Control overflow based on max height
-      textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+      // Control overflow - keep hidden for auto-height
+      textarea.style.overflowY = 'hidden';
     }
   }, [autoHeight, maxRows, minRows]);
 

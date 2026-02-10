@@ -34,13 +34,17 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   lastLogin: timestamp("last_login"),
-  ...syncFields,
+  isLocal: boolean("is_local").default(false),
+  synced: boolean("synced").default(true),
+  pendingSync: boolean("pending_sync").default(false),
+  version: integer("version").default(1).notNull(), 
+  lastModifiedBy: varchar("last_modified_by"),
 }, (table) => ({
   // Define constraints if needed
 }));
 
 // Update syncFields after users is defined
-(syncFields as any).lastModifiedBy = varchar("last_modified_by").references(() => users.id);
+// (syncFields as any).lastModifiedBy = varchar("last_modified_by").references(() => users.id);
 
 
 // Refresh Tokens table (جدول توكنات التحديث)

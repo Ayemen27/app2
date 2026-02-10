@@ -6,7 +6,7 @@ import {
   Package, DollarSign, Settings, ArrowLeftRight, 
   FileText, CreditCard, FileSpreadsheet, Bell, 
   Shield, Database, Wrench, Terminal, Brain,
-  ReceiptText, Search, X
+  ReceiptText, Search, X, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";

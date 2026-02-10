@@ -182,6 +182,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
             placeholder="أدخل اسم العامل..."
             required
             autoWidth
+            maxWidth={400}
           />
         </div>
 
@@ -232,6 +233,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
             className="text-center arabic-numbers"
             required
             autoWidth
+            maxWidth={200}
           />
         </div>
 

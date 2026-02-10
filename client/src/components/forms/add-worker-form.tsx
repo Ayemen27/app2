@@ -225,6 +225,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             placeholder="أدخل اسم العامل..."
             required
             autoWidth
+            maxWidth={400}
           />
         </div>
 
@@ -326,6 +327,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             className="text-center arabic-numbers"
             required
             autoWidth
+            maxWidth={200}
           />
         </div>
 

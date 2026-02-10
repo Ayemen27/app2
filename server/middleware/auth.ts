@@ -76,10 +76,11 @@ function extractTokenFromReq(req: Request): string | null {
     const cleanHeader = authHeader.trim();
     
     // التعامل مع Bearer المكرر أو المفقود
-    const cleanHeaderLower = cleanHeader.toLowerCase();
-    if (cleanHeaderLower.includes('bearer')) {
-      // إزالة كل تكرارات Bearer (سواء كانت في البداية أو في الوسط)
-      const tokenOnly = cleanHeader.replace(/bearer/gi, '').trim();
+    const bearerRegex = /bearer/gi;
+    if (bearerRegex.test(cleanHeader)) {
+      // إزالة كل تكرارات Bearer والمسافات الزائدة
+      // نستخدم التعبير النمطي مع 'gi' لإزالة كل "bearer " بغض النظر عن الحالة
+      const tokenOnly = cleanHeader.replace(/bearer\s+/gi, '').trim();
       return tokenOnly;
     }
     

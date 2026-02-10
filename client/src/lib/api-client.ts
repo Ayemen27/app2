@@ -39,6 +39,31 @@ class ApiClient {
         },
       });
 
+      if (response.status === 401) {
+        const errorData = await response.clone().json().catch(() => ({}));
+        if (errorData.code === 'TOKEN_EXPIRED' && endpoint !== '/auth/refresh') {
+          console.log('🔄 [API] Token expired, attempting refresh...');
+          try {
+            const refreshResponse = await this.post<{accessToken: string, refreshToken: string}>('/auth/refresh', {
+              refreshToken: localStorage.getItem('refreshToken')
+            });
+            
+            if (refreshResponse && refreshResponse.accessToken) {
+              localStorage.setItem('accessToken', refreshResponse.accessToken);
+              if (refreshResponse.refreshToken) {
+                localStorage.setItem('refreshToken', refreshResponse.refreshToken);
+              }
+              
+              // Retry the original request
+              return this.request<T>(endpoint, options);
+            }
+          } catch (refreshError) {
+            console.error('❌ [API] Refresh failed:', refreshError);
+            // Handle redirect to login if needed
+          }
+        }
+      }
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

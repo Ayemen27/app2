@@ -216,7 +216,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
 
       console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${error.message}`);
 
-      if (error.name === 'TokenExpiredError') {
+      if (error.name === 'TokenExpiredError' || error.message?.includes('expired')) {
         return res.status(401).json({
           success: false,
           message: 'انتهت الجلسة - يرجى تجديد الدخول',

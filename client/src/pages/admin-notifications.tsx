@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -9,7 +9,7 @@ import {
   Bell, Users, Zap, BarChart3, AlertCircle, CheckCircle2,
   RefreshCw, MoreVertical, Download, Upload, Settings,
   AlertTriangle, MessageSquare, ShieldCheck, Mail, Smartphone,
-  TrendingUp, Trash2
+  TrendingUp, Trash2, Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
 import { UnifiedStats } from '@/components/ui/unified-stats';
 import UnifiedFilterDashboard from '@/components/ui/unified-filter-dashboard';
 import { useUnifiedFilter } from '@/components/ui/unified-search-filter';
+import { useFloatingButton } from '@/components/layout/floating-button-context';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
@@ -32,7 +33,21 @@ export default function AdminNotificationsPage() {
   const { toast } = useToast();
   const { isAuthenticated, getAccessToken, isLoading: isAuthLoading } = useAuth();
   const [selectedTab, setSelectedTab] = useState('overview');
-  
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const { setFloatingAction, setRefreshAction } = useFloatingButton();
+
+  // تعيين الأزرار العائمة
+  useEffect(() => {
+    const handleAdd = () => setIsCreateDialogOpen(true);
+    setFloatingAction(handleAdd, "إرسال إشعار جديد");
+    
+    // سيتم تعريف refetch لاحقاً، سنستخدم wrapper
+    return () => {
+      setFloatingAction(null);
+      setRefreshAction(null);
+    };
+  }, [setFloatingAction, setRefreshAction]);
+
   const filterConfigs = [
     {
       key: 'type',
@@ -90,6 +105,13 @@ export default function AdminNotificationsPage() {
     },
     enabled: isAuthenticated && !isAuthLoading
   });
+
+  // تحديث إجراء التحديث العائم عند تغير دالة refetch
+  useEffect(() => {
+    if (refetch) {
+      setRefreshAction(() => () => refetch());
+    }
+  }, [refetch, setRefreshAction]);
 
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: ['user-activity'],
@@ -192,11 +214,11 @@ export default function AdminNotificationsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoadingNotifications}>
-              <RefreshCw className={cn("h-4 w-4 ml-2", isLoadingNotifications && "animate-spin")} />
-              تحديث
-            </Button>
-            <CreateNotificationDialog onUpdate={() => refetch()} />
+            <CreateNotificationDialog 
+              open={isCreateDialogOpen} 
+              onOpenChange={setIsCreateDialogOpen} 
+              onUpdate={() => refetch()} 
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -215,14 +237,6 @@ export default function AdminNotificationsPage() {
       </div>
 
       <main className="container px-4 py-6 sm:px-8 space-y-6">
-        {/* Stats Dashboard */}
-        <UnifiedStats 
-          stats={stats} 
-          columns={4}
-          title="نظرة عامة على الإشعارات"
-          subtitle="مؤشرات أداء نظام التنبيهات خلال آخر 30 يوم"
-        />
-
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList className="grid w-full sm:w-auto grid-cols-3 sm:flex gap-2">

@@ -118,14 +118,6 @@ export default function SyncComparisonPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6" data-testid="sync-comparison-page">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Database className="w-8 h-8" />
-          مقارنة شاملة للمزامنة
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-2">مقارنة 66 جدول بين قاعدة البيانات المحلية والخادم</p>
-      </div>
-
       {/* الملخص الإحصائي */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>

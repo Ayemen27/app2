@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -18,6 +19,29 @@ export default function SyncManagementPage() {
   const { isSyncing, isOnline, manualSync, offlineCount } = useSyncData();
   const [pendingItems, setPendingItems] = useState<any[]>([]);
   const { toast } = useToast();
+  const { setFloatingAction, setRefreshAction } = useFloatingButton();
+
+  // تحميل العمليات المعلقة
+  const loadPendingItems = async () => {
+    const items = await getPendingSyncQueue();
+    setPendingItems(items);
+  };
+
+  // تعيين الأزرار العائمة
+  useEffect(() => {
+    if (pendingItems.length > 0 && isOnline && !isSyncing) {
+      setFloatingAction(manualSync, `مزامنة الكل (${pendingItems.length})`);
+    } else {
+      setFloatingAction(null);
+    }
+    
+    setRefreshAction(() => loadPendingItems);
+
+    return () => {
+      setFloatingAction(null);
+      setRefreshAction(null);
+    };
+  }, [pendingItems.length, isOnline, isSyncing, manualSync, setFloatingAction, setRefreshAction]);
 
   const {
     searchValue,
@@ -79,17 +103,8 @@ export default function SyncManagementPage() {
             <RefreshCw className={isSyncing ? "animate-spin text-blue-500" : "text-blue-500"} />
             إدارة المزامنة
           </h1>
-          <p className="text-muted-foreground">مراقبة وإدارة العمليات في وضع عدم الاتصال - AXION SYSTEM</p>
+          <p className="text-muted-foreground text-sm">مراقبة وإدارة العمليات في وضع عدم الاتصال - AXION SYSTEM</p>
         </div>
-        <Button 
-          onClick={manualSync} 
-          disabled={!isOnline || isSyncing || pendingItems.length === 0}
-          className="w-full md:w-auto gap-2 shadow-sm"
-          size="lg"
-        >
-          <RefreshCw className={isSyncing ? "animate-spin" : ""} size={18} />
-          مزامنة جميع العمليات ({pendingItems.length})
-        </Button>
       </div>
 
       <UnifiedStats

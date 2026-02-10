@@ -156,8 +156,14 @@ export async function generateTokenPair(
  */
 export async function verifyAccessToken(token: string): Promise<{ success: boolean; user?: any } | null> {
   try {
+    // تنظيف التوكن من أي علامات اقتباس أو مسافات زائدة
+    let cleanToken = token.trim();
+    if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
+      cleanToken = cleanToken.slice(1, -1);
+    }
+
     // فك تشفير JWT
-    const payload = jwt.verify(token, JWT_SHARED_SECRET, {
+    const payload = jwt.verify(cleanToken, JWT_SHARED_SECRET, {
       issuer: JWT_CONFIG.issuer,
       ignoreExpiration: process.env.NODE_ENV === 'development',
     }) as any;

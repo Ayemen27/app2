@@ -37,9 +37,15 @@ export default function DatabaseManager() {
     if (token && token.startsWith('"') && token.endsWith('"')) {
       token = token.slice(1, -1);
     }
+    
+    // تأكد من أن التوكن لا يبدأ بـ Bearer قبل إضافته لتجنب التكرار
+    const finalToken = token?.toLowerCase().startsWith('bearer ') 
+      ? token.substring(7).trim() 
+      : token;
+
     const res = await fetch(url, {
       headers: {
-        "Authorization": `Bearer ${token}`,
+        "Authorization": `Bearer ${finalToken}`,
       },
     });
     if (!res.ok) {

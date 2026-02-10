@@ -72,9 +72,17 @@ function extractTokenFromReq(req: Request): string | null {
   // 1. التحقق من ترويسة Authorization (المعيار العالمي)
   const authHeader = req.headers.authorization || req.headers.Authorization;
   if (authHeader && typeof authHeader === 'string') {
-    const parts = authHeader.split(' ');
+    // تنظيف الترويسة من المسافات الزائدة
+    const cleanHeader = authHeader.trim();
+    
+    // التعامل مع Bearer Bearer (تكرار كلمة Bearer)
+    const bearerMatches = cleanHeader.match(/^Bearer\s+(Bearer\s+)?(.*)$/i);
+    if (bearerMatches && bearerMatches[2]) {
+      return bearerMatches[2].trim();
+    }
+    
+    const parts = cleanHeader.split(/\s+/);
     if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
-    // دعم إرسال التوكن مباشرة بدون Bearer في بعض تطبيقات الموبايل
     if (parts.length === 1) return parts[0];
   }
 
@@ -83,8 +91,16 @@ function extractTokenFromReq(req: Request): string | null {
   for (const header of customHeaders) {
     const value = req.headers[header] || req.headers[header.toLowerCase()];
     if (value && typeof value === 'string') {
-      if (value.startsWith('Bearer ')) return value.substring(7);
-      return value;
+      const cleanValue = value.trim();
+      if (cleanValue.toLowerCase().startsWith('bearer ')) {
+        // التعامل مع Bearer المكرر هنا أيضاً
+        const subValue = cleanValue.substring(7).trim();
+        if (subValue.toLowerCase().startsWith('bearer ')) {
+          return subValue.substring(7).trim();
+        }
+        return subValue;
+      }
+      return cleanValue;
     }
   }
   
@@ -105,11 +121,17 @@ import { storage } from '../storage';
 // التحقق من صحة الـ Token مع دعم Argon2-based Session
 const verifyToken = async (token: string): Promise<any> => {
   try {
+    // تنظيف التوكن بشكل نهائي قبل التحقق
+    let cleanToken = token.trim();
+    if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
+      cleanToken = cleanToken.slice(1, -1);
+    }
+
     // استخدام JWT_SHARED_SECRET الموحد من jwt-utils
     const secret = JWT_SHARED_SECRET;
     const issuer = 'construction-management-app-v2';
     
-    return jwt.verify(token, secret, {
+    return jwt.verify(cleanToken, secret, {
       issuer: issuer,
       algorithms: ['HS256'],
       ignoreExpiration: false,

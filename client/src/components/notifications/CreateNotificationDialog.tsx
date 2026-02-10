@@ -213,7 +213,11 @@ export function CreateNotificationDialog({
                     <FormItem>
                       <FormLabel>العنوان</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="أدخل العنوان..." />
+                        <Textarea 
+                          {...field} 
+                          placeholder="أدخل العنوان..." 
+                          className="min-h-[44px]"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

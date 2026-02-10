@@ -430,6 +430,7 @@ export default function WellsPage() {
                   onChange={(e) => setFormData({ ...formData, wellNumber: parseInt(e.target.value) })}
                   placeholder="أدخل رقم البئر"
                   className="h-10 text-base"
+                  autoWidth
                 />
               </div>
               <div className="space-y-1">

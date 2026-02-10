@@ -224,6 +224,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             onChange={(e) => setName(e.target.value)}
             placeholder="أدخل اسم العامل..."
             required
+            autoWidth
           />
         </div>
 
@@ -324,6 +325,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
             placeholder="0"
             className="text-center arabic-numbers"
             required
+            autoWidth
           />
         </div>
 

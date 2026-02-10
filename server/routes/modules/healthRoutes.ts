@@ -454,10 +454,14 @@ healthRouter.get('/db/tables/:name', requireAuth, async (req: Request, res: Resp
     const user = (req as any).user;
     
     // السماح للأدوار الإدارية بالوصول، أو أي مستخدم مسجل دخول إذا كان الطلب من جهاز أندرويد لغرض العرض
-    const isMobile = req.get('user-agent')?.includes('Android') || req.get('user-agent')?.includes('okhttp');
+    const userAgent = req.get('user-agent') || '';
+    const isMobile = userAgent.includes('Android') || userAgent.includes('okhttp');
     const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
     
-    if (!isAdmin && !isMobile) {
+    // إذا كان المستخدم هو المدير المسؤول الأول، نسمح له بالوصول بغض النظر عن المنصة
+    const isSuperAdmin = user && user.role === 'super_admin';
+    
+    if (!isAdmin && !isMobile && !isSuperAdmin) {
       return res.status(403).json({ success: false, message: 'صلاحيات غير كافية' });
     }
 

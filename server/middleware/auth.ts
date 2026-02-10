@@ -186,17 +186,21 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     // محاولة استخراج التوكن من مصادر متعددة باستخدام الدالة الموحدة
     token = extractTokenFromReq(req);
 
+    const userAgent = req.get('user-agent') || '';
+    const isMobile = userAgent.includes('Android') || userAgent.includes('okhttp');
+
     // سجل إضافي لتشخيص مشاكل الموبايل
-    if (!token && (req.get('user-agent')?.includes('Android') || req.get('user-agent')?.includes('okhttp'))) {
+    if (!token && isMobile) {
       console.warn(`⚠️ [AUTH-MOBILE] محاولة وصول بدون توكن من جهاز أندرويد | المسار: ${req.originalUrl}`);
       
-      // Allow mobile apps to access certain endpoints if needed or just log it
-      // For now, let's try to see if token is in other headers mobile might use
-      token = req.headers['authorization'] as string || req.headers['Authorization'] as string;
+      // محاولة البحث عن التوكن في Header بديل قد ترسله تطبيقات الموبايل
+      token = (req.headers['authorization'] as string) || (req.headers['Authorization'] as string);
       if (token && typeof token === 'string' && token.startsWith('Bearer ')) {
         token = token.substring(7);
       }
       
+      // إذا كان المسؤول الأول يدخل من أندرويد، فقد يكون التوكن في مكان غير متوقع أو مفقود في طلبات معينة
+      // ملاحظة: لا يمكننا السماح بالدخول بدون توكن لأسباب أمنية، لكننا نحسن الاستخراج
       if (!token && req.path === '/api/auth/refresh') {
         token = req.body.refreshToken || req.cookies?.refreshToken;
       }

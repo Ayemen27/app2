@@ -119,11 +119,14 @@ export class DbMetricsService {
     if (source === 'supabase') {
       const dynConn = connMgr.getDynamicConnection('supabase');
       if (dynConn?.connected && dynConn.pool) return { pool: dynConn.pool };
-      
+
       const status = connMgr.getConnectionStatus();
       if (status.supabase) {
         const conn = connMgr.getSmartConnection('sync');
         if (conn.source === 'supabase' && conn.pool) return { pool: conn.pool };
+        // fallback to specialized supabase pool if smart connection returned local but supabase is marked active
+        const instance = connMgr as any;
+        if (instance.supabasePool) return { pool: instance.supabasePool };
       }
       return { pool: null, error: 'Supabase غير متصل' };
     }

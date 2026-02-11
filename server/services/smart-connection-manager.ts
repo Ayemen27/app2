@@ -431,17 +431,30 @@ export class SmartConnectionManager {
         console.log('🔒 [Supabase] تم تحميل شهادة SSL');
       }
 
-      this.supabasePool = new Pool({
-        host: 'aws-0-us-east-1.pooler.supabase.com',
-        port: 6543,
-        database: 'postgres',
-        user: `postgres.${project}`,
-        password: supabasePassword,
-        ssl: sslConfig,
-        max: 5,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000
-      });
+      const connectionString = getCredential('DATABASE_URL_SUPABASE') || process.env.DATABASE_URL_SUPABASE;
+
+      if (connectionString) {
+        console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع');
+        this.supabasePool = new Pool({
+          connectionString: connectionString,
+          ssl: sslConfig,
+          max: 5,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 15000
+        });
+      } else {
+        this.supabasePool = new Pool({
+          host: 'aws-0-us-east-1.pooler.supabase.com',
+          port: 6543,
+          database: 'postgres',
+          user: `postgres.${project}`,
+          password: supabasePassword,
+          ssl: sslConfig,
+          max: 5,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 15000
+        });
+      }
 
       this.supabaseDb = drizzle(this.supabasePool, { schema });
 

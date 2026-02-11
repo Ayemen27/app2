@@ -91,7 +91,7 @@ export default function DatabaseManager() {
   const sourceError = overviewError || tablesError;
 
   const [compareSource1, setCompareSource1] = useState("local");
-  const [compareSource2, setCompareSource2] = useState("");
+  const [compareSource2, setCompareSource2] = useState("supabase");
 
   const compareUrl = `/api/db/compare?source1=${compareSource1}&source2=${compareSource2}`;
   const { data: comparison, isLoading: comparisonLoading, refetch: refetchComparison } = useQuery<any>({

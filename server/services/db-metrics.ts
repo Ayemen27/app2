@@ -219,11 +219,21 @@ export class DbMetricsService {
     const s1 = source1 || 'local';
     const s2 = source2 || 'supabase';
 
+    console.log(`🔍 [DbMetrics] Comparing databases: s1=${s1}, s2=${s2}`);
+
     const { pool: pool1, error: err1 } = this.getPoolForSource(s1);
     const { pool: pool2, error: err2 } = this.getPoolForSource(s2);
 
-    if (err1 || err2) return null;
-    if (pool1 === pool2 && s1 !== s2) return null;
+    if (err1 || err2) {
+      console.error(`❌ [DbMetrics] Connection error: s1_err=${err1}, s2_err=${err2}`);
+      return null;
+    }
+    
+    // تأكد من أننا نقارن بين قاعدتين فعليتين مختلفتين حتى لو كانت الـ pools متطابقة (في حالة التطوير المحلي)
+    // أو إذا كان المستخدم اختار نفس المصدر، نوضح ذلك
+    if (s1 === s2) {
+      console.warn(`⚠️ [DbMetrics] Comparing the same source: ${s1}`);
+    }
 
     const tablesQuery = `
       SELECT 

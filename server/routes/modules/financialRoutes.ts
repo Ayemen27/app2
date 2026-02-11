@@ -1711,15 +1711,12 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
 
     const validated = validationResult.data;
     
-    // تصحيح تلقائي: إذا كان نوع الشراء نقداً، يجب أن يكون المبلغ المدفوع مساوياً للمبلغ الإجمالي
     const purchaseData = { 
       ...validated,
-      projectId: validated.projectId,
-      quantity: validated.quantity,
-      unit: validated.unit,
       unitPrice: validated.unitPrice || "0",
       totalAmount: validated.totalAmount || (parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString(),
-      purchaseDate: validated.purchaseDate
+      paidAmount: validated.paidAmount || (validated.purchaseType === 'نقد' ? (validated.totalAmount || "0") : "0"),
+      remainingAmount: validated.remainingAmount || (validated.purchaseType === 'آجل' ? (validated.totalAmount || "0") : "0")
     } as any;
 
     // التحقق من أن المبلغ الإجمالي ليس سالباً

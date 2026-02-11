@@ -2636,12 +2636,12 @@ function DailyExpensesContent() {
                   <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-foreground text-sm">{expense.description}</h4>
-                          <span className="font-bold text-secondary arabic-numbers text-base">{formatCurrency(expense.amount)}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline" className="text-[10px] bg-secondary/5 text-secondary border-secondary/20">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-semibold text-foreground text-sm">{expense.description}</h4>
+                                    <span className="font-bold text-orange-600 dark:text-orange-400 arabic-numbers text-base">{formatCurrency(expense.amount)}</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Badge variant="outline" className="text-[10px] bg-orange-100/50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
                             {[
                               { value: "worker_transport", label: "نقل عمال" },
                               { value: "material_delivery", label: "توريد مواد" },
@@ -2694,9 +2694,9 @@ function DailyExpensesContent() {
                     </div>
                   </div>
                 ))}
-                <div className="text-left mt-3 pt-3 border-t bg-orange-50 dark:bg-orange-950/20 p-2 rounded">
-                  <span className="text-sm font-medium text-foreground">إجمالي المواصلات: </span>
-                  <span className="font-bold text-secondary arabic-numbers">
+                <div className="text-left mt-3 pt-3 border-t bg-orange-100 dark:bg-orange-900/40 p-3 rounded-lg border border-orange-200 dark:border-orange-800">
+                  <span className="text-sm font-bold text-orange-900 dark:text-orange-100">إجمالي المواصلات: </span>
+                  <span className="font-bold text-orange-600 dark:text-orange-400 arabic-numbers text-lg">
                     {formatCurrency(totals.totalTransportation)}
                   </span>
                 </div>

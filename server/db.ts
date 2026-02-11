@@ -83,11 +83,41 @@ console.log('══════════════════════�
 // ✅ تنظيف الرابط من أي مسافات أو علامات اقتباس زائدة قد تسبب خطأ ENOTFOUND
 const dbUrl = rawDbUrl.trim().replace(/^["']|["']$/g, "");
 
+/**
+ * 🛠️ تحسين رابط Supabase لتجاوز مشاكل DNS
+ * Supabase يواجه أحياناً مشاكل في دقة العناوين القديمة db.xxx.supabase.co
+ * الحل الموصى به هو استخدام الـ Pooler الجديد: aws-0-[region].pooler.supabase.co
+ * أو محاولة الاتصال المباشر عبر المعرف الجديد
+ */
+let finalDbUrl = dbUrl;
+if (dbUrl.includes("supabase.co")) {
+  // استخراج المعرف المشروع (Project Ref)
+  const projectRefMatch = dbUrl.match(/@db\.([^.]+)\.supabase\.co/);
+  const projectRef = projectRefMatch ? projectRefMatch[1] : null;
+  
+  if (projectRef) {
+    // محاولة استخدام المضيف الجديد (Transaction Mode - PGBouncer)
+    // المضيف القياسي الجديد: [project-ref].supabase.co أو استخدام pooler
+    console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
+    
+    // إذا كان الرابط يستخدم النمط القديم db.xxx، نقوم بتحديثه للنمط الأكثر استقراراً
+    // ملاحظة: نستخدم المنفذ 6543 لـ Transaction Mode وهو الأكثر استقراراً في البيئات السحابية
+    finalDbUrl = dbUrl
+      .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
+      .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
+      
+    // التأكد من إضافة user parameters المطلوبة للـ Pooler الجديد
+    if (!finalDbUrl.includes("?")) {
+      finalDbUrl += "?pgbouncer=true&connection_limit=1";
+    }
+  }
+}
+
 // تهيئة مدير الاتصالات الذكي
 const smartConnectionManager = SmartConnectionManager.getInstance();
 
 export const pool = new Pool({
-  connectionString: dbUrl,
+  connectionString: finalDbUrl,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 300000, // 5 دقائق للاتصالات البعيدة
@@ -95,10 +125,7 @@ export const pool = new Pool({
   statement_timeout: 300000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
-  // إضافة معالجة للخطأ ENOTFOUND hostname: 'base'
-  ssl: dbUrl.includes("supabase.co") || dbUrl.includes("rlwy.net") ? { rejectUnauthorized: false } : {
-    rejectUnauthorized: false, // السماح بالاتصالات المشفرة غير الموثقة لتجنب مشاكل الشهادات
-  }
+  ssl: { rejectUnauthorized: false } // Supabase يتطلب SSL
 });
 
 // تهيئة قاعدة البيانات المناسبة مع إدارة ذكية

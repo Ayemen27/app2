@@ -448,7 +448,7 @@ export class SmartConnectionManager {
         // استخدام عنوان IPv4 المجمع (Pooler) مع المنفذ 5432 لتجنب مشاكل IPv6
         this.supabasePool = new Pool({
           host: `aws-0-eu-central-1.pooler.supabase.com`,
-          port: 5432,
+          port: 6543, // استخدام منفذ PGBouncer للاستقرار
           database: 'postgres',
           user: `postgres.${project}`,
           password: supabasePassword,
@@ -459,7 +459,7 @@ export class SmartConnectionManager {
         });
       } else {
         this.supabasePool = new Pool({
-          host: 'aws-0-us-east-1.pooler.supabase.com',
+          host: 'aws-0-eu-central-1.pooler.supabase.com',
           port: 6543,
           database: 'postgres',
           user: `postgres.${project}`,

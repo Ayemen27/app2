@@ -408,8 +408,11 @@ export const dailyActivityLogs = pgTable("daily_activity_logs", {
   activityTitle: text("activity_title").notNull(),
   description: text("description"),
   progressPercentage: integer("progress_percentage").default(0),
-  weatherConditions: text("weather_conditions"),
+  weatherConditions: text("weather_conditions"), // حقول جديدة تم تحديدها في التفكير التحليلي
+  temperature: integer("temperature"),
+  humidity: integer("humidity"),
   images: jsonb("images").default([]), // Array of image URLs/metadata
+  wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط بالبئر
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -154,6 +154,34 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       userName: 'النظام'
     })));
 
+    // 6. سجلات النشاط اليومي
+    const dailyLogsQuery = db
+      .select({
+        id: dailyActivityLogs.id,
+        amount: sql<string>`'0'`, // لا يوجد مبلغ مالي مباشر
+        description: dailyActivityLogs.activityTitle,
+        createdAt: dailyActivityLogs.createdAt,
+        projectId: dailyActivityLogs.projectId,
+        projectName: projects.name,
+        weather: dailyActivityLogs.weatherConditions,
+        progress: dailyActivityLogs.progressPercentage,
+      })
+      .from(dailyActivityLogs)
+      .leftJoin(projects, eq(dailyActivityLogs.projectId, projects.id))
+      .orderBy(desc(dailyActivityLogs.createdAt))
+      .limit(limit);
+
+    const dailyLogs = projectId && projectId !== 'all'
+      ? await dailyLogsQuery.where(eq(dailyActivityLogs.projectId, projectId as string))
+      : await dailyLogsQuery;
+
+    activities.push(...dailyLogs.map(l => ({
+      ...l,
+      actionType: 'daily_log',
+      actionLabel: 'نشاط يومي',
+      userName: 'المهندس'
+    })));
+
     // ترتيب حسب التاريخ
     activities.sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

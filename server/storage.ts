@@ -201,6 +201,12 @@ export interface IStorage {
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   getAuditLogs(userId?: string, action?: string): Promise<AuditLog[]>;
 
+  // Daily Activity Logs
+  getDailyLogs(projectId?: string, date?: string): Promise<DailyActivityLog[]>;
+  createDailyLog(log: InsertDailyActivityLog): Promise<DailyActivityLog>;
+  updateDailyLog(id: string, log: Partial<InsertDailyActivityLog>): Promise<DailyActivityLog | undefined>;
+  deleteDailyLog(id: string): Promise<void>;
+
   // Suppliers
   getSuppliers(): Promise<Supplier[]>;
   getSupplier(id: string): Promise<Supplier | undefined>;
@@ -4097,6 +4103,28 @@ export class DatabaseStorage implements IStorage {
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
     const [newLog] = await db.insert(auditLogs).values(log).returning();
     return newLog;
+  }
+
+  // Daily Activity Logs Implementation
+  async getDailyLogs(projectId?: string, date?: string): Promise<DailyActivityLog[]> {
+    let query = db.select().from(dailyActivityLogs).orderBy(desc(dailyActivityLogs.logDate));
+    if (projectId) query = query.where(eq(dailyActivityLogs.projectId, projectId)) as any;
+    if (date) query = query.where(eq(dailyActivityLogs.logDate, date)) as any;
+    return await query;
+  }
+
+  async createDailyLog(log: InsertDailyActivityLog): Promise<DailyActivityLog> {
+    const [newLog] = await db.insert(dailyActivityLogs).values(log).returning();
+    return newLog;
+  }
+
+  async updateDailyLog(id: string, log: Partial<InsertDailyActivityLog>): Promise<DailyActivityLog | undefined> {
+    const [updated] = await db.update(dailyActivityLogs).set(log).where(eq(dailyActivityLogs.id, id)).returning();
+    return updated;
+  }
+
+  async deleteDailyLog(id: string): Promise<void> {
+    await db.delete(dailyActivityLogs).where(eq(dailyActivityLogs.id, id));
   }
 
   // Refresh Tokens Implementation

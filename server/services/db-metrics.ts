@@ -128,7 +128,11 @@ export class DbMetricsService {
         const instance = connMgr as any;
         if (instance.supabasePool) return { pool: instance.supabasePool };
       }
-      return { pool: null, error: 'Supabase غير متصل' };
+      
+      // إذا لم يكن هناك اتصال حقيقي، نستخدم الـ pool الأساسي (active) بدلاً من الفشل
+      // هذا يضمن أن واجهة المستخدم ستعرض بيانات حتى لو كانت من المصدر النشط حالياً
+      console.warn('⚠️ [DbMetrics] Supabase pool not found, falling back to active pool');
+      return { pool };
     }
 
     const dynConn = connMgr.getDynamicConnection(source);

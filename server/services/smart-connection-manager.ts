@@ -432,7 +432,7 @@ export class SmartConnectionManager {
       }
 
       const connectionString = getCredential('DATABASE_URL_SUPABASE') || process.env.DATABASE_URL_SUPABASE;
-      const supabaseKey = getCredential('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
+      const supabaseKey = getCredential('SUPABASE_SECRET_KEY') || getCredential('SUPABASE_ANON_KEY') || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
 
       if (connectionString) {
         console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع');

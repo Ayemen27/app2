@@ -283,12 +283,19 @@ export default function Dashboard() {
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/health/stats", "GET");
-        return response?.data || {
-          cpuUsage: 0,
-          memoryUsage: 0,
-          activeRequests: 0,
-          errorRate: 0,
-          uptime: 0
+        // التعامل مع التنسيقات المختلفة للاستجابة
+        const statsData = response?.data || response;
+        
+        if (!statsData || typeof statsData !== 'object') {
+          return null;
+        }
+
+        return {
+          cpuUsage: statsData.cpuUsage || 0,
+          memoryUsage: statsData.memoryUsage || 0,
+          activeRequests: statsData.activeRequests || 0,
+          errorRate: statsData.errorRate || 0,
+          uptime: statsData.uptime || 0
         };
       } catch (error) {
         console.error("❌ [Dashboard] خطأ في جلب إحصائيات المراقبة:", error);

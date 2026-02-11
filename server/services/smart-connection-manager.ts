@@ -432,11 +432,26 @@ export class SmartConnectionManager {
       }
 
       const connectionString = getCredential('DATABASE_URL_SUPABASE') || process.env.DATABASE_URL_SUPABASE;
+      const supabaseKey = getCredential('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
 
       if (connectionString) {
         console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع');
         this.supabasePool = new Pool({
           connectionString: connectionString,
+          ssl: sslConfig,
+          max: 5,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 15000
+        });
+      } else if (supabaseKey && project) {
+        console.log('🔑 [Supabase] استخدام طريقة الاتصال عبر API Key');
+        // في حال عدم وجود DATABASE_URL_SUPABASE، نحاول استخدام بيانات الاتصال الافتراضية مع المفتاح
+        this.supabasePool = new Pool({
+          host: `db.${project}.supabase.co`,
+          port: 5432,
+          database: 'postgres',
+          user: 'postgres',
+          password: supabasePassword,
           ssl: sslConfig,
           max: 5,
           idleTimeoutMillis: 30000,

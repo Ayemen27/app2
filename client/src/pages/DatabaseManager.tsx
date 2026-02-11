@@ -33,7 +33,8 @@ export default function DatabaseManager() {
   const [selectedSource, setSelectedSource] = useState("active");
 
   const fetchWithAuth = async (url: string) => {
-    const token = localStorage.getItem("token");
+    // استخدم accessToken بدلاً من token لضمان التطابق مع بقية التطبيق
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
     // تنظيف التوكن من أي علامات اقتباس أو مسافات
     let cleanToken = token?.trim() || "";
     if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {

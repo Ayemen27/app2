@@ -13,14 +13,10 @@ import {
   type WorkerTransfer, type WorkerBalance, type AutocompleteData, type WorkerType, type WorkerMiscExpense, type User,
   type Supplier, type SupplierPayment, type PrintSettings, type ProjectFundTransfer,
   type ReportTemplate,
-  // Wells Management Types
   type Well, type WellTask, type WellTaskAccount, type WellExpense, type WellAuditLog,
   type InsertWell, type InsertWellTask, type InsertWellTaskAccount, type InsertWellExpense, type InsertWellAuditLog,
-  // Equipment types (النظام المبسط)
-  // Notifications types
   type Notification, type InsertNotification,
   type NotificationReadState, type InsertNotificationReadState,
-  // AI System types (النظام الذكي)
   type InsertProject, type InsertWorker, type InsertFundTransfer, type InsertWorkerAttendance,
   type InsertMaterial, type InsertMaterialPurchase, type InsertTransportationExpense, type InsertDailyExpenseSummary,
   type InsertWorkerTransfer, type InsertWorkerBalance, type InsertAutocompleteData, type InsertWorkerType, type InsertWorkerMiscExpense, type InsertUser,
@@ -28,21 +24,25 @@ import {
   type InsertReportTemplate, type EmergencyUser, type InsertEmergencyUser, type User as SchemaUser, type InsertUser as SchemaInsertUser,
   type Equipment, type InsertEquipment, type EquipmentMovement, type InsertEquipmentMovement,
   type RefreshToken, type InsertRefreshToken, type AuditLog, type InsertAuditLog,
+  type Task, type InsertTask,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
   refreshTokens, auditLogs,
-  // Wells tables
   wells, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs,
-  // Equipment tables (النظام المبسط)
   equipment, equipmentMovements,
-  // Notifications tables
   notifications, notificationReadStates,
-  // AI System tables (النظام الذكي) - تم حذف النظام
+  tasks,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
 
 export interface IStorage {
+  // Tasks
+  getTasks(): Promise<Task[]>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined>;
+  deleteTask(id: number): Promise<void>;
+
   // Projects
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
@@ -363,6 +363,25 @@ export class DatabaseStorage implements IStorage {
   private projectStatsCache: Map<string, { data: any, timestamp: number }> = new Map();
   
   private readonly CACHE_DURATION = 30 * 1000; // تقليل مدة الكاش لـ 30 ثانية لسرعة التحديث مع الحفاظ على الأداء
+
+  // Tasks
+  async getTasks(): Promise<Task[]> {
+    return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const [newTask] = await db.insert(tasks).values(task).returning();
+    return newTask;
+  }
+
+  async updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined> {
+    const [updated] = await db.update(tasks).set(task).where(eq(tasks.id, id)).returning();
+    return updated;
+  }
+
+  async deleteTask(id: number): Promise<void> {
+    await db.delete(tasks).where(eq(tasks.id, id));
+  }
 
   // Projects
   async getProjects(): Promise<Project[]> {

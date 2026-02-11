@@ -237,9 +237,15 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       });
     }
 
-    // تنظيف التوكن من أي علامات اقتباس محتملة قد تأتي من localStorage
+    // تنظيف التوكن من أي علامات اقتباس محتملة أو مسافات زائدة
+    token = token.trim();
     if (token.startsWith('"') && token.endsWith('"')) {
       token = token.slice(1, -1);
+    }
+    
+    // إزالة كلمة Bearer إذا كانت موجودة (حماية إضافية)
+    if (token.toLowerCase().startsWith('bearer ')) {
+      token = token.substring(7).trim();
     }
 
     // التحقق من صحة الـ token

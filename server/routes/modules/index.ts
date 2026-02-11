@@ -21,6 +21,7 @@ import { reportRouter } from './reportRoutes.js';
 import activityRouter from './activityRoutes.js';
 import aiRouter from './aiRoutes.js';
 import syncRouter from './syncRoutes.js';
+import tasksRouter from './tasks.js';
 import securityRouter from './securityRoutes.js';
 import backupRouter from './backupRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
@@ -95,6 +96,10 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات الأمان
   app.use('/api/security', securityRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الأمان: /api/security');
+
+  // مسارات المهام
+  app.use('/api/tasks', tasksRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات المهام: /api/tasks');
 
   // تفعيل معالج الأخطاء العالمي في النهاية لجميع المسارات المسجلة أعلاه
   app.use(globalErrorHandler);
@@ -187,8 +192,8 @@ export {
   financialRouter,
   autocompleteRouter,
   notificationRouter,
-  syncRouter
-  // Note: authRouter removed from organized routes to prevent conflicts with main auth.ts
+  syncRouter,
+  tasksRouter
 };
 
 export default {

@@ -84,22 +84,22 @@ export const emergencyUsers = pgTable("emergency_users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// 1. Helper for Date Validation - يقبل صيغة YYYY-MM-DD أو ISO ويحولها تلقائياً
-const dateStringSchema = z.string().min(1, "التاريخ مطلوب").transform((val) => {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-    return val;
-  }
-  if (/^\d{4}-\d{2}-\d{2}T/.test(val)) {
-    return val.split('T')[0];
-  }
-  return val;
-}).refine((val) => /^\d{4}-\d{2}-\d{2}$/.test(val), {
-  message: "تنسيق التاريخ يجب أن يكون YYYY-MM-DD"
+// Tasks table (جدول المهام)
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  completed: boolean("completed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertEmergencyUserSchema = createInsertSchema(emergencyUsers);
-export type EmergencyUser = typeof emergencyUsers.$inferSelect;
-export type InsertEmergencyUser = z.infer<typeof insertEmergencyUserSchema>;
+export const insertTaskSchema = createInsertSchema(tasks).omit({ 
+  id: true,
+  createdAt: true 
+});
+
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasks.$inferSelect;
 
 
 // Authentication User Sessions table (جدول جلسات المستخدمين)
@@ -417,6 +417,9 @@ export const dailyActivityLogs = pgTable("daily_activity_logs", {
 export const insertDailyActivityLogSchema = createInsertSchema(dailyActivityLogs).omit({ id: true, createdAt: true, updatedAt: true });
 export type DailyActivityLog = typeof dailyActivityLogs.$inferSelect;
 export type InsertDailyActivityLog = z.infer<typeof insertDailyActivityLogSchema>;
+
+// Zod Schemas for validation
+export const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "التاريخ يجب أن يكون بصيغة YYYY-MM-DD");
 
 // Daily expense summaries (ملخص المصروفات اليومية)
 export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {

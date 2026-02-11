@@ -1716,7 +1716,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       unitPrice: validated.unitPrice || "0",
       totalAmount: validated.totalAmount || (parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString(),
       paidAmount: validated.paidAmount || (validated.purchaseType === 'نقد' ? (validated.totalAmount || "0") : "0"),
-      remainingAmount: validated.remainingAmount || (validated.purchaseType === 'آجل' ? (validated.totalAmount || "0") : "0")
+      remainingAmount: validated.remainingAmount || (validated.purchaseType === 'آجل' ? (validated.totalAmount || "0") : "0"),
+      materialCategory: validated.materialCategory || null
     } as any;
 
     // التحقق من أن المبلغ الإجمالي ليس سالباً

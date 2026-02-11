@@ -1711,12 +1711,28 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
 
     const validated = validationResult.data;
     
+    // حساب المبالغ تلقائياً بناءً على نوع الشراء
+    const totalAmount = (parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString();
+    let paidAmount = "0";
+    let remainingAmount = "0";
+
+    if (validated.purchaseType === 'نقد' || validated.purchaseType === 'نقداً') {
+      paidAmount = totalAmount;
+      remainingAmount = '0';
+    } else if (validated.purchaseType === 'آجل') {
+      paidAmount = "0";
+      remainingAmount = totalAmount;
+    } else if (validated.purchaseType === 'مخزن') {
+      paidAmount = "0";
+      remainingAmount = "0";
+    }
+
     const purchaseData = { 
       ...validated,
       unitPrice: validated.unitPrice || "0",
-      totalAmount: validated.totalAmount || (parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString(),
-      paidAmount: validated.paidAmount || (validated.purchaseType === 'نقد' ? (validated.totalAmount || "0") : "0"),
-      remainingAmount: validated.remainingAmount || (validated.purchaseType === 'آجل' ? (validated.totalAmount || "0") : "0"),
+      totalAmount: validated.totalAmount || totalAmount,
+      paidAmount: validated.paidAmount || paidAmount,
+      remainingAmount: validated.remainingAmount || remainingAmount,
       materialCategory: validated.materialCategory || null
     } as any;
 
@@ -1729,11 +1745,6 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         message: 'يجب ألا يكون المبلغ الإجمالي سالباً',
         processingTime: duration
       });
-    }
-
-    if (purchaseData.purchaseType === 'نقد' || purchaseData.purchaseType === 'نقداً') {
-      purchaseData.paidAmount = purchaseData.totalAmount;
-      purchaseData.remainingAmount = '0';
     }
 
     const newPurchase = await db

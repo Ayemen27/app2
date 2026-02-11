@@ -479,15 +479,19 @@ export default function MaterialPurchase() {
       }
 
       // تحسين عرض الرسالة مع التفاصيل
-      const fullMessage = errorDetails.length > 0 
-        ? `${errorMessage}\n\n${errorDetails.map(detail => `• ${detail}`).join('\n')}`
-        : errorMessage;
+      let fullMessage = errorMessage;
+
+      if (errorDetails.length > 0) {
+        fullMessage = `${errorMessage}:\n${errorDetails.map(detail => `• ${detail}`).join('\n')}`;
+      } else if (error?.response?.data?.error) {
+        fullMessage = `${errorMessage}: ${error.response.data.error}`;
+      }
 
       toast({
         title: "خطأ في حفظ شراء المواد",
         description: fullMessage,
         variant: "destructive",
-        duration: 8000, // وقت أطول لقراءة التفاصيل
+        duration: 10000, 
       });
       // لا تقم بإعادة تعيين النموذج عند حدوث خطأ
     },

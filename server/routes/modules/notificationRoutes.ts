@@ -264,7 +264,8 @@ notificationRouter.post('/test/create', requireRole('admin'), async (req: Reques
       body: body || 'هذا إشعار اختبار لفحص النظام',
       priority: priority || 3,
       recipients: recipients || [userId],
-      projectId: projectId || null
+      projectId: projectId || null,
+      channelPreference: { push: true, email: true } // تفعيل البريد للاختبار
     };
 
     const notification = await notificationService.createNotification(notificationData);

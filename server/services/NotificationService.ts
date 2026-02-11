@@ -89,7 +89,7 @@ export class NotificationService {
       recipients: recipients.length > 0 ? recipients : null,
       channelPreference: data.channelPreference || { push: true, email: false, sms: false },
       scheduledAt: data.scheduledAt || null,
-      createdBy: null, // سيتم تحديثه لاحقاً بناء على السياق
+      createdBy: null,
     };
 
     const [notification] = await db
@@ -98,6 +98,13 @@ export class NotificationService {
       .returning();
 
     console.log(`✅ تم إنشاء الإشعار: ${notification.id}`);
+
+    // إرسال عبر FCM إذا كان التوكن متوفراً
+    if (recipients.length > 0) {
+      this.sendPushNotifications(recipients, data.title, data.body, data.payload).catch(err => {
+        console.warn(`⚠️ [NotificationService] فشل إرسال Push: ${err.message}`);
+      });
+    }
 
     TelegramService.sendNotification({
       type: data.type,

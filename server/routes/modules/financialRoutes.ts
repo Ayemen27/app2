@@ -1731,10 +1731,22 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       ...validated,
       unitPrice: validated.unitPrice || "0",
       totalAmount: validated.totalAmount || totalAmount,
-      paidAmount: validated.paidAmount || paidAmount,
-      remainingAmount: validated.remainingAmount || remainingAmount,
+      paidAmount: paidAmount,
+      remainingAmount: remainingAmount,
       materialCategory: validated.materialCategory || null
     } as any;
+
+    // التصحيح النهائي للقيم لضمان الدقة المحاسبية
+    if (purchaseData.purchaseType === 'نقد' || purchaseData.purchaseType === 'نقداً') {
+      purchaseData.paidAmount = purchaseData.totalAmount;
+      purchaseData.remainingAmount = '0';
+    } else if (purchaseData.purchaseType === 'آجل') {
+      purchaseData.paidAmount = '0';
+      purchaseData.remainingAmount = purchaseData.totalAmount;
+    } else if (purchaseData.purchaseType === 'مخزن') {
+      purchaseData.paidAmount = '0';
+      purchaseData.remainingAmount = '0';
+    }
 
     // التحقق من أن المبلغ الإجمالي ليس سالباً
     if (parseFloat(purchaseData.totalAmount) < 0) {

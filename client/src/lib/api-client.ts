@@ -27,7 +27,7 @@ class ApiClient {
         'Content-Type': 'application/json',
       };
 
-      if (token) {
+      if (token && token !== 'undefined' && token !== 'null') {
         headers['Authorization'] = `Bearer ${token}`;
       }
 

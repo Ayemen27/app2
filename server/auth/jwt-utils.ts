@@ -21,8 +21,8 @@ export const JWT_SHARED_SECRET = SHARED_SECRET;
 export const JWT_CONFIG = {
   accessTokenSecret: SHARED_SECRET,
   refreshTokenSecret: SHARED_SECRET,
-  accessTokenExpiry: '15m', // معيار عالمي: 15 دقيقة للـ Access Token
-  refreshTokenExpiry: '30d', // 30 يوم للـ Refresh Token
+  accessTokenExpiry: '1h', // زيادة مدة الصلاحية لتقليل طلبات التجديد المتكررة
+  refreshTokenExpiry: '30d', 
   issuer: 'construction-management-app-v2',
   algorithm: 'HS256' as const,
 };

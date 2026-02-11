@@ -69,25 +69,28 @@ export const sensitiveOperationsRateLimit = rateLimit({
 
 // دالة مساعدة موحدة لاستخراج التوكن من الطلب - نسخة جذرية تدعم جميع الحالات
 function extractTokenFromReq(req: Request): string | null {
-  // 1. التحقق من ترويسة Authorization (المعيار العالمي)
-  const authHeader = req.headers.authorization || req.headers.Authorization;
-  if (authHeader && typeof authHeader === 'string') {
-    // تنظيف الترويسة من المسافات الزائدة
-    const cleanHeader = authHeader.trim();
-    
-    // التعامل مع Bearer المكرر أو المفقود
-    const bearerRegex = /bearer\s+/gi;
-    if (bearerRegex.test(cleanHeader)) {
-      // إزالة كل تكرارات Bearer والمسافات الزائدة
-      const tokenOnly = cleanHeader.replace(bearerRegex, '').trim();
-      return tokenOnly;
+    // 1. التحقق من ترويسة Authorization (المعيار العالمي)
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (authHeader && typeof authHeader === 'string') {
+      // تنظيف الترويسة من المسافات الزائدة
+      const cleanHeader = authHeader.trim();
+      
+      // التعامل مع Bearer المكرر أو المفقود أو الفارغ
+      const bearerRegex = /bearer\s+/gi;
+      if (bearerRegex.test(cleanHeader)) {
+        const tokenOnly = cleanHeader.replace(bearerRegex, '').trim();
+        // الحماية من الرموز الفارغة أو undefined
+        if (!tokenOnly || tokenOnly === 'undefined' || tokenOnly === 'null') {
+          return null;
+        }
+        return tokenOnly;
+      }
+      
+      // إذا لم يحتوي على Bearer، ربما يكون التوكن مباشرة (يجب أن يكون JWT صالح)
+      if (cleanHeader.length > 20 && cleanHeader.includes('.')) {
+        return cleanHeader;
+      }
     }
-    
-    // إذا لم يحتوي على Bearer، ربما يكون التوكن مباشرة
-    if (cleanHeader.length > 20) { // طول معقول لتوكن JWT
-      return cleanHeader;
-    }
-  }
 
   // 2. التحقق من الترويسات المخصصة الشائعة
   const customHeaders = ['x-auth-token', 'x-access-token', 'token', 'Authorization'];

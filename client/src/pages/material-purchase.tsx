@@ -1465,7 +1465,12 @@ export default function MaterialPurchase() {
           <UnifiedCardGrid columns={3}>
             {filteredPurchases.map((purchase) => {
               // تحديد لون الشريط حسب نوع الدفع
-              const headerColor = purchase.purchaseType === 'نقد' ? '#22c55e' : purchase.purchaseType === 'آجل' ? '#f97316' : '#6366f1'; // Green for cash, Orange for credit, Blue for supply
+              const purchaseType = purchase.purchaseType || 'نقد';
+              const isCash = purchaseType === 'نقد';
+              const isCredit = purchaseType === 'آجل' || purchaseType === 'أجل';
+              const isStorage = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+
+              const headerColor = isCash ? '#22c55e' : isCredit ? '#f97316' : isStorage ? '#3b82f6' : '#6366f1'; 
 
               return (
                 <UnifiedCard
@@ -1476,8 +1481,8 @@ export default function MaterialPurchase() {
                   headerColor={headerColor}
                   badges={[
                     {
-                      label: purchase.purchaseType,
-                      variant: purchase.purchaseType === 'نقد' ? 'success' : purchase.purchaseType === 'آجل' ? 'warning' : 'default',
+                      label: purchaseType,
+                      variant: isCash ? 'success' : isCredit ? 'warning' : isStorage ? 'info' : 'default',
                     }
                   ]}
                   fields={[
@@ -1510,7 +1515,7 @@ export default function MaterialPurchase() {
                       label: "الإجمالي",
                       value: formatCurrency(purchase.totalAmount),
                       icon: DollarSign,
-                      color: purchase.purchaseType === 'نقد' ? 'success' : purchase.purchaseType === 'آجل' ? 'warning' : 'default',
+                      color: isCash ? 'success' : isCredit ? 'warning' : isStorage ? 'info' : 'default',
                       emphasis: true,
                     },
                     {

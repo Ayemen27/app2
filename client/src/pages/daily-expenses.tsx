@@ -3063,19 +3063,35 @@ function DailyExpensesContent() {
                         {safeMaterialPurchases.map((purchase: any, index: number) => {
                           const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
                           const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
-                          const isCash = purchase.purchaseType === 'نقد';
+                          const purchaseType = purchase.purchaseType || 'نقد';
+                          const isCash = purchaseType === 'نقد';
+                          const isStorage = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+                          const isCredit = purchaseType === 'آجل' || purchaseType === 'أجل';
+                          
+                          // تحديد لون البرواز والخلفية بناءً على نوع المشتريات
+                          let borderClass = 'border-orange-200 dark:border-orange-900/30';
+                          let bgBadgeClass = 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400';
+                          let textPriceClass = 'text-orange-600';
+                          
+                          if (isCash) {
+                            borderClass = 'border-green-200 dark:border-green-900/30';
+                            bgBadgeClass = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+                            textPriceClass = 'text-green-600';
+                          } else if (isStorage) {
+                            borderClass = 'border-blue-200 dark:border-blue-900/30';
+                            bgBadgeClass = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
+                            textPriceClass = 'text-blue-600';
+                          }
                           
                           return (
-                            <div key={index} className={`p-3 border rounded-lg shadow-sm hover:shadow-md transition-shadow ${
-                              isCash 
-                                ? 'bg-white dark:bg-slate-800 border-green-200 dark:border-green-900/30' 
-                                : 'bg-white dark:bg-slate-800 border-orange-200 dark:border-orange-900/30'
-                            }`}>
+                            <div key={index} className={`p-3 border-2 rounded-lg shadow-sm hover:shadow-md transition-shadow ${
+                              bgBadgeClass.split(' ')[0] // استخدام جزء من لون الخلفية للبطاقة بشكل خفيف جداً
+                            } bg-opacity-5 ${borderClass}`}>
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 space-y-1.5">
                                   <div className="flex items-center justify-between">
                                     <h4 className="font-semibold text-foreground text-sm">{materialName}</h4>
-                                    <span className={`font-bold arabic-numbers text-base ${isCash ? 'text-green-600' : 'text-orange-600'}`}>
+                                    <span className={`font-bold arabic-numbers text-base ${textPriceClass}`}>
                                       {formatCurrency(purchase.totalAmount)}
                                     </span>
                                   </div>
@@ -3092,12 +3108,8 @@ function DailyExpensesContent() {
                                   {purchase.supplierName && (
                                     <p className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</p>
                                   )}
-                                  <div className={`inline-block text-xs font-semibold px-2 py-1 rounded ${
-                                    isCash 
-                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
-                                      : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                                  }`}>
-                                    {isCash ? 'نقد' : 'آجل'}
+                                  <div className={`inline-block text-xs font-semibold px-2 py-1 rounded ${bgBadgeClass}`}>
+                                    {purchaseType}
                                   </div>
                                   {isAllProjects && purchase.projectName && (
                                     <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>

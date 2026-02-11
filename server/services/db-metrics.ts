@@ -129,9 +129,7 @@ export class DbMetricsService {
         if (instance.supabasePool) return { pool: instance.supabasePool };
       }
       
-      // إذا لم يكن هناك اتصال حقيقي، نستخدم الـ pool الأساسي (active) بدلاً من الفشل
-      // هذا يضمن أن واجهة المستخدم ستعرض بيانات حتى لو كانت من المصدر النشط حالياً
-      console.warn('⚠️ [DbMetrics] Supabase pool not found, falling back to active pool');
+      // العودة لقاعدة البيانات النشطة بدلاً من إرجاع خطأ 500
       return { pool };
     }
 

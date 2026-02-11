@@ -256,15 +256,20 @@ export class DbMetricsService {
     ]);
 
     try {
-      const [tables1, tables2, name1, name2] = await Promise.all([
+    const [tables1Result, tables2Result, name1, name2] = await Promise.all([
         client1.query(tablesQuery),
         client2.query(tablesQuery),
         client1.query(dbNameQuery),
         client2.query(dbNameQuery),
       ]);
 
-      const map1 = new Map(tables1.rows.map((r: any) => [r.name, r]));
-      const map2 = new Map(tables2.rows.map((r: any) => [r.name, r]));
+      const tables1 = tables1Result.rows;
+      const tables2 = tables2Result.rows;
+
+      console.log(`📊 [DbMetrics] Table counts: s1=${tables1.length}, s2=${tables2.length}`);
+
+      const map1 = new Map(tables1.map((r: any) => [r.name, r]));
+      const map2 = new Map(tables2.map((r: any) => [r.name, r]));
       const allTableNames = new Set([...map1.keys(), ...map2.keys()]);
 
       const tables: TableComparisonItem[] = [];

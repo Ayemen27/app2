@@ -793,9 +793,10 @@ function ComparisonTab({ data, loading, onRefresh, connections, source1, source2
 }
 
 function ComparisonResults({ data, onRefresh }: { data: any; onRefresh: () => void }) {
-  const totalIssues = (data.onlySource1Tables || 0) + (data.onlySource2Tables || 0) + (data.tablesWithDiffRows || 0) + (data.tablesWithDiffStructure || 0);
   const s1Name = data.source1Name || 'المصدر ١';
   const s2Name = data.source2Name || 'المصدر ٢';
+
+  const totalIssues = (data.tablesWithDiffRows || 0) + (data.tablesWithDiffStructure || 0) + (data.onlySource1Tables || 0) + (data.onlySource2Tables || 0);
 
   return (
     <div className="space-y-4">

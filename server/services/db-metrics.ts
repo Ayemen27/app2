@@ -263,8 +263,8 @@ export class DbMetricsService {
         client2.query(dbNameQuery),
       ]);
 
-      const tables1 = tables1Result.rows;
-      const tables2 = tables2Result.rows;
+      const tables1 = tables1Result.rows || [];
+      const tables2 = tables2Result.rows || [];
 
       console.log(`📊 [DbMetrics] Table counts: s1=${tables1.length}, s2=${tables2.length}`);
 
@@ -287,10 +287,10 @@ export class DbMetricsService {
           onlyS1++;
           tables.push({
             name,
-            source1Rows: parseInt(d1.row_count), source2Rows: null,
+            source1Rows: parseInt(d1.row_count || '0'), source2Rows: null,
             source1Size: d1.total_size, source2Size: null,
             source1SizeBytes: parseInt(d1.total_size_bytes || '0'), source2SizeBytes: 0,
-            status: 'only_source1', rowDiff: parseInt(d1.row_count),
+            status: 'only_source1', rowDiff: parseInt(d1.row_count || '0'),
             source1Columns: parseInt(d1.columns || '0'), source2Columns: 0,
           });
           alerts.push({
@@ -302,10 +302,10 @@ export class DbMetricsService {
           onlyS2++;
           tables.push({
             name,
-            source1Rows: null, source2Rows: parseInt(d2.row_count),
+            source1Rows: null, source2Rows: parseInt(d2.row_count || '0'),
             source1Size: null, source2Size: d2.total_size,
             source1SizeBytes: 0, source2SizeBytes: parseInt(d2.total_size_bytes || '0'),
-            status: 'only_source2', rowDiff: parseInt(d2.row_count),
+            status: 'only_source2', rowDiff: parseInt(d2.row_count || '0'),
             source1Columns: 0, source2Columns: parseInt(d2.columns || '0'),
           });
           alerts.push({
@@ -314,8 +314,8 @@ export class DbMetricsService {
             message: `الجدول "${name}" موجود فقط في ${s2Label}`,
           });
         } else if (d1 && d2) {
-          const r1 = parseInt(d1.row_count);
-          const r2 = parseInt(d2.row_count);
+          const r1 = parseInt(d1.row_count || '0');
+          const r2 = parseInt(d2.row_count || '0');
           const c1 = parseInt(d1.columns || '0');
           const c2 = parseInt(d2.columns || '0');
           const rd = Math.abs(r1 - r2);
@@ -371,8 +371,8 @@ export class DbMetricsService {
         source2Id: s2,
         source1Name: name1.rows[0]?.name || s1,
         source2Name: name2.rows[0]?.name || s2,
-        totalTablesSource1: tables1.rows.length,
-        totalTablesSource2: tables2.rows.length,
+        totalTablesSource1: tables1.length,
+        totalTablesSource2: tables2.length,
         matchingTables: matchCount,
         onlySource1Tables: onlyS1,
         onlySource2Tables: onlyS2,

@@ -926,7 +926,7 @@ function ComparisonResults({ data, onRefresh }: { data: any; onRefresh: () => vo
         </CardContent>
       </Card>
 
-      {totalIssues === 0 && (
+      {totalIssues === 0 && data.tables?.length > 0 && (
         <div className="text-center py-8">
           <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
           <p className="text-lg font-medium text-emerald-600 dark:text-emerald-400">قواعد البيانات متطابقة تماماً</p>
@@ -950,15 +950,15 @@ function CompareStatCard({ label, value, color }: { label: string; value: number
 function CompareStatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'match':
-      return <Badge variant="default" className="text-[10px]">متطابق</Badge>;
+      return <Badge variant="default" className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">متطابق</Badge>;
     case 'diff_rows':
       return <Badge variant="secondary" className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">فرق سجلات</Badge>;
     case 'diff_structure':
       return <Badge variant="destructive" className="text-[10px]">فرق هيكلي</Badge>;
-    case 'only_local':
-      return <Badge variant="outline" className="text-[10px]">محلي فقط</Badge>;
-    case 'only_supabase':
-      return <Badge variant="outline" className="text-[10px]">سحابي فقط</Badge>;
+    case 'only_source1':
+      return <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 uppercase">المصدر ١ فقط</Badge>;
+    case 'only_source2':
+      return <Badge variant="outline" className="text-[10px] border-violet-200 text-violet-600 uppercase">المصدر ٢ فقط</Badge>;
     default:
       return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
   }

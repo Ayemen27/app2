@@ -660,7 +660,10 @@ export default function MaterialPurchase() {
 
 
   const handleSave = (saveAndAddAnother = false) => {
-    if (!selectedProjectId || !materialName || !materialUnit || !quantity || !unitPrice) {
+    // التحقق من البيانات المطلوبة - نسمح بسعر 0 في حالة "مخزن"
+    const isPriceRequired = paymentType !== "مخزن";
+    
+    if (!selectedProjectId || !materialName || !materialUnit || !quantity || (isPriceRequired && !unitPrice)) {
       toast({
         title: "خطأ",
         description: "يرجى ملء جميع البيانات المطلوبة",

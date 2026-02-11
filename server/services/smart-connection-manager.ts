@@ -445,12 +445,12 @@ export class SmartConnectionManager {
         });
       } else if (supabaseKey && project) {
         console.log('🔑 [Supabase] استخدام طريقة الاتصال عبر API Key');
-        // في حال عدم وجود DATABASE_URL_SUPABASE، نحاول استخدام بيانات الاتصال الافتراضية مع المفتاح
+        // استخدام عنوان IPv4 المجمع (Pooler) مع المنفذ 5432 لتجنب مشاكل IPv6
         this.supabasePool = new Pool({
-          host: `db.${project}.supabase.co`,
+          host: `aws-0-eu-central-1.pooler.supabase.com`,
           port: 5432,
           database: 'postgres',
-          user: 'postgres',
+          user: `postgres.${project}`,
           password: supabasePassword,
           ssl: sslConfig,
           max: 5,

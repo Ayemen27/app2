@@ -119,10 +119,13 @@ export class DbMetricsService {
     if (source === 'supabase') {
       const dynConn = connMgr.getDynamicConnection('supabase');
       if (dynConn?.connected && dynConn.pool) return { pool: dynConn.pool };
-      if (!status.supabase) return { pool: null, error: 'Supabase غير متصل' };
-      const conn = connMgr.getSmartConnection('sync');
-      if (conn.source === 'supabase' && conn.pool) return { pool: conn.pool };
-      return { pool: null, error: 'تعذر الوصول لـ Supabase' };
+      
+      const status = connMgr.getConnectionStatus();
+      if (status.supabase) {
+        const conn = connMgr.getSmartConnection('sync');
+        if (conn.source === 'supabase' && conn.pool) return { pool: conn.pool };
+      }
+      return { pool: null, error: 'Supabase غير متصل' };
     }
 
     const dynConn = connMgr.getDynamicConnection(source);

@@ -327,7 +327,7 @@ export const materialPurchases = pgTable("material_purchases", {
   unit: text("unit").notNull(), // وحدة القياس - موجودة في قاعدة البيانات
   unitPrice: decimal("unit_price", { precision: 15, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
-  purchaseType: text("purchase_type").notNull().default("نقد"), // نقد، أجل
+  purchaseType: text("purchase_type").notNull().default("نقد"), // نقد، أجل، مخزن
   paidAmount: decimal("paid_amount", { precision: 15, scale: 2 }).default('0').notNull(), // المبلغ المدفوع
   remainingAmount: decimal("remaining_amount", { precision: 15, scale: 2 }).default('0').notNull(), // المتبقي
   supplierName: text("supplier_name"), // اسم المورد (للتوافق العكسي)

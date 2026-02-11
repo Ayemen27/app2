@@ -1695,7 +1695,21 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
 financialRouter.post('/material-purchases', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const validated = insertMaterialPurchaseSchema.parse(req.body);
+    const validationResult = insertMaterialPurchaseSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      console.error('❌ [API] فشل في validation مشتريات المواد:', validationResult.error.flatten());
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات غير صحيحة',
+        message: validationResult.error.errors[0]?.message || 'بيانات غير صحيحة',
+        details: validationResult.error.flatten().fieldErrors,
+        processingTime: duration
+      });
+    }
+
+    const validated = validationResult.data;
     
     // تصحيح تلقائي: إذا كان نوع الشراء نقداً، يجب أن يكون المبلغ المدفوع مساوياً للمبلغ الإجمالي
     const purchaseData = { 
@@ -1703,8 +1717,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       projectId: validated.projectId,
       quantity: validated.quantity,
       unit: validated.unit,
-      unitPrice: validated.unitPrice,
-      totalAmount: validated.totalAmount || (parseFloat(validated.quantity) * parseFloat(validated.unitPrice)).toString(),
+      unitPrice: validated.unitPrice || "0",
+      totalAmount: validated.totalAmount || (parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString(),
       purchaseDate: validated.purchaseDate
     } as any;
 

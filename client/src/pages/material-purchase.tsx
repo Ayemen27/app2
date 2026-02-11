@@ -672,18 +672,21 @@ export default function MaterialPurchase() {
       return;
     }
 
-    const totalAmount = parseFloat(calculateTotal());
+    const totalAmountValue = calculateTotal();
+    const totalAmount = parseFloat(totalAmountValue);
+    
     const purchaseData = {
       projectId: selectedProjectId,
       materialName: materialName.trim(),
-      materialCategory: materialCategory.trim() || null, // تأكد من حفظ null بدلاً من سلسلة فارغة
+      materialCategory: materialCategory.trim() || null,
       materialUnit: materialUnit.trim(),
-      quantity: parseFloat(quantity),
-      unitPrice: parseFloat(unitPrice),
-      totalAmount: totalAmount,
-      purchaseType: paymentType.trim(), // تنظيف وتنسيق نوع الدفع - استخدام purchaseType
-      paidAmount: paymentType.trim() === 'نقد' ? totalAmount : 0, // إذا نقد، املأ المبلغ المدفوع بالكامل
-      remainingAmount: paymentType.trim() === 'نقد' ? 0 : totalAmount, // إذا نقد، لا يوجد متبقي
+      quantity: quantity.toString(),
+      unit: materialUnit.trim(),
+      unitPrice: (isPriceRequired ? unitPrice : (unitPrice || "0")).toString(),
+      totalAmount: (isPriceRequired ? totalAmountValue : (totalAmountValue || "0")).toString(),
+      purchaseType: paymentType.trim(),
+      paidAmount: paymentType.trim() === 'نقد' ? (totalAmountValue || "0") : "0",
+      remainingAmount: paymentType.trim() === 'نقد' ? "0" : (totalAmountValue || "0"),
       supplierName: supplierName?.trim() || '',
       invoiceNumber: invoiceNumber?.trim() || '',
       invoiceDate: invoiceDate || new Date().toISOString().split('T')[0],

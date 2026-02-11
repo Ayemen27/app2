@@ -1447,15 +1447,22 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
         // Validation
         const validationResult = insertMaterialPurchaseSchema.safeParse(body);
         if (!validationResult.success) {
+          console.error('❌ [API] فشل في validation مشتريات المواد:', validationResult.error.flatten());
           return res.status(400).json({
             success: false,
             error: 'بيانات غير صحيحة',
-            details: validationResult.error.errors,
+            details: validationResult.error.flatten().fieldErrors,
             processingTime: Date.now() - startTime
           });
         }
 
-        const newPurchase = await db.insert(materialPurchases).values(validationResult.data).returning();
+        const purchaseData = {
+          ...validationResult.data,
+          unitPrice: validationResult.data.unitPrice || "0",
+          totalAmount: validationResult.data.totalAmount || "0"
+        };
+
+        const newPurchase = await db.insert(materialPurchases).values(purchaseData).returning();
         
         res.status(201).json({
           success: true,

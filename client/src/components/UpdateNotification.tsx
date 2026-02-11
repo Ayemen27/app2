@@ -21,7 +21,12 @@ export function UpdateNotification() {
     // التحقق من وجود تحديث كل 5 دقائق
     const checkUpdate = async () => {
       try {
-        const response = await fetch("/api/system/version");
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch("/api/system/version", {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : ''
+          }
+        });
         const data = await response.json();
         
         if (data.success && data.version !== CURRENT_VERSION) {

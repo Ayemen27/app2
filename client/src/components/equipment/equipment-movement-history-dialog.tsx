@@ -34,7 +34,16 @@ export function EquipmentMovementHistoryDialog({
   
   const { data: movements = [], isLoading } = useQuery({
     queryKey: ["equipment-movements", equipment?.id],
-    queryFn: () => fetch(`/api/equipment/${equipment?.id}/movements`).then(res => res.json()),
+    queryFn: async () => {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/equipment/${equipment?.id}/movements`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        }
+      });
+      if (!response.ok) throw new Error('فشل في جلب سجل الحركات');
+      return response.json();
+    },
     enabled: !!equipment?.id && open,
     staleTime: 30000, // 30 seconds
   });

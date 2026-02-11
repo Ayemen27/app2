@@ -511,6 +511,7 @@ export default function DatabaseManager() {
                         onToggle={() => setExpandedTable(expandedTable === t.name ? null : t.name)}
                         onMaintenance={(action: string) => maintenanceMutation.mutate({ action, tableName: t.name })}
                         isMaintenanceLoading={maintenanceMutation.isPending}
+                        fetchWithAuth={fetchWithAuth}
                       />
                     )) : (
                       <TableRow>
@@ -1103,10 +1104,11 @@ function TableRowDetail({ table, source, expanded, onToggle, onMaintenance, isMa
     setDetailsLoading(true);
     try {
       const sourceParam = source !== 'active' ? `?source=${source}` : '';
-      const res = await fetch(`/api/db/tables/${table.name}${sourceParam}`, { credentials: 'include' });
-      const data = await res.json();
+      const data = await fetchWithAuth(`/api/db/tables/${table.name}${sourceParam}`);
       setDetails(data?.data);
-    } catch { }
+    } catch (error) {
+      console.error("Error loading table details:", error);
+    }
     setDetailsLoading(false);
     onToggle();
   };

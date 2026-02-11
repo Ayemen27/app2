@@ -116,7 +116,12 @@ export default function DailyExpensesBulkExport() {
       const dateStr = date.toISOString().split('T')[0];
       
       try {
-        const response = await fetch(`/api/reports/daily-expenses/${projectId}/${dateStr}`);
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch(`/api/reports/daily-expenses/${projectId}/${dateStr}`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : ''
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           if (data && Object.keys(data).length > 0) {

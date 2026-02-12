@@ -789,7 +789,7 @@ export class SmartConnectionManager {
         
         const urlObj = new URL(value);
         const label = suffix === 'supabase' ? 'Supabase' : 
-                      suffix === 'blackup' ? 'النسخ الاحتياطي' :
+                      (suffix === 'backup' || suffix === 'blackup') ? 'النسخ الاحتياطي' :
                       suffix.charAt(0).toUpperCase() + suffix.slice(1);
         
         this.dynamicConnections.set(suffix, {

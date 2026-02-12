@@ -105,9 +105,13 @@ if (dbUrl.includes("supabase.co")) {
     if (urlParts) {
       const user = urlParts[1];
       const password = urlParts[2];
+      
+      // إصلاح خطأ "Tenant not found": يجب أن يكون المستخدم بصيغة postgres.[project-ref] 
+      // عند استخدام Pooler (aws-0-eu-central-1.pooler.supabase.com)
       const correctUser = user.includes('.') ? user : `postgres.${projectRef}`;
       
       finalDbUrl = `postgresql://${correctUser}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
+      console.log(`🔗 [Supabase Fix] تم تصحيح هوية المستخدم إلى: ${correctUser}`);
     } else {
       // إذا كان الرابط يستخدم النمط القديم db.xxx، نقوم بتحديثه للنمط الأكثر استقراراً
       // ملاحظة: نستخدم المنفذ 6543 لـ Transaction Mode وهو الأكثر استقراراً في البيئات السحابية

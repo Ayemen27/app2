@@ -451,6 +451,7 @@ export class SmartConnectionManager {
               
               // بناء رابط جديد تماماً يتجاوز DNS القديم ويستخدم Pooler
               connectionString = `postgresql://${correctUser}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
+              console.log(`🔗 [Supabase Fix] تم تصحيح هوية المستخدم في مدير الاتصالات: ${correctUser}`);
             } else {
               // fallback إذا فشل regex الاستخراج
               connectionString = connectionString

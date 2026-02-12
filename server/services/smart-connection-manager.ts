@@ -445,6 +445,7 @@ export class SmartConnectionManager {
               const user = urlParts[1];
               const password = urlParts[2];
               // بناء رابط جديد تماماً يتجاوز DNS القديم ويستخدم Pooler
+              // الحفاظ على كلمة المرور الأصلية والمستخدم وتغيير المضيف فقط
               connectionString = `postgresql://${user}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
             } else {
               // fallback إذا فشل regex الاستخراج

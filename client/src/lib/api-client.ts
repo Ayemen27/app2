@@ -28,7 +28,10 @@ class ApiClient {
       };
 
       if (token && token !== 'undefined' && token !== 'null') {
-        headers['Authorization'] = `Bearer ${token}`;
+        // إزالة أي علامات اقتباس إضافية قد يضيفها نظام الأندرويد تلقائياً
+        const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+        headers['x-auth-token'] = cleanToken;
       }
 
       const response = await fetch(url, {
@@ -133,7 +136,10 @@ export async function apiRequest(
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    // إزالة أي علامات اقتباس إضافية قد يضيفها نظام الأندرويد تلقائياً
+    const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
+    headers['Authorization'] = `Bearer ${cleanToken}`;
+    headers['x-auth-token'] = cleanToken;
   }
 
   const controller = new AbortController();

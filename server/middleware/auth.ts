@@ -68,7 +68,7 @@ export const sensitiveOperationsRateLimit = rateLimit({
 // تم إزالة speedLimiter مؤقتاً - يمكن إضافته لاحقاً عند الحاجة
 
 // دالة مساعدة موحدة لاستخراج التوكن من الطلب - نسخة جذرية تدعم جميع الحالات
-function extractTokenFromReq(req: Request): string | null {
+export function extractTokenFromReq(req: Request): string | null {
     // 1. التحقق من ترويسة Authorization (المعيار العالمي)
     const authHeader = req.headers.authorization || req.headers.Authorization;
     if (authHeader && typeof authHeader === 'string') {

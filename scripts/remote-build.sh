@@ -56,10 +56,15 @@ log "Step 2/6: Verifying remote environment..."
 REMOTE_CHECK=$(ssh_cmd "
     echo 'JAVA_VERSION:' && java -version 2>&1 | head -1
     echo 'GRADLE_CHECK:' && [ -f '$REMOTE_PROJECT/android/gradlew' ] && echo 'EXISTS' || echo 'MISSING'
-    echo 'SDK_CHECK:' && [ -d '/root/Android/Sdk' ] || [ -d '/home/administrator/Android/Sdk' ] || [ -n \"\$ANDROID_HOME\" ] && echo 'EXISTS' || echo 'CHECKING'
+    echo 'SDK_CHECK:' && [ -d '/opt/android-sdk' ] && echo 'EXISTS' || echo 'MISSING'
     echo 'NODE_VERSION:' && node --version 2>/dev/null || echo 'NOT_FOUND'
 " 2>/dev/null)
 echo "$REMOTE_CHECK" | tee -a "$LOG_FILE"
+
+if echo "$REMOTE_CHECK" | grep -q "SDK_CHECK:" && echo "$REMOTE_CHECK" | grep "SDK_CHECK:" | grep -q "MISSING"; then
+    err "Android SDK not found at /opt/android-sdk on remote server"
+    exit 1
+fi
 ok "Remote environment verified"
 
 log "Step 3/6: Syncing web assets to remote server..."
@@ -96,12 +101,32 @@ BUILD_RESULT=$(ssh_cmd "
     cp capacitor.config.json android/app/src/main/assets/capacitor.config.json
 
     # Setup environment
-    export JAVA_HOME=\$(find /usr/lib/jvm -maxdepth 1 -name 'java-*-openjdk*' | head -1)
-    [ -z \"\$JAVA_HOME\" ] && export JAVA_HOME='/usr/lib/jvm/java-21-openjdk-amd64'
+    export JAVA_HOME='/usr/lib/jvm/java-21-openjdk-amd64'
     export PATH=\"\$JAVA_HOME/bin:\$PATH\"
-    export ANDROID_HOME=\${ANDROID_HOME:-/root/Android/Sdk}
-    [ ! -d \"\$ANDROID_HOME\" ] && export ANDROID_HOME='/home/administrator/Android/Sdk'
-    export PATH=\"\$ANDROID_HOME/tools:\$ANDROID_HOME/platform-tools:\$PATH\"
+    export ANDROID_HOME='/opt/android-sdk'
+    export PATH=\"\$ANDROID_HOME/platform-tools:\$PATH\"
+
+    # Ensure proper gradle wrapper
+    cat > android/gradle/wrapper/gradle-wrapper.properties << 'GWEOF'
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+distributionUrl=https\\://services.gradle.org/distributions/gradle-8.11.1-all.zip
+GWEOF
+
+    # Ensure capacitor-cordova-android-plugins exists
+    mkdir -p android/capacitor-cordova-android-plugins/src/main/java
+    [ ! -f android/capacitor-cordova-android-plugins/cordova.variables.gradle ] && cat > android/capacitor-cordova-android-plugins/cordova.variables.gradle << 'CVEOF'
+ext {
+    cdvMinSdkVersion = project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 24
+    cdvCompileSdkVersion = project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36
+    cdvTargetSdkVersion = project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35
+}
+CVEOF
+
+    # Clean previous build artifacts
+    rm -rf android/app/build android/.gradle android/build
 
     # Update version
     VERSION_CODE=28

@@ -55,12 +55,17 @@
 - **تم حذفه**: `client/src/constants/api-endpoints.ts` (كان مكرراً)
 
 ## التغييرات الأخيرة
-- 2026-02-12: اكتمال معمارية React Query المركزية - ترحيل 50+ ملف (pages + components + hooks + contexts + lib) لاستخدام QUERY_KEYS، إصلاح 4 استدعاءات إبطال شاملة، حذف الملفات المكررة، مراجعة معمارية ناجحة (PASS)
-- 2026-02-12: ترقية أداة `apk.sh` إلى الإصدار 30.0.0 (الإصدار الهجين المحترف).
-- دعم التشغيل المزدوج: يعمل كمحرك بناء أصلي على السيرفر الخارجي، وكمنسق نشر (Orchestrator) من بيئة التطوير.
-- حل مشكلة "SSH_PASSWORD not found" عبر اكتشاف البيئة تلقائياً وتحديد مسار العمل.
-- دمج كافة إصلاحات تعارض الملفات (pickFirst) واتفاقية التسمية (Namespace) في سكربت واحد.
-- أتمتة تصحيح مسارات Node.js و Java على السيرفر لضمان توافقية Capacitor 8.
+- 2026-02-12: بناء APK v1.0.28 بنجاح عبر السيرفر الخارجي (28MB) + 48 اختبار تلقائي (100% نجاح)
+- 2026-02-12: إصلاح بيئة بناء Android: ترقية Gradle 8.11.1، AGP 8.9.1، compileSdk 36، minSdk 24
+- 2026-02-12: إنشاء `scripts/remote-build.sh` v31 + `vitest.server.config.ts` + `docs/RELEASE_READINESS_REPORT.md`
+- 2026-02-12: اكتمال معمارية React Query المركزية - ترحيل 50+ ملف لاستخدام QUERY_KEYS (مراجعة PASS)
+
+## البناء والنشر
+- **سيرفر البناء:** 93.127.142.144 (SSH: administrator)
+- **Android SDK:** /opt/android-sdk
+- **Gradle:** 8.11.1 | **AGP:** 8.9.1 | **compileSdk:** 36 | **minSdk:** 24
+- **أمر البناء:** `bash scripts/remote-build.sh`
+- **أمر الاختبار:** `npx vitest run --config vitest.server.config.ts`
 
 ## تفضيلات المستخدم
 - اللغة: العربية فقط - لا يفهم الإنجليزية

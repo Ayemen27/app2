@@ -476,7 +476,7 @@ export async function prefetchCoreData() {
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     queryClient.prefetchQuery({
-      queryKey: ["/api/projects/with-stats"],
+      queryKey: QUERY_KEYS.projectsWithStats,
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     queryClient.prefetchQuery({
@@ -575,19 +575,19 @@ export function invalidateDateRelatedData(projectId: string, date: string) {
   console.log('🔄 [QueryClient] تحديث فوري لبيانات التاريخ:', { projectId, date });
   
   queryClient.invalidateQueries({ 
-    queryKey: ["/api/projects", projectId, "daily-expenses", date],
+    queryKey: QUERY_KEYS.dailyExpenses(projectId, date),
     refetchType: 'active'
   });
   queryClient.invalidateQueries({ 
-    queryKey: ["/api/projects", projectId, "previous-balance", date],
+    queryKey: QUERY_KEYS.previousBalance(projectId, date),
     refetchType: 'active'
   });
   queryClient.invalidateQueries({ 
-    queryKey: ["/api/projects", projectId, "daily-summary", date],
+    queryKey: QUERY_KEYS.dailySummary(projectId, date),
     refetchType: 'active'
   });
   queryClient.invalidateQueries({ 
-    queryKey: ["/api/daily-project-transfers", projectId, date],
+    queryKey: QUERY_KEYS.dailyProjectTransfers(projectId, date),
     refetchType: 'active'
   });
 }

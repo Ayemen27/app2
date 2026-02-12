@@ -77,7 +77,7 @@ export function EquipmentManagement() {
   }, [setFloatingAction]);
 
   const { data: equipment = [], isLoading, refetch: refetchEquipment } = useQuery({
-    queryKey: ['equipment', searchValue, filterValues.status, filterValues.type, filterValues.project],
+    queryKey: QUERY_KEYS.equipmentFiltered(searchValue, filterValues.status, filterValues.type, filterValues.project),
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchValue) params.append('searchTerm', searchValue);

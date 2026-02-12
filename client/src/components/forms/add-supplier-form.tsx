@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
 import type { InsertSupplier } from "@shared/schema";
@@ -74,8 +75,8 @@ export default function AddSupplierForm({
       }
     },
     onSuccess: async (data) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.suppliers });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       toast({
         title: "تم الحفظ",
@@ -96,7 +97,7 @@ export default function AddSupplierForm({
         saveAutocompleteValue('supplier_payment_terms', paymentTerms)
       ]);
 
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       const errorMessage = error?.message || (supplier ? "حدث خطأ أثناء تعديل المورد" : "حدث خطأ أثناء إضافة المورد");
       toast({

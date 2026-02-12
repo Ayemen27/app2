@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient as globalQueryClient } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
@@ -9,19 +10,17 @@ export const ALL_PROJECTS_ID = "all";
 export const ALL_PROJECTS_NAME = "جميع المشاريع";
 
 const ALL_QUERY_KEYS = [
-  ["/api/projects"],
-  ["/api/projects/with-stats"],
-  ["/api/workers"],
-  ["/api/worker-attendance"],
-  ["/api/material-purchases"],
-  ["/api/fund-transfers"],
-  ["/api/transportation-expenses"],
-  ["/api/worker-transfers"],
-  ["/api/worker-misc-expenses"],
-  ["/api/suppliers"],
-  ["/api/daily-expense-summaries"],
-  ["/api/materials"],
-  ["/api/notifications"],
+  QUERY_KEYS.projects,
+  QUERY_KEYS.projectsWithStats,
+  QUERY_KEYS.workers,
+  QUERY_KEYS.workerTypes,
+  QUERY_KEYS.materials,
+  QUERY_KEYS.projectFundTransfers,
+  QUERY_KEYS.transportationExpenses,
+  QUERY_KEYS.workerMiscExpenses,
+  QUERY_KEYS.suppliers,
+  QUERY_KEYS.dailyExpenseSummaries,
+  QUERY_KEYS.notifications,
 ];
 
 interface Project {
@@ -60,7 +59,7 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
   const queryClient = useQueryClient();
 
   const { data: projectsData, isLoading: isProjectsLoading, error: projectsError } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       const response = await fetch("/api/projects", {
         credentials: "include",

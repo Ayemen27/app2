@@ -11,6 +11,7 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { User, Clock, DollarSign, FileText, Calendar, Activity, AlertCircle, CheckCircle, Timer, Calculator, MessageSquare, Banknote, TrendingUp, Target, Users, Briefcase, Hammer, Wrench, Paintbrush, Grid3X3, ChevronDown, ChevronUp } from "lucide-react";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { Worker } from "@shared/schema";
 
 
@@ -50,7 +51,7 @@ export default function EnhancedWorkerCard({
   const [recordType, setRecordType] = useState<"work" | "advance">(attendance.recordType || "work");
 
   const { data: workerStats } = useQuery({
-    queryKey: ["/api/workers", worker.id, "stats"],
+    queryKey: QUERY_KEYS.workerStatsSimple(worker.id),
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/workers/${worker.id}/stats`, "GET");

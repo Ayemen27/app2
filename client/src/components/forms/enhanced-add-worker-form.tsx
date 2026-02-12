@@ -7,6 +7,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { InsertWorker, InsertWorkerType, WorkerType } from "@shared/schema";
 import { Plus } from "lucide-react";
 
@@ -39,7 +40,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
 
   // جلب أنواع العمال المتاحة
   const { data: workerTypes = [], isLoading: loadingTypes } = useQuery<WorkerType[]>({
-    queryKey: ["/api/worker-types"],
+    queryKey: QUERY_KEYS.workerTypes,
     queryFn: () => apiRequest("/api/worker-types", "GET"),
   });
 
@@ -78,9 +79,9 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       }
     },
     onSuccess: async (newWorker, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       
       toast({
         title: "تم الحفظ",
@@ -99,7 +100,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       ]);
       
       // تحديث كاش autocomplete
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة العامل";
       toast({
@@ -113,8 +114,8 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
   const addWorkerTypeMutation = useMutation({
     mutationFn: (data: InsertWorkerType) => apiRequest("/api/worker-types", "POST", data),
     onSuccess: async (newWorkerType: WorkerType) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       toast({
         title: "تم الحفظ",
         description: "تم إضافة نوع العامل بنجاح",

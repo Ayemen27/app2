@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { MapPin, Wrench, TrendingUp, DollarSign, Edit2, Trash2, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -18,7 +19,7 @@ export function WellDetailCard({ wellId, onEdit, onDelete, onViewCosts }: WellDe
 
   // جلب تفاصيل البئر
   const { data: well, isLoading: wellLoading } = useQuery({
-    queryKey: ['well', wellId],
+    queryKey: QUERY_KEYS.wellById(wellId),
     queryFn: async () => {
       const response = await apiRequest(`/wells/${wellId}`);
       return response.data;
@@ -27,7 +28,7 @@ export function WellDetailCard({ wellId, onEdit, onDelete, onViewCosts }: WellDe
 
   // جلب مصاريف البئر
   const { data: expenses = [] } = useQuery({
-    queryKey: ['well-expenses', wellId],
+    queryKey: QUERY_KEYS.wellExpenses(wellId),
     queryFn: async () => {
       const response = await apiRequest(`/well-expenses/${wellId}`);
       return response.data || [];
@@ -36,7 +37,7 @@ export function WellDetailCard({ wellId, onEdit, onDelete, onViewCosts }: WellDe
 
   // جلب تقرير التكاليف
   const { data: costReport } = useQuery({
-    queryKey: ['well-cost-report', wellId],
+    queryKey: QUERY_KEYS.wellCostReport(wellId),
     queryFn: async () => {
       const response = await apiRequest(`/well-expenses/cost-report/${wellId}`);
       return response.data;

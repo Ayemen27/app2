@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { Link } from 'wouter';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface Notification {
   id: string;
@@ -48,7 +49,7 @@ export function NotificationsDropdown() {
 
   // جلب الإشعارات مع الطباعة الصحيحة
   const { data: notifications = [], isLoading, error, refetch } = useQuery<Notification[]>({
-    queryKey: ['/api/notifications'],
+    queryKey: QUERY_KEYS.notifications,
     staleTime: 30000, // 30 ثانية
     retry: 2, // محاولتين إضافيتين
     refetchInterval: false, // تعطيل التحديث التلقائي

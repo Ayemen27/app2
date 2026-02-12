@@ -28,6 +28,7 @@ import { saveAs } from 'file-saver';
 import html2canvas from 'html2canvas';
 import type { Project } from '@shared/schema';
 import { downloadExcelFile } from '@/utils/webview-download';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface DailyExpenseData {
   date: string;
@@ -60,7 +61,7 @@ export default function DailyExpensesBulkExport() {
 
   // جلب بيانات المشاريع
   const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: QUERY_KEYS.projects,
   });
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);

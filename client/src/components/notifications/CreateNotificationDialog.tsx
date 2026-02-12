@@ -34,6 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Zap, Users, Shield, User, Send, Sparkles, AlertTriangle, ChevronDown, Crown, UserCheck } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 const notificationSchema = z.object({
   type: z.enum(['safety', 'task', 'payroll', 'announcement', 'system']),
@@ -115,7 +116,7 @@ export function CreateNotificationDialog({
   });
 
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['/api/users', 'with-roles'],
+    queryKey: QUERY_KEYS.usersWithRoles,
     queryFn: async () => {
       const response = await fetch('/api/users?includeRole=true', {
         headers: getAuthHeaders()
@@ -163,8 +164,8 @@ export function CreateNotificationDialog({
       return response.json();
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      await queryClient.invalidateQueries({ queryKey: ['admin-notifications'] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notifications });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.adminNotifications() });
       
       toast({ title: "تم بنجاح", description: "تم إنشاء الإشعار بنجاح" });
       setOpen(false);

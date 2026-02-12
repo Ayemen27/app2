@@ -151,4 +151,20 @@ export const QUERY_KEYS = {
 
   projectCosts: (projectId: string) =>
     ["project-costs", projectId] as const,
+
+  errorLogs: ["/api/error-logs"] as const,
+  usersWithRoles: ["/api/users", "with-roles"] as const,
+  workerStatsSimple: (workerId: string) =>
+    ["/api/workers", workerId, "stats"] as const,
+
+  equipmentFiltered: (...params: any[]) =>
+    ["equipment", ...params] as const,
+  equipmentMovementsById: (equipmentId: string) =>
+    ["equipment-movements", equipmentId] as const,
+  autocompleteAdmin: (...params: string[]) =>
+    ["autocomplete-admin", ...params] as const,
+
+  autocompleteFanTypesPrefix: ["autocomplete/fanTypes"] as const,
+  autocompletePumpPowersPrefix: ["autocomplete/pumpPowers"] as const,
+  autocompleteOwnerNamesPrefix: ["autocomplete/ownerNames"] as const,
 } as const;

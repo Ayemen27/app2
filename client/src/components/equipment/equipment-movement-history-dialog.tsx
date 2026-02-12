@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { History, ArrowRight, Calendar, User, FileText, MapPin } from "lucide-react";
 import { Equipment } from "@shared/schema";
 import { formatDate } from "@/lib/utils";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface EquipmentMovementHistoryDialogProps {
   equipment: Equipment | null;
@@ -33,7 +34,7 @@ export function EquipmentMovementHistoryDialog({
 }: EquipmentMovementHistoryDialogProps) {
   
   const { data: movements = [], isLoading } = useQuery({
-    queryKey: ["equipment-movements", equipment?.id],
+    queryKey: QUERY_KEYS.equipmentMovementsById(equipment?.id ?? ''),
     queryFn: async () => {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/equipment/${equipment?.id}/movements`, {

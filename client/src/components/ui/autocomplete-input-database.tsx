@@ -7,6 +7,7 @@ import { X, Search, Trash2 } from 'lucide-react';
 import type { AutocompleteData } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { cn } from "@/lib/utils";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface AutocompleteInputProps {
   value: string;
@@ -41,7 +42,7 @@ export function AutocompleteInput({
 
   // جلب البيانات من قاعدة البيانات
   const { data: autocompleteData = [], isLoading } = useQuery({
-    queryKey: ['autocomplete', category],
+    queryKey: QUERY_KEYS.autocompleteCategory(category),
     queryFn: async () => {
       const response = await apiRequest(`/api/autocomplete/${category}`, 'GET');
       // ✅ إصلاح: معالجة الاستجابة بشكل صحيح
@@ -59,7 +60,7 @@ export function AutocompleteInput({
     mutationFn: (data: { category: string; value: string; usageCount?: number }) =>
       apiRequest('/api/autocomplete', 'POST', data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteCategory(category) });
     },
     onError: (error) => {
       console.error('Error saving autocomplete data:', error);
@@ -71,7 +72,7 @@ export function AutocompleteInput({
     mutationFn: ({ category, value }: { category: string; value: string }) =>
       apiRequest(`/api/autocomplete/${category}/${encodeURIComponent(value)}`, 'DELETE'),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['autocomplete', category] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteCategory(category) });
     },
   });
 
@@ -169,7 +170,7 @@ export function AutocompleteInput({
     // فتح القائمة دائماً عند التركيز، حتى لو كانت فارغة
     setIsOpen(true);
     // تحديث البيانات عند التركيز للحصول على أحدث البيانات
-    queryClient.refetchQueries({ queryKey: ['autocomplete', category] });
+    queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocompleteCategory(category) });
   };
 
   return (

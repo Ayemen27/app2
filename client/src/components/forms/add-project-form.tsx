@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
 import { ProjectTypeSelect } from "@/components/ui/searchable-select";
 import type { InsertProject, ProjectType } from "@shared/schema";
@@ -25,7 +26,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
 
   // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
   const { data: usersData = [], isLoading: usersLoading, isError: usersError } = useQuery<{id: string; name: string; email: string; role: string}[]>({
-    queryKey: ["/api/users/list"],
+    queryKey: QUERY_KEYS.usersList,
     queryFn: async () => {
       const response = await apiRequest("/api/users/list", "GET");
       
@@ -47,7 +48,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
 
   // جلب قائمة أنواع المشاريع
   const { data: projectTypes = [], isLoading: typesLoading } = useQuery<ProjectType[]>({
-    queryKey: ["/api/project-types"],
+    queryKey: QUERY_KEYS.projectTypes,
     queryFn: async () => {
       const response = await apiRequest("/api/project-types", "GET");
       if (response.success === false) {
@@ -75,9 +76,9 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
       return apiRequest("/api/projects", "POST", data);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       toast({
         title: "تم الحفظ",
         description: "تم إضافة المشروع بنجاح",
@@ -90,7 +91,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
     },
     onError: async (error: any, variables) => {
       await saveAutocompleteValue('projectNames', variables.name);
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة المشروع";
       toast({
         title: "فشل في إضافة المشروع",

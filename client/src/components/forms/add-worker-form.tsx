@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
 import { Plus, Phone, User, Briefcase, DollarSign } from "lucide-react";
 import type { InsertWorker } from "@shared/schema";
@@ -73,7 +74,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
   };
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({
-    queryKey: ["/api/worker-types"],
+    queryKey: QUERY_KEYS.workerTypes,
   });
 
   const addWorkerMutation = useMutation({
@@ -97,8 +98,8 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       });
       
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] })
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete })
       ]);
       
       toast({
@@ -120,7 +121,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
         saveAutocompleteValue('workerTypes', variables.type)
       ]);
       
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       
       const errorMessage = error?.message || (worker ? "حدث خطأ أثناء تعديل العامل" : "حدث خطأ أثناء إضافة العامل");
       toast({
@@ -137,8 +138,8 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       return apiRequest("/api/worker-types", "POST", data);
     },
     onSuccess: async (newType, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       
       toast({
         title: "تم الحفظ",
@@ -151,7 +152,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
     onError: async (error: any, variables) => {
       await saveAutocompleteValue('workerTypes', variables.name);
       
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة نوع العامل";
       toast({

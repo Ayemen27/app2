@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface WellSelectorProps {
   projectId?: string;
@@ -27,7 +28,7 @@ export function WellSelector({
 }: WellSelectorProps) {
   // جلب الآبار
   const { data: wells = [], isLoading } = useQuery({
-    queryKey: ['wells', projectId],
+    queryKey: QUERY_KEYS.wellsByProject(projectId),
     queryFn: async () => {
       if (!projectId) return [];
       try {

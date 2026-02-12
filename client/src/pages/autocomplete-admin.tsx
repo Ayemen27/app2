@@ -11,6 +11,7 @@ import { useFloatingButton } from '@/components/layout/floating-button-context';
 import { useEffect } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { QUERY_KEYS } from '@/constants/queryKeys';
 
 /**
  * واجهة إدارة نظام الإكمال التلقائي
@@ -51,7 +52,7 @@ export default function AutocompleteAdminPage() {
 
   // جلب الإحصائيات
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
-    queryKey: ['autocomplete-admin', 'stats'],
+    queryKey: QUERY_KEYS.autocompleteAdmin('stats'),
     queryFn: async () => {
       const response = await apiRequest('/api/autocomplete-admin/stats', 'GET');
       return (response?.data || response) as AutocompleteStats;

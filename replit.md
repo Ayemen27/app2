@@ -49,11 +49,13 @@
   3. إبطال الكاش يكون محدد النطاق فقط: `invalidateQueries({ queryKey: QUERY_KEYS.specific, refetchType: 'active' })`
   4. يمنع استخدام `invalidateQueries()` بدون queryKey (إبطال شامل)
   5. المفاتيح الديناميكية تستخدم دوال محددة: `QUERY_KEYS.dailyExpenses(projectId, date)`
-- **الملفات المرحّلة**: جميع الصفحات في `client/src/pages/` + `client/src/hooks/useInstantRefresh.ts`
+- **الملفات المرحّلة**: جميع ملفات `client/src/` بدون استثناء (pages + components + hooks + contexts + lib)
+- **التغطية**: صفر مفاتيح نصية مباشرة متبقية في كامل المشروع (تم التحقق بـ grep)
+- **نمط المفاتيح البادئة**: مفاتيح مثل `autocompleteFanTypesPrefix` تُستخدم لإبطال كاش جميع المفاتيح التي تبدأ بنفس البادئة (prefix-match invalidation)
 - **تم حذفه**: `client/src/constants/api-endpoints.ts` (كان مكرراً)
 
 ## التغييرات الأخيرة
-- 2026-02-12: تنفيذ معمارية React Query المركزية - ترحيل 31+ صفحة لاستخدام QUERY_KEYS، إصلاح 4 استدعاءات إبطال شاملة، حذف الملفات المكررة
+- 2026-02-12: اكتمال معمارية React Query المركزية - ترحيل 50+ ملف (pages + components + hooks + contexts + lib) لاستخدام QUERY_KEYS، إصلاح 4 استدعاءات إبطال شاملة، حذف الملفات المكررة، مراجعة معمارية ناجحة (PASS)
 - 2026-02-12: ترقية أداة `apk.sh` إلى الإصدار 30.0.0 (الإصدار الهجين المحترف).
 - دعم التشغيل المزدوج: يعمل كمحرك بناء أصلي على السيرفر الخارجي، وكمنسق نشر (Orchestrator) من بيئة التطوير.
 - حل مشكلة "SSH_PASSWORD not found" عبر اكتشاف البيئة تلقائياً وتحديد مسار العمل.

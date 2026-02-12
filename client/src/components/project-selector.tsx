@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChartGantt, Building2, Star, CheckCircle2, Clock, FolderOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { Project } from "@shared/schema";
 
 interface ProjectSelectorProps {
@@ -23,7 +24,7 @@ export default function ProjectSelector({
   className = ""
 }: ProjectSelectorProps) {
   const { data: projects = [], isLoading, error, refetch } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       try {
         console.log('🔄 [ProjectSelector] جلب قائمة المشاريع...');

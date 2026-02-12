@@ -149,7 +149,7 @@ export default function WellsPage() {
         title: "نجاح",
         description: "تمت إضافة نوع المروحة بنجاح"
       });
-      queryClient.invalidateQueries({ queryKey: ['autocomplete/fanTypes'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteFanTypesPrefix });
       setShowAddFanTypeDialog(false);
       setNewFanType("");
     },
@@ -175,7 +175,7 @@ export default function WellsPage() {
         title: "نجاح",
         description: "تمت إضافة قوة المضخة بنجاح"
       });
-      queryClient.invalidateQueries({ queryKey: ['autocomplete/pumpPowers'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompletePumpPowersPrefix });
       setShowAddPumpPowerDialog(false);
       setNewPumpPower("");
     },
@@ -197,7 +197,7 @@ export default function WellsPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['autocomplete/ownerNames'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteOwnerNamesPrefix });
     },
     onError: (error: any) => {
       console.error('خطأ في إضافة اسم المالك:', error);

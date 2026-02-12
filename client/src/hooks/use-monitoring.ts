@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 // أنواع مؤقتة للمراقبة
 interface SystemMetrics {
@@ -31,7 +32,7 @@ export function useMonitoring() {
     isLoading: metricsLoading,
     refetch: refetchMetrics,
   } = useQuery<SystemMetrics>({
-    queryKey: ['/api/metrics/current'],
+    queryKey: QUERY_KEYS.metrics,
     refetchInterval: 120000, // Auto-refresh every 2 minutes لتقليل الحمولة
   });
 
@@ -40,7 +41,7 @@ export function useMonitoring() {
     data: errorLogs = [],
     isLoading: logsLoading,
   } = useQuery<ErrorLog[]>({
-    queryKey: ['/api/error-logs'],
+    queryKey: QUERY_KEYS.errorLogs,
     refetchInterval: 120000, // Auto-refresh every 2 minutes لتقليل الحمولة
   });
 
@@ -49,21 +50,21 @@ export function useMonitoring() {
     data: diagnosticChecks = [],
     isLoading: diagnosticsLoading,
   } = useQuery<DiagnosticCheck[]>({
-    queryKey: ['/api/diagnostics/checks'],
+    queryKey: QUERY_KEYS.diagnostics,
   });
 
   // Mutations
   const updateMetricsMutation = useMutation({
     mutationFn: () => fetch('/api/metrics/update', { method: 'POST' }),
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/metrics/current'] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.metrics });
     },
   });
 
   const runDiagnosticsMutation = useMutation({
     mutationFn: () => fetch('/api/diagnostics/run', { method: 'POST' }),
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/diagnostics/checks'] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.diagnostics });
     },
   });
 

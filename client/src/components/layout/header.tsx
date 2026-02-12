@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { useSelectedProject, ALL_PROJECTS_ID, ALL_PROJECTS_NAME } from "@/hooks/use-selected-project";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +88,7 @@ export default function Header() {
   const { isOnline, pendingCount } = syncState;
   
   const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       try {
         const data = await apiRequest('/api/projects', 'GET');

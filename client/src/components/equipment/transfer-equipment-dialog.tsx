@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
 import { ArrowUpDown } from "lucide-react";
 
@@ -62,10 +63,10 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
     mutationFn: (data: TransferFormData) => 
       apiRequest(`/api/equipment/${equipment?.id}/transfer`, "POST", data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['equipment'] });
-      await queryClient.invalidateQueries({ queryKey: ['equipment-movements'] });
-      await queryClient.invalidateQueries({ queryKey: ['projects'] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.equipment });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.equipmentMovements });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       
       toast({
         title: "نجح النقل",

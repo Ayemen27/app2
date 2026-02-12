@@ -482,7 +482,7 @@ export class SmartConnectionManager {
           port: 6543, // استخدام منفذ PGBouncer للاستقرار
           database: 'postgres',
           user: `postgres.${project}`,
-          password: supabasePassword,
+          password: supabaseDbPassword,
           ssl: sslConfig,
           max: 5,
           idleTimeoutMillis: 30000,
@@ -494,7 +494,7 @@ export class SmartConnectionManager {
           port: 6543,
           database: 'postgres',
           user: `postgres.${project}`,
-          password: supabasePassword,
+          password: supabaseDbPassword,
           ssl: sslConfig,
           max: 5,
           idleTimeoutMillis: 30000,

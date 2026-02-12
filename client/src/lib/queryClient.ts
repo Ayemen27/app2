@@ -472,32 +472,32 @@ export async function prefetchCoreData() {
   const prefetchPromises = [
     // بيانات مرجعية بـ staleTime طويل (10 دقائق)
     queryClient.prefetchQuery({
-      queryKey: QUERY_KEYS.PROJECTS,
+      queryKey: QUERY_KEYS.projects,
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     queryClient.prefetchQuery({
-      queryKey: QUERY_KEYS.PROJECTS_WITH_STATS,
+      queryKey: ["/api/projects/with-stats"],
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     queryClient.prefetchQuery({
-      queryKey: QUERY_KEYS.WORKERS,
+      queryKey: QUERY_KEYS.workers,
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     queryClient.prefetchQuery({
-      queryKey: QUERY_KEYS.MATERIALS,
+      queryKey: QUERY_KEYS.materials,
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     queryClient.prefetchQuery({
-      queryKey: QUERY_KEYS.SUPPLIERS,
+      queryKey: QUERY_KEYS.suppliers,
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     queryClient.prefetchQuery({
-      queryKey: QUERY_KEYS.AUTOCOMPLETE,
+      queryKey: QUERY_KEYS.autocomplete,
       staleTime: CACHE_TIMES.REFERENCE_DATA,
     }),
     // الإشعارات
     queryClient.prefetchQuery({
-      queryKey: QUERY_KEYS.NOTIFICATIONS,
+      queryKey: QUERY_KEYS.notifications,
       staleTime: CACHE_TIMES.ACTIVE_DATA,
     }),
   ];

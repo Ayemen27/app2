@@ -457,25 +457,12 @@ export const queryClient = new QueryClient({
   },
 });
 
-// ⚡ Query Keys للتخزين المؤقت الذكي
-export const QUERY_KEYS = {
-  // بيانات مرجعية (تخزين طويل)
-  PROJECTS: ["/api/projects"],
-  PROJECTS_WITH_STATS: ["/api/projects/with-stats"],
-  WORKERS: ["/api/workers"],
-  MATERIALS: ["/api/materials"],
-  SUPPLIERS: ["/api/suppliers"],
-  AUTOCOMPLETE: ["/api/autocomplete"],
-  
-  // بيانات ديناميكية (تخزين متوسط)
-  NOTIFICATIONS: ["/api/notifications"],
-  FUND_TRANSFERS: ["/api/fund-transfers"],
-  WORKER_ATTENDANCE: ["/api/worker-attendance"],
-  MATERIAL_PURCHASES: ["/api/material-purchases"],
-  TRANSPORTATION: ["/api/transportation-expenses"],
-  WORKER_TRANSFERS: ["/api/worker-transfers"],
-  WORKER_MISC: ["/api/worker-misc-expenses"],
-};
+import { QUERY_KEYS as UNIFIED_KEYS } from "@/constants/queryKeys";
+import { API_ENDPOINTS } from "@/constants/api";
+
+// Use unified keys
+export const QUERY_KEYS = UNIFIED_KEYS;
+
 
 // ⚡ دالة لتحميل البيانات مسبقاً عند تسجيل الدخول
 export async function prefetchCoreData() {

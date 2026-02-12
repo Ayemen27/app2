@@ -20,7 +20,8 @@ import { useSelectedProject } from "@/hooks/use-selected-project";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { WellSelector } from "@/components/well-selector";
-import { apiRequest } from "@/lib/queryClient";
+import { API_ENDPOINTS } from "@/constants/api";
+import { QUERY_KEYS } from "@/constants/api"; // Note: This might be wrong if it's in queryKeys.ts, let's check imports
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";

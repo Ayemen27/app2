@@ -119,7 +119,8 @@ if (dbUrl.includes("supabase.co")) {
       // إذا كان الرابط يستخدم النمط القديم db.xxx، نقوم بتحديثه للنمط الأكثر استقراراً
       // ملاحظة: نستخدم المنفذ 6543 لـ Transaction Mode وهو الأكثر استقراراً في البيئات السحابية
       finalDbUrl = dbUrl
-        .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
+        .replace(`db.${projectRef}.supabase.co:6543`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
+        .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:5432`)
         .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
         
       // التأكد من إضافة user parameters المطلوبة للـ Pooler الجديد

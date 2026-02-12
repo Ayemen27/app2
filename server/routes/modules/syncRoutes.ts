@@ -164,14 +164,46 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
         const conditions = [];
         
         if (lastSyncTime) {
-          conditions.push(`(updated_at > '${new Date(lastSyncTime).toISOString()}' OR created_at > '${new Date(lastSyncTime).toISOString()}')`);
+          // التحقق من وجود الأعمدة قبل إضافتها للشروط
+          const checkColumns = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = '${table}' AND column_name IN ('updated_at', 'created_at')
+          `);
+          const hasUpdatedAt = checkColumns.rows.some(r => r.column_name === 'updated_at');
+          const hasCreatedAt = checkColumns.rows.some(r => r.column_name === 'created_at');
+
+          if (hasUpdatedAt && hasCreatedAt) {
+            conditions.push(`(updated_at > '${new Date(lastSyncTime).toISOString()}' OR created_at > '${new Date(lastSyncTime).toISOString()}')`);
+          } else if (hasUpdatedAt) {
+            conditions.push(`updated_at > '${new Date(lastSyncTime).toISOString()}'`);
+          } else if (hasCreatedAt) {
+            conditions.push(`created_at > '${new Date(lastSyncTime).toISOString()}'`);
+          }
         }
         
         if (conditions.length > 0) {
           query += ` WHERE ${conditions.join(' AND ')}`;
         }
         
-        query += ' ORDER BY updated_at DESC, version DESC LIMIT 10000';
+        // التحقق من وجود أعمدة الترتيب
+        const checkSortColumns = await pool.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = '${table}' AND column_name IN ('updated_at', 'version')
+        `);
+        const hasUpdatedAtSort = checkSortColumns.rows.some(r => r.column_name === 'updated_at');
+        const hasVersionSort = checkSortColumns.rows.some(r => r.column_name === 'version');
+
+        if (hasUpdatedAtSort || hasVersionSort) {
+          query += ' ORDER BY ';
+          const sorts = [];
+          if (hasUpdatedAtSort) sorts.push('updated_at DESC');
+          if (hasVersionSort) sorts.push('version DESC');
+          query += sorts.join(', ');
+        }
+
+        query += ' LIMIT 10000';
         
         const queryResult = await pool.query(query);
         results[table] = queryResult.rows;

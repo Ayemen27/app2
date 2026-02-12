@@ -449,7 +449,7 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
     // ضمان رد JSON لطلبات API حتى في حالة الأخطاء غير المتوقعة
     if (req.path.startsWith('/api')) {
       res.setHeader('Content-Type', 'application/json');
-      // منع إعادة التوجيه التلقائي لطلبات API
+      // منع إعادة التوجيه التلقائي لطلبات API (التي قد ترسل HTML)
       const oldRedirect = res.redirect;
       res.redirect = function(url: string) {
         if (typeof url === 'number') {

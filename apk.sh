@@ -1,5 +1,5 @@
 #!/bin/bash
-# AXION AI Build Engine v15.0.0 (The Final Architect - Clean Environment)
+# AXION AI Build Engine v16.0.0 (The Final Fix - Conflict Resolution)
 # Professional Grade - Remote Workspace Purge & Precision Reconstruction
 
 set -e
@@ -12,7 +12,7 @@ log() { echo -e "\e[34m[AXION]\e[0m $1" | tee -a "$LOG_FILE"; }
 error_handler() { log "❌ Failure at line $1"; exit 1; }
 trap 'error_handler $LINENO' ERR
 
-log "🏗️ Initiating AXION Remote Workspace Reconstruction v15.0.0..."
+log "🏗️ Initiating AXION Remote Workspace Reconstruction v16.0.0..."
 
 if [ -z "$SSH_PASS" ]; then
     log "❌ Error: SSH_PASSWORD not found."
@@ -23,13 +23,13 @@ sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOS
     cd /home/administrator/app2
     log() { echo ">>> $1"; }
     
-    log "🧹 PHASE 0: Cleaning Broken Android Structure..."
+    log "🧹 PHASE 0: Deep Cleaning Android Structure..."
     rm -rf android
     mkdir -p android/app/src/main/java/com/axion/app
     mkdir -p android/app/src/main/res/values
     mkdir -p android/gradle/wrapper
 
-    log "🛠️ PHASE 1: Reconstructing Core Files..."
+    log "🛠️ PHASE 1: Reconstructing Core Files with Conflict Resolution..."
 
     # 1. Root build.gradle
     cat <<EOF > android/build.gradle
@@ -45,7 +45,7 @@ allprojects {
 }
 EOF
 
-    # 2. App build.gradle
+    # 2. App build.gradle - FIXED: Added packaging options to avoid duplicated files error
     cat <<EOF > android/app/build.gradle
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.gms.google-services'
@@ -63,6 +63,20 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
+    }
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += 'META-INF/DEPENDENCIES'
+            excludes += 'META-INF/LICENSE'
+            excludes += 'META-INF/LICENSE.txt'
+            excludes += 'META-INF/license.txt'
+            excludes += 'META-INF/NOTICE'
+            excludes += 'META-INF/NOTICE.txt'
+            excludes += 'META-INF/notice.txt'
+            excludes += 'META-INF/ASL2.0'
+            excludes += 'META-INF/*.kotlin_module'
+        }
     }
     configurations.all {
         resolutionStrategy {
@@ -152,4 +166,4 @@ EOF
     ./apk.sh
 REMOTE_EOF
 
-log "✅ AXION Engine: Full remote reconstruction and build dispatched."
+log "✅ AXION Engine: Deployed fix for duplicated files and re-triggered build."

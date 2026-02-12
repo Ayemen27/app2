@@ -174,7 +174,8 @@ export async function apiRequest(
       // إذا وصلنا هنا، يعني فشل التجديد أو لا يوجد توكن
       if (!window.location.pathname.includes('/login')) {
         console.warn('🚫 [apiRequest] Session expired, but staying in-place for offline support.');
-        // لا نقوم بمسح البيانات أو التوجيه القسري للسماح بالوضع Offline
+        // ✅ منع التوجيه القسري لضمان استمرارية العمل أوفلاين
+        return null; 
       }
       throw new Error('انتهت الجلسة');
     }

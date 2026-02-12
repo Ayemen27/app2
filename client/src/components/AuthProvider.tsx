@@ -521,11 +521,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // فشل جميع المحاولات
       setRefreshAttempts(prev => prev + 1);
       const totalDuration = Date.now() - startTime;
-      console.log(`❌ [AuthProvider.refreshToken] فشل التجديد نهائياً بعد ${totalDuration}ms و${maxAttempts} محاولات`);
+      console.log(`❌ [AuthProvider.refreshToken] فشل التجديد مؤقتاً بعد ${totalDuration}ms و${maxAttempts} محاولات`);
 
-      // تسجيل الخروج تلقائياً عند فشل التجديد نهائياً
+      // ✅ تعديل: عدم تسجيل الخروج القسري للسماح بالعمل في وضع Offline أو المحاولة لاحقاً
+      // فقط نقوم بتمكين وضع الأوفلاين في حالة وجود بيانات مستخدم محفوظة
+      if (localStorage.getItem('user')) {
+        console.warn('⚠️ [AuthProvider] فشل التجديد، ولكن سيتم الحفاظ على الجلسة المحلية لدعم وضع Offline');
+        return false;
+      }
+
+      // فقط إذا كان لا يوجد مستخدم إطلاقاً، ننتقل لصفحة تسجيل الدخول
       await logout();
-      window.location.href = '/auth';
+      window.location.href = '/login';
 
       return false;
 

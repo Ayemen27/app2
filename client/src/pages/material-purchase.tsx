@@ -232,6 +232,8 @@ export default function MaterialPurchase() {
     },
     staleTime: 300000, // 5 دقائق
     gcTime: 600000, // 10 دقائق
+    refetchOnWindowFocus: false,
+    retry: false
   });
 
   // جلب بيانات الموردين من قاعدة البيانات
@@ -252,6 +254,8 @@ export default function MaterialPurchase() {
     },
     staleTime: 300000, // 5 دقائق
     gcTime: 600000, // 10 دقائق
+    refetchOnWindowFocus: false,
+    retry: false
   });
 
   // Fetch purchase data for editing
@@ -378,7 +382,9 @@ export default function MaterialPurchase() {
     queryFn: async () => {
       const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases?date=${selectedDate}`, "GET");
       return response;
-    }
+    },
+    refetchOnWindowFocus: false,
+    retry: false
   });
 
   const purchaseList = useMemo(() => {
@@ -431,7 +437,8 @@ export default function MaterialPurchase() {
 
       queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate], (old: any) => {
         const newPurchase = { id: `temp-${Date.now()}`, ...data, createdAt: new Date().toISOString() };
-        return old ? [...old, newPurchase] : [newPurchase];
+        const safeOld = Array.isArray(old) ? old : (old && typeof old === 'object' && Array.isArray(old.data) ? old.data : []);
+        return [...safeOld, newPurchase];
       });
 
       toast({

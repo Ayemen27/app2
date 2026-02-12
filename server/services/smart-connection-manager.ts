@@ -393,22 +393,18 @@ export class SmartConnectionManager {
    * ☁️ تهيئة اتصال Supabase
    */
   private async initializeSupabaseConnection(): Promise<void> {
+    const supabaseUrl = getCredential('SUPABASE_URL') || process.env.SUPABASE_URL;
+    const supabaseDbPassword = process.env.SUPABASE_DATABASE_PASSWORD || process.env.SSH_PASSWORD;
+
     // التحقق من تكوين Supabase قبل المحاولة
-    if (!isSupabaseConfigured()) {
+    if (!supabaseUrl || !supabaseDbPassword) {
       if (!this.isProduction) {
-        console.log('ℹ️ [Supabase] غير مكون - سيتم تخطيه');
+        console.log('ℹ️ [Supabase] غير مكون (SUPABASE_URL أو SUPABASE_DATABASE_PASSWORD مفقود)');
       }
       return;
     }
     
     try {
-      const supabaseUrl = getCredential('SUPABASE_URL');
-      const supabasePassword = getCredential('SUPABASE_DATABASE_PASSWORD');
-      
-      if (!supabaseUrl || !supabasePassword) {
-        return;
-      }
-
       const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
       
       if (!project) {

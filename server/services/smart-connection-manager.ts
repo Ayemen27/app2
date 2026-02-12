@@ -516,6 +516,8 @@ export class SmartConnectionManager {
       } catch (connError: any) {
         if (connError.message?.includes('Tenant or user not found')) {
           console.error('❌ [Supabase Fix] خطأ في هوية المشروع (Tenant not found). يرجى التأكد من أن DATABASE_URL_SUPABASE يحتوي على كلمة المرور الصحيحة لمستخدم postgres.');
+          // تذكير بالخطأ في المحاولات التالية
+          (this as any).supabaseTenantError = true;
         } else {
           console.error('❌ [Supabase] فشل اختبار الاتصال:', connError.message);
         }
@@ -758,7 +760,7 @@ export class SmartConnectionManager {
       
       if (value.includes('helium') || value.includes('heliumdb')) continue;
       
-      if (suffix === 'supabase' && this.connectionStatus.supabase) continue;
+      if (suffix === 'supabase' && (this.connectionStatus.supabase || (this as any).supabaseTenantError)) continue;
       
       if (this.dynamicConnections.has(suffix)) continue;
       

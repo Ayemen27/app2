@@ -72,13 +72,17 @@ function extractTokenFromReq(req: Request): string | null {
     // 1. التحقق من ترويسة Authorization (المعيار العالمي)
     const authHeader = req.headers.authorization || req.headers.Authorization;
     if (authHeader && typeof authHeader === 'string') {
-      // تنظيف الترويسة من المسافات الزائدة
-      const cleanHeader = authHeader.trim();
+      // تنظيف الترويسة من المسافات الزائدة وعلامات الاقتباس
+      let cleanHeader = authHeader.trim();
       
       // التعامل مع Bearer المكرر أو المفقود أو الفارغ
       const bearerRegex = /bearer\s+/gi;
       if (bearerRegex.test(cleanHeader)) {
-        const tokenOnly = cleanHeader.replace(bearerRegex, '').trim();
+        let tokenOnly = cleanHeader.replace(bearerRegex, '').trim();
+        // الحماية من الرموز المغلفة بعلامات اقتباس (شائع في Capacitor/Android)
+        if (tokenOnly.startsWith('"') && tokenOnly.endsWith('"')) {
+          tokenOnly = tokenOnly.slice(1, -1);
+        }
         // الحماية من الرموز الفارغة أو undefined
         if (!tokenOnly || tokenOnly === 'undefined' || tokenOnly === 'null') {
           return null;
@@ -86,20 +90,27 @@ function extractTokenFromReq(req: Request): string | null {
         return tokenOnly;
       }
       
-      // إذا لم يحتوي على Bearer، ربما يكون التوكن مباشرة (يجب أن يكون JWT صالح)
+      // إذا لم يحتوي على Bearer، ربما يكون التوكن مباشرة
       if (cleanHeader.length > 20 && cleanHeader.includes('.')) {
+        if (cleanHeader.startsWith('"') && cleanHeader.endsWith('"')) {
+          cleanHeader = cleanHeader.slice(1, -1);
+        }
         return cleanHeader;
       }
     }
 
-  // 2. التحقق من الترويسات المخصصة الشائعة
-  const customHeaders = ['x-auth-token', 'x-access-token', 'token', 'Authorization'];
+  // 2. التحقق من الترويسات المخصصة الشائعة (مهم جداً لتوافق الأندرويد)
+  const customHeaders = ['x-auth-token', 'x-access-token', 'token', 'Authorization', 'authorization'];
   for (const header of customHeaders) {
     const value = req.headers[header] || req.headers[header.toLowerCase()];
     if (value && typeof value === 'string') {
-      const cleanValue = value.trim();
+      let cleanValue = value.trim();
+      // تنظيف علامات الاقتباس
+      if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
+        cleanValue = cleanValue.slice(1, -1);
+      }
+      
       if (cleanValue.toLowerCase().startsWith('bearer ')) {
-        // التعامل مع Bearer المكرر هنا أيضاً
         const subValue = cleanValue.substring(7).trim();
         if (subValue.toLowerCase().startsWith('bearer ')) {
           return subValue.substring(7).trim();
@@ -119,7 +130,16 @@ function extractTokenFromReq(req: Request): string | null {
   }
   
   // 4. التحقق من الجسم (Body) أو الاستعلام (Query) - كحل أخير
-  return (req.query?.token as string) || (req.body?.token as string) || (req.body?.accessToken as string) || null;
+  const fromParams = (req.query?.token as string) || (req.body?.token as string) || (req.body?.accessToken as string);
+  if (fromParams && typeof fromParams === 'string') {
+    let cleanParam = fromParams.trim();
+    if (cleanParam.startsWith('"') && cleanParam.endsWith('"')) {
+      cleanParam = cleanParam.slice(1, -1);
+    }
+    return cleanParam;
+  }
+  
+  return null;
 }
 
 import { storage } from '../storage';

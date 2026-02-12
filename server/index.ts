@@ -128,7 +128,11 @@ const getAllowedOrigins = (req?: Request) => {
 app.use(cors({
   origin: (origin, callback) => {
     // طلبات بدون origin (mobile app, Postman) أو طلبات Capacitor
-    if (!origin || origin.startsWith('capacitor://') || origin.startsWith('http://localhost')) {
+    if (!origin || 
+        origin.startsWith('capacitor://') || 
+        origin.startsWith('http://localhost') || 
+        origin.startsWith('https://localhost') ||
+        origin === 'null') {
       callback(null, true);
       return;
     }
@@ -139,7 +143,8 @@ app.use(cors({
                       (origin.includes('binarjoinanelytic.info')) ||
                       origin.startsWith('capacitor://') ||
                       origin.startsWith('http://localhost') ||
-                      origin.startsWith('https://localhost');
+                      origin.startsWith('https://localhost') ||
+                      origin === 'null';
       
       if (!allowed) {
         console.log(`⚠️ [CORS Blocked] Origin: ${origin}`);
@@ -153,7 +158,9 @@ app.use(cors({
     const isAllowed = allowedOrigins.includes(origin) || 
                       origin.endsWith('.replit.dev') || 
                       origin.endsWith('.replit.app') ||
-                      origin.includes('binarjoinanelytic.info');
+                      origin.includes('binarjoinanelytic.info') ||
+                      origin.startsWith('capacitor://') ||
+                      origin === 'null';
 
     callback(null, isAllowed);
   },
@@ -169,6 +176,7 @@ app.use(cors({
     'Origin',
     'x-device-type',
     'x-device-name',
+    'x-device-id',
     'X-Requested-With',
     'x-requested-with'
   ],
@@ -449,7 +457,7 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
   app.use((req, res, next) => {
     // ضمان رد JSON لطلبات API حتى في حالة الأخطاء غير المتوقعة
     if (req.path.startsWith('/api')) {
-      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       // منع إعادة التوجيه التلقائي لطلبات API (التي قد ترسل HTML)
       const oldRedirect = res.redirect;
       res.redirect = function(url: string) {
@@ -475,7 +483,9 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
         if (res.statusCode >= 400) {
           console.log(`🚨 [API Error] ${logLine}`);
           console.log(`📦 Request Body: ${JSON.stringify(req.body)}`);
-          console.log(`📦 Response Body: ${JSON.stringify(resBody)}`);
+          // تجنب تسجيل ردود HTML الضخمة في سجلات API
+          const responsePreview = typeof resBody === 'string' && resBody.startsWith('<!DOCTYPE') ? '[HTML Content]' : JSON.stringify(resBody);
+          console.log(`📦 Response Body: ${responsePreview}`);
         } else {
           console.log(`🟢 [API] ${logLine}`);
         }

@@ -12,7 +12,7 @@ import { hashToken } from './crypto-utils.js';
 
 // ملاحظة: تم تفعيل نظام الجلسات مع جدول authUserSessions
 
-// إعدادات JWT - استخدام مفتاح واحد ثابت تماماً وفريد للنظام الجديد
+// إعدادات JWT - استخدام مفتاح واحد ثابت تماماً وفريد للنظام الجديد لضمان التوافق مع السيرفر الخارجي
 const SHARED_SECRET = process.env.JWT_ACCESS_SECRET || 'binarjoin-core-system-v2-2026-ultra-secure-key';
 
 // تصدير السر لاستخدامه في Middleware لضمان المطابقة الكاملة

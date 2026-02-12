@@ -251,29 +251,34 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     // التحقق من صحة الـ token
     let decoded;
     try {
-      // طباعة التوكن قبل التحقق للتشخيص (يمكن إزالتها لاحقاً)
-      // console.log(`🔍 [AUTH-DEBUG] Verifying token: "${token.substring(0, 20)}..."`);
       decoded = await verifyToken(token);
     } catch (error: any) {
       if (req.path === '/api/auth/refresh') {
         return next();
       }
 
-      console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${error.message} | Token start: ${token.substring(0, 15)}...`);
+      console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${error.message}`);
 
-      if (error.name === 'TokenExpiredError' || error.message?.includes('expired')) {
+      // محاولة التحقق باستخدام المفتاح البديل في حالة فشل المفتاح الأساسي (للتوافق خلال الانتقال)
+      try {
+        const fallbackSecret = 'binarjoin-core-system-v2-2026-ultra-secure-key';
+        decoded = jwt.verify(token, fallbackSecret, { issuer: 'construction-management-app-v2' }) as any;
+        console.log('✅ [AUTH] تم قبول التوكن باستخدام المفتاح الاحتياطي');
+      } catch (fallbackError) {
+        if (error.name === 'TokenExpiredError' || error.message?.includes('expired')) {
+          return res.status(401).json({
+            success: false,
+            message: 'انتهت الجلسة - يرجى تجديد الدخول',
+            code: 'TOKEN_EXPIRED'
+          });
+        }
+
         return res.status(401).json({
           success: false,
-          message: 'انتهت الجلسة - يرجى تجديد الدخول',
-          code: 'TOKEN_EXPIRED'
+          message: 'رمز المصادقة غير صالح',
+          code: 'INVALID_TOKEN'
         });
       }
-
-      return res.status(401).json({
-        success: false,
-        message: 'رمز المصادقة غير صالح',
-        code: 'INVALID_TOKEN'
-      });
     }
 
     // جلب بيانات المستخدم - دعم Argon2-based identity

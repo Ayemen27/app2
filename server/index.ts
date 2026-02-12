@@ -107,7 +107,8 @@ const getAllowedOrigins = (req?: Request) => {
     `http://127.0.0.1:${PORT}`,
     PRODUCTION_DOMAIN,
     REPLIT_DOMAIN,
-    'https://app2.binarjoinanelytic.info' // الدومين الأساسي
+    'https://app2.binarjoinanelytic.info', // الدومين الأساسي
+    'https://binarjoinanelytic.info'
   ].filter(Boolean) as string[];
 
   // إضافة الدومين من متغير البيئة إذا وجد

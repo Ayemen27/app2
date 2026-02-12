@@ -212,7 +212,10 @@ authRouter.post('/login', async (req: Request, res: Response) => {
           email: user.email,
           name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           role: user.role || 'user'
-        }
+        },
+        // إضافة مؤشر للمزامنة التلقائية
+        triggerSync: true,
+        initialSyncDelay: 1000
       }
     };
 

@@ -458,6 +458,12 @@ export class SmartConnectionManager {
               }
             }
           }
+        } else if (connectionString.includes("pooler.supabase.com")) {
+            // إضافة pgbouncer و connection_limit إذا لم تكن موجودة في الرابط الجديد
+            if (!connectionString.includes("pgbouncer=true")) {
+              const separator = connectionString.includes("?") ? "&" : "?";
+              connectionString += `${separator}pgbouncer=true&connection_limit=1`;
+            }
         }
 
         console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع (المحسن)');

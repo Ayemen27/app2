@@ -449,9 +449,9 @@ export class SmartConnectionManager {
               // إصلاح خطأ "Tenant not found": يجب أن يكون المستخدم بصيغة postgres.[project-ref] عند استخدام Pooler
               const correctUser = user.includes('.') ? user : `postgres.${projectRef}`;
               
-              // بناء رابط جديد تماماً يتجاوز DNS القديم ويستخدم Pooler
-              connectionString = `postgresql://${correctUser}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
-              console.log(`🔗 [Supabase Fix] تم تصحيح هوية المستخدم في مدير الاتصالات: ${correctUser}`);
+              // بناء رابط جديد تماماً يستخدم المنفذ 5432 للمجمع (أكثر توافقاً مع بعض حسابات Supabase)
+              connectionString = `postgresql://${correctUser}:${password}@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?pgbouncer=true&connection_limit=1`;
+              console.log(`🔗 [Supabase Fix] تم تصحيح الهوية والمنفذ في مدير الاتصالات: ${correctUser}`);
             } else {
               // fallback إذا فشل regex الاستخراج
               connectionString = connectionString

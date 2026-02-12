@@ -45,6 +45,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
         const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
         results[table] = queryResult.rows;
         successCount++;
+        console.log(`✅ [Sync] جلب ${queryResult.rows.length} سجل من جدول ${table}`);
       } catch (e: any) {
         console.warn(`⚠️ [Sync] تخطي جدول ${table}:`, e.message);
         results[table] = [];
@@ -101,6 +102,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
         const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
         results[table] = queryResult.rows;
         successCount++;
+        console.log(`✅ [Sync] جلب ${queryResult.rows.length} سجل من جدول ${table}`);
       } catch (e: any) {
         console.warn(`⚠️ [Sync] تخطي جدول ${table}:`, e.message);
         results[table] = [];

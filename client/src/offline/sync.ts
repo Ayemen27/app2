@@ -134,7 +134,9 @@ export async function performInitialDataPull(): Promise<boolean> {
 
     // محاولة جلب البيانات مع مهلة زمنية (Timeout) للتعامل مع ضعف الإنترنت
     // ترقية: استخدام نقطة النهاية المخصصة للمزامنة الكاملة بدلاً من المسار القديم
-    const result = await apiRequest('/api/sync/full-backup', 'POST', undefined, 60000);
+    console.log('📡 [Sync] إرسال طلب apiRequest إلى /api/sync/full-backup');
+    const result = await apiRequest('/api/sync/full-backup', 'POST', undefined, 120000);
+    console.log('📡 [Sync] نتيجة الطلب:', result ? 'نجح' : 'فشل');
     
     if (!result || (typeof result === 'object' && result.code === 'INVALID_TOKEN')) {
       console.error('❌ [Sync] فشل المصادقة أو انتهت المهلة، يجب تسجيل الدخول مرة أخرى');
@@ -142,7 +144,7 @@ export async function performInitialDataPull(): Promise<boolean> {
     }
     
     if (!result.success || !result.data) {
-      console.error('❌ [Sync] فشل جلب البيانات من السيرفر:', result?.error || 'بيانات غير صالحة');
+      console.error('❌ [Sync] فشل جلب البيانات من السيرفر:', result?.error || 'بيانات غير صالحة', result);
       return false;
     }
 

@@ -432,18 +432,29 @@ export class SmartConnectionManager {
 
       if (connectionString) {
         // 🛠️ تحسين رابط Supabase لتجاوز مشاكل DNS (تطبيق نفس منطق db.ts)
+        // نقوم بالتحويل إلى Pooler الجديد aws-0-eu-central-1.pooler.supabase.com
         if (connectionString.includes("supabase.co")) {
           const projectRefMatch = connectionString.match(/@db\.([^.]+)\.supabase\.co/);
           const projectRef = projectRefMatch ? projectRefMatch[1] : project;
           
           if (projectRef) {
             console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
-            connectionString = connectionString
-              .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
-              .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
-              
-            if (!connectionString.includes("?")) {
-              connectionString += "?pgbouncer=true&connection_limit=1";
+            // استخراج الأجزاء المهمة من الرابط الحالي لضمان الحفاظ على كلمة المرور والمستخدم
+            const urlParts = connectionString.match(/postgresql:\/\/([^:]+):([^@]+)@/);
+            if (urlParts) {
+              const user = urlParts[1];
+              const password = urlParts[2];
+              // بناء رابط جديد تماماً يتجاوز DNS القديم ويستخدم Pooler
+              connectionString = `postgresql://${user}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
+            } else {
+              // fallback إذا فشل regex الاستخراج
+              connectionString = connectionString
+                .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
+                .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
+                
+              if (!connectionString.includes("?")) {
+                connectionString += "?pgbouncer=true&connection_limit=1";
+              }
             }
           }
         }

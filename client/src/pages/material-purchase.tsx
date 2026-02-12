@@ -330,6 +330,8 @@ export default function MaterialPurchase() {
       setInvoiceNumber(purchaseToEdit.invoiceNumber || "");
       setInvoiceDate(purchaseToEdit.invoiceDate || "");
       setPurchaseDate(purchaseToEdit.purchaseDate || "");
+      setPaidAmount(purchaseToEdit.paidAmount?.toString() || "0");
+      setRemainingAmount(purchaseToEdit.remainingAmount?.toString() || "0");
       setNotes(purchaseToEdit.notes || "");
       setInvoicePhoto(purchaseToEdit.invoicePhoto || "");
       setEditingPurchaseId(purchaseToEdit.id);
@@ -691,8 +693,6 @@ export default function MaterialPurchase() {
       materialCategory: materialCategory?.trim() || null,
       materialUnit: materialUnit.trim(),
       quantity: quantity.toString(),
-      unit: materialUnit.trim(),
-      material_unit: materialUnit.trim(),
       unitPrice: (isPriceRequired ? unitPrice : (unitPrice || "0")).toString(),
       totalAmount: (isPriceRequired ? totalAmountValue : (totalAmountValue || "0")).toString(),
       purchaseType: paymentType.trim(),

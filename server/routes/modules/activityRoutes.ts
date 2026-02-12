@@ -8,7 +8,8 @@ import {
   workerMiscExpenses,
   materialPurchases,
   users,
-  projects
+  projects,
+  dailyActivityLogs
 } from '../../../shared/schema.js';
 import { desc, eq, sql } from 'drizzle-orm';
 import { authenticate } from '../../middleware/auth.js';

@@ -170,7 +170,7 @@ export default function MaterialPurchase() {
       return apiRequest("/api/suppliers", "POST", data);
     },
     onSuccess: (newSupplier) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.suppliers });
       toast({
         title: "تم إضافة المورد بنجاح",
         description: `تم إضافة المورد "${supplierFormName}" إلى قاعدة البيانات`,
@@ -218,7 +218,7 @@ export default function MaterialPurchase() {
   };
 
   const { data: materials = [] } = useQuery<Material[]>({
-    queryKey: ["/api/materials"],
+    queryKey: QUERY_KEYS.materials,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/materials", "GET");
@@ -240,7 +240,7 @@ export default function MaterialPurchase() {
 
   // جلب بيانات الموردين من قاعدة البيانات
   const { data: suppliers = [] } = useQuery<Supplier[]>({
-    queryKey: ["/api/suppliers"],
+    queryKey: QUERY_KEYS.suppliers,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/suppliers", "GET");
@@ -262,7 +262,7 @@ export default function MaterialPurchase() {
 
   // Fetch purchase data for editing
   const { data: purchaseToEdit, isLoading: isLoadingEdit } = useQuery({
-    queryKey: ["/api/material-purchases", editId],
+    queryKey: QUERY_KEYS.materialPurchaseEdit(editId),
     queryFn: async () => {
       if (!editId) return null;
 
@@ -356,7 +356,7 @@ export default function MaterialPurchase() {
   const addMaterialMutation = useMutation({
     mutationFn: (data: InsertMaterial) => apiRequest("/api/materials", "POST", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/materials"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materials });
     },
     onError: (error: any) => {
       console.error("Material creation error:", error);
@@ -379,7 +379,7 @@ export default function MaterialPurchase() {
   const materialUnits = Array.isArray(materials) ? Array.from(new Set(materials.map(m => m.unit))) : [];
 
   const { data: purchaseListData = [] } = useQuery<any>({
-    queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate],
+    queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate),
     enabled: !!selectedProjectId,
     queryFn: async () => {
       const response = await apiRequest(`/api/projects/${selectedProjectId}/material-purchases?date=${selectedDate}`, "GET");
@@ -434,10 +434,10 @@ export default function MaterialPurchase() {
     },
     onMutate: async (data) => {
       // فوري - تحديث البيانات محلياً قبل انتظار الخادم
-      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
-      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate]);
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
+      const previousData = queryClient.getQueryData(QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate));
 
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate], (old: any) => {
+      queryClient.setQueryData(QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate), (old: any) => {
         const newPurchase = { id: `temp-${Date.now()}`, ...data, createdAt: new Date().toISOString() };
         const safeOld = Array.isArray(old) ? old : (old && typeof old === 'object' && Array.isArray(old.data) ? old.data : []);
         return [...safeOld, newPurchase];
@@ -452,14 +452,14 @@ export default function MaterialPurchase() {
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       toast({
         title: "تم الحفظ",
         description: "تم حفظ شراء المواد بنجاح",
       });
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
     },
     onError: async (error: any) => {
       // حفظ القيم في autocomplete_data حتى في حالة الخطأ
@@ -473,7 +473,7 @@ export default function MaterialPurchase() {
       ]);
 
       // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       console.error("Material purchase error:", error);
       let errorMessage = "حدث خطأ أثناء حفظ شراء المواد";
@@ -551,14 +551,14 @@ export default function MaterialPurchase() {
     },
     onSuccess: async () => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       toast({
         title: "تم التعديل",
         description: "تم تعديل شراء المواد بنجاح",
       });
       resetForm();
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
     },
     onError: async (error: any) => {
       // حفظ القيم في autocomplete_data حتى في حالة الخطأ
@@ -572,7 +572,7 @@ export default function MaterialPurchase() {
       ]);
 
       // تحديث كاش autocomplete
-      queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       console.error("Material purchase update error:", error);
       let errorMessage = "حدث خطأ أثناء تحديث شراء المواد";
@@ -611,10 +611,10 @@ export default function MaterialPurchase() {
     mutationFn: (id: string) => apiRequest(`/api/material-purchases/${id}`, "DELETE"),
     onMutate: async (id) => {
       // فوري - حذف البيانات محلياً قبل انتظار الخادم
-      await queryClient.cancelQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
-      const previousData = queryClient.getQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate]);
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
+      const previousData = queryClient.getQueryData(QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate));
 
-      queryClient.setQueryData(["/api/projects", selectedProjectId, "material-purchases", selectedDate], (old: any) => {
+      queryClient.setQueryData(QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate), (old: any) => {
         return old ? old.filter((p: any) => p.id !== id) : [];
       });
 
@@ -630,7 +630,7 @@ export default function MaterialPurchase() {
         title: "تم الحذف",
         description: "تم حذف شراء المواد بنجاح",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", selectedProjectId, "material-purchases", selectedDate] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
     },
     onError: (error: any) => {
       console.error("Material purchase delete error:", error);
@@ -735,7 +735,7 @@ export default function MaterialPurchase() {
 
   // Fetch Material Purchases - جلب جميع المشتريات مع تحسين الكاش
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
-    queryKey: ["/api/material-purchases", getProjectIdForApi() ?? 'all', selectedDate],
+    queryKey: QUERY_KEYS.materialPurchasesFiltered(getProjectIdForApi() ?? 'all', selectedDate),
     queryFn: async () => {
       const projectIdForApi = getProjectIdForApi();
       const baseUrl = `/api/material-purchases`;

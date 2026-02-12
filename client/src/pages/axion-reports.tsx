@@ -62,6 +62,7 @@ const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function AxionReports() {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
@@ -75,7 +76,7 @@ export default function AxionReports() {
   });
 
   const { data: workersList = [] } = useQuery({
-    queryKey: ["/api/workers"],
+    queryKey: QUERY_KEYS.workers,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const res = await apiRequest("/api/workers", "GET");
@@ -125,7 +126,7 @@ export default function AxionReports() {
   };
 
   const { data: workerStatement, isLoading: workerLoading } = useQuery({
-    queryKey: ["/api/reports/worker-statement", selectedWorkerId, selectedProjectId, filterValues.dateRange],
+    queryKey: QUERY_KEYS.reportsWorkerStatement(selectedWorkerId, selectedProjectId, filterValues.dateRange),
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       if (!selectedWorkerId) return null;
@@ -149,7 +150,7 @@ export default function AxionReports() {
   });
 
   const { data: stats, isLoading, refetch } = useQuery({
-    queryKey: ["/api/reports/dashboard-kpis", selectedProjectId, filterValues.dateRange],
+    queryKey: QUERY_KEYS.reportsDashboardKpis(selectedProjectId, filterValues.dateRange),
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       const params = new URLSearchParams();

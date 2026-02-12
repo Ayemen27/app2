@@ -12,6 +12,7 @@ import { type Supplier } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import AddSupplierForm from "@/components/forms/add-supplier-form";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function SuppliersPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -48,7 +49,7 @@ export default function SuppliersPage() {
   };
 
   const { data: suppliers = [], isLoading, refetch: refetchSuppliers } = useQuery({
-    queryKey: ["/api/suppliers"],
+    queryKey: QUERY_KEYS.suppliers,
   });
 
   const handleRefresh = useCallback(async () => {
@@ -76,7 +77,7 @@ export default function SuppliersPage() {
       return response;
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.suppliers });
       toast({ title: "تم حذف المورد بنجاح" });
     },
     onError: () => {
@@ -247,7 +248,7 @@ export default function SuppliersPage() {
             supplier={selectedSupplier as any}
             onSuccess={() => {
               resetForm();
-              queryClient.refetchQueries({ queryKey: ["/api/suppliers"] });
+              queryClient.refetchQueries({ queryKey: QUERY_KEYS.suppliers });
             }}
             onCancel={resetForm}
             submitLabel={selectedSupplier ? "تحديث المورد" : "إضافة المورد"}

@@ -15,6 +15,7 @@ import { apiRequest } from '@/lib/queryClient';
 import AddWorkerForm from '@/components/forms/add-worker-form';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
 import { useSelectedProject, ALL_PROJECTS_ID } from '@/hooks/use-selected-project';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface Worker {
   id: string;
@@ -147,7 +148,7 @@ const WorkerCardWrapper = ({
   const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
   
   const { data: statsData, isLoading: statsLoading } = useQuery<{ success: boolean; data: WorkerStats }>({
-    queryKey: ['/api/workers', worker.id, 'stats', selectedProjectId],
+    queryKey: QUERY_KEYS.workerStats(worker.id, selectedProjectId),
     queryFn: async () => {
       const url = projectIdForApi 
         ? `/api/workers/${worker.id}/stats?projectId=${projectIdForApi}`
@@ -319,7 +320,7 @@ export default function WorkersPage() {
   };
 
   const { data: workers = [], isLoading, refetch: refetchWorkers } = useQuery<Worker[]>({
-    queryKey: ['/api/workers'],
+    queryKey: QUERY_KEYS.workers,
     queryFn: async () => {
       try {
         const res = await apiRequest('/api/workers', 'GET');
@@ -347,7 +348,7 @@ export default function WorkersPage() {
   });
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({
-    queryKey: ['/api/worker-types'],
+    queryKey: QUERY_KEYS.workerTypes,
     queryFn: async () => {
       try {
         const response = await fetch('/api/worker-types');
@@ -395,10 +396,10 @@ export default function WorkersPage() {
   const deleteWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/workers/${id}`, "DELETE"),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/workers'] });
-      const previousData = queryClient.getQueryData<Worker[]>(['/api/workers']);
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.workers });
+      const previousData = queryClient.getQueryData<Worker[]>(QUERY_KEYS.workers);
       if (Array.isArray(previousData)) {
-        queryClient.setQueryData<Worker[]>(['/api/workers'], 
+        queryClient.setQueryData<Worker[]>(QUERY_KEYS.workers, 
           previousData.filter(worker => worker.id !== id)
         );
       }
@@ -413,7 +414,7 @@ export default function WorkersPage() {
     },
     onError: (error: any, _id, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['/api/workers'], context.previousData);
+        queryClient.setQueryData(QUERY_KEYS.workers, context.previousData);
       }
       toast({
         title: "خطأ في حذف العامل",
@@ -422,8 +423,8 @@ export default function WorkersPage() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
     },
   });
 
@@ -431,10 +432,10 @@ export default function WorkersPage() {
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/workers/${id}`, "PATCH", data),
     onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/workers'] });
-      const previousData = queryClient.getQueryData<Worker[]>(['/api/workers']);
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.workers });
+      const previousData = queryClient.getQueryData<Worker[]>(QUERY_KEYS.workers);
       if (Array.isArray(previousData)) {
-        queryClient.setQueryData<Worker[]>(['/api/workers'], 
+        queryClient.setQueryData<Worker[]>(QUERY_KEYS.workers, 
           previousData.map(worker => 
             worker.id === id ? { ...worker, ...data } : worker
           )
@@ -448,11 +449,11 @@ export default function WorkersPage() {
         description: (data as any)?.message || "تم تحديث بيانات العامل وحساباته بنجاح",
         className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100"
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
     },
     onError: (error: any, _variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['/api/workers'], context.previousData);
+        queryClient.setQueryData(QUERY_KEYS.workers, context.previousData);
       }
       toast({
         title: "خطأ",
@@ -462,8 +463,8 @@ export default function WorkersPage() {
     },
     onSettled: () => {
       setTogglingWorkerId(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/workers'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/projects/with-stats'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
     },
   });
 

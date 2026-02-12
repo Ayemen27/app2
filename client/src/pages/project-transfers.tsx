@@ -29,6 +29,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { cn } from "@/lib/utils";
 import { z } from "zod";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 type TransferFormData = z.infer<typeof insertProjectFundTransferSchema>;
 
@@ -80,7 +81,7 @@ export default function ProjectTransfers() {
 
   // Fetch Projects with Stats (للحصول على الرصيد الحالي)
   const { data: projectsWithStats = [] } = useQuery<any[]>({
-    queryKey: ["/api/projects/with-stats"],
+    queryKey: QUERY_KEYS.projectsWithStats,
     queryFn: async () => {
       const response = await apiRequest('/api/projects/with-stats', 'GET');
       return response.data || response || [];
@@ -92,7 +93,7 @@ export default function ProjectTransfers() {
 
   // Fetch All Transfers
   const { data: transfersResponse = { data: [] }, isLoading: transfersLoading, refetch } = useQuery<any>({
-    queryKey: ["/api/project-fund-transfers"],
+    queryKey: QUERY_KEYS.projectFundTransfers,
     queryFn: async () => {
       const response = await apiRequest('/api/project-fund-transfers', 'GET');
       return response || { data: [] };
@@ -159,8 +160,8 @@ export default function ProjectTransfers() {
       return apiRequest("/api/project-fund-transfers", "POST", data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/project-fund-transfers"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectFundTransfers });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       toast({
         title: "تم بنجاح",
         description: editingTransfer ? "تم تحديث عملية الترحيل" : "تم إنشاء عملية ترحيل جديدة",
@@ -188,7 +189,7 @@ export default function ProjectTransfers() {
     onSuccess: (data, variables) => {
       console.log('✅ [Client] نجح الحذف، تحديث البيانات...', variables);
       // تحديث البيانات مباشرة من البيانات المحفوظة
-      queryClient.setQueryData(["/api/project-fund-transfers"], (oldData: any) => {
+      queryClient.setQueryData(QUERY_KEYS.projectFundTransfers, (oldData: any) => {
         console.log('📊 [Client] البيانات القديمة:', oldData);
         const filtered = oldData?.data?.filter((t: any) => t.id !== variables) || [];
         const result = { ...oldData, data: filtered, success: true };
@@ -197,8 +198,8 @@ export default function ProjectTransfers() {
       });
 
       // إبطال الاستعلامات
-      queryClient.refetchQueries({ queryKey: ["/api/project-fund-transfers"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectFundTransfers });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectsWithStats });
 
       toast({
         title: "تم الحذف",

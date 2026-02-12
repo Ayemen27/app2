@@ -10,11 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Trash2 } from "lucide-react";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function Tasks() {
   const { toast } = useToast();
   const { data: tasks, isLoading } = useQuery<Task[]>({ 
-    queryKey: ["/api/tasks"] 
+    queryKey: QUERY_KEYS.tasks 
   });
 
   const form = useForm<InsertTask>({
@@ -27,7 +28,7 @@ export default function Tasks() {
       await apiRequest("POST", "/api/tasks", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
       form.reset();
       toast({ title: "Task created" });
     }
@@ -38,7 +39,7 @@ export default function Tasks() {
       await apiRequest("PATCH", `/api/tasks/${id}`, { completed });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
     }
   });
 
@@ -47,7 +48,7 @@ export default function Tasks() {
       await apiRequest("DELETE", `/api/tasks/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
       toast({ title: "Task deleted", variant: "destructive" });
     }
   });

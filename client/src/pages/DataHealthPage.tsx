@@ -17,13 +17,14 @@ import {
 } from "recharts";
 import { useEffect, useState } from "react";
 import { getSyncState, verifySyncStatus, SyncState } from "@/offline/sync";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function DataHealthPage() {
   const [syncState, setSyncState] = useState<SyncState>(getSyncState());
   const [comparison, setComparison] = useState<any>(null);
 
   const { data: health, isLoading, refetch } = useQuery({
-    queryKey: ["/api/admin/data-health"],
+    queryKey: QUERY_KEYS.adminDataHealth,
   });
 
   useEffect(() => {

@@ -75,10 +75,10 @@ export function useFilterStats({
     try {
       if (queryKeys.length > 0) {
         await Promise.all(
-          queryKeys.map(key => queryClient.invalidateQueries({ queryKey: [key] }))
+          queryKeys.map(key => queryClient.invalidateQueries({ queryKey: [key], refetchType: 'active' }))
         );
       } else {
-        await queryClient.invalidateQueries();
+        await queryClient.invalidateQueries({ refetchType: 'active' });
       }
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);

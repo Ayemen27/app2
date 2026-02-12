@@ -30,6 +30,7 @@ const WELL_STATUS_OPTIONS = [
 ];
 
 import { AdminMonitoringUI } from "@/components/admin-monitoring-ui";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function WellAccounting() {
   const [, setLocation] = useLocation();
@@ -62,7 +63,7 @@ export default function WellAccounting() {
 
   // جلب الآبار
   const { data: wells = [] } = useQuery({
-    queryKey: ['wells', selectedProjectId],
+    queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
       // محاولة الجلب المحلي أولاً لسرعة الاستجابة
@@ -82,7 +83,7 @@ export default function WellAccounting() {
 
   // جلب وصف المهام للإكمال التلقائي
   const { data: taskDescriptions = [] } = useQuery({
-    queryKey: ['autocomplete/taskDescriptions', selectedProjectId],
+    queryKey: QUERY_KEYS.autocompleteTaskDescriptions(selectedProjectId),
     queryFn: async () => {
       const response = await apiRequest('/api/autocomplete?category=workerMiscDescriptions');
       return Array.isArray(response.data) ? response.data : [];
@@ -93,7 +94,7 @@ export default function WellAccounting() {
 
   // جلب مهام البئر
   const { data: tasks = [] } = useQuery({
-    queryKey: ['well-tasks', selectedWellId],
+    queryKey: QUERY_KEYS.wellTasks(selectedWellId),
     queryFn: async () => {
       if (!selectedWellId) return [];
       try {
@@ -127,7 +128,7 @@ export default function WellAccounting() {
       toast({ title: "نجاح", description: "تم إنشاء المهمة بنجاح (محلياً)" });
       setTaskForm({ description: '', amount: '', status: 'pending' });
       setShowTaskDialog(false);
-      queryClient.invalidateQueries({ queryKey: ['well-tasks', selectedWellId] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId) });
     },
     onError: (error: any) => {
       toast({
@@ -148,7 +149,7 @@ export default function WellAccounting() {
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم تحديث حالة المهمة (محلياً)" });
-      queryClient.invalidateQueries({ queryKey: ['well-tasks', selectedWellId] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId) });
     },
     onError: (error: any) => {
       toast({
@@ -171,7 +172,7 @@ export default function WellAccounting() {
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم محاسبة المهمة (محلياً)" });
-      queryClient.invalidateQueries({ queryKey: ['well-tasks', selectedWellId] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId) });
     },
     onError: (error: any) => {
       toast({

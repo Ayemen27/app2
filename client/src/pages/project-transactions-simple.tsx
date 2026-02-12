@@ -32,6 +32,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { exportTransactionsToExcel } from "@/components/ui/export-transactions-excel";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 
 interface Transaction {
@@ -149,13 +150,13 @@ export default function ProjectTransactionsSimple() {
 
   // جلب المشاريع
   const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ['/api/projects'],
+    queryKey: QUERY_KEYS.projects,
     ...queryOptions
   });
 
   // جلب تحويلات العهدة العادية للمشروع
   const { data: fundTransfers = [], isLoading: fundTransfersLoading, error: fundTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'fund-transfers', isAllProjects],
+    queryKey: QUERY_KEYS.projectFundTransfersFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب تحويلات العهدة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
@@ -192,7 +193,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب التحويلات بين المشاريع (الواردة) - فقط إذا كانت موجودة فعلياً
   const { data: incomingProjectTransfers = [], isLoading: incomingTransfersLoading, error: incomingTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'incoming', isAllProjects],
+    queryKey: QUERY_KEYS.projectFundTransfersIncoming(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب التحويلات الواردة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
@@ -239,7 +240,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب التحويلات بين المشاريع (الصادرة)
   const { data: outgoingProjectTransfers = [], isLoading: outgoingTransfersLoading, error: outgoingTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'fund-transfers', 'outgoing', isAllProjects],
+    queryKey: QUERY_KEYS.projectFundTransfersOutgoing(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب التحويلات الصادرة للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
@@ -286,7 +287,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب حضور العمال للمشروع
   const { data: workerAttendance = [], isLoading: attendanceLoading, error: attendanceError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'worker-attendance', isAllProjects],
+    queryKey: QUERY_KEYS.projectWorkerAttendanceFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب حضور العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
@@ -323,7 +324,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب مشتريات المواد للمشروع
   const { data: materialPurchases = [], isLoading: materialsLoading, error: materialsError } = useQuery<any[]>({
-    queryKey: ['/api/projects', selectedProject, 'material-purchases', isAllProjects],
+    queryKey: QUERY_KEYS.projectMaterialPurchasesFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب مشتريات المواد للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
@@ -382,7 +383,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب مصاريف النقل للمشروع
   const { data: transportExpenses = [], isLoading: transportExpensesLoading } = useQuery<any[]>({
-    queryKey: ['/api/transportation-expenses', isAllProjects, selectedProject],
+    queryKey: QUERY_KEYS.transportationExpensesFiltered(isAllProjects, selectedProject),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب مصاريف النقل - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
@@ -423,7 +424,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب المصاريف المتنوعة للمشروع
   const { data: miscExpenses = [], isLoading: miscExpensesLoading } = useQuery<any[]>({
-    queryKey: ['/api/worker-misc-expenses', isAllProjects, selectedProject],
+    queryKey: QUERY_KEYS.workerMiscExpensesFiltered(isAllProjects as any, selectedProject),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب المصاريف المتنوعة - جميع المشاريع: ${isAllProjects}, المشروع: ${selectedProject}`);
@@ -464,7 +465,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب حوالات العمال للمشروع
   const { data: workerTransfers = [], isLoading: workerTransfersLoading, error: workerTransfersError } = useQuery<any[]>({
-    queryKey: ['/api/worker-transfers', selectedProject, isAllProjects],
+    queryKey: QUERY_KEYS.workerTransfersFiltered(selectedProject, isAllProjects),
     queryFn: async () => {
       try {
         console.log(`🔄 جلب حوالات العمال للمشروع: ${selectedProject}, جميع المشاريع: ${isAllProjects}`);
@@ -504,7 +505,7 @@ export default function ProjectTransactionsSimple() {
 
   // جلب بيانات العمال لعرض أسمائهم
   const { data: workers = [] } = useQuery({
-    queryKey: ['/api/workers'],
+    queryKey: QUERY_KEYS.workers,
   });
 
   // Helper function to filter by project
@@ -975,7 +976,7 @@ export default function ProjectTransactionsSimple() {
   ], [totals]);
 
   const { data: transactionCategoriesResponse } = useQuery({
-    queryKey: ["/api/autocomplete/transaction-categories"],
+    queryKey: QUERY_KEYS.autocompleteTransactionCategories,
     queryFn: async () => apiRequest("/api/autocomplete/transaction-categories", "GET")
   });
 

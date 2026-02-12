@@ -28,6 +28,7 @@ import { useUnifiedFilter } from '@/components/ui/unified-search-filter';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function AdminNotificationsPage() {
   const { toast } = useToast();
@@ -88,7 +89,7 @@ export default function AdminNotificationsPage() {
   });
 
   const { data: notificationsData, isLoading: isLoadingNotifications, refetch } = useQuery({
-    queryKey: ['admin-notifications', filterValues, searchValue],
+    queryKey: QUERY_KEYS.adminNotifications(filterValues, searchValue),
     queryFn: async () => {
       const params = new URLSearchParams({
         requesterId: 'admin',
@@ -119,7 +120,7 @@ export default function AdminNotificationsPage() {
   }, [refetch, setRefreshAction, toast]);
 
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
-    queryKey: ['user-activity'],
+    queryKey: QUERY_KEYS.userActivity,
     queryFn: async () => {
       const response = await fetch('/api/admin/notifications/user-activity?requesterId=admin', {
         headers: getAuthHeaders()

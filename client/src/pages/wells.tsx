@@ -14,6 +14,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface Well {
   id: number;
@@ -82,7 +83,7 @@ export default function WellsPage() {
 
   // جلب بيانات الإكمال التلقائي
   const { data: ownerNames = [] } = useQuery({
-    queryKey: ['autocomplete/ownerNames', selectedProjectId],
+    queryKey: QUERY_KEYS.autocompleteOwnerNames(selectedProjectId),
     queryFn: async () => {
       const response = await apiRequest('/api/autocomplete?category=ownerNames');
       return Array.isArray(response.data) ? response.data : [];
@@ -91,7 +92,7 @@ export default function WellsPage() {
   });
 
   const { data: fanTypes = [] } = useQuery({
-    queryKey: ['autocomplete/fanTypes', selectedProjectId],
+    queryKey: QUERY_KEYS.autocompleteFanTypes(selectedProjectId),
     queryFn: async () => {
       const response = await apiRequest('/api/autocomplete?category=fanTypes');
       return Array.isArray(response.data) ? response.data : [];
@@ -100,7 +101,7 @@ export default function WellsPage() {
   });
 
   const { data: pumpPowers = [] } = useQuery({
-    queryKey: ['autocomplete/pumpPowers', selectedProjectId],
+    queryKey: QUERY_KEYS.autocompletePumpPowers(selectedProjectId),
     queryFn: async () => {
       const response = await apiRequest('/api/autocomplete?category=pumpPowers');
       return Array.isArray(response.data) ? response.data : [];
@@ -124,7 +125,7 @@ export default function WellsPage() {
 
   // جلب الآبار
   const { data: wells = [], isLoading, isFetching } = useQuery({
-    queryKey: ['wells', selectedProjectId],
+    queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
       const response = await apiRequest(`/api/wells?projectId=${selectedProjectId}`);
@@ -228,7 +229,7 @@ export default function WellsPage() {
         title: "نجاح",
         description: "تم إنشاء البئر بنجاح"
       });
-      queryClient.invalidateQueries({ queryKey: ['wells'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
       setShowAddDialog(false);
       setFormData({});
     },
@@ -255,7 +256,7 @@ export default function WellsPage() {
         title: "نجاح",
         description: "تم تحديث البئر بنجاح"
       });
-      queryClient.invalidateQueries({ queryKey: ['wells'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
       setShowEditDialog(false);
       setSelectedWell(null);
     },
@@ -278,7 +279,7 @@ export default function WellsPage() {
         title: "نجاح",
         description: "تم حذف البئر بنجاح"
       });
-      queryClient.invalidateQueries({ queryKey: ['wells'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
     },
     onError: (error: any) => {
       toast({

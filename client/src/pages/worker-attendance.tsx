@@ -20,6 +20,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Worker, InsertWorkerAttendance } from "@shared/schema";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface AttendanceData {
   [workerId: string]: {
@@ -102,7 +103,7 @@ export default function WorkerAttendance() {
     setIsRefreshing(true);
     try {
       await queryClient.invalidateQueries({ 
-        queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] 
+        queryKey: QUERY_KEYS.workerAttendanceAll(selectedProjectId) 
       });
       toast({
         title: "تم التحديث",
@@ -148,7 +149,7 @@ export default function WorkerAttendance() {
 
   // Get today's attendance records
   const { data: todayAttendance = [] } = useQuery({
-    queryKey: ["/api/projects", selectedProjectId, "worker-attendance", selectedDate],
+    queryKey: QUERY_KEYS.workerAttendance(selectedProjectId, selectedDate),
     queryFn: async () => {
       try {
         // إذا كان "جميع المشاريع" محدد، نجلب من جميع المشاريع
@@ -193,7 +194,7 @@ export default function WorkerAttendance() {
 
   // Get all project attendance records (للسجلات القديمة)
   const { data: allProjectAttendance = [] } = useQuery({
-    queryKey: ["/api/projects", selectedProjectId, "worker-attendance"],
+    queryKey: QUERY_KEYS.workerAttendanceAll(selectedProjectId),
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/projects/${selectedProjectId}/worker-attendance`, "GET");
@@ -215,7 +216,7 @@ export default function WorkerAttendance() {
 
   // Fetch specific attendance record for editing
   const { data: attendanceToEdit } = useQuery({
-    queryKey: ["/api/worker-attendance", editId],
+    queryKey: QUERY_KEYS.workerAttendanceEdit(editId),
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/worker-attendance/${editId}`, "GET");
@@ -262,8 +263,8 @@ export default function WorkerAttendance() {
       // حفظ المفاتيح الحالية للاستخدام في onError و onSettled
       const projectId = selectedProjectId;
       const date = selectedDate;
-      const allKey = ["/api/projects", projectId, "worker-attendance"];
-      const dateKey = ["/api/projects", projectId, "worker-attendance", date];
+      const allKey = QUERY_KEYS.workerAttendanceAll(projectId);
+      const dateKey = QUERY_KEYS.workerAttendance(projectId, date);
 
       // إلغاء كلا الـ queries
       await queryClient.cancelQueries({ queryKey: allKey });
@@ -345,7 +346,7 @@ export default function WorkerAttendance() {
   };
 
   const { data: workers = [], isLoading: workersLoading } = useQuery<Worker[]>({
-    queryKey: ["/api/workers"],
+    queryKey: QUERY_KEYS.workers,
   });
 
   const saveAttendanceMutation = useMutation({
@@ -505,8 +506,8 @@ export default function WorkerAttendance() {
     },
     onSuccess: async (result) => {
       // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
-      queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects", selectedProjectId, "worker-attendance"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.workerAttendanceAll(selectedProjectId) });
 
       const { successful, failed, totalProcessed } = result;
 
@@ -559,7 +560,7 @@ export default function WorkerAttendance() {
       if (autocompletePromises.length > 0) {
         await Promise.all(autocompletePromises);
         // تحديث كاش autocomplete
-        queryClient.refetchQueries({ queryKey: ["/api/autocomplete"] });
+        queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       }
 
       console.error("Error saving attendance:", error);

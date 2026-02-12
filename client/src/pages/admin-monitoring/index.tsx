@@ -7,17 +7,18 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AdminMonitoringUI } from "@/components/admin-monitoring-ui";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function AdminMonitoring() {
   // جلب بيانات الصحة الكاملة
   const { data: healthData, isLoading: healthLoading } = useQuery({
-    queryKey: ["/api/health/full"],
+    queryKey: QUERY_KEYS.healthFull,
     refetchInterval: 30000,
   });
 
   // جلب الإحصائيات اللحظية
   const { data: statsData, isLoading: statsLoading } = useQuery({
-    queryKey: ["/api/health/stats"],
+    queryKey: QUERY_KEYS.healthStats,
     refetchInterval: 15000,
   });
 

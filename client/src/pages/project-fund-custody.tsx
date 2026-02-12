@@ -22,6 +22,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { z } from "zod";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 type FundTransferFormData = z.infer<typeof insertFundTransferSchema>;
 
@@ -78,7 +79,7 @@ export default function ProjectFundCustody() {
 
   // Fetch Projects
   const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       const response = await apiRequest('/api/projects', 'GET');
       return response.data || [];
@@ -87,7 +88,7 @@ export default function ProjectFundCustody() {
 
   // Fetch Fund Transfers (الوارد الرئيسي)
   const { data: allTransfers = [], isLoading: transfersLoading, refetch } = useQuery<any[]>({
-    queryKey: ["/api/projects/all/fund-transfers"],
+    queryKey: QUERY_KEYS.allFundTransfers,
     queryFn: async () => {
       const response = await apiRequest('/api/projects/all/fund-transfers', 'GET');
       return response.data || [];
@@ -156,8 +157,8 @@ export default function ProjectFundCustody() {
       return apiRequest("/api/fund-transfers", "POST", data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/projects/all/fund-transfers"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.allFundTransfers });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       toast({
         title: "تم بنجاح",
         description: editingTransfer ? "تم تحديث الوارد" : "تم إضافة وارد جديد",
@@ -180,8 +181,8 @@ export default function ProjectFundCustody() {
       return apiRequest(`/api/fund-transfers/${id}`, "DELETE");
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ["/api/projects/all/fund-transfers"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.allFundTransfers });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       toast({
         title: "تم الحذف",
         description: "تم حذف الوارد بنجاح",

@@ -121,10 +121,19 @@ function Router() {
           if (!state.isSyncing && state.lastSync > 0 && state.pendingCount === 0) {
             // عندما تنتهي المزامنة بنجاح، أعد تحميل البيانات
             console.log('🔄 [Sync] انتهت المزامنة بنجاح - إعادة تحميل البيانات...');
-            // تحديث جميع الكاش لإعادة تحميل البيانات مع تجنب التكرار غير الضروري
             requestAnimationFrame(() => {
               try {
-                queryClient.invalidateQueries();
+                const coreKeys = [
+                  ["/api/projects"],
+                  ["/api/projects/with-stats"],
+                  ["/api/workers"],
+                  ["/api/materials"],
+                  ["/api/suppliers"],
+                  ["/api/notifications"],
+                ];
+                coreKeys.forEach(key =>
+                  queryClient.invalidateQueries({ queryKey: key, refetchType: 'active', exact: false })
+                );
               } catch (err) {
                 console.error('❌ خطأ في تحديث البيانات:', err);
               }

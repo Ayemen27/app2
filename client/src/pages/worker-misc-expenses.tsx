@@ -12,6 +12,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { useEffect, useState as useStateAlias } from "react";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface WorkerMiscExpense {
   id: string;
@@ -55,7 +56,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   };
 
   const { data: todayMiscExpenses = [] } = useQuery<WorkerMiscExpense[]>({
-    queryKey: ["/api/worker-misc-expenses", projectId, selectedDate],
+    queryKey: QUERY_KEYS.workerMiscExpensesFiltered(projectId, selectedDate),
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/worker-misc-expenses?projectId=${projectId}&date=${selectedDate}`, "GET");
@@ -84,7 +85,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       // حفظ قيم الإكمال التلقائي
       if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
       
-      queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerMiscExpenses });
       setMiscDescription("");
       setMiscAmount("");
       toast({
@@ -110,7 +111,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       // حفظ قيم الإكمال التلقائي
       if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
       
-      queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerMiscExpenses });
       resetMiscExpenseForm();
       toast({
         title: "تم تحديث النثريات",
@@ -131,7 +132,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   const deleteMiscExpenseMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-misc-expenses/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/worker-misc-expenses"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerMiscExpenses });
       toast({
         title: "تم حذف النثريات",
         description: "تم حذف النثريات بنجاح"

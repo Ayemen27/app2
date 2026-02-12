@@ -14,6 +14,7 @@ import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-s
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function SyncManagementPage() {
   const { isSyncing, isOnline, manualSync, offlineCount } = useSyncData();
@@ -58,7 +59,7 @@ export default function SyncManagementPage() {
   }, []);
 
   const { data: projects = [] } = useQuery({
-    queryKey: ["/api/projects"],
+    queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       const res = await apiRequest("/api/projects", "GET");
       return res?.data || res || [];

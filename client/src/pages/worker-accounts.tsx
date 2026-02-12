@@ -50,6 +50,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input-database';
 import '@/styles/unified-print-styles.css';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface Worker {
   id: string;
@@ -164,17 +165,17 @@ export default function WorkerAccountsPage() {
   const preselectedWorker = urlParams.get('worker');
 
   const { data: workers = [], isLoading: isLoadingWorkers } = useQuery<Worker[]>({
-    queryKey: ['/api/workers'],
+    queryKey: QUERY_KEYS.workers,
     select: (data: Worker[]) => Array.isArray(data) ? data.filter(w => w.isActive) : []
   });
 
   const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ['/api/projects'],
+    queryKey: QUERY_KEYS.projects,
     select: (data) => Array.isArray(data) ? data : []
   });
 
   const { data: transfers = [], isLoading: isLoadingTransfers } = useQuery<WorkerTransfer[]>({
-    queryKey: ['/api/worker-transfers', selectedProjectId],
+    queryKey: QUERY_KEYS.workerTransfers(selectedProjectId),
     queryFn: async () => {
       const url = selectedProject 
         ? `/api/worker-transfers?projectId=${selectedProject}` 
@@ -214,8 +215,8 @@ export default function WorkerAccountsPage() {
       return apiRequest('/api/worker-transfers', 'POST', data);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers', selectedProjectId] });
-      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.workerTransfers(selectedProjectId) });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       setShowTransferDialog(false);
       resetForm();
       toast({
@@ -225,7 +226,7 @@ export default function WorkerAccountsPage() {
     },
     onError: async (error: any) => {
       await saveAllTransferAutocompleteValues();
-      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       
       let errorMessage = "فشل في إرسال الحولة";
       if (error?.response?.data?.message) {
@@ -248,8 +249,8 @@ export default function WorkerAccountsPage() {
       return apiRequest(`/api/worker-transfers/${data.id}`, 'PATCH', data.updates);
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers', selectedProjectId] });
-      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.workerTransfers(selectedProjectId) });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       setShowTransferDialog(false);
       setEditingTransfer(null);
       resetForm();
@@ -260,7 +261,7 @@ export default function WorkerAccountsPage() {
     },
     onError: async (error: any) => {
       await saveAllTransferAutocompleteValues();
-      queryClient.refetchQueries({ queryKey: ['/api/autocomplete'] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       
       let errorMessage = "فشل في تحديث الحولة";
       if (error?.response?.data?.message) {
@@ -282,7 +283,7 @@ export default function WorkerAccountsPage() {
       return apiRequest(`/api/worker-transfers/${id}`, 'DELETE');
     },
     onSuccess: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/worker-transfers', selectedProjectId] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.workerTransfers(selectedProjectId) });
       toast({
         title: "تم بنجاح",
         description: "تم حذف الحولة بنجاح"
@@ -598,7 +599,7 @@ export default function WorkerAccountsPage() {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await queryClient.refetchQueries({ queryKey: ['/api/worker-transfers', selectedProjectId] });
+    await queryClient.refetchQueries({ queryKey: QUERY_KEYS.workerTransfers(selectedProjectId) });
     setIsRefreshing(false);
   }, [queryClient, selectedProjectId]);
 

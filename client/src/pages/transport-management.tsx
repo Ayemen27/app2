@@ -57,6 +57,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { UnifiedStats, type UnifiedStatItem } from "@/components/ui/unified-stats";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TransportationExpense, Worker } from "@shared/schema";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import * as XLSX from 'xlsx';
 
 export default function TransportManagement() {
@@ -109,11 +110,11 @@ export default function TransportManagement() {
   }, [setFloatingAction]);
 
   const { data: workers = [] } = useQuery<Worker[]>({
-    queryKey: ["/api/workers"],
+    queryKey: QUERY_KEYS.workers,
   });
 
   const { data: expensesResponse, isLoading, refetch } = useQuery<{ success: boolean; data: (TransportationExpense & { workerName?: string, projectName?: string })[] }>({
-    queryKey: ["/api/projects", selectedProjectId, "transportation", filterValues.specificDate, filterValues.dateRange],
+    queryKey: QUERY_KEYS.projectTransportation(selectedProjectId, filterValues.specificDate, filterValues.dateRange),
     queryFn: async () => {
       let url = isAllProjects 
         ? `/api/transportation-expenses` 
@@ -138,7 +139,7 @@ export default function TransportManagement() {
   });
 
   const { data: autocompleteResponse } = useQuery({
-    queryKey: ["/api/autocomplete/transport-categories"],
+    queryKey: QUERY_KEYS.autocompleteTransportCategories,
     queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
   });
 
@@ -355,8 +356,8 @@ export default function TransportManagement() {
       return apiRequest("/api/transportation-expenses", "POST", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transportation-expenses"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transportationExpenses });
       toast({ title: editingExpenseId ? "تم التعديل بنجاح" : "تم الحفظ بنجاح" });
       resetForm();
     },
@@ -372,8 +373,8 @@ export default function TransportManagement() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/transportation-expenses/${id}`, "DELETE"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/transportation-expenses"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transportationExpenses });
       toast({ title: "تم الحذف بنجاح" });
     }
   });

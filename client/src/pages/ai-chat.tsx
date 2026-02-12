@@ -38,6 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
 import { format } from "date-fns";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 // Mock ThemeToggle to prevent crash
 const ThemeToggle = () => (
@@ -104,7 +105,7 @@ export default function AIChatPage() {
 
   // جلب الجلسات
   const { data: sessions = [] } = useQuery({
-    queryKey: ["/api/ai/sessions"],
+    queryKey: QUERY_KEYS.aiSessions,
     queryFn: async () => {
       try {
         const res = await apiRequest("/api/ai/sessions", "GET");
@@ -119,7 +120,7 @@ export default function AIChatPage() {
 
   // جلب الوصول
   const { data: accessData, isLoading: isAccessLoading } = useQuery({
-    queryKey: ["/api/ai/access"],
+    queryKey: QUERY_KEYS.aiAccess,
     queryFn: async () => {
       try {
         const res = await apiRequest("/api/ai/access", "GET");
@@ -144,7 +145,7 @@ export default function AIChatPage() {
     },
     onSuccess: (data) => {
       setCurrentSessionId(data.sessionId);
-      queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
       setMessages([
         {
           role: "assistant",
@@ -168,7 +169,7 @@ export default function AIChatPage() {
           
           activeSessionId = sessionRes.sessionId;
           setCurrentSessionId(activeSessionId);
-          queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
         }
 
         const chatRes = await apiRequest("/api/ai/chat", "POST", {
@@ -182,7 +183,7 @@ export default function AIChatPage() {
       }
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
       const assistantMessage: Message = {
         role: "assistant",
         content: data.message || "عذراً، لم أتمكن من معالجة الطلب حالياً.",
@@ -206,7 +207,7 @@ export default function AIChatPage() {
       return await apiRequest(`/api/ai/sessions/${sessionId}`, "DELETE");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/ai/sessions"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
       if (currentSessionId) {
         setCurrentSessionId(null);
         startNewChat();

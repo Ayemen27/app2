@@ -19,6 +19,7 @@ import { saveAs } from 'file-saver';
 import { useToast } from "@/hooks/use-toast";
 import { EXCEL_STYLES, COMPANY_INFO, addReportHeader } from "@/components/excel-export-utils";
 import { downloadExcelFile } from "@/utils/webview-download";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface Equipment {
   id: string;
@@ -105,7 +106,7 @@ export function EquipmentManagement() {
   });
 
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
+    queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       const response = await apiRequest('/api/projects', 'GET');
       return response;

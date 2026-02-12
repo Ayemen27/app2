@@ -33,6 +33,7 @@ import { useSelectedProject } from "@/hooks/use-selected-project";
 import { downloadExcelFile } from "@/utils/webview-download";
 import { useToast } from "@/hooks/use-toast";
 import type { Supplier, MaterialPurchase, Project } from "@shared/schema";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function SupplierAccountsPage() {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("all");
@@ -51,7 +52,7 @@ export default function SupplierAccountsPage() {
   }, [setFloatingAction]);
 
   const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
+    queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/projects", "GET");
@@ -67,7 +68,7 @@ export default function SupplierAccountsPage() {
   });
 
   const { data: suppliers = [], isLoading: isLoadingSuppliers, error: suppliersError } = useQuery<Supplier[]>({
-    queryKey: ["/api/suppliers"],
+    queryKey: QUERY_KEYS.suppliers,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/suppliers", "GET");
@@ -85,7 +86,7 @@ export default function SupplierAccountsPage() {
   });
 
   const { data: dateRange } = useQuery<{ minDate: string; maxDate: string }>({
-    queryKey: ["/api/material-purchases/date-range"],
+    queryKey: QUERY_KEYS.materialPurchasesDateRange,
     staleTime: 300000,
   });
 
@@ -94,7 +95,7 @@ export default function SupplierAccountsPage() {
   ) : [];
 
   const { data: purchases = [], isLoading: isLoadingPurchases } = useQuery<MaterialPurchase[]>({
-    queryKey: ["/api/material-purchases", selectedProjectId, selectedSupplierId, dateFrom, dateTo, paymentTypeFilter],
+    queryKey: QUERY_KEYS.materialPurchasesFiltered(selectedProjectId, selectedSupplierId, dateFrom, dateTo, paymentTypeFilter),
     queryFn: async () => {
       const params = new URLSearchParams();
       
@@ -149,7 +150,7 @@ export default function SupplierAccountsPage() {
     remainingDebt: string;
     activeSuppliers: number;
   }>({
-    queryKey: ["/api/suppliers/statistics"],
+    queryKey: QUERY_KEYS.supplierStatistics,
     queryFn: async () => {
       // إرجاع بيانات فارغة لأننا سنعتمد على summary الموحد للإحصائيات العامة
       return {
@@ -174,7 +175,7 @@ export default function SupplierAccountsPage() {
     remainingDebt: string;
     activeSuppliers: number;
   }>({
-    queryKey: ["/api/suppliers/statistics", selectedProjectId, selectedSupplierId, dateFrom, dateTo, paymentTypeFilter],
+    queryKey: QUERY_KEYS.supplierStatisticsFiltered(selectedProjectId, selectedSupplierId, dateFrom, dateTo, paymentTypeFilter),
     queryFn: async () => {
       const params = new URLSearchParams();
       
@@ -713,9 +714,9 @@ export default function SupplierAccountsPage() {
                         if (confirm('هل أنت متأكد من حذف هذه المشترى؟')) {
                           try {
                             await apiRequest(`/api/material-purchases/${purchase.id}`, 'DELETE');
-                            await queryClient.invalidateQueries({ queryKey: ['/api/material-purchases'] });
-                            await queryClient.invalidateQueries({ queryKey: ['/api/suppliers'] });
-                            await queryClient.invalidateQueries({ queryKey: ['/api/suppliers/statistics'] });
+                            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchasesFiltered() });
+                            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.suppliers });
+                            await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.supplierStatistics });
                             toast({
                               title: '✅ تم الحذف',
                               description: 'تم حذف المشترى بنجاح',

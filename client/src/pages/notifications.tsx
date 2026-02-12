@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import {
   Sheet,
   SheetContent,
@@ -265,7 +266,7 @@ export default function NotificationsPage() {
   });
 
   const { data: notificationsData, isLoading, refetch } = useQuery({
-    queryKey: ['/api/notifications', userId],
+    queryKey: QUERY_KEYS.notificationsByUser(userId),
     queryFn: async () => {
       try {
         const result = await apiRequest(`/api/notifications?userId=${userId}&limit=100`);
@@ -337,9 +338,9 @@ export default function NotificationsPage() {
       return await apiRequest(`/api/notifications/${notificationId}/mark-read`, 'POST');
     },
     onMutate: async (notificationId: string) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });
-      const previousData = queryClient.getQueryData(['/api/notifications', userId]);
-      queryClient.setQueryData(['/api/notifications', userId], (old: any) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
+      const previousData = queryClient.getQueryData(QUERY_KEYS.notificationsByUser(userId));
+      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -353,11 +354,11 @@ export default function NotificationsPage() {
     },
     onError: (_err, _notificationId, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['/api/notifications', userId], context.previousData);
+        queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/notifications'], exact: false });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notifications, exact: false });
     },
   });
 
@@ -366,9 +367,9 @@ export default function NotificationsPage() {
       return await apiRequest('/api/notifications/mark-all-read', 'POST');
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });
-      const previousData = queryClient.getQueryData(['/api/notifications', userId]);
-      queryClient.setQueryData(['/api/notifications', userId], (old: any) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
+      const previousData = queryClient.getQueryData(QUERY_KEYS.notificationsByUser(userId));
+      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
         if (!old) return old;
         return {
           ...old,
@@ -380,11 +381,11 @@ export default function NotificationsPage() {
     },
     onError: (_err, _variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['/api/notifications', userId], context.previousData);
+        queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/notifications'], exact: false });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notifications, exact: false });
       toast({ title: 'تم بنجاح', description: 'تم تعليم جميع الإشعارات كمقروءة' });
       setSelectedIds(new Set());
     },
@@ -404,9 +405,9 @@ export default function NotificationsPage() {
       return ids;
     },
     onMutate: async (ids: string[]) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/notifications', userId] });
-      const previousData = queryClient.getQueryData(['/api/notifications', userId]);
-      queryClient.setQueryData(['/api/notifications', userId], (old: any) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
+      const previousData = queryClient.getQueryData(QUERY_KEYS.notificationsByUser(userId));
+      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
         if (!old) return old;
         const idsSet = new Set(ids);
         return {
@@ -421,11 +422,11 @@ export default function NotificationsPage() {
     },
     onError: (_err, _ids, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(['/api/notifications', userId], context.previousData);
+        queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: ['/api/notifications'], exact: false });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notifications, exact: false });
       toast({ title: 'تم بنجاح', description: `تم تعليم ${selectedIds.size} إشعار كمقروء` });
       setSelectedIds(new Set());
     },

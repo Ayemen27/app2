@@ -353,7 +353,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // تشغيل المزامنة في الخلفية
     performInitialDataPull().then(() => {
       console.log('✅ [AuthProvider] اكتملت محاولة المزامنة');
-      queryClient.invalidateQueries();
+      const coreKeys = [
+        ["/api/projects"], ["/api/projects/with-stats"],
+        ["/api/workers"], ["/api/materials"],
+        ["/api/suppliers"], ["/api/notifications"],
+      ];
+      coreKeys.forEach(key =>
+        queryClient.invalidateQueries({ queryKey: key, refetchType: 'active', exact: false })
+      );
     }).catch(() => {});
 
     await new Promise(resolve => setTimeout(resolve, 50));

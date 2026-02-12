@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface RefreshOptions {
   projectId?: string;
@@ -7,20 +8,16 @@ interface RefreshOptions {
   immediate?: boolean;
 }
 
-const QUERY_KEYS = {
-  projects: ["/api/projects"],
-  projectsWithStats: ["/api/projects/with-stats"],
-  workers: ["/api/workers"],
-  workerAttendance: ["/api/worker-attendance"],
-  materialPurchases: ["/api/material-purchases"],
-  fundTransfers: ["/api/fund-transfers"],
-  transportationExpenses: ["/api/transportation-expenses"],
-  workerTransfers: ["/api/worker-transfers"],
-  workerMiscExpenses: ["/api/worker-misc-expenses"],
-  suppliers: ["/api/suppliers"],
-  dailyExpenseSummaries: ["/api/daily-expense-summaries"],
-  materials: ["/api/materials"],
-  notifications: ["/api/notifications"],
+const CORE_KEYS = {
+  projects: QUERY_KEYS.projects,
+  projectsWithStats: QUERY_KEYS.projectsWithStats,
+  workers: QUERY_KEYS.workers,
+  transportationExpenses: QUERY_KEYS.transportationExpenses,
+  workerMiscExpenses: QUERY_KEYS.workerMiscExpenses,
+  suppliers: QUERY_KEYS.suppliers,
+  dailyExpenseSummaries: QUERY_KEYS.dailyExpenseSummaries,
+  materials: QUERY_KEYS.materials,
+  notifications: QUERY_KEYS.notifications,
 } as const;
 
 export function useInstantRefresh() {
@@ -36,8 +33,6 @@ export function useInstantRefresh() {
   }, []);
 
   const instantRefetch = useCallback(async (queryKey: readonly unknown[]) => {
-    console.log('⚡ [InstantRefresh] تحديث فوري:', queryKey);
-    
     await queryClient.invalidateQueries({ 
       queryKey: queryKey as string[], 
       refetchType: 'active',
@@ -54,19 +49,14 @@ export function useInstantRefresh() {
   const refreshProjectData = useCallback(async (options: RefreshOptions = {}) => {
     const { projectId, date, immediate = true } = options;
     
-    console.log('🔄 [InstantRefresh] تحديث بيانات المشروع:', { projectId, date });
-    
     const refreshTasks: Promise<void>[] = [];
 
     if (projectId && projectId !== 'all') {
       refreshTasks.push(
-        instantRefetch(["/api/projects", projectId, "daily-expenses", date]),
-        instantRefetch(["/api/projects", projectId, "previous-balance", date]),
-        instantRefetch(["/api/projects", projectId, "fund-transfers"]),
-        instantRefetch(["/api/projects", projectId, "worker-attendance"]),
-        instantRefetch(["/api/projects", projectId, "material-purchases"]),
-        instantRefetch(["/api/projects", projectId, "transportation-expenses"]),
-        instantRefetch(["/api/projects", projectId, "worker-misc-expenses"]),
+        instantRefetch(QUERY_KEYS.dailyExpenses(projectId, date)),
+        instantRefetch(QUERY_KEYS.previousBalance(projectId, date)),
+        instantRefetch(QUERY_KEYS.workerAttendanceAll(projectId)),
+        instantRefetch(QUERY_KEYS.materialPurchases(projectId)),
       );
     }
 
@@ -83,11 +73,9 @@ export function useInstantRefresh() {
   }, [instantRefetch]);
 
   const refreshOnProjectChange = useCallback(async (projectId: string, projectName?: string) => {
-    console.log('📁 [InstantRefresh] تغيير المشروع:', { projectId, projectName });
-    
     queryClient.cancelQueries();
     
-    const allKeys = Object.values(QUERY_KEYS);
+    const allKeys = Object.values(CORE_KEYS);
     
     await Promise.all(
       allKeys.map(key => 
@@ -118,35 +106,27 @@ export function useInstantRefresh() {
         })
       )
     );
-    
-    console.log('✅ [InstantRefresh] تم تحديث جميع البيانات للمشروع:', projectId);
   }, [queryClient]);
 
   const refreshOnDateChange = useCallback(async (projectId: string, date: string) => {
-    console.log('📅 [InstantRefresh] تغيير التاريخ:', { projectId, date });
-    
     const dateKeys = [
-      ["/api/projects", projectId, "daily-expenses", date],
-      ["/api/projects", projectId, "previous-balance", date],
-      ["/api/projects", projectId, "daily-summary", date],
-      ["/api/daily-project-transfers", projectId, date],
+      QUERY_KEYS.dailyExpenses(projectId, date),
+      QUERY_KEYS.previousBalance(projectId, date),
+      QUERY_KEYS.dailySummary(projectId, date),
+      QUERY_KEYS.dailyProjectTransfers(projectId, date),
     ];
 
     await Promise.all(
       dateKeys.map(key => instantRefetch(key))
     );
-    
-    console.log('✅ [InstantRefresh] تم تحديث بيانات التاريخ:', date);
   }, [instantRefetch]);
 
   const refreshOnMutation = useCallback(async (
-    entityType: keyof typeof QUERY_KEYS,
+    entityType: keyof typeof CORE_KEYS,
     projectId?: string,
     date?: string
   ) => {
-    console.log('💾 [InstantRefresh] تحديث بعد العملية:', { entityType, projectId, date });
-    
-    const entityKey = QUERY_KEYS[entityType];
+    const entityKey = CORE_KEYS[entityType];
     if (entityKey) {
       await instantRefetch(entityKey);
     }
@@ -156,20 +136,21 @@ export function useInstantRefresh() {
     if (projectId && date) {
       await refreshOnDateChange(projectId, date);
     }
-    
-    console.log('✅ [InstantRefresh] تم تحديث البيانات بعد العملية');
   }, [instantRefetch, refreshOnDateChange]);
 
   const refreshAll = useCallback(async () => {
-    console.log('🔄 [InstantRefresh] تحديث شامل لجميع البيانات...');
-    
-    queryClient.cancelQueries();
-    
-    await queryClient.invalidateQueries();
+    const allKeys = Object.values(CORE_KEYS);
+    await Promise.all(
+      allKeys.map(key =>
+        queryClient.invalidateQueries({
+          queryKey: key,
+          refetchType: 'active',
+          exact: false,
+        })
+      )
+    );
     
     await queryClient.refetchQueries({ type: 'active' });
-    
-    console.log('✅ [InstantRefresh] تم تحديث جميع البيانات');
   }, [queryClient]);
 
   const setQueryData = useCallback(<T>(

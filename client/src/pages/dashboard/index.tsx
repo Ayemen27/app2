@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,11 +36,11 @@ const chartData = [
 
 export default function Dashboard() {
   const { data: incidents, isLoading: incidentsLoading } = useQuery<Incident[]>({ 
-    queryKey: ["/api/incidents"] 
+    queryKey: QUERY_KEYS.incidents 
   });
 
   const { data: summary, isLoading: summaryLoading } = useQuery<any>({ 
-    queryKey: ["/api/metrics/summary"] 
+    queryKey: QUERY_KEYS.metricsSummary 
   });
 
   if (incidentsLoading || summaryLoading) {

@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import {
   Select,
   SelectContent,
@@ -81,7 +82,7 @@ export default function BackupManager() {
   });
 
   const { data: statusData } = useQuery<BackupStatus & { storage?: any }>({
-    queryKey: ["/api/backups/status"],
+    queryKey: QUERY_KEYS.backupsStatus,
     refetchInterval: 5000,
   });
 
@@ -99,7 +100,7 @@ export default function BackupManager() {
   const storageInfo = statusData?.storage;
 
   const { data: dbList } = useQuery<any[]>({
-    queryKey: ["/api/backups/databases"],
+    queryKey: QUERY_KEYS.backupsDatabases,
   });
 
   const availableDatabases = useMemo(() => {
@@ -108,7 +109,7 @@ export default function BackupManager() {
   }, [dbList]);
 
   const { data: logsData, isLoading, refetch } = useQuery<BackupLog[]>({
-    queryKey: ["/api/backups/logs"],
+    queryKey: QUERY_KEYS.backupsLogs,
     refetchInterval: 10000,
   });
 
@@ -126,8 +127,8 @@ export default function BackupManager() {
       });
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/backups/status"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.backupsLogs });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.backupsStatus });
       
       if (data.success) {
         toast({ 
@@ -272,8 +273,8 @@ export default function BackupManager() {
         title: "تم الحذف بنجاح", 
         description: data.message,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/backups/logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/backups/status"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.backupsLogs });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.backupsStatus });
     },
     onError: (error: any) => {
       toast({ 

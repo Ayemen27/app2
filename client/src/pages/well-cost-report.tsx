@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { ArrowLeft, DollarSign, TrendingUp, PieChart, Download } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useToast } from "@/hooks/use-toast";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function WellCostReport() {
   const [, setLocation] = useLocation();
@@ -17,7 +18,7 @@ export default function WellCostReport() {
 
   // جلب الآبار
   const { data: wells = [] } = useQuery({
-    queryKey: ['wells', selectedProjectId],
+    queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
       const response = await apiRequest(`/wells?projectId=${selectedProjectId}`);
@@ -28,7 +29,7 @@ export default function WellCostReport() {
 
   // جلب تقرير التكاليف للمشروع
   const { data: projectCosts } = useQuery({
-    queryKey: ['project-costs', selectedProjectId],
+    queryKey: QUERY_KEYS.projectCosts(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return null;
       const response = await apiRequest(`/well-expenses/project-costs/${selectedProjectId}`);
@@ -39,7 +40,7 @@ export default function WellCostReport() {
 
   // جلب تقرير البئر المحددة
   const { data: wellReport } = useQuery({
-    queryKey: ['well-cost-report', selectedWellId],
+    queryKey: QUERY_KEYS.wellCostReport(selectedWellId),
     queryFn: async () => {
       if (!selectedWellId) return null;
       const response = await apiRequest(`/well-expenses/cost-report/${selectedWellId}`);

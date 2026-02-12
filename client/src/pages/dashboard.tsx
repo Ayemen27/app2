@@ -22,6 +22,7 @@ import { LoadingCard } from "@/components/ui/loading-spinner";
 import { useEffect } from "react";
 
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { 
   Project, 
   DailyExpenseSummary, 
@@ -103,7 +104,7 @@ export default function Dashboard() {
 
   // جلب المشاريع مع الإحصائيات
   const { data: projects = [], isLoading: projectsLoading, error: projectsError } = useQuery<ProjectWithStats[]>({
-    queryKey: ["/api/projects/with-stats"],
+    queryKey: QUERY_KEYS.projectsWithStats,
     queryFn: async () => {
       try {
         console.log('🔄 [Dashboard] جلب المشاريع مع الإحصائيات...');
@@ -137,7 +138,7 @@ export default function Dashboard() {
   });
 
   const { data: workerTypes = [] } = useQuery<WorkerType[]>({
-    queryKey: ["/api/worker-types"],
+    queryKey: QUERY_KEYS.workerTypes,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/worker-types", "GET");
@@ -154,7 +155,7 @@ export default function Dashboard() {
 
   // جلب قائمة أنواع المشاريع
   const { data: projectTypes = [], isLoading: typesLoading } = useQuery<ProjectType[]>({
-    queryKey: ["/api/project-types"],
+    queryKey: QUERY_KEYS.projectTypes,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/project-types", "GET");
@@ -180,9 +181,9 @@ export default function Dashboard() {
       return apiRequest("/api/workers", "POST", data);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/workers"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       toast({
         title: "نجح الحفظ",
         description: "تم إضافة العامل بنجاح",
@@ -209,9 +210,9 @@ export default function Dashboard() {
       return apiRequest("/api/projects", "POST", data);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       toast({
         title: "نجح الحفظ",
         description: "تم إضافة المشروع بنجاح",
@@ -235,8 +236,8 @@ export default function Dashboard() {
       return apiRequest("/api/worker-types", "POST", data);
     },
     onSuccess: async (newType) => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/worker-types"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/autocomplete"] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       toast({
         title: "تم الحفظ",
         description: "تم إضافة نوع العامل بنجاح",
@@ -255,14 +256,14 @@ export default function Dashboard() {
   });
 
   const { data: todaySummary } = useQuery<DailyExpenseSummary>({
-    queryKey: ["/api/projects", selectedProjectId, "daily-summary", new Date().toISOString().split('T')[0]],
+    queryKey: QUERY_KEYS.dailySummary(selectedProjectId, new Date().toISOString().split('T')[0]),
     enabled: !!selectedProjectId,
     staleTime: 1000 * 30,
   });
 
   // جلب آخر الإجراءات
   const { data: recentActivities = [] } = useQuery({
-    queryKey: ["/api/recent-activities", selectedProjectId],
+    queryKey: QUERY_KEYS.recentActivitiesByProject(selectedProjectId),
     queryFn: async () => {
       try {
         const projectFilter = selectedProjectId ? `?projectId=${selectedProjectId}` : '';
@@ -279,7 +280,7 @@ export default function Dashboard() {
 
   // جلب إحصائيات المراقبة (SigNoz/Prometheus)
   const { data: monitoringStats, isLoading: monitoringLoading } = useQuery({
-    queryKey: ["/api/health/stats"],
+    queryKey: QUERY_KEYS.healthStats,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/health/stats", "GET");

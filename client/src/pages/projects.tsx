@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { 
@@ -209,7 +210,7 @@ export default function ProjectsPage() {
 
   // ✅ Fetch projects with statistics - استخدام default fetcher مع Authorization headers
   const { data: fetchedProjectsRaw = [], isLoading, refetch: refetchProjects, error } = useQuery<ProjectWithStats[]>({
-    queryKey: ["/api/projects/with-stats"],
+    queryKey: QUERY_KEYS.projectsWithStats,
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
@@ -311,7 +312,7 @@ export default function ProjectsPage() {
 
   // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
   const { data: usersResponse = { users: [] } } = useQuery<any>({
-    queryKey: ["/api/users/list"],
+    queryKey: QUERY_KEYS.usersList,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/users/list", "GET");
@@ -330,7 +331,7 @@ export default function ProjectsPage() {
 
   // جلب قائمة أنواع المشاريع
   const { data: projectTypes = [], isLoading: typesLoading } = useQuery<ProjectType[]>({
-    queryKey: ["/api/project-types"],
+    queryKey: QUERY_KEYS.projectTypes,
     queryFn: async () => {
       try {
         const response = await apiRequest("/api/project-types", "GET");
@@ -431,8 +432,8 @@ export default function ProjectsPage() {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.name);
 
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projects });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       triggerSync(); // 🚀 تفعيل المزامنة الفورية
       toast({ title: "تم إنشاء المشروع بنجاح" });
       setIsCreateDialogOpen(false);
@@ -459,8 +460,8 @@ export default function ProjectsPage() {
       // حفظ اسم المشروع في autocomplete_data
       await saveAutocompleteValue('projectNames', variables.data.name);
 
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projects });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       triggerSync(); // 🚀 تفعيل المزامنة الفورية
       toast({ title: "تم تحديث المشروع بنجاح" });
       setIsEditDialogOpen(false);
@@ -485,8 +486,8 @@ export default function ProjectsPage() {
       apiRequest(`/api/projects/${id}`, "DELETE", { confirmDeletion }),
     onSuccess: () => {
       triggerSync(); // 🚀 تفعيل المزامنة الفورية
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects/with-stats"] });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projects });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       toast({ title: "تم حذف المشروع بنجاح" });
       setDeleteDialogOpen(false);
       setProjectToDelete(null);
@@ -538,11 +539,11 @@ export default function ProjectsPage() {
     mutationFn: ({ id, data }: { id: string; data: { status: string } }) =>
       apiRequest(`/api/projects/${id}`, "PATCH", data),
     onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({ queryKey: ["/api/projects/with-stats"] });
-      const previousData = queryClient.getQueryData<ProjectWithStats[]>(["/api/projects/with-stats"]);
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.projectsWithStats });
+      const previousData = queryClient.getQueryData<ProjectWithStats[]>(QUERY_KEYS.projectsWithStats);
       
       if (Array.isArray(previousData)) {
-        queryClient.setQueryData<ProjectWithStats[]>(["/api/projects/with-stats"], 
+        queryClient.setQueryData<ProjectWithStats[]>(QUERY_KEYS.projectsWithStats, 
           previousData.map(project => 
             project.id === id ? { ...project, status: data.status } : project
           )
@@ -560,7 +561,7 @@ export default function ProjectsPage() {
     },
     onError: (error: any, _variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["/api/projects/with-stats"], context.previousData);
+        queryClient.setQueryData(QUERY_KEYS.projectsWithStats, context.previousData);
       }
       toast({
         title: "خطأ",
@@ -570,8 +571,8 @@ export default function ProjectsPage() {
     },
     onSettled: () => {
       setTogglingProjectId(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/projects/with-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
     },
   });
 

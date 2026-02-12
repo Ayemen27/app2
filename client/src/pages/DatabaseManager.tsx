@@ -18,6 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, ActionButton, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import {
@@ -56,7 +57,7 @@ export default function DatabaseManager() {
   };
 
   const { data: connectionsData, isLoading: connectionsLoading } = useQuery<any>({
-    queryKey: ["/api/db/connections"],
+    queryKey: QUERY_KEYS.dbConnections,
     queryFn: () => fetchWithAuth("/api/db/connections"),
   });
 
@@ -101,7 +102,7 @@ export default function DatabaseManager() {
   });
 
   const { data: systemStats } = useQuery<any>({
-    queryKey: ["/api/stats"],
+    queryKey: QUERY_KEYS.dbStats,
     queryFn: () => fetchWithAuth("/api/stats"),
   });
 

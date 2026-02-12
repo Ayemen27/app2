@@ -14,6 +14,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedSearchFilter, useUnifiedFilter, STATUS_FILTER_OPTIONS, PRIORITY_OPTIONS } from "@/components/ui/unified-search-filter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface SecurityPolicy {
   id: string;
@@ -74,7 +75,7 @@ export function SecurityPoliciesPage() {
 
   // جلب السياسات الأمنية
   const { data: policies = [], isLoading: policiesLoading } = useQuery({
-    queryKey: ['/api/security/policies'],
+    queryKey: QUERY_KEYS.securityPolicies,
     queryFn: async () => {
       const response = await fetch('/api/security/policies');
       if (!response.ok) throw new Error('فشل في جلب السياسات الأمنية');
@@ -85,7 +86,7 @@ export function SecurityPoliciesPage() {
 
   // جلب اقتراحات السياسات
   const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery({
-    queryKey: ['/api/security/suggestions'],
+    queryKey: QUERY_KEYS.securitySuggestions,
     queryFn: async () => {
       const response = await fetch('/api/security/suggestions');
       if (!response.ok) throw new Error('فشل في جلب اقتراحات السياسات');
@@ -96,7 +97,7 @@ export function SecurityPoliciesPage() {
 
   // جلب انتهاكات السياسات
   const { data: violations = [], isLoading: violationsLoading } = useQuery({
-    queryKey: ['/api/security/violations'],
+    queryKey: QUERY_KEYS.securityViolations,
     queryFn: async () => {
       const response = await fetch('/api/security/violations');
       if (!response.ok) throw new Error('فشل في جلب انتهاكات السياسات');

@@ -34,13 +34,14 @@ import {
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { QUERY_KEYS } from "@/constants/queryKeys";
 
 export default function UsersManagementPage() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   
   const { data: allUsers, isLoading, refetch } = useQuery<any[]>({
-    queryKey: ["/api/users"],
+    queryKey: QUERY_KEYS.users,
     queryFn: async () => {
       const res = await apiRequest("/api/users", "GET");
       return res;
@@ -53,7 +54,7 @@ export default function UsersManagementPage() {
       return res;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.users });
       toast({
         title: "تم تحديث الصلاحيات",
         description: "تم تغيير دور المستخدم بنجاح.",

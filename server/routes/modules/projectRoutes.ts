@@ -495,6 +495,49 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
 });
 
 /**
+ * 📝 إضافة مشترية مواد جديدة
+ */
+projectRouter.post('/:id/material-purchases', async (req: Request, res: Response) => {
+  try {
+    const { id: projectId } = req.params;
+    const purchaseData = { ...req.body, projectId };
+
+    const validation = insertMaterialPurchaseSchema.safeParse(purchaseData);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: "بيانات المشتريات غير صحيحة",
+        details: validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+      });
+    }
+
+    const [newPurchase] = await db.insert(materialPurchases).values(validation.data).returning();
+    
+    try {
+      await ExpenseLedgerService.recordExpense({
+        projectId,
+        amount: validation.data.totalAmount,
+        category: 'material',
+        referenceId: newPurchase.id,
+        description: `شراء مواد: ${validation.data.materialName}`,
+        date: validation.data.purchaseDate
+      });
+    } catch (ledgerError) {
+      console.error('⚠️ [API] فشل تحديث سجل الأستاذ العام:', ledgerError);
+    }
+
+    res.status(201).json({
+      success: true,
+      data: newPurchase,
+      message: "تم حفظ شراء المواد بنجاح"
+    });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في إضافة مشترية مواد:', error);
+    res.status(500).json({ success: false, message: "فشل في حفظ شراء المواد", error: error.message });
+  }
+});
+
+/**
  * 🔍 جلب مشروع محدد
  * GET /api/projects/:id
  */

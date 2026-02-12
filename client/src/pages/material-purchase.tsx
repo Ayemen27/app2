@@ -403,6 +403,11 @@ export default function MaterialPurchase() {
 
   const addMaterialPurchaseMutation = useMutation({
     mutationFn: async (data: any) => {
+      // ✅ التأكد من وجود معرف المشروع قبل الإرسال
+      if (!data.projectId || data.projectId === "all") {
+        throw new Error("يرجى اختيار مشروع محدد أولاً قبل إضافة المشتريات");
+      }
+
       // حفظ القيم في autocomplete_data قبل العملية الأساسية
       await Promise.all([
         saveAutocompleteValue('materialNames', materialName),

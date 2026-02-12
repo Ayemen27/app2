@@ -456,22 +456,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
             signal: controller.signal,
           });
 
+          // ✅ فحص استباقي لنوع المحتوى قبل المعالجة
+          const contentType = response.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            console.error('❌ [AuthProvider.refreshToken] رد غير صالح من السيرفر (ليس JSON):', contentType);
+            // محاولة انتظار قصيرة في حالة وجود ضغط على السيرفر
+            await sleep(2000);
+            continue; 
+          }
+
           clearTimeout(timeoutId);
           const attemptDuration = Date.now() - attemptStartTime;
           console.log(`📊 [AuthProvider.refreshToken] محاولة ${attempt + 1} استغرقت ${attemptDuration}ms`);
 
-          // قراءة response مرة واحدة فقط
-          const responseText = await response.text();
-          let data;
-
-          try {
-            // محاولة parsing كـ JSON
-            data = JSON.parse(responseText);
-          } catch (parseError) {
-            // إذا فشل parsing، استخدام النص كما هو
-            console.log(`❌ [AuthProvider.refreshToken] فشل parsing JSON:`, responseText);
-            data = { success: false, message: responseText };
-          }
+          const data = await response.json();
 
           if (response.ok && data.success && data.tokens) {
             console.log('📦 [AuthProvider.refreshToken] استجابة ناجحة:', { success: data.success, hasTokens: !!data.tokens });

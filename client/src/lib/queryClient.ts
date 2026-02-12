@@ -148,12 +148,20 @@ export async function apiRequest(
               localStorage.setItem("accessToken", newAccessToken);
               if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
               
-              // Retry the original request with the new token
+              // ✅ تحديث الـ headers للطلب المعاد
               const retryHeaders = {
-                ...headers as Record<string, string>,
+                ...headers,
                 'Authorization': `Bearer ${newAccessToken}`
               };
-              return apiRequest(endpoint, method, data, retryCount + 1);
+              
+              const retryConfig = {
+                ...config,
+                headers: retryHeaders
+              };
+              
+              const retryResponse = await fetch(url, retryConfig);
+              if (!retryResponse.ok) throw new Error("فشل الطلب بعد تجديد الرمز");
+              return await retryResponse.json();
             }
           } else {
             console.error('❌ [apiRequest] Refresh response not OK:', refreshResponse.status);

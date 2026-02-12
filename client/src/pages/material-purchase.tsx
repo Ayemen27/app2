@@ -419,7 +419,8 @@ export default function MaterialPurchase() {
       ]);
 
       // تنفيذ العملية الأساسية
-      return apiRequest("/api/material-purchases", "POST", data);
+      // تم تغيير المسار ليتوافق مع الخادم: /api/projects/:projectId/material-purchases
+      return apiRequest(`/api/projects/${data.projectId}/material-purchases`, "POST", data);
     },
     onMutate: async (data) => {
       // فوري - تحديث البيانات محلياً قبل انتظار الخادم

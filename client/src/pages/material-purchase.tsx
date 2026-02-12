@@ -688,31 +688,27 @@ export default function MaterialPurchase() {
     const purchaseData = {
       projectId: selectedProjectId,
       materialName: materialName.trim(),
-      materialCategory: materialCategory.trim() || null,
+      materialCategory: materialCategory?.trim() || null,
       materialUnit: materialUnit.trim(),
       quantity: quantity.toString(),
       unit: materialUnit.trim(),
-      material_unit: materialUnit.trim(), // تكرار الحقل لضمان التوافق مع أي نسخة من المخطط
+      material_unit: materialUnit.trim(),
       unitPrice: (isPriceRequired ? unitPrice : (unitPrice || "0")).toString(),
       totalAmount: (isPriceRequired ? totalAmountValue : (totalAmountValue || "0")).toString(),
       purchaseType: paymentType.trim(),
       paidAmount: paymentType.trim() === 'نقد' ? (totalAmountValue.toString() || "0") : "0",
-      remainingAmount: paymentType.trim() === 'آجل' ? (totalAmountValue.toString() || "0") : "0",
+      remainingAmount: (paymentType.trim() === 'آجل' || paymentType.trim() === 'توريد') ? (totalAmountValue.toString() || "0") : "0",
       supplierName: supplierName?.trim() || '',
       invoiceNumber: invoiceNumber?.trim() || '',
       invoiceDate: invoiceDate || new Date().toISOString().split('T')[0],
-      invoicePhoto: invoicePhoto || '',
+      purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
       notes: notes?.trim() || '',
-      purchaseDate: purchaseDate,
       wellId: selectedWellId || null,
+      invoicePhoto: invoicePhoto || '',
+      status: 'completed'
     };
 
-    console.log('💾 بيانات المشترية قبل الحفظ:', {
-      materialName: purchaseData.materialName,
-      materialCategory: purchaseData.materialCategory,
-      materialUnit: purchaseData.materialUnit,
-      isEditing: !!editingPurchaseId
-    });
+    console.log('💾 بيانات المشترية قبل الحفظ:', purchaseData);
 
     if (editingPurchaseId) {
       updateMaterialPurchaseMutation.mutate({

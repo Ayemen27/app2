@@ -55,3 +55,12 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, skipping plugin admission")
 }
+
+android {
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core:1.13.1'
+            force 'androidx.core:core-ktx:1.13.1'
+        }
+    }
+}

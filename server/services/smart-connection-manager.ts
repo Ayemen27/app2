@@ -433,8 +433,9 @@ export class SmartConnectionManager {
       if (connectionString) {
         // 🛠️ تحسين رابط Supabase لتجاوز مشاكل DNS (تطبيق نفس منطق db.ts)
         // نقوم بالتحويل إلى Pooler الجديد aws-0-eu-central-1.pooler.supabase.com
-        if (connectionString.includes("supabase.co")) {
-          const projectRefMatch = connectionString.match(/@db\.([^.]+)\.supabase\.co/);
+        if (connectionString.includes("supabase.co") || connectionString.includes("pooler.supabase.com")) {
+          const projectRefMatch = connectionString.match(/@db\.([^.]+)\.supabase\.co/) || 
+                                connectionString.match(/postgresql:\/\/postgres\.([^:]+):/);
           const projectRef = projectRefMatch ? projectRefMatch[1] : project;
           
           if (projectRef) {
@@ -444,9 +445,12 @@ export class SmartConnectionManager {
             if (urlParts) {
               const user = urlParts[1];
               const password = urlParts[2];
+              
+              // إصلاح خطأ "Tenant not found": يجب أن يكون المستخدم بصيغة postgres.[project-ref] عند استخدام Pooler
+              const correctUser = user.includes('.') ? user : `postgres.${projectRef}`;
+              
               // بناء رابط جديد تماماً يتجاوز DNS القديم ويستخدم Pooler
-              // الحفاظ على كلمة المرور الأصلية والمستخدم وتغيير المضيف فقط
-              connectionString = `postgresql://${user}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
+              connectionString = `postgresql://${correctUser}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
             } else {
               // fallback إذا فشل regex الاستخراج
               connectionString = connectionString
@@ -458,12 +462,6 @@ export class SmartConnectionManager {
               }
             }
           }
-        } else if (connectionString.includes("pooler.supabase.com")) {
-            // إضافة pgbouncer و connection_limit إذا لم تكن موجودة في الرابط الجديد
-            if (!connectionString.includes("pgbouncer=true")) {
-              const separator = connectionString.includes("?") ? "&" : "?";
-              connectionString += `${separator}pgbouncer=true&connection_limit=1`;
-            }
         }
 
         console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع (المحسن)');

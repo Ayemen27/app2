@@ -100,15 +100,25 @@ if (dbUrl.includes("supabase.co")) {
     // المضيف القياسي الجديد: [project-ref].supabase.co أو استخدام pooler
     console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
     
-    // إذا كان الرابط يستخدم النمط القديم db.xxx، نقوم بتحديثه للنمط الأكثر استقراراً
-    // ملاحظة: نستخدم المنفذ 6543 لـ Transaction Mode وهو الأكثر استقراراً في البيئات السحابية
-    finalDbUrl = dbUrl
-      .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
-      .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
+    // استخراج المستخدم وكلمة المرور لإصلاح صيغة المستخدم للـ Pooler
+    const urlParts = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@/);
+    if (urlParts) {
+      const user = urlParts[1];
+      const password = urlParts[2];
+      const correctUser = user.includes('.') ? user : `postgres.${projectRef}`;
       
-    // التأكد من إضافة user parameters المطلوبة للـ Pooler الجديد
-    if (!finalDbUrl.includes("?")) {
-      finalDbUrl += "?pgbouncer=true&connection_limit=1";
+      finalDbUrl = `postgresql://${correctUser}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
+    } else {
+      // إذا كان الرابط يستخدم النمط القديم db.xxx، نقوم بتحديثه للنمط الأكثر استقراراً
+      // ملاحظة: نستخدم المنفذ 6543 لـ Transaction Mode وهو الأكثر استقراراً في البيئات السحابية
+      finalDbUrl = dbUrl
+        .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
+        .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
+        
+      // التأكد من إضافة user parameters المطلوبة للـ Pooler الجديد
+      if (!finalDbUrl.includes("?")) {
+        finalDbUrl += "?pgbouncer=true&connection_limit=1";
+      }
     }
   }
 }

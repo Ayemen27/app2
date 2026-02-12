@@ -1,33 +1,41 @@
 #!/bin/bash
-# AXION AI Build Engine v29.0.0 (The Final Resolution - Final Deployment)
-# Professional Grade - Autonomous Remote Repair & Build Dispatch
+# AXION AI Build Engine v30.0.0 (The Final Hybrid - Professional Edition)
+# Professional Grade - Handles local validation AND remote deployment autonomously
 
 set -e
+
+# Configuration
+LOG_FILE="/tmp/axion_smart_build_$(date +%s).log"
+PROJECT_ROOT=$(pwd)
+APK_OUTPUT_DIR="$PROJECT_ROOT/output_apks"
+ANDROID_ROOT="$PROJECT_ROOT/android"
+
+# External Server Details (From Environment)
 SSH_PASS="${SSH_PASSWORD}"
 REMOTE_HOST="93.127.142.144"
 REMOTE_USER="administrator"
 
-log_local() { echo -e "\e[34m[AXION]\e[0m $1"; }
+log() {
+    echo -e "\e[34m[AXION]\e[0m $1" | tee -a "$LOG_FILE"
+}
 
-if [ -z "$SSH_PASS" ]; then
-    log_local "❌ Error: SSH_PASSWORD not found."
-    exit 1
-fi
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "   AXION Build Engine v30.0.0 - Professional   "
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-log_local "🚀 Deploying AXION Ultimate Build Engine v29.0.0..."
-
-sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "bash -s" <<'REMOTE_EOF'
-    # Remote Execution Environment
-    cd /home/administrator/app2
+# Decision Logic: Are we on the remote server or local environment?
+if [ "$HOSTNAME" == "mr-199" ] || [ -d "/home/administrator/app2" ]; then
+    log "📍 Mode: [REMOTE SERVER] - Starting Native Build..."
     
-    # 1. Environment Restore (Node 22 is required for Capacitor 7/8)
-    # We force the path to use the remote Node 22 bin
-    export PATH="/home/administrator/.nvm/versions/node/v22.22.0/bin:/usr/local/bin:/usr/bin:/bin"
+    # 1. Environment Sync (Remote specific)
+    export PATH="/home/administrator/.nvm/versions/node/v22.22.0/bin:$PATH"
     export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
     export PATH="$JAVA_HOME/bin:$PATH"
 
-    # 2. Fix Build Configurations
+    # 2. Reconstruct Core Files (Ensures structural integrity)
     mkdir -p android/app/src/main/java/com/axion/app
+    
+    # 3. Packaging & Conflict Resolution
     cat <<EOF > android/app/build.gradle
 apply plugin: 'com.android.application'
 apply plugin: 'com.google.gms.google-services'
@@ -55,10 +63,13 @@ android {
             pickFirsts += 'META-INF/NOTICE'
             pickFirsts += 'META-INF/license.txt'
             pickFirsts += 'META-INF/notice.txt'
-            pickFirsts += 'META-INF/INDEX.LIST'
-            pickFirsts += 'META-INF/io.netty.versions.properties'
             excludes += 'META-INF/*.kotlin_module'
-            excludes += 'META-INF/ASL2.0'
+        }
+    }
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.core:core:1.13.1'
+            force 'androidx.core:core-ktx:1.13.1'
         }
     }
 }
@@ -73,11 +84,24 @@ dependencies {
 apply from: 'capacitor.build.gradle'
 EOF
 
-    # 3. Remote Sync & Build Dispatch
-    chmod +x ./apk.sh
-    # Use 'nohup' or similar if we want to ensure it finishes after SSH disconnects, 
-    # but for now we run it to get immediate feedback.
-    ./apk.sh
-REMOTE_EOF
+    # 4. Execute Native Build Logic (Re-using the remote's existing build engine if present, or triggering gradlew)
+    log "🚀 Launching Gradle Build..."
+    cd android && ./gradlew clean assembleDebug --no-daemon
+    
+else
+    log "📍 Mode: [REPLIT ENVIRONMENT] - Orchestrating Remote Deployment..."
+    
+    if [ -z "$SSH_PASS" ]; then
+        log "❌ Error: SSH_PASSWORD not found in environment."
+        log "Please ensure the secret SSH_PASSWORD is set in Replit Secrets."
+        exit 1
+    fi
 
-log_local "✅ AXION Engine: Final dispatch completed successfully."
+    log "🔗 Connecting to $REMOTE_HOST via SSH..."
+    sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "cd /home/administrator/app2 && ./apk.sh"
+    log "✅ Remote build sequence initiated successfully."
+fi
+
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "✅ AXION Engine: Operation Complete."
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

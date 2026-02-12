@@ -340,7 +340,10 @@ export const materialPurchases = pgTable("material_purchases", {
   purchaseDate: text("purchase_date").notNull(), // YYYY-MM-DD format
   wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // إضافة قيد فريد لضمان عدم تكرار الفواتير بشكل غير مقصود
+  uniqueInvoice: sql`UNIQUE (project_id, supplier_id, invoice_number, purchase_date)`,
+}));
 
 // Supplier payments (مدفوعات الموردين)
 export const supplierPayments = pgTable("supplier_payments", {

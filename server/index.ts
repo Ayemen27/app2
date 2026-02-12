@@ -32,6 +32,7 @@ import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middl
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
 import { db, checkDBConnection, getConnectionHealthStatus, smartReconnect } from './db.js';
+import { validateSchemaIntegrity } from "./schema-validator";
 import { users } from '@shared/schema';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -619,6 +620,9 @@ const NODE_ENV = envConfig.NODE_ENV;
 
 console.log('🚀 بدء تشغيل الخادم...');
 console.log('📂 مجلد العمل:', process.cwd());
+
+// فحص سلامة المخطط عند التشغيل
+validateSchemaIntegrity().catch(err => console.error('Schema validation failed:', err));
 console.log('🌐 المنفذ:', FINAL_PORT);
 console.log('🔧 بيئة التشغيل:', NODE_ENV);
 

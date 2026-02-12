@@ -427,11 +427,28 @@ export class SmartConnectionManager {
         console.log('🔒 [Supabase] تم تحميل شهادة SSL');
       }
 
-      const connectionString = getCredential('DATABASE_URL_SUPABASE') || process.env.DATABASE_URL_SUPABASE;
+      let connectionString = getCredential('DATABASE_URL_SUPABASE') || process.env.DATABASE_URL_SUPABASE;
       const supabaseKey = getCredential('SUPABASE_SECRET_KEY') || getCredential('SUPABASE_ANON_KEY') || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
 
       if (connectionString) {
-        console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع');
+        // 🛠️ تحسين رابط Supabase لتجاوز مشاكل DNS (تطبيق نفس منطق db.ts)
+        if (connectionString.includes("supabase.co")) {
+          const projectRefMatch = connectionString.match(/@db\.([^.]+)\.supabase\.co/);
+          const projectRef = projectRefMatch ? projectRefMatch[1] : project;
+          
+          if (projectRef) {
+            console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
+            connectionString = connectionString
+              .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
+              .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
+              
+            if (!connectionString.includes("?")) {
+              connectionString += "?pgbouncer=true&connection_limit=1";
+            }
+          }
+        }
+
+        console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع (المحسن)');
         this.supabasePool = new Pool({
           connectionString: connectionString,
           ssl: sslConfig,
@@ -469,14 +486,23 @@ export class SmartConnectionManager {
 
       this.supabaseDb = drizzle(this.supabasePool, { schema });
 
-      // اختبار الاتصال
-      const client = await this.supabasePool.connect();
-      const result = await client.query('SELECT current_database(), current_user');
-      client.release();
-
-      this.connectionStatus.supabase = true;
-      if (!this.isProduction) {
-        console.log('✅ [Supabase] اتصال Supabase نجح');
+      // اختبار الاتصال مع معالجة خطأ Tenant
+      try {
+        const client = await this.supabasePool.connect();
+        await client.query('SELECT 1');
+        client.release();
+        this.connectionStatus.supabase = true;
+        if (!this.isProduction) {
+          console.log('✅ [Supabase] اتصال Supabase نجح');
+        }
+      } catch (connError: any) {
+        if (connError.message?.includes('Tenant or user not found')) {
+          console.error('❌ [Supabase Fix] خطأ في هوية المشروع (Tenant not found). يرجى التأكد من أن DATABASE_URL_SUPABASE يحتوي على كلمة المرور الصحيحة لمستخدم postgres.');
+        } else {
+          console.error('❌ [Supabase] فشل اختبار الاتصال:', connError.message);
+        }
+        this.connectionStatus.supabase = false;
+        // لا نرمي خطأ هنا لمنع تعطل النظام بالكامل
       }
 
     } catch (error: any) {

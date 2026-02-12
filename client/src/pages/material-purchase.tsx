@@ -691,6 +691,7 @@ export default function MaterialPurchase() {
       materialUnit: materialUnit.trim(),
       quantity: quantity.toString(),
       unit: materialUnit.trim(),
+      material_unit: materialUnit.trim(), // تكرار الحقل لضمان التوافق مع أي نسخة من المخطط
       unitPrice: (isPriceRequired ? unitPrice : (unitPrice || "0")).toString(),
       totalAmount: (isPriceRequired ? totalAmountValue : (totalAmountValue || "0")).toString(),
       purchaseType: paymentType.trim(),

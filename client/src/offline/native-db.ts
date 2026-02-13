@@ -6,10 +6,11 @@ class SQLiteStorage {
   private db: SQLiteDBConnection | null = null;
   private dbName: string = 'binarjoin_native.db';
   private _initialized: boolean = false;
+  private _initPromise: Promise<void> | null = null;
 
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
-    this.initialize().catch(err => console.error("[SQLite] Auto-Init Failed:", err));
+    this._initPromise = this.initialize().catch(err => console.error("[SQLite] Auto-Init Failed:", err));
   }
 
   async initialize() {
@@ -21,12 +22,25 @@ class SQLiteStorage {
     }
 
     try {
-      const isConn = (await this.sqlite.isConnection(this.dbName, false)).result;
+      let isConn = false;
+      try {
+        isConn = (await this.sqlite.isConnection(this.dbName, false)).result ?? false;
+      } catch {
+        isConn = false;
+      }
 
       if (isConn) {
         this.db = await this.sqlite.retrieveConnection(this.dbName, false);
       } else {
-        this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+        try {
+          this.db = await this.sqlite.createConnection(this.dbName, false, 'no-encryption', 1, false);
+        } catch (createErr: any) {
+          if (createErr?.message?.includes('already exists')) {
+            this.db = await this.sqlite.retrieveConnection(this.dbName, false);
+          } else {
+            throw createErr;
+          }
+        }
       }
 
       await this.db.open();
@@ -36,6 +50,12 @@ class SQLiteStorage {
       console.error('[SQLite] Critical Init Error:', err);
       this.db = null;
       throw err;
+    }
+  }
+
+  async waitForReady(): Promise<void> {
+    if (this._initPromise) {
+      await this._initPromise;
     }
   }
 

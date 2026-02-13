@@ -12,14 +12,11 @@ export async function getSmartStorage() {
   if (platform === 'android' || platform === 'ios') {
     try {
       console.log('📱 [DB] محاولة تهيئة محرك SQLite للأندرويد...');
-      // التأكد من تهيئة المحرك قبل إرجاعه مع مهلة زمنية
-      if (!(nativeStorage as any).db) {
-        const initPromise = nativeStorage.initialize();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SQLite Initialization Timeout')), 5000)
-        );
-        await Promise.race([initPromise, timeoutPromise]);
-      }
+      const waitPromise = nativeStorage.waitForReady();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('SQLite Initialization Timeout')), 5000)
+      );
+      await Promise.race([waitPromise, timeoutPromise]);
       console.log('✅ [DB] تم تهيئة محرك SQLite بنجاح');
       return nativeStorage;
     } catch (e) {

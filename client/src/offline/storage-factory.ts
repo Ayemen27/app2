@@ -20,7 +20,7 @@ async function getIDB() {
 export async function initializeStorage() {
   if (!_initPromise) {
     _initPromise = isNative()
-      ? nativeStorage.initialize()
+      ? nativeStorage.waitForReady()
       : getIDB().then(() => {});
   }
   await _initPromise;

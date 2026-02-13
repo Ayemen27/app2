@@ -1,4 +1,5 @@
 import { smartGetAll, smartClear, smartSave } from './storage-factory';
+import { downloadFile } from '@/utils/webview-download';
 
 const BACKUP_STORES = ['syncQueue', 'userData', 'projects', 'workers', 'materials', 'suppliers', 'expenses'];
 
@@ -14,15 +15,8 @@ export async function exportLocalData(): Promise<string> {
   }
 
   const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `binarjoin-backup-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  const fileName = `binarjoin-backup-${new Date().toISOString().split('T')[0]}.json`;
+  await downloadFile(blob, fileName, 'application/json');
 
   return 'تم تصدير البيانات بنجاح';
 }

@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
+import { downloadExcelFile } from '@/utils/webview-download';
 import { format } from 'date-fns';
 
 export async function exportMaterialPurchasesToExcel(purchases: any[]) {
@@ -71,6 +71,5 @@ export async function exportMaterialPurchasesToExcel(purchases: any[]) {
 
   // توليد وحفظ الملف
   const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  saveAs(blob, `مشتريات_المواد_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`);
+  await downloadExcelFile(buffer as ArrayBuffer, `مشتريات_المواد_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`);
 }

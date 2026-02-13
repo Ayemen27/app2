@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
+import { downloadExcelFile } from '@/utils/webview-download';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 
@@ -234,5 +234,5 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   footer.alignment = centerAlign;
 
   const buffer = await workbook.xlsx.writeBuffer();
-  saveAs(new Blob([buffer]), `Worker_Statement_${worker.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  await downloadExcelFile(buffer as ArrayBuffer, `Worker_Statement_${worker.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
 };

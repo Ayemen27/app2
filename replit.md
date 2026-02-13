@@ -55,6 +55,7 @@
 - **تم حذفه**: `client/src/constants/api-endpoints.ts` (كان مكرراً)
 
 ## التغييرات الأخيرة
+- 2026-02-13: إصلاح الشاشة البيضاء عند تصدير Excel/PDF في Android WebView - توحيد جميع مسارات التصدير (10 ملفات) عبر webview-download.ts + Capacitor Filesystem/Share + إزالة كاملة لـ file-saver/saveAs + حماية window.open بـ isMobileWebView()
 - 2026-02-13: ترحيل كامل (100%) لجميع ملفات offline + pages لاستخدام storage-factory - إزالة getDB من sync.ts, silent-sync.ts, data-compression.ts, index.ts, SystemCheckPage.tsx, sync-comparison.tsx + singleton guard لـ silentSync + deprecation tag لـ getDB export
 - 2026-02-13: بناء APK v1.0.30 (29MB) - إصلاح كشف Capacitor + إصلاح forceSyncTable (كان يستخدم IndexedDB transaction) + إزالة server section من capacitor.config
 - 2026-02-13: بناء APK v1.0.29 بنجاح (27MB) - إصلاح capacitor.config.json (كان com.replit.agentforge) + إصلاح gradlew wrapper (كان يستخدم Gradle 4.4.1 النظام)

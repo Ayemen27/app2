@@ -1,8 +1,6 @@
-/**
- * أداة تحميل الملفات المتوافقة مع Android WebView
- * WebView-Compatible File Download Utility
- * يدعم: المتصفح العادي، Android WebView، iOS WebView، Capacitor
- */
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 declare global {
   interface Window {
@@ -21,7 +19,16 @@ declare global {
   }
 }
 
+export function isCapacitorNative(): boolean {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
 export function isAndroidWebView(): boolean {
+  if (isCapacitorNative()) return true;
   const userAgent = navigator.userAgent.toLowerCase();
   return (
     userAgent.includes('wv') ||
@@ -40,7 +47,7 @@ export function isIOSWebView(): boolean {
 }
 
 export function isMobileWebView(): boolean {
-  return isAndroidWebView() || isIOSWebView();
+  return isCapacitorNative() || isAndroidWebView() || isIOSWebView();
 }
 
 export function hasAndroidBridge(): boolean {
@@ -59,47 +66,89 @@ export function hasShareAPI(): boolean {
   return typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
 }
 
+async function downloadViaCapacitor(
+  blob: Blob,
+  fileName: string,
+  mimeType: string
+): Promise<boolean> {
+  try {
+    const base64Data = await blobToBase64(blob);
+    const sanitizedName = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
+
+    const writeResult = await Filesystem.writeFile({
+      path: sanitizedName,
+      data: base64Data,
+      directory: Directory.Cache,
+    });
+
+    const fileUri = writeResult.uri;
+    console.log('[Download] Capacitor: file written to', fileUri);
+
+    await Share.share({
+      title: fileName,
+      url: fileUri,
+      dialogTitle: fileName,
+    });
+
+    console.log('[Download] Capacitor Share completed');
+    return true;
+  } catch (error) {
+    if ((error as Error).message?.includes('canceled') || (error as Error).message?.includes('dismissed')) {
+      console.log('[Download] User cancelled share');
+      return true;
+    }
+    console.error('[Download] Capacitor download failed:', error);
+    return false;
+  }
+}
+
 export async function downloadFile(
   blob: Blob,
   fileName: string,
   mimeType?: string
 ): Promise<boolean> {
-  const actualMimeType = mimeType || blob.type;
-  
-  console.log('📥 [Download] بدء التنزيل:', {
+  const actualMimeType = mimeType || blob.type || 'application/octet-stream';
+
+  console.log('[Download] Starting:', {
     fileName,
     mimeType: actualMimeType,
     size: blob.size,
-    isAndroidWebView: isAndroidWebView(),
-    hasAndroidBridge: hasAndroidBridge(),
-    hasShareAPI: hasShareAPI()
+    isCapacitor: isCapacitorNative(),
+    isWebView: isMobileWebView(),
   });
 
   try {
+    if (isCapacitorNative()) {
+      console.log('[Download] Using Capacitor Filesystem + Share');
+      const result = await downloadViaCapacitor(blob, fileName, actualMimeType);
+      if (result) return true;
+      console.log('[Download] Capacitor failed, trying fallbacks');
+    }
+
     if (hasAndroidBridge()) {
-      console.log('🤖 [Download] استخدام Android Bridge');
+      console.log('[Download] Using Android Bridge');
       return await downloadViaAndroidBridge(blob, fileName, actualMimeType);
     }
 
     if (hasIOSBridge()) {
-      console.log('🍎 [Download] استخدام iOS Bridge');
+      console.log('[Download] Using iOS Bridge');
       return await downloadViaIOSBridge(blob, fileName, actualMimeType);
     }
 
     if (isMobileWebView() && hasShareAPI()) {
-      console.log('📤 [Download] استخدام Share API');
+      console.log('[Download] Using Share API');
       return await downloadViaShareAPI(blob, fileName, actualMimeType);
     }
 
     if (isMobileWebView()) {
-      console.log('📱 [Download] WebView بدون Bridge - محاولة طرق بديلة');
+      console.log('[Download] WebView without bridge - trying alternatives');
       return await downloadForWebView(blob, fileName, actualMimeType);
     }
 
-    console.log('🌐 [Download] استخدام طريقة المتصفح العادية');
+    console.log('[Download] Using browser download');
     return downloadForBrowser(blob, fileName);
   } catch (error) {
-    console.error('❌ [Download] خطأ:', error);
+    console.error('[Download] Error:', error);
     return downloadForBrowser(blob, fileName);
   }
 }
@@ -293,21 +342,7 @@ async function downloadForWebView(
     console.error('❌ [Download] فشل تنزيل WebView:', error);
   }
 
-  try {
-    const base64 = await blobToBase64(blob);
-    const dataUri = `data:${mimeType};base64,${base64}`;
-    
-    const newWindow = window.open('', '_blank');
-    if (newWindow) {
-      newWindow.location.href = dataUri;
-      console.log('✅ [Download] تم فتح نافذة جديدة');
-      return true;
-    }
-  } catch (error) {
-    console.error('❌ [Download] فشل فتح نافذة جديدة:', error);
-  }
-
-  console.log('⚠️ [Download] جميع الطرق فشلت، محاولة طريقة المتصفح');
+  console.log('[Download] WebView data-URI fallback attempted, trying browser download');
   return downloadForBrowser(blob, fileName);
 }
 

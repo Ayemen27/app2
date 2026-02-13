@@ -9,7 +9,7 @@ import {
   FileSpreadsheet, Filter, XCircle, Calendar, Hash,
   MapPin, Info, User, Settings, Droplets, Package, Building2
 } from "lucide-react";
-import { saveAs } from 'file-saver';
+import { downloadExcelFile } from '@/utils/webview-download';
 import * as ExcelJS from 'exceljs';
 
 const categoryColors: Record<string, string> = {
@@ -322,8 +322,7 @@ export default function TransportManagement() {
       });
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, `تقرير_النقل_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      await downloadExcelFile(buffer as ArrayBuffer, `تقرير_النقل_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
       
       toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل احترافي" });
     } catch (error) {

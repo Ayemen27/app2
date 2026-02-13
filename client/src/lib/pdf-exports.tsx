@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
+import { downloadFile, isCapacitorNative } from '@/utils/webview-download';
 
 /**
  * دالة توليد كشف حساب مطابق للهوية البصرية لشركة الفتيني
@@ -280,11 +281,17 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
     `;
 
     const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const newWindow = window.open(url, '_blank');
-    
-    if (!newWindow) {
-      alert("يرجى السماح بالنوافذ المنبثقة لعرض التقرير.");
+    const fileName = `كشف_حساب_${worker?.name || 'عامل'}_${format(new Date(), 'yyyy-MM-dd')}.html`;
+    const { isMobileWebView } = await import('@/utils/webview-download');
+    if (isMobileWebView()) {
+      await downloadFile(blob, fileName, 'text/html');
+    } else {
+      const url = URL.createObjectURL(blob);
+      const newWindow = window.open(url, '_blank');
+      if (!newWindow) {
+        await downloadFile(blob, fileName, 'text/html');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     }
 
   } catch (error) {

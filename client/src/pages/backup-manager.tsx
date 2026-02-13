@@ -219,14 +219,8 @@ export default function BackupManager() {
         throw new Error('فشل التنزيل');
       }
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      const { downloadFile } = await import('@/utils/webview-download');
+      await downloadFile(blob, filename, blob.type || 'application/octet-stream');
     } catch (error: any) {
       toast({
         title: "فشل التنزيل",

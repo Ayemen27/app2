@@ -24,7 +24,7 @@ import {
   Camera
 } from 'lucide-react';
 // ExcelJS will be imported dynamically
-import { saveAs } from 'file-saver';
+import { downloadFile } from '@/utils/webview-download';
 import html2canvas from 'html2canvas';
 import type { Project } from '@shared/schema';
 import { downloadExcelFile } from '@/utils/webview-download';
@@ -778,13 +778,11 @@ export default function DailyExpensesBulkExport() {
 
       // تحويل إلى صورة وتحميلها
       const imgData = canvas.toDataURL('image/png', 1.0);
-      const link = document.createElement('a');
       const projectName = selectedProject?.name?.replace(/[\\/:*?"<>|]/g, '-') || 'مشروع';
-      link.download = `معاينة_تصدير_المصروفات_المجمعة_${projectName}.png`;
-      link.href = imgData;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const fileName = `معاينة_تصدير_المصروفات_المجمعة_${projectName}.png`;
+      const response = await fetch(imgData);
+      const blob = await response.blob();
+      await downloadFile(blob, fileName, 'image/png');
 
 
       

@@ -54,7 +54,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { useSelectedProjectContext, ALL_PROJECTS_ID } from "@/contexts/SelectedProjectContext";
-import { saveAs } from "file-saver";
+import { downloadExcelFile } from "@/utils/webview-download";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard } from "@/components/ui/unified-card";
 
@@ -323,7 +323,7 @@ export default function AxionReports() {
       }
 
       const buffer = await workbook.xlsx.writeBuffer();
-      saveAs(new Blob([buffer]), `كشف_حساب_${workerSearch || selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+      await downloadExcelFile(buffer as ArrayBuffer, `كشف_حساب_${workerSearch || selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     } catch (error) {
       console.error("Excel Export Error:", error);
       toast({ title: "خطأ في التصدير", description: "حدث خطأ أثناء محاولة تصدير الملف.", variant: "destructive" });

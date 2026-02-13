@@ -15,7 +15,7 @@ import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipme
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { saveAs } from 'file-saver';
+import { downloadFile } from '@/utils/webview-download';
 import { useToast } from "@/hooks/use-toast";
 import { EXCEL_STYLES, COMPANY_INFO, addReportHeader } from "@/components/excel-export-utils";
 import { downloadExcelFile } from "@/utils/webview-download";
@@ -567,20 +567,12 @@ export function EquipmentManagement() {
       `;
 
       const blob = new Blob([printContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const printWindow = window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+      const success = await downloadFile(blob, `تقرير_المعدات_${new Date().toISOString().split('T')[0]}.html`, 'text/html');
       
-      if (printWindow) {
-        setTimeout(() => {
-          printWindow.print();
-          setTimeout(() => {
-            URL.revokeObjectURL(url);
-          }, 2000);
-        }, 1500);
-        
+      if (success) {
         toast({
-          title: "جاري إعداد الطباعة",
-          description: "انتظر قليلاً ليتم تحميل المحتوى"
+          title: "تم التصدير بنجاح",
+          description: "تم تحميل ملف التقرير"
         });
       }
       

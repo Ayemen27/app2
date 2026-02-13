@@ -247,37 +247,25 @@ async function downloadViaServer(
   mimeType: string
 ): Promise<boolean> {
   try {
-    const base64 = await blobToBase64(blob);
+    const url = URL.createObjectURL(blob);
     
-    const response = await fetch('/api/download-file', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-      },
-      body: JSON.stringify({
-        base64,
-        fileName,
-        mimeType
-      })
-    });
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    link.target = '_self';
+    document.body.appendChild(link);
+    link.click();
     
-    if (!response.ok) {
-      console.error('❌ [Download] Server download failed:', response.status);
-      return false;
-    }
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 3000);
     
-    const downloadBlob = await response.blob();
-    const url = URL.createObjectURL(downloadBlob);
-    
-    window.location.href = url;
-    
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    
-    console.log('✅ [Download] تم التنزيل عبر السيرفر');
+    console.log('[Download] Server fallback via blob URL link click');
     return true;
   } catch (error) {
-    console.error('❌ [Download] فشل تنزيل السيرفر:', error);
+    console.error('[Download] Server fallback failed:', error);
     return false;
   }
 }
@@ -306,43 +294,14 @@ async function downloadForWebView(
   fileName: string,
   mimeType: string
 ): Promise<boolean> {
-  console.log('📱 [Download] محاولة التنزيل في WebView...');
-  
-  const serverResult = await downloadViaServer(blob, fileName, mimeType);
-  if (serverResult) return true;
+  console.log('[Download] WebView download attempt...');
   
   const shareResult = await downloadViaShareAPI(blob, fileName, mimeType);
   if (shareResult) return true;
 
-  try {
-    const base64 = await blobToBase64(blob);
-    const dataUri = `data:${mimeType};base64,${base64}`;
-    
-    const link = document.createElement('a');
-    link.href = dataUri;
-    link.download = fileName;
-    link.target = '_self';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    
-    const clickEvent = new MouseEvent('click', {
-      view: window,
-      bubbles: true,
-      cancelable: true
-    });
-    link.dispatchEvent(clickEvent);
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-    }, 100);
-    
-    console.log('✅ [Download] تم إرسال طلب التنزيل');
-    return true;
-  } catch (error) {
-    console.error('❌ [Download] فشل تنزيل WebView:', error);
-  }
+  const serverResult = await downloadViaServer(blob, fileName, mimeType);
+  if (serverResult) return true;
 
-  console.log('[Download] WebView data-URI fallback attempted, trying browser download');
   return downloadForBrowser(blob, fileName);
 }
 

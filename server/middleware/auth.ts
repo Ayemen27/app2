@@ -26,17 +26,19 @@ export interface AuthenticatedRequest extends Request {
 
 // Rate Limiting للطلبات العامة - تم رفعه لضمان السرعة
 export const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 دقيقة
-  max: 5000, // زيادة كبيرة للحد
-  message: {
-    success: false,
-    message: 'تم تجاوز الحد المسموح من الطلبات، يرجى المحاولة بعد قليل',
-    retryAfter: 15 * 60 
-  },
+  windowMs: 15 * 60 * 1000,
+  max: 5000,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
     return req.path === '/api/health' || req.path === '/health' || req.path.startsWith('/api/sync/');
+  },
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'تم تجاوز الحد المسموح من الطلبات، يرجى المحاولة بعد قليل',
+      retryAfter: 15 * 60
+    });
   }
 });
 

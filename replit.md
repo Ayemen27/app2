@@ -55,9 +55,10 @@
 - **تم حذفه**: `client/src/constants/api-endpoints.ts` (كان مكرراً)
 
 ## التغييرات الأخيرة
+- 2026-02-13: إعادة تفعيل generalRateLimit مع handler مخصص يضمن استجابة JSON (كان معطّلاً)
+- 2026-02-13: إصلاح اختبارات offline (25 اختبار) - إعادة كتابة conflict/db/sync tests للعمل بدون IndexedDB
 - 2026-02-12: بناء APK v1.0.28 بنجاح عبر السيرفر الخارجي (28MB) + 48 اختبار تلقائي (100% نجاح)
 - 2026-02-12: إصلاح بيئة بناء Android: ترقية Gradle 8.11.1، AGP 8.9.1، compileSdk 36، minSdk 24
-- 2026-02-12: إنشاء `scripts/remote-build.sh` v31 + `vitest.server.config.ts` + `docs/RELEASE_READINESS_REPORT.md`
 - 2026-02-12: اكتمال معمارية React Query المركزية - ترحيل 50+ ملف لاستخدام QUERY_KEYS (مراجعة PASS)
 
 ## البناء والنشر
@@ -73,6 +74,6 @@
 - الأولوية: التنظيف والدمج قبل إضافة ميزات جديدة
 
 ## ملاحظات مهمة
-- generalRateLimit معطّل مؤقتًا (مشكلة استجابة HTML)
+- generalRateLimit مفعّل (5000 طلب/15 دقيقة، handler JSON مخصص)
 - الملف server/modules/core/schema-backup.ts هو نسخة احتياطية مرجعية فقط
 - المنفذ: 5000 (الواجهة والخادم معًا)

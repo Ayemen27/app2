@@ -143,13 +143,25 @@ CVEOF
 
     if [ \$BUILD_EXIT -eq 0 ]; then
         echo 'GRADLE_BUILD_SUCCESS'
-        # Find the APK
         APK_PATH=\$(find . -name '*.apk' -path '*/release/*' | head -1)
         if [ -z \"\$APK_PATH\" ]; then
             APK_PATH=\$(find . -name '*.apk' -path '*/debug/*' | head -1)
         fi
         if [ -n \"\$APK_PATH\" ]; then
-            cp \"\$APK_PATH\" \"$REMOTE_PROJECT/AXION_LATEST.apk\"
+            KEYSTORE=\"$REMOTE_PROJECT/axion-release.keystore\"
+            BT='/opt/android-sdk/build-tools/35.0.0'
+            if [ ! -f \"\$KEYSTORE\" ]; then
+                keytool -genkeypair -v -keystore \"\$KEYSTORE\" -alias axion \
+                    -keyalg RSA -keysize 2048 -validity 10000 \
+                    -storepass axion2026 -keypass axion2026 \
+                    -dname 'CN=AXION,OU=Dev,O=AXION,L=Riyadh,ST=Riyadh,C=SA'
+            fi
+            ALIGNED=\"\${APK_PATH%.apk}-aligned.apk\"
+            \"\$BT/zipalign\" -v -p 4 \"\$APK_PATH\" \"\$ALIGNED\" 2>&1 | tail -2
+            \"\$BT/apksigner\" sign --ks \"\$KEYSTORE\" --ks-key-alias axion \
+                --ks-pass pass:axion2026 --key-pass pass:axion2026 \
+                --out \"$REMOTE_PROJECT/AXION_LATEST.apk\" \"\$ALIGNED\"
+            \"\$BT/apksigner\" verify \"$REMOTE_PROJECT/AXION_LATEST.apk\" && echo 'APK_SIGNED_OK'
             echo \"APK_READY:\$APK_PATH\"
             ls -lh \"$REMOTE_PROJECT/AXION_LATEST.apk\"
         else

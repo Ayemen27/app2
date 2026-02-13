@@ -55,6 +55,8 @@
 - **تم حذفه**: `client/src/constants/api-endpoints.ts` (كان مكرراً)
 
 ## التغييرات الأخيرة
+- 2026-02-13: بناء APK v1.0.29 بنجاح (27MB) - إصلاح capacitor.config.json (كان com.replit.agentforge) + إصلاح gradlew wrapper (كان يستخدم Gradle 4.4.1 النظام)
+- 2026-02-13: تنظيف السيرفر الخارجي من ملفات قديمة وإصلاح npm dependency conflict (eslint)
 - 2026-02-13: رفع الاختبارات إلى 156 اختبار (100% نجاح) - CRUD, Security, Matching, Offline
 - 2026-02-13: إضافة 10 فهارس قاعدة بيانات للجداول الأكثر استعلاماً
 - 2026-02-13: إعادة تفعيل generalRateLimit مع handler مخصص يضمن استجابة JSON (كان معطّلاً)

@@ -2,7 +2,6 @@ import { queueForSync, getPendingSyncQueue, removeSyncQueueItem, addLocalFirst, 
 import { deleteLocalRecord, EntityName } from './offline-queries';
 import { runSilentSync } from './silent-sync';
 import { queryClient } from '@/lib/queryClient';
-import { BinarJoinDB } from './db';
 
 /**
  * إضافة بيانات مع حفظ محلي فوري (Offline-First)
@@ -17,7 +16,7 @@ export async function createRecordOffline(
     console.log(`🚀 [Absolute-Offline] إنشاء سجل فوري: ${entityName}/${id}`);
 
     // استخدام الوظيفة الجديدة للحفظ المحلي الفوري والجدولة للمزامنة
-    await addLocalFirst(entityName as keyof BinarJoinDB, { ...payload, id }, endpoint);
+    await addLocalFirst(entityName, { ...payload, id }, endpoint);
 
     // محاولة تشغيل المزامنة في الخلفية إذا كان هناك اتصال، دون انتظار
     if (navigator.onLine) {
@@ -43,7 +42,7 @@ export async function updateRecordOffline(
   try {
     console.log(`🚀 [Absolute-Offline] تحديث سجل فوري: ${entityName}/${id}`);
 
-    await updateLocalFirst(entityName as keyof BinarJoinDB, id, payload, endpoint);
+    await updateLocalFirst(entityName, id, payload, endpoint);
 
     if (navigator.onLine) {
       runSilentSync().catch(err => console.warn('⚠️ Background sync trigger failed:', err));

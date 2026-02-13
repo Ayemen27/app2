@@ -102,9 +102,11 @@ export async function smartClear(tableName: string): Promise<void> {
     await nativeStorage.clearTable(tableName);
   } else {
     const db = await getIDB();
-    const tx = db.transaction(tableName as any, 'readwrite');
-    await tx.objectStore(tableName as any).clear();
-    await tx.done;
+    try {
+      await db.clear(tableName as any);
+    } catch (e) {
+      console.warn(`[smartClear] Failed to clear ${tableName}:`, e);
+    }
   }
 }
 
@@ -135,8 +137,19 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
     }
     return count;
   } else {
-    const { saveSyncedData } = await import('./db');
-    return await saveSyncedData(tableName, records);
+    const db = await getIDB();
+    let count = 0;
+    for (const record of records) {
+      if (record && (record.id || record.key)) {
+        try {
+          await db.put(tableName as any, record);
+          count++;
+        } catch (e) {
+          console.warn(`[smartSave] Failed to put record in ${tableName}:`, e);
+        }
+      }
+    }
+    return count;
   }
 }
 

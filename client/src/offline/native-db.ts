@@ -128,6 +128,15 @@ class SQLiteStorage {
       console.error(`Error deleting from ${table}:`, e);
     }
   }
+
+  async clearTable(table: string) {
+    if (!this.db) return;
+    try {
+      await this.db.run(`DELETE FROM ${table}`, []);
+    } catch (e) {
+      console.error(`Error clearing ${table}:`, e);
+    }
+  }
 }
 
 export const nativeStorage = new SQLiteStorage();

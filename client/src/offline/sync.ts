@@ -3,7 +3,7 @@ import { getDB, saveSyncedData } from './db';
 import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 import { apiRequest } from '../lib/api-client';
-import { smartSave, smartGetAll } from './storage-factory';
+import { smartSave, smartGetAll, smartClear } from './storage-factory';
 import { intelligentMonitor } from './intelligent-monitor';
 import { ENV } from '../lib/env';
 
@@ -77,6 +77,7 @@ function updateSyncState(updates: Partial<SyncState>) {
  */
 export async function forceSyncTable(tableName: string, data: any[]) {
   try {
+    await smartClear(tableName);
     await smartSave(tableName, data);
     console.log(`✅ [ForceSync] Table ${tableName} synced with ${data.length} records`);
     return true;

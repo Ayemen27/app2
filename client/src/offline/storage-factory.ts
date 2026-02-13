@@ -40,6 +40,17 @@ export async function smartGetAll(tableName: string): Promise<any[]> {
 /**
  * حفظ سجلات في الجدول المناسب
  */
+export async function smartClear(tableName: string): Promise<void> {
+  if (Capacitor.getPlatform() !== 'web') {
+    await nativeStorage.clearTable(tableName);
+  } else {
+    const db = await getIDB();
+    const tx = db.transaction(tableName as any, 'readwrite');
+    await tx.objectStore(tableName as any).clear();
+    await tx.done;
+  }
+}
+
 export async function smartSave(tableName: string, records: any[]): Promise<number> {
   if (!records || records.length === 0) return 0;
   

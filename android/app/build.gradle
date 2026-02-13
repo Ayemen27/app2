@@ -2,15 +2,15 @@ apply plugin: 'com.android.application'
 
 android {
     namespace "com.axion.app"
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         multiDexEnabled true
         applicationId "com.axion.app"
-        minSdk 23
-        targetSdk 34
-        versionCode 27
-        versionName "1.0.27"
+        minSdk 24
+        targetSdk 35
+        versionCode 29
+        versionName "1.0.29"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

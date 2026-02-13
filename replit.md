@@ -55,6 +55,7 @@
 - **تم حذفه**: `client/src/constants/api-endpoints.ts` (كان مكرراً)
 
 ## التغييرات الأخيرة
+- 2026-02-13: ترحيل كامل لملفات offline لاستخدام storage-factory (smart functions) - إزالة جميع استخدامات getDB/db.transaction المباشرة من sync.ts, silent-sync.ts, data-compression.ts, index.ts
 - 2026-02-13: بناء APK v1.0.30 (29MB) - إصلاح كشف Capacitor + إصلاح forceSyncTable (كان يستخدم IndexedDB transaction) + إزالة server section من capacitor.config
 - 2026-02-13: بناء APK v1.0.29 بنجاح (27MB) - إصلاح capacitor.config.json (كان com.replit.agentforge) + إصلاح gradlew wrapper (كان يستخدم Gradle 4.4.1 النظام)
 - 2026-02-13: تنظيف السيرفر الخارجي من ملفات قديمة وإصلاح npm dependency conflict (eslint)

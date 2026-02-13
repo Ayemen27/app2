@@ -1,47 +1,87 @@
 import { Capacitor } from '@capacitor/core';
 import { nativeStorage } from './native-db';
-import { getDB as getIDB, saveSyncedData as saveIDBSyncedData } from './db';
 
-/**
- * دالة تهيئة التخزين الذكي
- */
+function isNative(): boolean {
+  try {
+    const p = Capacitor.getPlatform();
+    return p === 'android' || p === 'ios';
+  } catch {
+    return false;
+  }
+}
+
+async function getIDB() {
+  const { getDB: getIDBInstance } = await import('./db');
+  return await getIDBInstance();
+}
+
 export async function initializeStorage() {
-  if (Capacitor.getPlatform() !== 'web') {
+  if (isNative()) {
     await nativeStorage.initialize();
   } else {
     await getIDB();
   }
 }
 
-/**
- * جلب البيانات بشكل ذكي
- */
-export async function smartGet(tableName: string, id: string) {
-  if (Capacitor.getPlatform() !== 'web') {
+export async function smartGet(tableName: string, id: string): Promise<any | null> {
+  if (isNative()) {
     return await nativeStorage.get(tableName, id);
-  } else {
-    const db = await getIDB();
+  }
+  const db = await getIDB();
+  try {
     return await db.get(tableName as any, id);
+  } catch {
+    return null;
   }
 }
 
-/**
- * جلب جميع السجلات من جدول بشكل ذكي
- */
 export async function smartGetAll(tableName: string): Promise<any[]> {
-  if (Capacitor.getPlatform() !== 'web') {
+  if (isNative()) {
     return await nativeStorage.getAll(tableName);
+  }
+  const db = await getIDB();
+  try {
+    return await db.getAll(tableName as any);
+  } catch {
+    return [];
+  }
+}
+
+export async function smartPut(tableName: string, record: any): Promise<void> {
+  const id = (record.id || record.key || '').toString();
+  if (!id) return;
+  
+  if (isNative()) {
+    await nativeStorage.set(tableName, id, record);
   } else {
     const db = await getIDB();
-    return await db.getAll(tableName as any);
+    await db.put(tableName as any, record);
   }
 }
 
-/**
- * حفظ سجلات في الجدول المناسب
- */
+export async function smartAdd(tableName: string, record: any): Promise<void> {
+  const id = (record.id || record.key || '').toString();
+  if (!id) return;
+  
+  if (isNative()) {
+    await nativeStorage.set(tableName, id, record);
+  } else {
+    const db = await getIDB();
+    await db.add(tableName as any, record);
+  }
+}
+
+export async function smartDelete(tableName: string, id: string): Promise<void> {
+  if (isNative()) {
+    await nativeStorage.delete(tableName, id);
+  } else {
+    const db = await getIDB();
+    await db.delete(tableName as any, id);
+  }
+}
+
 export async function smartClear(tableName: string): Promise<void> {
-  if (Capacitor.getPlatform() !== 'web') {
+  if (isNative()) {
     await nativeStorage.clearTable(tableName);
   } else {
     const db = await getIDB();
@@ -51,10 +91,22 @@ export async function smartClear(tableName: string): Promise<void> {
   }
 }
 
+export async function smartCount(tableName: string): Promise<number> {
+  if (isNative()) {
+    return await nativeStorage.count(tableName);
+  }
+  const db = await getIDB();
+  try {
+    return await db.count(tableName as any);
+  } catch {
+    return 0;
+  }
+}
+
 export async function smartSave(tableName: string, records: any[]): Promise<number> {
   if (!records || records.length === 0) return 0;
   
-  if (Capacitor.getPlatform() !== 'web') {
+  if (isNative()) {
     let count = 0;
     for (const record of records) {
       if (record && (record.id || record.key)) {
@@ -67,5 +119,39 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
   } else {
     const { saveSyncedData } = await import('./db');
     return await saveSyncedData(tableName, records);
+  }
+}
+
+export async function smartQuery(tableName: string, filterFn: (item: any) => boolean): Promise<any[]> {
+  if (isNative()) {
+    return await nativeStorage.query(tableName, filterFn);
+  }
+  const db = await getIDB();
+  try {
+    const all = await db.getAll(tableName as any);
+    return all.filter(filterFn);
+  } catch {
+    return [];
+  }
+}
+
+export async function smartBulkSave(tableName: string, records: any[], clearFirst: boolean = false): Promise<number> {
+  if (clearFirst) {
+    await smartClear(tableName);
+  }
+  return await smartSave(tableName, records);
+}
+
+export async function smartGetAllKeys(tableName: string): Promise<string[]> {
+  if (isNative()) {
+    const all = await nativeStorage.getAll(tableName);
+    return all.map((r: any) => (r.id || r.key || '').toString()).filter(Boolean);
+  }
+  const db = await getIDB();
+  try {
+    const keys = await db.getAllKeys(tableName as any);
+    return keys.map((k: any) => k.toString());
+  } catch {
+    return [];
   }
 }

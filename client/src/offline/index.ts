@@ -5,7 +5,8 @@
  * import { initOfflineSystem, offlineFirstMutation } from '@/offline'
  */
 
-// Database
+// Storage
+export { initializeStorage } from './storage-factory';
 export { getDB } from './db';
 
 // Sync System
@@ -92,9 +93,9 @@ export async function initOfflineSystem(): Promise<void> {
   console.log('🚀 [OfflineSystem] جاري تهيئة النظام...');
   
   try {
-    // تهيئة قاعدة البيانات
-    const db = await getDB();
-    console.log('✅ [OfflineSystem] تم تهيئة قاعدة البيانات');
+    const { initializeStorage } = await import('./storage-factory');
+    await initializeStorage();
+    console.log('✅ [OfflineSystem] تم تهيئة التخزين');
     
     // تفعيل مستمع المزامنة
     if (typeof window !== 'undefined') {

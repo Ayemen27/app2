@@ -5,26 +5,22 @@ class SQLiteStorage {
   private sqlite: SQLiteConnection;
   private db: SQLiteDBConnection | null = null;
   private dbName: string = 'binarjoin_native.db';
+  private _initialized: boolean = false;
 
   constructor() {
     this.sqlite = new SQLiteConnection(CapacitorSQLite);
-    // بدء التهيئة تلقائياً عند الإنشاء لضمان الجاهزية المبكرة
-    this.initialize().catch(err => console.error("🔴 SQLite Auto-Init Failed:", err));
+    this.initialize().catch(err => console.error("[SQLite] Auto-Init Failed:", err));
   }
 
   async initialize() {
-    if (this.db) return; // منع التهيئة المتكررة
+    if (this._initialized && this.db) return;
     const platform = Capacitor.getPlatform();
     
     if (platform === 'web') {
-      console.warn("⚠️ SQLite is only available on Android/iOS. Falling back to IDB.");
       return;
     }
 
-    console.log("🛠️ Initializing Real Native SQLite Engine for Android...");
-
     try {
-      // محاولة تهيئة القاعدة وضمان فتحها
       const isConn = (await this.sqlite.isConnection(this.dbName, false)).result;
 
       if (isConn) {
@@ -35,18 +31,21 @@ class SQLiteStorage {
 
       await this.db.open();
       await this.createTables();
-      console.log('✅ Native SQLite initialized successfully');
+      this._initialized = true;
     } catch (err) {
-      console.error('❌ SQLite Critical Init Error:', err);
+      console.error('[SQLite] Critical Init Error:', err);
       this.db = null;
       throw err;
     }
   }
 
+  get isReady(): boolean {
+    return this._initialized && this.db !== null;
+  }
+
   private async createTables() {
     if (!this.db) return;
     
-    // تأكد من وجود عمود المزامنة في كل جدول
     const ALL_STORES = [
       'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
       'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
@@ -62,7 +61,10 @@ class SQLiteStorage {
       'notificationReadStates',
       'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
       'reportTemplates',
-      'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'autocompleteData'
+      'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData',
+      'accounts', 'transactions', 'transaction_lines', 'journals',
+      'finance_payments', 'finance_events', 'account_balances',
+      'equipment', 'equipmentMovements', 'expenses'
     ];
 
     for (const store of ALL_STORES) {
@@ -75,66 +77,97 @@ class SQLiteStorage {
           pendingSync INTEGER DEFAULT 0
         );
       `);
-      
-      // إضافة أعمدة المزامنة إذا لم تكن موجودة (للتوافق مع الإصدارات الأقدم)
-      const columns = ['synced', 'isLocal', 'pendingSync'];
-      for (const col of columns) {
-        try {
-          await this.db.execute(`ALTER TABLE ${store} ADD COLUMN ${col} INTEGER DEFAULT 0;`);
-        } catch (e) {
-          // العمود موجود بالفعل
-        }
-      }
     }
   }
 
-  async get(table: string, id: string) {
+  async get(table: string, id: string): Promise<any | null> {
     if (!this.db) return null;
     try {
+      await this.ensureTable(table);
       const res = await this.db.query(`SELECT data FROM ${table} WHERE id = ?`, [id]);
       return res.values && res.values.length > 0 ? JSON.parse(res.values[0].data) : null;
     } catch (e) {
-      console.error(`Error getting from ${table}:`, e);
+      console.warn(`[SQLite] get ${table}/${id}:`, e);
       return null;
     }
   }
 
-  async set(table: string, id: string, data: any) {
+  async set(table: string, id: string, data: any): Promise<void> {
     if (!this.db) return;
     try {
-      const query = `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`;
-      await this.db.run(query, [id.toString(), JSON.stringify(data)]);
+      await this.ensureTable(table);
+      await this.db.run(
+        `INSERT OR REPLACE INTO ${table} (id, data) VALUES (?, ?)`,
+        [id.toString(), JSON.stringify(data)]
+      );
     } catch (e) {
-      console.error(`Error setting in ${table}:`, e);
+      console.warn(`[SQLite] set ${table}/${id}:`, e);
     }
   }
 
   async getAll(table: string): Promise<any[]> {
     if (!this.db) return [];
     try {
+      await this.ensureTable(table);
       const res = await this.db.query(`SELECT data FROM ${table}`);
       return res.values ? res.values.map(row => JSON.parse(row.data)) : [];
     } catch (e) {
-      console.error(`Error getting all from ${table}:`, e);
+      console.warn(`[SQLite] getAll ${table}:`, e);
       return [];
     }
   }
 
-  async delete(table: string, id: string) {
+  async delete(table: string, id: string): Promise<void> {
     if (!this.db) return;
     try {
+      await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table} WHERE id = ?`, [id]);
     } catch (e) {
-      console.error(`Error deleting from ${table}:`, e);
+      console.warn(`[SQLite] delete ${table}/${id}:`, e);
     }
   }
 
-  async clearTable(table: string) {
+  async clearTable(table: string): Promise<void> {
     if (!this.db) return;
     try {
+      await this.ensureTable(table);
       await this.db.run(`DELETE FROM ${table}`, []);
     } catch (e) {
-      console.error(`Error clearing ${table}:`, e);
+      console.warn(`[SQLite] clearTable ${table}:`, e);
+    }
+  }
+
+  async count(table: string): Promise<number> {
+    if (!this.db) return 0;
+    try {
+      await this.ensureTable(table);
+      const res = await this.db.query(`SELECT COUNT(*) as cnt FROM ${table}`);
+      return res.values && res.values.length > 0 ? (res.values[0].cnt || 0) : 0;
+    } catch (e) {
+      console.warn(`[SQLite] count ${table}:`, e);
+      return 0;
+    }
+  }
+
+  async query(table: string, filterFn: (item: any) => boolean): Promise<any[]> {
+    const all = await this.getAll(table);
+    return all.filter(filterFn);
+  }
+
+  private async ensureTable(table: string): Promise<void> {
+    if (!this.db) return;
+    try {
+      await this.db.execute(`
+        CREATE TABLE IF NOT EXISTS ${table} (
+          id TEXT PRIMARY KEY,
+          data TEXT,
+          synced INTEGER DEFAULT 1,
+          isLocal INTEGER DEFAULT 0,
+          pendingSync INTEGER DEFAULT 0
+        );
+      `);
+    } catch (e) {
+      // ignore
     }
   }
 }

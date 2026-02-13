@@ -1,9 +1,8 @@
 import { getPendingSyncQueue, removeSyncQueueItem, updateSyncRetries } from './offline';
-import { getDB, saveSyncedData } from './db';
 import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 import { apiRequest } from '../lib/api-client';
-import { smartSave, smartGetAll, smartClear } from './storage-factory';
+import { smartSave, smartGetAll, smartClear, smartPut, smartGet } from './storage-factory';
 import { intelligentMonitor } from './intelligent-monitor';
 import { ENV } from '../lib/env';
 
@@ -143,16 +142,11 @@ export async function performInitialDataPull(): Promise<boolean> {
     }
 
     const { data } = result;
-    const db = await getDB();
     const tableEntries = Object.entries(data);
     const totalTables = tableEntries.length;
     let processedTables = 0;
     let totalSaved = 0;
-
-    // ترقية: استخدام Transaction واحدة ضخمة لضمان سلامة البيانات (Atomic Import)
-    // ملاحظة: بما أن smartSave قد يستخدم محركات مختلفة، سنكتفي بالمعالجة المتوازية المحسنة
     
-    // 1. مزامنة المستخدمين أولاً لضمان عمل Auth (حرج جداً)
     if (data.users && Array.isArray(data.users)) {
       processedTables++;
       updateSyncState({ 
@@ -165,7 +159,6 @@ export async function performInitialDataPull(): Promise<boolean> {
       });
       await smartSave('users', data.users);
       
-      // حفظ بيانات الطوارئ (Offline Login)
       const emergencyData = data.users.map((u: any) => ({
         id: u.id.toString(),
         email: u.email,
@@ -176,7 +169,6 @@ export async function performInitialDataPull(): Promise<boolean> {
       await smartSave('emergencyUsers', emergencyData);
     }
 
-    // 2. مزامنة بقية الجداول (Batch processing لتجنب تعليق المتصفح)
     const BATCH_SIZE = 5;
     for (let i = 0; i < tableEntries.length; i += BATCH_SIZE) {
       const batch = tableEntries.slice(i, i + BATCH_SIZE);
@@ -197,7 +189,8 @@ export async function performInitialDataPull(): Promise<boolean> {
       }
     }
 
-    await db.put('syncMetadata', {
+    await smartPut('syncMetadata', {
+      id: 'lastSync',
       key: 'lastSync',
       timestamp: Date.now(),
       version: '3.1',
@@ -276,7 +269,6 @@ export async function syncOfflineData(): Promise<void> {
           if (result) {
             await removeSyncQueueItem(item.id);
             
-            const db = await getDB();
             const recordId = item.payload.id;
             const tableName = item.endpoint.split('/')[2]; 
             
@@ -386,18 +378,17 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
     }
     
     const { data } = result;
-    const db = await getDB();
     
     let totalSaved = 0;
     for (const [tableName, records] of Object.entries(data)) {
       if (Array.isArray(records)) {
         await smartSave(tableName, records);
-        console.log(`✅ [Sync] تم مزامنة ${records.length} سجل في ${tableName}`);
         totalSaved += records.length;
       }
     }
     
-    await db.put('syncMetadata', {
+    await smartPut('syncMetadata', {
+      id: 'lastSync',
       key: 'lastSync',
       timestamp: Date.now(),
       version: '3.0',

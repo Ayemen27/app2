@@ -1,17 +1,16 @@
-import { getDB, BinarJoinDB } from './db';
+import { smartGetAll, smartClear, smartSave } from './storage-factory';
 
-/**
- * تصدير جميع البيانات المحلية إلى ملف JSON
- */
+const BACKUP_STORES = ['syncQueue', 'userData', 'projects', 'workers', 'materials', 'suppliers', 'expenses'];
+
 export async function exportLocalData(): Promise<string> {
-  const db = await getDB();
-  const stores: (keyof BinarJoinDB)[] = ['syncQueue', 'userData', 'projects', 'workers', 'materials', 'suppliers', 'expenses'];
   const exportData: Record<string, any> = {};
 
-  for (const store of stores) {
-    const tx = db.transaction(store as any, 'readonly');
-    const objectStore = tx.objectStore(store as any);
-    exportData[store] = await objectStore.getAll();
+  for (const store of BACKUP_STORES) {
+    try {
+      exportData[store] = await smartGetAll(store);
+    } catch {
+      exportData[store] = [];
+    }
   }
 
   const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -28,36 +27,20 @@ export async function exportLocalData(): Promise<string> {
   return 'تم تصدير البيانات بنجاح';
 }
 
-/**
- * استيراد البيانات من ملف JSON
- */
 export async function importLocalData(jsonData: string): Promise<void> {
   try {
     const data = JSON.parse(jsonData);
-    const db = await getDB();
     const stores = Object.keys(data);
 
     for (const storeName of stores) {
-      const tx = db.transaction(storeName as any, 'readwrite');
-      const store = tx.objectStore(storeName as any);
-      
-      // مسح البيانات الحالية
-      await store.clear();
-      
-      // إضافة البيانات الجديدة
       const items = data[storeName];
-      if (Array.isArray(items)) {
-        for (const item of items) {
-          await store.put(item);
-        }
+      if (Array.isArray(items) && items.length > 0) {
+        await smartClear(storeName);
+        await smartSave(storeName, items);
       }
-      
-      await tx.done;
     }
-    
-    console.log('[Offline] تم استيراد البيانات بنجاح');
   } catch (error) {
-    console.error('[Offline] خطأ في استيراد البيانات:', error);
+    console.error('[Backup] Import failed:', error);
     throw new Error('فشل استيراد البيانات: تنسيق غير صالح');
   }
 }

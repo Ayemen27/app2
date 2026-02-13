@@ -40,13 +40,14 @@ export async function getSmartStorage() {
 }
 
 /**
- * دالة مساعدة لضمان وجود Transaction آمنة
+ * @deprecated Use smart functions from storage-factory.ts instead
  */
 export async function getSafeTransaction(storeNames: string | string[], mode: 'readonly' | 'readwrite' = 'readonly') {
-  const db = await getDB();
-  if (!db || typeof db.transaction !== 'function') {
-    throw new Error('Database not initialized correctly or missing transaction method');
+  const platform = Capacitor.getPlatform();
+  if (platform === 'android' || platform === 'ios') {
+    return null;
   }
+  const db = await initializeDB();
   return db.transaction(storeNames, mode);
 }
 
@@ -240,13 +241,11 @@ export async function deleteDB(): Promise<void> {
   });
 }
 
-/**
- * تحديث سجل مزامنة
- */
 export async function updateSyncMetadata(key: string, metadata: Record<string, any>): Promise<void> {
-  const db = await getDB();
-  await db.put('syncMetadata', {
+  const { smartPut } = await import('./storage-factory');
+  await smartPut('syncMetadata', {
     key,
+    id: key,
     timestamp: Date.now(),
     version: metadata.version || '3.0',
     recordCount: metadata.recordCount || 0,
@@ -254,41 +253,28 @@ export async function updateSyncMetadata(key: string, metadata: Record<string, a
   });
 }
 
-/**
- * الحصول على آخر وقت مزامنة
- */
 export async function getLastSyncTime(): Promise<number> {
-  const db = await getDB();
-  const metadata = await db.get('syncMetadata', 'lastSync');
+  const { smartGet } = await import('./storage-factory');
+  const metadata = await smartGet('syncMetadata', 'lastSync');
   return metadata?.lastSyncTime || 0;
 }
 
-/**
- * حفظ بيانات من الخادم إلى محرك التخزين المناسب
- */
 export async function saveSyncedData(tableName: string, records: any[]): Promise<number> {
-  const storage = await getSmartStorage();
+  const platform = Capacitor.getPlatform();
   
-  if (storage) {
-    // استخدام قاعدة البيانات الحقيقية (SQLite)
+  if (platform === 'android' || platform === 'ios') {
+    const { nativeStorage } = await import('./native-db');
     let count = 0;
     for (const record of records) {
       if (record && record.id) {
-        // التحقق من وجود الدالة قبل الاستدعاء لتجنب الانهيار
-        if (storage && typeof (storage as any).set === 'function') {
-          await (storage as any).set(tableName, record.id.toString(), record);
-          count++;
-        } else if (storage && typeof (storage as any).put === 'function') {
-          await (storage as any).put(tableName, record);
-          count++;
-        }
+        await nativeStorage.set(tableName, record.id.toString(), record);
+        count++;
       }
     }
     return count;
   }
 
-  // Fallback to IndexedDB (Web)
-  const db = await getDB();
+  const db = await initializeDB();
   const tx = db.transaction(tableName as any, 'readwrite');
   const store = tx.objectStore(tableName as any);
   let count = 0;
@@ -304,58 +290,25 @@ export async function saveSyncedData(tableName: string, records: any[]): Promise
   return count;
 }
 
-/**
- * إضافة عملية إلى طابور المزامنة وتنفيذها محلياً فوراً
- */
 export async function performLocalOperation(
   tableName: string,
   action: 'create' | 'update' | 'delete',
   payload: Record<string, any>,
   endpoint: string
 ): Promise<any> {
-  const storage = await getSmartStorage();
+  const { smartPut, smartDelete, smartAdd } = await import('./storage-factory');
   const id = payload.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2));
   const record = { ...payload, id, _isLocal: true, _pendingSync: true };
 
-  if (storage && (storage as any).set) {
-    // 🛠️ تنفيذ مباشر على SQLite الحقيقي
-    if (action === 'delete') {
-      await (storage as any).delete(tableName, id);
-    } else {
-      await (storage as any).set(tableName, id, record);
-    }
-    
-    // إضافة للطابور في SQLite
-    const queueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
-    await (storage as any).set('syncQueue', queueId, {
-      id: queueId,
-      action,
-      endpoint,
-      payload: record,
-      timestamp: Date.now(),
-      retries: 0
-    });
-    
-    console.log(`🚀 [SQLite] تم التنفيذ محلياً: ${action} على ${tableName}`);
-    return record;
-  }
-
-  // Fallback to IndexedDB (Web)
-  const db = await getDB();
-  // 1. تنفيذ العملية محلياً فوراً (المصدر الأساسي للحقيقة)
-  const tx = db.transaction([tableName as any, 'syncQueue'], 'readwrite');
-  const store = tx.objectStore(tableName as any);
-  const queueStore = tx.objectStore('syncQueue');
-
   if (action === 'delete') {
-    await store.delete(id);
+    await smartDelete(tableName, id);
   } else {
-    await store.put(record);
+    await smartPut(tableName, record);
   }
 
-  // 2. إضافة العملية إلى طابور المزامنة للخلفية
-  await queueStore.put({
-    id: crypto.randomUUID(),
+  const queueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+  await smartAdd('syncQueue', {
+    id: queueId,
     action,
     endpoint,
     payload: record,
@@ -363,25 +316,12 @@ export async function performLocalOperation(
     retries: 0
   });
 
-  await tx.done;
-  
-  console.log(`🚀 [IDB] تم التنفيذ محلياً: ${action} على ${tableName}`);
   return record;
 }
 
-/**
- * جلب قائمة محلية (تدمج البيانات السحابية مع التعديلات المحلية المعلقة)
- */
-export async function getListLocal(
-  storeName: keyof BinarJoinDB
-) {
-  const db = await getDB();
-  // @ts-ignore
-  const tx = db.transaction(storeName as any, 'readonly');
-  const store = tx.objectStore(storeName as any);
-  const items = await store.getAll();
-  
-  // ترتيب تنازلي حسب تاريخ الإنشاء لضمان ظهور الأحدث أولاً
+export async function getListLocal(storeName: string) {
+  const { smartGetAll } = await import('./storage-factory');
+  const items = await smartGetAll(storeName);
   return items.sort((a: any, b: any) => {
     const dateA = new Date(a.createdAt || 0).getTime();
     const dateB = new Date(b.createdAt || 0).getTime();
@@ -389,25 +329,12 @@ export async function getListLocal(
   });
 }
 
-/**
- * البحث عن عنصر محلي
- */
-export async function getItemLocal(
-  storeName: keyof BinarJoinDB,
-  id: string
-) {
-  const db = await getDB();
-  // @ts-ignore
-  return await db.get(storeName as any, id);
+export async function getItemLocal(storeName: string, id: string) {
+  const { smartGet } = await import('./storage-factory');
+  return await smartGet(storeName, id);
 }
 
-/**
- * حذف جميع البيانات من جدول معين
- */
 export async function clearTable(tableName: string): Promise<void> {
-  const db = await getDB();
-  await db.clear(tableName as any);
+  const { smartClear } = await import('./storage-factory');
+  await smartClear(tableName);
 }
-
-// ⚠️ ملاحظة: استخدم clearAllLocalData() من data-cleanup.ts بدلاً من clearAllData()
-// لتجنب التكرار والحفاظ على نظام موحد

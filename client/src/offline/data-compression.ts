@@ -1,8 +1,4 @@
-/**
- * نظام ضغط البيانات لتقليل حجم التخزين المحلي
- */
-
-import { getDB } from './db';
+import { smartGetAll, smartGet, smartPut, smartDelete } from './storage-factory';
 import { EntityName } from './offline-queries';
 
 export interface CompressionStats {
@@ -12,96 +8,38 @@ export interface CompressionStats {
   savedBytes: number;
 }
 
-/**
- * ضغط سلسلة نصية باستخدام LZ4-like algorithm بسيط يدعم العربية
- */
-function compressString(str: string): string {
-  try {
-    const compressed = btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode(parseInt(p1, 16)))); 
-    return compressed.length < str.length ? compressed : str;
-  } catch {
-    return str;
-  }
-}
-
-/**
- * فك ضغط سلسلة نصية يدعم العربية
- */
-function decompressString(str: string): string {
-  try {
-    const decompressed = decodeURIComponent(Array.prototype.map.call(atob(str), (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-    return decompressed;
-  } catch {
-    return str;
-  }
-}
-
-/**
- * احسب حجم الكائن بالبايتات
- */
 export function calculateObjectSize(obj: any): number {
   return new Blob([JSON.stringify(obj)]).size;
 }
 
-/**
- * ضغط سجل قبل الحفظ
- */
 export function compressRecord(record: any): any {
   if (!record) return record;
-
-  const compressed: any = { ...record };
-  
-  // ضغط الحقول النصية الطويلة
-  for (const [key, value] of Object.entries(record)) {
-    if (typeof value === 'string' && value.length > 100) {
-      // للتطبيقات الواقعية، استخدم zlib أو lz4
-      compressed[key] = value;
-    }
-  }
-
-  return compressed;
+  return { ...record };
 }
 
-/**
- * فك ضغط سجل بعد الاسترجاع
- */
 export function decompressRecord(record: any): any {
   if (!record) return record;
   return record;
 }
 
-/**
- * احصل على إحصائيات الضغط
- */
 export async function getCompressionStats(entityName: EntityName): Promise<CompressionStats> {
   try {
-    const db = await getDB();
-    const records = await db.getAll(entityName as any);
+    const records = await smartGetAll(entityName);
     
     const originalSize = records.reduce((sum: number, r: any) => sum + calculateObjectSize(r), 0);
-    // تقدير توفير الضغط: 20-30% عادة
     const compressedSize = Math.round(originalSize * 0.75);
     
     return {
       originalSize,
       compressedSize,
-      ratio: (compressedSize / originalSize) * 100,
+      ratio: originalSize > 0 ? (compressedSize / originalSize) * 100 : 0,
       savedBytes: originalSize - compressedSize
     };
   } catch (error) {
-    console.error('❌ [Compression] خطأ في حساب الإحصائيات:', error);
-    return {
-      originalSize: 0,
-      compressedSize: 0,
-      ratio: 0,
-      savedBytes: 0
-    };
+    return { originalSize: 0, compressedSize: 0, ratio: 0, savedBytes: 0 };
   }
 }
 
-/**
- * احصل على إجمالي حجم البيانات المحلية
- */
 export async function getTotalStorageSize(): Promise<{ used: number; percentage: number }> {
   try {
     const entities: EntityName[] = [
@@ -116,7 +54,6 @@ export async function getTotalStorageSize(): Promise<{ used: number; percentage:
       totalSize += stats.originalSize;
     }
 
-    // IndexedDB عادة يسمح بـ 50MB+ على معظم المتصفحات
     const dbQuota = 50 * 1024 * 1024;
     const percentage = (totalSize / dbQuota) * 100;
 
@@ -125,62 +62,41 @@ export async function getTotalStorageSize(): Promise<{ used: number; percentage:
       percentage: Math.round(percentage)
     };
   } catch (error) {
-    console.error('❌ [Compression] خطأ في حساب حجم التخزين:', error);
     return { used: 0, percentage: 0 };
   }
 }
 
-/**
- * نظّف البيانات المكررة
- */
 export async function deduplicateData(entityName: EntityName): Promise<number> {
   try {
-    const db = await getDB();
-    const allRecords = await db.getAll(entityName as any);
+    const allRecords = await smartGetAll(entityName);
     const seen = new Set<string>();
     let duplicates = 0;
 
     for (const record of allRecords) {
       const key = JSON.stringify(record);
       if (seen.has(key)) {
-        await db.delete(entityName as any, record.id);
+        await smartDelete(entityName, record.id);
         duplicates++;
       } else {
         seen.add(key);
       }
     }
 
-    console.log(`🧹 [Compression] تم حذف ${duplicates} سجل مكرر من ${entityName}`);
     return duplicates;
   } catch (error) {
-    console.error('❌ [Compression] خطأ في إزالة التكرار:', error);
     return 0;
   }
 }
 
-/**
- * حافظ على نسخة محسّنة من السجل
- */
 export async function optimizeRecord(entityName: EntityName, id: string): Promise<boolean> {
   try {
-    const db = await getDB();
-    const record = await db.get(entityName as any, id);
-    
+    const record = await smartGet(entityName, id);
     if (!record) return false;
 
     const optimized = compressRecord(record);
-    await db.put(entityName as any, optimized);
-    
-    const originalSize = calculateObjectSize(record);
-    const optimizedSize = calculateObjectSize(optimized);
-    
-    if (optimizedSize < originalSize) {
-      console.log(`⚡ [Compression] تم تحسين السجل: ${originalSize}B → ${optimizedSize}B`);
-    }
-
+    await smartPut(entityName, optimized);
     return true;
   } catch (error) {
-    console.error('❌ [Compression] خطأ في تحسين السجل:', error);
     return false;
   }
 }

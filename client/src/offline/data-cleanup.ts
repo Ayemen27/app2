@@ -1,78 +1,56 @@
-/**
- * نظام تنظيف البيانات القديمة والمؤقتة
- */
-
-import { getDB } from './db';
+import {
+  smartGetAll, smartDelete, smartClear, smartCount
+} from './storage-factory';
 import { EntityName } from './offline-queries';
 
-/**
- * احذف السجلات القديمة (أكبر من maxAge)
- */
 export async function deleteOldRecords(
   entityName: EntityName,
-  maxAgeMs: number = 30 * 24 * 60 * 60 * 1000 // 30 يوم افتراضي
+  maxAgeMs: number = 30 * 24 * 60 * 60 * 1000
 ): Promise<number> {
   try {
-    const db = await getDB();
-    const allRecords = await db.getAll(entityName as any);
+    const allRecords = await smartGetAll(entityName);
     const cutoffTime = Date.now() - maxAgeMs;
     let deleted = 0;
 
     for (const record of allRecords) {
       const createdAt = record.createdAt ? new Date(record.createdAt).getTime() : 0;
       if (createdAt > 0 && createdAt < cutoffTime) {
-        await db.delete(entityName as any, record.id);
+        await smartDelete(entityName, record.id);
         deleted++;
       }
     }
 
-    if (deleted > 0) {
-      console.log(`🗑️ [Cleanup] تم حذف ${deleted} سجل قديم من ${entityName}`);
-    }
-
     return deleted;
   } catch (error) {
-    console.error('❌ [Cleanup] خطأ في حذف السجلات القديمة:', error);
+    console.error('[Cleanup] Error deleting old records:', error);
     return 0;
   }
 }
 
-/**
- * احذف السجلات المحذوفة (soft-deleted)
- */
 export async function deleteSoftDeletedRecords(
   entityName: EntityName,
   deletedField: string = 'isDeleted'
 ): Promise<number> {
   try {
-    const db = await getDB();
-    const allRecords = await db.getAll(entityName as any);
+    const allRecords = await smartGetAll(entityName);
     let deleted = 0;
 
     for (const record of allRecords) {
       if (record[deletedField] === true) {
-        await db.delete(entityName as any, record.id);
+        await smartDelete(entityName, record.id);
         deleted++;
       }
     }
 
-    if (deleted > 0) {
-      console.log(`🗑️ [Cleanup] تم حذف ${deleted} سجل محذوف من ${entityName}`);
-    }
-
     return deleted;
   } catch (error) {
-    console.error('❌ [Cleanup] خطأ في حذف السجلات المحذوفة:', error);
+    console.error('[Cleanup] Error deleting soft-deleted records:', error);
     return 0;
   }
 }
 
-/**
- * احذف جميع البيانات المحلية (الطاقة النووية)
- */
 export async function clearAllLocalData(): Promise<boolean> {
   try {
-    const db = await getDB();
     const entities: EntityName[] = [
       'projects', 'workers', 'materials', 'suppliers',
       'workerAttendance', 'materialPurchases', 'transportationExpenses',
@@ -80,67 +58,44 @@ export async function clearAllLocalData(): Promise<boolean> {
     ];
 
     for (const entity of entities) {
-      const records = await db.getAll(entity as any);
-      for (const record of records) {
-        await db.delete(entity as any, record.id);
-      }
+      await smartClear(entity);
     }
 
-    console.log('🧹 [Cleanup] تم مسح جميع البيانات المحلية');
     return true;
   } catch (error) {
-    console.error('❌ [Cleanup] خطأ في مسح البيانات:', error);
+    console.error('[Cleanup] Error clearing all data:', error);
     return false;
   }
 }
 
-/**
- * احذف سجل واحد بشكل آمن
- */
 export async function secureDelete(
   entityName: EntityName,
   id: string,
   overwrites: number = 3
 ): Promise<boolean> {
   try {
-    const db = await getDB();
-    
-    // الكتابة فوقها عدة مرات قبل الحذف (لأغراض الأمان)
     for (let i = 0; i < overwrites; i++) {
-      await db.delete(entityName as any, id);
+      await smartDelete(entityName, id);
     }
-
-    console.log(`🔐 [Cleanup] تم حذف السجل بشكل آمن: ${entityName}/${id}`);
     return true;
   } catch (error) {
-    console.error('❌ [Cleanup] خطأ في الحذف الآمن:', error);
+    console.error('[Cleanup] Secure delete error:', error);
     return false;
   }
 }
 
-/**
- * احذف جميع البيانات المعلقة (التي لم تتم مزامنتها)
- */
 export async function clearPendingSyncData(): Promise<number> {
   try {
-    const db = await getDB();
-    const queue = await db.getAll('syncQueue' as any);
-    
-    for (const item of queue) {
-      await db.delete('syncQueue' as any, item.id);
-    }
-
-    console.log(`🗑️ [Cleanup] تم حذف ${queue.length} عملية معلقة`);
-    return queue.length;
+    const queue = await smartGetAll('syncQueue');
+    const count = queue.length;
+    await smartClear('syncQueue');
+    return count;
   } catch (error) {
-    console.error('❌ [Cleanup] خطأ في حذف البيانات المعلقة:', error);
+    console.error('[Cleanup] Error clearing pending sync:', error);
     return 0;
   }
 }
 
-/**
- * نظف البيانات المحلية بناءً على سياسات
- */
 export async function runCleanupPolicy(): Promise<{
   totalDeleted: number;
   deletedByType: Record<string, number>;
@@ -156,16 +111,14 @@ export async function runCleanupPolicy(): Promise<{
     let totalDeleted = 0;
 
     for (const entity of entities) {
-      // احذف البيانات الأقدم من 30 يوم
       const deleted = await deleteOldRecords(entity, 30 * 24 * 60 * 60 * 1000);
       deletedByType[entity] = deleted;
       totalDeleted += deleted;
     }
 
-    console.log(`✅ [Cleanup] انتهت سياسة التنظيف: ${totalDeleted} سجل محذوف`);
     return { totalDeleted, deletedByType };
   } catch (error) {
-    console.error('❌ [Cleanup] خطأ في سياسة التنظيف:', error);
+    console.error('[Cleanup] Cleanup policy error:', error);
     return { totalDeleted: 0, deletedByType: {} };
   }
 }

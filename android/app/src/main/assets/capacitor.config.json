@@ -25,9 +25,5 @@
         "biometricTitle": ""
       }
     }
-  },
-  "server": {
-    "androidScheme": "https",
-    "allowNavigation": ["*"]
   }
 }

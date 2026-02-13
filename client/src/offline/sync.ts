@@ -76,21 +76,14 @@ function updateSyncState(updates: Partial<SyncState>) {
  * Force sync a single table with new data
  */
 export async function forceSyncTable(tableName: string, data: any[]) {
-  const db = await getDB();
-  const tx = db.transaction(tableName, 'readwrite');
-  const store = tx.objectStore(tableName);
-  
-  // Clear existing data for this table to ensure clean sync
-  await store.clear();
-  
-  // Add new data
-  for (const item of data) {
-    await store.put(item);
+  try {
+    await smartSave(tableName, data);
+    console.log(`✅ [ForceSync] Table ${tableName} synced with ${data.length} records`);
+    return true;
+  } catch (error) {
+    console.error(`❌ [ForceSync] Failed to sync ${tableName}:`, error);
+    return false;
   }
-  
-  await tx.done;
-  console.log(`✅ [ForceSync] Table ${tableName} synced with ${data.length} records`);
-  return true;
 }
 
 export function getSyncState(): SyncState {

@@ -74,7 +74,7 @@ tar czf /tmp/android_project.tar.gz \
     --exclude='android/app/build' \
     --exclude='android/.gradle' \
     --exclude='android/build' \
-    android/ capacitor.config.json
+    android/
 
 scp_to /tmp/www_assets.tar.gz "$REMOTE_PROJECT/www_assets.tar.gz"
 scp_to /tmp/android_project.tar.gz "$REMOTE_PROJECT/android_project.tar.gz"
@@ -97,8 +97,7 @@ BUILD_RESULT=$(ssh_cmd "
     rm -rf android/app/src/main/assets/public
     cp -r www android/app/src/main/assets/public
 
-    # Copy capacitor config
-    cp capacitor.config.json android/app/src/main/assets/capacitor.config.json
+    # Capacitor config already included in android/ archive
 
     # Setup environment
     export JAVA_HOME='/usr/lib/jvm/java-21-openjdk-amd64'
@@ -129,8 +128,8 @@ CVEOF
     rm -rf android/app/build android/.gradle android/build
 
     # Update version
-    VERSION_CODE=29
-    VERSION_NAME='1.0.29'
+    VERSION_CODE=31
+    VERSION_NAME='1.0.31'
 
     cd android
 
@@ -196,9 +195,9 @@ fi
 
 log "Step 5/6: Retrieving APK artifact..."
 mkdir -p "$PROJECT_ROOT/output_apks"
-if scp_from "$REMOTE_PROJECT/AXION_LATEST.apk" "$PROJECT_ROOT/output_apks/AXION_v1.0.29_${TIMESTAMP}.apk" 2>/dev/null; then
-    APK_SIZE=$(ls -lh "$PROJECT_ROOT/output_apks/AXION_v1.0.29_${TIMESTAMP}.apk" | awk '{print $5}')
-    ok "APK retrieved: AXION_v1.0.29_${TIMESTAMP}.apk (${APK_SIZE})"
+if scp_from "$REMOTE_PROJECT/AXION_LATEST.apk" "$PROJECT_ROOT/output_apks/AXION_v1.0.31_${TIMESTAMP}.apk" 2>/dev/null; then
+    APK_SIZE=$(ls -lh "$PROJECT_ROOT/output_apks/AXION_v1.0.31_${TIMESTAMP}.apk" | awk '{print $5}')
+    ok "APK retrieved: AXION_v1.0.31_${TIMESTAMP}.apk (${APK_SIZE})"
 else
     warn "Could not retrieve APK file. It may still be on the remote server."
 fi

@@ -1,6 +1,33 @@
 {
-	"appId": "com.replit.agentforge",
-	"appName": "AgentForge",
-	"webDir": "www",
-	"bundledWebRuntime": false
+  "appId": "com.axion.app",
+  "appName": "AXION",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "launchFadeOutDuration": 500,
+      "backgroundColor": "#1a1a2e",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "CapacitorSQLite": {
+      "androidIsEncryption": false,
+      "androidBiometric": {
+        "biometricAuth": false,
+        "biometricTitle": ""
+      }
+    }
+  },
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["*"]
+  }
 }

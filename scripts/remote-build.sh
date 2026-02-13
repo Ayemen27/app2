@@ -129,8 +129,8 @@ CVEOF
     rm -rf android/app/build android/.gradle android/build
 
     # Update version
-    VERSION_CODE=28
-    VERSION_NAME='1.0.28'
+    VERSION_CODE=29
+    VERSION_NAME='1.0.29'
 
     cd android
 
@@ -196,9 +196,9 @@ fi
 
 log "Step 5/6: Retrieving APK artifact..."
 mkdir -p "$PROJECT_ROOT/output_apks"
-if scp_from "$REMOTE_PROJECT/AXION_LATEST.apk" "$PROJECT_ROOT/output_apks/AXION_v1.0.28_${TIMESTAMP}.apk" 2>/dev/null; then
-    APK_SIZE=$(ls -lh "$PROJECT_ROOT/output_apks/AXION_v1.0.28_${TIMESTAMP}.apk" | awk '{print $5}')
-    ok "APK retrieved: AXION_v1.0.28_${TIMESTAMP}.apk (${APK_SIZE})"
+if scp_from "$REMOTE_PROJECT/AXION_LATEST.apk" "$PROJECT_ROOT/output_apks/AXION_v1.0.29_${TIMESTAMP}.apk" 2>/dev/null; then
+    APK_SIZE=$(ls -lh "$PROJECT_ROOT/output_apks/AXION_v1.0.29_${TIMESTAMP}.apk" | awk '{print $5}')
+    ok "APK retrieved: AXION_v1.0.29_${TIMESTAMP}.apk (${APK_SIZE})"
 else
     warn "Could not retrieve APK file. It may still be on the remote server."
 fi

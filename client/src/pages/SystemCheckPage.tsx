@@ -26,7 +26,8 @@ import {
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { initializeDB, getDB } from "@/offline/db";
+import { initializeDB } from "@/offline/db";
+import { smartGetAll, smartCount, smartPut, initializeStorage } from "@/offline/storage-factory";
 import { loadFullBackup } from "@/offline/sync";
 import pako from "pako";
 
@@ -230,22 +231,22 @@ export default function SystemCheckPage() {
 
   const checkDatabase = async (): Promise<CheckStatus> => {
     try {
-      await initializeDB();
-      const db = await getDB();
-      if (db) {
-        const tables = ['projects', 'workers', 'financialTransfers', 'wells', 'wellExpenses'];
-        let totalRecords = 0;
-        const tableInfo: Record<string, number> = {};
-        
-        for (const table of tables) {
-          try {
-            const count = await db.count(table);
-            totalRecords += count;
-            tableInfo[table] = count;
-          } catch { 
-            tableInfo[table] = 0;
-          }
+      await initializeStorage();
+      const tables = ['projects', 'workers', 'financialTransfers', 'wells', 'wellExpenses'];
+      let totalRecords = 0;
+      const tableInfo: Record<string, number> = {};
+      
+      for (const table of tables) {
+        try {
+          const count = await smartCount(table);
+          totalRecords += count;
+          tableInfo[table] = count;
+        } catch { 
+          tableInfo[table] = 0;
         }
+      }
+
+      if (true) {
         
         const expandedInfo = {
           totalRecords: totalRecords,
@@ -419,13 +420,12 @@ export default function SystemCheckPage() {
         } catch {}
       }
       
-      const db = await getDB();
       let hasLocalData = false;
       let projectsCount = 0;
-      if (db) {
-        projectsCount = await db.count('projects').catch(() => 0);
+      try {
+        projectsCount = await smartCount('projects');
         hasLocalData = projectsCount > 0;
-      }
+      } catch { projectsCount = 0; }
       
       const expandedInfo = {
         mode: emergencyMode ? 'مفعّل' : 'معطّل',
@@ -463,12 +463,6 @@ export default function SystemCheckPage() {
 
   const checkTables = async (): Promise<CheckStatus> => {
     try {
-      const db = await getDB();
-      if (!db) {
-        updateCheck('tables', { details: 'قاعدة غير متاحة' });
-        return 'denied';
-      }
-      
       const requiredTables = ['projects', 'workers', 'financialTransfers', 'wells', 'wellExpenses', 'recentActivities'];
       const tableStatus: Record<string, number> = {};
       const tableDetails: TableInfo[] = [];
@@ -476,7 +470,7 @@ export default function SystemCheckPage() {
       
       for (const table of requiredTables) {
         try {
-          const count = await db.count(table);
+          const count = await smartCount(table);
           tableStatus[table] = count;
           tableDetails.push({
             name: table,
@@ -634,9 +628,6 @@ export default function SystemCheckPage() {
   };
 
   const importBackupToIndexedDB = async (data: any): Promise<void> => {
-    const db = await getDB();
-    if (!db) throw new Error('قاعدة البيانات غير متاحة');
-    
     if (data.type === 'json') {
       const backupData = data.content;
       const tables = ['projects', 'workers', 'financialTransfers', 'wells', 'wellExpenses', 'recentActivities'];
@@ -645,7 +636,7 @@ export default function SystemCheckPage() {
         if (backupData[tableName] && Array.isArray(backupData[tableName])) {
           for (const record of backupData[tableName]) {
             try {
-              await db.put(tableName, record);
+              await smartPut(tableName, record);
             } catch (e) {
               console.warn(`[Import] تخطي سجل في ${tableName}:`, e);
             }

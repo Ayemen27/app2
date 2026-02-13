@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { RefreshCw, CheckCircle, AlertCircle, Database, Table2, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
-import { getDB } from '@/offline/db';
+import { smartGetAll } from '@/offline/storage-factory';
 import { useFloatingButton } from '@/components/layout/floating-button-context';
 
 interface TableComparison {
@@ -36,13 +36,11 @@ export default function SyncComparisonPage() {
       const serverResponse = await apiRequest('/api/sync/compare', 'GET');
       const { stats, tableDetails, tables } = serverResponse.data;
 
-      // جلب بيانات IndexedDB
-      const db = await getDB();
       const localData: Record<string, number> = {};
 
       for (const tableName of tables || Object.keys(stats || {})) {
         try {
-          const records = await db.getAll(tableName);
+          const records = await smartGetAll(tableName);
           localData[tableName] = records.length;
         } catch (err) {
           localData[tableName] = 0;

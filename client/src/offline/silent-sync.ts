@@ -33,16 +33,35 @@ export async function runSilentSync() {
   }
 }
 
+let _intervalId: ReturnType<typeof setInterval> | null = null;
+let _onlineHandler: (() => void) | null = null;
+
 export function initSilentSyncObserver(intervalMs = 30000) {
+  if (_intervalId !== null) {
+    return;
+  }
+
   runSilentSync();
   
-  setInterval(() => {
+  _intervalId = setInterval(() => {
     if (navigator.onLine) {
       runSilentSync();
     }
   }, intervalMs);
 
-  window.addEventListener('online', () => {
+  _onlineHandler = () => {
     runSilentSync();
-  });
+  };
+  window.addEventListener('online', _onlineHandler);
+}
+
+export function stopSilentSyncObserver() {
+  if (_intervalId !== null) {
+    clearInterval(_intervalId);
+    _intervalId = null;
+  }
+  if (_onlineHandler !== null) {
+    window.removeEventListener('online', _onlineHandler);
+    _onlineHandler = null;
+  }
 }

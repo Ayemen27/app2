@@ -6,7 +6,8 @@
  */
 
 // Storage
-export { initializeStorage } from './storage-factory';
+export { initializeStorage, smartGet, smartPut, smartGetAll, smartSave, smartDelete, smartClear, smartCount, smartQuery, smartBulkSave, smartGetAllKeys } from './storage-factory';
+/** @deprecated Use smart functions from storage-factory instead */
 export { getDB } from './db';
 
 // Sync System

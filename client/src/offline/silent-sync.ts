@@ -2,7 +2,19 @@ import { getPendingSyncQueue, removeSyncQueueItem, updateSyncRetries } from './o
 import { smartGet, smartPut } from './storage-factory';
 import { apiRequest } from '../lib/queryClient';
 
+let _isSyncing = false;
+
 export async function runSilentSync() {
+  if (_isSyncing) return;
+  _isSyncing = true;
+  try {
+    await _executeSilentSync();
+  } finally {
+    _isSyncing = false;
+  }
+}
+
+async function _executeSilentSync() {
   const queue = await getPendingSyncQueue();
   if (queue.length === 0) return;
 

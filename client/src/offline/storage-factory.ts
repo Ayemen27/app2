@@ -10,20 +10,32 @@ function isNative(): boolean {
   }
 }
 
+let _initPromise: Promise<void> | null = null;
+
 async function getIDB() {
   const { getDB: getIDBInstance } = await import('./db');
   return await getIDBInstance();
 }
 
 export async function initializeStorage() {
-  if (isNative()) {
-    await nativeStorage.initialize();
+  if (!_initPromise) {
+    _initPromise = isNative()
+      ? nativeStorage.initialize()
+      : getIDB().then(() => {});
+  }
+  await _initPromise;
+}
+
+async function ensureInitialized() {
+  if (!_initPromise) {
+    await initializeStorage();
   } else {
-    await getIDB();
+    await _initPromise;
   }
 }
 
 export async function smartGet(tableName: string, id: string): Promise<any | null> {
+  await ensureInitialized();
   if (isNative()) {
     return await nativeStorage.get(tableName, id);
   }
@@ -36,6 +48,7 @@ export async function smartGet(tableName: string, id: string): Promise<any | nul
 }
 
 export async function smartGetAll(tableName: string): Promise<any[]> {
+  await ensureInitialized();
   if (isNative()) {
     return await nativeStorage.getAll(tableName);
   }
@@ -48,6 +61,7 @@ export async function smartGetAll(tableName: string): Promise<any[]> {
 }
 
 export async function smartPut(tableName: string, record: any): Promise<void> {
+  await ensureInitialized();
   const id = (record.id || record.key || '').toString();
   if (!id) return;
   
@@ -60,6 +74,7 @@ export async function smartPut(tableName: string, record: any): Promise<void> {
 }
 
 export async function smartAdd(tableName: string, record: any): Promise<void> {
+  await ensureInitialized();
   const id = (record.id || record.key || '').toString();
   if (!id) return;
   
@@ -72,6 +87,7 @@ export async function smartAdd(tableName: string, record: any): Promise<void> {
 }
 
 export async function smartDelete(tableName: string, id: string): Promise<void> {
+  await ensureInitialized();
   if (isNative()) {
     await nativeStorage.delete(tableName, id);
   } else {
@@ -81,6 +97,7 @@ export async function smartDelete(tableName: string, id: string): Promise<void> 
 }
 
 export async function smartClear(tableName: string): Promise<void> {
+  await ensureInitialized();
   if (isNative()) {
     await nativeStorage.clearTable(tableName);
   } else {
@@ -92,6 +109,7 @@ export async function smartClear(tableName: string): Promise<void> {
 }
 
 export async function smartCount(tableName: string): Promise<number> {
+  await ensureInitialized();
   if (isNative()) {
     return await nativeStorage.count(tableName);
   }
@@ -105,7 +123,7 @@ export async function smartCount(tableName: string): Promise<number> {
 
 export async function smartSave(tableName: string, records: any[]): Promise<number> {
   if (!records || records.length === 0) return 0;
-  
+  await ensureInitialized();
   if (isNative()) {
     let count = 0;
     for (const record of records) {
@@ -123,6 +141,7 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
 }
 
 export async function smartQuery(tableName: string, filterFn: (item: any) => boolean): Promise<any[]> {
+  await ensureInitialized();
   if (isNative()) {
     return await nativeStorage.query(tableName, filterFn);
   }
@@ -143,6 +162,7 @@ export async function smartBulkSave(tableName: string, records: any[], clearFirs
 }
 
 export async function smartGetAllKeys(tableName: string): Promise<string[]> {
+  await ensureInitialized();
   if (isNative()) {
     const all = await nativeStorage.getAll(tableName);
     return all.map((r: any) => (r.id || r.key || '').toString()).filter(Boolean);

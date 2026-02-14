@@ -63,6 +63,7 @@
 - **الميزات**: منع التحديث المتوازي، حد أدنى 600ms للسبنر، toast عند الفشل، دعم RTL
 
 ## التغييرات الأخيرة
+- 2026-02-14: تأمين endpoint التنزيل المؤقت (requireAuth + userId binding + UUID validation + LRU eviction: 50 max/5 per user) + إصلاح جميع دوال التصدير لفحص نتيجة التنزيل قبل عرض رسالة النجاح (12+ ملف)
 - 2026-02-14: إضافة Pull to Refresh موحّد لـ 27 صفحة - hook + indicator + config مركزي في LayoutShell
 - 2026-02-13: إصلاح الشاشة البيضاء عند تصدير Excel/PDF في Android WebView - توحيد جميع مسارات التصدير (10 ملفات) عبر webview-download.ts + Capacitor Filesystem/Share + إزالة كاملة لـ file-saver/saveAs + حماية window.open بـ isMobileWebView()
 - 2026-02-13: ترحيل كامل (100%) لجميع ملفات offline + pages لاستخدام storage-factory - إزالة getDB من sync.ts, silent-sync.ts, data-compression.ts, index.ts, SystemCheckPage.tsx, sync-comparison.tsx + singleton guard لـ silentSync + deprecation tag لـ getDB export

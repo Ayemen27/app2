@@ -52,7 +52,7 @@ export async function exportTransactionsToExcel(
   totals: Totals,
   formatCurrency: (amount: number) => string,
   projectName?: string
-): Promise<void> {
+): Promise<boolean> {
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = COMPANY_INFO.name;
@@ -302,5 +302,5 @@ export async function exportTransactionsToExcel(
 
   const buffer = await workbook.xlsx.writeBuffer();
   const fileName = `سجل_العمليات_${projectName ? projectName + '_' : ''}${new Date().toISOString().split('T')[0]}.xlsx`;
-  await downloadExcelFile(buffer as ArrayBuffer, fileName);
+  return await downloadExcelFile(buffer as ArrayBuffer, fileName);
 }

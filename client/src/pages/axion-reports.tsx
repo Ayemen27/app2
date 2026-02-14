@@ -323,7 +323,10 @@ export default function AxionReports() {
       }
 
       const buffer = await workbook.xlsx.writeBuffer();
-      await downloadExcelFile(buffer as ArrayBuffer, `كشف_حساب_${workerSearch || selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, `كشف_حساب_${workerSearch || selectedProjectName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+      if (!downloadResult) {
+        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+      }
     } catch (error) {
       console.error("Excel Export Error:", error);
       toast({ title: "خطأ في التصدير", description: "حدث خطأ أثناء محاولة تصدير الملف.", variant: "destructive" });

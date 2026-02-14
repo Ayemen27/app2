@@ -430,7 +430,10 @@ export default function SupplierAccountsPage() {
     const fileName = selectedSupplier 
       ? `كشف-حساب-${selectedSupplier.name}-${currentDate}.xlsx`
       : `كشف-حساب-جميع-الموردين-${currentDate}.xlsx`;
-    await downloadExcelFile(buffer as ArrayBuffer, fileName);
+    const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, fileName);
+    if (!downloadResult) {
+      toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+    }
   };
 
   const resetFilters = useCallback(() => {

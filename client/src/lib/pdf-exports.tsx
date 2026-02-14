@@ -6,11 +6,11 @@ import { downloadFile, isCapacitorNative } from '@/utils/webview-download';
  * دالة توليد كشف حساب مطابق للهوية البصرية لشركة الفتيني
  * تدعم تكرار الرأس في كل صفحة وتصميم جداول احترافي
  */
-export const generateWorkerPDF = async (data: any, worker: any) => {
+export const generateWorkerPDF = async (data: any, worker: any): Promise<boolean> => {
   try {
     if (!data || !data.statement) {
       console.error("No data provided for PDF generation");
-      return;
+      return false;
     }
 
     const workerName = worker?.name || 'عامل';
@@ -284,18 +284,19 @@ export const generateWorkerPDF = async (data: any, worker: any) => {
     const fileName = `كشف_حساب_${worker?.name || 'عامل'}_${format(new Date(), 'yyyy-MM-dd')}.html`;
     const { isMobileWebView } = await import('@/utils/webview-download');
     if (isMobileWebView()) {
-      await downloadFile(blob, fileName, 'text/html');
+      return await downloadFile(blob, fileName, 'text/html');
     } else {
       const url = URL.createObjectURL(blob);
       const newWindow = window.open(url, '_blank');
       if (!newWindow) {
-        await downloadFile(blob, fileName, 'text/html');
+        return await downloadFile(blob, fileName, 'text/html');
       }
       setTimeout(() => URL.revokeObjectURL(url), 5000);
+      return true;
     }
 
   } catch (error) {
     console.error("Critical Print Error:", error);
-    alert("عذراً، تعذر إنشاء التقرير.");
+    return false;
   }
 };

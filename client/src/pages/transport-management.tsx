@@ -322,9 +322,13 @@ export default function TransportManagement() {
       });
 
       const buffer = await workbook.xlsx.writeBuffer();
-      await downloadExcelFile(buffer as ArrayBuffer, `تقرير_النقل_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, `تقرير_النقل_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
       
-      toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل احترافي" });
+      if (downloadResult) {
+        toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل احترافي" });
+      } else {
+        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+      }
     } catch (error) {
       console.error("Export error:", error);
       toast({ title: "خطأ في التصدير", variant: "destructive" });

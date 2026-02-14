@@ -470,12 +470,20 @@ export function EquipmentManagement() {
       const filename = `كشف_المعدات_${filenameProjectName}_${new Date().toISOString().split('T')[0]}.xlsx`;
       
       const buffer = await workbook.xlsx.writeBuffer();
-      await downloadExcelFile(buffer as ArrayBuffer, filename);
+      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, filename);
       
-      toast({
-        title: "تم تصدير كشف المعدات بنجاح",
-        description: `تم حفظ الملف: ${filename}`
-      });
+      if (downloadResult) {
+        toast({
+          title: "تم تصدير كشف المعدات بنجاح",
+          description: `تم حفظ الملف: ${filename}`
+        });
+      } else {
+        toast({
+          title: "تعذر التنزيل",
+          description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.",
+          variant: "destructive"
+        });
+      }
       
     } catch (error) {
       console.error('خطأ في تصدير Excel:', error);

@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { format } from 'date-fns';
 
-export async function exportMaterialPurchasesToExcel(purchases: any[]) {
+export async function exportMaterialPurchasesToExcel(purchases: any[]): Promise<boolean> {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('مشتريات المواد');
 
@@ -71,5 +71,5 @@ export async function exportMaterialPurchasesToExcel(purchases: any[]) {
 
   // توليد وحفظ الملف
   const buffer = await workbook.xlsx.writeBuffer();
-  await downloadExcelFile(buffer as ArrayBuffer, `مشتريات_المواد_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`);
+  return await downloadExcelFile(buffer as ArrayBuffer, `مشتريات_المواد_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`);
 }

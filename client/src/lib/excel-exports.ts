@@ -3,7 +3,7 @@ import { downloadExcelFile } from '@/utils/webview-download';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 
-export const exportWorkerStatement = async (data: any, worker: any) => {
+export const exportWorkerStatement = async (data: any, worker: any): Promise<boolean> => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('كشف حساب عامل', {
     views: [{ rightToLeft: true, showGridLines: false }]
@@ -234,5 +234,5 @@ export const exportWorkerStatement = async (data: any, worker: any) => {
   footer.alignment = centerAlign;
 
   const buffer = await workbook.xlsx.writeBuffer();
-  await downloadExcelFile(buffer as ArrayBuffer, `Worker_Statement_${worker.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  return await downloadExcelFile(buffer as ArrayBuffer, `Worker_Statement_${worker.name.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
 };

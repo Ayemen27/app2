@@ -580,12 +580,17 @@ export default function WorkersPage() {
       setExportProgress(100);
       
       if (res.success) {
+        let downloadResult = false;
         if (type === 'pdf') {
-          await generateWorkerPDF(res.data, worker);
+          downloadResult = await generateWorkerPDF(res.data, worker);
         } else {
-          await exportWorkerStatement(res.data, worker);
+          downloadResult = await exportWorkerStatement(res.data, worker);
         }
-        toast({ title: "تم التصدير", description: `تم تجهيز كشف حساب ${worker.name} بنجاح` });
+        if (downloadResult) {
+          toast({ title: "تم التصدير", description: `تم تجهيز كشف حساب ${worker.name} بنجاح` });
+        } else {
+          toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+        }
       }
     } catch (error) {
       console.error("Error exporting statement:", error);

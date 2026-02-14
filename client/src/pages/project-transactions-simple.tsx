@@ -901,16 +901,20 @@ export default function ProjectTransactionsSimple() {
     if (isExporting || filteredTransactions.length === 0) return;
     setIsExporting(true);
     try {
-      await exportTransactionsToExcel(
+      const downloadResult = await exportTransactionsToExcel(
         filteredTransactions,
         { totalIncome: totals.totalIncome, totalExpenses: totals.totalExpenses, balance: totals.balance },
         formatCurrency,
         isAllProjects ? 'جميع المشاريع' : getProjectNameUnified()
       );
-      toast({
-        title: 'تم التصدير بنجاح',
-        description: `تم تصدير ${filteredTransactions.length} عملية إلى ملف Excel`,
-      });
+      if (downloadResult) {
+        toast({
+          title: 'تم التصدير بنجاح',
+          description: `تم تصدير ${filteredTransactions.length} عملية إلى ملف Excel`,
+        });
+      } else {
+        toast({ title: 'تعذر التنزيل', description: 'تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.', variant: 'destructive' });
+      }
     } catch (error) {
       console.error('خطأ في التصدير:', error);
       toast({

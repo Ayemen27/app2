@@ -201,5 +201,5 @@ export async function exportActivitiesToExcel(
 
   const buffer = await workbook.xlsx.writeBuffer();
   const fileName = `سجل_العمليات_${new Date().toISOString().split('T')[0]}.xlsx`;
-  await downloadExcelFile(buffer as ArrayBuffer, fileName);
+  return await downloadExcelFile(buffer as ArrayBuffer, fileName);
 }

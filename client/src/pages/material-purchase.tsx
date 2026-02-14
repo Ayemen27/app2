@@ -1015,11 +1015,15 @@ export default function MaterialPurchase() {
 
     setIsExporting(true);
     try {
-      await exportMaterialPurchasesToExcel(filteredPurchases);
-      toast({
-        title: "تم التصدير بنجاح",
-        description: `تم تصدير ${filteredPurchases.length} سجل إلى ملف Excel`,
-      });
+      const downloadResult = await exportMaterialPurchasesToExcel(filteredPurchases);
+      if (downloadResult) {
+        toast({
+          title: "تم التصدير بنجاح",
+          description: `تم تصدير ${filteredPurchases.length} سجل إلى ملف Excel`,
+        });
+      } else {
+        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+      }
     } catch (error) {
       console.error("Export error:", error);
       toast({

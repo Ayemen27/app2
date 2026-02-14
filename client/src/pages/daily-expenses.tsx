@@ -2034,17 +2034,21 @@ function DailyExpensesContent() {
         : projects.find(p => p.id === selectedProjectId)?.name || 'المشروع';
 
       // تصدير إلى Excel
-      await exportTransactionsToExcel(
+      const downloadResult = await exportTransactionsToExcel(
         transactions,
         exportTotals,
         formatCurrency,
         `${currentProjectName}${selectedDate ? ` - ${selectedDate}` : ''}`
       );
 
-      toast({
-        title: "تم التصدير بنجاح",
-        description: `تم تصدير ${transactions.length} عملية إلى ملف Excel`,
-      });
+      if (downloadResult) {
+        toast({
+          title: "تم التصدير بنجاح",
+          description: `تم تصدير ${transactions.length} عملية إلى ملف Excel`,
+        });
+      } else {
+        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+      }
     } catch (error) {
       console.error('خطأ في التصدير:', error);
       toast({

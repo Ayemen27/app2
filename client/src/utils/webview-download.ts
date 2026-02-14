@@ -66,6 +66,52 @@ export function hasShareAPI(): boolean {
   return typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
 }
 
+async function downloadViaServerProxy(
+  blob: Blob,
+  fileName: string,
+  mimeType: string
+): Promise<boolean> {
+  try {
+    const base64Data = await blobToBase64(blob);
+
+    const response = await fetch('/api/temp-download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ base64Data, fileName, mimeType }),
+    });
+
+    if (!response.ok) {
+      console.error('[Download] Server proxy upload failed:', response.status);
+      return false;
+    }
+
+    const result = await response.json();
+    if (!result.success || !result.downloadUrl) {
+      console.error('[Download] Server proxy returned invalid response');
+      return false;
+    }
+
+    const downloadUrl = result.downloadUrl;
+    console.log('[Download] Server proxy URL:', downloadUrl);
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = downloadUrl;
+    document.body.appendChild(iframe);
+
+    setTimeout(() => {
+      try { document.body.removeChild(iframe); } catch {}
+    }, 30000);
+
+    console.log('[Download] Server proxy download triggered via iframe');
+    return true;
+  } catch (error) {
+    console.error('[Download] Server proxy failed:', error);
+    return false;
+  }
+}
+
 async function downloadViaCapacitor(
   blob: Blob,
   fileName: string,
@@ -75,28 +121,52 @@ async function downloadViaCapacitor(
     const base64Data = await blobToBase64(blob);
     const sanitizedName = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
 
-    const writeResult = await Filesystem.writeFile({
-      path: sanitizedName,
-      data: base64Data,
-      directory: Directory.Cache,
-    });
+    let writeResult;
+    try {
+      writeResult = await Filesystem.writeFile({
+        path: `AXION/${sanitizedName}`,
+        data: base64Data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+    } catch {
+      try {
+        writeResult = await Filesystem.writeFile({
+          path: `Download/AXION/${sanitizedName}`,
+          data: base64Data,
+          directory: Directory.ExternalStorage,
+          recursive: true,
+        });
+      } catch {
+        writeResult = await Filesystem.writeFile({
+          path: sanitizedName,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
+      }
+    }
 
     const fileUri = writeResult.uri;
     console.log('[Download] Capacitor: file written to', fileUri);
 
-    await Share.share({
-      title: fileName,
-      url: fileUri,
-      dialogTitle: fileName,
-    });
+    try {
+      await Share.share({
+        title: fileName,
+        url: fileUri,
+        dialogTitle: fileName,
+      });
+      console.log('[Download] Capacitor Share completed');
+    } catch (shareError) {
+      const msg = (shareError as Error).message || '';
+      if (msg.includes('canceled') || msg.includes('dismissed')) {
+        console.log('[Download] User cancelled share - file still saved');
+      } else {
+        console.warn('[Download] Share failed, but file is saved at:', fileUri);
+      }
+    }
 
-    console.log('[Download] Capacitor Share completed');
     return true;
   } catch (error) {
-    if ((error as Error).message?.includes('canceled') || (error as Error).message?.includes('dismissed')) {
-      console.log('[Download] User cancelled share');
-      return true;
-    }
     console.error('[Download] Capacitor download failed:', error);
     return false;
   }
@@ -122,7 +192,14 @@ export async function downloadFile(
       console.log('[Download] Using Capacitor Filesystem + Share');
       const result = await downloadViaCapacitor(blob, fileName, actualMimeType);
       if (result) return true;
-      console.log('[Download] Capacitor failed, trying fallbacks');
+      console.log('[Download] Capacitor failed, trying server proxy');
+    }
+
+    if (isMobileWebView()) {
+      console.log('[Download] Mobile WebView detected - using server proxy');
+      const proxyResult = await downloadViaServerProxy(blob, fileName, actualMimeType);
+      if (proxyResult) return true;
+      console.log('[Download] Server proxy failed, trying other methods');
     }
 
     if (hasAndroidBridge()) {
@@ -138,11 +215,6 @@ export async function downloadFile(
     if (isMobileWebView() && hasShareAPI()) {
       console.log('[Download] Using Share API');
       return await downloadViaShareAPI(blob, fileName, actualMimeType);
-    }
-
-    if (isMobileWebView()) {
-      console.log('[Download] WebView without bridge - trying alternatives');
-      return await downloadForWebView(blob, fileName, actualMimeType);
     }
 
     console.log('[Download] Using browser download');
@@ -163,25 +235,22 @@ async function downloadViaAndroidBridge(
     
     if (window.Android?.downloadBase64File) {
       window.Android.downloadBase64File(base64, fileName, mimeType);
-      console.log('✅ [Download] تم إرسال الملف عبر downloadBase64File');
       return true;
     }
     
     if (window.Android?.downloadFile) {
       window.Android.downloadFile(base64, fileName, mimeType);
-      console.log('✅ [Download] تم إرسال الملف عبر downloadFile');
       return true;
     }
     
     if (window.Android?.shareFile) {
       window.Android.shareFile(base64, fileName, mimeType);
-      console.log('✅ [Download] تم مشاركة الملف عبر shareFile');
       return true;
     }
     
     return false;
   } catch (error) {
-    console.error('❌ [Download] فشل Android Bridge:', error);
+    console.error('[Download] Android Bridge failed:', error);
     return false;
   }
 }
@@ -200,13 +269,12 @@ async function downloadViaIOSBridge(
         fileName,
         mimeType
       });
-      console.log('✅ [Download] تم إرسال الملف عبر iOS Bridge');
       return true;
     }
     
     return false;
   } catch (error) {
-    console.error('❌ [Download] فشل iOS Bridge:', error);
+    console.error('[Download] iOS Bridge failed:', error);
     return false;
   }
 }
@@ -225,47 +293,15 @@ async function downloadViaShareAPI(
         files: [file],
         title: fileName
       });
-      console.log('✅ [Download] تم مشاركة الملف بنجاح');
       return true;
     }
     
-    console.log('⚠️ [Download] Share API لا يدعم هذا النوع من الملفات');
     return false;
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
-      console.log('ℹ️ [Download] تم إلغاء المشاركة من قبل المستخدم');
       return true;
     }
-    console.error('❌ [Download] فشل Share API:', error);
-    return false;
-  }
-}
-
-async function downloadViaServer(
-  blob: Blob,
-  fileName: string,
-  mimeType: string
-): Promise<boolean> {
-  try {
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    link.style.display = 'none';
-    link.target = '_self';
-    document.body.appendChild(link);
-    link.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 3000);
-    
-    console.log('[Download] Server fallback via blob URL link click');
-    return true;
-  } catch (error) {
-    console.error('[Download] Server fallback failed:', error);
+    console.error('[Download] Share API failed:', error);
     return false;
   }
 }
@@ -281,28 +317,11 @@ function downloadForBrowser(blob: Blob, fileName: string): boolean {
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    console.log('✅ [Download] تم التنزيل عبر المتصفح');
     return true;
   } catch (error) {
-    console.error('❌ [Download] فشل تنزيل المتصفح:', error);
+    console.error('[Download] Browser download failed:', error);
     return false;
   }
-}
-
-async function downloadForWebView(
-  blob: Blob,
-  fileName: string,
-  mimeType: string
-): Promise<boolean> {
-  console.log('[Download] WebView download attempt...');
-  
-  const shareResult = await downloadViaShareAPI(blob, fileName, mimeType);
-  if (shareResult) return true;
-
-  const serverResult = await downloadViaServer(blob, fileName, mimeType);
-  if (serverResult) return true;
-
-  return downloadForBrowser(blob, fileName);
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -349,12 +368,12 @@ export function getDownloadCapabilities(): {
   const shareAPI = hasShareAPI();
   
   let recommendedMethod = 'browser';
-  if (hasNativeBridge) {
+  if (isWebView) {
+    recommendedMethod = 'server-proxy';
+  } else if (hasNativeBridge) {
     recommendedMethod = 'native-bridge';
   } else if (isWebView && shareAPI) {
     recommendedMethod = 'share-api';
-  } else if (isWebView) {
-    recommendedMethod = 'webview-fallback';
   }
   
   return {

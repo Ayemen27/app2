@@ -857,17 +857,16 @@ export default function DailyExpensesBulkExport() {
       
       const projectName = selectedProject?.name?.replace(/[\\/:*?"<>|]/g, '-') || 'مشروع';
       const fileName = `تقرير_المصروفات_اليومية_${projectName}_من_${dateFrom}_إلى_${dateTo}.xlsx`;
-      await downloadExcelFile(buffer as ArrayBuffer, fileName);
+      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, fileName);
 
-
-
-
-
-
-      toast({
-        title: "تم التصدير بنجاح! 🎉",
-        description: `تم تصدير ${dailyExpenses.length} يوم من المصروفات اليومية`,
-      });
+      if (downloadResult) {
+        toast({
+          title: "تم التصدير بنجاح",
+          description: `تم تصدير ${dailyExpenses.length} يوم من المصروفات اليومية`,
+        });
+      } else {
+        toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
+      }
 
 
 

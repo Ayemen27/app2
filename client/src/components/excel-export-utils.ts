@@ -73,5 +73,5 @@ export async function exportToExcel(
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
-  await downloadExcelFile(buffer as ArrayBuffer, `${fileName}.xlsx`);
+  return await downloadExcelFile(buffer as ArrayBuffer, `${fileName}.xlsx`);
 }

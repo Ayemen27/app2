@@ -24,6 +24,7 @@ import syncRouter from './syncRoutes.js';
 import tasksRouter from './tasks.js';
 import securityRouter from './securityRoutes.js';
 import backupRouter from './backupRoutes.js';
+import downloadProxyRouter from './downloadProxyRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 
 /**
@@ -100,6 +101,10 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات المهام
   app.use('/api/tasks', tasksRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات المهام: /api/tasks');
+
+  // مسارات تنزيل الملفات المؤقتة (proxy للأندرويد WebView)
+  app.use('/api', downloadProxyRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات التنزيل المؤقت: /api/temp-download');
 
   // تفعيل معالج الأخطاء العالمي في النهاية لجميع المسارات المسجلة أعلاه
   app.use(globalErrorHandler);

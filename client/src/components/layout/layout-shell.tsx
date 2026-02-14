@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useCallback, useRef } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import Header from "./header";
 import BottomNavigation from "./bottom-navigation";
 import FloatingAddButton from "./floating-add-button";
@@ -7,6 +8,10 @@ import { EnvironmentBadge } from "./EnvironmentBadge";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import { SyncProgressTracker } from "@/components/ui/sync-progress-tracker";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh";
+import { useToast } from "@/hooks/use-toast";
+import { PULL_REFRESH_CONFIG } from "@/constants/pullRefreshConfig";
 
 interface LayoutShellProps {
   children: React.ReactNode;
@@ -22,14 +27,46 @@ export function LayoutShell({
   showFloatingButton = true 
 }: LayoutShellProps) {
   const [location] = useLocation();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const mainRef = useRef<HTMLElement | null>(null);
   
-  // الصفحات التي تحتوي على شريط خاص بها وتحتاج إلى إخفاء الشريط العام
   const pagesWithCustomHeader = ['/ai-chat', '/admin/data-health'];
   const isCustomHeaderPage = pagesWithCustomHeader.some(page => location === page);
   
-  // الصفحات التي تحتاج إلى إخفاء شريط التنقل السفلي
   const pagesWithoutNav: string[] = [];
   const hideNav = pagesWithoutNav.some(page => location === page);
+
+  const pageConfig = PULL_REFRESH_CONFIG[location];
+  const pullEnabled = !!pageConfig;
+
+  const handleRefresh = useCallback(async () => {
+    if (!pageConfig) return;
+
+    try {
+      const refetchPromises = pageConfig.queryKeys.map((key) =>
+        queryClient.refetchQueries({ queryKey: key, type: "active" })
+      );
+      await Promise.all(refetchPromises);
+    } catch {
+      toast({
+        title: "فشل التحديث",
+        description: "تعذر تحديث البيانات. تحقق من اتصالك بالإنترنت.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      throw new Error("refresh failed");
+    }
+  }, [pageConfig, queryClient, toast]);
+
+  const { pullDistance, isRefreshing, progress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    enabled: pullEnabled,
+    threshold: 70,
+    maxPull: 130,
+    minSpinnerTime: 600,
+    scrollRef: mainRef,
+  });
 
   const sidebarStyle = {
     "--sidebar-width": "18rem",
@@ -57,7 +94,17 @@ export function LayoutShell({
               </header>
             )}
             
-            <main className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch pb-[calc(72px+env(safe-area-inset-bottom,0px)+16px)] md:pb-0">
+            <main
+              ref={mainRef}
+              className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch pb-[calc(72px+env(safe-area-inset-bottom,0px)+16px)] md:pb-0"
+            >
+              {pullEnabled && (
+                <PullToRefreshIndicator
+                  pullDistance={pullDistance}
+                  isRefreshing={isRefreshing}
+                  progress={progress}
+                />
+              )}
               <div className={isCustomHeaderPage ? "h-full" : "layout-content p-4 md:p-6 max-w-7xl mx-auto w-full"}>
                 {children}
               </div>

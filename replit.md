@@ -54,7 +54,16 @@
 - **نمط المفاتيح البادئة**: مفاتيح مثل `autocompleteFanTypesPrefix` تُستخدم لإبطال كاش جميع المفاتيح التي تبدأ بنفس البادئة (prefix-match invalidation)
 - **تم حذفه**: `client/src/constants/api-endpoints.ts` (كان مكرراً)
 
+## نظام Pull to Refresh
+- **الملفات**: `client/src/hooks/use-pull-to-refresh.ts` + `client/src/components/ui/pull-to-refresh.tsx` + `client/src/constants/pullRefreshConfig.ts`
+- **نقطة الدمج**: LayoutShell (عنصر `<main>` القابل للتمرير)
+- **التكامل**: React Query `refetchQueries` لكل مفاتيح الصفحة
+- **الصفحات المفعلة**: 27 صفحة (dashboard, projects, workers, suppliers, equipment, wells, notifications, reports, إلخ)
+- **الصفحات المستثناة**: login, register, settings, security (لا تظهر في pullRefreshConfig)
+- **الميزات**: منع التحديث المتوازي، حد أدنى 600ms للسبنر، toast عند الفشل، دعم RTL
+
 ## التغييرات الأخيرة
+- 2026-02-14: إضافة Pull to Refresh موحّد لـ 27 صفحة - hook + indicator + config مركزي في LayoutShell
 - 2026-02-13: إصلاح الشاشة البيضاء عند تصدير Excel/PDF في Android WebView - توحيد جميع مسارات التصدير (10 ملفات) عبر webview-download.ts + Capacitor Filesystem/Share + إزالة كاملة لـ file-saver/saveAs + حماية window.open بـ isMobileWebView()
 - 2026-02-13: ترحيل كامل (100%) لجميع ملفات offline + pages لاستخدام storage-factory - إزالة getDB من sync.ts, silent-sync.ts, data-compression.ts, index.ts, SystemCheckPage.tsx, sync-comparison.tsx + singleton guard لـ silentSync + deprecation tag لـ getDB export
 - 2026-02-13: بناء APK v1.0.30 (29MB) - إصلاح كشف Capacitor + إصلاح forceSyncTable (كان يستخدم IndexedDB transaction) + إزالة server section من capacitor.config

@@ -105,7 +105,11 @@ router.get('/temp-download/:id', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'File not found or expired' });
   }
 
-  tempFiles.delete(id);
+  const accessCount = (file as any)._accessCount || 0;
+  (file as any)._accessCount = accessCount + 1;
+  if (accessCount >= 2) {
+    tempFiles.delete(id);
+  }
 
   const safeFileName = file.fileName.replace(/[^\w\u0600-\u06FF._-]/g, '_');
 

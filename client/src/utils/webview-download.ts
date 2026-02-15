@@ -87,14 +87,33 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+let _debugMode = false;
+export function enableDownloadDebug(enable: boolean = true) {
+  _debugMode = enable;
+}
+
+function debugLog(method: string, status: string, detail?: string) {
+  const msg = `[DL] ${method}: ${status}${detail ? ' - ' + detail : ''}`;
+  console.log(msg);
+  if (_debugMode) {
+    try { alert(msg); } catch {}
+  }
+}
+
 async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
   try {
-    const { FileSharer } = await import('@byteowls/capacitor-filesharer');
+    const mod = await import('@byteowls/capacitor-filesharer');
+    const FileSharer = mod.FileSharer;
+    if (!FileSharer || typeof FileSharer.share !== 'function') {
+      debugLog('FileSharer', 'SKIP', 'plugin not available');
+      return false;
+    }
+
     const base64Data = await blobToBase64(blob);
     const sanitizedName = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
     const contentType = getMimeType(sanitizedName, mimeType);
 
-    console.log('[DL] FileSharer: start', sanitizedName, contentType, blob.size);
+    debugLog('FileSharer', 'START', `${sanitizedName} (${blob.size} bytes)`);
 
     await FileSharer.share({
       filename: sanitizedName,
@@ -102,11 +121,11 @@ async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Pr
       base64Data: base64Data,
     });
 
-    console.log('[DL] FileSharer: OK');
+    debugLog('FileSharer', 'OK');
     return true;
   } catch (err: any) {
     const msg = String(err?.message || err || '');
-    console.error('[DL] FileSharer error:', msg);
+    debugLog('FileSharer', 'ERROR', msg);
     if (msg.includes('cancel') || msg.includes('Cancel') || msg.includes('dismiss') || msg.includes('USER_CANCELLED')) {
       return true;
     }
@@ -116,12 +135,21 @@ async function tryFileSharer(blob: Blob, fileName: string, mimeType: string): Pr
 
 async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
   try {
-    const { Filesystem, Directory } = await import('@capacitor/filesystem');
-    const { Share } = await import('@capacitor/share');
+    const fsMod = await import('@capacitor/filesystem');
+    const shareMod = await import('@capacitor/share');
+    const Filesystem = fsMod.Filesystem;
+    const Directory = fsMod.Directory;
+    const Share = shareMod.Share;
+
+    if (!Filesystem || !Share) {
+      debugLog('CapFS+Share', 'SKIP', 'plugins not available');
+      return false;
+    }
+
     const base64Data = await blobToBase64(blob);
     const sanitizedName = fileName.replace(/[^a-zA-Z0-9\u0600-\u06FF._-]/g, '_');
 
-    console.log('[DL] CapFS: writing', sanitizedName);
+    debugLog('CapFS', 'WRITING', sanitizedName);
 
     await Filesystem.writeFile({
       path: sanitizedName,
@@ -134,7 +162,7 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
       path: sanitizedName,
     });
 
-    console.log('[DL] CapFS: uri =', uriResult.uri);
+    debugLog('CapFS', 'URI', uriResult.uri);
 
     await Share.share({
       title: fileName,
@@ -142,11 +170,11 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
       dialogTitle: `مشاركة: ${fileName}`,
     });
 
-    console.log('[DL] CapShare: OK');
+    debugLog('CapShare', 'OK');
     return true;
   } catch (err: any) {
     const msg = String(err?.message || err || '');
-    console.error('[DL] CapFS+Share error:', msg);
+    debugLog('CapFS+Share', 'ERROR', msg);
     if (msg.includes('canceled') || msg.includes('dismissed') || msg.includes('cancel')) {
       return true;
     }
@@ -157,27 +185,36 @@ async function tryCapacitorFsShare(blob: Blob, fileName: string, mimeType: strin
 async function tryWebShareAPI(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
   try {
     if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') {
+      debugLog('WebShare', 'SKIP', 'API not available');
       return false;
     }
     const file = new File([blob], fileName, { type: mimeType });
     const shareData = { files: [file] };
     if (!navigator.canShare(shareData)) {
-      console.log('[DL] WebShare: canShare returned false');
+      debugLog('WebShare', 'SKIP', 'canShare=false');
       return false;
     }
+
+    debugLog('WebShare', 'START', fileName);
     await navigator.share({ files: [file], title: fileName });
-    console.log('[DL] WebShare: OK');
+    debugLog('WebShare', 'OK');
     return true;
   } catch (err: any) {
-    if (err?.name === 'AbortError') return true;
-    console.error('[DL] WebShare error:', err);
+    if (err?.name === 'AbortError') {
+      debugLog('WebShare', 'CANCELLED');
+      return true;
+    }
+    debugLog('WebShare', 'ERROR', String(err?.message || err));
     return false;
   }
 }
 
-async function tryServerProxy(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
+async function tryServerProxyDownload(blob: Blob, fileName: string, mimeType: string): Promise<boolean> {
   try {
     const base64Data = await blobToBase64(blob);
+
+    debugLog('ServerProxy', 'UPLOADING', `${fileName} (${blob.size} bytes)`);
+
     const response = await fetch('/api/temp-download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -186,30 +223,31 @@ async function tryServerProxy(blob: Blob, fileName: string, mimeType: string): P
     });
 
     if (!response.ok) {
-      console.error('[DL] ServerProxy: upload failed', response.status);
+      debugLog('ServerProxy', 'UPLOAD_FAILED', `status=${response.status}`);
       return false;
     }
 
     const result = await response.json();
     if (!result.success || !result.downloadUrl) {
-      console.error('[DL] ServerProxy: bad response');
+      debugLog('ServerProxy', 'BAD_RESPONSE');
       return false;
     }
 
-    console.log('[DL] ServerProxy: URL =', result.downloadUrl);
+    const fullUrl = new URL(result.downloadUrl, window.location.origin).href;
+    debugLog('ServerProxy', 'URL_READY', fullUrl);
 
     if (isMobileWebView()) {
-      try {
-        const dlResponse = await fetch(result.downloadUrl);
-        if (!dlResponse.ok) return false;
-        const dlBlob = await dlResponse.blob();
+      debugLog('ServerProxy', 'MOBILE_REDIRECT', 'using window.location for download');
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = fullUrl;
+      document.body.appendChild(iframe);
 
-        const shareResult = await tryWebShareAPI(dlBlob, fileName, mimeType);
-        if (shareResult) return true;
-      } catch (e) {
-        console.error('[DL] ServerProxy→WebShare failed:', e);
-      }
-      return false;
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try { document.body.removeChild(iframe); } catch {}
+
+      debugLog('ServerProxy', 'IFRAME_DONE');
+      return true;
     }
 
     const link = document.createElement('a');
@@ -219,9 +257,10 @@ async function tryServerProxy(blob: Blob, fileName: string, mimeType: string): P
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    debugLog('ServerProxy', 'BROWSER_CLICK_DONE');
     return true;
-  } catch (error) {
-    console.error('[DL] ServerProxy failed:', error);
+  } catch (error: any) {
+    debugLog('ServerProxy', 'ERROR', String(error?.message || error));
     return false;
   }
 }
@@ -259,39 +298,59 @@ export async function downloadFile(
     size: blob.size,
     capacitor: onCapacitor,
     mobile: onMobile,
-    ua: navigator.userAgent.substring(0, 80),
+    ua: navigator.userAgent.substring(0, 100),
   });
 
-  const errors: string[] = [];
+  const tried: string[] = [];
 
   if (onCapacitor) {
-    console.log('[DL] [1/4] FileSharer...');
+    tried.push('FileSharer');
     try {
       const r = await tryFileSharer(blob, fileName, type);
-      if (r) { console.log('[DL] === SUCCESS via FileSharer ==='); return true; }
-    } catch (e: any) { errors.push('FileSharer: ' + (e?.message || e)); }
+      if (r) {
+        console.log('[DL] === SUCCESS via FileSharer ===');
+        return true;
+      }
+    } catch (e: any) {
+      console.error('[DL] FileSharer threw:', e?.message || e);
+    }
 
-    console.log('[DL] [2/4] CapFS+Share...');
+    tried.push('CapFS+Share');
     try {
       const r = await tryCapacitorFsShare(blob, fileName, type);
-      if (r) { console.log('[DL] === SUCCESS via CapFS+Share ==='); return true; }
-    } catch (e: any) { errors.push('CapFS: ' + (e?.message || e)); }
+      if (r) {
+        console.log('[DL] === SUCCESS via CapFS+Share ===');
+        return true;
+      }
+    } catch (e: any) {
+      console.error('[DL] CapFS+Share threw:', e?.message || e);
+    }
   }
 
   if (onMobile) {
-    console.log('[DL] [3/4] WebShare API...');
+    tried.push('WebShare');
     try {
       const r = await tryWebShareAPI(blob, fileName, type);
-      if (r) { console.log('[DL] === SUCCESS via WebShare ==='); return true; }
-    } catch (e: any) { errors.push('WebShare: ' + (e?.message || e)); }
+      if (r) {
+        console.log('[DL] === SUCCESS via WebShare ===');
+        return true;
+      }
+    } catch (e: any) {
+      console.error('[DL] WebShare threw:', e?.message || e);
+    }
 
-    console.log('[DL] [4/4] ServerProxy...');
+    tried.push('ServerProxy');
     try {
-      const r = await tryServerProxy(blob, fileName, type);
-      if (r) { console.log('[DL] === SUCCESS via ServerProxy ==='); return true; }
-    } catch (e: any) { errors.push('ServerProxy: ' + (e?.message || e)); }
+      const r = await tryServerProxyDownload(blob, fileName, type);
+      if (r) {
+        console.log('[DL] === SUCCESS via ServerProxy (iframe) ===');
+        return true;
+      }
+    } catch (e: any) {
+      console.error('[DL] ServerProxy threw:', e?.message || e);
+    }
 
-    console.error('[DL] === ALL MOBILE METHODS FAILED ===', errors);
+    console.error('[DL] === ALL MOBILE METHODS FAILED ===', tried);
     return false;
   }
 
@@ -329,6 +388,7 @@ export async function downloadPdfFile(buffer: ArrayBuffer | Buffer, fileName: st
 export function getDownloadCapabilities() {
   return {
     isWebView: isMobileWebView(),
+    isCapacitor: isCapacitorNative(),
     hasNativeBridge: hasAndroidBridge() || hasIOSBridge(),
     hasShareAPI: hasShareAPI(),
     recommendedMethod: isCapacitorNative() ? 'filesharer' : isMobileWebView() ? 'webshare' : 'browser',

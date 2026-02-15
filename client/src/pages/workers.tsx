@@ -243,7 +243,7 @@ const WorkerCardWrapper = ({
             dropdown: [
               { label: "ملف PDF جاهز", onClick: () => onExport('pdf') },
               { label: "تصدير إلى Excel", onClick: () => onExport('excel') },
-              { label: "طباعة مباشرة", onClick: () => window.print() }
+              { label: "طباعة مباشرة", onClick: () => onExport('pdf') }
             ]
           },
           {

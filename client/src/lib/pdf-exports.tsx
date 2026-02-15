@@ -1,11 +1,88 @@
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
-import { downloadFile, isCapacitorNative } from '@/utils/webview-download';
+import { downloadFile } from '@/utils/webview-download';
 
-/**
- * دالة توليد كشف حساب مطابق للهوية البصرية لشركة الفتيني
- * تدعم تكرار الرأس في كل صفحة وتصميم جداول احترافي
- */
+function buildWorkerHTML(data: any, worker: any): string {
+  const workerName = worker?.name || 'عامل';
+  const workerType = worker?.type || 'عامل';
+  const dailyWage = worker?.dailyWage ? `${parseFloat(worker.dailyWage).toLocaleString()} ر.ي` : '-';
+  const reportDate = format(new Date(), 'yyyy/MM/dd');
+  const totalEarned = parseFloat(data?.summary?.totalEarned || 0);
+  const totalPaid = parseFloat(data?.summary?.totalPaid || 0);
+  const finalBalance = parseFloat(data?.summary?.finalBalance || 0);
+
+  const rows = (data?.statement || []).map((item: any, idx: number) => {
+    const amount = parseFloat(item.amount || 0);
+    const paid = parseFloat(item.paid || 0);
+    const balance = amount - paid;
+    return `<tr>
+      <td style="width:30px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${idx + 1}</td>
+      <td style="width:75px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
+      <td style="width:55px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
+      <td style="width:100px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:9px;">${item.projectName || item.project_name || '-'}</td>
+      <td style="text-align:right;padding:5px 6px;border:1px solid #BFBFBF;font-size:9px;line-height:1.3;">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل')}</td>
+      <td style="width:40px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
+      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
+      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;background:#E2F0D9;font-weight:700;">${amount.toLocaleString()}</td>
+      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;background:#FBE2D5;font-weight:700;">${paid.toLocaleString()}</td>
+      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;background:#DEEAF6;font-weight:700;">${balance.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div style="direction:rtl;font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
+    <div style="background:#1F4E79;color:#fff;text-align:center;padding:10px 0;font-size:18px;font-weight:800;margin-bottom:12px;">كشف حساب العامل التفصيلي والشامل</div>
+    <div style="display:flex;justify-content:space-between;margin:0 10px 12px 10px;font-size:12px;">
+      <div>
+        <div style="margin-bottom:4px;"><b style="display:inline-block;width:90px;">اسم العامل:</b> ${workerName}</div>
+        <div style="margin-bottom:4px;"><b style="display:inline-block;width:90px;">نوع العامل:</b> ${workerType}</div>
+        <div><b style="display:inline-block;width:90px;">الأجر اليومي:</b> ${dailyWage}</div>
+      </div>
+      <div>
+        <div style="margin-bottom:4px;"><b style="display:inline-block;width:90px;">المشروع:</b> ${data?.projectName || 'تعدد مشاريع'}</div>
+        <div><b style="display:inline-block;width:90px;">تاريخ الإصدار:</b> ${reportDate}</div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+      <thead>
+        <tr>
+          <th style="width:30px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">م</th>
+          <th style="width:75px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">التاريخ</th>
+          <th style="width:55px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">اليوم</th>
+          <th style="width:100px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المشروع</th>
+          <th style="background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">وصف العمل</th>
+          <th style="width:40px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">الأيام</th>
+          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">الساعات</th>
+          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المستحق</th>
+          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المدفوع</th>
+          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المتبقي</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+        <tr>
+          <td colspan="5" style="background:#00B050;color:#fff;font-weight:800;font-size:12px;text-align:center;padding:7px;border:1px solid #00803A;">الإجماليــــــات</td>
+          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString()}</td>
+          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">-</td>
+          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${totalEarned.toLocaleString()}</td>
+          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${totalPaid.toLocaleString()}</td>
+          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${finalBalance.toLocaleString()}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:20px;">
+      <table style="width:300px;border:2px solid #1F4E79;border-collapse:collapse;">
+        <tr><td colspan="2" style="background:#00B050;color:#fff;text-align:center;font-weight:800;padding:6px;font-size:13px;border:1px solid #00803A;">الملخص المالي</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:700;border:1px solid #BFBFBF;font-size:12px;">إجمالي المكتسب:</td><td style="padding:6px 10px;text-align:left;border:1px solid #BFBFBF;font-size:12px;">${totalEarned.toLocaleString()}</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:700;border:1px solid #BFBFBF;font-size:12px;">إجمالي المدفوع:</td><td style="padding:6px 10px;text-align:left;border:1px solid #BFBFBF;font-size:12px;">${totalPaid.toLocaleString()}</td></tr>
+        <tr><td style="padding:6px 10px;font-weight:700;border:1px solid #BFBFBF;font-size:12px;background:#F2F2F2;">الرصيد النهائي:</td><td style="padding:6px 10px;text-align:left;border:1px solid #BFBFBF;font-size:12px;font-weight:800;background:#F2F2F2;">${finalBalance.toLocaleString()}</td></tr>
+      </table>
+    </div>
+    <div style="text-align:center;font-size:9px;color:#7F7F7F;margin-top:20px;padding:5px;border-top:1px solid #EEE;">
+      تم إنشاء هذا التقرير بواسطة نظام إدارة مشاريع البناء | ${format(new Date(), 'dd/MM/yyyy HH:mm')}
+    </div>
+  </div>`;
+}
+
 export const generateWorkerPDF = async (data: any, worker: any): Promise<boolean> => {
   try {
     if (!data || !data.statement) {
@@ -13,290 +90,59 @@ export const generateWorkerPDF = async (data: any, worker: any): Promise<boolean
       return false;
     }
 
-    const workerName = worker?.name || 'عامل';
-    const workerType = worker?.type || 'عامل';
-    const dailyWage = worker?.dailyWage ? `${parseFloat(worker.dailyWage).toLocaleString()} ر.ي` : '-';
-    const reportDate = format(new Date(), 'yyyy/MM/dd');
-    const totalEarned = parseFloat(data?.summary?.totalEarned || 0);
-    const totalPaid = parseFloat(data?.summary?.totalPaid || 0);
-    const finalBalance = parseFloat(data?.summary?.finalBalance || 0);
+    const html = buildWorkerHTML(data, worker);
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-      <head>
-        <meta charset="UTF-8">
-        <title>كشف حساب العامل - ${workerName}</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-          
-          * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
-          body { font-family: 'Cairo', sans-serif; margin: 0; padding: 0; color: #000; background: #fff; }
-          
-          @page {
-            size: A4;
-            margin: 10mm 5mm 15mm 5mm;
-          }
-          
-          .print-container { width: 100%; padding: 0; }
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.width = '794px';
+    container.style.background = '#fff';
+    container.style.zIndex = '-1';
+    container.innerHTML = html;
+    document.body.appendChild(container);
 
-          /* تكرار الرأس في كل صفحة */
-          table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 20px;
-            table-layout: fixed;
-          }
-          
-          thead { display: table-header-group; }
-          tbody { display: table-row-group; }
-          
-          /* تصميم ترويسة التقرير */
-          .report-header-content {
-            padding: 0;
-            margin: 0;
-            width: 100%;
-          }
+    await new Promise(r => setTimeout(r, 300));
 
-          .main-title-bar {
-            background-color: #1F4E79;
-            color: white;
-            text-align: center;
-            padding: 8px 0;
-            font-size: 18px;
-            font-weight: 800;
-            width: 100%;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #16365C;
-          }
+    const html2canvas = (await import('html2canvas')).default;
+    const { jsPDF } = await import('jspdf');
 
-          .header-info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin: 0 10px 15px 10px;
-            font-size: 13px;
-          }
-          
-          .info-col { display: flex; flex-direction: column; gap: 4px; }
-          .info-row { display: flex; justify-content: flex-start; align-items: baseline; }
-          .info-label { font-weight: 700; width: 100px; color: #333; }
-          .info-value { font-weight: 400; color: #000; }
-          
-          th {
-            background-color: #1F4E79;
-            color: #FFFFFF;
-            border: 1px solid #16365C;
-            padding: 8px 4px;
-            font-size: 11px;
-            font-weight: 800;
-            text-align: center;
-          }
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: 794,
+      windowWidth: 794,
+    });
 
-          td {
-            border: 1px solid #BFBFBF;
-            padding: 6px 4px;
-            font-size: 10px;
-            text-align: center;
-            vertical-align: middle;
-            word-wrap: break-word;
-          }
+    document.body.removeChild(container);
 
-          .col-m { width: 30px; }
-          .col-date { width: 80px; }
-          .col-day { width: 60px; }
-          .col-project { width: 110px; }
-          .col-desc { width: auto; text-align: right; padding-right: 8px; font-size: 9px; line-height: 1.4; }
-          .col-days-count { width: 45px; }
-          .col-hours { width: 85px; }
-          .col-earned { width: 70px; background-color: #E2F0D9; font-weight: 700; }
-          .col-paid { width: 70px; background-color: #FBE2D5; font-weight: 700; }
-          .col-balance { width: 70px; background-color: #DEEAF6; font-weight: 700; }
+    const imgWidth = 210;
+    const pageHeight = 297;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pdf = new jsPDF('p', 'mm', 'a4');
 
-          .totals-row td {
-            background-color: #00B050;
-            color: white;
-            font-weight: 800;
-            font-size: 12px;
-            border: 1px solid #00803A;
-          }
+    let heightLeft = imgHeight;
+    let position = 0;
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-          .summary-wrapper {
-            display: flex;
-            justify-content: flex-start;
-            margin-top: 30px;
-            page-break-inside: avoid;
-          }
-          
-          .summary-table {
-            width: 320px;
-            border: 2px solid #1F4E79;
-          }
-          
-          .summary-header {
-            background-color: #00B050;
-            color: white;
-            text-align: center;
-            font-weight: 800;
-            padding: 6px;
-            font-size: 14px;
-          }
-          
-          .summary-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 12px;
-            border-bottom: 1px solid #BFBFBF;
-            font-size: 13px;
-          }
-          
-          .summary-item:last-child { border-bottom: none; background-color: #F2F2F2; font-weight: 800; }
-          .summary-label { font-weight: 700; }
-          .summary-val { font-family: sans-serif; }
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
 
-          .page-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 9px;
-            color: #7F7F7F;
-            padding: 5px;
-            border-top: 1px solid #EEE;
-            background: white;
-          }
-
-          @media print {
-            thead { display: table-header-group; }
-            button { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="print-container">
-          <table>
-            <thead>
-              <tr>
-                <th colspan="10" style="padding: 0; border: none; background: none;">
-                  <div class="report-header-content">
-                    <div class="main-title-bar">كشف حساب العامل التفصيلي والشامل</div>
-                    <div class="header-info-grid">
-                      <div class="info-col">
-                        <div class="info-row"><span class="info-label">اسم العامل:</span><span class="info-value">${workerName}</span></div>
-                        <div class="info-row"><span class="info-label">نوع العامل:</span><span class="info-value">${workerType}</span></div>
-                        <div class="info-row"><span class="info-label">الأجر اليومي:</span><span class="info-value">${dailyWage}</span></div>
-                      </div>
-                      <div class="info-col">
-                        <div class="info-row"><span class="info-label">حالة المشروع:</span><span class="info-value">${data?.projectName || 'تعدد مشاريع'}</span></div>
-                        <div class="info-row"><span class="info-label">تاريخ الإصدار:</span><span class="info-value">${reportDate}</span></div>
-                      </div>
-                    </div>
-                  </div>
-                </th>
-              </tr>
-              <tr>
-                <th class="col-m">م</th>
-                <th class="col-date">التاريخ</th>
-                <th class="col-day">اليوم</th>
-                <th class="col-project">المشروع</th>
-                <th class="col-desc">وصف العمل</th>
-                <th class="col-days-count">الأيام</th>
-                <th class="col-hours">الساعات</th>
-                <th class="col-earned">الأجر المستحق</th>
-                <th class="col-paid">المبلغ المدفوع</th>
-                <th class="col-balance">المتبقي</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(() => {
-                return (data?.statement || []).map((item: any, idx: number) => {
-                  const amount = parseFloat(item.amount || 0);
-                  const paid = parseFloat(item.paid || 0);
-                  const balance = amount - paid;
-                  
-                  return `
-                    <tr>
-                      <td class="col-m">${idx + 1}</td>
-                      <td class="col-date">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
-                      <td class="col-day">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
-                      <td class="col-project">${item.projectName || item.project_name || '-'}</td>
-                      <td class="col-desc">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل الموكلة')}</td>
-                      <td class="col-days-count">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
-                      <td class="col-hours">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
-                      <td class="col-earned">${amount.toLocaleString()}</td>
-                      <td class="col-paid">${paid.toLocaleString()}</td>
-                      <td class="col-balance">${balance.toLocaleString()}</td>
-                    </tr>
-                  `;
-                }).join('');
-              })()}
-              <tr class="totals-row">
-                <td colspan="5" style="text-align: center;">الإجماليــــــــــــــــــــــــات</td>
-                <td>${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString()}</td>
-                <td>-</td>
-                <td>${totalEarned.toLocaleString()}</td>
-                <td>${totalPaid.toLocaleString()}</td>
-                <td>${finalBalance.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="summary-wrapper">
-            <div class="summary-table">
-              <div class="summary-header">الملخص المالي</div>
-              <div class="summary-item">
-                <span class="summary-label">إجمالي المكتسب:</span>
-                <span class="summary-val">${totalEarned.toLocaleString()}</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">إجمالي المدفوع:</span>
-                <span class="summary-val">${totalPaid.toLocaleString()}</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">إجمالي المحول:</span>
-                <span class="summary-val">0</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">الرصيد النهائي:</span>
-                <span class="summary-val">${finalBalance.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="page-footer">
-          تم إنشاء هذا التقرير بواسطة نظام إدارة مشاريع البناء | ${format(new Date(), 'dd/MM/yyyy HH:mm')}
-        </div>
-
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 500);
-          };
-        </script>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const fileName = `كشف_حساب_${worker?.name || 'عامل'}_${format(new Date(), 'yyyy-MM-dd')}.html`;
-    const { isMobileWebView } = await import('@/utils/webview-download');
-    if (isMobileWebView()) {
-      return await downloadFile(blob, fileName, 'text/html');
-    } else {
-      const url = URL.createObjectURL(blob);
-      const newWindow = window.open(url, '_blank');
-      if (!newWindow) {
-        return await downloadFile(blob, fileName, 'text/html');
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      return true;
+    while (heightLeft > 0) {
+      position = -(imgHeight - heightLeft);
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
     }
 
+    const pdfBlob = pdf.output('blob');
+    const fileName = `كشف_حساب_${worker?.name || 'عامل'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+
+    return await downloadFile(pdfBlob, fileName, 'application/pdf');
   } catch (error) {
-    console.error("Critical Print Error:", error);
+    console.error("PDF generation error:", error);
     return false;
   }
 };

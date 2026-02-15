@@ -63,6 +63,7 @@
 - **الميزات**: منع التحديث المتوازي، حد أدنى 600ms للسبنر، toast عند الفشل، دعم RTL
 
 ## التغييرات الأخيرة
+- 2026-02-15: إصلاح eslint (9→8.57.1 pinned) + حماية Keystore من git clean (نُقل إلى ~/.axion-keystore) + سكربت بناء v32 مع إصدار ديناميكي + حذف ملف com.replit.agentforge القديم
 - 2026-02-15: إصلاح جذري لتصدير الملفات في Android - السبب: downloadForBrowser كان يُرجع true بدون فعل شيء في WebView. الحل: على mobile يُرجع false عند فشل جميع الطرق + dynamic imports للإضافات + ترقية filesystem/share إلى v7 + إضافة @byteowls/capacitor-filesharer + بناء APK v1.0.38 (26MB)
 - 2026-02-14: تأمين endpoint التنزيل المؤقت (requireAuth + userId binding + UUID validation + LRU eviction: 50 max/5 per user) + إصلاح جميع دوال التصدير لفحص نتيجة التنزيل قبل عرض رسالة النجاح (12+ ملف)
 - 2026-02-14: إضافة Pull to Refresh موحّد لـ 27 صفحة - hook + indicator + config مركزي في LayoutShell
@@ -82,8 +83,10 @@
 - **سيرفر البناء:** 93.127.142.144 (SSH: administrator)
 - **Android SDK:** /opt/android-sdk
 - **Gradle:** 8.11.1 | **AGP:** 8.9.1 | **compileSdk:** 36 | **minSdk:** 24
-- **أمر البناء:** `bash scripts/remote-build.sh`
+- **أمر البناء:** `bash scripts/remote-build.sh` (v32 - إصدار ديناميكي)
 - **أمر الاختبار:** `npx vitest run --config vitest.server.config.ts`
+- **Keystore:** محفوظ في `~/.axion-keystore/axion-release.keystore` على السيرفر (خارج مجلد git لحمايته من git clean)
+- **SHA256 Fingerprint:** `27:FE:C2:F2:C3:35:B1:98:19:EF:9D:C3:72:92:B8:39:E2:6B:9E:E3:D4:A7:9F:5A:0C:FB:C5:63:14:CF:87:11`
 
 ## تفضيلات المستخدم
 - اللغة: العربية فقط - لا يفهم الإنجليزية

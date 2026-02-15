@@ -171,38 +171,37 @@ CVEOF
 
     if [ \$BUILD_EXIT -eq 0 ]; then
         echo 'GRADLE_BUILD_SUCCESS'
-        APK_PATH=\$(find . -name '*.apk' -path '*/release/*' | head -1)
+        BT='/opt/android-sdk/build-tools/35.0.0'
+
+        # Gradle now signs APK automatically via signingConfigs in build.gradle
+        # Find the signed release APK
+        APK_PATH=\$(find . -name 'app-release.apk' -path '*/release/*' | head -1)
         if [ -z \"\$APK_PATH\" ]; then
-            APK_PATH=\$(find . -name '*.apk' -path '*/debug/*' | head -1)
+            APK_PATH=\$(find . -name '*.apk' -path '*/release/*' | head -1)
         fi
+
         if [ -n \"\$APK_PATH\" ]; then
-            # Use safe keystore location
-            KEYSTORE='$KEYSTORE_SAFE_DIR/axion-release.keystore'
-            BT='/opt/android-sdk/build-tools/35.0.0'
+            cp \"\$APK_PATH\" \"$REMOTE_PROJECT/AXION_LATEST.apk\"
 
-            # Generate keystore ONLY if it doesn't exist in safe location
-            if [ ! -f \"\$KEYSTORE\" ]; then
-                echo 'GENERATING_NEW_KEYSTORE'
-                mkdir -p '$KEYSTORE_SAFE_DIR'
-                keytool -genkeypair -v -keystore \"\$KEYSTORE\" -alias axion \\
-                    -keyalg RSA -keysize 2048 -validity 10000 \\
-                    -storepass axion2026 -keypass axion2026 \\
-                    -dname 'CN=AXION,OU=Dev,O=AXION,L=Riyadh,ST=Riyadh,C=SA'
-                echo 'KEYSTORE_GENERATED'
-            else
-                echo 'USING_EXISTING_KEYSTORE'
-            fi
-
-            ALIGNED=\"\${APK_PATH%.apk}-aligned.apk\"
-            \"\$BT/zipalign\" -v -p 4 \"\$APK_PATH\" \"\$ALIGNED\" 2>&1 | tail -2
-            \"\$BT/apksigner\" sign --ks \"\$KEYSTORE\" --ks-key-alias axion \\
-                --ks-pass pass:axion2026 --key-pass pass:axion2026 \\
-                --out \"$REMOTE_PROJECT/AXION_LATEST.apk\" \"\$ALIGNED\"
-
+            # Verify the APK is properly signed
             if \"\$BT/apksigner\" verify \"$REMOTE_PROJECT/AXION_LATEST.apk\" 2>/dev/null; then
                 echo 'APK_SIGNED_OK'
             else
-                echo 'APK_SIGN_FAILED'
+                echo 'APK_NOT_SIGNED - falling back to manual signing'
+                KEYSTORE='$KEYSTORE_SAFE_DIR/axion-release.keystore'
+                if [ ! -f \"\$KEYSTORE\" ]; then
+                    mkdir -p '$KEYSTORE_SAFE_DIR'
+                    keytool -genkeypair -v -keystore \"\$KEYSTORE\" -alias axion \\
+                        -keyalg RSA -keysize 2048 -validity 10000 \\
+                        -storepass axion2026 -keypass axion2026 \\
+                        -dname 'CN=AXION,OU=Dev,O=AXION,L=Riyadh,ST=Riyadh,C=SA'
+                fi
+                ALIGNED=\"\${APK_PATH%.apk}-aligned.apk\"
+                \"\$BT/zipalign\" -v -p 4 \"\$APK_PATH\" \"\$ALIGNED\" 2>&1 | tail -2
+                \"\$BT/apksigner\" sign --ks \"\$KEYSTORE\" --ks-key-alias axion \\
+                    --ks-pass pass:axion2026 --key-pass pass:axion2026 \\
+                    --out \"$REMOTE_PROJECT/AXION_LATEST.apk\" \"\$ALIGNED\"
+                \"\$BT/apksigner\" verify \"$REMOTE_PROJECT/AXION_LATEST.apk\" 2>/dev/null && echo 'MANUAL_SIGN_OK'
             fi
 
             # Read version from the built APK

@@ -14,10 +14,22 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        release {
+            if (project.hasProperty('AXION_UPLOAD_STORE_FILE')) {
+                storeFile file(AXION_UPLOAD_STORE_FILE)
+                storePassword AXION_UPLOAD_STORE_PASSWORD
+                keyAlias AXION_UPLOAD_KEY_ALIAS
+                keyPassword AXION_UPLOAD_KEY_PASSWORD
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
         debug {
             minifyEnabled false

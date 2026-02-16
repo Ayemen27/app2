@@ -487,6 +487,21 @@ syncRouter.get('/tables', async (_req: Request, res: Response) => {
  * 🔄 Atomic Batch Sync
  * POST /api/sync/batch
  */
+const SAFE_COLUMN_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function sanitizeColumns(payload: Record<string, any>): { columns: string[]; values: any[] } {
+  const columns: string[] = [];
+  const values: any[] = [];
+  for (const [key, value] of Object.entries(payload)) {
+    if (!SAFE_COLUMN_REGEX.test(key)) {
+      throw new Error(`اسم عمود غير صالح: ${key}`);
+    }
+    columns.push(key);
+    values.push(value);
+  }
+  return { columns, values };
+}
+
 const ALLOWED_BATCH_TABLES: Record<string, string> = {
   'fund-transfers': 'fund_transfers',
   'fund_transfers': 'fund_transfers',
@@ -556,8 +571,7 @@ syncRouter.post('/batch', requireAuth, async (req: Request, res: Response) => {
         if (!payload || !payload.id) {
           throw new Error(`عملية ${i}: payload.id مطلوب للإنشاء`);
         }
-        const columns = Object.keys(payload);
-        const values = Object.values(payload);
+        const { columns, values } = sanitizeColumns(payload);
         const placeholders = columns.map((_, idx) => `$${idx + 1}`);
         const query = `INSERT INTO "${tableName}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO NOTHING RETURNING *`;
         const result = await client.query(query, values);
@@ -567,13 +581,13 @@ syncRouter.post('/batch', requireAuth, async (req: Request, res: Response) => {
           throw new Error(`عملية ${i}: payload.id مطلوب للتعديل`);
         }
         const { id, ...updateFields } = payload;
-        const columns = Object.keys(updateFields);
+        const { columns, values: colValues } = sanitizeColumns(updateFields);
         if (columns.length === 0) {
           results.push({ index: i, success: true, data: payload });
           continue;
         }
         const setClauses = columns.map((col, idx) => `"${col}" = $${idx + 2}`);
-        const values = [id, ...Object.values(updateFields)];
+        const values = [id, ...colValues];
         const query = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`;
         const result = await client.query(query, values);
         results.push({ index: i, success: true, data: result.rows[0] || payload });

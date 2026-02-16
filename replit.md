@@ -63,6 +63,7 @@
 - **الميزات**: منع التحديث المتوازي، حد أدنى 600ms للسبنر، toast عند الفشل، دعم RTL
 
 ## التغييرات الأخيرة
+- 2026-02-16: إصلاح شامل لنظام المزامنة: منع التكرار (dedup + idempotency key)، معالجة أخطاء 409/400/422 بسلام، إيقاف الحذف الصامت للعمليات الفاشلة، إضافة syncHistory store، تصحيح تنسيق التواريخ، إعادة بناء SyncManagementPage بـ 4 تبويبات (معلقة/فاشلة/مكررة/سجل) مع إحصائيات حقيقية
 - 2026-02-15: إصلاح eslint (9→8.57.1 pinned) + حماية Keystore من git clean (نُقل إلى ~/.axion-keystore) + سكربت بناء v32 مع إصدار ديناميكي + حذف ملف com.replit.agentforge القديم
 - 2026-02-15: إصلاح جذري لتصدير الملفات في Android - السبب: downloadForBrowser كان يُرجع true بدون فعل شيء في WebView. الحل: على mobile يُرجع false عند فشل جميع الطرق + dynamic imports للإضافات + ترقية filesystem/share إلى v7 + إضافة @byteowls/capacitor-filesharer + بناء APK v1.0.38 (26MB)
 - 2026-02-14: تأمين endpoint التنزيل المؤقت (requireAuth + userId binding + UUID validation + LRU eviction: 50 max/5 per user) + إصلاح جميع دوال التصدير لفحص نتيجة التنزيل قبل عرض رسالة النجاح (12+ ملف)

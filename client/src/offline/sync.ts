@@ -30,6 +30,17 @@ export const ALL_SYNC_TABLES = [
 const MAX_RETRIES = 5;
 const INITIAL_SYNC_DELAY = 2000; 
 let isSyncing = false;
+
+function extractStatusCode(error: any): number {
+  if (error?.status) return error.status;
+  if (error?.statusCode) return error.statusCode;
+  const msg = error?.message || String(error);
+  const match = msg.match(/status:\s*(\d{3})/i);
+  if (match) return parseInt(match[1], 10);
+  if (msg.includes('مسجل بالفعل') || msg.includes('duplicate') || msg.includes('already exists')) return 409;
+  if (msg.includes('التاريخ يجب') || msg.includes('validation') || msg.includes('صيغة')) return 400;
+  return 0;
+}
 let syncListeners: ((state: SyncState) => void)[] = [];
 let syncInterval: NodeJS.Timeout | null = null;
 
@@ -276,7 +287,7 @@ export async function syncOfflineData(): Promise<void> {
             }
           });
         } catch (apiError: any) {
-          const statusCode = apiError?.status || apiError?.statusCode || 0;
+          const statusCode = extractStatusCode(apiError);
           const errorMsg = apiError?.message || apiError?.error || String(apiError);
 
           if (statusCode === 409) {

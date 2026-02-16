@@ -139,13 +139,30 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
   } else {
     const db = await getIDB();
     let count = 0;
-    for (const record of records) {
-      if (record && (record.id || record.key)) {
-        try {
-          await db.put(tableName as any, record);
-          count++;
-        } catch (e) {
-          console.warn(`[smartSave] Failed to put record in ${tableName}:`, e);
+    try {
+      const tx = db.transaction(tableName as any, 'readwrite');
+      const store = tx.objectStore(tableName as any);
+      for (const record of records) {
+        if (record && (record.id || record.key)) {
+          try {
+            store.put(record);
+            count++;
+          } catch (e) {
+            console.warn(`[smartSave] Failed to put record in ${tableName}:`, e);
+          }
+        }
+      }
+      await tx.done;
+    } catch (e) {
+      console.warn(`[smartSave] Transaction failed for ${tableName}, falling back to individual puts:`, e);
+      for (const record of records) {
+        if (record && (record.id || record.key)) {
+          try {
+            await db.put(tableName as any, record);
+            count++;
+          } catch (putErr) {
+            console.warn(`[smartSave] Fallback put failed in ${tableName}:`, putErr);
+          }
         }
       }
     }

@@ -161,9 +161,11 @@ export async function checkForUnregisteredRouters() {
     const fs = await import('fs');
     const path = await import('path');
     const dir = path.dirname(new URL(import.meta.url).pathname);
+    const IGNORE_PATTERNS = ['vite', 'vite.config', 'tsconfig', 'drizzle.config', '__tests__', '.test', '.spec', '.d'];
     const files = fs.readdirSync(dir)
       .filter((f: string) => f.endsWith('.ts') || f.endsWith('.js'))
-      .map((f: string) => f.replace(/\.(ts|js)$/, ''));
+      .map((f: string) => f.replace(/\.(ts|js)$/, ''))
+      .filter((f: string) => !IGNORE_PATTERNS.some(p => f.includes(p)));
 
     const unregistered = files.filter((f: string) => !REGISTERED_ROUTE_FILES.has(f));
     if (unregistered.length > 0) {

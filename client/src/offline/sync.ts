@@ -18,11 +18,7 @@ export const ALL_SYNC_TABLES = [
   'backup_logs', 'backup_settings', 'print_settings', 'project_fund_transfers',
   'security_policies', 'security_policy_suggestions', 'security_policy_implementations', 'security_policy_violations',
   'user_project_permissions', 'permission_audit_logs',
-  'report_templates', 'tool_categories', 'tools', 'tool_stock', 'tool_movements',
-  'tool_maintenance_logs', 'tool_usage_analytics', 'tool_purchase_items', 'maintenance_schedules', 'maintenance_tasks',
-  'tool_cost_tracking', 'tool_reservations', 'system_notifications', 'notification_read_states', 'build_deployments',
-  'tool_notifications', 'approvals', 'channels', 'messages', 'actions', 'system_events',
-  'accounts', 'transactions', 'transaction_lines', 'journals', 'finance_payments', 'finance_events', 'account_balances',
+  'report_templates', 'notification_read_states', 'build_deployments',
   'notifications', 'ai_chat_sessions', 'ai_chat_messages', 'ai_usage_stats',
   'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories'
 ] as const;

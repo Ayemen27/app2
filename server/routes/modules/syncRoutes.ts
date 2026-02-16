@@ -26,6 +26,79 @@ const ALL_DATABASE_TABLES = [
   'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories'
 ];
 
+const BATCH_SIZE = 5;
+
+const TABLE_COLUMN_CACHE = new Map<string, string[]>();
+
+async function getTableDateColumns(table: string): Promise<string[]> {
+  if (TABLE_COLUMN_CACHE.has(table)) return TABLE_COLUMN_CACHE.get(table)!;
+  const result = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name IN ('updated_at', 'created_at')`,
+    [table]
+  );
+  const cols = result.rows.map((r: any) => r.column_name as string);
+  TABLE_COLUMN_CACHE.set(table, cols);
+  return cols;
+}
+
+async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: any[]; error?: string }> {
+  if (!ALL_DATABASE_TABLES.includes(table)) {
+    return { table, rows: [], error: 'Invalid table name' };
+  }
+  try {
+    const params: any[] = [];
+    let query = `SELECT * FROM "${table}"`;
+
+    if (lastSyncTime) {
+      const isoTime = new Date(lastSyncTime).toISOString();
+      if (isNaN(new Date(isoTime).getTime())) {
+        return { table, rows: [], error: 'Invalid lastSyncTime' };
+      }
+      const cols = await getTableDateColumns(table);
+      if (cols.includes('updated_at') && cols.includes('created_at')) {
+        query += ` WHERE (updated_at > $1 OR created_at > $1)`;
+        params.push(isoTime);
+      } else if (cols.includes('updated_at')) {
+        query += ` WHERE updated_at > $1`;
+        params.push(isoTime);
+      } else if (cols.includes('created_at')) {
+        query += ` WHERE created_at > $1`;
+        params.push(isoTime);
+      }
+    }
+
+    query += ' LIMIT 50000';
+    const result = await pool.query(query, params);
+    return { table, rows: result.rows };
+  } catch (e: any) {
+    return { table, rows: [], error: e.message };
+  }
+}
+
+async function fetchTablesInBatches(tables: string[], lastSyncTime?: string) {
+  const results: Record<string, any[]> = {};
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < tables.length; i += BATCH_SIZE) {
+    const batch = tables.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(t => fetchTableData(t, lastSyncTime))
+    );
+    for (const r of batchResults) {
+      results[r.table] = r.rows;
+      if (r.error) {
+        errorCount++;
+        console.warn(`⚠️ [Sync] تخطي ${r.table}: ${r.error}`);
+      } else {
+        successCount++;
+      }
+    }
+  }
+
+  return { results, successCount, errorCount };
+}
+
 /**
  * 🔄 تحميل النسخة الاحتياطية الكاملة (Full Backup Download)
  * GET /api/sync/full-backup
@@ -34,30 +107,20 @@ const ALL_DATABASE_TABLES = [
 syncRouter.get('/full-backup', async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
-    console.log('🔄 [Sync] طلب تحميل النسخة الاحتياطية الكاملة (68 جدول)');
-    
-    const results: any = {};
-    let successCount = 0;
-    let errorCount = 0;
-    
-    for (const table of ALL_DATABASE_TABLES) {
-      try {
-        const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
-        results[table] = queryResult.rows;
-        successCount++;
-        console.log(`✅ [Sync] جلب ${queryResult.rows.length} سجل من جدول ${table}`);
-      } catch (e: any) {
-        console.warn(`⚠️ [Sync] تخطي جدول ${table}:`, e.message);
-        results[table] = [];
-        errorCount++;
-      }
-    }
-    
+    const { lastSyncTime } = req.query;
+    console.log(`🔄 [Sync] طلب نسخة احتياطية${lastSyncTime ? ' تفاضلية منذ ' + lastSyncTime : ' كاملة'} (${ALL_DATABASE_TABLES.length} جدول، parallel batches)`);
+
+    const { results, successCount, errorCount } = await fetchTablesInBatches(
+      ALL_DATABASE_TABLES,
+      lastSyncTime as string | undefined
+    );
+
     const duration = Date.now() - startTime;
-    console.log(`✅ [Sync] تم تجهيز البيانات في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي)`);
-    
+    const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
+    console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي)`);
+
     res.setHeader('Content-Type', 'application/json');
-    const response = {
+    return res.status(200).send(JSON.stringify({
       success: true,
       status: "success",
       message: "تم تجهيز البيانات بنجاح",
@@ -65,14 +128,15 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       metadata: {
         timestamp: Date.now(),
-        version: '2.0-full-sync',
+        version: '3.0-parallel-sync',
         duration,
         tablesCount: ALL_DATABASE_TABLES.length,
+        totalRecords,
         successCount,
-        errorCount
+        errorCount,
+        isDelta: !!lastSyncTime
       }
-    };
-    return res.status(200).send(JSON.stringify(response));
+    }));
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح في المزامنة:', error);
     res.setHeader('Content-Type', 'application/json');
@@ -91,29 +155,18 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
 syncRouter.post('/full-backup', async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
-    console.log('🔄 [Sync] طلب مزامنة كاملة (POST) - 68 جدول');
-    
-    const results: any = {};
-    let successCount = 0;
-    let errorCount = 0;
-    
-    for (const table of ALL_DATABASE_TABLES) {
-      try {
-        const queryResult = await pool.query(`SELECT * FROM ${table} LIMIT 50000`);
-        results[table] = queryResult.rows;
-        successCount++;
-        console.log(`✅ [Sync] جلب ${queryResult.rows.length} سجل من جدول ${table}`);
-      } catch (e: any) {
-        console.warn(`⚠️ [Sync] تخطي جدول ${table}:`, e.message);
-        results[table] = [];
-        errorCount++;
-      }
-    }
-    
+    const { lastSyncTime } = req.body;
+    console.log(`🔄 [Sync] POST نسخة${lastSyncTime ? ' تفاضلية' : ' كاملة'} (parallel batches)`);
+
+    const { results, successCount, errorCount } = await fetchTablesInBatches(
+      ALL_DATABASE_TABLES,
+      lastSyncTime
+    );
+
     const duration = Date.now() - startTime;
-    console.log(`✅ [Sync] اكتملت المزامنة الكاملة في ${duration}ms`);
-    
-    res.setHeader('Content-Type', 'application/json');
+    const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
+    console.log(`✅ [Sync] POST اكتملت: ${totalRecords} سجل في ${duration}ms`);
+
     return res.status(200).json({
       success: true,
       status: "success",
@@ -122,11 +175,13 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       metadata: {
         timestamp: Date.now(),
-        version: '2.0-full-sync',
+        version: '3.0-parallel-sync',
         duration,
         tablesCount: ALL_DATABASE_TABLES.length,
+        totalRecords,
         successCount,
-        errorCount
+        errorCount,
+        isDelta: !!lastSyncTime
       }
     });
   } catch (error: any) {
@@ -148,80 +203,20 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
     const { tables: requestedTables, lastSyncTime } = req.body;
-    
-    console.log('⚡ [Sync] طلب مزامنة فورية');
-    
+
+    console.log(`⚡ [Sync] مزامنة فورية${lastSyncTime ? ' تفاضلية' : ''}`);
+
     const tablesToSync = requestedTables && Array.isArray(requestedTables) && requestedTables.length > 0
       ? requestedTables.filter((t: string) => ALL_DATABASE_TABLES.includes(t))
       : ALL_DATABASE_TABLES;
-    
-    const results: any = {};
-    let totalRecords = 0;
-    
-    for (const table of tablesToSync) {
-      try {
-        let query = `SELECT * FROM ${table}`;
-        const conditions = [];
-        
-        if (lastSyncTime) {
-          // التحقق من وجود الأعمدة قبل إضافتها للشروط
-          const checkColumns = await pool.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = '${table}' AND column_name IN ('updated_at', 'created_at')
-          `);
-          const hasUpdatedAt = checkColumns.rows.some(r => r.column_name === 'updated_at');
-          const hasCreatedAt = checkColumns.rows.some(r => r.column_name === 'created_at');
 
-          if (hasUpdatedAt && hasCreatedAt) {
-            conditions.push(`(updated_at > '${new Date(lastSyncTime).toISOString()}' OR created_at > '${new Date(lastSyncTime).toISOString()}')`);
-          } else if (hasUpdatedAt) {
-            conditions.push(`updated_at > '${new Date(lastSyncTime).toISOString()}'`);
-          } else if (hasCreatedAt) {
-            conditions.push(`created_at > '${new Date(lastSyncTime).toISOString()}'`);
-          }
-        }
-        
-        if (conditions.length > 0) {
-          query += ` WHERE ${conditions.join(' AND ')}`;
-        }
-        
-        // التحقق من وجود أعمدة الترتيب
-        const checkSortColumns = await pool.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = '${table}' AND column_name IN ('updated_at', 'version')
-        `);
-        const hasUpdatedAtSort = checkSortColumns.rows.some(r => r.column_name === 'updated_at');
-        const hasVersionSort = checkSortColumns.rows.some(r => r.column_name === 'version');
+    const syncTime = lastSyncTime ? new Date(lastSyncTime).toISOString() : undefined;
+    const { results, successCount, errorCount } = await fetchTablesInBatches(tablesToSync, syncTime);
 
-        if (hasUpdatedAtSort || hasVersionSort) {
-          query += ' ORDER BY ';
-          const sorts = [];
-          if (hasUpdatedAtSort) sorts.push('updated_at DESC');
-          if (hasVersionSort) sorts.push('version DESC');
-          query += sorts.join(', ');
-        }
-
-        query += ' LIMIT 10000';
-        
-        const queryResult = await pool.query(query);
-        results[table] = queryResult.rows;
-        totalRecords += queryResult.rows.length;
-      } catch (e: any) {
-        try {
-          const fallbackResult = await pool.query(`SELECT * FROM ${table} LIMIT 10000`);
-          results[table] = fallbackResult.rows;
-          totalRecords += fallbackResult.rows.length;
-        } catch {
-          results[table] = [];
-        }
-      }
-    }
-    
+    const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
     const duration = Date.now() - startTime;
-    console.log(`⚡ [Sync] المزامنة الفورية اكتملت: ${totalRecords} سجل في ${duration}ms`);
-    
+    console.log(`⚡ [Sync] اكتملت: ${totalRecords} سجل في ${duration}ms`);
+
     return res.status(200).json({
       success: true,
       message: "تمت المزامنة الفورية بنجاح",
@@ -231,7 +226,10 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
         duration,
         tablesCount: tablesToSync.length,
         totalRecords,
-        version: '2.0-instant'
+        successCount,
+        errorCount,
+        isDelta: !!lastSyncTime,
+        version: '3.0-instant'
       }
     });
   } catch (error: any) {

@@ -158,13 +158,18 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
   try {
     const { date } = req.query;
 
-    console.log(`📊 [API] طلب جلب جميع المصروفات من جميع المشاريع (مجمعة حسب المشروع)`, { date });
+    const rawDate = date as string || new Date().toISOString().split('T')[0];
+    const effectiveDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : new Date().toISOString().split('T')[0];
 
-    // جلب جميع المصروفات لتاريخ محدد من جميع المشاريع - محسّن
-    console.log(`⚡ [API] بدء جلب المصروفات من جميع المشاريع للتاريخ: ${date}`);
+    console.log(`📊 [API] طلب جلب جميع المصروفات من جميع المشاريع للتاريخ: ${effectiveDate}`);
     const startTimeFetch = Date.now();
 
-    // جلب جميع البيانات من جميع المشاريع
+    const safeDateFilter = (col: string) => {
+      const allowedCols = ['transfer_date', 'date', 'purchase_date'];
+      if (!allowedCols.includes(col)) throw new Error('Invalid column name');
+      return sql`(CASE WHEN ${sql.raw(col)} IS NULL OR ${sql.raw(col)} = '' OR ${sql.raw(col)} !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE ${sql.raw(col)}::text END) = ${effectiveDate}`;
+    };
+
     const [
       fundTransfersResult,
       workerAttendanceResult,
@@ -174,12 +179,9 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       miscExpensesResult,
       projectsList
     ] = await Promise.all([
-      date
-        ? db.select().from(fundTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = ${date}::date`).orderBy(desc(fundTransfers.transferDate))
-        : db.select().from(fundTransfers).orderBy(desc(fundTransfers.transferDate)),
+      db.select().from(fundTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(fundTransfers.transferDate)),
 
-      date
-        ? db.select({
+      db.select({
             id: workerAttendance.id,
             workerId: workerAttendance.workerId,
             projectId: workerAttendance.projectId,
@@ -192,42 +194,21 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           .from(workerAttendance)
           .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
           .where(and(
-            eq(workerAttendance.date, date as string),
+            eq(workerAttendance.date, effectiveDate),
             or(
               sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
               sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
             )
           ))
-          .orderBy(desc(workerAttendance.date))
-        : db.select({
-            id: workerAttendance.id,
-            workerId: workerAttendance.workerId,
-            projectId: workerAttendance.projectId,
-            date: workerAttendance.date,
-            paidAmount: workerAttendance.paidAmount,
-            actualWage: workerAttendance.actualWage,
-            workDays: workerAttendance.workDays,
-            workerName: workers.name
-          })
-          .from(workerAttendance)
-          .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
           .orderBy(desc(workerAttendance.date)),
 
-      date
-        ? db.select().from(materialPurchases).where(eq(materialPurchases.purchaseDate, date as string)).orderBy(desc(materialPurchases.purchaseDate))
-        : db.select().from(materialPurchases).orderBy(desc(materialPurchases.purchaseDate)),
+      db.select().from(materialPurchases).where(eq(materialPurchases.purchaseDate, effectiveDate)).orderBy(desc(materialPurchases.purchaseDate)),
 
-      date
-        ? db.select().from(transportationExpenses).where(eq(transportationExpenses.date, date as string)).orderBy(desc(transportationExpenses.date))
-        : db.select().from(transportationExpenses).orderBy(desc(transportationExpenses.date)),
+      db.select().from(transportationExpenses).where(eq(transportationExpenses.date, effectiveDate)).orderBy(desc(transportationExpenses.date)),
 
-      date
-        ? db.select().from(workerTransfers).where(sql`(CASE WHEN transfer_date IS NULL OR transfer_date = '' OR transfer_date !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = ${date}::date`).orderBy(desc(workerTransfers.transferDate))
-        : db.select().from(workerTransfers).orderBy(desc(workerTransfers.transferDate)),
+      db.select().from(workerTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(workerTransfers.transferDate)),
 
-      date
-        ? db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, date as string)).orderBy(desc(workerMiscExpenses.date))
-        : db.select().from(workerMiscExpenses).orderBy(desc(workerMiscExpenses.date)),
+      db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, effectiveDate)).orderBy(desc(workerMiscExpenses.date)),
 
       db.select().from(projects)
     ]);
@@ -362,16 +343,15 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
         return a.projectName.localeCompare(b.projectName);
       });
 
-    // حساب الإجماليات العامة باستخدام SQL SUM للدقة
     const overallSumsQuery = await pool.query(`
       SELECT
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers ${date ? `WHERE (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = $1::date` : ''}), 0) as total_fund_transfers,
-        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) ${date ? `AND date = $1` : ''}), 0) as total_worker_wages,
-        COALESCE((SELECT SUM(CAST(total_amount AS DECIMAL(15,2))) FROM material_purchases ${date ? `WHERE purchase_date = $1` : ''}), 0) as total_material_costs,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses ${date ? `WHERE date = $1` : ''}), 0) as total_transportation,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers ${date ? `WHERE (CASE WHEN transfer_date IS NULL OR transfer_date = '' OR transfer_date !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = $1::date` : ''}), 0) as total_worker_transfers,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses ${date ? `WHERE date = $1` : ''}), 0) as total_misc_expenses
-    `, date ? [date] : []);
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR transfer_date = '' OR transfer_date !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE transfer_date::text END) = $1), 0) as total_fund_transfers,
+        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) AND date = $1), 0) as total_worker_wages,
+        COALESCE((SELECT SUM(CAST(total_amount AS DECIMAL(15,2))) FROM material_purchases WHERE purchase_date = $1), 0) as total_material_costs,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses WHERE date = $1), 0) as total_transportation,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR transfer_date = '' OR transfer_date !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE transfer_date::text END) = $1), 0) as total_worker_transfers,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses WHERE date = $1), 0) as total_misc_expenses
+    `, [effectiveDate]);
     const overallSums = overallSumsQuery.rows[0];
     const overallTotalFundTransfers = Number(overallSums.total_fund_transfers);
     const overallTotalWorkerWages = Number(overallSums.total_worker_wages);

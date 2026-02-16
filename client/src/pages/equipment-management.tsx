@@ -25,9 +25,13 @@ interface Equipment {
   id: string;
   name: string;
   code: string;
+  sku: string;
   type: string;
+  unit: string;
   status: string;
+  condition: string;
   currentProjectId: string | null;
+  projectId: string | null;
   purchasePrice: string | number | null;
   purchaseDate: string | null;
   description?: string;
@@ -168,7 +172,7 @@ export function EquipmentManagement() {
     assigned: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'assigned').length : 0,
     maintenance: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0,
     outOfService: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service' || e.status === 'lost').length : 0,
-    inWarehouse: Array.isArray(equipment) ? equipment.filter((e: Equipment) => !e.currentProjectId).length : 0,
+    inWarehouse: Array.isArray(equipment) ? equipment.filter((e: Equipment) => !(e.currentProjectId || e.projectId)).length : 0,
   }), [equipment]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
@@ -422,8 +426,9 @@ export function EquipmentManagement() {
       currentRow++;
 
       filteredEquipment.forEach((item: Equipment, index: number) => {
-        const projectName = item.currentProjectId 
-          ? (Array.isArray(projects) ? projects.find((p: any) => p.id === item.currentProjectId)?.name : undefined) || 'مشروع غير معروف'
+        const eqProjectId = item.currentProjectId || item.projectId;
+        const projectName = eqProjectId 
+          ? (Array.isArray(projects) ? projects.find((p: any) => p.id === eqProjectId)?.name : undefined) || 'مشروع غير معروف'
           : 'المستودع';
         
         const row = worksheet.addRow([
@@ -554,8 +559,9 @@ export function EquipmentManagement() {
               </thead>
               <tbody>
                 ${filteredEquipment.map((item: Equipment) => {
-                  const itemProjectName = item.currentProjectId 
-                    ? (Array.isArray(projects) ? projects.find((p: any) => p.id === item.currentProjectId)?.name : undefined) || 'مشروع غير معروف'
+                  const itemProjId = item.currentProjectId || item.projectId;
+                  const itemProjectName = itemProjId 
+                    ? (Array.isArray(projects) ? projects.find((p: any) => p.id === itemProjId)?.name : undefined) || 'مشروع غير معروف'
                     : 'المستودع';
                   return `
                     <tr>
@@ -663,8 +669,9 @@ export function EquipmentManagement() {
       ) : (
         <UnifiedCardGrid columns={3}>
           {Array.isArray(equipment) && equipment.map((item: Equipment) => {
-            const projectName = item.currentProjectId 
-              ? (Array.isArray(projects) ? projects.find((p: any) => p.id === item.currentProjectId)?.name : undefined) || 'مشروع غير معروف'
+            const eqProjId = item.currentProjectId || item.projectId;
+            const projectName = eqProjId 
+              ? (Array.isArray(projects) ? projects.find((p: any) => p.id === eqProjId)?.name : undefined) || 'مشروع غير معروف'
               : 'المستودع';
             
             return (
@@ -818,8 +825,8 @@ export function EquipmentManagement() {
                     <div>
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">الموقع الحالي</div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {selectedEquipment.currentProjectId 
-                          ? projects.find((p: any) => p.id === selectedEquipment.currentProjectId)?.name || 'مشروع غير معروف'
+                        {(selectedEquipment.currentProjectId || selectedEquipment.projectId)
+                          ? projects.find((p: any) => p.id === (selectedEquipment.currentProjectId || selectedEquipment.projectId))?.name || 'مشروع غير معروف'
                           : 'المستودع'
                         }
                       </div>

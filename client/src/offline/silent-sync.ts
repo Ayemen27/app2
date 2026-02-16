@@ -1,13 +1,32 @@
 import {
   getPendingSyncQueue, removeSyncQueueItem, markItemInFlight,
   markItemFailed, markItemDuplicateResolved, logSyncResult,
-  SyncQueueItem
+  moveToDLQ, SyncQueueItem
 } from './offline';
 import { smartGet, smartPut } from './storage-factory';
 import { apiRequest } from '../lib/queryClient';
 
 let _isSyncing = false;
-const MAX_RETRIES_PER_ITEM = 5;
+
+const SYNC_CONFIG = {
+  maxRetries: 8,
+  baseDelayMs: 500,
+  maxDelayMs: 60000,
+  jitterFactor: 0.3,
+  nonRetryableStatuses: [400, 401, 403, 404, 422] as number[],
+};
+
+function calculateBackoffDelay(retryCount: number): number {
+  const exponentialDelay = SYNC_CONFIG.baseDelayMs * Math.pow(2, retryCount);
+  const cappedDelay = Math.min(exponentialDelay, SYNC_CONFIG.maxDelayMs);
+  const jitter = cappedDelay * SYNC_CONFIG.jitterFactor * (Math.random() * 2 - 1);
+  return Math.max(0, Math.round(cappedDelay + jitter));
+}
+
+function isRetryableError(statusCode: number): boolean {
+  if (statusCode === 409) return false;
+  return !SYNC_CONFIG.nonRetryableStatuses.includes(statusCode);
+}
 
 export async function runSilentSync() {
   if (_isSyncing) return;
@@ -38,58 +57,178 @@ function getPayloadSummary(payload: Record<string, any>): string {
   return parts.join(' | ') || 'بدون تفاصيل';
 }
 
+async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<void> {
+  const startTime = Date.now();
+  console.log(`[Silent-Sync] معالجة دفعة ${batchId} (${items.length} عملية)...`);
+
+  for (const item of items) {
+    await markItemInFlight(item.id);
+  }
+
+  try {
+    const operations = items.map(item => ({
+      action: item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE',
+      endpoint: item.endpoint,
+      payload: item.payload,
+    }));
+
+    const response = await apiRequest('/api/sync/batch', 'POST', { operations });
+
+    if (response && response.success) {
+      for (const item of items) {
+        await removeSyncQueueItem(item.id);
+        await updateLocalItemSyncStatus(item, true);
+        await logSyncResult({
+          queueItemId: item.id,
+          action: item.action,
+          endpoint: item.endpoint,
+          status: 'success',
+          duration: Date.now() - startTime,
+          payloadSummary: getPayloadSummary(item.payload),
+          retryCount: item.retries,
+        });
+      }
+      console.log(`[Silent-Sync] دفعة ${batchId} نجحت (${Date.now() - startTime}ms)`);
+    } else {
+      const errMsg = response?.message || response?.error || 'فشل الدفعة';
+      throw new Error(errMsg);
+    }
+  } catch (error: any) {
+    const statusCode = extractStatusCode(error);
+    const errorMsg = error?.message || String(error);
+    console.error(`[Silent-Sync] فشل الدفعة ${batchId}:`, errorMsg);
+
+    for (const item of items) {
+      if (!isRetryableError(statusCode) && statusCode > 0) {
+        await moveToDLQ({
+          ...item,
+          retries: item.retries + 1,
+          lastError: errorMsg,
+          errorType: 'validation',
+        });
+      } else {
+        const nextRetryAt = Date.now() + calculateBackoffDelay(item.retries + 1);
+        await markItemFailed(item.id, errorMsg, 'batch');
+        const failedItem = await smartGet('syncQueue', item.id);
+        if (failedItem) {
+          failedItem.nextRetryAt = nextRetryAt;
+          await smartPut('syncQueue', failedItem);
+        }
+      }
+
+      await logSyncResult({
+        queueItemId: item.id,
+        action: item.action,
+        endpoint: item.endpoint,
+        status: 'failed',
+        duration: Date.now() - startTime,
+        errorMessage: errorMsg,
+        errorCode: String(statusCode),
+        payloadSummary: getPayloadSummary(item.payload),
+        retryCount: item.retries + 1,
+      });
+    }
+  }
+}
+
 async function _executeSilentSync() {
   const queue = await getPendingSyncQueue();
   if (queue.length === 0) return;
 
-  console.log(`🔄 [Silent-Sync] بدء معالجة ${queue.length} عملية...`);
+  const now = Date.now();
+  const readyItems = queue.filter(item => {
+    if (item.nextRetryAt && item.nextRetryAt > now) return false;
+    return true;
+  });
 
-  for (const item of queue) {
+  if (readyItems.length === 0) return;
+
+  const batches = new Map<string, SyncQueueItem[]>();
+  const unbatched: SyncQueueItem[] = [];
+
+  for (const item of readyItems) {
+    if (item.batchId) {
+      if (!batches.has(item.batchId)) batches.set(item.batchId, []);
+      batches.get(item.batchId)!.push(item);
+    } else {
+      unbatched.push(item);
+    }
+  }
+
+  console.log(`[Silent-Sync] بدء معالجة ${readyItems.length} عملية (${batches.size} دفعات، ${unbatched.length} منفردة) من أصل ${queue.length}...`);
+
+  for (const [batchId, batchItems] of batches) {
+    await processBatch(batchId, batchItems);
+  }
+
+  for (const item of unbatched) {
     try {
-      if (item.retries >= MAX_RETRIES_PER_ITEM) {
-        console.warn(`⚠️ [Silent-Sync] العملية ${item.id} تجاوزت الحد الأقصى (${MAX_RETRIES_PER_ITEM}) - تبقى في failed`);
-        await markItemFailed(item.id, `تجاوز الحد الأقصى للمحاولات (${MAX_RETRIES_PER_ITEM})`, 'max_retries');
+      if (item.retries >= SYNC_CONFIG.maxRetries) {
+        console.warn(`[Silent-Sync] نقل ${item.id} إلى DLQ بعد ${item.retries} محاولة`);
+        await moveToDLQ(item);
         continue;
       }
 
       await markItemInFlight(item.id);
-      await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (item.retries > 0) {
+        const delay = calculateBackoffDelay(item.retries);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
       const method = item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE';
       const startTime = Date.now();
 
       let response: any;
       try {
-        response = await apiRequest(item.endpoint, method, item.payload);
+        const idempotencyKey = item.idempotencyKey || `sync:${item.id}:${item.retries}`;
+        response = await apiRequest(item.endpoint, method, item.payload, 0, {
+          'x-idempotency-key': idempotencyKey,
+        });
       } catch (apiError: any) {
         const statusCode = extractStatusCode(apiError);
         const errorMsg = apiError?.message || apiError?.error || String(apiError);
 
         if (statusCode === 409) {
-          console.log(`🔁 [Silent-Sync] عملية مكررة (409): ${item.id} - ${errorMsg}`);
+          console.log(`[Silent-Sync] عملية مكررة (409): ${item.id}`);
           await markItemDuplicateResolved(item.id, errorMsg);
           await updateLocalItemSyncStatus(item, true);
           continue;
         }
 
-        if (statusCode === 400 || statusCode === 422) {
-          console.error(`❌ [Silent-Sync] خطأ تحقق (${statusCode}): ${item.id} - ${errorMsg}`);
-          await markItemFailed(item.id, errorMsg, 'validation');
+        if (!isRetryableError(statusCode)) {
+          console.error(`[Silent-Sync] خطأ غير قابل للإعادة (${statusCode}): ${item.id}`);
+          await moveToDLQ({
+            ...item,
+            retries: item.retries + 1,
+            lastError: errorMsg,
+            errorType: 'validation',
+          });
           await logSyncResult({
             queueItemId: item.id,
             action: item.action,
             endpoint: item.endpoint,
             status: 'failed',
             duration: Date.now() - startTime,
-            errorMessage: errorMsg,
+            errorMessage: `نُقلت إلى DLQ: ${errorMsg}`,
             errorCode: String(statusCode),
             payloadSummary: getPayloadSummary(item.payload),
-            retryCount: item.retries + 1
+            retryCount: item.retries + 1,
           });
           continue;
         }
 
+        const nextRetryAt = Date.now() + calculateBackoffDelay(item.retries + 1);
         await markItemFailed(item.id, errorMsg, 'network');
+
+        const failedItem = await smartGet('syncQueue', item.id);
+        if (failedItem) {
+          failedItem.nextRetryAt = nextRetryAt;
+          await smartPut('syncQueue', failedItem);
+        }
+
         await logSyncResult({
           queueItemId: item.id,
           action: item.action,
@@ -99,7 +238,7 @@ async function _executeSilentSync() {
           errorMessage: errorMsg,
           errorCode: String(statusCode),
           payloadSummary: getPayloadSummary(item.payload),
-          retryCount: item.retries + 1
+          retryCount: item.retries + 1,
         });
         continue;
       }
@@ -117,13 +256,21 @@ async function _executeSilentSync() {
           status: 'success',
           duration,
           payloadSummary: getPayloadSummary(item.payload),
-          retryCount: item.retries
+          retryCount: item.retries,
         });
 
-        console.log(`✅ [Silent-Sync] نجحت: ${item.id} (${duration}ms)`);
+        console.log(`[Silent-Sync] نجحت: ${item.id} (${duration}ms)`);
       } else {
         const errMsg = response?.message || response?.error || 'استجابة غير ناجحة';
+        const nextRetryAt = Date.now() + calculateBackoffDelay(item.retries + 1);
         await markItemFailed(item.id, errMsg, 'server');
+
+        const failedItem = await smartGet('syncQueue', item.id);
+        if (failedItem) {
+          failedItem.nextRetryAt = nextRetryAt;
+          await smartPut('syncQueue', failedItem);
+        }
+
         await logSyncResult({
           queueItemId: item.id,
           action: item.action,
@@ -132,7 +279,7 @@ async function _executeSilentSync() {
           duration,
           errorMessage: errMsg,
           payloadSummary: getPayloadSummary(item.payload),
-          retryCount: item.retries + 1
+          retryCount: item.retries + 1,
         });
       }
     } catch (error: any) {
@@ -155,7 +302,6 @@ async function updateLocalItemSyncStatus(item: SyncQueueItem, synced: boolean): 
       await smartPut(storeName, localItem);
     }
   } catch {
-    // تجاهل أخطاء تحديث الحالة المحلية
   }
 }
 

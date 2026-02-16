@@ -70,7 +70,8 @@ export async function apiRequest(
   endpoint: string,
   method: string = "GET",
   data?: any,
-  retryCount: number = 0
+  retryCount: number = 0,
+  extraHeaders?: Record<string, string>
 ): Promise<any> {
   // اكتشاف البيئة تلقائياً لدعم دومين الإنتاج ودومين Replit
   const apiBase = ENV.getApiBaseUrl();
@@ -94,15 +95,12 @@ export async function apiRequest(
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    ...(extraHeaders || {}),
   };
 
-  // ✅ إضافة التوكن إذا كان موجوداً
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  
-  // ✅ لا نرسل x-auth-token أو user-id headers لضمان توافق CORS
-  // الخادم يستخدم Authorization Bearer للمصادقة فقط
 
   const config: RequestInit = {
     method,

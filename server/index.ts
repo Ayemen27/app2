@@ -202,6 +202,9 @@ app.use(generalRateLimit);
 app.use(trackSuspiciousActivity);
 app.use(securityHeaders);
 
+import { idempotencyMiddleware } from "./middleware/idempotency";
+app.use('/api', idempotencyMiddleware);
+
 // Create HTTP server for Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {

@@ -133,6 +133,36 @@ export interface BinarJoinDB extends DBSchema {
   reportTemplates: { key: string; value: StoreValue };
   backupLogs: { key: string; value: StoreValue };
   backupSettings: { key: string; value: StoreValue };
+  deadLetterQueue: {
+    key: string;
+    value: {
+      id: string;
+      originalId: string;
+      action: 'create' | 'update' | 'delete';
+      endpoint: string;
+      payload: Record<string, any>;
+      timestamp: number;
+      movedAt: number;
+      totalRetries: number;
+      lastError: string;
+      errorType: string;
+      idempotencyKey?: string;
+    };
+  };
+  localAuditLog: {
+    key: string;
+    value: {
+      id: string;
+      action: string;
+      entityType: string;
+      entityId: string;
+      payload: Record<string, any>;
+      timestamp: number;
+      sequence: number;
+      hash: string;
+      previousHash: string;
+    };
+  };
 }
 
 let dbInstance: IDBPDatabase<BinarJoinDB> | null = null;
@@ -152,7 +182,8 @@ const ALL_STORES = [
   'notificationReadStates',
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
   'reportTemplates', 'backupLogs', 'backupSettings',
-  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory'
+  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
+  'deadLetterQueue', 'localAuditLog'
 ] as const;
 
 export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
@@ -161,7 +192,7 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   }
 
   try {
-    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 13, {
+    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 14, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`[DB] Upgrading from ${oldVersion} to ${newVersion}`);
         
@@ -191,6 +222,22 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
             } else if (storeName === 'syncMetadata') {
               // @ts-ignore
               db.createObjectStore(storeName, { keyPath: 'key' });
+            } else if (storeName === 'deadLetterQueue') {
+              // @ts-ignore
+              const store = db.createObjectStore(storeName, { keyPath: 'id' });
+              // @ts-ignore
+              store.createIndex('movedAt', 'movedAt');
+              // @ts-ignore
+              store.createIndex('errorType', 'errorType');
+            } else if (storeName === 'localAuditLog') {
+              // @ts-ignore
+              const store = db.createObjectStore(storeName, { keyPath: 'id' });
+              // @ts-ignore
+              store.createIndex('timestamp', 'timestamp');
+              // @ts-ignore
+              store.createIndex('sequence', 'sequence');
+              // @ts-ignore
+              store.createIndex('entityType', 'entityType');
             } else {
               // @ts-ignore
               const store = db.createObjectStore(storeName as any, { keyPath: 'id' });

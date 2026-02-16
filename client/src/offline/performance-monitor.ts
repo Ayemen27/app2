@@ -4,7 +4,29 @@
 
 import { getSyncState } from './sync';
 import { getTotalStorageSize } from './data-compression';
-import { getPendingOperationsCount, getSyncStatistics } from './offline-mutations';
+import { getPendingSyncQueue } from './offline';
+
+async function getPendingOperationsCount(): Promise<number> {
+  const pending = await getPendingSyncQueue();
+  return pending.length;
+}
+
+async function getSyncStatistics() {
+  const pending = await getPendingSyncQueue();
+  const creates = pending.filter(p => p.action === 'create').length;
+  const updates = pending.filter(p => p.action === 'update').length;
+  const deletes = pending.filter(p => p.action === 'delete').length;
+  const failedOps = pending.filter(p => p.retries > 0).length;
+
+  return {
+    totalPending: pending.length,
+    creates,
+    updates,
+    deletes,
+    failedOperations: failedOps,
+    oldestOperation: pending.length > 0 ? new Date(pending[0].timestamp) : null
+  };
+}
 
 export interface PerformanceMetrics {
   timestamp: number;

@@ -59,6 +59,7 @@ import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
 import { Loader2 } from "lucide-react";
 import { initSyncListener, subscribeSyncState, loadFullBackup, performInitialDataPull } from "./offline/sync";
 import { initSilentSyncObserver } from "./offline/silent-sync";
+import { initAuditLog } from "./offline/local-audit";
 import { initializeDB } from "./offline/db";
 import { SyncStatusIndicator } from "./components/sync-status";
 import { EnvironmentBadge } from "./components/layout/EnvironmentBadge";
@@ -115,6 +116,7 @@ function Router() {
 
         initSyncListener();
         initSilentSyncObserver(30000);
+        initAuditLog().catch(err => console.warn('[AuditLog] Init failed:', err));
         console.log('✅ تم تفعيل نظام المزامنة الذكي مع المزامنة الصامتة');
 
         // الاستماع لتغييرات حالة المزامنة

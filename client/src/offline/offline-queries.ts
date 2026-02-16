@@ -7,45 +7,6 @@ export function isOnline(): boolean {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
 
-export async function getDataWithFallback<T>(
-  endpoint: string,
-  entityName: keyof typeof ENTITY_STORES,
-  options?: {
-    forceServer?: boolean;
-    forceLocal?: boolean;
-    timeout?: number;
-  }
-): Promise<{ data: T[]; source: 'server' | 'local' | 'empty'; isStale: boolean }> {
-  const localData = await getLocalData(entityName);
-  return {
-    data: localData,
-    source: 'local',
-    isStale: false,
-  };
-}
-
-async function fetchWithTimeout(
-  endpoint: string,
-  timeout: number = 5000
-): Promise<any> {
-  return [];
-}
-
-async function getLocalData(entityName: keyof typeof ENTITY_STORES): Promise<any[]> {
-  try {
-    const storeName = ENTITY_STORES[entityName];
-    
-    if (!storeName) {
-      return [];
-    }
-
-    return await smartGetAll(storeName);
-  } catch (error) {
-    console.error(`[OfflineQueries] Failed to get local data:`, error);
-    return [];
-  }
-}
-
 export async function getLocalRecord<T>(
   entityName: keyof typeof ENTITY_STORES,
   id: string

@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { smartPut, smartGet, smartGetAll, smartDelete } from './storage-factory';
 import { queueForSync } from './offline';
 import { runSilentSync } from './silent-sync';
+import { recordAuditEntry } from './local-audit';
 
 const ENDPOINT_TO_STORE: Record<string, string> = {
   '/api/fund-transfers': 'fundTransfers',
@@ -114,6 +115,10 @@ async function handleOfflineCreate(
   await smartPut(storeName, record);
   await queueForSync('create', endpoint, record);
 
+  recordAuditEntry('create', storeName, id, record).catch(err =>
+    console.warn('[Audit] فشل التسجيل:', err)
+  );
+
   return {
     success: true,
     data: { success: true, data: record, message: 'تم الحفظ محلياً' },
@@ -146,6 +151,10 @@ async function handleOfflineUpdate(
   await smartPut(storeName, updated);
   await queueForSync('update', endpoint, updated);
 
+  recordAuditEntry('update', storeName, id, updated).catch(err =>
+    console.warn('[Audit] فشل التسجيل:', err)
+  );
+
   return {
     success: true,
     data: { success: true, data: updated, message: 'تم التعديل محلياً' },
@@ -166,6 +175,10 @@ async function handleOfflineDelete(
 
   await smartDelete(storeName, id);
   await queueForSync('delete', endpoint, { id });
+
+  recordAuditEntry('delete', storeName, id, { id }).catch(err =>
+    console.warn('[Audit] فشل التسجيل:', err)
+  );
 
   return {
     success: true,

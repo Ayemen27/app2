@@ -483,4 +483,109 @@ syncRouter.get('/tables', async (_req: Request, res: Response) => {
   });
 });
 
+/**
+ * 🔄 Atomic Batch Sync
+ * POST /api/sync/batch
+ */
+syncRouter.post('/batch', requireAuth, async (req: Request, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const { operations } = req.body;
+
+    if (!operations || !Array.isArray(operations) || operations.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'يجب إرسال مصفوفة من العمليات'
+      });
+    }
+
+    console.log(`[Sync-Batch] بدء معالجة دفعة ذرية (${operations.length} عملية)...`);
+    const startTime = Date.now();
+
+    await client.query('BEGIN');
+
+    const results: any[] = [];
+
+    for (let i = 0; i < operations.length; i++) {
+      const op = operations[i];
+      const { action, endpoint, payload } = op;
+
+      if (!action || !endpoint) {
+        throw new Error(`عملية ${i} غير صالحة: action و endpoint مطلوبان`);
+      }
+
+      const cleanEndpoint = endpoint.split('?')[0];
+      const parts = cleanEndpoint.split('/').filter(Boolean);
+
+      if (parts[0] !== 'api' || parts.length < 2) {
+        throw new Error(`عملية ${i}: endpoint غير صالح: ${endpoint}`);
+      }
+
+      const tableName = parts.slice(1).join('_').replace(/-/g, '_');
+
+      if (action === 'POST') {
+        if (!payload || !payload.id) {
+          throw new Error(`عملية ${i}: payload.id مطلوب للإنشاء`);
+        }
+        const columns = Object.keys(payload);
+        const values = Object.values(payload);
+        const placeholders = columns.map((_, idx) => `$${idx + 1}`);
+        const query = `INSERT INTO "${tableName}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO NOTHING RETURNING *`;
+        const result = await client.query(query, values);
+        results.push({ index: i, success: true, data: result.rows[0] || payload });
+      } else if (action === 'PATCH' || action === 'PUT') {
+        if (!payload || !payload.id) {
+          throw new Error(`عملية ${i}: payload.id مطلوب للتعديل`);
+        }
+        const { id, ...updateFields } = payload;
+        const columns = Object.keys(updateFields);
+        if (columns.length === 0) {
+          results.push({ index: i, success: true, data: payload });
+          continue;
+        }
+        const setClauses = columns.map((col, idx) => `"${col}" = $${idx + 2}`);
+        const values = [id, ...Object.values(updateFields)];
+        const query = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`;
+        const result = await client.query(query, values);
+        results.push({ index: i, success: true, data: result.rows[0] || payload });
+      } else if (action === 'DELETE') {
+        const id = payload?.id || parts[parts.length - 1];
+        if (!id) {
+          throw new Error(`عملية ${i}: id مطلوب للحذف`);
+        }
+        await client.query(`DELETE FROM "${tableName}" WHERE id = $1`, [id]);
+        results.push({ index: i, success: true });
+      } else {
+        throw new Error(`عملية ${i}: action غير مدعوم: ${action}`);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    const duration = Date.now() - startTime;
+    console.log(`[Sync-Batch] اكتملت الدفعة بنجاح (${operations.length} عملية في ${duration}ms)`);
+
+    return res.status(200).json({
+      success: true,
+      message: `تم تنفيذ ${operations.length} عملية بنجاح`,
+      results,
+      metadata: {
+        operationsCount: operations.length,
+        duration,
+        timestamp: Date.now(),
+      }
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('[Sync-Batch] فشل الدفعة - تم التراجع:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: `فشل تنفيذ الدفعة: ${error.message}`,
+      error: error.message,
+    });
+  } finally {
+    client.release();
+  }
+});
+
 export default syncRouter;

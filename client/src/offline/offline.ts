@@ -17,6 +17,22 @@ export interface SyncQueueItem {
   lastError?: string;
   errorType?: string;
   lastAttemptAt?: number;
+  nextRetryAt?: number;
+  idempotencyKey?: string;
+  batchId?: string;
+}
+
+export interface DeadLetterItem {
+  id: string;
+  originalId: string;
+  action: 'create' | 'update' | 'delete';
+  endpoint: string;
+  payload: Record<string, any>;
+  timestamp: number;
+  movedAt: number;
+  totalRetries: number;
+  lastError: string;
+  errorType: string;
   idempotencyKey?: string;
 }
 
@@ -396,13 +412,94 @@ export async function getSyncStats() {
   const successCount = history.filter(h => h.status === 'success').length;
   const recentFailures = history.filter(h => h.status === 'failed').length;
 
+  const dlqCount = await smartCount('deadLetterQueue');
+
   return {
     pendingSync: pendingCount - failedCount - duplicateCount,
     failedSync: failedCount,
     duplicateResolved: duplicateCount,
+    deadLetterCount: dlqCount,
     localUserData: userDataCount,
     totalSuccessful: successCount,
     totalRecentFailures: recentFailures,
     lastUpdate: Date.now()
   };
+}
+
+export async function moveToDLQ(item: SyncQueueItem): Promise<void> {
+  const dlqItem: DeadLetterItem = {
+    id: uuidv4(),
+    originalId: item.id,
+    action: item.action,
+    endpoint: item.endpoint,
+    payload: item.payload,
+    timestamp: item.timestamp,
+    movedAt: Date.now(),
+    totalRetries: item.retries,
+    lastError: item.lastError || 'تجاوز الحد الأقصى للمحاولات',
+    errorType: item.errorType || 'max_retries',
+    idempotencyKey: item.idempotencyKey,
+  };
+
+  await smartAdd('deadLetterQueue', dlqItem);
+  await removeSyncQueueItem(item.id);
+
+  await logSyncResult({
+    queueItemId: item.id,
+    action: item.action,
+    endpoint: item.endpoint,
+    status: 'failed',
+    errorMessage: `نُقلت إلى قائمة العمليات المعلقة نهائياً بعد ${item.retries} محاولة`,
+    payloadSummary: getPayloadSummary(item.payload),
+    retryCount: item.retries,
+  });
+}
+
+export async function getDLQItems(): Promise<DeadLetterItem[]> {
+  const items = await smartGetAll('deadLetterQueue');
+  return items.sort((a: DeadLetterItem, b: DeadLetterItem) => b.movedAt - a.movedAt);
+}
+
+export async function getDLQCount(): Promise<number> {
+  return await smartCount('deadLetterQueue');
+}
+
+export async function retryDLQItem(dlqItemId: string): Promise<void> {
+  const dlqItem: DeadLetterItem | null = await smartGet('deadLetterQueue', dlqItemId);
+  if (!dlqItem) return;
+
+  const newQueueItem: SyncQueueItem = {
+    id: uuidv4(),
+    action: dlqItem.action,
+    endpoint: dlqItem.endpoint,
+    payload: dlqItem.payload,
+    timestamp: Date.now(),
+    retries: 0,
+    status: 'pending',
+    idempotencyKey: dlqItem.idempotencyKey,
+  };
+
+  await smartAdd('syncQueue', newQueueItem);
+  await smartDelete('deadLetterQueue', dlqItemId);
+}
+
+export async function retryAllDLQ(): Promise<number> {
+  const items = await getDLQItems();
+  let count = 0;
+  for (const item of items) {
+    await retryDLQItem(item.id);
+    count++;
+  }
+  return count;
+}
+
+export async function removeDLQItem(id: string): Promise<void> {
+  await smartDelete('deadLetterQueue', id);
+}
+
+export async function clearDLQ(): Promise<number> {
+  const items = await getDLQItems();
+  const count = items.length;
+  await smartClear('deadLetterQueue');
+  return count;
 }

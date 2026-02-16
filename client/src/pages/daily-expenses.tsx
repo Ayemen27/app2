@@ -1497,9 +1497,9 @@ function DailyExpensesContent() {
         0
       );
 
-      // حساب المشتريات النقدية فقط - استخدام البيانات الآمنة
+      // حساب المشتريات النقدية فقط (نقد أو نقداً) - موحّد مع السيرفر
       const totalMaterialCosts = safeMaterialPurchases
-        .filter(purchase => purchase.purchaseType === "نقد")
+        .filter(purchase => purchase.purchaseType === "نقد" || purchase.purchaseType === "نقداً")
         .reduce((sum, purchase) => {
           const amount = cleanNumber(purchase.totalAmount);
           return sum + amount;
@@ -1549,15 +1549,15 @@ function DailyExpensesContent() {
         calculation: `${carriedAmount} + ${totalFundTransfers} + ${incomingProjectTransfers}`,
       });
       
-      // استخدام البيانات الموحدة من financialSummary إذا كانت متاحة
-      const totalExpenses = financialSummary?.expenses?.totalAllExpenses || 
-                           (totalWorkerWages + totalTransportation + totalMaterialCosts + 
-                            totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers);
+      // حساب محلي من البيانات المتاحة
+      const localTotalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
+                                 totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
+      const localTotalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
       
-      const totalIncome = financialSummary?.income?.totalIncome || 
-                         (carriedAmount + totalFundTransfers + incomingProjectTransfers);
-      
-      const remainingBalance = financialSummary?.totalBalance ?? (totalIncome - totalExpenses);
+      // الأولوية لبيانات السيرفر (مصدر الحقيقة الوحيد)، الحساب المحلي كـ fallback فقط
+      const totalExpenses = financialSummary?.expenses?.totalCashExpenses ?? localTotalExpenses;
+      const totalIncome = financialSummary?.income?.totalIncome ?? localTotalIncome;
+      const remainingBalance = financialSummary?.totalBalance ?? (totalIncome + carriedAmount - totalExpenses);
       
       console.log('✅ [calculateTotals] النتيجة النهائية:', {
         totalIncome,
@@ -1592,15 +1592,12 @@ function DailyExpensesContent() {
         remainingBalance: remainingBalance, // يمكن أن يكون سالباً
       };
 
-      // فحص النتائج للتأكد من عدم وجود قيم غير منطقية
+      // تسجيل تحذير للقيم الكبيرة بدون تصفيرها (القيم الحقيقية لا تُصفّر أبداً)
       const maxReasonableAmount = 100000000; // 100 مليون
       Object.keys(result).forEach(key => {
         const value = (result as any)[key];
         if (typeof value === 'number' && Math.abs(value) > maxReasonableAmount) {
-          console.warn(`⚠️ [DailyExpenses] قيمة غير منطقية في ${key}:`, value);
-          if (key !== 'remainingBalance') {
-            (result as any)[key] = 0; // إعادة تعيين القيم غير المنطقية إلى الصفر
-          }
+          console.warn(`⚠️ [DailyExpenses] قيمة كبيرة في ${key}: ${value} - يُرجى مراجعة البيانات يدوياً`);
         }
       });
 

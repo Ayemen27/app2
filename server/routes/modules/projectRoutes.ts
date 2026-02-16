@@ -6,7 +6,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc, or } from 'drizzle-orm';
-import { db } from '../../db';
+import { db, pool } from '../../db';
 import {
   projects, workers, materials, suppliers, materialPurchases, workerAttendance,
   fundTransfers, transportationExpenses, dailyExpenseSummaries,
@@ -206,7 +206,9 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       const dateField = record.transferDate || record.purchaseDate || record.date;
       if (!dateField) return 'unknown';
       if (typeof dateField === 'string') return dateField.split('T')[0];
-      if (dateField instanceof Date) return dateField.toISOString().split('T')[0];
+      if (dateField instanceof Date) {
+        return `${dateField.getFullYear()}-${String(dateField.getMonth() + 1).padStart(2, '0')}-${String(dateField.getDate()).padStart(2, '0')}`;
+      }
       return String(dateField).split('T')[0];
     };
 
@@ -2198,11 +2200,10 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
     try {
       console.log(`💰 [API] حساب الرصيد المرحل لتاريخ: ${finalDate}`);
 
-      // حساب التاريخ السابق
-      const currentDate = new Date(finalDate);
-      const previousDate = new Date(currentDate);
-      previousDate.setDate(currentDate.getDate() - 1);
-      const previousDateStr = previousDate.toISOString().split('T')[0];
+      // حساب التاريخ السابق - تحويل محلي آمن
+      const [cfYear, cfMonth, cfDay] = finalDate.split('-').map(Number);
+      const previousDate2 = new Date(cfYear, cfMonth - 1, cfDay - 1);
+      const previousDateStr = `${previousDate2.getFullYear()}-${String(previousDate2.getMonth() + 1).padStart(2, '0')}-${String(previousDate2.getDate()).padStart(2, '0')}`;
 
       console.log(`💰 [API] البحث عن الرصيد المتبقي ليوم: ${previousDateStr}`);
 
@@ -2232,9 +2233,9 @@ projectRouter.get('/:projectId/daily-expenses/:date', async (req: Request, res: 
           // إذا كان الملخص لتاريخ أقدم، احسب من ذلك التاريخ إلى اليوم السابق
           console.log(`💰 [API] آخر ملخص محفوظ في ${summaryDate}, حساب تراكمي إلى ${previousDateStr}`);
 
-          const startFromDate = new Date(summaryDate);
-          startFromDate.setDate(startFromDate.getDate() + 1);
-          const startFromStr = startFromDate.toISOString().split('T')[0];
+          const [sf2Year, sf2Month, sf2Day] = String(summaryDate).split('-').map(Number);
+          const startFromDate2 = new Date(sf2Year, sf2Month - 1, sf2Day + 1);
+          const startFromStr = `${startFromDate2.getFullYear()}-${String(startFromDate2.getMonth() + 1).padStart(2, '0')}-${String(startFromDate2.getDate()).padStart(2, '0')}`;
 
           // حساب تراكمي من startFromStr إلى previousDateStr
           const cumulativeBalance = await calculateCumulativeBalance(projectId, startFromStr, previousDateStr);
@@ -2373,7 +2374,9 @@ projectRouter.get('/:projectId/all-expenses', async (req: Request, res: Response
       const dateField = record.transferDate || record.purchaseDate || record.date;
       if (!dateField) return 'unknown';
       if (typeof dateField === 'string') return dateField.split('T')[0];
-      if (dateField instanceof Date) return dateField.toISOString().split('T')[0];
+      if (dateField instanceof Date) {
+        return `${dateField.getFullYear()}-${String(dateField.getMonth() + 1).padStart(2, '0')}-${String(dateField.getDate()).padStart(2, '0')}`;
+      }
       return String(dateField).split('T')[0];
     };
 
@@ -2599,11 +2602,11 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
     // استخدام التاريخ المحول - Fix: Use finalDate to avoid assignment to constant
     const finalDate = normalizedDate;
 
-    // حساب التاريخ السابق
-    const currentDate = new Date(finalDate);
-    const previousDate = new Date(currentDate);
-    previousDate.setDate(currentDate.getDate() - 1);
-    const previousDateStr = previousDate.toISOString().split('T')[0];
+    // حساب التاريخ السابق - تحويل محلي آمن بدون toISOString لمنع انزياح المنطقة الزمنية
+    const [year, month, day] = finalDate.split('-').map(Number);
+    const currentDate = new Date(year, month - 1, day);
+    const previousDate = new Date(year, month - 1, day - 1);
+    const previousDateStr = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')}`;
 
     console.log(`💰 [API] البحث عن الرصيد المتبقي ليوم: ${previousDateStr}`);
 
@@ -2637,9 +2640,9 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
           // إذا كان الملخص لتاريخ أقدم، احسب من ذلك التاريخ إلى اليوم السابق
           console.log(`💰 [API] آخر ملخص محفوظ في ${summaryDate}, حساب تراكمي إلى ${previousDateStr}`);
 
-          const startFromDate = new Date(summaryDate);
-          startFromDate.setDate(startFromDate.getDate() + 1);
-          const startFromStr = startFromDate.toISOString().split('T')[0];
+          const [sfYear, sfMonth, sfDay] = String(summaryDate).split('-').map(Number);
+          const startFromDate = new Date(sfYear, sfMonth - 1, sfDay + 1);
+          const startFromStr = `${startFromDate.getFullYear()}-${String(startFromDate.getMonth() + 1).padStart(2, '0')}-${String(startFromDate.getDate()).padStart(2, '0')}`;
 
           // حساب تراكمي من startFromStr إلى previousDateStr
           const cumulativeBalance = await calculateCumulativeBalance(projectId, startFromStr, previousDateStr);
@@ -2697,99 +2700,71 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
  */
 async function calculateCumulativeBalance(projectId: string, fromDate: string | null, toDate: string): Promise<number> {
   try {
-    // تحديد النطاق الزمني
-    const whereConditions = [eq(fundTransfers.projectId, projectId)];
+    const result = await pool.query(`
+      WITH all_income AS (
+        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        FROM fund_transfers 
+        WHERE project_id = $1 
+          AND transfer_date IS NOT NULL AND transfer_date::text ~ '^\\d{4}-\\d{2}-\\d{2}'
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
+        UNION ALL
+        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        FROM project_fund_transfers 
+        WHERE to_project_id = $1 
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
+      ),
+      all_expenses AS (
+        SELECT CAST(paid_amount AS DECIMAL(15,2)) as amount
+        FROM worker_attendance 
+        WHERE project_id = $1 
+          AND attendance_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND attendance_date::date <= $3::date
+          AND CAST(paid_amount AS DECIMAL) > 0
+        UNION ALL
+        SELECT 
+          CASE 
+            WHEN CAST(paid_amount AS DECIMAL) > 0 THEN CAST(paid_amount AS DECIMAL(15,2))
+            ELSE CAST(total_amount AS DECIMAL(15,2))
+          END as amount
+        FROM material_purchases 
+        WHERE project_id = $1 
+          AND (purchase_type = 'نقد' OR purchase_type = 'نقداً')
+          AND purchase_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND purchase_date::date <= $3::date
+        UNION ALL
+        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        FROM transportation_expenses 
+        WHERE project_id = $1 
+          AND date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND date::date <= $3::date
+        UNION ALL
+        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        FROM worker_transfers 
+        WHERE project_id = $1 
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
+        UNION ALL
+        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        FROM worker_misc_expenses 
+        WHERE project_id = $1 
+          AND date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND date::date <= $3::date
+        UNION ALL
+        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        FROM project_fund_transfers 
+        WHERE from_project_id = $1 
+          AND transfer_date::date >= COALESCE($2::date, '1900-01-01'::date)
+          AND transfer_date::date <= $3::date
+      )
+      SELECT 
+        COALESCE((SELECT SUM(amount) FROM all_income), 0) as total_income,
+        COALESCE((SELECT SUM(amount) FROM all_expenses), 0) as total_expenses
+    `, [projectId, fromDate, toDate]);
 
-    if (fromDate) {
-      whereConditions.push(gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`${fromDate}::date`));
-    }
-    whereConditions.push(lt(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`(${toDate}::date + interval '1 day')`));
-
-    // جلب جميع البيانات المالية للفترة المحددة
-    const [
-      ftRows,
-      waRows,
-      mpRows,
-      teRows,
-      wtRows,
-      wmRows,
-      incomingPtRows,
-      outgoingPtRows
-    ] = await Promise.all([
-      // تحويلات العهدة
-      db.select().from(fundTransfers)
-        .where(and(...whereConditions)),
-
-      // أجور العمال
-      db.select().from(workerAttendance)
-        .where(and(
-          eq(workerAttendance.projectId, projectId),
-          fromDate ? gte(workerAttendance.date, fromDate) : sql`true`,
-          lte(workerAttendance.date, toDate)
-        )),
-
-      // مشتريات المواد النقدية فقط
-      db.select().from(materialPurchases)
-        .where(and(
-          eq(materialPurchases.projectId, projectId),
-          eq(materialPurchases.purchaseType, "نقد"),
-          fromDate ? gte(materialPurchases.purchaseDate, fromDate) : sql`true`,
-          lte(materialPurchases.purchaseDate, toDate)
-        )),
-
-      // مصاريف النقل
-      db.select().from(transportationExpenses)
-        .where(and(
-          eq(transportationExpenses.projectId, projectId),
-          fromDate ? gte(transportationExpenses.date, fromDate) : sql`true`,
-          lte(transportationExpenses.date, toDate)
-        )),
-
-      // حوالات العمال
-      db.select().from(workerTransfers)
-        .where(and(
-          eq(workerTransfers.projectId, projectId),
-          fromDate ? gte(workerTransfers.transferDate, fromDate) : sql`true`,
-          lte(workerTransfers.transferDate, toDate)
-        )),
-
-      // مصاريف متنوعة للعمال
-      db.select().from(workerMiscExpenses)
-        .where(and(
-          eq(workerMiscExpenses.projectId, projectId),
-          fromDate ? gte(workerMiscExpenses.date, fromDate) : sql`true`,
-          lte(workerMiscExpenses.date, toDate)
-        )),
-
-      // تحويلات واردة من مشاريع أخرى
-      db.select().from(projectFundTransfers)
-        .where(and(
-          eq(projectFundTransfers.toProjectId, projectId),
-          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql`true`,
-          lte(projectFundTransfers.transferDate, toDate)
-        )),
-
-      // تحويلات صادرة إلى مشاريع أخرى
-      db.select().from(projectFundTransfers)
-        .where(and(
-          eq(projectFundTransfers.fromProjectId, projectId),
-          fromDate ? gte(projectFundTransfers.transferDate, fromDate) : sql`true`,
-          lte(projectFundTransfers.transferDate, toDate)
-        ))
-    ]);
-
-    // حساب الإجماليات
-    const totalFundTransfers = ftRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
-    const totalWorkerWages = waRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.paidAmount || '0')), 0);
-    const totalMaterialCosts = mpRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.totalAmount || '0')), 0);
-    const totalTransportation = teRows.reduce((sum: number, t: any) => sum + parseFloat(String(t.amount || '0')), 0);
-    const totalWorkerTransfers = wtRows.reduce((sum: number, w: any) => sum + parseFloat(String(w.amount || '0')), 0);
-    const totalMiscExpenses = wmRows.reduce((sum: number, m: any) => sum + parseFloat(String(m.amount || '0')), 0);
-    const totalIncomingProjectTransfers = incomingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
-    const totalOutgoingProjectTransfers = outgoingPtRows.reduce((sum: number, p: any) => sum + parseFloat(String(p.amount || '0')), 0);
-
-    const totalIncome = totalFundTransfers + totalIncomingProjectTransfers;
-    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalOutgoingProjectTransfers;
+    const totalIncome = parseFloat(String(result.rows[0]?.total_income || '0'));
+    const totalExpenses = parseFloat(String(result.rows[0]?.total_expenses || '0'));
     const balance = totalIncome - totalExpenses;
 
     console.log(`💰 [Calc] فترة ${fromDate || 'البداية'} إلى ${toDate}: دخل=${totalIncome}, مصاريف=${totalExpenses}, رصيد=${balance}`);

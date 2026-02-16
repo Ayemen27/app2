@@ -62,21 +62,14 @@ export class ExpenseLedgerService {
   private static cleanDbValue(value: any, type: 'integer' | 'decimal' = 'decimal'): number {
     if (value === null || value === undefined) return 0;
     const strValue = String(value).trim();
-    
-    // اكتشاف وحذف الأرقام المتكررة بشكل غير طبيعي (مثل 23232323)
-    if (strValue.length > 5 && strValue.match(/^(\d{1,3})\1{2,}$/)) {
-      console.warn(`⚠️ [ExpenseLedger] تم اكتشاف قيمة مشبوهة وتصفيرها: ${strValue}`);
-      return 0;
-    }
+    if (strValue === '' || strValue === 'null' || strValue === 'undefined') return 0;
 
     const parsed = type === 'integer' ? parseInt(strValue, 10) : parseFloat(strValue);
     
     if (isNaN(parsed) || !isFinite(parsed)) return 0;
     
-    // تصحيح القيم الضخمة غير المنطقية (مثلاً أكثر من مليار لمشروع واحد)
     if (parsed > 1000000000) {
-      console.warn(`⚠️ [ExpenseLedger] تم اكتشاف قيمة ضخمة جداً وتصفيرها: ${parsed}`);
-      return 0;
+      console.warn(`⚠️ [ExpenseLedger] قيمة كبيرة جداً (${parsed}) - يُرجى مراجعة البيانات يدوياً. القيمة مقبولة ولن تُصفّر.`);
     }
 
     return parsed;
@@ -164,15 +157,9 @@ export class ExpenseLedgerService {
         const cleanTotalExpenses = this.cleanDbValue(prevExpensesResult.rows[0]?.total);
         carriedForwardBalance = cleanTotalIncome - cleanTotalExpenses;
         
-        if (Math.abs(carriedForwardBalance) < 1) {
+        if (Math.abs(carriedForwardBalance) < 0.01) {
           carriedForwardBalance = 0;
         }
-
-        // حذف الملخص المالي القديم لهذا اليوم
-        await pool.query(`
-          DELETE FROM daily_expense_summaries 
-          WHERE project_id = $1 AND date = $2
-        `, [projectId, startDateStr]);
       }
 
       // جلب معلومات المشروع

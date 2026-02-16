@@ -1310,3 +1310,111 @@ export type EquipmentMovement = typeof equipmentMovements.$inferSelect;
 export const insertEquipmentMovementSchema = createInsertSchema(equipmentMovements).omit({ id: true });
 export type InsertEquipmentMovement = z.infer<typeof insertEquipmentMovementSchema>;
 
+// ========================
+// نظام دفتر الأستاذ والقيد المزدوج (Double-Entry Ledger System)
+// يتبع المعايير المحاسبية العالمية: GAAP/IFRS
+// ========================
+
+export const accountTypes = pgTable("account_types", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 20 }).notNull().unique(),
+  nameAr: text("name_ar").notNull(),
+  nameEn: text("name_en"),
+  category: text("category").notNull(), // asset, liability, equity, revenue, expense
+  normalBalance: text("normal_balance").notNull(), // debit, credit
+  parentId: integer("parent_id"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const journalEntries = pgTable("journal_entries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  entryNumber: serial("entry_number"),
+  projectId: varchar("project_id").references(() => projects.id),
+  entryDate: text("entry_date").notNull(), // YYYY-MM-DD
+  description: text("description").notNull(),
+  sourceTable: text("source_table").notNull(), // fund_transfers, material_purchases, etc
+  sourceId: text("source_id").notNull(),
+  entryType: text("entry_type").notNull(), // original, reversal, adjustment
+  reversalOfId: uuid("reversal_of_id"),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
+  status: text("status").default("posted"), // draft, posted, reversed
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  ...syncFields,
+});
+
+export const journalLines = pgTable("journal_lines", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  journalEntryId: uuid("journal_entry_id").references(() => journalEntries.id).notNull(),
+  accountCode: varchar("account_code", { length: 20 }).notNull(),
+  debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
+  creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const financialAuditLog = pgTable("financial_audit_log", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: varchar("project_id").references(() => projects.id),
+  action: text("action").notNull(), // create, update, delete, reverse
+  entityType: text("entity_type").notNull(), // fund_transfer, material_purchase, etc
+  entityId: text("entity_id").notNull(),
+  previousData: jsonb("previous_data"),
+  newData: jsonb("new_data"),
+  changedFields: jsonb("changed_fields"),
+  userId: varchar("user_id").references(() => users.id),
+  userEmail: text("user_email"),
+  reason: text("reason"),
+  ipAddress: inet("ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const reconciliationRecords = pgTable("reconciliation_records", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  reconciliationDate: text("reconciliation_date").notNull(), // YYYY-MM-DD
+  ledgerBalance: decimal("ledger_balance", { precision: 15, scale: 2 }).notNull(),
+  computedBalance: decimal("computed_balance", { precision: 15, scale: 2 }).notNull(),
+  discrepancy: decimal("discrepancy", { precision: 15, scale: 2 }).notNull(),
+  status: text("status").default("pending"), // pending, matched, discrepancy, resolved
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const summaryInvalidations = pgTable("summary_invalidations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  invalidatedFrom: text("invalidated_from").notNull(), // YYYY-MM-DD
+  reason: text("reason").notNull(),
+  sourceTable: text("source_table"),
+  sourceId: text("source_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAccountTypeSchema = createInsertSchema(accountTypes).omit({ id: true, createdAt: true });
+export type AccountType = typeof accountTypes.$inferSelect;
+export type InsertAccountType = z.infer<typeof insertAccountTypeSchema>;
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, entryNumber: true, createdAt: true });
+export type JournalEntry = typeof journalEntries.$inferSelect;
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+
+export const insertJournalLineSchema = createInsertSchema(journalLines).omit({ id: true, createdAt: true });
+export type JournalLine = typeof journalLines.$inferSelect;
+export type InsertJournalLine = z.infer<typeof insertJournalLineSchema>;
+
+export const insertFinancialAuditLogSchema = createInsertSchema(financialAuditLog).omit({ id: true, createdAt: true });
+export type FinancialAuditLog = typeof financialAuditLog.$inferSelect;
+export type InsertFinancialAuditLog = z.infer<typeof insertFinancialAuditLogSchema>;
+
+export const insertReconciliationRecordSchema = createInsertSchema(reconciliationRecords).omit({ id: true, createdAt: true });
+export type ReconciliationRecord = typeof reconciliationRecords.$inferSelect;
+export type InsertReconciliationRecord = z.infer<typeof insertReconciliationRecordSchema>;
+
+export const insertSummaryInvalidationSchema = createInsertSchema(summaryInvalidations).omit({ id: true, createdAt: true });
+export type SummaryInvalidation = typeof summaryInvalidations.$inferSelect;
+export type InsertSummaryInvalidation = z.infer<typeof insertSummaryInvalidationSchema>;
+

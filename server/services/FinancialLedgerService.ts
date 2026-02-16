@@ -251,6 +251,36 @@ export class FinancialLedgerService {
     }
   }
 
+  static async findAndReverseBySource(sourceTable: string, sourceId: string, reason: string, createdBy?: string): Promise<string | null> {
+    try {
+      const existing = await db.select().from(journalEntries)
+        .where(and(
+          eq(journalEntries.sourceTable, sourceTable),
+          eq(journalEntries.sourceId, sourceId),
+          eq(journalEntries.status, 'posted')
+        ));
+
+      if (!existing.length) return null;
+
+      for (const entry of existing) {
+        await this.reverseEntry(entry.id, reason, createdBy);
+      }
+      console.log(`🔄 [Ledger] عكس ${existing.length} قيد لـ ${sourceTable}/${sourceId}: ${reason}`);
+      return existing[0].id;
+    } catch (error) {
+      console.error(`⚠️ [Ledger] فشل عكس قيود ${sourceTable}/${sourceId}:`, error);
+      return null;
+    }
+  }
+
+  static async safeRecord(fn: () => Promise<string>, context: string): Promise<void> {
+    try {
+      await fn();
+    } catch (error) {
+      console.error(`⚠️ [Ledger] فشل تسجيل قيد (${context}):`, error);
+    }
+  }
+
   static async invalidateSummaries(projectId: string, fromDate: string, reason: string, sourceTable?: string, sourceId?: string) {
     try {
       await db.insert(summaryInvalidations).values({

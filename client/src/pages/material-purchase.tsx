@@ -560,19 +560,24 @@ export default function MaterialPurchase() {
       console.log('✅ [PATCH] استجابة تحديث المشترية:', response);
       return response;
     },
-    onSuccess: async () => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
+    onSuccess: async (response: any) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
+      const wasAddedToInventory = response?.equipmentCreated;
+      if (wasAddedToInventory) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.equipment });
+      }
+
       toast({
-        title: "تم التعديل",
-        description: "تم تعديل شراء المواد بنجاح",
+        title: wasAddedToInventory ? "تم التعديل والإضافة للمخزن" : "تم التعديل",
+        description: wasAddedToInventory
+          ? "تم تعديل المشتراة وإنشاء المعدة في المخزن تلقائياً"
+          : "تم تعديل شراء المواد بنجاح",
       });
       resetForm();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
     },
     onError: async (error: any) => {
-      // حفظ القيم في autocomplete_data حتى في حالة الخطأ
       await Promise.all([
         saveAutocompleteValue('materialNames', materialName),
         saveAutocompleteValue('materialCategories', materialCategory),
@@ -582,7 +587,6 @@ export default function MaterialPurchase() {
         saveAutocompleteValue('notes', notes)
       ]);
 
-      // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       console.error("Material purchase update error:", error);

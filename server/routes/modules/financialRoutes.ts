@@ -1961,9 +1961,14 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
   try {
     const validated = insertMaterialPurchaseSchema.partial().parse(req.body);
     
+    const { addToInventory: _addToInv, ...validatedWithoutInventory } = validated as any;
+    
     const updated = await db
       .update(materialPurchases)
-      .set(validated)
+      .set({
+        ...validatedWithoutInventory,
+        addToInventory: false,
+      })
       .where(eq(materialPurchases.id, req.params.id))
       .returning();
     
@@ -1984,13 +1989,53 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       );
     }, 'material-purchase/PATCH');
 
+    let createdEquipment = null;
+    const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
+    const alreadyHasEquipment = !!mp.equipmentId;
+
+    if (shouldAddToInventory && !alreadyHasEquipment) {
+      try {
+        const rawQty = parseInt(String(mp.quantity || '1'), 10);
+        const qty = Number.isNaN(rawQty) || rawQty < 1 ? 1 : rawQty;
+        const totalAmountVal = parseFloat(mp.totalAmount || '0');
+        const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
+
+        const [newEquipment] = await db.insert(equipment).values({
+          name: mp.materialName,
+          type: mp.materialCategory || null,
+          unit: mp.materialUnit || mp.unit || 'قطعة',
+          quantity: qty,
+          status: 'available',
+          condition: 'excellent',
+          description: mp.notes || null,
+          purchaseDate: mp.purchaseDate,
+          purchasePrice: safePurchasePrice,
+          projectId: mp.projectId,
+        }).returning();
+
+        createdEquipment = newEquipment;
+
+        await db.update(materialPurchases)
+          .set({ equipmentId: newEquipment.id, addToInventory: true })
+          .where(eq(materialPurchases.id, mp.id));
+
+        console.log(`📦 [MaterialPurchases→Equipment/PATCH] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) تلقائياً من المشتراة ${mp.id}`);
+      } catch (eqError: any) {
+        console.error('⚠️ [MaterialPurchases→Equipment/PATCH] فشل إنشاء المعدة تلقائياً:', eqError.message);
+      }
+    }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم تحديث المشتراة في ${duration}ms`);
     
     res.json({
       success: true,
-      data: updated[0],
-      message: 'تم تحديث المشتراة بنجاح',
+      data: { ...mp, equipmentId: createdEquipment?.id || mp.equipmentId || null, addToInventory: !!createdEquipment || alreadyHasEquipment },
+      equipmentCreated: !!createdEquipment,
+      equipmentData: createdEquipment,
+      message: createdEquipment
+        ? 'تم تحديث المشتراة وإنشاء المعدة في المخزن بنجاح'
+        : 'تم تحديث المشتراة بنجاح',
       processingTime: duration
     });
   } catch (error: any) {

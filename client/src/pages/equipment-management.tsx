@@ -15,7 +15,6 @@ import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipme
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { downloadFile } from '@/utils/webview-download';
 import { useToast } from "@/hooks/use-toast";
 import { EXCEL_STYLES, COMPANY_INFO, addReportHeader } from "@/components/excel-export-utils";
 import { downloadExcelFile } from "@/utils/webview-download";
@@ -526,103 +525,157 @@ export function EquipmentManagement() {
     }
   };
 
-  const exportEquipmentToPDF = async () => {
+  const buildEquipmentReportHTML = (filteredEquipment: Equipment[], projectLabel: string) => {
+    const reportDate = new Date().toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+    const totalValue = filteredEquipment.reduce((sum, e) => sum + (Number(e.purchasePrice) || 0), 0);
+    const totalUnits = filteredEquipment.reduce((sum, e) => sum + (e.quantity || 1), 0);
+    const activeCount = filteredEquipment.filter(e => e.status === 'active' || e.status === 'available').length;
+    const assignedCount = filteredEquipment.filter(e => e.status === 'assigned').length;
+    const maintenanceCount = filteredEquipment.filter(e => e.status === 'maintenance').length;
+
+    const rows = filteredEquipment.map((item: Equipment, idx: number) => {
+      const itemProjId = item.currentProjectId || item.projectId;
+      const itemProjectName = itemProjId
+        ? (Array.isArray(projects) ? projects.find((p: any) => p.id === itemProjId)?.name : undefined) || '\u0645\u0634\u0631\u0648\u0639 \u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641'
+        : '\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639';
+      const bg = idx % 2 === 0 ? '' : 'background:#f1f5f9;';
+      const statusColor = (item.status === 'active' || item.status === 'available') ? '#16a34a' :
+                           item.status === 'assigned' ? '#7c3aed' :
+                           item.status === 'maintenance' ? '#ea580c' : '#dc2626';
+      return `<tr style="${bg}">
+        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;font-weight:600;color:#1e40af;">${item.code || '-'}</td>
+        <td style="padding:10px 8px;text-align:right;border:1px solid #cbd5e1;font-size:12px;font-weight:500;">${item.name}</td>
+        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${item.quantity || 1}</td>
+        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${item.unit || '\u0642\u0637\u0639\u0629'}</td>
+        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${item.type || '\u063a\u064a\u0631 \u0645\u062d\u062f\u062f'}</td>
+        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;"><span style="background:${statusColor}15;color:${statusColor};padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">${getStatusText(item.status)}</span></td>
+        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${itemProjectName}</td>
+        <td style="padding:10px 8px;text-align:left;border:1px solid #cbd5e1;font-size:12px;font-weight:500;">${item.purchasePrice ? formatCurrency(Number(item.purchasePrice)) : '-'}</td>
+        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:11px;">${item.purchaseDate ? formatDate(item.purchaseDate) : '-'}</td>
+      </tr>`;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>\u0643\u0634\u0641 \u0627\u0644\u0645\u0639\u062f\u0627\u062a - ${projectLabel}</title>
+  <style>
+    @page { margin: 1.5cm 1cm; size: A4 landscape; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: #fff; color: #1e293b; padding: 0; }
+    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: #fff; padding: 24px 30px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .header-right h1 { font-size: 20px; margin-bottom: 4px; }
+    .header-right p { font-size: 12px; opacity: 0.85; }
+    .header-left { text-align: left; font-size: 12px; opacity: 0.9; line-height: 1.8; }
+    .stats-bar { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+    .stat-box { flex: 1; min-width: 120px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; text-align: center; }
+    .stat-box .val { font-size: 22px; font-weight: 700; color: #1e40af; }
+    .stat-box .lbl { font-size: 11px; color: #64748b; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    thead th { background: #1e3a5f; color: #fff; padding: 12px 8px; text-align: center; font-size: 12px; font-weight: 700; border: 1px solid #1e3a5f; }
+    .footer { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="header">
+      <div class="header-right">
+        <h1>\u0627\u0644\u0641\u062a\u064a\u0646\u064a \u0644\u0644\u0645\u0642\u0627\u0648\u0644\u0627\u062a \u0627\u0644\u0639\u0627\u0645\u0629 \u0648\u0627\u0644\u0627\u0633\u062a\u0634\u0627\u0631\u0627\u062a \u0627\u0644\u0647\u0646\u062f\u0633\u064a\u0629</h1>
+        <p>\u0643\u0634\u0641 \u0627\u0644\u0645\u0639\u062f\u0627\u062a \u0627\u0644\u062a\u0641\u0635\u064a\u0644\u064a - ${projectLabel}</p>
+      </div>
+      <div class="header-left">
+        <div>\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0625\u0635\u062f\u0627\u0631: ${reportDate}</div>
+        <div>\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0639\u062f\u0627\u062a: ${filteredEquipment.length} | \u0627\u0644\u0648\u062d\u062f\u0627\u062a: ${totalUnits}</div>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-box"><div class="val">${filteredEquipment.length}</div><div class="lbl">\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0639\u062f\u0627\u062a</div></div>
+      <div class="stat-box"><div class="val" style="color:#16a34a;">${activeCount}</div><div class="lbl">\u0645\u062a\u0627\u062d\u0629</div></div>
+      <div class="stat-box"><div class="val" style="color:#7c3aed;">${assignedCount}</div><div class="lbl">\u0645\u062e\u0635\u0635\u0629</div></div>
+      <div class="stat-box"><div class="val" style="color:#ea580c;">${maintenanceCount}</div><div class="lbl">\u0641\u064a \u0627\u0644\u0635\u064a\u0627\u0646\u0629</div></div>
+      <div class="stat-box"><div class="val" style="color:#1e40af;">${totalValue > 0 ? formatCurrency(totalValue) : '-'}</div><div class="lbl">\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0642\u064a\u0645\u0629</div></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:80px;">\u0627\u0644\u0643\u0648\u062f</th>
+          <th>\u0627\u0633\u0645 \u0627\u0644\u0645\u0639\u062f\u0629</th>
+          <th style="width:55px;">\u0627\u0644\u0639\u062f\u062f</th>
+          <th style="width:65px;">\u0627\u0644\u0648\u062d\u062f\u0629</th>
+          <th style="width:100px;">\u0627\u0644\u0641\u0626\u0629</th>
+          <th style="width:85px;">\u0627\u0644\u062d\u0627\u0644\u0629</th>
+          <th style="width:120px;">\u0627\u0644\u0645\u0648\u0642\u0639</th>
+          <th style="width:100px;">\u0633\u0639\u0631 \u0627\u0644\u0634\u0631\u0627\u0621</th>
+          <th style="width:90px;">\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0634\u0631\u0627\u0621</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">\u062a\u0645 \u0627\u0644\u0625\u0635\u062f\u0627\u0631 \u0628\u0648\u0627\u0633\u0637\u0629 \u0646\u0638\u0627\u0645 AXION - ${reportDate}</div>
+  </div>
+</body>
+</html>`;
+  };
+
+  const getProjectLabel = () => {
+    if (filterValues.project === "all") return "\u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064a\u0639";
+    if (filterValues.project === "warehouse") return "\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639";
+    return (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined) || "\u0645\u0634\u0631\u0648\u0639 \u0645\u062d\u062f\u062f";
+  };
+
+  const openPrintWindow = (htmlContent: string) => {
+    const printWindow = window.open('', '_blank', 'width=1100,height=800');
+    if (!printWindow) {
+      toast({ title: "\u062a\u0639\u0630\u0631 \u0641\u062a\u062d \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u064a\u0631\u062c\u0649 \u0627\u0644\u0633\u0645\u0627\u062d \u0628\u0627\u0644\u0646\u0648\u0627\u0641\u0630 \u0627\u0644\u0645\u0646\u0628\u062b\u0642\u0629 \u0641\u064a \u0627\u0644\u0645\u062a\u0635\u0641\u062d", variant: "destructive" });
+      return false;
+    }
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 400);
+    return true;
+  };
+
+  const exportEquipmentToPDF = () => {
     const filteredEquipment = getFilteredEquipmentForReport();
-    
     if (filteredEquipment.length === 0) {
-      toast({
-        title: "لا توجد معدات للتصدير",
-        description: "يرجى التأكد من الفلاتر المحددة",
-        variant: "destructive"
-      });
+      toast({ title: "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0639\u062f\u0627\u062a \u0644\u0644\u062a\u0635\u062f\u064a\u0631", description: "\u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0623\u0643\u062f \u0645\u0646 \u0627\u0644\u0641\u0644\u0627\u062a\u0631 \u0627\u0644\u0645\u062d\u062f\u062f\u0629", variant: "destructive" });
       return;
     }
-
     try {
       setIsExporting(true);
-      
-      const pdfProjectName = filterValues.project === "all" ? "جميع المشاريع" : 
-                             filterValues.project === "warehouse" ? "المستودع" :
-                             (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined) || "مشروع محدد";
-      
-      const printContent = `
-        <html dir="rtl">
-          <head>
-            <meta charset="UTF-8">
-            <title>كشف المعدات - ${pdfProjectName}</title>
-            <style>
-              @page { margin: 2cm 1.5cm; size: A4; }
-              body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; direction: rtl; }
-              .company-header { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; padding: 25px; text-align: center; border-radius: 12px; margin-bottom: 30px; }
-              .company-name { font-size: 24px; font-weight: bold; margin: 0 0 10px 0; }
-              .report-header { background: white; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 6px solid #3b82f6; }
-              .report-title { font-size: 22px; color: #1e293b; margin: 0; font-weight: bold; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 25px; background: white; }
-              th { background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 15px 10px; text-align: center; font-weight: bold; }
-              td { padding: 12px 8px; text-align: center; border-bottom: 1px solid #e2e8f0; }
-              tr:nth-child(even) td { background-color: #f8fafc; }
-            </style>
-          </head>
-          <body>
-            <div class="company-header">
-              <div class="company-name">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
-            </div>
-            <div class="report-header">
-              <div class="report-title">كشف المعدات التفصيلي - ${pdfProjectName}</div>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>الكود</th>
-                  <th>اسم المعدة</th>
-                  <th>العدد</th>
-                  <th>الفئة</th>
-                  <th>الحالة</th>
-                  <th>الموقع</th>
-                  <th>السعر</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filteredEquipment.map((item: Equipment) => {
-                  const itemProjId = item.currentProjectId || item.projectId;
-                  const itemProjectName = itemProjId 
-                    ? (Array.isArray(projects) ? projects.find((p: any) => p.id === itemProjId)?.name : undefined) || 'مشروع غير معروف'
-                    : 'المستودع';
-                  return `
-                    <tr>
-                      <td>${item.code}</td>
-                      <td>${item.name}</td>
-                      <td>${item.quantity || 1} ${item.unit || 'قطعة'}</td>
-                      <td>${item.type || 'غير محدد'}</td>
-                      <td>${getStatusText(item.status)}</td>
-                      <td>${itemProjectName}</td>
-                      <td>${item.purchasePrice ? formatCurrency(Number(item.purchasePrice)) : 'غير محدد'}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </body>
-        </html>
-      `;
-
-      const blob = new Blob([printContent], { type: 'text/html' });
-      const success = await downloadFile(blob, `تقرير_المعدات_${new Date().toISOString().split('T')[0]}.html`, 'text/html');
-      
+      const htmlContent = buildEquipmentReportHTML(filteredEquipment, getProjectLabel());
+      const success = openPrintWindow(htmlContent);
       if (success) {
-        toast({
-          title: "تم التصدير بنجاح",
-          description: "تم تحميل ملف التقرير"
-        });
+        toast({ title: "\u062c\u0627\u0647\u0632 \u0644\u0644\u062d\u0641\u0638 \u0643\u0640 PDF", description: "\u0627\u062e\u062a\u0631 '\u062d\u0641\u0638 \u0643\u0640 PDF' \u0645\u0646 \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629" });
       }
-      
     } catch (error) {
-      console.error('خطأ في تصدير PDF:', error);
-      toast({
-        title: "خطأ في التصدير",
-        description: "حدث خطأ أثناء تصدير كشف المعدات",
-        variant: "destructive"
-      });
+      console.error('\u062e\u0637\u0623 \u0641\u064a \u062a\u0635\u062f\u064a\u0631 PDF:', error);
+      toast({ title: "\u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u062a\u0635\u062f\u064a\u0631", description: "\u062d\u062f\u062b \u062e\u0637\u0623 \u0623\u062b\u0646\u0627\u0621 \u062a\u0635\u062f\u064a\u0631 \u0643\u0634\u0641 \u0627\u0644\u0645\u0639\u062f\u0627\u062a", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const printEquipmentReport = () => {
+    const filteredEquipment = getFilteredEquipmentForReport();
+    if (filteredEquipment.length === 0) {
+      toast({ title: "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0639\u062f\u0627\u062a \u0644\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0623\u0643\u062f \u0645\u0646 \u0627\u0644\u0641\u0644\u0627\u062a\u0631 \u0627\u0644\u0645\u062d\u062f\u062f\u0629", variant: "destructive" });
+      return;
+    }
+    try {
+      setIsExporting(true);
+      const htmlContent = buildEquipmentReportHTML(filteredEquipment, getProjectLabel());
+      const success = openPrintWindow(htmlContent);
+      if (success) {
+        toast({ title: "\u062c\u0627\u0647\u0632 \u0644\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u062a\u0645 \u0641\u062a\u062d \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629" });
+      }
+    } catch (error) {
+      console.error('\u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u0637\u0628\u0627\u0639\u0629:', error);
+      toast({ title: "\u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u062d\u062f\u062b \u062e\u0637\u0623 \u0623\u062b\u0646\u0627\u0621 \u0641\u062a\u062d \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629", variant: "destructive" });
     } finally {
       setIsExporting(false);
     }
@@ -657,18 +710,29 @@ export function EquipmentManagement() {
         actions={[
           {
             key: 'export-excel',
-            icon: Download,
-            label: 'تصدير Excel',
+            icon: FileSpreadsheet,
+            label: 'Excel',
             onClick: exportEquipmentToExcel,
             variant: 'outline',
             disabled: equipment.length === 0 || isExporting,
+            loading: isExporting,
             tooltip: 'تصدير إلى Excel'
           },
           {
             key: 'export-pdf',
-            icon: Printer,
-            label: 'طباعة PDF',
+            icon: FileText,
+            label: 'PDF',
             onClick: exportEquipmentToPDF,
+            variant: 'outline',
+            disabled: equipment.length === 0 || isExporting,
+            loading: isExporting,
+            tooltip: 'تصدير كملف PDF'
+          },
+          {
+            key: 'print',
+            icon: Printer,
+            label: 'طباعة',
+            onClick: printEquipmentReport,
             variant: 'outline',
             disabled: equipment.length === 0 || isExporting,
             tooltip: 'طباعة كشف المعدات'

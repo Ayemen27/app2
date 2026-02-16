@@ -64,6 +64,7 @@
 - **الميزات**: منع التحديث المتوازي، حد أدنى 600ms للسبنر، toast عند الفشل، دعم RTL
 
 ## التغييرات الأخيرة
+- 2026-02-16: **فحص وإغلاق الفجوات المحاسبية (6 مراحل)**: حذف calculateTotals المحلي (180+ سطر dead code) من daily-expenses.tsx واعتماد totalsValue 100% من financialSummary API — إصلاح toISOString→getLocalDateStr() في ExpenseLedgerService — إضافة runDailyReconciliation() cron يومي الساعة 2 صباحاً — تأكيد SQL SUM و invalidateSummaries مكتملان — التقييم النهائي: جميع المراحل PASS
 - 2026-02-16: **اكتمال ربط القيد المزدوج بجميع المسارات المالية**: 27 استدعاء safeRecord عبر financialRoutes.ts (18) و workerRoutes.ts (9) — يغطي fund-transfers, material-purchases, transportation-expenses, worker-transfers, worker-misc-expenses, project-fund-transfers, worker-attendance — نمط موحّد: POST→record, PATCH→reverse+record, DELETE→reverse — safeRecord non-blocking (لا يفشل العملية الأصلية)
 - 2026-02-16: توحيد جذري للمسارات والخدمات المالية: دمج ledgerRoutes + financialLedgerRoutes في Router واحد (/api/ledger)، حذف userRoutes المكرر + financialLedgerRoutes الميت، إضافة RouteGuard يكشف الملفات غير المسجلة عند التشغيل، توضيح أدوار الخدمات (FinancialLedgerService=كتابة قيد مزدوج، ExpenseLedgerService=قراءة تقارير فقط)
 - 2026-02-16: إنشاء نظام دفتر أستاذ مزدوج: 6 جداول (account_types, journal_entries, journal_lines, financial_audit_log, reconciliation_records, summary_invalidations) + FinancialLedgerService + شجرة حسابات 14 حساب + API موحّد

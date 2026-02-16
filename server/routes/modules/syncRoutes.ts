@@ -9,6 +9,7 @@ import { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
 import { db, pool } from '../../db.js';
 import { requireAuth } from '../../middleware/auth.js';
+import { SyncAuditService } from '../../services/SyncAuditService.js';
 
 export const syncRouter = express.Router();
 
@@ -136,6 +137,21 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
     console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي${lastSyncTime ? `, ${deltaTablesCount} تفاضلي، ${fullTablesCount} كامل` : ''})`);
 
+    SyncAuditService.logBulkSync({
+      userId: (req as any).user?.id,
+      userName: (req as any).user?.name || (req as any).user?.email,
+      syncType: lastSyncTime ? 'delta_sync' : 'full_backup',
+      tablesCount: ALL_DATABASE_TABLES.length,
+      totalRecords,
+      durationMs: duration,
+      status: 'success',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+      isDelta: !!lastSyncTime,
+      deltaTablesCount,
+      fullTablesCount,
+    }).catch(() => {});
+
     res.setHeader('Content-Type', 'application/json');
     return res.status(200).send(JSON.stringify({
       success: true,
@@ -158,6 +174,18 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     }));
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح في المزامنة:', error);
+    SyncAuditService.logBulkSync({
+      userId: (req as any).user?.id,
+      userName: (req as any).user?.name || (req as any).user?.email,
+      syncType: 'full_backup',
+      tablesCount: ALL_DATABASE_TABLES.length,
+      totalRecords: 0,
+      durationMs: Date.now() - startTime,
+      status: 'failed',
+      errorMessage: error.message,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+    }).catch(() => {});
     res.setHeader('Content-Type', 'application/json');
     return res.status(500).send(JSON.stringify({
       success: false,
@@ -186,6 +214,21 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
     console.log(`✅ [Sync] POST اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
+    SyncAuditService.logBulkSync({
+      userId: (req as any).user?.id,
+      userName: (req as any).user?.name || (req as any).user?.email,
+      syncType: lastSyncTime ? 'delta_sync' : 'full_backup',
+      tablesCount: ALL_DATABASE_TABLES.length,
+      totalRecords,
+      durationMs: duration,
+      status: 'success',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+      isDelta: !!lastSyncTime,
+      deltaTablesCount,
+      fullTablesCount,
+    }).catch(() => {});
+
     return res.status(200).json({
       success: true,
       status: "success",
@@ -207,6 +250,18 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح:', error);
+    SyncAuditService.logBulkSync({
+      userId: (req as any).user?.id,
+      userName: (req as any).user?.name || (req as any).user?.email,
+      syncType: 'full_backup',
+      tablesCount: ALL_DATABASE_TABLES.length,
+      totalRecords: 0,
+      durationMs: Date.now() - startTime,
+      status: 'failed',
+      errorMessage: error.message,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+    }).catch(() => {});
     return res.status(500).json({
       success: false,
       error: error.message,
@@ -238,6 +293,19 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
     console.log(`⚡ [Sync] اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
+    SyncAuditService.logBulkSync({
+      userId: (req as any).user?.id,
+      userName: (req as any).user?.name || (req as any).user?.email,
+      syncType: 'instant_sync',
+      tablesCount: tablesToSync.length,
+      totalRecords,
+      durationMs: duration,
+      status: 'success',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+      isDelta: !!lastSyncTime,
+    }).catch(() => {});
+
     return res.status(200).json({
       success: true,
       message: "تمت المزامنة الفورية بنجاح",
@@ -250,11 +318,23 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
         successCount,
         errorCount,
         isDelta: !!lastSyncTime,
-        version: '3.0-instant'
+        version: '3.1-instant'
       }
     });
   } catch (error: any) {
     console.error('❌ [Sync] خطأ في المزامنة الفورية:', error);
+    SyncAuditService.logBulkSync({
+      userId: (req as any).user?.id,
+      userName: (req as any).user?.name || (req as any).user?.email,
+      syncType: 'instant_sync',
+      tablesCount: 0,
+      totalRecords: 0,
+      durationMs: Date.now() - startTime,
+      status: 'failed',
+      errorMessage: error.message,
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+    }).catch(() => {});
     return res.status(500).json({
       success: false,
       error: error.message,

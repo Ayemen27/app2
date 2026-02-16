@@ -35,6 +35,11 @@ export const QUERY_KEYS = {
   autocompleteTransportCategories: ["/api/autocomplete/transport-categories"] as const,
   autocompleteTransactionCategories: ["/api/autocomplete/transaction-categories"] as const,
   syncProjects: ["/api/projects"] as const,
+  syncAuditLogs: ["/api/sync-audit/logs"] as const,
+  syncAuditStats: ["/api/sync-audit/stats"] as const,
+  syncAuditModules: ["/api/sync-audit/modules"] as const,
+  syncAuditLogsFiltered: (params: Record<string, any>) =>
+    ["/api/sync-audit/logs", params] as const,
 
   projectTransportation: (projectId: string, date?: string, dateRange?: string) =>
     ["/api/projects", projectId, "transportation", date, dateRange].filter(Boolean) as string[],

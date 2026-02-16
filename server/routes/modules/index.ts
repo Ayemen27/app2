@@ -27,6 +27,7 @@ import backupRouter from './backupRoutes.js';
 import downloadProxyRouter from './downloadProxyRoutes.js';
 import { ledgerRouter } from './ledgerRoutes.js';
 import equipmentRouter from './equipmentRoutes.js';
+import syncAuditRouter from './syncAuditRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 
 /**
@@ -116,6 +117,10 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/ledger', ledgerRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات دفتر الأستاذ: /api/ledger');
 
+  // مسارات سجل تدقيق المزامنة
+  app.use('/api/sync-audit', syncAuditRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات سجل تدقيق المزامنة: /api/sync-audit');
+
   // تفعيل معالج الأخطاء العالمي في النهاية لجميع المسارات المسجلة أعلاه
   app.use(globalErrorHandler);
 
@@ -151,7 +156,7 @@ const REGISTERED_ROUTE_FILES = new Set([
   'wellExpenseRoutes', 'workerRoutes', 'financialRoutes', 'autocompleteRoutes',
   'notificationRoutes', 'reportRoutes', 'activityRoutes', 'aiRoutes',
   'syncRoutes', 'tasks', 'securityRoutes', 'backupRoutes',
-  'downloadProxyRoutes', 'ledgerRoutes', 'equipmentRoutes', 'index',
+  'downloadProxyRoutes', 'ledgerRoutes', 'equipmentRoutes', 'syncAuditRoutes', 'index',
   'authRoutes',       // مسجّل في server/index.ts مباشرة (خارج النظام الموحّد لأسباب ترتيب)
   'systemRoutes',     // helper functions فقط - ليس router كامل
 ]);

@@ -43,6 +43,9 @@ export const API_ENDPOINTS = {
   metrics: "/api/metrics/current",
   diagnostics: "/api/diagnostics/checks",
   reports: "/api/reports",
+  syncAuditLogs: "/api/sync-audit/logs",
+  syncAuditStats: "/api/sync-audit/stats",
+  syncAuditModules: "/api/sync-audit/modules",
 
   auth: {
     login: "/api/auth/login",

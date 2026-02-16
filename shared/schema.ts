@@ -1432,3 +1432,30 @@ export const insertSummaryInvalidationSchema = createInsertSchema(summaryInvalid
 export type SummaryInvalidation = typeof summaryInvalidations.$inferSelect;
 export type InsertSummaryInvalidation = z.infer<typeof insertSummaryInvalidationSchema>;
 
+export const syncAuditLogs = pgTable("sync_audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id),
+  userName: text("user_name"),
+  module: varchar("module", { length: 50 }).notNull(),
+  tableName: varchar("table_name", { length: 100 }).notNull(),
+  recordId: text("record_id"),
+  action: varchar("action", { length: 20 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("success"),
+  description: text("description").notNull(),
+  oldValues: jsonb("old_values"),
+  newValues: jsonb("new_values"),
+  errorMessage: text("error_message"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  durationMs: integer("duration_ms"),
+  syncType: varchar("sync_type", { length: 30 }),
+  projectId: varchar("project_id").references(() => projects.id),
+  projectName: text("project_name"),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSyncAuditLogSchema = createInsertSchema(syncAuditLogs).omit({ id: true, createdAt: true });
+export type SyncAuditLog = typeof syncAuditLogs.$inferSelect;
+export type InsertSyncAuditLog = z.infer<typeof insertSyncAuditLogSchema>;
+

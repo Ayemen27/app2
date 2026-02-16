@@ -5,11 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import {
   Trash2, RefreshCw, AlertCircle, Clock, Database, Activity,
   Search, Calendar, Building2, CheckCircle2, XCircle,
   RotateCcw, AlertTriangle, Wifi, WifiOff, Zap, History,
-  ChevronDown, ChevronUp, Copy
+  ChevronDown, ChevronUp, Copy, Server, User, Filter,
+  ChevronLeft, ChevronRight, Shield
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedStats } from "@/components/ui/unified-stats";
@@ -17,6 +20,7 @@ import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-s
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { API_ENDPOINTS } from "@/constants/api";
 
 function formatTimeAgo(timestamp: number): string {
   if (!timestamp) return "غير محدد";
@@ -249,7 +253,7 @@ export default function SyncManagementPage() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" dir="rtl">
-        <TabsList className="grid w-full grid-cols-4 mb-4" data-testid="tabs-sync">
+        <TabsList className="grid w-full grid-cols-5 mb-4" data-testid="tabs-sync">
           <TabsTrigger value="pending" className="gap-1" data-testid="tab-pending">
             <Clock className="h-3.5 w-3.5" />
             معلقة
@@ -274,6 +278,10 @@ export default function SyncManagementPage() {
           <TabsTrigger value="history" className="gap-1" data-testid="tab-history">
             <History className="h-3.5 w-3.5" />
             السجل
+          </TabsTrigger>
+          <TabsTrigger value="server-audit" className="gap-1" data-testid="tab-server-audit">
+            <Server className="h-3.5 w-3.5" />
+            تدقيق الخادم
           </TabsTrigger>
         </TabsList>
 
@@ -405,7 +413,337 @@ export default function SyncManagementPage() {
             )}
           </ScrollArea>
         </TabsContent>
+
+        <TabsContent value="server-audit">
+          <ServerAuditTab />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function ServerAuditTab() {
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditModule, setAuditModule] = useState("all");
+  const [auditStatus, setAuditStatus] = useState("all");
+  const [auditAction, setAuditAction] = useState("all");
+  const [auditSearch, setAuditSearch] = useState("");
+  const [expandedAudit, setExpandedAudit] = useState<Set<number>>(new Set());
+
+  const auditParams = useMemo(() => ({
+    page: auditPage,
+    limit: 30,
+    module: auditModule !== 'all' ? auditModule : undefined,
+    status: auditStatus !== 'all' ? auditStatus : undefined,
+    action: auditAction !== 'all' ? auditAction : undefined,
+    search: auditSearch || undefined,
+  }), [auditPage, auditModule, auditStatus, auditAction, auditSearch]);
+
+  const queryString = useMemo(() => {
+    const p = new URLSearchParams();
+    Object.entries(auditParams).forEach(([k, v]) => {
+      if (v !== undefined) p.set(k, String(v));
+    });
+    return p.toString();
+  }, [auditParams]);
+
+  const { data: auditData, isLoading: auditLoading } = useQuery({
+    queryKey: QUERY_KEYS.syncAuditLogsFiltered(auditParams),
+    queryFn: async () => {
+      const res = await apiRequest(`${API_ENDPOINTS.syncAuditLogs}?${queryString}`, "GET");
+      return res;
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: auditStats } = useQuery({
+    queryKey: QUERY_KEYS.syncAuditStats,
+    queryFn: async () => {
+      const res = await apiRequest(API_ENDPOINTS.syncAuditStats, "GET");
+      return res?.data || res || {};
+    },
+    refetchInterval: 60000,
+  });
+
+  const { data: auditModules } = useQuery({
+    queryKey: QUERY_KEYS.syncAuditModules,
+    queryFn: async () => {
+      const res = await apiRequest(API_ENDPOINTS.syncAuditModules, "GET");
+      return res?.data || res?.modules || [];
+    },
+  });
+
+  const logs = auditData?.logs || [];
+  const rawPagination = auditData?.pagination || {};
+  const pagination = {
+    total: rawPagination.total || 0,
+    pages: rawPagination.totalPages || rawPagination.pages || 1,
+  };
+  const stats = auditStats || {};
+  const modules: Array<{ value: string; label: string }> = Array.isArray(auditModules) ? auditModules : [];
+
+  const toggleAuditExpand = (id: number) => {
+    setExpandedAudit(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  function getAuditStatusBadge(status: string) {
+    switch (status) {
+      case 'success': return <Badge variant="success">ناجح</Badge>;
+      case 'failed': return <Badge variant="destructive">فاشل</Badge>;
+      case 'duplicate': return <Badge variant="outline">مكرر</Badge>;
+      case 'skipped': return <Badge variant="secondary">متخطى</Badge>;
+      case 'conflict': return <Badge variant="destructive">تعارض</Badge>;
+      default: return <Badge variant="secondary">{status}</Badge>;
+    }
+  }
+
+  function getAuditActionBadge(action: string) {
+    const labels: Record<string, { label: string; variant: string }> = {
+      'create': { label: 'إضافة', variant: 'success' },
+      'update': { label: 'تعديل', variant: 'default' },
+      'delete': { label: 'حذف', variant: 'destructive' },
+      'sync_push': { label: 'رفع', variant: 'default' },
+      'sync_pull': { label: 'سحب', variant: 'default' },
+      'full_backup': { label: 'نسخة كاملة', variant: 'outline' },
+      'delta_sync': { label: 'مزامنة تفاضلية', variant: 'outline' },
+      'instant_sync': { label: 'مزامنة فورية', variant: 'outline' },
+    };
+    const info = labels[action] || { label: action, variant: 'secondary' };
+    return <Badge variant={info.variant as any} className="text-[10px]">{info.label}</Badge>;
+  }
+
+  return (
+    <div className="space-y-4" data-testid="server-audit-section">
+      <UnifiedStats
+        stats={[
+          { title: "إجمالي العمليات", value: stats.total || 0, icon: Database, color: "blue" },
+          { title: "ناجحة", value: stats.success || 0, icon: CheckCircle2, color: "green" },
+          { title: "فاشلة", value: stats.failed || 0, icon: XCircle, color: (stats.failed || 0) > 0 ? "red" : "gray" },
+          { title: "اليوم", value: stats.todayCount || 0, icon: Calendar, color: "purple" },
+        ]}
+        columns={4}
+        hideHeader
+      />
+
+      <Card className="border-none shadow-sm">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="بحث في سجل التدقيق..."
+                value={auditSearch}
+                onChange={(e) => { setAuditSearch(e.target.value); setAuditPage(1); }}
+                className="pr-9"
+                data-testid="input-audit-search"
+              />
+            </div>
+            <Select value={auditModule} onValueChange={(v) => { setAuditModule(v); setAuditPage(1); }}>
+              <SelectTrigger className="w-[140px]" data-testid="select-audit-module">
+                <SelectValue placeholder="القسم" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الأقسام</SelectItem>
+                {modules.map((m: any) => (
+                  <SelectItem key={m.value || m} value={m.value || m}>{m.label || m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={auditStatus} onValueChange={(v) => { setAuditStatus(v); setAuditPage(1); }}>
+              <SelectTrigger className="w-[120px]" data-testid="select-audit-status">
+                <SelectValue placeholder="الحالة" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الحالات</SelectItem>
+                <SelectItem value="success">ناجح</SelectItem>
+                <SelectItem value="failed">فاشل</SelectItem>
+                <SelectItem value="duplicate">مكرر</SelectItem>
+                <SelectItem value="skipped">متخطى</SelectItem>
+                <SelectItem value="conflict">تعارض</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={auditAction} onValueChange={(v) => { setAuditAction(v); setAuditPage(1); }}>
+              <SelectTrigger className="w-[140px]" data-testid="select-audit-action">
+                <SelectValue placeholder="نوع العملية" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل العمليات</SelectItem>
+                <SelectItem value="create">إضافة</SelectItem>
+                <SelectItem value="update">تعديل</SelectItem>
+                <SelectItem value="delete">حذف</SelectItem>
+                <SelectItem value="full_backup">نسخة كاملة</SelectItem>
+                <SelectItem value="delta_sync">مزامنة تفاضلية</SelectItem>
+                <SelectItem value="instant_sync">مزامنة فورية</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {auditLoading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <RefreshCw className="h-6 w-6 animate-spin ml-2" />
+          <span>جاري التحميل...</span>
+        </div>
+      ) : logs.length === 0 ? (
+        <EmptyState icon={Shield} message="لا توجد سجلات تدقيق بعد" />
+      ) : (
+        <ScrollArea className="h-[500px]">
+          <div className="space-y-2">
+            {logs.map((log: any) => {
+              const isExpanded = expandedAudit.has(log.id);
+              return (
+                <div
+                  key={log.id}
+                  className="rounded-lg border bg-card overflow-hidden"
+                  data-testid={`audit-log-${log.id}`}
+                >
+                  <div className="flex items-center justify-between p-3 gap-2">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className={`mt-0.5 p-1.5 rounded-md ${
+                        log.status === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30' :
+                        log.status === 'failed' ? 'bg-red-100 text-red-600 dark:bg-red-900/30' :
+                        'bg-gray-100 text-gray-600 dark:bg-gray-900/30'
+                      }`}>
+                        {log.status === 'success' ? <CheckCircle2 className="h-4 w-4" /> :
+                         log.status === 'failed' ? <XCircle className="h-4 w-4" /> :
+                         <AlertCircle className="h-4 w-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {getAuditStatusBadge(log.status)}
+                          {getAuditActionBadge(log.action)}
+                          <Badge variant="outline" className="text-[10px]">{log.module}</Badge>
+                        </div>
+                        <p className="text-sm truncate">{log.description}</p>
+                        {log.errorMessage && (
+                          <p className="text-xs text-destructive truncate">{log.errorMessage}</p>
+                        )}
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(log.createdAt).toLocaleDateString('ar-YE', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                            {' '}
+                            {new Date(log.createdAt).toLocaleTimeString('ar-YE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                          {log.userName && (
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {log.userName}
+                            </span>
+                          )}
+                          {log.durationMs && (
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-3 w-3" />
+                              {log.durationMs}ms
+                            </span>
+                          )}
+                          {log.projectName && (
+                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                              <Building2 className="h-3 w-3" />
+                              {log.projectName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => toggleAuditExpand(log.id)}
+                      data-testid={`button-expand-audit-${log.id}`}>
+                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  {isExpanded && (
+                    <div className="border-t p-3 bg-muted/30">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">الجدول: </span>
+                          <span>{log.tableName}</span>
+                        </div>
+                        {log.recordId && (
+                          <div>
+                            <span className="text-muted-foreground">معرّف السجل: </span>
+                            <span className="font-mono text-[11px]">{log.recordId}</span>
+                          </div>
+                        )}
+                        {log.syncType && (
+                          <div>
+                            <span className="text-muted-foreground">نوع المزامنة: </span>
+                            <span>{log.syncType}</span>
+                          </div>
+                        )}
+                        {log.ipAddress && (
+                          <div>
+                            <span className="text-muted-foreground">عنوان IP: </span>
+                            <span className="font-mono text-[11px]" dir="ltr">{log.ipAddress}</span>
+                          </div>
+                        )}
+                        {log.amount && (
+                          <div>
+                            <span className="text-muted-foreground">المبلغ: </span>
+                            <span>{Number(log.amount).toLocaleString('ar-SA')}</span>
+                          </div>
+                        )}
+                        {log.oldValues && (
+                          <div className="col-span-full">
+                            <details>
+                              <summary className="text-muted-foreground cursor-pointer text-[11px]">القيم القديمة</summary>
+                              <pre className="mt-1 p-2 rounded bg-muted text-[10px] overflow-auto max-h-32 font-mono" dir="ltr">
+                                {JSON.stringify(log.oldValues, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
+                        )}
+                        {log.newValues && (
+                          <div className="col-span-full">
+                            <details>
+                              <summary className="text-muted-foreground cursor-pointer text-[11px]">القيم الجديدة</summary>
+                              <pre className="mt-1 p-2 rounded bg-muted text-[10px] overflow-auto max-h-32 font-mono" dir="ltr">
+                                {JSON.stringify(log.newValues, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      )}
+
+      {pagination.pages > 1 && (
+        <div className="flex items-center justify-between px-2">
+          <span className="text-xs text-muted-foreground">
+            صفحة {auditPage} من {pagination.pages} ({pagination.total} سجل)
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={auditPage <= 1}
+              onClick={() => setAuditPage(p => Math.max(1, p - 1))}
+              data-testid="button-audit-prev"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={auditPage >= pagination.pages}
+              onClick={() => setAuditPage(p => p + 1)}
+              data-testid="button-audit-next"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

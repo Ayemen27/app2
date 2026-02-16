@@ -118,6 +118,22 @@ export interface BinarJoinDB extends DBSchema {
   buildDeployments: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   reportTemplates: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
   userData: { key: string; value: { id: string; type: string; data: any; syncedAt: number; createdAt: number } };
+  syncHistory: {
+    key: string;
+    value: {
+      id: string;
+      queueItemId: string;
+      action: string;
+      endpoint: string;
+      status: 'success' | 'failed' | 'duplicate' | 'conflict' | 'skipped';
+      timestamp: number;
+      duration?: number;
+      errorMessage?: string;
+      errorCode?: string;
+      payloadSummary?: string;
+      retryCount?: number;
+    };
+  };
 }
 
 let dbInstance: IDBPDatabase<BinarJoinDB> | null = null;
@@ -149,7 +165,7 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   }
 
   try {
-    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 11, {
+    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 12, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`[DB] Upgrading from ${oldVersion} to ${newVersion}`);
         
@@ -163,6 +179,15 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
               store.createIndex('timestamp', 'timestamp');
               // @ts-ignore
               store.createIndex('action', 'action');
+              // @ts-ignore
+              store.createIndex('status', 'status');
+            } else if (storeName === 'syncHistory') {
+              // @ts-ignore
+              const store = db.createObjectStore(storeName, { keyPath: 'id' });
+              // @ts-ignore
+              store.createIndex('timestamp', 'timestamp');
+              // @ts-ignore
+              store.createIndex('status', 'status');
             } else if (storeName === 'userData') {
               // @ts-ignore
               const store = db.createObjectStore(storeName, { keyPath: 'id' });

@@ -170,31 +170,28 @@ export default function SyncManagementPage() {
 
   return (
     <div className="space-y-4 pb-20" data-testid="page-sync-management">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2" data-testid="text-page-title">
-            <RefreshCw className={isSyncing ? "animate-spin text-blue-500" : "text-blue-500"} />
-            إدارة المزامنة
-          </h1>
-          <p className="text-muted-foreground text-sm">مراقبة وإدارة عمليات المزامنة وحماية البيانات المالية</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={isOnline ? "success" : "destructive"} data-testid="badge-connection-status">
-            {isOnline ? <><Wifi className="h-3 w-3 ml-1" /> متصل</> : <><WifiOff className="h-3 w-3 ml-1" /> غير متصل</>}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant={isOnline ? "success" : "destructive"} data-testid="badge-connection-status">
+          {isOnline ? <><Wifi className="h-3 w-3 ml-1" /> متصل</> : <><WifiOff className="h-3 w-3 ml-1" /> غير متصل</>}
+        </Badge>
+        {lastSync > 0 && (
+          <Badge variant="outline" data-testid="badge-last-sync">
+            <Clock className="h-3 w-3 ml-1" />
+            آخر مزامنة: {formatTimeAgo(lastSync)}
           </Badge>
-          {lastSync > 0 && (
-            <Badge variant="outline" data-testid="badge-last-sync">
-              <Clock className="h-3 w-3 ml-1" />
-              آخر مزامنة: {formatTimeAgo(lastSync)}
-            </Badge>
-          )}
-          {latency && latency > 0 && (
-            <Badge variant="outline" data-testid="badge-latency">
-              <Zap className="h-3 w-3 ml-1" />
-              {latency}ms
-            </Badge>
-          )}
-        </div>
+        )}
+        {latency && latency > 0 && (
+          <Badge variant="outline" data-testid="badge-latency">
+            <Zap className="h-3 w-3 ml-1" />
+            {latency}ms
+          </Badge>
+        )}
+        {isSyncing && (
+          <Badge variant="default" data-testid="badge-syncing">
+            <RefreshCw className="h-3 w-3 ml-1 animate-spin" />
+            جاري المزامنة
+          </Badge>
+        )}
       </div>
 
       <UnifiedStats

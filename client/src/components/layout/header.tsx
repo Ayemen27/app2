@@ -47,6 +47,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/equipment': { title: 'إدارة المعدات', icon: Wrench },
   '/reports': { title: 'التقارير', icon: FileBarChart },
   '/local-db': { title: 'إدارة قاعدة البيانات المحلية', icon: Database },
+  '/admin/sync': { title: 'إدارة المزامنة', icon: RefreshCw },
 };
 
 export default function Header() {

@@ -72,7 +72,10 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
       payload: item.payload,
     }));
 
-    const response = await apiRequest('/api/sync/batch', 'POST', { operations });
+    const batchIdempotencyKey = `batch:${batchId}:${items[0]?.retries || 0}`;
+    const response = await apiRequest('/api/sync/batch', 'POST', { operations }, 0, {
+      'x-idempotency-key': batchIdempotencyKey,
+    });
 
     if (response && response.success) {
       for (const item of items) {

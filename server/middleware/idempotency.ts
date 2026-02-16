@@ -31,20 +31,22 @@ async function handleIdempotency(key: string, req: Request, res: Response, next:
   const originalJson = res.json.bind(res);
   res.json = function (body: any) {
     const statusCode = res.statusCode || 200;
-    const expiresAt = new Date(Date.now() + KEY_TTL_HOURS * 60 * 60 * 1000);
 
-    db.insert(idempotencyKeys).values({
-      key,
-      endpoint: req.originalUrl || req.path,
-      method: req.method,
-      statusCode,
-      responseBody: body,
-      expiresAt,
-    }).catch(err => {
-      if (!String(err).includes('duplicate key')) {
-        console.error('[Idempotency] فشل حفظ المفتاح:', err);
-      }
-    });
+    if (statusCode >= 200 && statusCode < 300) {
+      const expiresAt = new Date(Date.now() + KEY_TTL_HOURS * 60 * 60 * 1000);
+      db.insert(idempotencyKeys).values({
+        key,
+        endpoint: req.originalUrl || req.path,
+        method: req.method,
+        statusCode,
+        responseBody: body,
+        expiresAt,
+      }).catch(err => {
+        if (!String(err).includes('duplicate key')) {
+          console.error('[Idempotency] فشل حفظ المفتاح:', err);
+        }
+      });
+    }
 
     return originalJson(body);
   } as any;

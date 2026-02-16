@@ -66,13 +66,24 @@ export async function getAuditLog(limit = 100): Promise<AuditEntry[]> {
     .slice(0, limit);
 }
 
-export async function verifyAuditChain(): Promise<{ valid: boolean; brokenAt?: number }> {
+export async function verifyAuditChain(): Promise<{ valid: boolean; brokenAt?: number; reason?: string }> {
   const entries = await smartGetAll('localAuditLog');
+  if (entries.length === 0) return { valid: true };
+
   const sorted = entries.sort((a: AuditEntry, b: AuditEntry) => a.sequence - b.sequence);
 
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].previousHash !== sorted[i - 1].hash) {
-      return { valid: false, brokenAt: sorted[i].sequence };
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = sorted[i];
+
+    const expectedPrevHash = i === 0 ? '0' : sorted[i - 1].hash;
+    if (entry.previousHash !== expectedPrevHash) {
+      return { valid: false, brokenAt: entry.sequence, reason: 'previousHash mismatch' };
+    }
+
+    const dataToHash = `${entry.sequence}:${entry.action}:${entry.entityType}:${entry.entityId}:${entry.previousHash}:${entry.timestamp}`;
+    const recomputedHash = await computeHash(dataToHash);
+    if (recomputedHash !== entry.hash) {
+      return { valid: false, brokenAt: entry.sequence, reason: 'hash tampered' };
     }
   }
   return { valid: true };

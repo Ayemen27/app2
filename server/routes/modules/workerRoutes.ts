@@ -13,6 +13,7 @@ import {
   insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, workerTypes
 } from '@shared/schema';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { FinancialLedgerService } from '../../services/FinancialLedgerService.js';
 
 export const workerRouter = express.Router();
 
@@ -741,6 +742,14 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       .where(eq(workerTransfers.id, transferId))
       .returning();
 
+    const t = updatedTransfer[0];
+    FinancialLedgerService.safeRecord(async () => {
+      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
+      return FinancialLedgerService.recordWorkerTransfer(
+        t.projectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+      );
+    }, 'worker-transfers/PATCH');
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
 
@@ -806,6 +815,11 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       amount: transferToDelete.amount,
       recipientName: transferToDelete.recipientName
     });
+
+    FinancialLedgerService.safeRecord(
+      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', (req as any).user?.id).then(() => ''),
+      'worker-transfers/DELETE'
+    );
 
     // حذف حوالة العامل من قاعدة البيانات
     console.log('🗑️ [API] حذف حوالة العامل من قاعدة البيانات...');
@@ -983,6 +997,14 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
       .set(validationResult.data)
       .where(eq(workerMiscExpenses.id, expenseId))
       .returning();
+
+    const t = updatedExpense[0];
+    FinancialLedgerService.safeRecord(async () => {
+      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
+      return FinancialLedgerService.recordMiscExpense(
+        t.projectId, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+      );
+    }, 'worker-misc-expenses/PATCH');
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);
@@ -1322,6 +1344,11 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       projectId: attendanceToDelete.projectId
     });
 
+    FinancialLedgerService.safeRecord(
+      () => FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'حذف', (req as any).user?.id).then(() => ''),
+      'worker-attendance/DELETE'
+    );
+
     // حذف سجل الحضور من قاعدة البيانات
     console.log('🗑️ [API] حذف سجل الحضور من قاعدة البيانات...');
     const deletedAttendance = await db
@@ -1510,6 +1537,14 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       date: newAttendance[0].date
     });
 
+    const record = newAttendance[0];
+    FinancialLedgerService.safeRecord(
+      () => FinancialLedgerService.recordWorkerWage(
+        record.projectId, parseFloat(record.actualWage || '0'), record.date, record.id, (req as any).user?.id
+      ),
+      'worker-attendance/POST'
+    );
+
     // 🔌 Broadcast real-time update via WebSocket
     const io = (global as any).io;
     if (io) {
@@ -1630,6 +1665,14 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       .set(updateData)
       .where(eq(workerAttendance.id, attendanceId))
       .returning();
+
+    const t = updatedAttendance[0];
+    FinancialLedgerService.safeRecord(async () => {
+      await FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'تعديل حضور عامل', (req as any).user?.id);
+      return FinancialLedgerService.recordWorkerWage(
+        t.projectId, parseFloat(t.actualWage || '0'), t.date, t.id, (req as any).user?.id
+      );
+    }, 'worker-attendance/PATCH');
 
     // 🔌 Broadcast real-time update via WebSocket
     const io = (global as any).io;
@@ -1753,6 +1796,14 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       .where(eq(workerTransfers.id, transferId))
       .returning();
 
+    const t = updatedTransfer[0];
+    FinancialLedgerService.safeRecord(async () => {
+      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
+      return FinancialLedgerService.recordWorkerTransfer(
+        t.projectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+      );
+    }, 'worker-transfers/PATCH');
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
 
@@ -1829,6 +1880,11 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       amount: transferToDelete.amount,
       recipientName: transferToDelete.recipientName
     });
+
+    FinancialLedgerService.safeRecord(
+      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', (req as any).user?.id).then(() => ''),
+      'worker-transfers/DELETE'
+    );
 
     // حذف حوالة العامل من قاعدة البيانات
     console.log('🗑️ [API] حذف حوالة العامل من قاعدة البيانات...');
@@ -1991,6 +2047,14 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
       .set(validationResult.data)
       .where(eq(workerMiscExpenses.id, expenseId))
       .returning();
+
+    const t = updatedExpense[0];
+    FinancialLedgerService.safeRecord(async () => {
+      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
+      return FinancialLedgerService.recordMiscExpense(
+        t.projectId, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+      );
+    }, 'worker-misc-expenses/PATCH');
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);

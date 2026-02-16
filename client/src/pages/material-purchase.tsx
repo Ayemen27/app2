@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox } from "@/components/ui/combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -80,6 +81,7 @@ export default function MaterialPurchase() {
   const [notes, setNotes] = useState<string>("");
   const [invoicePhoto, setInvoicePhoto] = useState<string>("");
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
+  const [addToInventory, setAddToInventory] = useState<boolean>(false);
 
   // حالة طي النموذج - مطوي افتراضياً
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
@@ -341,6 +343,7 @@ export default function MaterialPurchase() {
       setNotes(purchaseToEdit.notes || "");
       setInvoicePhoto(purchaseToEdit.invoicePhoto || "");
       setEditingPurchaseId(purchaseToEdit.id);
+      setAddToInventory(purchaseToEdit.addToInventory || false);
 
       console.log('✅ تم ملء النموذج بالبيانات:', {
         materialName,
@@ -450,16 +453,23 @@ export default function MaterialPurchase() {
 
       return { previousData };
     },
-    onSuccess: async () => {
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
+    onSuccess: async (response: any) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
+      const wasAddedToInventory = response?.equipmentCreated;
+      
       toast({
         title: "تم الحفظ",
-        description: "تم حفظ شراء المواد بنجاح",
+        description: wasAddedToInventory 
+          ? "تم حفظ المشتراة وإضافتها للمخزن (المعدات) بنجاح"
+          : "تم حفظ شراء المواد بنجاح",
       });
       resetForm();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
+      
+      if (wasAddedToInventory) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.equipment });
+      }
     },
     onError: async (error: any) => {
       // حفظ القيم في autocomplete_data حتى في حالة الخطأ
@@ -528,6 +538,7 @@ export default function MaterialPurchase() {
     setNotes("");
     setInvoicePhoto("");
     setEditingPurchaseId(null);
+    setAddToInventory(false);
   };
 
   // Update Material Purchase Mutation
@@ -714,6 +725,7 @@ export default function MaterialPurchase() {
       notes: notes?.trim() || '',
       wellId: selectedWellId || null,
       invoicePhoto: invoicePhoto || '',
+      addToInventory: addToInventory,
       status: 'completed'
     };
 
@@ -872,6 +884,7 @@ export default function MaterialPurchase() {
     setNotes(purchase.notes || "");
     setInvoicePhoto(purchase.invoicePhoto || "");
     setEditingPurchaseId(purchase.id);
+    setAddToInventory(purchase.addToInventory || false);
     setIsFormCollapsed(false);
   };
 
@@ -1188,6 +1201,20 @@ export default function MaterialPurchase() {
                   <Label htmlFor="storage" className="text-sm">مخزن</Label>
                 </div>
               </RadioGroup>
+            </div>
+
+            {/* Add to Inventory Checkbox */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <Checkbox
+                id="addToInventory"
+                checked={addToInventory}
+                onCheckedChange={(checked) => setAddToInventory(checked === true)}
+                data-testid="checkbox-add-to-inventory"
+              />
+              <Label htmlFor="addToInventory" className="text-sm font-medium text-blue-700 dark:text-blue-300 cursor-pointer flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                إضافة للمخزن (المعدات)
+              </Label>
             </div>
 
             {/* Well Selector */}

@@ -339,6 +339,8 @@ export const materialPurchases = pgTable("material_purchases", {
   notes: text("notes"),
   purchaseDate: text("purchase_date").notNull(), // YYYY-MM-DD format
   wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  addToInventory: boolean("add_to_inventory").default(false), // إضافة المادة للمخزن/المعدات تلقائياً
+  equipmentId: integer("equipment_id"), // ربط بالمعدة المنشأة تلقائياً (إن وجدت)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // إضافة قيد فريد لضمان عدم تكرار الفواتير بشكل غير مقصود

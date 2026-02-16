@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
 import { db } from '../../db';
 import {
-  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries, workers, workerAttendance, materials,
+  fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries, workers, workerAttendance, materials, equipment,
   insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertMaterialSchema,
   insertDailyExpenseSummarySchema
 } from '@shared/schema';
@@ -1812,8 +1812,10 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       remainingAmount = "0";
     }
 
+    const { addToInventory: _addToInv, ...validatedWithoutInventory } = validated as any;
     const purchaseData = { 
-      ...validated,
+      ...validatedWithoutInventory,
+      addToInventory: false,
       unitPrice: validated.unitPrice || "0",
       totalAmount: validated.totalAmount || totalAmount,
       paidAmount: paidAmount,
@@ -1857,13 +1859,52 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       'material-purchase/POST'
     );
 
+    let createdEquipment = null;
+    const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
+    
+    if (shouldAddToInventory) {
+      try {
+        const rawQty = parseInt(String(p.quantity || '1'), 10);
+        const qty = Number.isNaN(rawQty) || rawQty < 1 ? 1 : rawQty;
+        const totalAmountVal = parseFloat(p.totalAmount || '0');
+        const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
+        
+        const [newEquipment] = await db.insert(equipment).values({
+          name: p.materialName,
+          type: p.materialCategory || null,
+          unit: p.materialUnit || p.unit || 'قطعة',
+          quantity: qty,
+          status: 'available',
+          condition: 'excellent',
+          description: p.notes || null,
+          purchaseDate: p.purchaseDate,
+          purchasePrice: safePurchasePrice,
+          projectId: p.projectId,
+        }).returning();
+
+        createdEquipment = newEquipment;
+
+        await db.update(materialPurchases)
+          .set({ equipmentId: newEquipment.id, addToInventory: true })
+          .where(eq(materialPurchases.id, p.id));
+
+        console.log(`📦 [MaterialPurchases→Equipment] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) تلقائياً من المشتراة ${p.id}`);
+      } catch (eqError: any) {
+        console.error('⚠️ [MaterialPurchases→Equipment] فشل إنشاء المعدة تلقائياً:', eqError.message);
+      }
+    }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم إضافة مشتراة جديدة في ${duration}ms`);
     
     res.status(201).json({
       success: true,
-      data: newPurchase[0],
-      message: 'تم إضافة المشتراة المادية بنجاح',
+      data: { ...newPurchase[0], equipmentId: createdEquipment?.id || null },
+      equipmentCreated: !!createdEquipment,
+      equipmentData: createdEquipment,
+      message: createdEquipment 
+        ? 'تم إضافة المشتراة وإنشاء المعدة في المخزن بنجاح'
+        : 'تم إضافة المشتراة المادية بنجاح',
       processingTime: duration
     });
   } catch (error: any) {

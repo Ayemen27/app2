@@ -1449,186 +1449,6 @@ function DailyExpensesContent() {
     }
   };
 
-  const calculateTotals = () => {
-    try {
-      // إنشاء متغيرات آمنة لجميع البيانات مع فحص إضافي
-      const safeAttendance = Array.isArray(todayWorkerAttendance) ? 
-        todayWorkerAttendance.filter(item => item && typeof item === 'object') : [];
-      const safeTransportation = Array.isArray(todayTransportation) ? 
-        todayTransportation.filter(item => item && typeof item === 'object') : [];
-      const safeMaterialPurchases = Array.isArray(todayMaterialPurchases) ? 
-        todayMaterialPurchases.filter(item => item && typeof item === 'object') : [];
-      const safeWorkerTransfers = Array.isArray(todayWorkerTransfers) ? 
-        todayWorkerTransfers.filter(item => item && typeof item === 'object') : [];
-      const safeMiscExpenses = Array.isArray(todayMiscExpenses) ? 
-        todayMiscExpenses.filter(item => item && typeof item === 'object') : [];
-      const safeFundTransfers = Array.isArray(todayFundTransfers) ? 
-        todayFundTransfers.filter(item => item && typeof item === 'object') : [];
-      const safeProjectTransfers = Array.isArray(projectTransfers) ? 
-        projectTransfers.filter(item => item && typeof item === 'object') : [];
-
-      // تسجيل مبسط للحسابات المالية
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🧮 [DailyExpenses] إجمالي البيانات المنظفة:', {
-          حضور: safeAttendance.length,
-          نقل: safeTransportation.length,
-          مشتريات: safeMaterialPurchases.length,
-          تحويلات_عمال: safeWorkerTransfers.length,
-          مصاريف_أخرى: safeMiscExpenses.length,
-          تحويلات_أموال: safeFundTransfers.length,
-          تحويلات_مشاريع: safeProjectTransfers.length
-        });
-      }
-
-      // استخدام دالة cleanNumber المحسنة
-      const totalWorkerWages = safeAttendance.reduce(
-        (sum, attendance) => {
-          const amount = cleanNumber(attendance.paidAmount);
-          return sum + amount;
-        }, 
-        0
-      );
-
-      const totalTransportation = safeTransportation.reduce(
-        (sum, expense) => {
-          const amount = cleanNumber(expense.amount);
-          return sum + amount;
-        }, 
-        0
-      );
-
-      // حساب المشتريات النقدية فقط (نقد أو نقداً) - موحّد مع السيرفر
-      const totalMaterialCosts = safeMaterialPurchases
-        .filter(purchase => purchase.purchaseType === "نقد" || purchase.purchaseType === "نقداً")
-        .reduce((sum, purchase) => {
-          const amount = cleanNumber(purchase.totalAmount);
-          return sum + amount;
-        }, 0);
-
-      const totalWorkerTransfers = safeWorkerTransfers.reduce(
-        (sum, transfer) => {
-          const amount = cleanNumber(transfer.amount);
-          return sum + amount;
-        }, 0);
-
-      const totalMiscExpenses = safeMiscExpenses.reduce(
-        (sum, expense) => {
-          const amount = cleanNumber(expense.amount);
-          return sum + amount;
-        }, 0);
-
-      const totalFundTransfers = safeFundTransfers.reduce(
-        (sum, transfer) => {
-          const amount = cleanNumber(transfer.amount);
-          return sum + amount;
-        }, 0);
-
-      // حساب الأموال الواردة والصادرة من ترحيل المشاريع
-      const incomingProjectTransfers = safeProjectTransfers
-        .filter(transfer => transfer.toProjectId === selectedProjectId)
-        .reduce((sum, transfer) => {
-          const amount = cleanNumber(transfer.amount);
-          return sum + amount;
-        }, 0);
-
-      const outgoingProjectTransfers = safeProjectTransfers
-        .filter(transfer => transfer.fromProjectId === selectedProjectId)
-        .reduce((sum, transfer) => {
-          const amount = cleanNumber(transfer.amount);
-          return sum + amount;
-        }, 0);
-
-      // تطبيق المنطق الصحيح من النسخة الاحتياطية - استخدام cleanNumber للاتساق
-      const carriedAmount = cleanNumber(carriedForward);
-      
-      console.log('🧮 [calculateTotals] تفاصيل الحساب:', {
-        carriedForward,
-        carriedAmount,
-        totalFundTransfers,
-        incomingProjectTransfers,
-        calculation: `${carriedAmount} + ${totalFundTransfers} + ${incomingProjectTransfers}`,
-      });
-      
-      // حساب محلي من البيانات المتاحة
-      const localTotalExpenses = totalWorkerWages + totalTransportation + totalMaterialCosts + 
-                                 totalWorkerTransfers + totalMiscExpenses + outgoingProjectTransfers;
-      const localTotalIncome = carriedAmount + totalFundTransfers + incomingProjectTransfers;
-      
-      // الأولوية لبيانات السيرفر (مصدر الحقيقة الوحيد)، الحساب المحلي كـ fallback فقط
-      const totalExpenses = financialSummary?.expenses?.totalCashExpenses ?? localTotalExpenses;
-      const totalIncome = financialSummary?.income?.totalIncome ?? localTotalIncome;
-      const remainingBalance = financialSummary?.totalBalance ?? (totalIncome + carriedAmount - totalExpenses);
-      
-      console.log('✅ [calculateTotals] النتيجة النهائية:', {
-        totalIncome,
-        totalExpenses,
-        remainingBalance
-      });
-
-      // تسجيل تفصيلي للحسابات
-      if (process.env.NODE_ENV === 'development') {
-        console.log('💰 تفاصيل الحسابات:', {
-          carriedForward: carriedForward,
-          carriedAmount: carriedAmount,
-          totalFundTransfers: totalFundTransfers,
-          incomingProjectTransfers: incomingProjectTransfers,
-          totalIncome: totalIncome,
-          totalExpenses: totalExpenses,
-          remainingBalance: remainingBalance
-        });
-      }
-
-      const result = {
-        totalWorkerWages: totalWorkerWages,
-        totalTransportation: totalTransportation,
-        totalMaterialCosts: totalMaterialCosts,
-        totalWorkerTransfers: totalWorkerTransfers,
-        totalMiscExpenses: totalMiscExpenses,
-        totalFundTransfers: totalFundTransfers,
-        incomingProjectTransfers: incomingProjectTransfers,
-        outgoingProjectTransfers: outgoingProjectTransfers,
-        totalIncome: totalIncome, // يمكن أن يكون سالباً حسب المبلغ المرحل
-        totalExpenses: totalExpenses,
-        remainingBalance: remainingBalance, // يمكن أن يكون سالباً
-      };
-
-      // تسجيل تحذير للقيم الكبيرة بدون تصفيرها (القيم الحقيقية لا تُصفّر أبداً)
-      const maxReasonableAmount = 100000000; // 100 مليون
-      Object.keys(result).forEach(key => {
-        const value = (result as any)[key];
-        if (typeof value === 'number' && Math.abs(value) > maxReasonableAmount) {
-          console.warn(`⚠️ [DailyExpenses] قيمة كبيرة في ${key}: ${value} - يُرجى مراجعة البيانات يدوياً`);
-        }
-      });
-
-      // تسجيل النتائج في بيئة التطوير فقط
-      if (process.env.NODE_ENV === 'development') {
-        console.log('✅ الملخص المالي النهائي:', {
-          إجمالي_الدخل: formatCurrency(result.totalIncome),
-          إجمالي_المصاريف: formatCurrency(result.totalExpenses),
-          الرصيد_المتبقي: formatCurrency(result.remainingBalance)
-        });
-      }
-      return result;
-
-    } catch (error) {
-      console.error('❌ [DailyExpenses] خطأ في calculateTotals:', error);
-      // إرجاع قيم افتراضية آمنة في حالة حدوث خطأ
-      return {
-        totalWorkerWages: 0,
-        totalTransportation: 0,
-        totalMaterialCosts: 0,
-        totalWorkerTransfers: 0,
-        totalMiscExpenses: 0,
-        totalFundTransfers: 0,
-        incomingProjectTransfers: 0,
-        outgoingProjectTransfers: 0,
-        totalIncome: 0,
-        totalExpenses: 0,
-        remainingBalance: 0,
-      };
-    }
-  };
 
   const handleSaveSummary = () => {
     if (!selectedProjectId) {
@@ -1640,59 +1460,21 @@ function DailyExpensesContent() {
       return;
     }
 
-    const totalsResult = calculateTotals();
-
     saveDailySummaryMutation.mutate({
       projectId: selectedProjectId,
       date: selectedDate || new Date().toISOString().split('T')[0],
       carriedForwardAmount: carriedForward,
-      totalFundTransfers: totalsResult.totalFundTransfers.toString(),
-      totalWorkerWages: totalsResult.totalWorkerWages.toString(),
-      totalMaterialCosts: totalsResult.totalMaterialCosts.toString(),
-      totalTransportationCosts: totalsResult.totalTransportation.toString(),
+      totalFundTransfers: (totalsValue.totalFundTransfers || 0).toString(),
+      totalWorkerWages: (totalsValue.totalWorkerWages || 0).toString(),
+      totalMaterialCosts: (totalsValue.totalMaterialCosts || 0).toString(),
+      totalTransportationCosts: (totalsValue.totalTransportation || 0).toString(),
 
-      totalIncome: totalsResult.totalIncome.toString(),
-      totalExpenses: totalsResult.totalExpenses.toString(),
-      remainingBalance: totalsResult.remainingBalance.toString(),
+      totalIncome: (totalsValue.totalIncome || 0).toString(),
+      totalExpenses: (totalsValue.totalCashExpenses || totalsValue.totalExpenses || 0).toString(),
+      remainingBalance: (totalsValue.remainingBalance || totalsValue.totalBalance || 0).toString(),
     });
   };
 
-  // حساب المجاميع مع معالجة آمنة للأخطاء
-  const computedTotalsFromCalculate = useMemo(() => {
-    try {
-      const result = calculateTotals();
-      if (!result || typeof result !== 'object') {
-        console.warn('⚠️ [DailyExpenses] calculateTotals returned invalid result:', result);
-        throw new Error('Invalid result from calculateTotals');
-      }
-      return result;
-    } catch (error) {
-      console.error('❌ [DailyExpenses] خطأ في حساب المجاميع:', error);
-      return {
-        totalWorkerWages: 0,
-        totalTransportation: 0,
-        totalMaterialCosts: 0,
-        totalWorkerTransfers: 0,
-        totalMiscExpenses: 0,
-        totalFundTransfers: 0,
-        incomingProjectTransfers: 0,
-        outgoingProjectTransfers: 0,
-        totalIncome: 0,
-        totalExpenses: 0,
-        remainingBalance: 0,
-      };
-    }
-  }, [
-    todayWorkerAttendance,
-    todayTransportation,
-    todayMaterialPurchases,
-    todayWorkerTransfers,
-    todayMiscExpenses,
-    todayFundTransfers,
-    projectTransfers,
-    carriedForward,
-    selectedProjectId
-  ]);
 
   // تكوين صفوف الإحصائيات الموحدة (3x3)
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
@@ -2017,12 +1799,10 @@ function DailyExpensesContent() {
         });
       });
 
-      const totals = calculateTotals();
-      
       const exportTotals = {
-        totalIncome: totals.totalIncome,
-        totalExpenses: totals.totalExpenses,
-        balance: totals.remainingBalance
+        totalIncome: totalsValue.totalIncome || 0,
+        totalExpenses: totalsValue.totalCashExpenses || totalsValue.totalExpenses || 0,
+        balance: totalsValue.remainingBalance || totalsValue.totalBalance || 0
       };
 
       // الحصول على اسم المشروع

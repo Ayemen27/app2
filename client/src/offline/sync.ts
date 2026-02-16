@@ -23,6 +23,50 @@ export const ALL_SYNC_TABLES = [
   'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories'
 ] as const;
 
+const SERVER_TO_IDB_MAP: Record<string, string> = {
+  'emergency_users': 'emergencyUsers',
+  'auth_user_sessions': 'authUserSessions',
+  'email_verification_tokens': 'emailVerificationTokens',
+  'password_reset_tokens': 'passwordResetTokens',
+  'project_types': 'projectTypes',
+  'fund_transfers': 'fundTransfers',
+  'worker_attendance': 'workerAttendance',
+  'material_purchases': 'materialPurchases',
+  'supplier_payments': 'supplierPayments',
+  'transportation_expenses': 'transportationExpenses',
+  'worker_transfers': 'workerTransfers',
+  'worker_balances': 'workerBalances',
+  'daily_expense_summaries': 'dailyExpenseSummaries',
+  'worker_types': 'workerTypes',
+  'autocomplete_data': 'autocompleteData',
+  'worker_misc_expenses': 'workerMiscExpenses',
+  'backup_logs': 'backupLogs',
+  'backup_settings': 'backupSettings',
+  'print_settings': 'printSettings',
+  'project_fund_transfers': 'projectFundTransfers',
+  'security_policies': 'securityPolicies',
+  'security_policy_suggestions': 'securityPolicySuggestions',
+  'security_policy_implementations': 'securityPolicyImplementations',
+  'security_policy_violations': 'securityPolicyViolations',
+  'user_project_permissions': 'userProjectPermissions',
+  'permission_audit_logs': 'permissionAuditLogs',
+  'report_templates': 'reportTemplates',
+  'notification_read_states': 'notificationReadStates',
+  'build_deployments': 'buildDeployments',
+  'ai_chat_sessions': 'aiChatSessions',
+  'ai_chat_messages': 'aiChatMessages',
+  'ai_usage_stats': 'aiUsageStats',
+  'well_tasks': 'wellTasks',
+  'well_task_accounts': 'wellTaskAccounts',
+  'well_expenses': 'wellExpenses',
+  'well_audit_logs': 'wellAuditLogs',
+  'material_categories': 'materialCategories',
+};
+
+export function serverTableToIDB(serverName: string): string {
+  return SERVER_TO_IDB_MAP[serverName] || serverName;
+}
+
 const MAX_RETRIES = 5;
 const INITIAL_SYNC_DELAY = 2000; 
 let isSyncing = false;
@@ -181,18 +225,19 @@ export async function performInitialDataPull(): Promise<boolean> {
     const BATCH_SIZE = 5;
     for (let i = 0; i < tableEntries.length; i += BATCH_SIZE) {
       const batch = tableEntries.slice(i, i + BATCH_SIZE);
-      for (const [tableName, records] of batch) {
-        if (tableName !== 'users' && Array.isArray(records)) {
+      for (const [serverTableName, records] of batch) {
+        if (serverTableName !== 'users' && Array.isArray(records)) {
           processedTables++;
+          const idbStore = serverTableToIDB(serverTableName);
           updateSyncState({ 
             progress: { 
               total: totalTables, 
               current: processedTables, 
-              tableName,
+              tableName: idbStore,
               percentage: Math.min(100, Math.round((processedTables / totalTables) * 100))
             } 
           });
-          await smartSave(tableName, records);
+          await smartSave(idbStore, records);
           totalSaved += records.length;
         }
       }
@@ -445,9 +490,10 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
     const { data } = result;
     
     let totalSaved = 0;
-    for (const [tableName, records] of Object.entries(data)) {
+    for (const [serverTable, records] of Object.entries(data)) {
       if (Array.isArray(records)) {
-        await smartSave(tableName, records);
+        const idbStore = serverTableToIDB(serverTable);
+        await smartSave(idbStore, records);
         totalSaved += records.length;
       }
     }
@@ -499,9 +545,10 @@ export async function performInstantSync(tables?: string[], lastSyncTime?: numbe
     const { data } = result;
     let totalSaved = 0;
     
-    for (const [tableName, records] of Object.entries(data)) {
+    for (const [serverTable, records] of Object.entries(data)) {
       if (Array.isArray(records) && records.length > 0) {
-        await smartSave(tableName, records);
+        const idbStore = serverTableToIDB(serverTable);
+        await smartSave(idbStore, records);
         totalSaved += records.length;
       }
     }

@@ -8,7 +8,6 @@ import { nativeStorage } from './native-db';
 export async function getSmartStorage() {
   const platform = Capacitor.getPlatform();
   
-  // 🚀 إجبار النظام على استخدام SQLite فقط وفقط في بيئة الأندرويد/iOS
   if (platform === 'android' || platform === 'ios') {
     try {
       console.log('📱 [DB] محاولة تهيئة محرك SQLite للأندرويد...');
@@ -21,7 +20,6 @@ export async function getSmartStorage() {
       return nativeStorage;
     } catch (e) {
       console.error("🔴 SQLite Engine Critical Failure, falling back to IDB:", e);
-      // Fallback to IndexedDB if SQLite fails to prevent app crash
       if (!dbInstance) {
         dbInstance = await initializeDB();
       }
@@ -29,7 +27,6 @@ export async function getSmartStorage() {
     }
   }
   
-  // المتصفح (Web) يستخدم IndexedDB (الذي يدعمه openDB)
   if (!dbInstance) {
     dbInstance = await initializeDB();
   }
@@ -48,7 +45,8 @@ export async function getSafeTransaction(storeNames: string | string[], mode: 'r
   return db.transaction(storeNames, mode);
 }
 
-// تعريف schema قاعدة البيانات - مرآة كاملة 100% من الخادم (66 جدول)
+type StoreValue = Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean };
+
 export interface BinarJoinDB extends DBSchema {
   syncQueue: {
     key: string;
@@ -74,50 +72,6 @@ export interface BinarJoinDB extends DBSchema {
       tableList?: string[];
     };
   };
-  // جميع جداول الخادم - 66 جدول
-  users: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  authUserSessions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  emailVerificationTokens: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  passwordResetTokens: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  projectTypes: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  projects: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  workers: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  wells: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  fundTransfers: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  workerAttendance: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  suppliers: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  materials: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  materialPurchases: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  supplierPayments: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  transportationExpenses: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  workerTransfers: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  workerBalances: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  dailyExpenseSummaries: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  workerTypes: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  autocompleteData: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  workerMiscExpenses: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  printSettings: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  projectFundTransfers: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  securityPolicies: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  securityPolicyImplementations: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  securityPolicySuggestions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  securityPolicyViolations: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  permissionAuditLogs: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  userProjectPermissions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  materialCategories: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  wellTasks: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  wellExpenses: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  wellAuditLogs: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  wellTaskAccounts: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  notifications: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  notificationReadStates: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  aiChatSessions: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  aiChatMessages: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  aiUsageStats: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  emergencyUsers: { key: string; value: Record<string, any> };
-  buildDeployments: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  reportTemplates: { key: string; value: Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean } };
-  userData: { key: string; value: { id: string; type: string; data: any; syncedAt: number; createdAt: number } };
   syncHistory: {
     key: string;
     value: {
@@ -134,11 +88,55 @@ export interface BinarJoinDB extends DBSchema {
       retryCount?: number;
     };
   };
+  userData: { key: string; value: { id: string; type: string; data: any; syncedAt: number; createdAt: number } };
+  emergencyUsers: { key: string; value: Record<string, any> };
+  users: { key: string; value: StoreValue };
+  authUserSessions: { key: string; value: StoreValue };
+  emailVerificationTokens: { key: string; value: StoreValue };
+  passwordResetTokens: { key: string; value: StoreValue };
+  projectTypes: { key: string; value: StoreValue };
+  projects: { key: string; value: StoreValue };
+  workers: { key: string; value: StoreValue };
+  wells: { key: string; value: StoreValue };
+  fundTransfers: { key: string; value: StoreValue };
+  workerAttendance: { key: string; value: StoreValue };
+  suppliers: { key: string; value: StoreValue };
+  materials: { key: string; value: StoreValue };
+  materialPurchases: { key: string; value: StoreValue };
+  supplierPayments: { key: string; value: StoreValue };
+  transportationExpenses: { key: string; value: StoreValue };
+  workerTransfers: { key: string; value: StoreValue };
+  workerBalances: { key: string; value: StoreValue };
+  dailyExpenseSummaries: { key: string; value: StoreValue };
+  workerTypes: { key: string; value: StoreValue };
+  autocompleteData: { key: string; value: StoreValue };
+  workerMiscExpenses: { key: string; value: StoreValue };
+  printSettings: { key: string; value: StoreValue };
+  projectFundTransfers: { key: string; value: StoreValue };
+  securityPolicies: { key: string; value: StoreValue };
+  securityPolicyImplementations: { key: string; value: StoreValue };
+  securityPolicySuggestions: { key: string; value: StoreValue };
+  securityPolicyViolations: { key: string; value: StoreValue };
+  permissionAuditLogs: { key: string; value: StoreValue };
+  userProjectPermissions: { key: string; value: StoreValue };
+  materialCategories: { key: string; value: StoreValue };
+  wellTasks: { key: string; value: StoreValue };
+  wellExpenses: { key: string; value: StoreValue };
+  wellAuditLogs: { key: string; value: StoreValue };
+  wellTaskAccounts: { key: string; value: StoreValue };
+  notifications: { key: string; value: StoreValue };
+  notificationReadStates: { key: string; value: StoreValue };
+  aiChatSessions: { key: string; value: StoreValue };
+  aiChatMessages: { key: string; value: StoreValue };
+  aiUsageStats: { key: string; value: StoreValue };
+  buildDeployments: { key: string; value: StoreValue };
+  reportTemplates: { key: string; value: StoreValue };
+  backupLogs: { key: string; value: StoreValue };
+  backupSettings: { key: string; value: StoreValue };
 }
 
 let dbInstance: IDBPDatabase<BinarJoinDB> | null = null;
 
-// قائمة جميع الجداول (66 جدول)
 const ALL_STORES = [
   'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
   'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
@@ -153,23 +151,20 @@ const ALL_STORES = [
   'wellTaskAccounts', 'notifications',
   'notificationReadStates',
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
-  'reportTemplates', 
-  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'workerMiscExpenses',
-  'autocompleteData', 'printSettings', 'workerTypes', 'syncHistory'
+  'reportTemplates', 'backupLogs', 'backupSettings',
+  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory'
 ] as const;
 
-// فتح أو إنشاء قاعدة البيانات المحلية (مرآة 100% من الخادم)
 export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   if (dbInstance) {
     return dbInstance;
   }
 
   try {
-    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 12, {
+    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 13, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`[DB] Upgrading from ${oldVersion} to ${newVersion}`);
         
-        // التأكد من وجود جميع الجداول المطلوبة
         for (const storeName of ALL_STORES) {
           if (!db.objectStoreNames.contains(storeName)) {
             if (storeName === 'syncQueue') {
@@ -199,18 +194,12 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
             } else {
               // @ts-ignore
               const store = db.createObjectStore(storeName as any, { keyPath: 'id' });
-              // @ts-ignore
-              store.createIndex('createdAt', 'createdAt');
-              // @ts-ignore
-              store.createIndex('projectId', 'projectId');
-              // @ts-ignore
-              store.createIndex('synced', 'synced');
-              // @ts-ignore
-              store.createIndex('_pendingSync', '_pendingSync');
-              // @ts-ignore
-              store.createIndex('version', 'version'); // New index for State Sync
-              // @ts-ignore
-              store.createIndex('lastModifiedAt', 'lastModifiedAt');
+              try {
+                // @ts-ignore
+                store.createIndex('synced', 'synced');
+                // @ts-ignore
+                store.createIndex('_pendingSync', '_pendingSync');
+              } catch {}
             }
           }
         }
@@ -224,13 +213,9 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   return dbInstance;
 }
 
-/**
- * الحصول على instance قاعدة البيانات (أو المحرك الأصلي)
- */
 export async function getDB(): Promise<any> {
   const platform = Capacitor.getPlatform();
   if (platform === 'android' || platform === 'ios') {
-    // في الأندرويد، نستخدم المحرك الأصلي دائماً
     const storage = await getSmartStorage();
     if (storage) return storage;
   }
@@ -241,9 +226,6 @@ export async function getDB(): Promise<any> {
   return dbInstance;
 }
 
-/**
- * إغلاق قاعدة البيانات
- */
 export function closeDB(): void {
   if (dbInstance) {
     dbInstance.close();
@@ -251,9 +233,6 @@ export function closeDB(): void {
   }
 }
 
-/**
- * حذف قاعدة البيانات بالكامل (للاستعادة)
- */
 export async function deleteDB(): Promise<void> {
   closeDB();
   return new Promise((resolve, reject) => {

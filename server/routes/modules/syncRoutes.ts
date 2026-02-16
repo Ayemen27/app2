@@ -26,7 +26,12 @@ const ALL_DATABASE_TABLES = [
   'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories'
 ];
 
-const BATCH_SIZE = 5;
+const MAX_BATCH_SIZE = 5;
+
+function getEffectiveBatchSize(): number {
+  const poolMax = (pool as any).options?.max || (pool as any)._max || 10;
+  return Math.min(MAX_BATCH_SIZE, Math.max(1, poolMax - 2));
+}
 
 const TABLE_COLUMN_CACHE = new Map<string, string[]>();
 
@@ -41,35 +46,40 @@ async function getTableDateColumns(table: string): Promise<string[]> {
   return cols;
 }
 
-async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: any[]; error?: string }> {
+async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: any[]; error?: string; deltaApplied?: boolean }> {
   if (!ALL_DATABASE_TABLES.includes(table)) {
     return { table, rows: [], error: 'Invalid table name' };
   }
   try {
     const params: any[] = [];
     let query = `SELECT * FROM "${table}"`;
+    let deltaApplied = false;
 
     if (lastSyncTime) {
-      const isoTime = new Date(lastSyncTime).toISOString();
-      if (isNaN(new Date(isoTime).getTime())) {
+      const parsed = new Date(lastSyncTime);
+      if (isNaN(parsed.getTime())) {
         return { table, rows: [], error: 'Invalid lastSyncTime' };
       }
+      const isoTime = parsed.toISOString();
       const cols = await getTableDateColumns(table);
       if (cols.includes('updated_at') && cols.includes('created_at')) {
         query += ` WHERE (updated_at > $1 OR created_at > $1)`;
         params.push(isoTime);
+        deltaApplied = true;
       } else if (cols.includes('updated_at')) {
         query += ` WHERE updated_at > $1`;
         params.push(isoTime);
+        deltaApplied = true;
       } else if (cols.includes('created_at')) {
         query += ` WHERE created_at > $1`;
         params.push(isoTime);
+        deltaApplied = true;
       }
     }
 
     query += ' LIMIT 50000';
     const result = await pool.query(query, params);
-    return { table, rows: result.rows };
+    return { table, rows: result.rows, deltaApplied };
   } catch (e: any) {
     return { table, rows: [], error: e.message };
   }
@@ -79,9 +89,12 @@ async function fetchTablesInBatches(tables: string[], lastSyncTime?: string) {
   const results: Record<string, any[]> = {};
   let successCount = 0;
   let errorCount = 0;
+  let deltaTablesCount = 0;
+  let fullTablesCount = 0;
+  const batchSize = getEffectiveBatchSize();
 
-  for (let i = 0; i < tables.length; i += BATCH_SIZE) {
-    const batch = tables.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < tables.length; i += batchSize) {
+    const batch = tables.slice(i, i + batchSize);
     const batchResults = await Promise.all(
       batch.map(t => fetchTableData(t, lastSyncTime))
     );
@@ -92,11 +105,15 @@ async function fetchTablesInBatches(tables: string[], lastSyncTime?: string) {
         console.warn(`⚠️ [Sync] تخطي ${r.table}: ${r.error}`);
       } else {
         successCount++;
+        if (lastSyncTime) {
+          if (r.deltaApplied) deltaTablesCount++;
+          else fullTablesCount++;
+        }
       }
     }
   }
 
-  return { results, successCount, errorCount };
+  return { results, successCount, errorCount, deltaTablesCount, fullTablesCount };
 }
 
 /**
@@ -110,14 +127,14 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     const { lastSyncTime } = req.query;
     console.log(`🔄 [Sync] طلب نسخة احتياطية${lastSyncTime ? ' تفاضلية منذ ' + lastSyncTime : ' كاملة'} (${ALL_DATABASE_TABLES.length} جدول، parallel batches)`);
 
-    const { results, successCount, errorCount } = await fetchTablesInBatches(
+    const { results, successCount, errorCount, deltaTablesCount, fullTablesCount } = await fetchTablesInBatches(
       ALL_DATABASE_TABLES,
       lastSyncTime as string | undefined
     );
 
     const duration = Date.now() - startTime;
     const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
-    console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي)`);
+    console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي${lastSyncTime ? `, ${deltaTablesCount} تفاضلي، ${fullTablesCount} كامل` : ''})`);
 
     res.setHeader('Content-Type', 'application/json');
     return res.status(200).send(JSON.stringify({
@@ -128,13 +145,15 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       metadata: {
         timestamp: Date.now(),
-        version: '3.0-parallel-sync',
+        version: '3.1-parallel-sync',
         duration,
         tablesCount: ALL_DATABASE_TABLES.length,
         totalRecords,
         successCount,
         errorCount,
-        isDelta: !!lastSyncTime
+        isDelta: !!lastSyncTime,
+        deltaTablesCount,
+        fullTablesCount
       }
     }));
   } catch (error: any) {
@@ -158,7 +177,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     const { lastSyncTime } = req.body;
     console.log(`🔄 [Sync] POST نسخة${lastSyncTime ? ' تفاضلية' : ' كاملة'} (parallel batches)`);
 
-    const { results, successCount, errorCount } = await fetchTablesInBatches(
+    const { results, successCount, errorCount, deltaTablesCount, fullTablesCount } = await fetchTablesInBatches(
       ALL_DATABASE_TABLES,
       lastSyncTime
     );
@@ -175,13 +194,15 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       metadata: {
         timestamp: Date.now(),
-        version: '3.0-parallel-sync',
+        version: '3.1-parallel-sync',
         duration,
         tablesCount: ALL_DATABASE_TABLES.length,
         totalRecords,
         successCount,
         errorCount,
-        isDelta: !!lastSyncTime
+        isDelta: !!lastSyncTime,
+        deltaTablesCount,
+        fullTablesCount
       }
     });
   } catch (error: any) {

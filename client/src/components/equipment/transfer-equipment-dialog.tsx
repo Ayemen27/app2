@@ -139,8 +139,9 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
               control={form.control}
               name="toProjectId"
               render={({ field }) => {
+                const isCurrentlyInWarehouse = !equipment?.currentProjectId;
                 const projectOptions: SelectOption[] = [
-                  { value: "warehouse", label: "المستودع" },
+                  ...(isCurrentlyInWarehouse ? [] : [{ value: "warehouse", label: "المستودع" }]),
                   ...projects
                     .filter(p => p.id !== equipment?.currentProjectId)
                     .map((project) => ({
@@ -153,7 +154,7 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
                     <FormLabel className="text-sm">المشروع المقصود</FormLabel>
                     <FormControl>
                       <SearchableSelect
-                        value={field.value || "warehouse"}
+                        value={field.value || ""}
                         onValueChange={(value) => field.onChange(value === "warehouse" ? null : value)}
                         options={projectOptions}
                         placeholder="اختر المشروع المقصود"

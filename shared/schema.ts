@@ -1288,6 +1288,7 @@ export type MaterialCategory = typeof materialCategories.$inferSelect;
 export type InsertMaterialCategory = z.infer<typeof insertMaterialCategorySchema>;
 export const equipment = pgTable("equipment", {
   id: serial("id").primaryKey(),
+  code: text("code"),
   name: text("name").notNull(),
   sku: text("sku"),
   type: text("type"),

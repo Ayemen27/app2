@@ -7,6 +7,13 @@ import { requireAuth } from '../../middleware/auth.js';
 const equipmentRouter = Router();
 equipmentRouter.use(requireAuth);
 
+async function generateEquipmentCode(): Promise<string> {
+  const [result] = await db.select({ maxId: sql<number>`COALESCE(MAX(id), 0)` }).from(equipment);
+  const nextNum = (result?.maxId || 0) + 1;
+  return `EQ-${String(nextNum).padStart(5, '0')}`;
+}
+
+
 equipmentRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { searchTerm, status, type, projectId } = req.query;
@@ -79,7 +86,10 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
     }
 
+    const generatedCode = await generateEquipmentCode();
+
     const [newItem] = await db.insert(equipment).values({
+      code: generatedCode,
       name,
       sku: sku || null,
       type: type || null,

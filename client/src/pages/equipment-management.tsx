@@ -250,6 +250,8 @@ export function EquipmentManagement() {
       options: [
         { value: 'all', label: 'جميع الحالات' },
         { value: 'active', label: 'نشط' },
+        { value: 'available', label: 'متاحة' },
+        { value: 'assigned', label: 'مخصصة' },
         { value: 'maintenance', label: 'صيانة' },
         { value: 'out_of_service', label: 'خارج الخدمة' },
         { value: 'inactive', label: 'غير نشط' },
@@ -293,8 +295,11 @@ export function EquipmentManagement() {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       'active': 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+      'available': 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+      'assigned': 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
       'maintenance': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
       'out_of_service': 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+      'lost': 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
       'inactive': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
     };
     return colors[status] || colors.active;
@@ -303,8 +308,11 @@ export function EquipmentManagement() {
   const getStatusText = (status: string) => {
     const texts: Record<string, string> = {
       'active': 'نشط',
+      'available': 'متاحة',
+      'assigned': 'مخصصة',
       'maintenance': 'صيانة',
       'out_of_service': 'خارج الخدمة',
+      'lost': 'مفقودة',
       'inactive': 'غير نشط'
     };
     return texts[status] || status;
@@ -313,8 +321,11 @@ export function EquipmentManagement() {
   const getStatusBadgeVariant = (status: string): "success" | "warning" | "destructive" | "secondary" => {
     const variants: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
       'active': 'success',
+      'available': 'success',
+      'assigned': 'secondary',
       'maintenance': 'warning',
       'out_of_service': 'destructive',
+      'lost': 'destructive',
       'inactive': 'secondary'
     };
     return variants[status] || 'secondary';

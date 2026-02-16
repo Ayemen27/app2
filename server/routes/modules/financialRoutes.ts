@@ -1869,7 +1869,11 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         const totalAmountVal = parseFloat(p.totalAmount || '0');
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
         
+        const [maxIdResult] = await db.select({ maxId: sql<number>`COALESCE(MAX(id), 0)` }).from(equipment);
+        const eqCode = `EQ-${String((maxIdResult?.maxId || 0) + 1).padStart(5, '0')}`;
+
         const [newEquipment] = await db.insert(equipment).values({
+          code: eqCode,
           name: p.materialName,
           type: p.materialCategory || null,
           unit: p.materialUnit || p.unit || 'قطعة',
@@ -1888,7 +1892,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
           .set({ equipmentId: newEquipment.id, addToInventory: true })
           .where(eq(materialPurchases.id, p.id));
 
-        console.log(`📦 [MaterialPurchases→Equipment] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) تلقائياً من المشتراة ${p.id}`);
+        console.log(`📦 [MaterialPurchases→Equipment] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) كود: ${eqCode} تلقائياً من المشتراة ${p.id}`);
       } catch (eqError: any) {
         console.error('⚠️ [MaterialPurchases→Equipment] فشل إنشاء المعدة تلقائياً:', eqError.message);
       }
@@ -2005,7 +2009,11 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         const totalAmountVal = parseFloat(mp.totalAmount || '0');
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
 
+        const [maxIdResult2] = await db.select({ maxId: sql<number>`COALESCE(MAX(id), 0)` }).from(equipment);
+        const eqCode2 = `EQ-${String((maxIdResult2?.maxId || 0) + 1).padStart(5, '0')}`;
+
         const [newEquipment] = await db.insert(equipment).values({
+          code: eqCode2,
           name: mp.materialName,
           type: mp.materialCategory || null,
           unit: mp.materialUnit || mp.unit || 'قطعة',
@@ -2024,7 +2032,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
           .set({ equipmentId: newEquipment.id, addToInventory: true })
           .where(eq(materialPurchases.id, mp.id));
 
-        console.log(`📦 [MaterialPurchases→Equipment/PATCH] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) تلقائياً من المشتراة ${mp.id}`);
+        console.log(`📦 [MaterialPurchases→Equipment/PATCH] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) كود: ${eqCode2} تلقائياً من المشتراة ${mp.id}`);
       } catch (eqError: any) {
         console.error('⚠️ [MaterialPurchases→Equipment/PATCH] فشل إنشاء المعدة تلقائياً:', eqError.message);
       }

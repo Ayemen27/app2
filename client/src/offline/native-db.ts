@@ -81,7 +81,7 @@ class SQLiteStorage {
       'notificationReadStates',
       'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
       'reportTemplates',
-      'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData',
+      'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
       'accounts', 'transactions', 'transaction_lines', 'journals',
       'finance_payments', 'finance_events', 'account_balances',
       'equipment', 'equipmentMovements', 'expenses'

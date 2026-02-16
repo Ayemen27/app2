@@ -139,7 +139,7 @@ const ALL_STORES = [
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
   'reportTemplates', 
   'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'workerMiscExpenses',
-  'autocompleteData', 'printSettings', 'workerTypes'
+  'autocompleteData', 'printSettings', 'workerTypes', 'syncHistory'
 ] as const;
 
 // فتح أو إنشاء قاعدة البيانات المحلية (مرآة 100% من الخادم)
@@ -149,7 +149,7 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   }
 
   try {
-    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 10, {
+    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 11, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`[DB] Upgrading from ${oldVersion} to ${newVersion}`);
         

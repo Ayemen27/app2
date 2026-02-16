@@ -4,34 +4,169 @@ import {
   smartClear, smartCount, smartSave, smartQuery
 } from './storage-factory';
 
+export type SyncItemStatus = 'pending' | 'in-flight' | 'failed' | 'conflict' | 'duplicate-resolved';
+
+export interface SyncQueueItem {
+  id: string;
+  action: 'create' | 'update' | 'delete';
+  endpoint: string;
+  payload: Record<string, any>;
+  timestamp: number;
+  retries: number;
+  status: SyncItemStatus;
+  lastError?: string;
+  errorType?: string;
+  lastAttemptAt?: number;
+  idempotencyKey?: string;
+}
+
+export interface SyncLogEntry {
+  id: string;
+  queueItemId: string;
+  action: string;
+  endpoint: string;
+  status: 'success' | 'failed' | 'duplicate' | 'conflict' | 'skipped';
+  timestamp: number;
+  duration?: number;
+  errorMessage?: string;
+  errorCode?: string;
+  payloadSummary?: string;
+  retryCount?: number;
+}
+
+function generateIdempotencyKey(action: string, endpoint: string, payload: Record<string, any>): string {
+  const recordId = payload.id || payload.transferNumber || '';
+  return `${action}:${endpoint}:${recordId}`;
+}
+
+function normalizeDateFields(payload: Record<string, any>): Record<string, any> {
+  const dateFields = ['transferDate', 'selectedDate', 'date', 'paymentDate', 'attendanceDate', 'expenseDate'];
+  const result = { ...payload };
+  for (const field of dateFields) {
+    if (result[field]) {
+      const val = result[field];
+      if (typeof val === 'string' && val.includes('T')) {
+        result[field] = val.split('T')[0];
+      } else if (val instanceof Date) {
+        result[field] = val.toISOString().split('T')[0];
+      } else if (typeof val === 'number') {
+        result[field] = new Date(val).toISOString().split('T')[0];
+      }
+    }
+  }
+  if (result.selectedDate && !result.transferDate) {
+    result.transferDate = result.selectedDate;
+  }
+  return result;
+}
+
+function getPayloadSummary(payload: Record<string, any>): string {
+  const summary: string[] = [];
+  if (payload.transferNumber) summary.push(`رقم: ${payload.transferNumber}`);
+  if (payload.amount) summary.push(`مبلغ: ${payload.amount}`);
+  if (payload.name) summary.push(`اسم: ${payload.name}`);
+  if (payload.projectId) summary.push(`مشروع: ${payload.projectId}`);
+  if (payload.id) summary.push(`ID: ${String(payload.id).substring(0, 8)}`);
+  return summary.join(' | ') || 'بدون تفاصيل';
+}
+
 export async function queueForSync(
   action: 'create' | 'update' | 'delete',
   endpoint: string,
   payload: Record<string, any>
 ): Promise<string> {
-  const id = uuidv4();
+  payload = normalizeDateFields(payload);
+  const idempotencyKey = generateIdempotencyKey(action, endpoint, payload);
 
-  const queueItem = {
+  const existingItems = await smartGetAll('syncQueue');
+  const duplicate = existingItems.find((item: SyncQueueItem) =>
+    item.idempotencyKey === idempotencyKey &&
+    item.status !== 'failed' &&
+    item.status !== 'duplicate-resolved'
+  );
+
+  if (duplicate) {
+    console.log(`⚠️ [Queue] عملية مكررة تم تجاهلها: ${idempotencyKey}`);
+    if (action === 'update') {
+      duplicate.payload = { ...duplicate.payload, ...payload };
+      duplicate.timestamp = Date.now();
+      await smartPut('syncQueue', duplicate);
+      console.log(`🔄 [Queue] تم تحديث payload العملية المكررة: ${duplicate.id}`);
+    }
+    return duplicate.id;
+  }
+
+  const id = uuidv4();
+  const queueItem: SyncQueueItem = {
     id,
     action,
     endpoint,
     payload,
     timestamp: Date.now(),
     retries: 0,
-    lastError: undefined
+    status: 'pending',
+    idempotencyKey
   };
 
   await smartAdd('syncQueue', queueItem);
   return id;
 }
 
-export async function getPendingSyncQueue() {
+export async function getPendingSyncQueue(): Promise<SyncQueueItem[]> {
   const allItems = await smartGetAll('syncQueue');
-  return allItems.sort((a: any, b: any) => a.timestamp - b.timestamp);
+  return allItems
+    .filter((item: SyncQueueItem) => item.status === 'pending' || item.status === 'failed' || !item.status)
+    .sort((a: any, b: any) => a.timestamp - b.timestamp);
+}
+
+export async function getAllSyncQueueItems(): Promise<SyncQueueItem[]> {
+  const allItems = await smartGetAll('syncQueue');
+  return allItems.sort((a: any, b: any) => b.timestamp - a.timestamp);
 }
 
 export async function removeSyncQueueItem(id: string): Promise<void> {
   await smartDelete('syncQueue', id);
+}
+
+export async function markItemInFlight(id: string): Promise<void> {
+  const item = await smartGet('syncQueue', id);
+  if (item) {
+    item.status = 'in-flight';
+    item.lastAttemptAt = Date.now();
+    await smartPut('syncQueue', item);
+  }
+}
+
+export async function markItemFailed(id: string, error: string, errorType?: string): Promise<void> {
+  const item = await smartGet('syncQueue', id);
+  if (item) {
+    item.status = 'failed';
+    item.retries = (item.retries || 0) + 1;
+    item.lastError = error;
+    item.errorType = errorType || 'unknown';
+    item.lastAttemptAt = Date.now();
+    await smartPut('syncQueue', item);
+  }
+}
+
+export async function markItemDuplicateResolved(id: string, message: string): Promise<void> {
+  const item = await smartGet('syncQueue', id);
+  if (item) {
+    item.status = 'duplicate-resolved';
+    item.lastError = message;
+    item.lastAttemptAt = Date.now();
+    await smartPut('syncQueue', item);
+
+    await logSyncResult({
+      queueItemId: id,
+      action: item.action,
+      endpoint: item.endpoint,
+      status: 'duplicate',
+      errorMessage: message,
+      payloadSummary: getPayloadSummary(item.payload),
+      retryCount: item.retries
+    });
+  }
 }
 
 export async function updateSyncRetries(
@@ -41,27 +176,114 @@ export async function updateSyncRetries(
   errorType?: string
 ): Promise<void> {
   const item = await smartGet('syncQueue', id);
-  
   if (item) {
     item.retries = retries;
-    if (error) {
-      item.lastError = error;
-    }
-    if (errorType) {
-      item.errorType = errorType;
-    }
+    item.status = 'failed';
+    item.lastAttemptAt = Date.now();
+    if (error) item.lastError = error;
+    if (errorType) item.errorType = errorType;
     await smartPut('syncQueue', item);
   }
 }
 
 export async function cancelSyncQueueItem(id: string): Promise<void> {
+  const item = await smartGet('syncQueue', id);
+  if (item) {
+    await logSyncResult({
+      queueItemId: id,
+      action: item.action,
+      endpoint: item.endpoint,
+      status: 'skipped',
+      errorMessage: 'تم الإلغاء يدوياً بواسطة المستخدم',
+      payloadSummary: getPayloadSummary(item.payload),
+      retryCount: item.retries
+    });
+  }
   await smartDelete('syncQueue', id);
 }
 
 export async function cancelAllSyncQueueItems(): Promise<number> {
   const items = await getPendingSyncQueue();
   const count = items.length;
+  for (const item of items) {
+    await logSyncResult({
+      queueItemId: item.id,
+      action: item.action,
+      endpoint: item.endpoint,
+      status: 'skipped',
+      errorMessage: 'تم الإلغاء يدوياً (إلغاء جماعي)',
+      payloadSummary: getPayloadSummary(item.payload),
+      retryCount: item.retries
+    });
+  }
   await smartClear('syncQueue');
+  return count;
+}
+
+export async function logSyncResult(entry: Omit<SyncLogEntry, 'id' | 'timestamp'>): Promise<void> {
+  const logEntry: SyncLogEntry = {
+    id: uuidv4(),
+    timestamp: Date.now(),
+    ...entry
+  };
+  try {
+    await smartAdd('syncHistory', logEntry);
+    const allLogs = await smartGetAll('syncHistory');
+    if (allLogs.length > 500) {
+      const sorted = allLogs.sort((a: SyncLogEntry, b: SyncLogEntry) => b.timestamp - a.timestamp);
+      const toRemove = sorted.slice(500);
+      for (const old of toRemove) {
+        await smartDelete('syncHistory', old.id);
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ [SyncLog] فشل تسجيل السجل:', e);
+  }
+}
+
+export async function getSyncHistory(limit = 50): Promise<SyncLogEntry[]> {
+  try {
+    const all = await smartGetAll('syncHistory');
+    return all
+      .sort((a: SyncLogEntry, b: SyncLogEntry) => b.timestamp - a.timestamp)
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+export async function getFailedSyncItems(): Promise<SyncQueueItem[]> {
+  const allItems = await smartGetAll('syncQueue');
+  return allItems
+    .filter((item: SyncQueueItem) => item.status === 'failed' || item.status === 'conflict')
+    .sort((a: any, b: any) => b.lastAttemptAt - a.lastAttemptAt);
+}
+
+export async function getDuplicateResolvedItems(): Promise<SyncQueueItem[]> {
+  const allItems = await smartGetAll('syncQueue');
+  return allItems
+    .filter((item: SyncQueueItem) => item.status === 'duplicate-resolved')
+    .sort((a: any, b: any) => b.lastAttemptAt - a.lastAttemptAt);
+}
+
+export async function retryFailedItem(id: string): Promise<void> {
+  const item = await smartGet('syncQueue', id);
+  if (item && (item.status === 'failed' || item.status === 'conflict')) {
+    item.status = 'pending';
+    item.lastError = undefined;
+    await smartPut('syncQueue', item);
+  }
+}
+
+export async function retryAllFailed(): Promise<number> {
+  const failed = await getFailedSyncItems();
+  let count = 0;
+  for (const item of failed) {
+    item.status = 'pending';
+    item.lastError = undefined;
+    await smartPut('syncQueue', item);
+    count++;
+  }
   return count;
 }
 
@@ -70,15 +292,11 @@ export async function saveUserDataLocal(
   data: Record<string, any>
 ): Promise<string> {
   const id = data.id || uuidv4();
-
   const userData = {
-    id,
-    type,
-    data,
+    id, type, data,
     syncedAt: 0,
     createdAt: Date.now()
   };
-
   await smartPut('userData', userData);
   return id;
 }
@@ -93,13 +311,11 @@ export async function saveListLocal(
   metadata?: { syncedAt: number; totalCount: number }
 ): Promise<void> {
   await smartClear(storeName);
-
   const enrichedItems = items.map(item => ({
     ...item,
     createdAt: item.createdAt || Date.now(),
     _syncedAt: metadata?.syncedAt || Date.now()
   }));
-
   await smartSave(storeName, enrichedItems);
 }
 
@@ -122,13 +338,8 @@ export async function updateItemLocal(
   updates: Record<string, any>
 ): Promise<void> {
   const item = await smartGet(storeName, id);
-
   if (item) {
-    const updated = {
-      ...item,
-      ...updates,
-      _updatedAt: Date.now()
-    };
+    const updated = { ...item, ...updates, _updatedAt: Date.now() };
     await smartPut(storeName, updated);
   }
 }
@@ -139,7 +350,6 @@ export async function addLocalFirst(
   endpoint: string
 ): Promise<string> {
   const id = item.id || uuidv4();
-  
   const newItem = {
     ...item,
     id,
@@ -147,10 +357,8 @@ export async function addLocalFirst(
     _pendingSync: true,
     createdAt: item.createdAt || new Date().toISOString()
   };
-
   await smartPut(storeName, newItem);
   await queueForSync('create', endpoint, newItem);
-  
   return id;
 }
 
@@ -161,7 +369,6 @@ export async function updateLocalFirst(
   endpoint: string
 ): Promise<void> {
   const item = await smartGet(storeName, id);
-  
   if (item) {
     const updatedItem = {
       ...item,
@@ -169,7 +376,6 @@ export async function updateLocalFirst(
       _pendingSync: true,
       updatedAt: new Date().toISOString()
     };
-    
     await smartPut(storeName, updatedItem);
     await queueForSync('update', `${endpoint}/${id}`, updates);
   }
@@ -178,10 +384,25 @@ export async function updateLocalFirst(
 export async function getSyncStats() {
   const pendingCount = await smartCount('syncQueue');
   const userDataCount = await smartCount('userData');
+  const allItems = await smartGetAll('syncQueue');
+  const failedCount = allItems.filter((i: SyncQueueItem) => i.status === 'failed' || i.status === 'conflict').length;
+  const duplicateCount = allItems.filter((i: SyncQueueItem) => i.status === 'duplicate-resolved').length;
+
+  let history: SyncLogEntry[] = [];
+  try {
+    history = await getSyncHistory(100);
+  } catch { /* ignore */ }
+
+  const successCount = history.filter(h => h.status === 'success').length;
+  const recentFailures = history.filter(h => h.status === 'failed').length;
 
   return {
-    pendingSync: pendingCount,
+    pendingSync: pendingCount - failedCount - duplicateCount,
+    failedSync: failedCount,
+    duplicateResolved: duplicateCount,
     localUserData: userDataCount,
+    totalSuccessful: successCount,
+    totalRecentFailures: recentFailures,
     lastUpdate: Date.now()
   };
 }

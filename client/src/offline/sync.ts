@@ -1,4 +1,7 @@
-import { getPendingSyncQueue, removeSyncQueueItem, updateSyncRetries } from './offline';
+import {
+  getPendingSyncQueue, removeSyncQueueItem, markItemInFlight,
+  markItemFailed, markItemDuplicateResolved, logSyncResult
+} from './offline';
 import { clearAllLocalData } from './data-cleanup';
 import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
 import { apiRequest } from '../lib/api-client';
@@ -29,7 +32,6 @@ const INITIAL_SYNC_DELAY = 2000;
 let isSyncing = false;
 let syncListeners: ((state: SyncState) => void)[] = [];
 let syncInterval: NodeJS.Timeout | null = null;
-let retryCount = 0;
 
 export interface SyncState {
   isSyncing: boolean;
@@ -239,85 +241,141 @@ export async function syncOfflineData(): Promise<void> {
     if (pending.length === 0) {
       updateSyncState({ isSyncing: false });
       isSyncing = false;
-      retryCount = 0;
       return;
     }
 
     console.log(`🔄 [Sync] جاري مزامنة ${pending.length} عملية...`);
     
     let successCount = 0;
+    let failedCount = 0;
+
     for (const item of pending) {
+      if (item.retries >= MAX_RETRIES) {
+        console.warn(`⚠️ [Sync] العملية ${item.id} تجاوزت الحد الأقصى - تبقى في failed`);
+        await markItemFailed(item.id, `تجاوز الحد الأقصى للمحاولات (${MAX_RETRIES})`, 'max_retries');
+        failedCount++;
+        continue;
+      }
+
       try {
+        await markItemInFlight(item.id);
         const startTime = Date.now();
-        // المعايير العالمية: إضافة توقيع رقمي للتحقق من سلامة البيانات
-        // استخدام HMAC أو توقيع مشابه في الإنتاج، هنا نستخدم نسخة مبسطة للمعايير يدعم العربية
+
         const payloadString = JSON.stringify(item.payload);
         const signature = btoa(encodeURIComponent(payloadString).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode(parseInt(p1, 16)))).substring(0, 32);
         
-        const result = await apiRequest(item.endpoint, item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE', {
-          ...item.payload,
-          _metadata: {
-            signature,
-            version: item.payload.version || 1,
-            clientTimestamp: Date.now(),
-            deviceId: localStorage.getItem('deviceId') || 'web-client'
-          }
-        });
-        const endTime = Date.now();
-        const requestLatency = endTime - startTime;
+        let result: any;
+        try {
+          result = await apiRequest(item.endpoint, item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE', {
+            ...item.payload,
+            _metadata: {
+              signature,
+              version: item.payload.version || 1,
+              clientTimestamp: Date.now(),
+              deviceId: localStorage.getItem('deviceId') || 'web-client'
+            }
+          });
+        } catch (apiError: any) {
+          const statusCode = apiError?.status || apiError?.statusCode || 0;
+          const errorMsg = apiError?.message || apiError?.error || String(apiError);
 
-          if (result) {
-            await removeSyncQueueItem(item.id);
-            
-            const recordId = item.payload.id;
-            const tableName = item.endpoint.split('/')[2]; 
-            
-            if (tableName && recordId) {
-              try {
-                // محاولة تحديث حالة المزامنة في التخزين الذكي (يدعم SQLite و IDB)
-                const localRecords = await smartGetAll(tableName);
-                const record = localRecords.find((r: any) => (r.id || r.key) === recordId);
-                if (record) {
-                  record.synced = true;
-                  record.pendingSync = false;
-                  record.isLocal = false;
-                  await smartSave(tableName, [record]);
-                  console.log(`✅ [Sync] تم تحديث حالة المزامنة لـ ${tableName}:${recordId}`);
-                }
-              } catch (updateError) {
-                console.warn(`⚠️ [Sync] فشل تحديث حالة المزامنة محلياً لـ ${tableName}:`, updateError);
-              }
-            }
-            
+          if (statusCode === 409) {
+            console.log(`🔁 [Sync] عملية مكررة (409): ${item.id}`);
+            await markItemDuplicateResolved(item.id, errorMsg);
             successCount++;
-            updateSyncState({ latency: requestLatency, pendingCount: pending.length - successCount });
-          } else {
-            // إذا لم تنجح الاستجابة، قد يكون هناك خطأ في البيانات، نحتاج لتجاوزه لمنع تعليق الطابور
-            console.error(`❌ [Sync] فشل مزامنة العنصر ${item.id} - سيتم المحاولة لاحقاً أو تخطيه`);
-            if (retryCount > MAX_RETRIES) {
-               await removeSyncQueueItem(item.id);
-               console.warn(`⚠️ [Sync] تم تخطي العنصر ${item.id} بعد تجاوز محاولات المزامنة`);
+            continue;
+          }
+
+          if (statusCode === 400 || statusCode === 422) {
+            console.error(`❌ [Sync] خطأ تحقق (${statusCode}): ${item.id}`);
+            await markItemFailed(item.id, errorMsg, 'validation');
+            await logSyncResult({
+              queueItemId: item.id,
+              action: item.action,
+              endpoint: item.endpoint,
+              status: 'failed',
+              duration: Date.now() - startTime,
+              errorMessage: errorMsg,
+              errorCode: String(statusCode),
+              retryCount: item.retries + 1
+            });
+            failedCount++;
+            continue;
+          }
+
+          await markItemFailed(item.id, errorMsg, 'network');
+          failedCount++;
+
+          intelligentMonitor.logEvent({
+            type: 'sync',
+            severity: item.retries > 2 ? 'high' : 'medium',
+            message: `فشل مزامنة عنصر: ${errorMsg}`,
+            metadata: { retryCount: item.retries + 1, itemId: item.id }
+          });
+
+          const delay = getBackoffDelay(item.retries);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        const requestLatency = Date.now() - startTime;
+
+        if (result && result.success !== false) {
+          await removeSyncQueueItem(item.id);
+          
+          const recordId = item.payload.id;
+          const tableName = item.endpoint.split('/')[2]; 
+          
+          if (tableName && recordId) {
+            try {
+              const localRecords = await smartGetAll(tableName);
+              const record = localRecords.find((r: any) => (r.id || r.key) === recordId);
+              if (record) {
+                record.synced = true;
+                record.pendingSync = false;
+                record.isLocal = false;
+                await smartSave(tableName, [record]);
+              }
+            } catch (updateError) {
+              console.warn(`⚠️ [Sync] فشل تحديث الحالة المحلية لـ ${tableName}:`, updateError);
             }
           }
+          
+          await logSyncResult({
+            queueItemId: item.id,
+            action: item.action,
+            endpoint: item.endpoint,
+            status: 'success',
+            duration: requestLatency,
+            retryCount: item.retries
+          });
+
+          successCount++;
+          updateSyncState({ latency: requestLatency, pendingCount: pending.length - successCount - failedCount });
+        } else {
+          const errMsg = result?.message || result?.error || 'استجابة غير ناجحة';
+          await markItemFailed(item.id, errMsg, 'server');
+          failedCount++;
+        }
       } catch (e) {
-        retryCount++;
-        const delay = getBackoffDelay(retryCount);
+        const errorMsg = e instanceof Error ? e.message : 'خطأ غير معروف';
+        await markItemFailed(item.id, errorMsg, 'unknown');
+        failedCount++;
         
         intelligentMonitor.logEvent({
           type: 'sync',
-          severity: retryCount > 3 ? 'high' : 'medium',
-          message: `فشل مزامنة عنصر: ${e instanceof Error ? e.message : 'خطأ غير معروف'}`,
-          metadata: { retryCount, nextRetryDelay: delay, itemId: item.id }
+          severity: 'high',
+          message: `فشل مزامنة عنصر: ${errorMsg}`,
+          metadata: { itemId: item.id }
         });
-
-        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
     updateSyncState({ 
       lastSync: Date.now(),
       isSyncing: false,
-      syncedCount: successCount
+      syncedCount: successCount,
+      failedCount
     });
   } catch (error) {
     console.error('❌ [Sync] خطأ في المزامنة:', error);

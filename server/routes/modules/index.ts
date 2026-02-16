@@ -25,6 +25,7 @@ import tasksRouter from './tasks.js';
 import securityRouter from './securityRoutes.js';
 import backupRouter from './backupRoutes.js';
 import downloadProxyRouter from './downloadProxyRoutes.js';
+import { ledgerRouter } from './ledgerRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 
 /**
@@ -106,6 +107,10 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api', downloadProxyRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات التنزيل المؤقت: /api/temp-download');
 
+  // مسارات دفتر الأستاذ الموحّد (قيد مزدوج + ملخصات + تدقيق + مطابقة)
+  app.use('/api/ledger', ledgerRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات دفتر الأستاذ: /api/ledger');
+
   // تفعيل معالج الأخطاء العالمي في النهاية لجميع المسارات المسجلة أعلاه
   app.use(globalErrorHandler);
 
@@ -123,7 +128,8 @@ export function registerOrganizedRoutes(app: Express) {
       'worker-misc-expenses/*',
       'notifications/*',
       'recent-activities',
-      'autocomplete (GET/POST)'
+      'autocomplete (GET/POST)',
+      'ledger/* (قيد مزدوج + ملخصات + تدقيق)'
     ]
   };
 
@@ -135,32 +141,43 @@ export function registerOrganizedRoutes(app: Express) {
 /**
  * معلومات إضافية عن النظام المنظم
  */
+const REGISTERED_ROUTE_FILES = new Set([
+  'healthRoutes', 'projectRoutes', 'projectTypeRoutes', 'wellRoutes',
+  'wellExpenseRoutes', 'workerRoutes', 'financialRoutes', 'autocompleteRoutes',
+  'notificationRoutes', 'reportRoutes', 'activityRoutes', 'aiRoutes',
+  'syncRoutes', 'tasks', 'securityRoutes', 'backupRoutes',
+  'downloadProxyRoutes', 'ledgerRoutes', 'index',
+  'authRoutes',       // مسجّل في server/index.ts مباشرة (خارج النظام الموحّد لأسباب ترتيب)
+  'systemRoutes',     // helper functions فقط - ليس router كامل
+]);
+
+export async function checkForUnregisteredRouters() {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const dir = path.dirname(new URL(import.meta.url).pathname);
+    const files = fs.readdirSync(dir)
+      .filter((f: string) => f.endsWith('.ts') || f.endsWith('.js'))
+      .map((f: string) => f.replace(/\.(ts|js)$/, ''));
+
+    const unregistered = files.filter((f: string) => !REGISTERED_ROUTE_FILES.has(f));
+    if (unregistered.length > 0) {
+      console.warn(`⚠️ [RouteGuard] ملفات مسارات غير مسجّلة: ${unregistered.join(', ')}`);
+      console.warn(`⚠️ [RouteGuard] أضفها إلى registerOrganizedRoutes أو احذفها لمنع الكود الميت`);
+    } else {
+      console.log('✅ [RouteGuard] جميع ملفات المسارات مسجّلة - لا يوجد كود ميت');
+    }
+    return unregistered;
+  } catch (error) {
+    console.error('⚠️ [RouteGuard] فشل فحص المسارات:', error);
+    return [];
+  }
+}
+
 export function getOrganizedRoutesInfo() {
   return {
-    version: '2.0.0-organized',
-    totalRouters: 6,
-    routerTypes: {
-      health: 'مسارات الصحة والمراقبة',
-      project: 'إدارة المشاريع',
-      worker: 'إدارة العمال',
-      financial: 'التحويلات المالية',
-      autocomplete: 'الإكمال التلقائي',
-      notification: 'إدارة الإشعارات'
-    },
-    features: {
-      organizedStructure: true,
-      separatedConcerns: true,
-      middlewareOptimization: true,
-      reducedCodeDuplication: true,
-      maintainableArchitecture: true
-    },
-    nextSteps: [
-      'نقل المنطق من الملف الأصلي routes.ts',
-      'إضافة validation schemas',
-      'تحسين معالجة الأخطاء',
-      'إضافة unit tests',
-      'إضافة documentation'
-    ]
+    version: '3.0.0-unified',
+    registeredRouteFiles: Array.from(REGISTERED_ROUTE_FILES),
   };
 }
 
@@ -169,14 +186,14 @@ export function getOrganizedRoutesInfo() {
  */
 export function validateOrganizedRoutes(): boolean {
   try {
-    // فحص أساسي للتأكد من تحميل الـ routers
     const routers = [
       healthRouter,
       projectRouter,
       workerRouter,
       financialRouter,
       autocompleteRouter,
-      notificationRouter
+      notificationRouter,
+      ledgerRouter,
     ];
 
     return routers.every(router => router && typeof router === 'function');
@@ -186,7 +203,6 @@ export function validateOrganizedRoutes(): boolean {
   }
 }
 
-// تصدير جميع الـ routers للاستخدام المستقل
 export {
   healthRouter,
   projectRouter,
@@ -198,7 +214,8 @@ export {
   autocompleteRouter,
   notificationRouter,
   syncRouter,
-  tasksRouter
+  tasksRouter,
+  ledgerRouter,
 };
 
 export default {

@@ -1,10 +1,15 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import { Request, Response } from 'express';
 import { FinancialLedgerService } from '../../services/FinancialLedgerService';
+import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 import { db } from '../../db';
 import { financialAuditLog, journalEntries, journalLines, reconciliationRecords } from '@shared/schema';
-import { eq, desc, and, gte, lte } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
+import { requireAuth } from '../../middleware/auth.js';
 
-const ledgerRouter = express.Router();
+export const ledgerRouter = express.Router();
+
+ledgerRouter.use(requireAuth);
 
 ledgerRouter.get('/trial-balance/:projectId', async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -182,6 +187,47 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
   }
 });
 
-console.log('📒 [LedgerRouter] تم تهيئة مسارات دفتر الأستاذ');
+ledgerRouter.get('/summary/:projectId', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const { date } = req.query;
+
+    const summary = date
+      ? await ExpenseLedgerService.getDailyFinancialSummary(projectId, date as string)
+      : await ExpenseLedgerService.getProjectFinancialSummary(projectId);
+
+    res.json({ success: true, data: summary, message: 'تم جلب الملخص المالي بنجاح' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+ledgerRouter.get('/projects-stats', async (_req: Request, res: Response) => {
+  try {
+    const summaries = await ExpenseLedgerService.getAllProjectsStats();
+
+    res.json({
+      success: true,
+      data: summaries,
+      message: `تم جلب إحصائيات ${summaries.length} مشروع بنجاح`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+ledgerRouter.get('/daily-summary/:projectId/:date', async (req: Request, res: Response) => {
+  try {
+    const { projectId, date } = req.params;
+
+    const summary = await ExpenseLedgerService.getDailyFinancialSummary(projectId, date);
+
+    res.json({ success: true, data: summary, message: 'تم جلب الملخص اليومي بنجاح' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+console.log('📒 [LedgerRouter] تم تهيئة مسارات دفتر الأستاذ الموحّد (قيد مزدوج + ملخصات + تدقيق)');
 
 export default ledgerRouter;

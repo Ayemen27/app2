@@ -1,6 +1,12 @@
 /**
- * خدمة دفتر المصروفات الموحد
- * Unified Expense Ledger Service
+ * خدمة تقارير المصروفات (قراءة فقط)
+ * Expense Reports Service - READ ONLY
+ * 
+ * الدور: تجميع وعرض الملخصات المالية من جداول المصدر
+ * لا تُنشئ قيوداً محاسبية - فقط تقرأ وتُلخّص
+ * 
+ * الكتابة المحاسبية: FinancialLedgerService (القيد المزدوج)
+ * القراءة والتقارير: هذه الخدمة (ExpenseLedgerService)
  */
 
 import { db, pool } from '../db';

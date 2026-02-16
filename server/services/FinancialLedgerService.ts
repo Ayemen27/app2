@@ -1,3 +1,14 @@
+/**
+ * خدمة دفتر الأستاذ المالي (كتابة + قيد مزدوج)
+ * Financial Ledger Service - WRITE (Double-Entry Bookkeeping)
+ * 
+ * الدور: تسجيل القيود المحاسبية المزدوجة + التدقيق + المطابقة
+ * كل عملية مالية تمر من هنا لتسجيل قيد مدين/دائن
+ * 
+ * الكتابة المحاسبية: هذه الخدمة (FinancialLedgerService)
+ * القراءة والتقارير: ExpenseLedgerService
+ */
+
 import { db, pool } from '../db';
 import { journalEntries, journalLines, financialAuditLog, reconciliationRecords, summaryInvalidations } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';

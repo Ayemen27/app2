@@ -7,7 +7,7 @@
 - **قاعدة البيانات**: PostgreSQL + Drizzle ORM
 - **المشترك**: نماذج البيانات والأنواع في `shared/schema.ts`
 
-## الأنظمة الأساسية (48 جدول)
+## الأنظمة الأساسية (54 جدول)
 1. **المصادقة والأمان**: تسجيل دخول/خروج، JWT، صلاحيات، سجلات تدقيق
 2. **إدارة المشاريع**: إنشاء/تعديل/حذف، أنواع مشاريع، تحويلات مالية
 3. **إدارة العمال**: حضور، أجور، حوالات، نثريات، تسويات
@@ -18,6 +18,7 @@
 8. **الذكاء الاصطناعي**: محادثات، رسائل، إحصائيات استخدام
 9. **النسخ الاحتياطي**: نسخ يدوي/تلقائي، سجلات
 10. **التقارير**: مسار واحد موحّد /reports
+11. **دفتر الأستاذ (Ledger)**: قيد مزدوج، شجرة حسابات، تدقيق مالي، مطابقة تلقائية
 
 ## معايير تقنية
 - اتبع إرشادات `fullstack_js`
@@ -63,6 +64,8 @@
 - **الميزات**: منع التحديث المتوازي، حد أدنى 600ms للسبنر، toast عند الفشل، دعم RTL
 
 ## التغييرات الأخيرة
+- 2026-02-16: توحيد جذري للمسارات والخدمات المالية: دمج ledgerRoutes + financialLedgerRoutes في Router واحد (/api/ledger)، حذف userRoutes المكرر + financialLedgerRoutes الميت، إضافة RouteGuard يكشف الملفات غير المسجلة عند التشغيل، توضيح أدوار الخدمات (FinancialLedgerService=كتابة قيد مزدوج، ExpenseLedgerService=قراءة تقارير فقط)
+- 2026-02-16: إنشاء نظام دفتر أستاذ مزدوج: 6 جداول (account_types, journal_entries, journal_lines, financial_audit_log, reconciliation_records, summary_invalidations) + FinancialLedgerService + شجرة حسابات 14 حساب + API موحّد
 - 2026-02-16: تحسين Pull to Refresh: إزالة زر التحديث العائم من SyncManagementPage، إضافة /admin/sync و /security-policies لـ pullRefreshConfig (29 صفحة)، تحسين الـ hook لدعم Android WebView (overscroll-behavior-y:none + cancelable check + willChange)
 - 2026-02-16: إصلاح شامل لنظام المزامنة: منع التكرار (dedup + idempotency key)، معالجة أخطاء 409/400/422 بسلام، إيقاف الحذف الصامت للعمليات الفاشلة، إضافة syncHistory store، تصحيق تنسيق التواريخ، إعادة بناء SyncManagementPage بـ 4 تبويبات (معلقة/فاشلة/مكررة/سجل) مع إحصائيات حقيقية
 - 2026-02-15: إصلاح eslint (9→8.57.1 pinned) + حماية Keystore من git clean (نُقل إلى ~/.axion-keystore) + سكربت بناء v32 مع إصدار ديناميكي + حذف ملف com.replit.agentforge القديم

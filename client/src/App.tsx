@@ -58,6 +58,7 @@ import EmailVerificationGuard from "./components/EmailVerificationGuard";
 import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
 import { Loader2 } from "lucide-react";
 import { initSyncListener, subscribeSyncState, loadFullBackup, performInitialDataPull } from "./offline/sync";
+import { initSilentSyncObserver } from "./offline/silent-sync";
 import { initializeDB } from "./offline/db";
 import { SyncStatusIndicator } from "./components/sync-status";
 import { EnvironmentBadge } from "./components/layout/EnvironmentBadge";
@@ -112,9 +113,9 @@ function Router() {
         await initializeDB();
         console.log('✅ تم تهيئة قاعدة البيانات المحلية');
 
-        // تفعيل مراقب الاتصال والمزامنة التلقائية
         initSyncListener();
-        console.log('✅ تم تفعيل نظام المزامنة الذكي');
+        initSilentSyncObserver(30000);
+        console.log('✅ تم تفعيل نظام المزامنة الذكي مع المزامنة الصامتة');
 
         // الاستماع لتغييرات حالة المزامنة
         const unsubscribe = subscribeSyncState((state) => {

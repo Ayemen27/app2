@@ -2,6 +2,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { isOnline } from "@/offline/offline-queries";
 import { smartGetAll } from "@/offline/storage-factory";
 import { ENV } from './env';
+import { offlineApiInterceptor, isOfflineSupportedEndpoint, triggerBackgroundSync } from "@/offline/offline-api-interceptor";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -114,6 +115,17 @@ export async function apiRequest(
   }
 
   try {
+    if (!navigator.onLine && method !== 'GET' && isOfflineSupportedEndpoint(endpoint)) {
+      console.log(`📴 [apiRequest] بدون اتصال - تحويل لحفظ محلي: ${method} ${endpoint}`);
+      const offlineResult = await offlineApiInterceptor(endpoint, method, data);
+      if (offlineResult.success) {
+        window.dispatchEvent(new CustomEvent('offline-mutation-queued', { 
+          detail: { endpoint, method, pendingSync: true } 
+        }));
+        return { ...offlineResult.data, isOffline: true, pendingSync: true };
+      }
+    }
+
     console.log(`🔄 API Request: ${method} ${endpoint}`, data || '');
 
     const response = await fetch(url, config);
@@ -220,6 +232,22 @@ export async function apiRequest(
     console.log(`✅ API Response: ${method} ${endpoint}`, result);
     return result;
   } catch (error) {
+    if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed'))) {
+      if (method !== 'GET' && isOfflineSupportedEndpoint(endpoint)) {
+        console.log(`📴 [apiRequest] خطأ شبكة - تحويل لحفظ محلي: ${method} ${endpoint}`);
+        try {
+          const offlineResult = await offlineApiInterceptor(endpoint, method, data);
+          if (offlineResult.success) {
+            window.dispatchEvent(new CustomEvent('offline-mutation-queued', {
+              detail: { endpoint, method, pendingSync: true }
+            }));
+            return { ...offlineResult.data, isOffline: true, pendingSync: true };
+          }
+        } catch (offErr) {
+          console.error('❌ [apiRequest] فشل الحفظ المحلي أيضاً:', offErr);
+        }
+      }
+    }
     console.error(`❌ API Error: ${method} ${endpoint}`, error);
     throw error;
   }

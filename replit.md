@@ -35,6 +35,12 @@ The system is built as a full-stack JavaScript application using:
 - **Financial Architecture**: A unified double-entry ledger system with 6 tables (`account_types`, `journal_entries`, `journal_lines`, `financial_audit_log`, `reconciliation_records`, `summary_invalidations`), `FinancialLedgerService` for writing, and `ExpenseLedgerService` for reading reports. All financial paths are integrated with `safeRecord` calls across `financialRoutes.ts` and `workerRoutes.ts` for consistent double-entry recording, ensuring non-blocking operations.
 - **Rate Limiting**: `generalRateLimit` is active (5000 requests/15 minutes) with a custom JSON handler.
 - **Sync Audit System**: Server-side immutable audit log (`sync_audit_logs` table) with `SyncAuditService` for automatic logging of all sync operations (full-backup, delta-sync, instant-sync). API at `/api/sync-audit` with `/logs` (filtered/paginated), `/stats`, and `/modules` endpoints. Frontend tab "تدقيق الخادم" in SyncManagementPage with filters (module, status, action, search), pagination, stats cards, and expandable log details. Query keys: `QUERY_KEYS.syncAuditLogs`, `syncAuditStats`, `syncAuditModules`, `syncAuditLogsFiltered(params)`.
+- **Offline-First Architecture**: True Local-First system matching QuickBooks/Xero standards. Key components:
+  - `offline-api-interceptor.ts`: Intercepts all POST/PATCH/DELETE via `apiRequest` - automatically saves to IndexedDB when offline. Covers: fundTransfers, workerAttendance, transportationExpenses, materialPurchases, workerTransfers, workerMiscExpenses, projects, workers, suppliers, materials, wells, projectTypes, autocomplete, supplierPayments.
+  - `useOfflineMutation` hook: Wraps `useMutation` with offline-aware behavior, Optimistic UI, `isOffline` detection, and automatic cache invalidation.
+  - `silent-sync.ts`: `initSilentSyncObserver(30000)` runs auto-sync every 30s when online with pending queue items. Integrated in `App.tsx`.
+  - `sync-progress-tracker.tsx`: Non-blocking floating indicator at bottom showing offline/syncing/completed states with manual sync button.
+  - Return shape: Offline results include `isOffline: true, pendingSync: true` flags for downstream detection.
 
 ### External Dependencies
 - **Frontend Frameworks**: React, Vite

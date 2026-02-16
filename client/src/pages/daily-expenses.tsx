@@ -1350,7 +1350,7 @@ function DailyExpensesContent() {
       senderName: senderName.trim() || "غير محدد",
       transferNumber: transferNumber.trim() || null,
       transferType: transferType,
-      transferDate: new Date(selectedDate + 'T12:00:00.000Z'),
+      transferDate: selectedDate,
       notes: "",
       wellId: fundTransferWellId || null,
     };

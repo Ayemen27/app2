@@ -22,6 +22,40 @@ import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 
 export const projectRouter = express.Router();
 
+const balanceCache = new Map<string, { value: number; timestamp: number }>();
+const BALANCE_CACHE_TTL = 60_000;
+const BALANCE_CACHE_MAX = 200;
+
+function getCachedBalance(key: string): number | null {
+  const entry = balanceCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > BALANCE_CACHE_TTL) {
+    balanceCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setCachedBalance(key: string, value: number) {
+  if (balanceCache.size >= BALANCE_CACHE_MAX) {
+    const oldest = balanceCache.keys().next().value;
+    if (oldest) balanceCache.delete(oldest);
+  }
+  balanceCache.set(key, { value, timestamp: Date.now() });
+}
+
+export function invalidateBalanceCache(projectId?: string) {
+  if (projectId) {
+    for (const key of balanceCache.keys()) {
+      if (key.startsWith(projectId + ':')) {
+        balanceCache.delete(key);
+      }
+    }
+  } else {
+    balanceCache.clear();
+  }
+}
+
 // تطبيق المصادقة على جميع مسارات المشاريع
 projectRouter.use(requireAuth);
 
@@ -2709,6 +2743,13 @@ projectRouter.get('/:projectId/previous-balance/:date', async (req: Request, res
  * Helper function for calculating cumulative balance
  */
 async function calculateCumulativeBalance(projectId: string, fromDate: string | null, toDate: string): Promise<number> {
+  const cacheKey = `${projectId}:${fromDate || 'start'}:${toDate}`;
+  const cached = getCachedBalance(cacheKey);
+  if (cached !== null) {
+    console.log(`💰 [Cache HIT] ${cacheKey} = ${cached}`);
+    return cached;
+  }
+
   try {
     const result = await pool.query(`
       WITH all_income AS (
@@ -2776,6 +2817,7 @@ async function calculateCumulativeBalance(projectId: string, fromDate: string | 
     const totalIncome = parseFloat(String(result.rows[0]?.total_income || '0'));
     const totalExpenses = parseFloat(String(result.rows[0]?.total_expenses || '0'));
     const balance = totalIncome - totalExpenses;
+    setCachedBalance(cacheKey, balance);
 
     console.log(`💰 [Calc] فترة ${fromDate || 'البداية'} إلى ${toDate}: دخل=${totalIncome}, مصاريف=${totalExpenses}, رصيد=${balance}`);
 

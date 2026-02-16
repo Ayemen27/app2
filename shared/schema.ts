@@ -1287,9 +1287,16 @@ export type InsertMaterialCategory = z.infer<typeof insertMaterialCategorySchema
 export const equipment = pgTable("equipment", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  sku: text("sku"),
   type: text("type"),
-  status: text("status").default("active"),
+  unit: text("unit").default("قطعة"),
+  status: text("status").default("available"),
+  condition: text("condition").default("excellent"),
+  description: text("description"),
+  purchaseDate: text("purchase_date"),
+  purchasePrice: text("purchase_price"),
   projectId: varchar("project_id").references(() => projects.id),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1299,6 +1306,8 @@ export const equipmentMovements = pgTable("equipment_movements", {
   fromProjectId: varchar("from_project_id").references(() => projects.id),
   toProjectId: varchar("to_project_id").references(() => projects.id),
   movementDate: timestamp("movement_date").defaultNow(),
+  reason: text("reason"),
+  performedBy: text("performed_by"),
   notes: text("notes"),
 });
 

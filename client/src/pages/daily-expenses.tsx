@@ -789,9 +789,10 @@ function DailyExpensesContent() {
       }
     },
     enabled: !!selectedProjectId && !!selectedDate && !isAllProjects,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     placeholderData: undefined,
   });
 

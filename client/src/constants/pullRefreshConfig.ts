@@ -173,4 +173,16 @@ export const PULL_REFRESH_CONFIG: Record<string, PageRefreshConfig> = {
       QUERY_KEYS.adminDataHealth,
     ],
   },
+  "/admin/sync": {
+    queryKeys: [
+      QUERY_KEYS.projects,
+    ],
+  },
+  "/security-policies": {
+    queryKeys: [
+      QUERY_KEYS.securityPolicies,
+      QUERY_KEYS.securityViolations,
+      QUERY_KEYS.securitySuggestions,
+    ],
+  },
 };

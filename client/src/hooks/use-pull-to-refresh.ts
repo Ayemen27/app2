@@ -32,6 +32,7 @@ export function usePullToRefresh({
   const startYRef = useRef(0);
   const currentYRef = useRef(0);
   const isPullingRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
 
   const progress = Math.min(pullDistance / threshold, 1);
 
@@ -62,46 +63,58 @@ export function usePullToRefresh({
     const el = scrollRef.current;
     if (!el || !enabled) return;
 
-    let rafId: number | null = null;
+    el.style.overscrollBehaviorY = "none";
 
     const isAtTop = () => el.scrollTop <= 0;
 
-    const onTouchStart = (e: TouchEvent) => {
+    const getClientY = (e: TouchEvent | MouseEvent | PointerEvent): number => {
+      if ("touches" in e && e.touches.length > 0) {
+        return e.touches[0].clientY;
+      }
+      return (e as MouseEvent).clientY;
+    };
+
+    const onPointerDown = (e: TouchEvent | PointerEvent) => {
       if (isRefreshingRef.current || !isAtTop()) return;
-      startYRef.current = e.touches[0].clientY;
-      currentYRef.current = startYRef.current;
+      if ("pointerType" in e && e.pointerType === "mouse") return;
+      const y = getClientY(e);
+      startYRef.current = y;
+      currentYRef.current = y;
       isPullingRef.current = false;
     };
 
-    const onTouchMove = (e: TouchEvent) => {
+    const onPointerMove = (e: TouchEvent | PointerEvent) => {
       if (isRefreshingRef.current) return;
+      if ("pointerType" in e && e.pointerType === "mouse") return;
 
-      const touch = e.touches[0];
-      const deltaY = touch.clientY - startYRef.current;
+      const y = getClientY(e);
+      const deltaY = y - startYRef.current;
 
       if (deltaY > 10 && isAtTop()) {
         if (!isPullingRef.current) {
           isPullingRef.current = true;
           setIsPulling(true);
-          startYRef.current = touch.clientY;
+          startYRef.current = y;
         }
       }
 
       if (isPullingRef.current) {
-        e.preventDefault();
-        currentYRef.current = touch.clientY;
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        currentYRef.current = y;
         const raw = currentYRef.current - startYRef.current;
         const dampened = Math.min(maxPull, raw * 0.5);
-        
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
+
+        if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = requestAnimationFrame(() => {
           setPullDistance(Math.max(0, dampened));
         });
       }
     };
 
-    const onTouchEnd = () => {
-      if (rafId) cancelAnimationFrame(rafId);
+    const onPointerUp = () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
 
       if (isPullingRef.current) {
         isPullingRef.current = false;
@@ -119,17 +132,18 @@ export function usePullToRefresh({
       }
     };
 
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
-    el.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    el.addEventListener("touchstart", onPointerDown, { passive: true });
+    el.addEventListener("touchmove", onPointerMove, { passive: false });
+    el.addEventListener("touchend", onPointerUp, { passive: true });
+    el.addEventListener("touchcancel", onPointerUp, { passive: true });
 
     return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-      el.removeEventListener("touchcancel", onTouchEnd);
-      if (rafId) cancelAnimationFrame(rafId);
+      el.removeEventListener("touchstart", onPointerDown);
+      el.removeEventListener("touchmove", onPointerMove);
+      el.removeEventListener("touchend", onPointerUp);
+      el.removeEventListener("touchcancel", onPointerUp);
+      el.style.overscrollBehaviorY = "";
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
   }, [enabled, threshold, maxPull, handleRefresh, scrollRef]);
 

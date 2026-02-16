@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useSyncData } from "@/hooks/useSyncData";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
-import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
@@ -89,22 +88,8 @@ export default function SyncManagementPage() {
     retryOperation, retryAllOperations, refreshData
   } = useSyncData();
   const { toast } = useToast();
-  const { setFloatingAction, setRefreshAction } = useFloatingButton();
   const [activeTab, setActiveTab] = useState("pending");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (pendingItems.length > 0 && isOnline && !isSyncing) {
-      setFloatingAction(manualSync, `مزامنة الكل (${pendingItems.length})`);
-    } else {
-      setFloatingAction(null);
-    }
-    setRefreshAction(() => refreshData);
-    return () => {
-      setFloatingAction(null);
-      setRefreshAction(null);
-    };
-  }, [pendingItems.length, isOnline, isSyncing, manualSync, setFloatingAction, setRefreshAction, refreshData]);
 
   const {
     searchValue, filterValues, onSearchChange, onFilterChange, onReset

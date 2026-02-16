@@ -21,11 +21,15 @@ export function PullToRefreshIndicator({
 
   return (
     <div
-      className="pull-to-refresh-indicator flex items-center justify-center overflow-hidden pointer-events-none"
+      className="pull-to-refresh-indicator flex items-center justify-center overflow-hidden pointer-events-none select-none"
       style={{
         height: `${displayDistance}px`,
         transition: isRefreshing ? "height 0.3s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+        willChange: "height",
+        WebkitUserSelect: "none",
+        userSelect: "none",
       }}
+      data-testid="pull-to-refresh-indicator"
     >
       <div
         className={`
@@ -37,6 +41,7 @@ export function PullToRefreshIndicator({
         style={{
           opacity: Math.min(1, progress * 1.5),
           transform: `scale(${0.5 + progress * 0.5}) rotate(${isRefreshing ? 0 : progress * 180}deg)`,
+          willChange: "transform, opacity",
         }}
       >
         <RefreshCw

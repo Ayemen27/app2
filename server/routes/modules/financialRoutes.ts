@@ -1960,19 +1960,14 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
   const startTime = Date.now();
   try {
     const validated = insertMaterialPurchaseSchema.partial().parse(req.body);
-    
-    const { addToInventory: _addToInv, ...validatedWithoutInventory } = validated as any;
-    
-    const updated = await db
-      .update(materialPurchases)
-      .set({
-        ...validatedWithoutInventory,
-        addToInventory: false,
-      })
-      .where(eq(materialPurchases.id, req.params.id))
-      .returning();
-    
-    if (!updated.length) {
+    const { addToInventory: _addToInv, equipmentId: _eqId, ...validatedWithoutInventory } = validated as any;
+
+    const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
+
+    const [existing] = await db.select({ equipmentId: materialPurchases.equipmentId, addToInventory: materialPurchases.addToInventory })
+      .from(materialPurchases).where(eq(materialPurchases.id, req.params.id));
+
+    if (!existing) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
         success: false,
@@ -1980,6 +1975,18 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         processingTime: duration
       });
     }
+
+    const alreadyHasEquipment = !!existing.equipmentId;
+    const preservedAddToInventory = alreadyHasEquipment ? true : (shouldAddToInventory ? false : (existing.addToInventory ?? false));
+
+    const updated = await db
+      .update(materialPurchases)
+      .set({
+        ...validatedWithoutInventory,
+        addToInventory: preservedAddToInventory,
+      })
+      .where(eq(materialPurchases.id, req.params.id))
+      .returning();
     
     const mp = updated[0];
     FinancialLedgerService.safeRecord(async () => {
@@ -1990,8 +1997,6 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     }, 'material-purchase/PATCH');
 
     let createdEquipment = null;
-    const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
-    const alreadyHasEquipment = !!mp.equipmentId;
 
     if (shouldAddToInventory && !alreadyHasEquipment) {
       try {
@@ -2025,12 +2030,15 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       }
     }
 
+    const finalAddToInventory = !!createdEquipment || alreadyHasEquipment;
+    const finalEquipmentId = createdEquipment?.id || existing.equipmentId || null;
+
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم تحديث المشتراة في ${duration}ms`);
     
     res.json({
       success: true,
-      data: { ...mp, equipmentId: createdEquipment?.id || mp.equipmentId || null, addToInventory: !!createdEquipment || alreadyHasEquipment },
+      data: { ...mp, equipmentId: finalEquipmentId, addToInventory: finalAddToInventory },
       equipmentCreated: !!createdEquipment,
       equipmentData: createdEquipment,
       message: createdEquipment

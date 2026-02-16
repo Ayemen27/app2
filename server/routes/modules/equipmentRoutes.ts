@@ -7,12 +7,9 @@ import { requireAuth } from '../../middleware/auth.js';
 const equipmentRouter = Router();
 equipmentRouter.use(requireAuth);
 
-async function generateEquipmentCode(): Promise<string> {
-  const [result] = await db.select({ maxId: sql<number>`COALESCE(MAX(id), 0)` }).from(equipment);
-  const nextNum = (result?.maxId || 0) + 1;
-  return `EQ-${String(nextNum).padStart(5, '0')}`;
+function buildEquipmentCode(id: number): string {
+  return `EQ-${String(id).padStart(5, '0')}`;
 }
-
 
 equipmentRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -86,10 +83,7 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
     }
 
-    const generatedCode = await generateEquipmentCode();
-
     const [newItem] = await db.insert(equipment).values({
-      code: generatedCode,
       name,
       sku: sku || null,
       type: type || null,
@@ -104,11 +98,17 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
       imageUrl: imageUrl || null,
     }).returning();
 
-    console.log(`✅ [Equipment] تم إضافة معدة: ${name} (ID: ${newItem.id})`);
+    const eqCode = buildEquipmentCode(newItem.id);
+    const [updatedItem] = await db.update(equipment)
+      .set({ code: eqCode })
+      .where(eq(equipment.id, newItem.id))
+      .returning();
+
+    console.log(`✅ [Equipment] تم إضافة معدة: ${name} (ID: ${newItem.id}, كود: ${eqCode})`);
 
     res.status(201).json({
       success: true,
-      data: newItem,
+      data: updatedItem,
       message: 'تم إضافة المعدة بنجاح'
     });
   } catch (error: any) {

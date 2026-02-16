@@ -121,7 +121,13 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
 
     const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, projectId, imageUrl } = req.body;
 
-    const qty = quantity !== undefined ? (parseInt(quantity) || existing.quantity) : existing.quantity;
+    let qty = existing.quantity;
+    if (quantity !== undefined) {
+      qty = parseInt(quantity);
+      if (isNaN(qty) || qty < 1) {
+        return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
+      }
+    }
 
     const [updated] = await db.update(equipment)
       .set({
@@ -199,7 +205,16 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'سبب النقل مطلوب' });
     }
 
-    const transferQty = parseInt(moveQty) || item.quantity;
+    let transferQty = item.quantity;
+    if (moveQty !== undefined) {
+      transferQty = parseInt(moveQty);
+      if (isNaN(transferQty) || transferQty < 1) {
+        return res.status(400).json({ success: false, message: 'العدد المنقول يجب أن يكون 1 على الأقل' });
+      }
+      if (transferQty > item.quantity) {
+        return res.status(400).json({ success: false, message: `العدد المنقول (${transferQty}) يتجاوز العدد المتاح (${item.quantity})` });
+      }
+    }
 
     const [movement] = await db.insert(equipmentMovements).values({
       equipmentId: id,

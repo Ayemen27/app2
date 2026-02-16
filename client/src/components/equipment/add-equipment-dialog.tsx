@@ -23,6 +23,7 @@ const equipmentSchema = z.object({
   sku: z.string().optional(),
   categoryId: z.string().optional(),
   unit: z.string().min(1, "الوحدة مطلوبة"),
+  quantity: z.coerce.number().min(1, "العدد يجب أن يكون 1 على الأقل").default(1),
   status: z.string().min(1, "حالة المعدة مطلوبة"),
   condition: z.string().min(1, "حالة الجودة مطلوبة"),
   description: z.string().optional(),
@@ -57,6 +58,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
       sku: equipment?.sku || "", 
       categoryId: equipment?.categoryId || "",
       unit: equipment?.unit || "قطعة",
+      quantity: equipment?.quantity || 1,
       status: equipment?.status || "available",
       condition: equipment?.condition || "excellent",
       description: equipment?.description || "",
@@ -147,6 +149,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
         sku: equipment.sku || "", 
         categoryId: equipment.categoryId || "",
         unit: equipment.unit || "قطعة",
+        quantity: equipment.quantity || 1,
         status: equipment.status || "available",
         condition: equipment.condition || "excellent",
         description: equipment.description || "",
@@ -225,7 +228,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
               />
             </CompactFieldGroup>
 
-            <CompactFieldGroup columns={2}>
+            <CompactFieldGroup columns={3}>
               <FormField
                 control={form.control}
                 name="unit"
@@ -240,6 +243,26 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
                         placeholder="اختر الوحدة"
                         allowCustom={true}
                         customPlaceholder="إضافة وحدة جديدة..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">العدد *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number"
+                        min={1}
+                        className="h-9 text-sm"
+                        {...field} 
+                        data-testid="input-equipment-quantity"
                       />
                     </FormControl>
                     <FormMessage />

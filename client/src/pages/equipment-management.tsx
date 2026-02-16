@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, Edit, Trash2, X, FileSpreadsheet, FileText, Printer, BarChart3, History, CheckCircle2, Download } from "lucide-react";
+import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, Edit, Trash2, X, FileSpreadsheet, FileText, Printer, BarChart3, History, CheckCircle2, Download, Package } from "lucide-react";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -28,6 +28,7 @@ interface Equipment {
   sku: string;
   type: string;
   unit: string;
+  quantity: number;
   status: string;
   condition: string;
   currentProjectId: string | null;
@@ -168,6 +169,7 @@ export function EquipmentManagement() {
 
   const stats = useMemo(() => ({
     total: Array.isArray(equipment) ? equipment.length : 0,
+    totalUnits: Array.isArray(equipment) ? equipment.reduce((sum: number, e: Equipment) => sum + (e.quantity || 1), 0) : 0,
     active: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'active' || e.status === 'available').length : 0,
     assigned: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'assigned').length : 0,
     maintenance: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0,
@@ -177,7 +179,7 @@ export function EquipmentManagement() {
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 3,
+      columns: 4,
       gap: 'sm',
       items: [
         {
@@ -186,6 +188,13 @@ export function EquipmentManagement() {
           value: stats.total,
           icon: Wrench,
           color: 'blue',
+        },
+        {
+          key: 'totalUnits',
+          label: 'إجمالي الوحدات',
+          value: stats.totalUnits,
+          icon: Package,
+          color: 'indigo',
         },
         {
           key: 'active',
@@ -398,7 +407,7 @@ export function EquipmentManagement() {
         ]
       );
       
-      const headers = ['الكود', 'اسم المعدة', 'الفئة', 'الحالة', 'الموقع', 'سعر الشراء', 'تاريخ الشراء', 'الوصف'];
+      const headers = ['الكود', 'اسم المعدة', 'العدد', 'الوحدة', 'الفئة', 'الحالة', 'الموقع', 'سعر الشراء', 'تاريخ الشراء', 'الوصف'];
       const headerRow = worksheet.addRow(headers);
       
       headers.forEach((_, index) => {
@@ -416,12 +425,14 @@ export function EquipmentManagement() {
       
       worksheet.getColumn(1).width = 15;
       worksheet.getColumn(2).width = 25;
-      worksheet.getColumn(3).width = 15;
-      worksheet.getColumn(4).width = 15;
-      worksheet.getColumn(5).width = 25;
-      worksheet.getColumn(6).width = 18;
-      worksheet.getColumn(7).width = 15;
-      worksheet.getColumn(8).width = 30;
+      worksheet.getColumn(3).width = 10;
+      worksheet.getColumn(4).width = 12;
+      worksheet.getColumn(5).width = 15;
+      worksheet.getColumn(6).width = 15;
+      worksheet.getColumn(7).width = 25;
+      worksheet.getColumn(8).width = 18;
+      worksheet.getColumn(9).width = 15;
+      worksheet.getColumn(10).width = 30;
       
       currentRow++;
 
@@ -434,6 +445,8 @@ export function EquipmentManagement() {
         const row = worksheet.addRow([
           item.code,
           item.name,
+          item.quantity || 1,
+          item.unit || 'قطعة',
           item.type || 'غير محدد',
           getStatusText(item.status),
           projectName,
@@ -551,6 +564,7 @@ export function EquipmentManagement() {
                 <tr>
                   <th>الكود</th>
                   <th>اسم المعدة</th>
+                  <th>العدد</th>
                   <th>الفئة</th>
                   <th>الحالة</th>
                   <th>الموقع</th>
@@ -567,6 +581,7 @@ export function EquipmentManagement() {
                     <tr>
                       <td>${item.code}</td>
                       <td>${item.name}</td>
+                      <td>${item.quantity || 1} ${item.unit || 'قطعة'}</td>
                       <td>${item.type || 'غير محدد'}</td>
                       <td>${getStatusText(item.status)}</td>
                       <td>${itemProjectName}</td>
@@ -694,6 +709,12 @@ export function EquipmentManagement() {
                 ]}
                 fields={[
                   {
+                    label: "العدد",
+                    value: `${item.quantity || 1} ${item.unit || 'قطعة'}`,
+                    icon: Package,
+                    emphasis: (item.quantity || 1) > 1,
+                  },
+                  {
                     label: "الموقع",
                     value: projectName,
                     icon: MapPin,
@@ -818,6 +839,18 @@ export function EquipmentManagement() {
                     </div>
                   </div>
                 )}
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-blue-500" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">العدد</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {selectedEquipment.quantity || 1} {selectedEquipment.unit || 'قطعة'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
                   <div className="flex items-center gap-2">

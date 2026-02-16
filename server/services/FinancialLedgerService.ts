@@ -79,7 +79,7 @@ export class FinancialLedgerService {
   }
 
   static async recordFundTransfer(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
-    return this.createJournalEntry({
+    const entryId = await this.createJournalEntry({
       projectId, entryDate: date,
       description: `تحويل عهدة بقيمة ${amount}`,
       sourceTable: 'fund_transfers', sourceId,
@@ -89,6 +89,8 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.FUND_TRANSFER_IN, debitAmount: 0, creditAmount: amount, description: 'تحويل عهدة وارد' },
       ]
     });
+    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: تحويل عهدة', 'fund_transfers', sourceId);
+    return entryId;
   }
 
   static async recordMaterialPurchase(projectId: string, amount: number, date: string, sourceId: string, purchaseType: string, createdBy?: string) {
@@ -118,7 +120,7 @@ export class FinancialLedgerService {
   }
 
   static async recordWorkerWage(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
-    return this.createJournalEntry({
+    const entryId = await this.createJournalEntry({
       projectId, entryDate: date,
       description: `أجر عامل بقيمة ${amount}`,
       sourceTable: 'worker_attendance', sourceId,
@@ -128,10 +130,12 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع أجر' },
       ]
     });
+    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: أجر عامل', 'worker_attendance', sourceId);
+    return entryId;
   }
 
   static async recordTransportExpense(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
-    return this.createJournalEntry({
+    const entryId = await this.createJournalEntry({
       projectId, entryDate: date,
       description: `مصاريف نقل بقيمة ${amount}`,
       sourceTable: 'transportation_expenses', sourceId,
@@ -141,10 +145,12 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع نقل' },
       ]
     });
+    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: مصاريف نقل', 'transportation_expenses', sourceId);
+    return entryId;
   }
 
   static async recordWorkerTransfer(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
-    return this.createJournalEntry({
+    const entryId = await this.createJournalEntry({
       projectId, entryDate: date,
       description: `حوالة عامل بقيمة ${amount}`,
       sourceTable: 'worker_transfers', sourceId,
@@ -154,10 +160,12 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع حوالة' },
       ]
     });
+    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: حوالة عامل', 'worker_transfers', sourceId);
+    return entryId;
   }
 
   static async recordMiscExpense(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
-    return this.createJournalEntry({
+    const entryId = await this.createJournalEntry({
       projectId, entryDate: date,
       description: `مصروف متنوع بقيمة ${amount}`,
       sourceTable: 'worker_misc_expenses', sourceId,
@@ -167,6 +175,8 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع مصروف' },
       ]
     });
+    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: مصروف متنوع', 'worker_misc_expenses', sourceId);
+    return entryId;
   }
 
   static async recordProjectTransfer(fromProjectId: string, toProjectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
@@ -191,6 +201,8 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_IN, debitAmount: 0, creditAmount: amount },
       ]
     });
+    await this.invalidateSummaries(fromProjectId, date, 'تسجيل قيد: تحويل صادر بين مشاريع', 'project_fund_transfers', sourceId);
+    await this.invalidateSummaries(toProjectId, date, 'تسجيل قيد: تحويل وارد بين مشاريع', 'project_fund_transfers', sourceId);
   }
 
   static async reverseEntry(entryId: string, reason: string, createdBy?: string) {
@@ -264,6 +276,7 @@ export class FinancialLedgerService {
 
       for (const entry of existing) {
         await this.reverseEntry(entry.id, reason, createdBy);
+        await this.invalidateSummaries(entry.projectId || '', entry.entryDate, reason, sourceTable, sourceId);
       }
       console.log(`🔄 [Ledger] عكس ${existing.length} قيد لـ ${sourceTable}/${sourceId}: ${reason}`);
       return existing[0].id;
@@ -386,6 +399,32 @@ export class FinancialLedgerService {
     return db.select().from(journalEntries)
       .where(and(...conditions))
       .orderBy(desc(journalEntries.createdAt));
+  }
+
+  static async runDailyReconciliation(): Promise<void> {
+    try {
+      const activeProjects = await db.select({ id: projects.id, name: projects.name })
+        .from(projects)
+        .where(eq(projects.status, 'active'));
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const dateStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+      console.log(`🔄 [Reconciliation] بدء المطابقة اليومية لـ ${activeProjects.length} مشروع (${dateStr})`);
+
+      for (const project of activeProjects) {
+        try {
+          await this.runReconciliation(project.id, dateStr);
+        } catch (err) {
+          console.error(`⚠️ [Reconciliation] فشل مطابقة مشروع ${project.name}:`, err);
+        }
+      }
+
+      console.log(`✅ [Reconciliation] اكتملت المطابقة اليومية`);
+    } catch (error) {
+      console.error('❌ [Reconciliation] خطأ في المطابقة التلقائية:', error);
+    }
   }
 
   static async getTrialBalance(projectId: string, upToDate?: string) {

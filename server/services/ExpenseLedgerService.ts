@@ -118,7 +118,11 @@ export class ExpenseLedgerService {
       // استخدام الكاش إذا كان متاحاً (اختياري للتحسين المتقدم)
       // Note: This is a placeholder for more advanced caching if needed.
 
-      const startDateStr = cleanDate || cleanDateFrom || new Date().toISOString().split('T')[0];
+      const getLocalDateStr = (): string => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      };
+      const startDateStr = cleanDate || cleanDateFrom || getLocalDateStr();
       
       // حساب الرصيد المرحل
       let carriedForwardBalance = 0;

@@ -289,12 +289,12 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     // تحويل المجموعات إلى مصفوفة مع حساب الإجماليات لكل (مشروع + تاريخ)
     const groupedByProjectDate = Array.from(projectDateGroups.values())
       .map(group => {
-        const totalFundTransfers = group.fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-        const totalWorkerWages = group.workerAttendance.reduce((sum, w) => sum + parseFloat(w.paidAmount || '0'), 0);
-        const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
-        const totalTransportation = group.transportationExpenses.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-        const totalWorkerTransfers = group.workerTransfers.reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
-        const totalMiscExpenses = group.miscExpenses.reduce((sum, m) => sum + parseFloat(m.amount || '0'), 0);
+        const totalFundTransfers = group.fundTransfers.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        const totalWorkerWages = group.workerAttendance.reduce((sum, w) => sum + Number(w.paidAmount || 0), 0);
+        const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => sum + Number(m.totalAmount || 0), 0);
+        const totalTransportation = group.transportationExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        const totalWorkerTransfers = group.workerTransfers.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+        const totalMiscExpenses = group.miscExpenses.reduce((sum, m) => sum + Number(m.amount || 0), 0);
 
         const totalIncome = totalFundTransfers;
         const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
@@ -310,7 +310,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           totalTransportation,
           totalWorkerTransfers,
           totalMiscExpenses,
-          remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+          remainingBalance: Number(remainingBalance.toFixed(2)),
           counts: {
             fundTransfers: group.fundTransfers.length,
             workerAttendance: group.workerAttendance.length,
@@ -328,13 +328,23 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
         return a.projectName.localeCompare(b.projectName);
       });
 
-    // حساب الإجماليات العامة
-    const overallTotalFundTransfers = fundTransfersResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
-    const overallTotalWorkerWages = workerAttendanceResult.reduce((sum: number, w: any) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum: number, m: any) => sum + parseFloat(m.totalAmount || '0'), 0);
-    const overallTotalTransportation = transportationResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
-    const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0);
-    const overallTotalMiscExpenses = miscExpensesResult.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0);
+    // حساب الإجماليات العامة باستخدام SQL SUM للدقة
+    const overallSumsQuery = await pool.query(`
+      SELECT
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers ${date ? `WHERE (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = $1::date` : ''}), 0) as total_fund_transfers,
+        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) ${date ? `AND date = $1` : ''}), 0) as total_worker_wages,
+        COALESCE((SELECT SUM(CAST(total_amount AS DECIMAL(15,2))) FROM material_purchases ${date ? `WHERE purchase_date = $1` : ''}), 0) as total_material_costs,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses ${date ? `WHERE date = $1` : ''}), 0) as total_transportation,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers ${date ? `WHERE (CASE WHEN transfer_date IS NULL OR transfer_date = '' OR transfer_date !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) = $1::date` : ''}), 0) as total_worker_transfers,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses ${date ? `WHERE date = $1` : ''}), 0) as total_misc_expenses
+    `, date ? [date] : []);
+    const overallSums = overallSumsQuery.rows[0];
+    const overallTotalFundTransfers = Number(overallSums.total_fund_transfers);
+    const overallTotalWorkerWages = Number(overallSums.total_worker_wages);
+    const overallTotalMaterialCosts = Number(overallSums.total_material_costs);
+    const overallTotalTransportation = Number(overallSums.total_transportation);
+    const overallTotalWorkerTransfers = Number(overallSums.total_worker_transfers);
+    const overallTotalMiscExpenses = Number(overallSums.total_misc_expenses);
 
     const overallTotalIncome = overallTotalFundTransfers;
     const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;

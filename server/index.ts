@@ -626,6 +626,7 @@ console.log('🌐 المنفذ:', FINAL_PORT);
 console.log('🔧 بيئة التشغيل:', NODE_ENV);
 
 import { BackupService } from "./services/BackupService";
+import { FinancialLedgerService } from "./services/FinancialLedgerService";
 
 // ... داخل الدالة الرئيسية أو عند بدء التشغيل
 (async () => {
@@ -661,6 +662,14 @@ import { BackupService } from "./services/BackupService";
           console.error("❌ Failed to start scheduler:", e);
         }
       }, 60000); // الانتظار دقيقة كاملة قبل بدء الجدولة
+
+      setInterval(() => {
+        const now = new Date();
+        if (now.getHours() === 2 && now.getMinutes() === 0) {
+          console.log("🔄 [Reconciliation] بدء المطابقة اليومية التلقائية...");
+          FinancialLedgerService.runDailyReconciliation();
+        }
+      }, 60000);
 
       // ✅ نظام فحص المخطط - يعمل بوضع القراءة فقط مع timeout
       setTimeout(async () => {

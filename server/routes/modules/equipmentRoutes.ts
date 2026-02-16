@@ -68,10 +68,15 @@ equipmentRouter.get('/:id', async (req: Request, res: Response) => {
 
 equipmentRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, sku, type, unit, status: eqStatus, condition, description, purchaseDate, purchasePrice, projectId, imageUrl } = req.body;
+    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, projectId, imageUrl } = req.body;
 
     if (!name) {
       return res.status(400).json({ success: false, message: 'اسم المعدة مطلوب' });
+    }
+
+    const qty = parseInt(quantity) || 1;
+    if (qty < 1) {
+      return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
     }
 
     const [newItem] = await db.insert(equipment).values({
@@ -79,6 +84,7 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
       sku: sku || null,
       type: type || null,
       unit: unit || 'قطعة',
+      quantity: qty,
       status: eqStatus || 'available',
       condition: condition || 'excellent',
       description: description || null,
@@ -113,7 +119,9 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'المعدة غير موجودة' });
     }
 
-    const { name, sku, type, unit, status: eqStatus, condition, description, purchaseDate, purchasePrice, projectId, imageUrl } = req.body;
+    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, projectId, imageUrl } = req.body;
+
+    const qty = quantity !== undefined ? (parseInt(quantity) || existing.quantity) : existing.quantity;
 
     const [updated] = await db.update(equipment)
       .set({
@@ -121,6 +129,7 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
         sku: sku !== undefined ? sku : existing.sku,
         type: type !== undefined ? type : existing.type,
         unit: unit !== undefined ? unit : existing.unit,
+        quantity: qty,
         status: eqStatus !== undefined ? eqStatus : existing.status,
         condition: condition !== undefined ? condition : existing.condition,
         description: description !== undefined ? description : existing.description,
@@ -184,16 +193,19 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'المعدة غير موجودة' });
     }
 
-    const { toProjectId, reason, performedBy, notes } = req.body;
+    const { toProjectId, reason, performedBy, notes, quantity: moveQty } = req.body;
 
     if (!reason) {
       return res.status(400).json({ success: false, message: 'سبب النقل مطلوب' });
     }
 
+    const transferQty = parseInt(moveQty) || item.quantity;
+
     const [movement] = await db.insert(equipmentMovements).values({
       equipmentId: id,
       fromProjectId: item.projectId || null,
       toProjectId: toProjectId || null,
+      quantity: transferQty,
       reason: reason || null,
       performedBy: performedBy || null,
       notes: notes || null,

@@ -487,6 +487,31 @@ syncRouter.get('/tables', async (_req: Request, res: Response) => {
  * 🔄 Atomic Batch Sync
  * POST /api/sync/batch
  */
+const ALLOWED_BATCH_TABLES: Record<string, string> = {
+  'fund-transfers': 'fund_transfers',
+  'fund_transfers': 'fund_transfers',
+  'worker-attendance': 'worker_attendance',
+  'worker_attendance': 'worker_attendance',
+  'transportation-expenses': 'transportation_expenses',
+  'transportation_expenses': 'transportation_expenses',
+  'material-purchases': 'material_purchases',
+  'material_purchases': 'material_purchases',
+  'worker-transfers': 'worker_transfers',
+  'worker_transfers': 'worker_transfers',
+  'worker-misc-expenses': 'worker_misc_expenses',
+  'worker_misc_expenses': 'worker_misc_expenses',
+  'projects': 'projects',
+  'workers': 'workers',
+  'suppliers': 'suppliers',
+  'materials': 'materials',
+  'wells': 'wells',
+  'project-types': 'project_types',
+  'project_types': 'project_types',
+  'supplier-payments': 'supplier_payments',
+  'supplier_payments': 'supplier_payments',
+  'autocomplete': 'autocomplete',
+};
+
 syncRouter.post('/batch', requireAuth, async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
@@ -521,7 +546,11 @@ syncRouter.post('/batch', requireAuth, async (req: Request, res: Response) => {
         throw new Error(`عملية ${i}: endpoint غير صالح: ${endpoint}`);
       }
 
-      const tableName = parts.slice(1).join('_').replace(/-/g, '_');
+      const rawTableName = parts.slice(1).join('-');
+      const tableName = ALLOWED_BATCH_TABLES[rawTableName];
+      if (!tableName) {
+        throw new Error(`عملية ${i}: جدول غير مسموح به: ${rawTableName}`);
+      }
 
       if (action === 'POST') {
         if (!payload || !payload.id) {

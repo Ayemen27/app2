@@ -259,7 +259,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 sm:w-96 p-0 border-0 shadow-2xl rounded-2xl bg-white" align="end" data-testid="notification-popover">
+      <PopoverContent className="w-80 sm:w-96 p-0 border-0 shadow-2xl rounded-2xl bg-white dark:bg-slate-900" align="end" data-testid="notification-popover">
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

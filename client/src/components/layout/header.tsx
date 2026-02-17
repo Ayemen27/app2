@@ -129,7 +129,7 @@ export default function Header() {
         </div>
       </div>
       
-      <div className="flex items-center gap-2">
+      <div className="flex flex-row-reverse items-center gap-2">
         <Button
           variant="outline"
           size="icon"

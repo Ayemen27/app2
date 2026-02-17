@@ -118,18 +118,18 @@ export default function Header() {
   };
 
   return (
-    <div className="flex items-center justify-between h-full w-full">
+    <div className="flex items-center justify-between h-full w-full" dir="rtl">
       <div className="flex items-center gap-3">
         <div className="bg-primary/10 p-1.5 rounded-lg text-primary">
           <PageIcon className="h-5 w-5" />
         </div>
-        <div className="flex flex-col justify-center">
+        <div className="flex flex-col justify-center text-right">
           <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white">{currentPage.title}</h1>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">AXION SYSTEM</p>
         </div>
       </div>
       
-      <div className="flex flex-row-reverse items-center gap-2">
+      <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"
@@ -140,6 +140,7 @@ export default function Header() {
             isPermissionGranted ? "text-primary" : "text-slate-400"
           )}
           title={isPermissionGranted ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}
+          data-testid="button-push-toggle"
         >
           <BellRing className="h-4 w-4" />
         </Button>
@@ -152,6 +153,7 @@ export default function Header() {
           onClick={toggleTheme}
           className="h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50"
           title={theme === 'light' ? 'الوضع الليلي' : 'الوضع النهاري'}
+          data-testid="button-theme-toggle"
         >
           {theme === 'light' ? (
             <Moon className="h-4 w-4 text-slate-700" />
@@ -167,18 +169,19 @@ export default function Header() {
               size="icon" 
               className="h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50"
               title={selectedProjectId ? (selectedProjectId === ALL_PROJECTS_ID ? ALL_PROJECTS_NAME : selectedProjectName) : "اختر مشروعاً"}
+              data-testid="button-project-selector"
             >
               <FolderOpen className="h-4 w-4 text-primary" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 max-h-80">
+          <DropdownMenuContent align="start" className="w-64 max-h-80" dir="rtl">
             <DropdownMenuLabel className="text-right">اختيار المشروع</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {projectsLoading ? (
               <div className="p-4 text-center text-xs">جاري التحميل...</div>
             ) : (
               <>
-                <DropdownMenuItem onClick={() => handleProjectSelect(ALL_PROJECTS_ID, ALL_PROJECTS_NAME)} className="flex justify-between">
+                <DropdownMenuItem onClick={() => handleProjectSelect(ALL_PROJECTS_ID, ALL_PROJECTS_NAME)} className="flex justify-between items-center text-right">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-blue-600" />
                     <span>{ALL_PROJECTS_NAME}</span>
@@ -186,7 +189,7 @@ export default function Header() {
                   {selectedProjectId === ALL_PROJECTS_ID && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                 </DropdownMenuItem>
                 {projects.map((p) => (
-                  <DropdownMenuItem key={p.id} onClick={() => handleProjectSelect(p.id.toString(), p.name)} className="flex justify-between">
+                  <DropdownMenuItem key={p.id} onClick={() => handleProjectSelect(p.id.toString(), p.name)} className="flex justify-between items-center text-right">
                     <span>{p.name}</span>
                     {selectedProjectId === p.id.toString() && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                   </DropdownMenuItem>

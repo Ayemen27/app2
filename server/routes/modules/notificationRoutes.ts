@@ -243,22 +243,23 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
 });
 
 /**
- * 📥 إنشاء إشعار جديد (للمهام وغيرها)
- * POST /api/notifications/task
+ * 📥 إنشاء إشعار جديد (للمهام، السلامة وغيرها)
+ * POST /api/notifications/:type (مثل task, safety)
  */
-notificationRouter.post('/task', async (req: Request, res: Response) => {
+notificationRouter.post('/:type(task|safety|system)', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
     const userId = req.user?.userId || req.user?.email || null;
-    const { type, title, body, priority, recipientType, recipients, projectId } = req.body;
+    const type = req.params.type || req.body.type || 'task';
+    const { title, body, priority, recipientType, recipients, projectId } = req.body;
 
-    console.log(`📝 [API] إنشاء إشعار جديد من المستخدم: ${userId}`);
+    console.log(`📝 [API] إنشاء إشعار جديد (${type}) من المستخدم: ${userId}`);
 
     const notificationData = {
-      type: type || 'task',
+      type: type,
       title: title,
       body: body,
       priority: priority || 3,
@@ -272,7 +273,7 @@ notificationRouter.post('/task', async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: notification,
-      message: "تم إنشاء الإشعار بنجاح",
+      message: `تم إنشاء إشعار ${type} بنجاح`,
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {

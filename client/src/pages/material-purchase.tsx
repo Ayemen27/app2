@@ -80,6 +80,8 @@ export default function MaterialPurchase() {
   const [purchaseDate, setPurchaseDate] = useState<string>(getCurrentDate());
   const [notes, setNotes] = useState<string>("");
   const [invoicePhoto, setInvoicePhoto] = useState<string>("");
+  const [paidAmount, setPaidAmount] = useState<string>("0");
+  const [remainingAmount, setRemainingAmount] = useState<string>("0");
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [addToInventory, setAddToInventory] = useState<boolean>(false);
 

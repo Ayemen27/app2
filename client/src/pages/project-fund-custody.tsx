@@ -322,7 +322,7 @@ export default function ProjectFundCustody() {
         }
       ]
     }
-  ], [stats, summary]);
+  ], [stats, totals]);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">

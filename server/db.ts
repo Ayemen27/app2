@@ -195,6 +195,10 @@ try {
                 const q = query.toQuery();
                 text = q.text;
                 values = q.values;
+              } else if (query && query.inlineParams) {
+                // Handle cases where the query object has inlineParams (common in some Drizzle versions/proxies)
+                text = query.sql || '';
+                values = query.params || [];
               } else if (query && query.sql && query.params) {
                 text = query.sql;
                 values = query.params;

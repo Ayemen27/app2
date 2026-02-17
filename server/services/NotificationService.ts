@@ -579,7 +579,6 @@ export class NotificationService {
     console.log(`✅ بدء تعليم الإشعار كمقروء: ${notificationId} للمستخدم: ${userId}`);
 
     try {
-      // استخدام استعلامات مباشرة لتجنب مشاكل Drizzle Proxy
       // 1. حذف السجل الموجود إن وجد لضمان عدم وجود تكرار
       await db.execute(sql`DELETE FROM notification_read_states WHERE user_id = ${userId} AND notification_id = ${notificationId}`);
       

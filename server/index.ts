@@ -32,7 +32,7 @@ import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middl
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
 import { db, checkDBConnection, getConnectionHealthStatus, smartReconnect } from './db.js';
-import { validateSchemaIntegrity } from "./schema-validator";
+import { runStartupValidation, getSchemaStatus } from "./services/schema-guard";
 import { users } from '@shared/schema';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -623,8 +623,8 @@ const NODE_ENV = envConfig.NODE_ENV;
 console.log('🚀 بدء تشغيل الخادم...');
 console.log('📂 مجلد العمل:', process.cwd());
 
-// فحص سلامة المخطط عند التشغيل
-validateSchemaIntegrity().catch(err => console.error('Schema validation failed:', err));
+// فحص سلامة المخطط عند التشغيل (خدمة موحّدة)
+runStartupValidation();
 console.log('🌐 المنفذ:', FINAL_PORT);
 console.log('🔧 بيئة التشغيل:', NODE_ENV);
 
@@ -677,33 +677,18 @@ import { FinancialLedgerService } from "./services/FinancialLedgerService";
       // ✅ نظام فحص المخطط - يعمل بوضع القراءة فقط مع timeout
       setTimeout(async () => {
         const SCHEMA_CHECK_TIMEOUT = 15000; // 15 ثانية كحد أقصى
-        console.log('🔍 [Schema Check] بدء فحص توافق المخطط مع قاعدة البيانات...');
-        
-        const timeoutPromise = new Promise<null>((_, reject) => {
-          setTimeout(() => reject(new Error('Schema check timeout')), SCHEMA_CHECK_TIMEOUT);
-        });
-        
+        console.log('🔍 [Schema Check] فحص إضافي بعد اتصال قاعدة البيانات...');
         try {
-          const result = await Promise.race([runSchemaCheck(), timeoutPromise]) as any;
-          if (result) {
-            if (result.isConsistent) {
-              console.log('✅ [Schema Check] المخطط متوافق تماماً مع قاعدة البيانات');
-            } else {
-              console.log(`⚠️ [Schema Check] اختلافات: ${(result.missingTables || []).length} جداول مفقودة، ${(result.missingColumns || []).length} أعمدة مفقودة`);
-              if (result.issues && result.issues.length > 0) {
-                console.log('   أول 3 مشاكل:');
-                result.issues.slice(0, 3).forEach((issue: any) => {
-                  console.log(`   - [${issue.severity}] ${issue.description}`);
-                });
-              }
-            }
+          const { validateSchemaIntegrity } = await import('./services/schema-guard');
+          const result = await Promise.race([
+            validateSchemaIntegrity(),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), SCHEMA_CHECK_TIMEOUT))
+          ]);
+          if (result && result.isConsistent) {
+            console.log('✅ [Schema Check] المخطط متوافق تماماً مع قاعدة البيانات');
           }
         } catch (error: any) {
-          if (error.message === 'Schema check timeout') {
-            console.log('⏱️ [Schema Check] تم تجاوز وقت الفحص - سيستمر الخادم بدون انتظار');
-          } else {
-            console.error('⚠️ [Schema Check] خطأ في الفحص:', error.message);
-          }
+          console.warn('⚠️ [Schema Check] خطأ في الفحص:', error.message);
         }
       }, 3000);
     });

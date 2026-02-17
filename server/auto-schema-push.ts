@@ -1,15 +1,20 @@
-/**
- * دالة التحقق من توافق المخطط - معطلة في وضع الأوفلاين الكامل
- */
+import { validateSchemaIntegrity, getSchemaStatus } from "./services/schema-guard";
+
 export async function runSchemaCheck() {
-  console.log('✅ [Absolute-Offline] تخطي فحص المخطط (Schema Check)');
-  return { isConsistent: true, issues: [] };
+  const result = await validateSchemaIntegrity();
+  return {
+    isConsistent: result.isConsistent,
+    issues: [
+      ...result.missingInDb.map(t => `جدول "${t}" معرّف في الكود لكنه غير موجود في قاعدة البيانات`),
+      ...result.missingInSchema.map(t => `جدول "${t}" موجود في قاعدة البيانات لكنه غير معرّف في الكود`),
+    ]
+  };
 }
 
 export async function checkSchemaConsistency() {
-  return { isConsistent: true, issues: [] };
+  return runSchemaCheck();
 }
 
 export function getAutoPushStatus() {
-  return { lastPush: new Date().toISOString(), success: true };
+  return getSchemaStatus();
 }

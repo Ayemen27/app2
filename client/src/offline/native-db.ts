@@ -82,9 +82,7 @@ class SQLiteStorage {
       'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
       'reportTemplates',
       'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
-      'accounts', 'transactions', 'transaction_lines', 'journals',
-      'finance_payments', 'finance_events', 'account_balances',
-      'equipment', 'equipmentMovements', 'expenses'
+      'equipment', 'equipmentMovements'
     ];
 
     for (const store of ALL_STORES) {

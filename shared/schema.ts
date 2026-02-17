@@ -27,6 +27,7 @@ export const users = pgTable("users", {
   gender: text("gender"),
   role: text("role").notNull().default("admin"), 
   isActive: boolean("is_active").default(true).notNull(),
+  notificationsEnabled: boolean("notifications_enabled").default(false).notNull(), 
   emailVerifiedAt: timestamp("email_verified_at"), 
   totpSecret: text("totp_secret"), 
   mfaEnabled: boolean("mfa_enabled").default(false).notNull(), 

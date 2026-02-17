@@ -1,12 +1,14 @@
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, RefreshCw, Database, Sun, Moon } from "lucide-react";
+import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, RefreshCw, Database, Sun, Moon, BellRing } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useAuth } from "@/components/AuthProvider";
+import { usePush } from "@/hooks/usePush";
 import { useQuery } from "@tanstack/react-query";
 import { useSelectedProject, ALL_PROJECTS_ID, ALL_PROJECTS_NAME } from "@/hooks/use-selected-project";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +55,7 @@ export default function Header() {
   const { toast } = useToast();
   const { selectedProjectId, selectedProjectName, selectProject } = useSelectedProject();
   const [syncState, setSyncState] = useState({ isOnline: true, pendingCount: 0 });
+  const { isPermissionGranted, requestPushPermission, isInitializing } = usePush();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -106,6 +109,14 @@ export default function Header() {
     toast({ title: "تم تحديد المشروع", description: projectName });
   };
 
+  const handlePushToggle = async () => {
+    if (isPermissionGranted) {
+      toast({ title: "الإشعارات مفعّلة", description: "لقد منحت الإذن مسبقاً." });
+      return;
+    }
+    await requestPushPermission();
+  };
+
   return (
     <div className="flex items-center justify-between h-full w-full">
       <div className="flex items-center gap-3">
@@ -119,6 +130,20 @@ export default function Header() {
       </div>
       
       <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handlePushToggle}
+          disabled={isInitializing}
+          className={cn(
+            "h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50",
+            isPermissionGranted ? "text-primary" : "text-slate-400"
+          )}
+          title={isPermissionGranted ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}
+        >
+          <BellRing className="h-4 w-4" />
+        </Button>
+
         <NotificationCenter />
         
         <Button

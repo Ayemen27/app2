@@ -86,9 +86,7 @@ export function LayoutShell({
                   <SidebarTrigger className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" />
                   <div className="flex-1 overflow-hidden text-slate-900 dark:text-white flex items-center justify-between">
                     <Header />
-                    <div className="flex items-center gap-2">
-                      <EnvironmentBadge />
-                    </div>
+                    {/* EnvironmentBadge removed */}
                   </div>
                 </div>
               </header>

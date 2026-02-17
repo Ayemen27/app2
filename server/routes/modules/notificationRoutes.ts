@@ -26,6 +26,38 @@ notificationRouter.use(requireAuth);
  * GET /api/notifications
  * يدعم query parameters للفلترة والترقيم: limit, offset, type, unreadOnly, projectId
  */
+/**
+ * 🔑 تسجيل توكن الإشعارات وتحديث حالة التفعيل
+ * POST /api/push/token
+ */
+notificationRouter.post('/push/token', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+    const userId = req.user?.userId || req.user?.email;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "غير مخول" });
+    }
+
+    const { db } = await import('../../db');
+    const { users } = await import('../../../shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    await db.update(users)
+      .set({ 
+        fcmToken: token,
+        notificationsEnabled: true,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId as string));
+
+    res.json({ success: true, message: "تم تسجيل التوكن وتفعيل الإشعارات بنجاح" });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في تسجيل توكن الإشعارات:', error);
+    res.status(500).json({ success: false, message: "فشل في تسجيل التوكن" });
+  }
+});
+
 notificationRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService');

@@ -575,38 +575,21 @@ export class NotificationService {
     }
   }
 
-  /**
-   * تعليم إشعار كمقروء - حل مبسط
-   */
   async markAsRead(notificationId: string, userId: string): Promise<void> {
     console.log(`✅ بدء تعليم الإشعار كمقروء: ${notificationId} للمستخدم: ${userId}`);
 
     try {
-      // حذف السجل الموجود أولاً (إن وجد)
-      const deleteResult = await db.execute(sql`
-        DELETE FROM notification_read_states 
-        WHERE user_id = ${userId} AND notification_id = ${notificationId}
-      `);
-      console.log(`🗑️ تم حذف ${deleteResult.rowCount || 0} سجل سابق`);
+      // استخدام استعلامات مباشرة لتجنب مشاكل Drizzle Proxy
+      // 1. حذف السجل الموجود إن وجد لضمان عدم وجود تكرار
+      await db.execute(sql`DELETE FROM notification_read_states WHERE user_id = ${userId} AND notification_id = ${notificationId}`);
       
-      // إدراج سجل جديد (بدون action_taken المفقود)
-      const insertResult = await db.execute(sql`
-        INSERT INTO notification_read_states (user_id, notification_id, is_read, read_at)
-        VALUES (${userId}, ${notificationId}, true, NOW())
-      `);
-      console.log(`➕ تم إدراج سجل جديد: ${insertResult.rowCount || 0} صف`);
-      
-      // تحقق من الحفظ
-      const verifyResult = await db.execute(sql`
-        SELECT * FROM notification_read_states 
-        WHERE user_id = ${userId} AND notification_id = ${notificationId}
-      `);
-      console.log(`🔍 تحقق من الحفظ: تم العثور على ${verifyResult.rows.length} سجل`);
+      // 2. إدراج السجل الجديد
+      await db.execute(sql`INSERT INTO notification_read_states (user_id, notification_id, is_read, read_at) VALUES (${userId}, ${notificationId}, true, NOW())`);
       
       console.log(`✅ تم تعليم الإشعار ${notificationId} كمقروء بنجاح`);
     } catch (error) {
       console.error(`❌ خطأ في تعليم الإشعار ${notificationId} كمقروء:`, error);
-      throw error; // أرمي الخطأ بدلاً من تجاهله لأرى السبب
+      throw error;
     }
   }
 

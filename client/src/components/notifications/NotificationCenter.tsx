@@ -409,6 +409,5 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         )}
       </PopoverContent>
     </Popover>
-    </>
   );
 }

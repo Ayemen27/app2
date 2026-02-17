@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, X, Clock, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { Bell, X, Clock, AlertCircle, Info, AlertTriangle, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,6 +9,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { cn } from '@/lib/utils';
 import { Link } from 'wouter';
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { usePush } from "@/hooks/usePush";
+import { useToast } from "@/hooks/use-toast";
 
 interface Notification {
   id: string;
@@ -46,6 +48,8 @@ const typeIcons = {
 
 export function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const { isPermissionGranted, requestPushPermission, isInitializing } = usePush();
+  const { toast } = useToast();
 
   // جلب الإشعارات مع الطباعة الصحيحة
   const { data: notifications = [], isLoading, error, refetch } = useQuery<Notification[]>({
@@ -210,7 +214,22 @@ export function NotificationsDropdown() {
               )}
               
               {/* Footer */}
-              <div className="border-t p-4">
+              <div className="border-t p-4 space-y-2">
+                {!isPermissionGranted && (
+                  <Button 
+                    variant="default" 
+                    className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={async () => {
+                      await requestPushPermission();
+                    }}
+                    disabled={isInitializing}
+                    data-testid="button-enable-push"
+                  >
+                    <BellRing className="h-4 w-4" />
+                    تفعيل الإشعارات (مهم للمهندس)
+                  </Button>
+                )}
+                
                 <Link href="/notifications">
                   <Button 
                     variant="outline" 

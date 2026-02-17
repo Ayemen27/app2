@@ -130,21 +130,6 @@ export default function Header() {
       </div>
       
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handlePushToggle}
-          disabled={isInitializing}
-          className={cn(
-            "h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50",
-            isPermissionGranted ? "text-primary" : "text-slate-400"
-          )}
-          title={isPermissionGranted ? "الإشعارات مفعّلة" : "تفعيل الإشعارات"}
-          data-testid="button-push-toggle"
-        >
-          <BellRing className="h-4 w-4" />
-        </Button>
-
         <NotificationCenter />
         
         <Button

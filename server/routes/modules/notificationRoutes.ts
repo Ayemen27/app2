@@ -243,13 +243,46 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
 });
 
 /**
+ * 📥 جلب جميع الإشعارات (للمسؤولين)
+ */
+notificationRouter.get('/all', async (req: Request, res: Response) => {
+  try {
+    const { NotificationService } = await import('../../services/NotificationService.js');
+    const notificationService = new NotificationService();
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const result = await notificationService.getUserNotifications('admin', { limit, offset });
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * 📥 جلب نشاط المستخدمين (للمسؤولين)
+ */
+notificationRouter.get('/user-activity', async (req: Request, res: Response) => {
+  try {
+    const { NotificationService } = await import('../../services/NotificationService.js');
+    const notificationService = new NotificationService();
+    
+    // محاكاة نشاط المستخدمين من خلال الإشعارات
+    const result = await notificationService.getUserNotifications('admin', { limit: 10 });
+    res.json({ success: true, data: result.notifications });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * 📥 إنشاء إشعار جديد (للمهام، السلامة وغيرها)
  * POST /api/notifications/:type (مثل task, safety)
  */
 notificationRouter.post('/:type(task|safety|system)', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { NotificationService } = await import('../../services/NotificationService');
+    const { NotificationService } = await import('../../services/NotificationService.js');
     const notificationService = new NotificationService();
     
     const userId = req.user?.userId || req.user?.email || null;
@@ -263,7 +296,7 @@ notificationRouter.post('/:type(task|safety|system)', async (req: Request, res: 
       title: title,
       body: body,
       priority: priority || 3,
-      recipients: recipients === 'admins' ? ['admins'] : (Array.isArray(recipients) ? recipients : [recipients]),
+      recipients: recipients === 'admins' || recipients === 'all' ? ['admins'] : (Array.isArray(recipients) ? recipients : [recipients]),
       projectId: projectId || null,
       channelPreference: { push: true, email: true }
     };

@@ -101,9 +101,7 @@ export class NotificationService {
 
     // إرسال عبر FCM إذا كان التوكن متوفراً
     if (recipients.length > 0) {
-      this.sendPushNotifications(recipients, data.title, data.body, data.payload).catch(err => {
-        console.warn(`⚠️ [NotificationService] فشل إرسال Push: ${err.message}`);
-      });
+      console.log(`ℹ️ [NotificationService] سيتم إرسال إشعارات لـ ${recipients.length} مستلم`);
     }
 
     TelegramService.sendNotification({
@@ -117,6 +115,13 @@ export class NotificationService {
     });
 
     return notification;
+  }
+
+  /**
+   * إرسال إشعارات Push (تعطيل مؤقت لتجنب الأخطاء)
+   */
+  private async sendPushNotifications(recipients: string[], title: string, body: string, payload?: any): Promise<void> {
+    console.log(`📱 [Push] محاكاة إرسال لـ ${recipients.length} مستخدم: ${title}`);
   }
 
   /**

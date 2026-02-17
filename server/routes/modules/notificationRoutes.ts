@@ -58,6 +58,7 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
+      data: result.notifications,
       notifications: result.notifications,
       count: result.total,
       unreadCount: result.unreadCount,
@@ -253,7 +254,12 @@ notificationRouter.get('/all', async (req: Request, res: Response) => {
     const offset = parseInt(req.query.offset as string) || 0;
 
     const result = await notificationService.getUserNotifications('admin', { limit, offset });
-    res.json({ success: true, ...result });
+    res.json({ 
+      success: true, 
+      data: result.notifications,
+      notifications: result.notifications,
+      ...result 
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

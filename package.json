@@ -35,6 +35,7 @@
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",
     "@neondatabase/serverless": "^0.10.4",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.212.0",
     "@opentelemetry/instrumentation": "^0.211.0",
     "@opentelemetry/instrumentation-express": "^0.59.0",
     "@opentelemetry/instrumentation-http": "^0.211.0",

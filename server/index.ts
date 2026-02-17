@@ -3,10 +3,17 @@ import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { registerInstrumentations } from "@opentelemetry/instrumentation";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 import { ExpressInstrumentation } from "@opentelemetry/instrumentation-express";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
 
-// Initialize OpenTelemetry
+// Initialize OpenTelemetry with SigNoz OTLP Exporter
 const provider = new NodeTracerProvider();
+const exporter = new OTLPTraceExporter({
+  url: "http://localhost:4318/v1/traces", // SigNoz OTLP HTTP receiver
+});
+provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
 provider.register();
+
 registerInstrumentations({
   instrumentations: [
     new HttpInstrumentation(),

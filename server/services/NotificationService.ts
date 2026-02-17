@@ -555,7 +555,7 @@ export class NotificationService {
       console.log('🔧 التأكد من وجود جدول notification_read_states (بدون حذف البيانات)...');
       
       // إنشاء الجدول فقط إذا لم يكن موجوداً (بدون حذف البيانات الموجودة)
-      await db.execute(sql`
+      await db.execute(sql.raw(`
         CREATE TABLE IF NOT EXISTS notification_read_states (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
           user_id VARCHAR NOT NULL,
@@ -566,7 +566,7 @@ export class NotificationService {
           created_at TIMESTAMP DEFAULT NOW() NOT NULL,
           UNIQUE(user_id, notification_id)
         )
-      `);
+      `));
       
       console.log('✅ تم التأكد من وجود جدول notification_read_states (البيانات محفوظة)');
     } catch (error) {

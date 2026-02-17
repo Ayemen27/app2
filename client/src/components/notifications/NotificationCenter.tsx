@@ -211,8 +211,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   useEffect(() => {
     fetchNotifications();
 
-    // تحديث الإشعارات كل 5 دقائق لتقليل الحمولة
-    const interval = setInterval(fetchNotifications, 300000);
+    // تحديث الإشعارات كل 30 ثانية لضمان التحديث الفوري
+    const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -233,27 +233,24 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   };
 
   return (
-    <>
-      <PushTestButton />
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
+          size="icon"
           className={cn(
-            "relative p-2 h-10 w-10 rounded-xl transition-all duration-300 hover:bg-blue-50 hover:shadow-lg border border-transparent hover:border-blue-200",
-            className,
-            unreadCount > 0 && "bg-blue-50 border-blue-200 shadow-md"
+            "relative h-9 w-9 rounded-xl transition-all duration-300 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800",
+            className
           )}
           data-testid="notification-bell"
         >
           <Bell className={cn(
-            "h-5 w-5 transition-all duration-300",
-            unreadCount > 0 ? "text-blue-600 animate-pulse" : "text-gray-600"
+            "h-4 w-4 transition-all duration-300",
+            unreadCount > 0 ? "text-primary" : "text-slate-600 dark:text-slate-400"
           )} />
           {unreadCount > 0 && (
             <Badge
-              className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 text-xs font-bold bg-gradient-to-r from-red-500 to-red-600 shadow-lg animate-bounce"
+              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center font-bold bg-red-500 text-white border-white dark:border-slate-900 border-2 shadow-sm z-10"
               data-testid="notification-badge"
             >
               {unreadCount > 99 ? '99+' : unreadCount}

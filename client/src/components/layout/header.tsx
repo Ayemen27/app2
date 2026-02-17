@@ -2,7 +2,6 @@ import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, Use
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { PushTestButton } from "@/components/push-test-button";
 import { useAuth } from "@/components/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { useSelectedProject, ALL_PROJECTS_ID, ALL_PROJECTS_NAME } from "@/hooks/use-selected-project";
@@ -20,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@shared/schema";
-import { SyncStatusHeader } from "@/components/SyncStatusHeader";
 import { subscribeSyncState } from "@/offline/sync";
 
 const pageInfo: Record<string, { title: string; icon: any }> = {

@@ -25,7 +25,9 @@ export function PushTestButton() {
 
   const handleRequestPermission = async () => {
     setStatus("loading");
+    console.log("🔔 [PushTestButton] محاولة طلب إذن التنبيهات...");
     const success = await requestPushPermission();
+    console.log("🔔 [PushTestButton] نتيجة طلب الإذن:", success);
     setStatus(success ? "success" : "error");
     if (success) {
       setTimeout(() => setShowPopup(false), 1500);

@@ -7,6 +7,7 @@ import express from 'express';
 import type { Express } from "express";
 
 // استيراد جميع الـ routers المنظمة
+import authRouter from './authRoutes.js';
 import healthRouter from './healthRoutes.js';
 import projectRouter from './projectRoutes.js';
 import { projectTypeRouter } from './projectTypeRoutes.js';
@@ -43,7 +44,8 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api', healthRouter);
   app.use('/api/admin', healthRouter);
 
-  // ملاحظة: تم نقل مسارات المصادقة إلى routes/auth.ts لتجنب التضارب
+  // تسجيل مسارات المصادقة والمستخدمين
+  app.use('/api', authRouter);
 
   // مسارات autocomplete - منطق مختلط (عام/محمي)
   app.use('/api/autocomplete', autocompleteRouter);

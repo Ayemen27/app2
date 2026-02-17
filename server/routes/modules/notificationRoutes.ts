@@ -243,6 +243,50 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
 });
 
 /**
+ * 📥 إنشاء إشعار جديد (للمهام وغيرها)
+ * POST /api/notifications/task
+ */
+notificationRouter.post('/task', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { NotificationService } = await import('../../services/NotificationService');
+    const notificationService = new NotificationService();
+    
+    const userId = req.user?.userId || req.user?.email || null;
+    const { type, title, body, priority, recipientType, recipients, projectId } = req.body;
+
+    console.log(`📝 [API] إنشاء إشعار جديد من المستخدم: ${userId}`);
+
+    const notificationData = {
+      type: type || 'task',
+      title: title,
+      body: body,
+      priority: priority || 3,
+      recipients: recipients === 'admins' ? ['admins'] : (Array.isArray(recipients) ? recipients : [recipients]),
+      projectId: projectId || null,
+      channelPreference: { push: true, email: true }
+    };
+
+    const notification = await notificationService.createNotification(notificationData);
+
+    res.json({
+      success: true,
+      data: notification,
+      message: "تم إنشاء الإشعار بنجاح",
+      processingTime: Date.now() - startTime
+    });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في إنشاء الإشعار:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "فشل في إنشاء الإشعار",
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+
+/**
  * 🧪 إنشاء إشعار جديد للاختبار (محمي للمصادقة والإدارة فقط)
  * POST /api/test/notifications/create
  * للمشرفين فقط - لإنشاء إشعارات تجريبية

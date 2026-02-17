@@ -339,6 +339,34 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 });
 
 /**
+ * 👥 جلب قائمة المستخدمين
+ * GET /api/users
+ */
+authRouter.get('/users', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { includeRole } = req.query;
+    console.log('👥 [AUTH] طلب جلب قائمة المستخدمين', { includeRole });
+
+    const result = await db.execute({
+      text: 'SELECT id, email, full_name as "fullName", role, is_active as "isActive" FROM users WHERE is_active = true ORDER BY full_name ASC'
+    });
+
+    res.json({
+      success: true,
+      users: result.rows,
+      message: 'تم جلب المستخدمين بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ [AUTH] خطأ في جلب المستخدمين:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم أثناء جلب المستخدمين',
+      error: error.message
+    });
+  }
+});
+
+/**
  * 🚪 تسجيل الخروج
  * POST /api/auth/logout
  */

@@ -121,22 +121,8 @@ export default function Header() {
       </div>
       
       <div className="flex items-center gap-2">
-        <SyncStatusHeader />
+        <NotificationCenter />
         
-        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800">
-          {isOnline ? (
-            <Cloud className="h-4 w-4 text-green-500" />
-          ) : (
-            <CloudOff className="h-4 w-4 text-yellow-500" />
-          )}
-          {pendingCount > 0 && (
-            <div className="flex items-center gap-1 border-r border-slate-200 dark:border-slate-700 pr-1 mr-1">
-              <RefreshCw className="h-3 w-3 animate-spin text-primary" />
-              <span className="text-[10px] font-bold text-primary">{pendingCount}</span>
-            </div>
-          )}
-        </div>
-
         <Button
           variant="outline"
           size="icon"

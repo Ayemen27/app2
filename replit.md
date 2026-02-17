@@ -1,66 +1,20 @@
-# AXION - نظام إدارة مشاريع المقاولات
+# مشروع نظام مراقبة أندرويد المتكامل (Android Monitoring System)
 
-### Overview
-AXION is a comprehensive project management system for contracting businesses. It aims to streamline operations, enhance financial tracking, and improve overall project efficiency. The system covers authentication, project management, workforce administration, supplier and procurement management, well management, simplified equipment tracking, unified notifications, AI-powered interactions, robust backup solutions, integrated reporting, and a double-entry ledger system.
+## نظرة عامة
+نظام متطور لمراقبة أداء وأخطاء تطبيقات أندرويد باستخدام معايير OpenTelemetry (OTLP) و SigNoz.
 
-### User Preferences
-- اللغة: العربية فقط - لا يفهم الإنجليزية
-- النهج: احترافي مع مراجعة معمارية
-- الأولوية: التنظيف والدمج قبل إضافة ميزات جديدة
-- **Critical Rule**: All responses should be in Arabic only.
-- **Professionalism & Precision**:
-    - No evasion, generalization, or uncertain answers.
-    - Analytical step-by-step thinking before responding.
-    - Explicitly state if information is missing or if knowledge is incomplete.
-    - Propose realistic, executable, and sometimes unconventional solutions when standard ones fail.
-    - No flattery or trying to please the user at the expense of truth. Present reality as it is.
-- **Critical Rule**: Do not use raw `<textarea>` or `<input>` for text input. Always use `Textarea` and `Input` components from `@/components/ui`. Any input field not supporting auto-height or showing a scrollbar before max-height is a bug. All input fields must have consistent behavior.
-- **Critical Rule**: For React Query, use `QUERY_KEYS.xxx` or `QUERY_KEYS.xxx(param)` from `client/src/constants/queryKeys.ts`. Do not use direct string query keys. Invalidate cache only with specific query keys, e.g., `invalidateQueries({ queryKey: QUERY_KEYS.specific, refetchType: 'active' })`. Never use `invalidateQueries()` without a specific `queryKey`.
+## الحالة الراهنة (فبراير 2026)
+- **البنية التحتية**: SigNoz مهيأ عبر Docker Compose.
+- **المعايير**: الالتزام بمعيار OTLP وتشفير TLS 1.3.
+- **الواجهة الإدارية**: موجودة في مجلد `www` وتستخدم Shadcn UI.
 
-### System Architecture
-The system is built as a full-stack JavaScript application using:
-- **Frontend**: Vite, React, shadcn/ui, TailwindCSS. UI components are standardized using `shadcn/ui`.
-- **Backend**: Express.js, Socket.IO.
-- **Database**: PostgreSQL with Drizzle ORM.
-- **Shared**: Data models and types are defined in `shared/schema.ts`.
-- **Key Features**:
-    - **Authentication & Security**: Login/logout, JWT, permissions, audit logs.
-    - **Project Management**: CRUD operations, project types, financial transfers.
-    - **Worker Management**: Attendance, wages, transfers, petty cash, settlements.
-    - **Suppliers & Procurement**: Supplier, material, procurement, payment management.
-    - **Well Management**: Wells, tasks, accounting, expenses, auditing.
-    - **Equipment**: Basic equipment tracking and inter-project transfers.
-    - **Unified Notifications**: Single notification system with read statuses.
-    - **AI**: Chat, messaging, usage statistics.
-    - **Backup**: Manual/automatic backups, history logs.
-    - **Reporting**: Centralized `/reports` endpoint.
-    - **Ledger System**: Double-entry bookkeeping, chart of accounts, financial audit, automatic reconciliation.
-- **Technical Standards**: Adheres to `fullstack_js` guidelines, uses `shadcn/ui` components, `data-testid` attributes for testing, and all system responses are in Arabic.
-- **React Query Architecture**: Centralized query keys in `client/src/constants/queryKeys.ts` and API endpoints in `client/src/constants/api.ts`. Enforces strict rules against direct string query keys and encourages scoped cache invalidation. Dynamic keys use dedicated functions.
-- **Pull to Refresh System**: Implemented using `client/src/hooks/use-pull-to-refresh.ts`, `client/src/components/ui/pull-to-refresh.tsx`, and `client/src/constants/pullRefreshConfig.ts`. Integrates with React Query `refetchQueries` and is active on 27 pages, excluding login, register, settings, and security. Features include parallel refresh prevention, minimum spinner duration, toast notifications on failure, and RTL support.
-- **Financial Architecture**: A unified double-entry ledger system with 6 tables (`account_types`, `journal_entries`, `journal_lines`, `financial_audit_log`, `reconciliation_records`, `summary_invalidations`), `FinancialLedgerService` for writing, and `ExpenseLedgerService` for reading reports. All financial paths are integrated with `safeRecord` calls across `financialRoutes.ts` and `workerRoutes.ts` for consistent double-entry recording, ensuring non-blocking operations.
-- **Schema Guard System**: Unified schema validation service at `server/services/schema-guard.ts`. Performs bidirectional schema-DB consistency checks at startup and via `/api/health/schema-check` (admin only). Uses raw SQL strings (not Drizzle `sql` template) due to db proxy limitations. Old files (`schema-validator.ts`, `auto-schema-push.ts`) are thin wrappers. Key exports: `validateSchemaIntegrity()`, `runStartupValidation()`, `getSchemaStatus()`. db:push is disabled - use direct SQL for DB changes.
-- **Rate Limiting**: `generalRateLimit` is active (5000 requests/15 minutes) with a custom JSON handler.
-- **Sync Audit System**: Server-side immutable audit log (`sync_audit_logs` table) with `SyncAuditService` for automatic logging of all sync operations (full-backup, delta-sync, instant-sync). API at `/api/sync-audit` with `/logs` (filtered/paginated), `/stats`, and `/modules` endpoints. Frontend tab "تدقيق الخادم" in SyncManagementPage with filters (module, status, action, search), pagination, stats cards, and expandable log details. Query keys: `QUERY_KEYS.syncAuditLogs`, `syncAuditStats`, `syncAuditModules`, `syncAuditLogsFiltered(params)`.
-- **Offline-First Architecture**: Enterprise-grade Local-First system matching QuickBooks/Xero standards. Key components:
-  - `offline-api-interceptor.ts`: Intercepts all POST/PATCH/DELETE via `apiRequest` - automatically saves to IndexedDB when offline. Covers: fundTransfers, workerAttendance, transportationExpenses, materialPurchases, workerTransfers, workerMiscExpenses, projects, workers, suppliers, materials, wells, projectTypes, autocomplete, supplierPayments. Integrated with local audit log for tamper-proof tracking.
-  - `useOfflineMutation` hook: Wraps `useMutation` with offline-aware behavior, Optimistic UI, `isOffline` detection, and automatic cache invalidation.
-  - `silent-sync.ts`: Enterprise-grade sync with Exponential Backoff (8 retries, 500ms-60s, 30% jitter), Dead Letter Queue (DLQ) for permanently failed operations, batch processing for atomic financial operations, and idempotency key headers (`x-idempotency-key`). Non-retryable status codes (400, 401, 403, 404, 422) are sent directly to DLQ.
-  - `local-audit.ts`: SHA-256 hash chain audit log in IndexedDB (`localAuditLog` store). Records all offline CRUD operations with tamper-proof blockchain-like verification. Functions: `initAuditLog()`, `recordAuditEntry()`, `getAuditLog()`, `verifyAuditChain()`, `getAuditCount()`.
-  - `sync-progress-tracker.tsx`: Non-blocking floating indicator at bottom showing offline/syncing/completed states with manual sync button.
-  - Return shape: Offline results include `isOffline: true, pendingSync: true` flags for downstream detection.
-  - **Batch Sync**: Operations with same `batchId` in SyncQueue are grouped and sent to `/api/sync/batch` endpoint as atomic PostgreSQL transactions. If any operation fails, all are rolled back.
-  - **Idempotency**: `server/middleware/idempotency.ts` middleware with `idempotency_keys` table (24h TTL). Prevents duplicate operations during retry storms.
-  - **Dead Letter Queue**: Failed operations (after 8 retries) stored in `deadLetterQueue` IndexedDB store for manual review/retry.
+## هيكل المشروع
+- `signoz/`: ملفات تكوين منصة المراقبة.
+- `tools/axion-test-engine/`: أدوات الاختبار والمسح.
+- `system_core/docs/`: التوثيق الاستراتيجي والمعايير.
+- `www/`: ملفات الواجهة الأمامية المبنية.
 
-### External Dependencies
-- **Frontend Frameworks**: React, Vite
-- **UI Library**: shadcn/ui
-- **Styling**: TailwindCSS
-- **Backend Framework**: Express.js
-- **Real-time Communication**: Socket.IO
-- **Database**: PostgreSQL
-- **ORM**: Drizzle ORM
-- **Testing**: Vitest
-- **Mobile Development**: Capacitor (for Android builds)
-- **Android Libraries**: `@byteowls/capacitor-filesharer`
+## التفضيلات التقنية
+- استخدام `Lucide-React` للأيقونات.
+- الالتزام بالوضع الداكن (Dark Mode) كخيار أساسي.
+- MTTD < 30 ثانية.

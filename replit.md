@@ -8,6 +8,12 @@ AXION is a comprehensive project management system for contracting businesses. I
 - النهج: احترافي مع مراجعة معمارية
 - الأولوية: التنظيف والدمج قبل إضافة ميزات جديدة
 - **Critical Rule**: All responses should be in Arabic only.
+- **Professionalism & Precision**:
+    - No evasion, generalization, or uncertain answers.
+    - Analytical step-by-step thinking before responding.
+    - Explicitly state if information is missing or if knowledge is incomplete.
+    - Propose realistic, executable, and sometimes unconventional solutions when standard ones fail.
+    - No flattery or trying to please the user at the expense of truth. Present reality as it is.
 - **Critical Rule**: Do not use raw `<textarea>` or `<input>` for text input. Always use `Textarea` and `Input` components from `@/components/ui`. Any input field not supporting auto-height or showing a scrollbar before max-height is a bug. All input fields must have consistent behavior.
 - **Critical Rule**: For React Query, use `QUERY_KEYS.xxx` or `QUERY_KEYS.xxx(param)` from `client/src/constants/queryKeys.ts`. Do not use direct string query keys. Invalidate cache only with specific query keys, e.g., `invalidateQueries({ queryKey: QUERY_KEYS.specific, refetchType: 'active' })`. Never use `invalidateQueries()` without a specific `queryKey`.
 

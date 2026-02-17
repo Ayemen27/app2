@@ -94,6 +94,7 @@ export function registerOrganizedRoutes(app: Express) {
 
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);
+  app.use('/api/admin/notifications', notificationRouter);
 
   // مسارات المزامنة المتقدمة
   app.use('/api/sync', syncRouter);

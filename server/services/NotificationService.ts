@@ -579,11 +579,23 @@ export class NotificationService {
     console.log(`✅ بدء تعليم الإشعار كمقروء: ${notificationId} للمستخدم: ${userId}`);
 
     try {
-      // 1. حذف السجل الموجود إن وجد لضمان عدم وجود تكرار
-      await db.execute(sql`DELETE FROM notification_read_states WHERE user_id = ${userId} AND notification_id = ${notificationId}`);
-      
-      // 2. إدراج السجل الجديد
-      await db.execute(sql`INSERT INTO notification_read_states (user_id, notification_id, is_read, read_at) VALUES (${userId}, ${notificationId}, true, NOW())`);
+      await db
+        .delete(notificationReadStates)
+        .where(
+          and(
+            eq(notificationReadStates.userId, userId),
+            eq(notificationReadStates.notificationId, notificationId)
+          )
+        );
+
+      await db
+        .insert(notificationReadStates)
+        .values({
+          userId,
+          notificationId,
+          isRead: true,
+          readAt: new Date(),
+        });
       
       console.log(`✅ تم تعليم الإشعار ${notificationId} كمقروء بنجاح`);
     } catch (error) {

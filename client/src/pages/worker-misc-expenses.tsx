@@ -170,8 +170,12 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
 
     // حفظ الوصف في نظام الإكمال التلقائي فوراً
     if (miscDescription && miscDescription.trim().length >= 2) {
-      await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
+      await saveAutocompleteValue('workerMiscDescriptions', miscDescription.trim());
     }
+    
+    // Invalidate autocomplete queries to show the new value immediately
+    queryClient.invalidateQueries({ queryKey: ['/api/autocomplete', 'workerMiscDescriptions'] });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
     if (editingMiscId) {
       // Update existing expense

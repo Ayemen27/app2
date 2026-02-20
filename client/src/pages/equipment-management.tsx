@@ -526,7 +526,7 @@ export function EquipmentManagement() {
   };
 
   const buildEquipmentReportHTML = (filteredEquipment: Equipment[], projectLabel: string) => {
-    const reportDate = new Date().toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' });
+    const reportDate = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
     const totalValue = filteredEquipment.reduce((sum, e) => sum + (Number(e.purchasePrice) || 0), 0);
     const totalUnits = filteredEquipment.reduce((sum, e) => sum + (e.quantity || 1), 0);
     const activeCount = filteredEquipment.filter(e => e.status === 'active' || e.status === 'available').length;

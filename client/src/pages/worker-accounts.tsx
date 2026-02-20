@@ -657,12 +657,41 @@ export default function WorkerAccountsPage() {
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1f4e79' } };
     });
-    headerRow.height = 22;
-    currentRow++;
 
     filteredTransfers.forEach((transfer, index) => {
-      const row = worksheet.getRow(currentRow);
       const worker = workers.find(w => w.id === transfer.workerId);
+      const project = projects.find(p => p.id === transfer.projectId);
+      const row = worksheet.addRow([
+        index + 1,
+        formatDate(transfer.transferDate),
+        worker?.name || 'غير معروف',
+        project?.name || 'غير معروف',
+        Number(transfer.amount),
+        getTransferMethodLabel(transfer.transferMethod),
+        transfer.recipientName,
+        transfer.recipientPhone || '-',
+        transfer.notes || '-'
+      ]);
+      
+      row.eachCell((cell) => {
+        cell.font = { name: 'Arial', size: 9 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      
+      // Format amount column with English numerals
+      row.getCell(5).numFmt = '#,##0';
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const currentDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+    const fileName = `حوالات-العمال-${currentDate}.xlsx`;
+    const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, fileName);
       const project = projects.find(p => p.id === transfer.projectId);
       
       const rowData = [

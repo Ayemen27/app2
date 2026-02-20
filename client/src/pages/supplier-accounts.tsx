@@ -375,7 +375,7 @@ export default function SupplierAccountsPage() {
         purchase.invoiceNumber || '-',
         projectName,
         materialName,
-        purchase.quantity,
+        Number(purchase.quantity),
         parseFloat(purchase.unitPrice),
         parseFloat(purchase.totalAmount),
         purchase.purchaseType,
@@ -395,6 +395,11 @@ export default function SupplierAccountsPage() {
           left: { style: 'thin', color: { argb: 'cccccc' } },
           right: { style: 'thin', color: { argb: 'cccccc' } }
         };
+        
+        // Use English numbering format for numeric columns
+        if ([1, 6, 7, 8, 10, 11].includes(colIndex + 1)) {
+          cell.numFmt = '#,##0.00';
+        }
       });
       
       worksheet.getRow(currentRow).height = 18;

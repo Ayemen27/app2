@@ -293,7 +293,7 @@ export default function TransportManagement() {
 
       expenses.forEach(expense => {
         const row = worksheet.addRow({
-          date: expense.date,
+          date: formatDate(expense.date),
           description: expense.description,
           amount: Number(expense.amount),
           category: categoriesMap[expense.category] || expense.category || "أخرى",
@@ -303,26 +303,11 @@ export default function TransportManagement() {
         });
 
         row.alignment = { vertical: 'middle', horizontal: 'right' };
-      });
-
-      worksheet.eachRow((row, rowNumber) => {
-        row.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-        if (rowNumber > 1) {
-          row.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: rowNumber % 2 === 0 ? 'F8FAFC' : 'FFFFFF' }
-          };
-        }
+        row.getCell(3).numFmt = '#,##0';
       });
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, `تقرير_النقل_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, `تقرير_النقل_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.xlsx`);
       
       if (downloadResult) {
         toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل احترافي" });

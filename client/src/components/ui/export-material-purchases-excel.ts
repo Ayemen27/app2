@@ -38,13 +38,13 @@ export async function exportMaterialPurchasesToExcel(purchases: any[]): Promise<
   // إضافة البيانات
   purchases.forEach(purchase => {
     const row = worksheet.addRow({
-      purchaseDate: purchase.purchaseDate ? format(new Date(purchase.purchaseDate), 'yyyy-MM-dd') : '',
+      purchaseDate: purchase.purchaseDate ? format(new Date(purchase.purchaseDate), 'dd/MM/yyyy') : '',
       materialName: purchase.materialName || purchase.material?.name || '',
       materialCategory: purchase.materialCategory || purchase.material?.category || '',
-      quantity: purchase.quantity,
+      quantity: Number(purchase.quantity),
       unit: purchase.materialUnit || purchase.unit || purchase.material?.unit || '',
-      unitPrice: purchase.unitPrice,
-      totalAmount: purchase.totalAmount,
+      unitPrice: Number(purchase.unitPrice),
+      totalAmount: Number(purchase.totalAmount),
       purchaseType: purchase.purchaseType || 'نقد',
       supplierName: purchase.supplierName || '',
       invoiceNumber: purchase.invoiceNumber || '',
@@ -52,8 +52,11 @@ export async function exportMaterialPurchasesToExcel(purchases: any[]): Promise<
       notes: purchase.notes || '',
     });
 
-    // تنسيق محاذاة الخلايا
+    // تنسيق محاذاة الخلايا وفرض الأرقام الإنجليزية
     row.alignment = { vertical: 'middle', horizontal: 'right' };
+    row.getCell('quantity').numFmt = '#,##0.00';
+    row.getCell('unitPrice').numFmt = '#,##0.00';
+    row.getCell('totalAmount').numFmt = '#,##0.00';
   });
 
   // إضافة صف الإجمالي
@@ -63,6 +66,7 @@ export async function exportMaterialPurchasesToExcel(purchases: any[]): Promise<
     totalAmount: totalAmount
   });
   totalRow.font = { bold: true };
+  totalRow.getCell('totalAmount').numFmt = '#,##0.00';
   totalRow.getCell('totalAmount').fill = {
     type: 'pattern',
     pattern: 'solid',
@@ -71,5 +75,5 @@ export async function exportMaterialPurchasesToExcel(purchases: any[]): Promise<
 
   // توليد وحفظ الملف
   const buffer = await workbook.xlsx.writeBuffer();
-  return await downloadExcelFile(buffer as ArrayBuffer, `مشتريات_المواد_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`);
+  return await downloadExcelFile(buffer as ArrayBuffer, `مشتريات_المواد_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.xlsx`);
 }

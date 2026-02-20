@@ -366,10 +366,10 @@ export async function exportDailyExpensesReport(
     { width: 35 }
   ];
 
-  const dayName = new Date(data.date).toLocaleDateString('ar-EG', { weekday: 'long' });
+  const dayName = new Date(data.date).toLocaleDateString('en-GB', { weekday: 'long' });
   let currentRow = await addAlFatihiHeader(
     worksheet,
-    `كشف مصروفات مشروع ${data.projectName} يوم ${dayName} تاريخ ${data.date}`,
+    `كشف مصروفات مشروع ${data.projectName} يوم ${dayName} تاريخ ${new Date(data.date).toLocaleDateString('en-GB')}`,
     '',
     5
   );
@@ -517,7 +517,7 @@ export async function exportWorkerSettlementReport(
   let currentRow = await addAlFatihiHeader(
     worksheet,
     'كشف تصفية للعمال',
-    `للفترة: من ${data.dateRange.from} إلى ${data.dateRange.to}`,
+    `للفترة: من ${new Date(data.dateRange.from).toLocaleDateString('en-GB')} إلى ${new Date(data.dateRange.to).toLocaleDateString('en-GB')}`,
     11
   );
 
@@ -686,7 +686,7 @@ export async function exportDetailedWorkerStatement(
   let currentRow = await addAlFatihiHeader(
     worksheet,
     'كشف حساب تفصيلي للعامل',
-    `للفترة: من ${data.dateRange.from} إلى ${data.dateRange.to}`,
+    `للفترة: من ${new Date(data.dateRange.from).toLocaleDateString('en-GB')} إلى ${new Date(data.dateRange.to).toLocaleDateString('en-GB')}`,
     11
   );
 

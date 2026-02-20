@@ -101,8 +101,8 @@ export async function exportTransactionsToExcel(
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);
   const reportTitleCell = worksheet.getCell(`A${currentRow}`);
   const reportTitle = projectName 
-    ? `سجل العمليات - ${projectName} - ${new Date().toLocaleDateString('ar-SA')}`
-    : `سجل العمليات - ${new Date().toLocaleDateString('ar-SA')}`;
+    ? `سجل العمليات - ${projectName} - ${new Date().toLocaleDateString('en-GB')}`
+    : `سجل العمليات - ${new Date().toLocaleDateString('en-GB')}`;
   reportTitleCell.value = reportTitle;
   reportTitleCell.font = { bold: true, size: 14, color: { argb: 'FF1F5A96' } };
   reportTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -187,7 +187,7 @@ export async function exportTransactionsToExcel(
     const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
     
     const dateObj = new Date(transaction.date);
-    const formattedDate = dateObj.toLocaleDateString('ar-SA');
+    const formattedDate = dateObj.toLocaleDateString('en-GB');
 
     const getNameField = (): string => {
       if (transaction.workerName) return transaction.workerName;
@@ -271,7 +271,7 @@ export async function exportTransactionsToExcel(
 
   worksheet.mergeCells(`H${currentRow}:O${currentRow}`);
   const dateCell = summaryRow.getCell(8);
-  dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')} ${new Date().toLocaleTimeString('ar-SA')}`;
+  dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
   dateCell.font = { size: 10, italic: true };
   dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
   summaryRow.height = 26;

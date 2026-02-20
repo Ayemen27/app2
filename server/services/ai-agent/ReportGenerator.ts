@@ -57,7 +57,7 @@ export class ReportGenerator {
       titleCell.alignment = { horizontal: 'center' };
 
       // معلومات أساسية
-      worksheet.addRow(['اسم العامل', data.worker.name, '', 'التاريخ', new Date().toLocaleDateString('ar-SA')]);
+      worksheet.addRow(['اسم العامل', data.worker.name, '', 'التاريخ', new Date().toLocaleDateString('en-GB')]);
       worksheet.addRow(['الأجر اليومي', data.worker.dailyWage, '', 'الرصيد النهائي', data.statement.finalBalance]);
 
       worksheet.addRow([]); // سطر فارغ
@@ -72,8 +72,8 @@ export class ReportGenerator {
 
       // إضافة البيانات
       // هنا يجب إضافة تفاصيل الحضور والتحويلات... (تبسيط للمثال)
-      worksheet.addRow([new Date().toLocaleDateString('ar-SA'), 'إجمالي المستحقات', data.statement.totalEarned, 0, data.statement.totalEarned]);
-      worksheet.addRow([new Date().toLocaleDateString('ar-SA'), 'إجمالي المدفوعات والتحويلات', 0, data.statement.totalPaid + data.statement.totalTransferred, data.statement.finalBalance]);
+      worksheet.addRow([new Date().toLocaleDateString('en-GB'), 'إجمالي المستحقات', data.statement.totalEarned, 0, data.statement.totalEarned]);
+      worksheet.addRow([new Date().toLocaleDateString('en-GB'), 'إجمالي المدفوعات والتحويلات', 0, data.statement.totalPaid + data.statement.totalTransferred, data.statement.finalBalance]);
 
       const fileName = `worker_statement_${workerId}_${Date.now()}.xlsx`;
       const filePath = path.join(this.reportsDir, fileName);
@@ -111,7 +111,7 @@ export class ReportGenerator {
       titleCell.font = { size: 16, bold: true };
       titleCell.alignment = { horizontal: 'center' };
 
-      worksheet.addRow(['التاريخ', new Date().toLocaleDateString('ar-SA')]);
+      worksheet.addRow(['التاريخ', new Date().toLocaleDateString('en-GB')]);
       worksheet.addRow([]);
 
       // جدول المصروفات

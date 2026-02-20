@@ -85,7 +85,7 @@ export async function exportActivitiesToExcel(
 
   worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
   const reportTitleCell = worksheet.getCell(`A${currentRow}`);
-  reportTitleCell.value = `سجل العمليات - ${new Date().toLocaleDateString('ar-SA')}`;
+  reportTitleCell.value = `سجل العمليات - ${new Date().toLocaleDateString('en-GB')}`;
   reportTitleCell.font = { bold: true, size: 14, color: { argb: 'FF1F5A96' } };
   reportTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
   worksheet.getRow(currentRow).height = 28;
@@ -120,8 +120,8 @@ export async function exportActivitiesToExcel(
     const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
     
     const dateTime = new Date(activity.createdAt);
-    const formattedDate = dateTime.toLocaleDateString('ar-SA');
-    const formattedTime = dateTime.toLocaleTimeString('ar-SA', { 
+    const formattedDate = dateTime.toLocaleDateString('en-GB'); // DD/MM/YYYY
+    const formattedTime = dateTime.toLocaleTimeString('en-GB', { 
       hour: '2-digit', 
       minute: '2-digit',
       hour12: true 
@@ -170,7 +170,7 @@ export async function exportActivitiesToExcel(
 
   worksheet.mergeCells(`F${currentRow}:G${currentRow}`);
   const dateCell = summaryRow.getCell(6);
-  dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')} ${new Date().toLocaleTimeString('ar-SA')}`;
+  dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
   dateCell.font = { size: 10, italic: true };
   dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
   summaryRow.height = 26;

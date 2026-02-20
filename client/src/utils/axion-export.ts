@@ -271,7 +271,7 @@ function addReportFooter(
   worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
   const footerRow = worksheet.getRow(currentRow);
   const now = new Date();
-  footerRow.getCell(1).value = `تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - التاريخ والوقت: ${now.toLocaleDateString('ar-EG')} - ${now.toLocaleTimeString('ar-EG')}`;
+  footerRow.getCell(1).value = `تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - التاريخ والوقت: ${now.toLocaleDateString('en-GB')} - ${now.toLocaleTimeString('en-GB')}`;
   applyStyle(footerRow.getCell(1), EXCEL_STYLES.footer);
 }
 

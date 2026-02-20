@@ -221,7 +221,7 @@ export default function AxionReports() {
 
         worksheet.mergeCells('A3:L3');
         const dateRangeStr = filterValues.dateRange?.from ? 
-          `للفترة: من ${format(new Date(filterValues.dateRange.from), 'yyyy/MM/dd')} إلى ${filterValues.dateRange?.to ? format(new Date(filterValues.dateRange.to), 'yyyy/MM/dd') : format(new Date(), 'yyyy/MM/dd')}` : 
+          `للفترة: من ${format(new Date(filterValues.dateRange.from), 'dd/MM/yyyy')} إلى ${filterValues.dateRange?.to ? format(new Date(filterValues.dateRange.to), 'dd/MM/yyyy') : format(new Date(), 'dd/MM/yyyy')}` : 
           'الفترة: الكل';
         worksheet.getCell('A3').value = dateRangeStr;
         worksheet.getCell('A3').alignment = centerAlign;
@@ -262,7 +262,7 @@ export default function AxionReports() {
           const date = new Date(t.date);
           const rowValues = [
             idx + 1,
-            format(date, 'yyyy/MM/dd'),
+            format(date, 'dd/MM/yyyy'),
             format(date, 'EEEE', { locale: arSA }),
             t.projectName || selectedProjectName,
             worker?.dailyWage || 0,
@@ -464,7 +464,7 @@ export default function AxionReports() {
                     {workerStatement.statement.map((row: any, i: number) => (
                       <tr key={i} className="text-xs font-bold border-b hover:bg-slate-50 transition-colors">
                         <td className="p-4 border-l text-center">{i + 1}</td>
-                        <td className="p-4 border-l">{format(new Date(row.date), 'yyyy/MM/dd')}</td>
+                        <td className="p-4 border-l">{format(new Date(row.date), 'dd/MM/yyyy')}</td>
                         <td className="p-4 border-l">{format(new Date(row.date), 'EEEE', { locale: arSA })}</td>
                         <td className="p-4 border-l">{row.projectName || selectedProjectName}</td>
                         <td className="p-4 border-l">{formatCurrency(row.dailyWage || 0)}</td>

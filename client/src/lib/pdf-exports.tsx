@@ -6,7 +6,7 @@ function buildWorkerHTML(data: any, worker: any): string {
   const workerName = worker?.name || 'عامل';
   const workerType = worker?.type || 'عامل';
   const dailyWage = worker?.dailyWage ? `${parseFloat(worker.dailyWage).toLocaleString()} ر.ي` : '-';
-  const reportDate = format(new Date(), 'yyyy/MM/dd');
+  const reportDate = format(new Date(), 'dd/MM/yyyy');
   const totalEarned = parseFloat(data?.summary?.totalEarned || 0);
   const totalPaid = parseFloat(data?.summary?.totalPaid || 0);
   const finalBalance = parseFloat(data?.summary?.finalBalance || 0);
@@ -17,7 +17,7 @@ function buildWorkerHTML(data: any, worker: any): string {
     const balance = amount - paid;
     return `<tr>
       <td style="width:30px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${idx + 1}</td>
-      <td style="width:75px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.date ? format(new Date(item.date), 'yyyy/MM/dd') : '-'}</td>
+      <td style="width:75px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.date ? format(new Date(item.date), 'dd/MM/yyyy') : '-'}</td>
       <td style="width:55px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
       <td style="width:100px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:9px;">${item.projectName || item.project_name || '-'}</td>
       <td style="text-align:right;padding:5px 6px;border:1px solid #BFBFBF;font-size:9px;line-height:1.3;">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل')}</td>

@@ -688,42 +688,7 @@ export default function WorkerAccountsPage() {
       row.getCell(5).numFmt = '#,##0';
     });
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    const currentDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-    const fileName = `حوالات-العمال-${currentDate}.xlsx`;
-    const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, fileName);
-      const project = projects.find(p => p.id === transfer.projectId);
-      
-      const rowData = [
-        index + 1,
-        formatDate(transfer.transferDate),
-        worker?.name || 'غير معروف',
-        project?.name || 'غير معروف',
-        transfer.amount,
-        getTransferMethodLabel(transfer.transferMethod),
-        transfer.recipientName,
-        transfer.recipientPhone || '-',
-        transfer.notes || '-'
-      ];
-
-      rowData.forEach((value, colIndex) => {
-        const cell = row.getCell(colIndex + 1);
-        cell.value = value;
-        cell.font = { name: 'Arial', size: 9 };
-        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'cccccc' } },
-          bottom: { style: 'thin', color: { argb: 'cccccc' } },
-          left: { style: 'thin', color: { argb: 'cccccc' } },
-          right: { style: 'thin', color: { argb: 'cccccc' } }
-        };
-      });
-      
-      worksheet.getRow(currentRow).height = 18;
-      currentRow++;
-    });
-
-    currentRow += 2;
+    currentRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : currentRow + 2;
     worksheet.mergeCells(`E${currentRow}:F${currentRow}`);
     const totalLabelCell = worksheet.getCell(`E${currentRow}`);
     totalLabelCell.value = 'إجمالي المبالغ:';
@@ -732,13 +697,15 @@ export default function WorkerAccountsPage() {
 
     worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
     const totalValueCell = worksheet.getCell(`G${currentRow}`);
-    totalValueCell.value = formatCurrency(stats.totalAmount);
+    totalValueCell.value = Number(stats.totalAmount);
+    totalValueCell.numFmt = '#,##0 "ريال"';
     totalValueCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: '006600' } };
     totalValueCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const currentDate = new Date().toISOString().split('T')[0];
-    await downloadExcelFile(buffer as ArrayBuffer, `حوالات-العمال-${currentDate}.xlsx`);
+    const currentDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+    const fileName = `حوالات-العمال-${currentDate}.xlsx`;
+    const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, fileName);
   };
 
   return (

@@ -7,10 +7,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
-  Bell, BellOff, CheckCircle, AlertCircle, Info, AlertTriangle, Clock,
-  Trash2, CheckCheck, Filter, Search, Calendar, ChevronDown, ChevronRight,
+  Bell, BellOff, AlertCircle, AlertTriangle, Clock,
+  Trash2, CheckCheck, Search, Calendar, ChevronDown, ChevronRight,
   Shield, Wrench, Package, Users, MessageSquare, Zap, RefreshCw, X,
-  Eye, EyeOff, SlidersHorizontal, MoreVertical
+  Eye, SlidersHorizontal, MoreVertical, CheckCircle
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +35,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { UnifiedStats } from "@/components/ui/unified-stats";
 
 interface Notification {
   id: string;
@@ -115,7 +116,7 @@ const notificationTypeConfig: Record<string, {
     label: 'رواتب'
   },
   announcement: { 
-    icon: Info, 
+    icon: Shield, 
     color: 'text-indigo-600', 
     bgColor: 'bg-indigo-50 dark:bg-indigo-900/20', 
     borderColor: 'border-indigo-200 dark:border-indigo-800',
@@ -198,7 +199,6 @@ export default function NotificationsPage() {
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   
   const userId = user?.id || '';
-  const isAdmin = user?.role === 'admin' || user?.role === 'مدير';
 
   const filterConfigs: FilterConfig[] = [
     {
@@ -269,7 +269,7 @@ export default function NotificationsPage() {
     queryKey: QUERY_KEYS.notificationsByUser(userId),
     queryFn: async () => {
       try {
-        const result = await apiRequest(`/api/notifications?userId=${userId}&limit=100`);
+        const result = await apiRequest(`/api/notifications?limit=100`);
         return result.data || result || { notifications: [], unreadCount: 0, total: 0 };
       } catch (error) {
         return { notifications: [], unreadCount: 0, total: 0 };
@@ -393,15 +393,7 @@ export default function NotificationsPage() {
 
   const markSelectedAsReadMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map(id =>
-        fetch(`/api/notifications/${id}/mark-read`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-        })
-      ));
+      await Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}/mark-read`, 'POST')));
       return ids;
     },
     onMutate: async (ids: string[]) => {
@@ -641,166 +633,160 @@ export default function NotificationsPage() {
       {(searchValue || Object.values(filterValues).some(v => v && v !== 'all')) && (
         <Button variant="outline" className="mt-4" onClick={onReset}>
           <X className="h-4 w-4 ml-2" />
-          مسح الفلاتر
+          إعادة تعيين الفلاتر
         </Button>
       )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900" dir="rtl">
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-4xl">
-        
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-              <Bell className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                الإشعارات
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {stats.unread > 0 ? `${stats.unread} إشعار جديد` : 'جميع الإشعارات مقروءة'}
-              </p>
-            </div>
-          </div>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
-            className="gap-2"
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-            <span className="hidden sm:inline">تحديث</span>
-          </Button>
-        </div>
+    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/50">
+      {/* قسم الإحصائيات الموحد */}
+      <div className="p-4 bg-white/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+        <UnifiedStats
+          stats={[
+            {
+              title: "إجمالي الإشعارات",
+              value: stats.total,
+              icon: Bell,
+              color: "blue"
+            },
+            {
+              title: "غير مقروء",
+              value: stats.unread,
+              icon: BellOff,
+              color: "amber",
+              status: stats.unread > 0 ? "warning" : "normal"
+            },
+            {
+              title: "حرج",
+              value: stats.critical,
+              icon: AlertTriangle,
+              color: "red",
+              status: stats.critical > 0 ? "critical" : "normal"
+            },
+            {
+              title: "عالي الأولوية",
+              value: stats.high,
+              icon: Zap,
+              color: "orange"
+            }
+          ]}
+          columns={4}
+          hideHeader={true}
+        />
+      </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="flex items-center justify-between">
-              <Bell className="h-5 w-5 text-blue-500" />
-              <span className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{stats.total}</span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">إجمالي</p>
+      <div className="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
+        {/* شريط البحث والفلترة */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="ابحث في الإشعارات..."
+              className="w-full h-11 pr-10 pl-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+            />
           </div>
-          
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="flex items-center justify-between">
-              <EyeOff className="h-5 w-5 text-orange-500" />
-              <span className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{stats.unread}</span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">غير مقروء</p>
-          </div>
-          
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="flex items-center justify-between">
-              <AlertCircle className="h-5 w-5 text-red-500" />
-              <span className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{stats.critical}</span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">حرج</p>
-          </div>
-          
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="flex items-center justify-between">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <span className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{stats.high}</span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">عالي الأهمية</p>
-          </div>
-        </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-4">
-          <UnifiedSearchFilter
-            searchValue={searchValue}
-            onSearchChange={onSearchChange}
-            searchPlaceholder="ابحث في الإشعارات..."
-            filters={filterConfigs}
-            filterValues={filterValues}
-            onFilterChange={onFilterChange}
-            onReset={onReset}
-            showActiveFilters={true}
-            className="p-2"
-          />
-        </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Sheet open={isMobileFilterOpen} onOpenChange={setIsMobileFilterOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="h-11 gap-2 flex-1 sm:flex-initial rounded-xl border-slate-200 dark:border-slate-800">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  الفلاتر
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                <SheetHeader className="text-right">
+                  <SheetTitle>تصفية الإشعارات</SheetTitle>
+                  <SheetDescription>استخدم الفلاتر أدناه لتضييق نطاق البحث</SheetDescription>
+                </SheetHeader>
+                <div className="mt-6">
+                  <UnifiedSearchFilter
+                    searchValue={searchValue}
+                    onSearchChange={onSearchChange}
+                    filterValues={filterValues}
+                    onFilterChange={onFilterChange}
+                    configs={filterConfigs}
+                    onReset={onReset}
+                    variant="vertical"
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
 
-        {selectedIds.size > 0 && (
-          <div className="sticky top-0 z-10 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-2 animate-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={selectedIds.size === notifications.length}
-                onCheckedChange={toggleSelectAll}
-              />
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                تم تحديد {selectedIds.size} إشعار
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 text-xs h-8"
-                onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
-                disabled={markSelectedAsReadMutation.isPending}
-              >
-                <CheckCheck className="h-3.5 w-3.5" />
-                تعليم كمقروء
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="gap-1.5 text-xs h-8"
-                onClick={() => setSelectedIds(new Set())}
-              >
-                <X className="h-3.5 w-3.5" />
-                إلغاء التحديد
-              </Button>
-            </div>
-          </div>
-        )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-slate-200 dark:border-slate-800">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56" dir="rtl">
+                <DropdownMenuItem onClick={toggleSelectAll}>
+                  <CheckCheck className="ml-2 h-4 w-4" />
+                  {selectedIds.size === notifications.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => markAllAsReadMutation.mutate()}
+                  disabled={markAllAsReadMutation.isPending || stats.unread === 0}
+                >
+                  <Eye className="ml-2 h-4 w-4" />
+                  تعليم الكل كمقروء
+                </DropdownMenuItem>
+                {selectedIds.size > 0 && (
+                  <DropdownMenuItem 
+                    onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
+                    disabled={markSelectedAsReadMutation.isPending}
+                    className="text-blue-600"
+                  >
+                    <CheckCircle className="ml-2 h-4 w-4" />
+                    تعليم المحدد ({selectedIds.size}) كمقروء
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem className="text-red-600">
+                  <Trash2 className="ml-2 h-4 w-4" />
+                  حذف الإشعارات القديمة
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-        {stats.unread > 0 && selectedIds.size === 0 && (
-          <div className="flex justify-end mb-4">
             <Button
               variant="outline"
-              size="sm"
-              onClick={() => markAllAsReadMutation.mutate()}
-              disabled={markAllAsReadMutation.isPending}
-              className="gap-1.5"
+              size="icon"
+              className="h-11 w-11 rounded-xl border-slate-200 dark:border-slate-800"
+              onClick={() => refetch()}
             >
-              <CheckCheck className="h-4 w-4" />
-              تعليم الكل كمقروء
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
             </Button>
           </div>
-        )}
-
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-          <ScrollArea className="h-[calc(100vh-420px)] sm:h-[calc(100vh-380px)]">
-            <div className="p-3 sm:p-4 space-y-4">
-              {isLoading ? (
-                <LoadingSkeleton />
-              ) : notifications.length === 0 ? (
-                <EmptyState />
-              ) : (
-                groupOrder
-                  .filter(key => groupedNotifications[key]?.length > 0)
-                  .map(groupKey => (
-                    <NotificationGroup
-                      key={groupKey}
-                      groupKey={groupKey}
-                      notifications={groupedNotifications[groupKey]}
-                    />
-                  ))
-              )}
-            </div>
-          </ScrollArea>
         </div>
 
-        <div className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
-          آخر تحديث: {format(new Date(), 'HH:mm:ss', { locale: ar })}
-        </div>
+        {/* قائمة الإشعارات */}
+        <ScrollArea className="flex-1 -mx-4 px-4">
+          <div className="space-y-6 pb-6 pt-2">
+            {isLoading ? (
+              <LoadingSkeleton />
+            ) : notifications.length > 0 ? (
+              groupOrder.map(groupKey => {
+                const groupNotifs = groupedNotifications[groupKey];
+                if (!groupNotifs || groupNotifs.length === 0) return null;
+                return (
+                  <NotificationGroup
+                    key={groupKey}
+                    groupKey={groupKey}
+                    notifications={groupNotifs}
+                  />
+                );
+              })
+            ) : (
+              <EmptyState />
+            )}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );

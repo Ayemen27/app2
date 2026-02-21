@@ -41,6 +41,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/deployment': { title: 'لوحة البناء والنشر التلقائي', icon: Activity },
   '/settings': { title: 'إعدادات النظام', icon: Settings },
   '/project-fund-custody': { title: 'عهدة صندوق المشروع', icon: Wallet },
+  '/notifications': { title: 'الإشعارات', icon: Bell },
   '/admin-notifications': { title: 'إشعارات الإدارة', icon: Shield },
   '/ai-chat': { title: 'المساعد الذكي', icon: MessageSquare },
   '/security-policies': { title: 'سياسات الأمان', icon: Lock },

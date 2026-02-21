@@ -87,7 +87,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
         await saveAutocompleteValue('workerMiscDescriptions', miscDescription.trim());
       }
       
-      await queryClient.invalidateQueries({ queryKey: ['/api/autocomplete'] });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteCategory('workerMiscDescriptions') });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerMiscExpenses });
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       
@@ -184,7 +184,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
     }
     
     // Invalidate autocomplete queries to show the new value immediately
-    await queryClient.invalidateQueries({ queryKey: ['/api/autocomplete'] });
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteCategory('workerMiscDescriptions') });
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
     if (editingMiscId) {

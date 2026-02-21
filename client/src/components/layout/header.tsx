@@ -118,7 +118,7 @@ export default function Header() {
   };
 
   return (
-    <div className="flex items-center justify-between h-full w-full" dir="rtl">
+    <div className="flex items-center justify-between h-full w-full px-4" dir="rtl">
       <div className="flex items-center gap-3">
         <div className="bg-primary/10 p-1.5 rounded-lg text-primary">
           <PageIcon className="h-5 w-5" />
@@ -128,6 +128,8 @@ export default function Header() {
           <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">AXION SYSTEM</p>
         </div>
       </div>
+
+      <div className="flex-1" />
       
       <div className="flex items-center gap-2">
         <NotificationCenter />

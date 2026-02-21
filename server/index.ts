@@ -190,12 +190,15 @@ app.use(cors({
 }));
 
 // ✅ Handle preflight requests explicitly
-app.options('*', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    return res.sendStatus(200);
+  }
+  next();
 });
 
 // 🔧 **Fix trust proxy for rate limiting**
@@ -619,7 +622,10 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 });
 
 // ✅ **404 Handler for API**
-app.use('/api/*', (req, res) => {
+app.use('/api', (req, res, next) => {
+  if (req.path === '/' || req.path === '' || req.path === '/index.html') {
+    return next();
+  }
   res.status(404).json({ 
     success: false, 
     message: `المسار غير موجود: ${req.originalUrl}` 

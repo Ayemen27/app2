@@ -83,9 +83,14 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       apiRequest("/api/worker-misc-expenses", "POST", data),
     onSuccess: async () => {
       // حفظ قيم الإكمال التلقائي
-      if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
+      if (miscDescription && miscDescription.trim().length >= 2) {
+        await saveAutocompleteValue('workerMiscDescriptions', miscDescription.trim());
+      }
       
+      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete', 'workerMiscDescriptions'] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerMiscExpenses });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+      
       setMiscDescription("");
       setMiscAmount("");
       toast({
@@ -109,9 +114,14 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       apiRequest(`/api/worker-misc-expenses/${id}`, "PATCH", data),
     onSuccess: async () => {
       // حفظ قيم الإكمال التلقائي
-      if (miscDescription) await saveAutocompleteValue('workerMiscDescriptions', miscDescription);
+      if (miscDescription && miscDescription.trim().length >= 2) {
+        await saveAutocompleteValue('workerMiscDescriptions', miscDescription.trim());
+      }
       
+      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete', 'workerMiscDescriptions'] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerMiscExpenses });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+      
       resetMiscExpenseForm();
       toast({
         title: "تم تحديث النثريات",

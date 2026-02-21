@@ -190,7 +190,13 @@ app.use(cors({
 }));
 
 // ✅ Handle preflight requests explicitly
-app.options('*', cors());
+app.options('*', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // 🔧 **Fix trust proxy for rate limiting**
 app.set("trust proxy", 1);

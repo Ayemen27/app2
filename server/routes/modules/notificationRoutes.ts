@@ -317,7 +317,11 @@ notificationRouter.get('/user-activity', async (req: Request, res: Response) => 
  * 📥 إنشاء إشعار جديد (للمهام، السلامة وغيرها)
  * POST /api/notifications/:type (مثل task, safety)
  */
-notificationRouter.post('/:type(task|safety|system)', async (req: Request, res: Response) => {
+notificationRouter.post('/:type', async (req: Request, res: Response) => {
+  const type = req.params.type;
+  if (!['task', 'safety', 'system'].includes(type)) {
+    return res.status(400).json({ error: 'Invalid notification type' });
+  }
   const startTime = Date.now();
   try {
     const { NotificationService } = await import('../../services/NotificationService.js');

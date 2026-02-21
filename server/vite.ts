@@ -56,12 +56,11 @@ export async function setupVite(app: Express, server: Server) {
     return vite.middlewares(req, res, next);
   });
   
-  app.use("*", async (req, res, next) => {
+  app.use((req, res, next) => {
     if (req.originalUrl.startsWith('/api/')) {
       return next();
     }
 
-    // Skip Vite transform for static assets that might be requested
     if (req.originalUrl.includes('.') && !req.originalUrl.endsWith('.html') && !req.originalUrl.startsWith('/src/')) {
       return next();
     }
@@ -74,13 +73,11 @@ export async function setupVite(app: Express, server: Server) {
         "index.html",
       );
 
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      
-      // Force no-cache for index.html during development
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      
-      const page = await vite.transformIndexHtml(req.originalUrl, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      fs.promises.readFile(clientTemplate, "utf-8").then(async (template) => {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        const page = await vite.transformIndexHtml(req.originalUrl, template);
+        res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      }).catch(next);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);

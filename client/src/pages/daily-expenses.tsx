@@ -905,16 +905,22 @@ function DailyExpensesContent() {
 
   const addTransportationMutation = useMutation({
     mutationFn: async (data: InsertTransportationExpense) => {
-      await Promise.all([
-        saveAutocompleteValue('transportDescriptions', transportDescription),
-        saveAutocompleteValue('notes', transportNotes)
-      ]);
+      // حفظ الوصف والملاحظات في نظام الإكمال التلقائي
+      if (transportDescription && transportDescription.trim().length >= 2) {
+        await saveAutocompleteValue('transportDescriptions', transportDescription);
+      }
+      if (transportNotes && transportNotes.trim().length >= 2) {
+        await saveAutocompleteValue('notes', transportNotes);
+      }
+      
       // أضف wellId إلى البيانات
       const dataWithWell = { ...data, wellId: selectedWellId || null };
       return apiRequest("/api/transportation-expenses", "POST", dataWithWell);
     },
     onSuccess: async (newExpense) => {
       refreshAllData();
+      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete', 'transportDescriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete', 'notes'] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       toast({
@@ -927,10 +933,11 @@ function DailyExpensesContent() {
       setTransportNotes("");
     },
     onError: async (error) => {
-      await Promise.all([
-        saveAutocompleteValue('transportDescriptions', transportDescription),
-        saveAutocompleteValue('notes', transportNotes)
-      ]);
+      // محاولة الحفظ حتى عند الفشل في الإكمال التلقائي لضمان تجربة مستخدم سلسة
+      if (transportDescription && transportDescription.trim().length >= 2) {
+        saveAutocompleteValue('transportDescriptions', transportDescription).catch(() => {});
+      }
+      
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       // ✅ حفظ محلي في قائمة الانتظار عند الفشل
@@ -1377,8 +1384,16 @@ function DailyExpensesContent() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.previousBalance(selectedProjectId) });
 
       // حفظ قيم الإكمال التلقائي
-      if (transportDescription) await saveAutocompleteValue('transportDescriptions', transportDescription);
-      if (transportNotes) await saveAutocompleteValue('notes', transportNotes);
+      if (transportDescription && transportDescription.trim().length >= 2) {
+        await saveAutocompleteValue('transportDescriptions', transportDescription);
+      }
+      if (transportNotes && transportNotes.trim().length >= 2) {
+        await saveAutocompleteValue('notes', transportNotes);
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete', 'transportDescriptions'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/autocomplete', 'notes'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       resetTransportationForm();
       toast({

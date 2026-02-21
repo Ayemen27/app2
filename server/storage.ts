@@ -37,6 +37,13 @@ import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
 
 export interface IStorage {
+  // Monitoring
+  upsertDevice(device: InsertDevice): Promise<Device>;
+  getDevices(): Promise<Device[]>;
+  createCrash(crash: InsertCrash): Promise<Crash>;
+  getRecentCrashes(limit: number): Promise<Crash[]>;
+  createMetric(metric: InsertMetric): Promise<Metric>;
+
   // Tasks
   getTasks(): Promise<Task[]>;
   createTask(task: InsertTask): Promise<Task>;
@@ -362,6 +369,35 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Monitoring Implementation
+  async upsertDevice(device: InsertDevice): Promise<Device> {
+    const [existing] = await db.select().from(devices).where(eq(devices.deviceId, device.deviceId));
+    if (existing) {
+      const [updated] = await db.update(devices).set({ ...device, lastSeen: new Date() }).where(eq(devices.deviceId, device.deviceId)).returning();
+      return updated;
+    }
+    const [inserted] = await db.insert(devices).values(device).returning();
+    return inserted;
+  }
+
+  async getDevices(): Promise<Device[]> {
+    return await db.select().from(devices);
+  }
+
+  async createCrash(crash: InsertCrash): Promise<Crash> {
+    const [newCrash] = await db.insert(crashes).values(crash).returning();
+    return newCrash;
+  }
+
+  async getRecentCrashes(limit: number): Promise<Crash[]> {
+    return await db.select().from(crashes).orderBy(desc(crashes.timestamp)).limit(limit);
+  }
+
+  async createMetric(metric: InsertMetric): Promise<Metric> {
+    const [newMetric] = await db.insert(metrics).values(metric).returning();
+    return newMetric;
+  }
+
   // Cache للمعدات - تحسين الأداء الفائق
   private equipmentCache: { data: any[], timestamp: number } | null = null;
   

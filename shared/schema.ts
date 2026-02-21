@@ -3,6 +3,46 @@ import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jso
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// --- Monitoring Tables (OTLP Compatible) ---
+
+export const devices = pgTable("devices", {
+  id: serial("id").primaryKey(),
+  deviceId: text("device_id").notNull().unique(),
+  model: text("model"),
+  osVersion: text("os_version"),
+  lastSeen: timestamp("last_seen").defaultNow(),
+});
+
+export const crashes = pgTable("crashes", {
+  id: serial("id").primaryKey(),
+  deviceId: text("device_id").notNull(),
+  stackTrace: text("stack_trace").notNull(),
+  severity: text("severity").notNull(), // 'critical', 'warning', 'info'
+  metadata: jsonb("metadata"),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const metrics = pgTable("metrics", {
+  id: serial("id").primaryKey(),
+  deviceId: text("device_id").notNull(),
+  metricName: text("metric_name").notNull(),
+  value: integer("value").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const insertDeviceSchema = createInsertSchema(devices).omit({ id: true, lastSeen: true });
+export const insertCrashSchema = createInsertSchema(crashes).omit({ id: true, timestamp: true });
+export const insertMetricSchema = createInsertSchema(metrics).omit({ id: true, timestamp: true });
+
+export type Device = typeof devices.$inferSelect;
+export type InsertDevice = z.infer<typeof insertDeviceSchema>;
+export type Crash = typeof crashes.$inferSelect;
+export type InsertCrash = z.infer<typeof insertCrashSchema>;
+export type Metric = typeof metrics.$inferSelect;
+export type InsertMetric = z.infer<typeof insertMetricSchema>;
+
+// --- Existing Tables ---
+
 // Helper to add sync flags to any table
 export const syncFields = {
   isLocal: boolean("is_local").default(false),

@@ -179,7 +179,12 @@ export function CreateNotificationDialog({
   });
 
   const onSubmit = (data: NotificationFormData) => {
-    createNotificationMutation.mutate({ ...data, projectId });
+    createNotificationMutation.mutate({ 
+      ...data, 
+      projectId, 
+      targetPlatform: data.targetPlatform,
+      body: data.body 
+    });
   };
 
   return (

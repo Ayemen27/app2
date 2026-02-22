@@ -178,7 +178,7 @@ export function StatsCard({
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <p className={cn("text-lg sm:text-xl md:text-2xl font-black font-mono tracking-tight leading-none", colors.text)}>
+            <p className={cn("text-sm sm:text-base md:text-lg font-black font-mono tracking-tight leading-none", colors.text)}>
               {displayValue}
             </p>
           </div>

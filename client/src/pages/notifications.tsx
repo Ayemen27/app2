@@ -281,7 +281,7 @@ export default function NotificationsPage() {
           onRefresh={() => refetch()}
           isRefreshing={isLoading}
           searchPlaceholder="بحث في الإشعارات..."
-          title="تصفية الإشعارات"
+          title=""
           actions={
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold px-4" onClick={() => markAllAsReadMutation.mutate()} disabled={stats.unread === 0}>تعليم الكل كمقروء</Button>

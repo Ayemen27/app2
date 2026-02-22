@@ -48,6 +48,10 @@ export interface IStorage {
   getRecentCrashes(limit: number): Promise<Crash[]>;
   createMetric(metric: InsertMetric): Promise<Metric>;
 
+  // Notifications
+  createNotification(notif: InsertNotification): Promise<Notification>;
+  getNotifications(userId?: string): Promise<Notification[]>;
+
   // Tasks
   getTasks(): Promise<Task[]>;
   createTask(task: InsertTask): Promise<Task>;

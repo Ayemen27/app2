@@ -32,7 +32,7 @@ import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال �
 import { registerRoutes } from "./routes.js";
 // sshRoutes removed - not needed
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
-import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
+import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth, authenticate } from "./middleware/auth";
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
 import { db, checkDBConnection, getConnectionHealthStatus, smartReconnect } from './db.js';
 import { runStartupValidation, getSchemaStatus } from "./services/schema-guard";
@@ -519,7 +519,7 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
   app.use('/api/auth', authRouter);
 
   // ✅ إضافة مسار /api/auth/me المتوافق مع طلبات الواجهة الأمامية
-  app.get("/api/auth/me", (req, res) => {
+  app.get("/api/auth/me", authenticate, (req, res) => {
     // @ts-ignore
     if (req.user) {
       // @ts-ignore

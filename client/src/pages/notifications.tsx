@@ -10,7 +10,7 @@ import {
   Bell, BellOff, AlertCircle, AlertTriangle, Clock,
   Trash2, CheckCheck, Search, Calendar, ChevronDown, ChevronRight,
   Shield, Wrench, Package, Users, MessageSquare, Zap, RefreshCw, X,
-  Eye, SlidersHorizontal, MoreVertical, CheckCircle
+  Eye, SlidersHorizontal, MoreVertical, CheckCircle, Filter
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -679,91 +679,61 @@ export default function NotificationsPage() {
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
-        {/* شريط البحث والفلترة */}
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="ابحث في الإشعارات..."
-              className="w-full h-11 pr-10 pl-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-              value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Sheet open={isMobileFilterOpen} onOpenChange={setIsMobileFilterOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="h-11 gap-2 flex-1 sm:flex-initial rounded-xl border-slate-200 dark:border-slate-800">
-                  <SlidersHorizontal className="h-4 w-4" />
-                  الفلاتر
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                <SheetHeader className="text-right">
-                  <SheetTitle>تصفية الإشعارات</SheetTitle>
-                  <SheetDescription>استخدم الفلاتر أدناه لتضييق نطاق البحث</SheetDescription>
-                </SheetHeader>
-                <div className="mt-6">
-                  <UnifiedSearchFilter
-                    searchValue={searchValue}
-                    onSearchChange={onSearchChange}
-                    filterValues={filterValues}
-                    onFilterChange={onFilterChange}
-                    configs={filterConfigs}
-                    onReset={onReset}
-                    variant="vertical"
-                  />
-                </div>
-              </SheetContent>
-            </Sheet>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-slate-200 dark:border-slate-800">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56" dir="rtl">
-                <DropdownMenuItem onClick={toggleSelectAll}>
-                  <CheckCheck className="ml-2 h-4 w-4" />
-                  {selectedIds.size === notifications.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  onClick={() => markAllAsReadMutation.mutate()}
-                  disabled={markAllAsReadMutation.isPending || stats.unread === 0}
+        {/* شريط البحث والفلترة الموحد */}
+        <div className="px-4 py-2 bg-white/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+          <UnifiedSearchFilter
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
+            filterValues={filterValues}
+            onFilterChange={onFilterChange}
+            configs={filterConfigs}
+            onReset={onReset}
+            variant="horizontal"
+            action={
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 gap-2">
+                      <MoreVertical className="h-4 w-4" />
+                      خيارات
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56" dir="rtl">
+                    <DropdownMenuItem onClick={toggleSelectAll}>
+                      <CheckCheck className="ml-2 h-4 w-4" />
+                      {selectedIds.size === notifications.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => markAllAsReadMutation.mutate()}
+                      disabled={markAllAsReadMutation.isPending || stats.unread === 0}
+                    >
+                      <Eye className="ml-2 h-4 w-4" />
+                      تعليم الكل كمقروء
+                    </DropdownMenuItem>
+                    {selectedIds.size > 0 && (
+                      <DropdownMenuItem 
+                        onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
+                        disabled={markSelectedAsReadMutation.isPending}
+                        className="text-blue-600"
+                      >
+                        <CheckCircle className="ml-2 h-4 w-4" />
+                        تعليم المحدد ({selectedIds.size}) كمقروء
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => refetch()}
                 >
-                  <Eye className="ml-2 h-4 w-4" />
-                  تعليم الكل كمقروء
-                </DropdownMenuItem>
-                {selectedIds.size > 0 && (
-                  <DropdownMenuItem 
-                    onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
-                    disabled={markSelectedAsReadMutation.isPending}
-                    className="text-blue-600"
-                  >
-                    <CheckCircle className="ml-2 h-4 w-4" />
-                    تعليم المحدد ({selectedIds.size}) كمقروء
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem className="text-red-600">
-                  <Trash2 className="ml-2 h-4 w-4" />
-                  حذف الإشعارات القديمة
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11 rounded-xl border-slate-200 dark:border-slate-800"
-              onClick={() => refetch()}
-            >
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-            </Button>
-          </div>
+                  <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                </Button>
+              </div>
+            }
+          />
         </div>
 
         {/* قائمة الإشعارات */}

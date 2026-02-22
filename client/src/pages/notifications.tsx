@@ -269,28 +269,26 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 pb-32">
       <div className="flex-1 p-4 md:p-8 space-y-8 max-w-8xl mx-auto w-full">
-        <UnifiedStats stats={statsItems} columns={4} />
+        <UnifiedStats stats={statsItems} columns={3} />
         
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border shadow-lg">
-          <UnifiedFilterDashboard
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            filterValues={filterValues}
-            onFilterChange={handleFilterChange}
-            filters={filterConfigs}
-            onReset={handleResetFilters}
-            onRefresh={() => refetch()}
-            isRefreshing={isLoading}
-            searchPlaceholder="بحث في الإشعارات..."
-            title="تصفية الإشعارات"
-            actions={
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold px-4" onClick={() => markAllAsReadMutation.mutate()} disabled={stats.unread === 0}>تعليم الكل كمقروء</Button>
-                <Button variant="ghost" size="sm" className="h-10 rounded-xl font-bold px-4" onClick={toggleSelectAll}>{selectedIds.size === notifications.length ? 'إلغاء التحديد' : 'تحديد الكل'}</Button>
-              </div>
-            }
-          />
-        </div>
+        <UnifiedFilterDashboard
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          filters={filterConfigs}
+          onReset={handleResetFilters}
+          onRefresh={() => refetch()}
+          isRefreshing={isLoading}
+          searchPlaceholder="بحث في الإشعارات..."
+          title="تصفية الإشعارات"
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold px-4" onClick={() => markAllAsReadMutation.mutate()} disabled={stats.unread === 0}>تعليم الكل كمقروء</Button>
+              <Button variant="ghost" size="sm" className="h-10 rounded-xl font-bold px-4" onClick={toggleSelectAll}>{selectedIds.size === notifications.length ? 'إلغاء التحديد' : 'تحديد الكل'}</Button>
+            </div>
+          }
+        />
 
         <ScrollArea className="flex-1 -mx-4 px-4">
           <div className="space-y-8 pb-10 pt-2">

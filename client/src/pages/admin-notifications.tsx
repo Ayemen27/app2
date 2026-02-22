@@ -227,12 +227,17 @@ export default function AdminNotificationsPage() {
               filterValues={filterValues}
               onFilterChange={onFilterChange}
               onReset={onReset}
-              compact={true}
-              className="w-full lg:w-auto"
+              compact={false}
+              className="w-full"
             />
           </div>
 
           <TabsContent value="overview" className="mt-0">
+            <UnifiedStats 
+              stats={stats} 
+              columns={3} 
+              className="mb-6"
+            />
             <UnifiedCardGrid columns={2}>
               <UnifiedCard
                 title="أكثر المستخدمين تفاعلاً"

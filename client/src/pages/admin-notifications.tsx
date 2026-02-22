@@ -187,6 +187,19 @@ export default function AdminNotificationsPage() {
         value: activityData?.userStats?.length || 0,
         icon: Users,
         color: "purple" as const
+      },
+      {
+        title: "غير مقروء",
+        value: unread,
+        icon: Eye,
+        color: "orange" as const,
+        status: unread > 0 ? "warning" as const : "normal" as const
+      },
+      {
+        title: "تنبيهات أمنية",
+        value: activityData?.typeStats?.safety || 0,
+        icon: ShieldCheck,
+        color: "amber" as const
       }
     ];
   }, [activityData]);
@@ -224,7 +237,7 @@ export default function AdminNotificationsPage() {
         
         <UnifiedStats 
           stats={stats} 
-          columns={4} 
+          columns={3} 
           className="mb-6"
         />
 

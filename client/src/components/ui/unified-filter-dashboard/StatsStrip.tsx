@@ -21,16 +21,16 @@ function SplitStatCard({ item }: { item: StatItem }) {
   return (
     <div
       className={cn(
-        'relative flex flex-col rounded-xl border transition-all overflow-hidden h-[65px]',
+        'relative flex flex-col rounded-xl border transition-all overflow-hidden h-[50px]',
         'bg-gradient-to-b from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-900/30',
         'border-slate-200 dark:border-slate-700',
         'hover:shadow-sm'
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-center gap-1 py-1 px-2 bg-slate-100/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-        <item.icon className="h-3 w-3 text-slate-600 dark:text-slate-400" />
-        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
+      <div className="flex items-center justify-center gap-1 py-0.5 px-2 bg-slate-100/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+        <item.icon className="h-2.5 w-2.5 text-slate-600 dark:text-slate-400" />
+        <span className="text-[8px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">
           {item.label}
         </span>
       </div>
@@ -38,17 +38,17 @@ function SplitStatCard({ item }: { item: StatItem }) {
       {/* Split Content - وارد وصادر */}
       <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-slate-700 rtl:divide-x-reverse flex-1">
         {/* وارد */}
-        <div className="flex flex-col items-center justify-center px-1 py-0.5 bg-teal-50/50 dark:bg-teal-900/20">
-          <span className="text-[9px] font-medium text-teal-600 dark:text-teal-400">وارد</span>
-          <span className="text-xs font-extrabold text-teal-700 dark:text-teal-300 arabic-numbers leading-none">
+        <div className="flex flex-col items-center justify-center px-1 py-0 bg-teal-50/50 dark:bg-teal-900/20">
+          <span className="text-[7px] font-medium text-teal-600 dark:text-teal-400 leading-tight">وارد</span>
+          <span className="text-[10px] font-extrabold text-teal-700 dark:text-teal-300 arabic-numbers leading-none">
             {formatCurrencyValue(splitValue.incoming)}
           </span>
         </div>
         
         {/* صادر */}
-        <div className="flex flex-col items-center justify-center px-1 py-0.5 bg-rose-50/50 dark:bg-rose-900/20">
-          <span className="text-[9px] font-medium text-rose-600 dark:text-rose-400">صادر</span>
-          <span className="text-xs font-extrabold text-rose-700 dark:text-rose-300 arabic-numbers leading-none">
+        <div className="flex flex-col items-center justify-center px-1 py-0 bg-rose-50/50 dark:bg-rose-900/20">
+          <span className="text-[7px] font-medium text-rose-600 dark:text-rose-400 leading-tight">صادر</span>
+          <span className="text-[10px] font-extrabold text-rose-700 dark:text-rose-300 arabic-numbers leading-none">
             {formatCurrencyValue(splitValue.outgoing)}
           </span>
         </div>
@@ -78,17 +78,17 @@ function StatCard({ item }: { item: StatItem }) {
 
   const getValueFontSize = (text: string) => {
     const len = text.length;
-    if (len <= 4) return '0.9rem';
-    if (len <= 7) return '0.8rem';
-    if (len <= 10) return '0.75rem';
-    if (len <= 13) return '0.7rem';
-    return '0.6rem';
+    if (len <= 4) return '0.75rem';
+    if (len <= 7) return '0.65rem';
+    if (len <= 10) return '0.6rem';
+    if (len <= 13) return '0.55rem';
+    return '0.5rem';
   };
 
   return (
     <div
       className={cn(
-        'relative flex flex-col p-1.5 rounded-xl border transition-all h-[65px]',
+        'relative flex flex-col p-1 rounded-xl border transition-all h-[50px]',
         colors.bg,
         colors.border,
         'hover:shadow-sm',
@@ -97,12 +97,12 @@ function StatCard({ item }: { item: StatItem }) {
       onClick={item.onClick}
     >
       {/* Header: Title + Icon in same row */}
-      <div className="flex items-center justify-between gap-1 mb-0.5">
-        <span className="text-[10px] font-bold text-muted-foreground truncate flex-1 leading-tight">
+      <div className="flex items-center justify-between gap-1 mb-0">
+        <span className="text-[8px] font-bold text-muted-foreground truncate flex-1 leading-tight uppercase tracking-tighter">
           {item.label}
         </span>
         <div className={cn('p-0.5 rounded-md flex-shrink-0', colors.bg)}>
-          <Icon className={cn('h-3 w-3', colors.icon)} />
+          <Icon className={cn('h-2.5 w-2.5', colors.icon)} />
         </div>
       </div>
 

@@ -167,23 +167,23 @@ export function StatsCard({
     <Card className={cn(
       colors.border, 
       colors.bg, 
-      "border-l-4 hover:shadow-md transition-all duration-300 h-full min-h-[90px] sm:min-h-[110px] rounded-xl overflow-hidden shadow-sm",
+      "border-l-4 hover:shadow-md transition-all duration-300 h-full min-h-[60px] sm:min-h-[70px] rounded-xl overflow-hidden shadow-sm",
       className
     )}>
-      <CardContent className="p-4 flex flex-col justify-between h-full">
-        <div className="flex items-start justify-between gap-2">
+      <CardContent className="p-2 sm:p-3 flex flex-col justify-between h-full">
+        <div className="flex items-start justify-between gap-1">
           <div className="flex-1 min-w-0">
             <LabelWithTooltip>
-              <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider truncate mb-1">
+              <p className="text-[9px] sm:text-[10px] font-bold text-muted-foreground/80 uppercase tracking-tighter truncate mb-0.5">
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <p className={cn("text-sm sm:text-base md:text-lg font-black font-mono tracking-tight leading-none", colors.text)}>
+            <p className={cn("text-xs sm:text-sm md:text-base font-black font-mono tracking-tighter leading-none", colors.text)}>
               {displayValue}
             </p>
           </div>
-          <div className={cn("h-8 w-8 sm:h-10 sm:w-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm", colors.iconBg)}>
-            <Icon className={cn("h-5 w-5 sm:h-6 sm:h-7", colors.iconColor)} />
+          <div className={cn("h-6 w-6 sm:h-8 sm:w-9 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm", colors.iconBg)}>
+            <Icon className={cn("h-3.5 w-3.5 sm:h-4 sm:w-5", colors.iconColor)} />
           </div>
         </div>
         

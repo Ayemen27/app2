@@ -607,6 +607,17 @@ export default function NotificationsPage() {
             </div>
 
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {notification.payload?.action === 'open_task' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs gap-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                  onClick={() => window.location.href = `/tasks/${notification.payload.taskId}`}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  عرض المهمة
+                </Button>
+              )}
               {isUnread && (
                 <Button
                   size="sm"

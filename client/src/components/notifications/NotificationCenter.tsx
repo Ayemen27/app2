@@ -304,6 +304,16 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                 variant="ghost"
                 size="sm"
                 className="text-xs h-8 text-white hover:bg-white/20 rounded-lg"
+                onClick={() => setLocation('/settings?tab=notifications')}
+                title="إعدادات الإشعارات"
+              >
+                <Settings className="h-3 w-3 mr-1" />
+                الإعدادات
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-8 text-white hover:bg-white/20 rounded-lg"
                 onClick={async () => {
                   if (confirm("هل أنت متأكد من حذف الإشعارات المشبوهة؟")) {
                     await bulkDeleteSuspicious();

@@ -334,6 +334,36 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
 /**
  * 📥 جلب جميع الإشعارات (للمسؤولين)
  */
+/**
+ * 📊 جلب إحصائيات الإشعارات (للمسؤولين)
+ * GET /api/admin/notifications/stats
+ */
+notificationRouter.get('/stats', requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { NotificationService } = await import('../../services/NotificationService');
+    const notificationService = new NotificationService();
+    
+    const userId = req.user?.userId || req.user?.email || 'admin';
+
+    console.log(`📊 [API] جلب إحصائيات الإشعارات للمسؤول: ${userId}`);
+
+    const stats = await notificationService.getNotificationStats(userId as string);
+
+    res.json({
+      success: true,
+      ...stats,
+      message: "تم جلب الإحصائيات بنجاح"
+    });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في جلب الإحصائيات:', error);
+    res.status(500).json({
+      success: false,
+      message: "فشل في جلب الإحصائيات",
+      error: error.message
+    });
+  }
+});
+
 notificationRouter.get('/all', async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService.js');

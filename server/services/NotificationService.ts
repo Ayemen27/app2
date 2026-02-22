@@ -665,6 +665,51 @@ export class NotificationService {
   }
 
   /**
+   * جلب إحصائيات الإشعارات
+   */
+  async getNotificationStats(userId: string): Promise<{
+    total: number;
+    unread: number;
+    critical: number;
+    userStats: any[];
+  }> {
+    try {
+      const allNotifications = await db.select().from(notifications);
+      const total = allNotifications.length;
+      
+      const readStates = await db.select().from(notificationReadStates);
+      const readIds = new Set(readStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
+      
+      const unread = allNotifications.filter(n => !readIds.has(n.id)).length;
+      const critical = allNotifications.filter(n => n.priority === 5 || n.priority === 1).length;
+
+      // محاكاة إحصائيات المستخدمين بناءً على البيانات الفعلية
+      const userStats = await db.select({
+        userId: users.id,
+        userName: users.fullName,
+        userEmail: users.email,
+      }).from(users).limit(10);
+
+      const enrichedUserStats = userStats.map(u => ({
+        ...u,
+        totalNotifications: total,
+        readNotifications: readStates.filter(rs => rs.userId === u.userId && rs.isRead).length,
+        lastReadAt: readStates.filter(rs => rs.userId === u.userId).sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime())[0]?.readAt
+      }));
+
+      return {
+        total,
+        unread,
+        critical,
+        userStats: enrichedUserStats
+      };
+    } catch (error) {
+      console.error('Error fetching notification stats:', error);
+      return { total: 0, unread: 0, critical: 0, userStats: [] };
+    }
+  }
+
+  /**
    * حذف إشعار
    */
   async deleteNotification(notificationId: string, userId?: string): Promise<void> {

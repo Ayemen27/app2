@@ -156,7 +156,8 @@ export function CreateNotificationDialog({
         headers: getAuthHeaders(),
         body: JSON.stringify({
           ...data,
-          message: data.body, // Mapping body to message for backend
+          message: data.body, // Mapping for backward compatibility
+          body: data.body,    // Using new schema field
           projectId: projectId,
           targetPlatform: data.targetPlatform || 'all',
           recipients: data.recipientType === 'specific' && data.specificUserId ? [data.specificUserId] : data.recipientType,

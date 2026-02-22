@@ -78,11 +78,11 @@ function StatCard({ item }: { item: StatItem }) {
 
   const getValueFontSize = (text: string) => {
     const len = text.length;
-    if (len <= 4) return '1.1rem';
-    if (len <= 7) return '1rem';
-    if (len <= 10) return '0.85rem';
-    if (len <= 13) return '0.75rem';
-    return '0.65rem';
+    if (len <= 4) return '0.9rem';
+    if (len <= 7) return '0.8rem';
+    if (len <= 10) return '0.75rem';
+    if (len <= 13) return '0.7rem';
+    return '0.6rem';
   };
 
   return (

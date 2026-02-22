@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 // @ts-ignore
-import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus, Users, Building2, Eye, CheckCircle, Activity, User, ArrowRightLeft, Clock, Truck } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Calendar, Package, UserCheck, Plus, Users, Building2, Eye, CheckCircle, Activity, User, ArrowRightLeft, Clock, Truck, AlertCircle, Zap } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { QuickActionsGrid } from "@/components/ui/quick-actions-grid";
 import { RecentActivitiesStrip } from "@/components/ui/recent-activities-strip";

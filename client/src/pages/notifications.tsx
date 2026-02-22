@@ -208,7 +208,7 @@ export default function NotificationsPage() {
     const priority = priorityConfig[notification.priority as number] || priorityConfig[3];
     const isUnread = notification.status === 'unread';
     const isSelected = selectedIds.has(notification.id);
-    const [isExpanded, setIsExpanded] = React.useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
     const Icon = config.icon;
     const message = notification.body || notification.message || '';
     const isLongMessage = message.length > 60;

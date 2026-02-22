@@ -422,18 +422,18 @@ export class NotificationService {
       // المسؤول يرى جميع الإشعارات أو التي تخصه
       conditions.push(
         or(
-          sql`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
-          sql`${notifications.recipients}::text LIKE '%admin%'`,
-          sql`${notifications.recipients}::text LIKE '%مسؤول%'`,
-          sql`${notifications.recipients} IS NULL` // الإشعارات العامة
+          sql`notifications.recipients::text LIKE '%' || ${userId} || '%'`,
+          sql`notifications.recipients::text LIKE '%admin%'`,
+          sql`notifications.recipients::text LIKE '%مسؤول%'`,
+          isNull(notifications.recipients) // الإشعارات العامة
         )
       );
     } else {
       // المستخدم العادي يرى فقط إشعاراته الشخصية والعامة (من الأنواع المسموحة)
       conditions.push(
         or(
-          sql`${notifications.recipients}::text LIKE '%' || ${userId} || '%'`,
-          sql`${notifications.recipients} IS NULL` // الإشعارات العامة
+          sql`notifications.recipients::text LIKE '%' || ${userId} || '%'`,
+          isNull(notifications.recipients) // الإشعارات العامة
         )
       );
     }

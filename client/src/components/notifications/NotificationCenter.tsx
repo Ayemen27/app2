@@ -174,6 +174,12 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     }
   };
 
+  // مسح الإشعارات المشبوهة
+  const bulkDeleteSuspicious = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
       const response = await fetch('/api/notifications/bulk-delete-suspicious', {
         method: 'DELETE',
         headers: {
@@ -300,15 +306,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                 className="text-xs h-8 text-white hover:bg-white/20 rounded-lg"
                 onClick={async () => {
                   if (confirm("هل أنت متأكد من حذف الإشعارات المشبوهة؟")) {
-                    const token = localStorage.getItem('accessToken');
-                    const res = await fetch('/api/notifications/bulk-delete-suspicious', {
-                      method: 'DELETE',
-                      headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (res.ok) {
-                      showSuccessToast("تم الحذف الجماعي بنجاح");
-                      fetchNotifications();
-                    }
+                    await bulkDeleteSuspicious();
                   }
                 }}
                 title="حذف الإشعارات المشبوهة/الغريبة"

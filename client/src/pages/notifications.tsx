@@ -693,6 +693,14 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/50 overflow-hidden">
       <div className="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
+        {/* ملخص الإحصائيات الموحد */}
+        <div className="px-1">
+          <UnifiedStats 
+            stats={statsItems}
+            columns={4}
+          />
+        </div>
+
         {/* شريط البحث والفلترة الموحد */}
         <UnifiedFilterDashboard
           searchValue={searchValue}
@@ -749,12 +757,6 @@ export default function NotificationsPage() {
         {/* قائمة الإشعارات */}
         <ScrollArea className="flex-1 -mx-4 px-4">
           <div className="space-y-6 pb-6 pt-2">
-            {/* ملخص الإحصائيات الموحد */}
-            <UnifiedStats 
-              stats={statsItems}
-              columns={4}
-            />
-
             {isLoading ? (
               <LoadingSkeleton />
             ) : notifications.length > 0 ? (

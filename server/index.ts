@@ -39,13 +39,15 @@ import { runStartupValidation, getSchemaStatus } from "./services/schema-guard";
 import { users } from '@shared/schema';
 import http from 'http';
 import { Server } from 'socket.io';
-import compression from "compression"; // Import compression
+import compression from "compression"; 
 import { smartConnectionManager } from './services/smart-connection-manager';
 import { healthMonitor } from './services/HealthMonitor';
 import { authRouter } from './routes/modules/authRoutes.js';
+import { FcmService } from "./services/FcmService";
 
-// Assume setupSession is defined elsewhere and imported
-// For demonstration purposes, let's define a placeholder if it's not in the original snippet
+// تهيئة الخدمات الخارجية
+FcmService.initialize();
+
 const setupSession = (app: express.Express) => {
   // Placeholder for session setup
   console.log("Session setup placeholder");

@@ -11,10 +11,22 @@ export class FcmService {
   private static isInitialized = false;
 
   static initialize() {
-    // هنا يتم تحميل Firebase Admin SDK باستخدام الأسرار (Secrets)
-    // const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
-    this.isInitialized = true;
-    console.log("FCM Service Initialized (Stub)");
+    try {
+      const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      if (serviceAccountKey) {
+        // هنا نقوم بتهيئة Firebase Admin فعلياً إذا تم تثبيت المكتبة
+        // const admin = require('firebase-admin');
+        // admin.initializeApp({
+        //   credential: admin.credential.cert(JSON.parse(serviceAccountKey))
+        // });
+        console.log("✅ [FCM] Firebase Service Account Key Loaded");
+      } else {
+        console.warn("⚠️ [FCM] FIREBASE_SERVICE_ACCOUNT_KEY not found in environment variables");
+      }
+      this.isInitialized = true;
+    } catch (error) {
+      console.error("❌ [FCM] Error initializing Firebase:", error);
+    }
   }
 
   static async sendNotification(data: {

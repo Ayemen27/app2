@@ -212,36 +212,36 @@ export default function NotificationsPage() {
 
     return (
       <div className={cn(
-        "group relative flex items-start gap-4 p-5 rounded-2xl border transition-all duration-300",
+        "group relative flex items-start gap-3 p-3 rounded-xl border transition-all duration-300",
         isUnread ? "bg-blue-50/40 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
-        isSelected && "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-950 bg-blue-50/50 dark:bg-blue-900/20",
-        "hover:shadow-lg active:scale-[0.99]"
+        isSelected && "ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-slate-950 bg-blue-50/50 dark:bg-blue-900/20",
+        "hover:shadow-md active:scale-[0.99]"
       )}>
-        <div className="flex flex-col items-center gap-3">
-          <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(notification.id)} className="w-5 h-5 rounded-lg border-2 data-[state=checked]:bg-blue-600 shadow-sm" />
-          <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm relative group-hover:scale-110 transition-transform", config.bgColor)}>
-            <Icon className={cn("h-6 w-6", config.color)} />
-            {isUnread && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600 border-2 border-white shadow-sm"></span></span>}
+        <div className="flex flex-col items-center gap-2">
+          <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(notification.id)} className="w-4 h-4 rounded border-2 data-[state=checked]:bg-blue-600 shadow-sm" />
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform", config.bgColor)}>
+            <Icon className={cn("h-5 w-5", config.color)} />
+            {isUnread && <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600 border border-white shadow-sm"></span></span>}
           </div>
         </div>
-        <div className="flex-1 min-w-0 space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <h3 className={cn("text-base font-black leading-tight truncate", isUnread ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-400")}>{notification.title}</h3>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className={cn("text-[9px] uppercase font-black px-2 py-0.5 rounded-full", priority.bgColor, priority.color)}>{priority.label}</Badge>
-                <Badge variant="outline" className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border shadow-sm", config.bgColor, config.color, config.borderColor)}>{config.label}</Badge>
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <h3 className={cn("text-sm font-black leading-tight truncate", isUnread ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-400")}>{notification.title}</h3>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Badge variant="secondary" className={cn("text-[8px] uppercase font-black px-1.5 py-0 rounded-full", priority.bgColor, priority.color)}>{priority.label}</Badge>
+                <Badge variant="outline" className={cn("text-[8px] font-black px-1.5 py-0 rounded-full border shadow-sm", config.bgColor, config.color, config.borderColor)}>{config.label}</Badge>
               </div>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-              {isUnread && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" onClick={() => markAsReadMutation.mutate(notification.id)}><Check className="h-4 w-4" /></Button>}
-              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full" onClick={() => confirm('حذف هذا الإشعار؟') && deleteNotificationsMutation.mutate([notification.id])}><Trash2 className="h-4 w-4" /></Button>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+              {isUnread && <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" onClick={() => markAsReadMutation.mutate(notification.id)}><Check className="h-3.5 w-3.5" /></Button>}
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full" onClick={() => confirm('حذف هذا الإشعار؟') && deleteNotificationsMutation.mutate([notification.id])}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           </div>
-          <p className={cn("text-sm line-clamp-2 leading-relaxed", isUnread ? "text-slate-800 dark:text-slate-200 font-medium" : "text-slate-500 dark:text-slate-500")}>{notification.body || notification.message}</p>
-          <div className="flex items-center gap-3 pt-1 border-t border-slate-100 dark:border-slate-800/50">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500"><Clock className="h-3 w-3 text-blue-500" /><span>{notification.createdAt && format(parseISO(notification.createdAt), 'dd MMM، HH:mm', { locale: ar })}</span></div>
-            {notification.projectId && <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500"><Package className="h-3 w-3 text-emerald-500" /><span>مشروع: {notification.projectId.substring(0, 8)}</span></div>}
+          <p className={cn("text-[13px] line-clamp-1 leading-relaxed", isUnread ? "text-slate-800 dark:text-slate-200 font-medium" : "text-slate-500 dark:text-slate-500")}>{notification.body || notification.message}</p>
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/50">
+            <div className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><Clock className="h-2.5 w-2.5 text-blue-500" /><span>{notification.createdAt && format(parseISO(notification.createdAt), 'dd MMM، HH:mm', { locale: ar })}</span></div>
+            {notification.projectId && <div className="flex items-center gap-1 text-[9px] font-bold text-slate-500"><Package className="h-2.5 w-2.5 text-emerald-500" /><span>مشروع: {notification.projectId.substring(0, 8)}</span></div>}
           </div>
         </div>
       </div>
@@ -305,11 +305,11 @@ export default function NotificationsPage() {
 
       {/* Floating Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-10 duration-500 w-[90%] max-w-2xl">
-          <div className="flex items-center gap-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-3xl px-4 py-3 rounded-[2.5rem] shadow-[0_25px_60px_rgba(0,0,0,0.3)] border border-white/20 dark:border-slate-700/50">
-            <div className="flex items-center gap-3 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-500 dark:to-indigo-600 rounded-[2rem] text-white shadow-xl">
-              <span className="flex items-center justify-center w-8 h-8 bg-white/30 rounded-full text-xs font-black ring-4 ring-white/10 shrink-0">{selectedIds.size}</span>
-              <span className="font-black text-sm tracking-tight whitespace-nowrap">مختارة</span>
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-10 duration-500 w-[94%] max-w-2xl">
+          <div className="flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl px-3 py-2.5 rounded-[2rem] shadow-[0_25px_60px_rgba(0,0,0,0.4)] border border-white/20 dark:border-slate-700/50 ring-1 ring-black/5 dark:ring-white/5">
+            <div className="flex items-center gap-2.5 px-4 py-2 bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-500 dark:to-indigo-600 rounded-[1.5rem] text-white shadow-lg shrink-0">
+              <span className="flex items-center justify-center w-7 h-7 bg-white/25 rounded-full text-xs font-black ring-2 ring-white/10">{selectedIds.size}</span>
+              <span className="font-black text-xs tracking-tight whitespace-nowrap hidden xs:inline">مختارة</span>
             </div>
 
             <div className="flex items-center gap-2 flex-1 px-2">

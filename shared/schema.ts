@@ -178,15 +178,28 @@ export const authUserSessions = pgTable("auth_user_sessions", {
 
 // Notifications table (جدول الإشعارات)
 export const notifications = pgTable("notifications", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id), // null if broadcast
   title: text("title").notNull(),
-  message: text("message").notNull(),
+  body: text("body").notNull(),
+  message: text("message"), // Keeping for backward compatibility if needed, but 'body' is preferred
   type: text("type").notNull().default("system"),
   priority: integer("priority").default(3),
+  projectId: varchar("project_id").references(() => projects.id),
+  createdBy: varchar("created_by").references(() => users.id),
+  recipients: text("recipients").array(), // For targeted multiple users
+  payload: jsonb("payload"),
+  meta: jsonb("meta"),
+  readBy: text("read_by").array(),
+  deliveredTo: text("delivered_to").array(),
+  scheduledAt: timestamp("scheduled_at"),
+  channelPreference: jsonb("channel_preference"),
   isRead: boolean("is_read").default(false).notNull(),
   targetPlatform: text("target_platform").default("all").notNull(), // 'all', 'android', 'web'
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  isLocal: boolean("is_local").default(false),
+  synced: boolean("synced").default(true),
+  pendingSync: boolean("pending_sync").default(false),
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ 

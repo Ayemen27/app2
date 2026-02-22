@@ -25,6 +25,7 @@ import {
   type Equipment, type InsertEquipment, type EquipmentMovement, type InsertEquipmentMovement,
   type RefreshToken, type InsertRefreshToken, type AuditLog, type InsertAuditLog,
   type Task, type InsertTask,
+  type Device, type InsertDevice, type Crash, type InsertCrash, type Metric, type InsertMetric,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
   refreshTokens, auditLogs,
@@ -32,6 +33,9 @@ import {
   equipment, equipmentMovements,
   notifications, notificationReadStates,
   tasks,
+  devices,
+  crashes,
+  metrics,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
@@ -369,7 +373,7 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // Monitoring Implementation
+  // Monitoring Implementations
   async upsertDevice(device: InsertDevice): Promise<Device> {
     const [existing] = await db.select().from(devices).where(eq(devices.deviceId, device.deviceId));
     if (existing) {

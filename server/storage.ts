@@ -320,57 +320,16 @@ export interface IStorage {
   createEquipmentMovement(movement: InsertEquipmentMovement): Promise<EquipmentMovement>;
   updateEquipmentMovement(id: string, movement: Partial<InsertEquipmentMovement>): Promise<EquipmentMovement | undefined>;
 
-
-  // =====================================================
-  // نظام إدارة الإشعارات
-  // =====================================================
-
-  // Notification Read States
-  isNotificationRead(userId: string, notificationId: string, notificationType: string): Promise<boolean>;
-  getNotificationReadState(userId: string, notificationId: string, notificationType: string): Promise<NotificationReadState | undefined>;
-  markNotificationAsRead(userId: string, notificationId: string, notificationType: string): Promise<void>;
-  markAllNotificationsAsRead(userId: string): Promise<void>;
-  getReadNotifications(userId: string, notificationType?: string): Promise<NotificationReadState[]>;
-
   // Notifications
   createNotification(notif: InsertNotification): Promise<Notification>;
   getNotifications(userId?: string): Promise<Notification[]>;
 
-  // =====================================================
   // Wells Management System (نظام إدارة الآبار)
-  // =====================================================
-
-  // Well Tasks
   getWellTasks(wellId: number): Promise<WellTask[]>;
   getWellTask(id: number): Promise<WellTask | undefined>;
   createWellTask(task: InsertWellTask): Promise<WellTask>;
   updateWellTask(id: number, task: Partial<InsertWellTask>): Promise<WellTask | undefined>;
   deleteWellTask(id: number): Promise<void>;
-
-  // Well Task Accounts
-  getWellTaskAccount(taskId: number): Promise<WellTaskAccount | undefined>;
-  createWellTaskAccount(account: InsertWellTaskAccount): Promise<WellTaskAccount>;
-  updateWellTaskAccount(id: number, account: Partial<InsertWellTaskAccount>): Promise<WellTaskAccount | undefined>;
-  deleteWellTaskAccount(id: number): Promise<void>;
-  getWellTaskAccountsByWell(wellId: number): Promise<WellTaskAccount[]>;
-
-  // Well Expenses
-  getWellExpenses(wellId: number, dateFrom?: string, dateTo?: string): Promise<WellExpense[]>;
-  getWellExpense(id: number): Promise<WellExpense | undefined>;
-  createWellExpense(expense: InsertWellExpense): Promise<WellExpense>;
-  updateWellExpense(id: number, expense: Partial<InsertWellExpense>): Promise<WellExpense | undefined>;
-  deleteWellExpense(id: number): Promise<void>;
-  getWellExpensesByType(wellId: number, expenseType: string): Promise<WellExpense[]>;
-
-  // Well Audit Logs
-  getWellAuditLogs(wellId?: number, taskId?: number, limit?: number): Promise<WellAuditLog[]>;
-  getWellAuditLog(id: number): Promise<WellAuditLog | undefined>;
-  createWellAuditLog(log: InsertWellAuditLog): Promise<WellAuditLog>;
-  deleteWellAuditLog(id: number): Promise<void>;
-
-  // =====================================================
-  // AI System Methods - تم حذف النظام
-  // =====================================================
 
   // Database Administration
   getDatabaseTables(): Promise<any[]>;
@@ -408,6 +367,22 @@ export class DatabaseStorage implements IStorage {
   async createMetric(metric: InsertMetric): Promise<Metric> {
     const [newMetric] = await db.insert(metrics).values(metric).returning();
     return newMetric;
+  }
+
+  // Notifications Implementations
+  async createNotification(notif: InsertNotification): Promise<Notification> {
+    const [newNotif] = await db.insert(notifications).values({
+      ...notif,
+      targetPlatform: notif.targetPlatform || 'all'
+    }).returning();
+    return newNotif;
+  }
+
+  async getNotifications(userId?: string): Promise<Notification[]> {
+    if (userId) {
+      return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+    }
+    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
   }
 
   // Cache للمعدات - تحسين الأداء الفائق
@@ -3801,6 +3776,22 @@ export class DatabaseStorage implements IStorage {
   // =====================================================
   // Wells Management System Implementation (تنفيذ نظام إدارة الآبار)
   // =====================================================
+
+  // Notifications
+  async createNotification(notif: InsertNotification): Promise<Notification> {
+    const [newNotif] = await db.insert(notifications).values({
+      ...notif,
+      targetPlatform: notif.targetPlatform || 'all'
+    }).returning();
+    return newNotif;
+  }
+
+  async getNotifications(userId?: string): Promise<Notification[]> {
+    if (userId) {
+      return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+    }
+    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+  }
 
   // Well Tasks
   async getWellTasks(wellId: number): Promise<WellTask[]> {

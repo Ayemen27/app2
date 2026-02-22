@@ -156,7 +156,9 @@ export function CreateNotificationDialog({
         headers: getAuthHeaders(),
         body: JSON.stringify({
           ...data,
+          message: data.body, // Mapping body to message for backend
           projectId: projectId,
+          targetPlatform: data.targetPlatform || 'all',
           recipients: data.recipientType === 'specific' && data.specificUserId ? [data.specificUserId] : data.recipientType,
         }),
       });

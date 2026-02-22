@@ -100,34 +100,12 @@ if (dbUrl.includes("supabase.co")) {
     // المضيف القياسي الجديد: [project-ref].supabase.co أو استخدام pooler
     console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
     
-    // استخراج المستخدم وكلمة المرور لإصلاح صيغة المستخدم للـ Pooler
-    const urlParts = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@/);
-    if (urlParts) {
-      const user = urlParts[1];
-      const password = urlParts[2];
-      
-      // إصلاح خطأ "Tenant not found": 
-      // في Supabase Pooler (المنفذ 6543)، يجب أن يكون المستخدم بصيغة: postgres.[project-ref]
-      // وإذا كان المشروع في منطقة معينة، قد يتطلب الـ Pooler المخصص.
-      const correctUser = user.includes('.') ? user : `postgres.${projectRef}`;
-      
-      // استخدام النمط العالمي للمجمع (Session Mode) على المنفذ 5432 لتجنب تعقيدات الـ Tenant في بعض المناطق
-      // أو الاستمرار مع 6543 ولكن مع التأكد من صيغة المستخدم.
-      finalDbUrl = `postgresql://${correctUser}:${password}@aws-0-eu-central-1.pooler.supabase.com:5432/postgres?pgbouncer=true&connection_limit=1`;
-      console.log(`🔗 [Supabase Fix] محاولة الاتصال عبر المجمع (Port 5432) بهوية: ${correctUser}`);
-    } else {
-      // إذا كان الرابط يستخدم النمط القديم db.xxx، نقوم بتحديثه للنمط الأكثر استقراراً
-      // ملاحظة: نستخدم المنفذ 6543 لـ Transaction Mode وهو الأكثر استقراراً في البيئات السحابية
-      finalDbUrl = dbUrl
-        .replace(`db.${projectRef}.supabase.co:6543`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
-        .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:5432`)
-        .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
-        
-      // التأكد من إضافة user parameters المطلوبة للـ Pooler الجديد
-      if (!finalDbUrl.includes("?")) {
-        finalDbUrl += "?pgbouncer=true&connection_limit=1";
-      }
+    // العودة للاتصال المستقر والمباشر مع تحسينات الأداء
+    finalDbUrl = dbUrl;
+    if (!finalDbUrl.includes("?")) {
+      finalDbUrl += "?sslmode=no-verify&connect_timeout=30";
     }
+    console.log(`🔗 [DB] استخدام الاتصال المباشر لضمان الاستقرار وتجنب أخطاء الـ Tenant`);
   }
 }
 

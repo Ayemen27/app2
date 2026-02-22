@@ -269,15 +269,39 @@ export default function NotificationsPage() {
     queryKey: QUERY_KEYS.notificationsByUser(userId),
     queryFn: async () => {
       try {
+        console.log('🔄 [Page] جلب الإشعارات لـ:', userId);
         const result = await apiRequest(`/api/notifications?limit=100&unreadOnly=false`);
-        return result.data || result || { notifications: [], unreadCount: 0, total: 0 };
+        console.log('✅ [Page] استجابة API:', result);
+        
+        // التعامل مع هياكل الاستجابة المختلفة
+        if (result.success && result.data) {
+          return {
+            notifications: result.data,
+            unreadCount: result.unreadCount || 0,
+            total: result.total || result.data.length
+          };
+        }
+        
+        if (Array.isArray(result)) {
+          return {
+            notifications: result,
+            unreadCount: result.filter((n: any) => !n.isRead).length,
+            total: result.length
+          };
+        }
+
+        if (result.notifications) {
+          return result;
+        }
+
+        return { notifications: [], unreadCount: 0, total: 0 };
       } catch (error) {
-        console.error('فشل في جلب الإشعارات:', error);
+        console.error('❌ [Page] خطأ في جلب الإشعارات:', error);
         return { notifications: [], unreadCount: 0, total: 0 };
       }
     },
     refetchInterval: 30000,
-    enabled: !!user,
+    enabled: !!userId,
   });
 
   const notifications = useMemo(() => {

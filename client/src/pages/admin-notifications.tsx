@@ -406,7 +406,10 @@ export default function AdminNotificationsPage() {
                     <Bell className="absolute -bottom-4 -right-4 h-32 w-32 -rotate-12" />
                   </div>
                   <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-xl flex items-center justify-center ring-4 ring-white/10 relative z-10 shadow-inner">
-                    {(typeIcons[viewingNotification.type] || Bell)({ className: "h-10 w-10 text-white" })}
+                    {(() => {
+                      const Icon = typeIcons[viewingNotification.type] || Bell;
+                      return <Icon className="h-10 w-10 text-white" />;
+                    })()}
                   </div>
                 </div>
 

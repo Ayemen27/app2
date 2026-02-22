@@ -174,6 +174,26 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     }
   };
 
+      const response = await fetch('/api/notifications/bulk-delete-suspicious', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (response.ok) {
+        await fetchNotifications();
+        showSuccessToast("تم حذف الإشعارات غير الطبيعية بنجاح.");
+      } else {
+        showErrorToast("فشل في عملية الحذف الجماعي.");
+      }
+    } catch (error) {
+      console.error('خطأ في الحذف الجماعي:', error);
+      showErrorToast("حدث خطأ أثناء الحذف.");
+    }
+  };
+
   // تعليم جميع الإشعارات كمقروءة
   const markAllAsRead = async () => {
     try {
@@ -274,6 +294,28 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-8 text-white hover:bg-white/20 rounded-lg"
+                onClick={async () => {
+                  if (confirm("هل أنت متأكد من حذف الإشعارات المشبوهة؟")) {
+                    const token = localStorage.getItem('accessToken');
+                    const res = await fetch('/api/notifications/bulk-delete-suspicious', {
+                      method: 'DELETE',
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                      showSuccessToast("تم الحذف الجماعي بنجاح");
+                      fetchNotifications();
+                    }
+                  }
+                }}
+                title="حذف الإشعارات المشبوهة/الغريبة"
+              >
+                <Zap className="h-3 w-3 mr-1" />
+                تصفية
+              </Button>
               {unreadCount > 0 && (
                 <Button
                   variant="ghost"

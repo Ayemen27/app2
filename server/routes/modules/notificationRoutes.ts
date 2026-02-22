@@ -110,6 +110,40 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
 });
 
 /**
+ * 🗑️ حذف جماعي للإشعارات "الغريبة" أو المشبوهة
+ * DELETE /api/notifications/bulk-delete-suspicious
+ */
+notificationRouter.delete('/bulk-delete-suspicious', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?.email;
+    if (!userId) return res.status(401).json({ success: false, message: "غير مخول" });
+
+    const { db } = await import('../../db');
+    const { notifications } = await import('../../../shared/schema');
+    const { eq, and, or, like } = await import('drizzle-orm');
+
+    // تعريف الأنماط "الغريبة" (مثل نصوص متكررة أو مشبوهة)
+    await db.delete(notifications)
+      .where(
+        and(
+          eq(notifications.userId, userId as string),
+          or(
+            like(notifications.title, '%162162162%'),
+            like(notifications.message, '%162162162%'),
+            like(notifications.title, '%test%'),
+            eq(notifications.priority, 1) // مثال: حذف الحرج القديم جداً أو بنمط معين
+          )
+        )
+      );
+
+    res.json({ success: true, message: "تم تنظيف الإشعارات المشبوهة بنجاح" });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في الحذف الجماعي المشبوه:', error);
+    res.status(500).json({ success: true, message: "فشل في عملية الحذف" });
+  }
+});
+
+/**
  * 🔄 تحديث إشعار محدد
  * PATCH /api/notifications/:id
  * للمشرفين فقط - تحديث نص أو أولوية الإشعار

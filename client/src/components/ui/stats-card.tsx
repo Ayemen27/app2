@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 // @ts-ignore
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, AlertCircle, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -9,7 +9,7 @@ interface StatsCardProps {
   label?: string;
   value: string | number;
   icon: LucideIcon;
-  color?: "blue" | "green" | "orange" | "red" | "purple" | "teal" | "indigo" | "emerald" | "amber" | "gray";
+  color?: "blue" | "green" | "orange" | "red" | "purple" | "teal" | "indigo" | "emerald" | "amber" | "gray" | "rose" | "critical" | "warning";
   gradient?: string;
   iconBg?: string;
   iconColor?: string;
@@ -18,6 +18,8 @@ interface StatsCardProps {
   trend?: { value: number; isPositive: boolean };
   className?: string;
   "data-testid"?: string;
+  secondaryLabel?: string;
+  secondaryIcon?: LucideIcon;
 }
 
 const colorVariants = {
@@ -97,6 +99,20 @@ const colorVariants = {
     bg: "bg-rose-50 dark:bg-rose-900/20",
     iconBg: "bg-rose-100 dark:bg-rose-900/30",
     iconColor: "text-rose-600 dark:text-rose-400"
+  },
+  critical: {
+    border: "border-l-red-600",
+    text: "text-red-700",
+    bg: "bg-red-100 dark:bg-red-950/40",
+    iconBg: "bg-red-200 dark:bg-red-900/50",
+    iconColor: "text-red-700 dark:text-red-300"
+  },
+  warning: {
+    border: "border-l-amber-500",
+    text: "text-amber-700",
+    bg: "bg-amber-100 dark:bg-amber-950/40",
+    iconBg: "bg-amber-200 dark:bg-amber-900/50",
+    iconColor: "text-amber-700 dark:text-amber-300"
   }
 };
 
@@ -111,97 +127,24 @@ export function StatsCard({
   iconColor,
   formatter, 
   className = "",
-  "data-testid": dataTestId
+  "data-testid": dataTestId,
+  secondaryLabel,
+  secondaryIcon: SecondaryIcon
 }: StatsCardProps) {
-  // استخدام الخصائص المخصصة أو الألوان الافتراضية
-  const colors = color && colorVariants[color] ? colorVariants[color] : colorVariants.blue;
+  const colors = color && colorVariants[color as keyof typeof colorVariants] ? colorVariants[color as keyof typeof colorVariants] : colorVariants.blue;
   const displayLabel = label || title || '';
   
-  // تنظيف القيمة قبل العرض مع حماية أقوى ومحسنة
   const cleanValue = () => {
     if (value === undefined || value === null) return '0';
-    
     if (typeof value === 'number') {
       if (isNaN(value) || !isFinite(value)) return '0';
-      
-      // فحص القيم غير المنطقية (أكبر من 100 مليار)
-      if (Math.abs(value) > 100000000000) {
-        console.warn('⚠️ [StatsCard] قيمة رقمية غير منطقية:', value);
-        return '0';
-      }
-      
       const cleanedValue = Math.max(0, value);
       return formatter ? formatter(cleanedValue) : cleanedValue.toLocaleString('en-US');
     }
-    
-    const stringValue = value.toString().trim();
-    
-    // فحوصات محسنة للأنماط المشبوهة
-    
-    // 1. الأرقام المتكررة المشبوهة (مثل 162162162)
-    if (stringValue.match(/^(\d{1,3})\1{2,}$/)) {
-      console.warn('⚠️ [StatsCard] نمط متكرر مشبوه:', stringValue);
-      return '0';
-    }
-    
-    // 2. تكرار نفس الرقم أكثر من 5 مرات (مثل 1111111)
-    if (stringValue.match(/^(\d)\1{5,}$/)) {
-      console.warn('⚠️ [StatsCard] تكرار رقم واحد:', stringValue);
-      return '0';
-    }
-    
-    // 3. أرقام طويلة جداً (أكثر من 12 رقم)
-    if (stringValue.length > 12 && stringValue.match(/^\d+$/)) {
-      console.warn('⚠️ [StatsCard] رقم طويل غير منطقي:', stringValue);
-      return '0';
-    }
-    
-    // 4. فحص الأنماط المشبوهة الإضافية
-    const suspiciousPatterns = [
-      /^(\d{2,3})\1{3,}$/, // تكرار مجموعات أرقام
-      /^0+[1-9]0+$/, // أصفار مع رقم في المنتصف
-      /^(123|234|345|456|567|678|789|012|098|987|876|765|654|543|432|321){3,}$/ // تسلسلات متكررة
-    ];
-    
-    for (const pattern of suspiciousPatterns) {
-      if (pattern.test(stringValue)) {
-        console.warn('⚠️ [StatsCard] نمط مشبوه آخر:', stringValue);
-        return '0';
-      }
-    }
-    
-    // تنظيف الأرقام وإعادة تنسيقها
-    const cleanedNumber = stringValue.replace(/[^\d.-]/g, '');
-    
-    if (!cleanedNumber || cleanedNumber === '' || cleanedNumber === '-') {
-      return '0';
-    }
-    
-    const parsed = parseFloat(cleanedNumber);
-    
-    if (!isNaN(parsed) && isFinite(parsed)) {
-      // فحص القيم غير المنطقية مرة أخرى
-      if (Math.abs(parsed) > 100000000000) {
-        console.warn('⚠️ [StatsCard] قيمة محولة غير منطقية:', parsed);
-        return '0';
-      }
-      
-      const finalValue = Math.max(0, parsed);
-      
-      // فحص إضافي للتأكد من عدم وجود أعداد صحيحة كبيرة جداً بشكل غير منطقي
-      if (Number.isInteger(finalValue) && finalValue > 1000000 && displayLabel.includes('عامل')) {
-        console.warn('⚠️ [StatsCard] عدد عمال غير منطقي:', finalValue);
-        return '0';
-      }
-      
-      return finalValue.toLocaleString('en-US');
-    }
-    
-    return '0';
+    return value.toString();
   };
   
   const displayValue = cleanValue();
-  
   const needsTooltip = displayLabel.length > 15;
 
   const LabelWithTooltip = ({ children }: { children: React.ReactNode }) => {
@@ -220,63 +163,40 @@ export function StatsCard({
     );
   };
 
-  // إذا كانت هناك خصائص مخصصة (gradient, iconBg, iconColor) استخدمها
-  if (gradient || iconBg || iconColor) {
-    return (
-      <div className="flex gap-2">
-        <div className={cn("w-8 h-8 md:w-9 md:h-9 rounded-lg flex-shrink-0 flex items-center justify-center", iconBg)}>
-          <Icon className={cn("h-4 w-4 md:h-5 md:w-5", iconColor)} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <LabelWithTooltip>
-            <p 
-              className="text-[10px] font-medium text-slate-600 dark:text-slate-400 leading-snug break-words"
-              style={{ 
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                wordBreak: 'break-word'
-              }}
-              title={displayLabel}
-            >
-              {displayLabel}
-            </p>
-          </LabelWithTooltip>
-          <p 
-            className="text-xs md:text-sm font-bold text-slate-900 dark:text-white leading-tight break-words"
-            style={{ fontSize: 'clamp(0.7rem, 2vw, 0.85rem)' }}
-          >
-            {displayValue}
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
-  // الاستايل الافتراضي المحسن - ارتفاع ثابت موحد احترافي
   return (
     <Card className={cn(
       colors.border, 
       colors.bg, 
-      "border-l-2 border-1 hover:shadow-lg transition-all duration-300 h-[60px] sm:h-[80px] rounded-lg overflow-hidden shadow-sm"
+      "border-l-4 hover:shadow-md transition-all duration-300 h-full rounded-xl overflow-hidden shadow-sm",
+      className
     )}>
-      <CardContent className="p-1.5 sm:p-3 flex flex-col justify-center h-full">
-        <div className="flex items-center justify-between gap-1 sm:gap-2">
+      <CardContent className="p-4 flex flex-col justify-between h-full">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <LabelWithTooltip>
-              <p className="text-[8px] sm:text-[10px] font-medium text-muted-foreground/90 uppercase tracking-tighter truncate mb-0">
+              <p className="text-xs font-bold text-muted-foreground/80 uppercase tracking-wider truncate mb-1">
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <p className={cn("text-sm sm:text-lg font-bold font-mono tracking-tighter leading-none", colors.text)}>
+            <p className={cn("text-2xl font-black font-mono tracking-tight leading-none", colors.text)}>
               {displayValue}
             </p>
           </div>
-          <div className={cn("h-7 w-7 sm:h-9 sm:w-9 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm", colors.iconBg)}>
-            <Icon className={cn("h-3.5 w-3.5 sm:h-5 sm:w-5", colors.iconColor)} />
+          <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm", colors.iconBg)}>
+            <Icon className={cn("h-6 w-6", colors.iconColor)} />
           </div>
         </div>
+        
+        {(secondaryLabel || color === 'critical' || color === 'warning') && (
+          <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5 flex items-center gap-2">
+            {color === 'critical' && <AlertCircle className="h-3.5 w-3.5 text-red-600 animate-pulse" />}
+            {color === 'warning' && <Zap className="h-3.5 w-3.5 text-amber-600" />}
+            {SecondaryIcon && <SecondaryIcon className="h-3.5 w-3.5 opacity-70" />}
+            <span className="text-[10px] font-bold opacity-80 truncate">
+              {secondaryLabel || (color === 'critical' ? '1 عنصر حرج' : color === 'warning' ? '1 تحذير' : '')}
+            </span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -284,7 +204,7 @@ export function StatsCard({
 
 export function StatsGrid({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 ${className}`}>
+    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${className}`}>
       {children}
     </div>
   );

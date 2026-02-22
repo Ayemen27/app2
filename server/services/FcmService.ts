@@ -36,15 +36,12 @@ export class FcmService {
         isRead: false,
       };
 
-      // في حالة الإرسال للجميع أو فئات، نحتاج لمعالجة التوزيع لاحقاً أو استخدام UserId null كإشارة للكل
-      // للتسريع، سنقوم بإنشاء سجل عام
-      await storage.createNotification(dbNotification);
+      await storage.createNotification(dbNotification as any);
     }
 
     // 2. إرسال عبر Firebase (لأندرويد)
     if (data.targetPlatform === 'all' || data.targetPlatform === 'android') {
       console.log(`[FCM] Sending push notification to Android: ${data.title}`);
-      // استدعاء Firebase Admin SDK هنا
     }
 
     return { success: true };

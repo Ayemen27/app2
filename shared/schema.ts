@@ -1109,34 +1109,7 @@ export type NotificationReadState = typeof notificationReadStates.$inferSelect;
 
 // ==================== جدول الإشعارات العامة ====================
 
-// Notifications table (جدول الإشعارات العامة)
-export const notifications = pgTable("notifications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: text("title").notNull(),
-  body: text("body").notNull(),
-  type: text("type").notNull(), // system, alert, info, warning, etc
-  priority: integer("priority").notNull().default(3), // 1=highest, 5=lowest
-  projectId: varchar("project_id").references(() => projects.id),
-  createdBy: varchar("created_by").references(() => users.id),
-  recipients: text("recipients").array(), // array of user IDs or "default"
-  payload: jsonb("payload"), // additional data (action, version, etc)
-  meta: jsonb("meta"), // general metadata
-  readBy: text("read_by").array(), // array of user IDs who read this
-  deliveredTo: text("delivered_to").array(), // array of user IDs who received this
-  scheduledAt: timestamp("scheduled_at"), // when to send notification
-  channelPreference: jsonb("channel_preference"), // sms, email, push preferences
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// Notification schema for forms
-export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
-  id: true, 
-  createdAt: true 
-});
-
-// Types for TypeScript
-export type Notification = typeof notifications.$inferSelect;
-export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+// تم دمج هذا الجدول مع الجدول الرئيسي في بداية الملف لتجنب التكرار
 
 
 // ==================== جداول الوكيل الذكي AI Agent ====================

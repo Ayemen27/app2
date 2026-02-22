@@ -681,22 +681,12 @@ export class NotificationService {
         .delete(notificationReadStates)
         .where(and(...readStatesConditions));
 
-      // ملاحظة: إذا كان الحذف مخصصاً لمستخدم واحد (وليس حذفاً جذرياً للإشعار من النظام)، 
-      // فقد نكتفي بحذف حالة القراءة أو إضافة حالة "محذوف".
-      // ولكن بناءً على الطلب، سنقوم بحذف الإشعار نفسه إذا لم يتم تحديد مستخدم أو إذا كان المستخدم مسؤولاً.
-      
-      const [notification] = await db
-        .select()
-        .from(notifications)
-        .where(eq(notifications.id, notificationId))
-        .limit(1);
-
-      if (notification) {
-        await db
-          .delete(notifications)
-          .where(eq(notifications.id, notificationId));
-        console.log(`✅ تم حذف الإشعار ${notificationId} بنجاح`);
-      }
+      // حذف الإشعار نفسه من جدول الإشعارات
+      await db
+        .delete(notifications)
+        .where(eq(notifications.id, notificationId));
+        
+      console.log(`✅ تم حذف الإشعار ${notificationId} بنجاح`);
     } catch (error) {
       console.error(`❌ خطأ في حذف الإشعار ${notificationId}:`, error);
       throw error;
@@ -705,16 +695,7 @@ export class NotificationService {
 
   /**
    * جلب إحصائيات الإشعارات للمستخدم
-   */      .where(eq(notificationReadStates.notificationId, notificationId));
-
-    // ملاحظة: تم تبسيط النظام - لا يوجد طابور إرسال حالياً
-
-    // حذف الإشعار
-    await db
-      .delete(notifications)
-      .where(eq(notifications.id, notificationId));
-
-    console.log(`✅ تم حذف الإشعار: ${notificationId}`);
+   */
   }
 
   /**

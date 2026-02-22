@@ -307,41 +307,50 @@ export default function NotificationsPage() {
 
       {/* Floating Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 duration-500">
-          <div className="bg-slate-900 dark:bg-blue-600 text-white p-4 rounded-3xl shadow-2xl border border-white/10 flex items-center gap-6 min-w-[400px] backdrop-blur-xl">
-            <div className="flex items-center gap-3 px-4 border-l border-white/20">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center font-black text-lg">{selectedIds.size}</div>
-              <span className="font-black text-sm whitespace-nowrap">عناصر مختارة</span>
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-8 duration-500">
+          <div className="flex items-center gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl px-3 py-2.5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-200/50 dark:border-slate-800/50 min-w-[450px]">
+            <div className="flex items-center gap-3 px-5 py-2 bg-slate-900 dark:bg-blue-600 rounded-[2rem] text-white shadow-lg">
+              <span className="flex items-center justify-center w-7 h-7 bg-white/20 rounded-full text-xs font-black ring-4 ring-white/10">{selectedIds.size}</span>
+              <span className="font-black text-sm tracking-tight">مختارة</span>
             </div>
-            
-            <div className="flex items-center gap-2 flex-1">
+
+            <div className="flex items-center gap-1.5 flex-1 px-2">
               <Button 
                 variant="ghost" 
-                className="flex-1 h-12 rounded-2xl font-black text-sm hover:bg-white/10 text-white gap-2"
+                size="sm"
+                className="flex-1 h-11 rounded-2xl font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 gap-2 transition-all active:scale-95"
                 onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
                 disabled={markSelectedAsReadMutation.isPending}
               >
-                <CheckCheck className="h-5 w-5" />
+                <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <CheckCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
                 تعليم كمقروء
               </Button>
+              
+              <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1" />
+
               <Button 
-                variant="destructive" 
-                className="flex-1 h-12 rounded-2xl font-black text-sm bg-red-600 hover:bg-red-700 text-white gap-2 shadow-lg"
+                variant="ghost" 
+                size="sm"
+                className="flex-1 h-11 rounded-2xl font-bold text-xs hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 gap-2 transition-all active:scale-95"
                 onClick={() => confirm(`هل أنت متأكد من حذف ${selectedIds.size} إشعار؟`) && deleteNotificationsMutation.mutate(Array.from(selectedIds))}
                 disabled={deleteNotificationsMutation.isPending}
               >
-                <Trash2 className="h-5 w-5" />
-                حذف المحدد
+                <div className="w-8 h-8 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </div>
+                حذف
               </Button>
             </div>
 
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-12 w-12 rounded-2xl hover:bg-white/10 text-white"
+              className="h-11 w-11 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:text-slate-500 transition-all"
               onClick={() => setSelectedIds(new Set())}
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </div>

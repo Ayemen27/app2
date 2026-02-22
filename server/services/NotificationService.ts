@@ -694,11 +694,6 @@ export class NotificationService {
   }
 
   /**
-   * جلب إحصائيات الإشعارات للمستخدم
-   */
-  }
-
-  /**
    * جلب إحصائيات الإشعارات
    */
   async getNotificationStats(userId: string): Promise<{

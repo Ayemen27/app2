@@ -40,7 +40,7 @@ export default function AdminNotificationsPage() {
   // تعيين الأزرار العائمة
   useEffect(() => {
     const handleAdd = () => setIsCreateDialogOpen(true);
-    setFloatingAction(handleAdd, "إرسال إشعار جديد");
+    setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
     
     // سيتم تعريف refetch لاحقاً، سنستخدم wrapper
     return () => {
@@ -92,13 +92,12 @@ export default function AdminNotificationsPage() {
     queryKey: QUERY_KEYS.adminNotifications(filterValues, searchValue),
     queryFn: async () => {
       const params = new URLSearchParams({
-        requesterId: 'admin',
         limit: '50',
         ...(filterValues.type !== 'all' && { type: filterValues.type }),
         ...(filterValues.priority !== 'all' && { priority: filterValues.priority }),
         ...(searchValue && { search: searchValue })
       });
-      const response = await fetch(`/api/admin/notifications/all?${params}`, {
+      const response = await fetch(`/api/admin/notifications?${params}`, {
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في جلب البيانات');
@@ -120,9 +119,9 @@ export default function AdminNotificationsPage() {
   }, [refetch, setRefreshAction, toast]);
 
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
-    queryKey: QUERY_KEYS.userActivity,
+    queryKey: [QUERY_KEYS.adminNotifications, 'activity'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/notifications/user-activity?requesterId=admin', {
+      const response = await fetch('/api/admin/notifications/stats', {
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في جلب النشاط');
@@ -133,7 +132,7 @@ export default function AdminNotificationsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/admin/notifications/${id}?requesterId=admin`, {
+      const response = await fetch(`/api/admin/notifications/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -148,9 +147,9 @@ export default function AdminNotificationsPage() {
 
   const notifications = notificationsData?.notifications || [];
   const stats = useMemo(() => {
-    const total = notificationsData?.total || 0;
-    const unread = notifications.filter((n: any) => !n.isRead).length;
-    const critical = notifications.filter((n: any) => n.priority === 1 || n.priority === 'critical').length;
+    const total = activityData?.total || 0;
+    const unread = activityData?.unread || 0;
+    const critical = activityData?.critical || 0;
     const readRate = total > 0 ? Math.round(((total - unread) / total) * 100) : 0;
     
     return [
@@ -181,7 +180,7 @@ export default function AdminNotificationsPage() {
         color: "purple" as const
       }
     ];
-  }, [notificationsData, notifications, activityData]);
+  }, [activityData]);
 
   const priorityMap: Record<string, { label: string, color: any }> = {
     '1': { label: 'حرج', color: 'destructive' },
@@ -212,32 +211,34 @@ export default function AdminNotificationsPage() {
           onOpenChange={setIsCreateDialogOpen} 
           onUpdate={() => refetch()} 
         />
+        
+        <UnifiedStats 
+          stats={stats} 
+          columns={4} 
+          className="mb-6"
+        />
+
+        <UnifiedFilterDashboard
+          searchValue={searchValue}
+          onSearchChange={onSearchChange}
+          filters={filterConfigs}
+          filterValues={filterValues}
+          onFilterChange={onFilterChange}
+          onReset={onReset}
+          compact={false}
+          className="w-full"
+        />
+
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <TabsList className="grid w-full sm:w-auto grid-cols-3 sm:flex gap-2">
-              <TabsTrigger value="overview" className="gap-2"><BarChart3 className="h-4 w-4" /> الإحصائيات</TabsTrigger>
+              <TabsTrigger value="overview" className="gap-2"><BarChart3 className="h-4 w-4" /> النظرة العامة</TabsTrigger>
               <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" /> السجل</TabsTrigger>
               <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> المستخدمين</TabsTrigger>
             </TabsList>
-            
-            <UnifiedFilterDashboard
-              searchValue={searchValue}
-              onSearchChange={onSearchChange}
-              filters={filterConfigs}
-              filterValues={filterValues}
-              onFilterChange={onFilterChange}
-              onReset={onReset}
-              compact={false}
-              className="w-full"
-            />
           </div>
 
           <TabsContent value="overview" className="mt-0">
-            <UnifiedStats 
-              stats={stats} 
-              columns={3} 
-              className="mb-6"
-            />
             <UnifiedCardGrid columns={2}>
               <UnifiedCard
                 title="أكثر المستخدمين تفاعلاً"

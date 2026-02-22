@@ -52,6 +52,9 @@ interface CreateNotificationDialogProps {
   onUpdate?: () => void;
   notificationType?: 'safety' | 'task' | 'payroll' | 'announcement' | 'system';
   projectId?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
 }
 
 const notificationTypes = [
@@ -103,9 +106,16 @@ const priorityLevels = [
 export function CreateNotificationDialog({
   onUpdate,
   notificationType = 'announcement',
-  projectId
+  projectId,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
+  showTrigger = true
 }: CreateNotificationDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = setControlledOpen !== undefined ? setControlledOpen : setInternalOpen;
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { getAccessToken } = useAuth();
@@ -192,10 +202,12 @@ export function CreateNotificationDialog({
 
   return (
     <>
-      <Button onClick={() => setOpen(true)} className="gap-2">
-        <Send className="h-4 w-4" />
-        إنشاء إشعار
-      </Button>
+      {showTrigger && (
+        <Button onClick={() => setOpen(true)} className="gap-2">
+          <Send className="h-4 w-4" />
+          إنشاء إشعار
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-full max-w-[95vw] md:max-w-[600px] border-0 p-0 overflow-hidden bg-white rounded-xl md:rounded-2xl shadow-2xl">

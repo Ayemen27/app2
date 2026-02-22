@@ -210,6 +210,7 @@ export default function AdminNotificationsPage() {
           open={isCreateDialogOpen} 
           onOpenChange={setIsCreateDialogOpen} 
           onUpdate={() => refetch()} 
+          showTrigger={false}
         />
         
         <UnifiedStats 

@@ -257,11 +257,7 @@ export default function NotificationsPage() {
     queryKey: QUERY_KEYS.notificationsByUser(userId),
     queryFn: async () => {
       try {
-        console.log('🔄 [Page] جلب الإشعارات لـ:', userId);
         const result = await apiRequest(`/api/notifications?limit=100&unreadOnly=false`);
-        console.log('✅ [Page] استجابة API:', result);
-        
-        // التعامل مع هياكل الاستجابة المختلفة
         if (result.success && result.data) {
           return {
             notifications: result.data,
@@ -269,7 +265,6 @@ export default function NotificationsPage() {
             total: result.total || result.data.length
           };
         }
-        
         if (Array.isArray(result)) {
           return {
             notifications: result,
@@ -277,14 +272,8 @@ export default function NotificationsPage() {
             total: result.length
           };
         }
-
-        if (result.notifications) {
-          return result;
-        }
-
-        return { notifications: [], unreadCount: 0, total: 0 };
+        return result.notifications ? result : { notifications: [], unreadCount: 0, total: 0 };
       } catch (error) {
-        console.error('❌ [Page] خطأ في جلب الإشعارات:', error);
         return { notifications: [], unreadCount: 0, total: 0 };
       }
     },
@@ -294,13 +283,11 @@ export default function NotificationsPage() {
 
   const notifications = useMemo(() => {
     let result = notificationsData?.notifications || [];
-    
     result = result.map(n => ({
       ...n,
       priority: getPriorityNumber(n.priority),
       status: n.status || (n.isRead ? 'read' : 'unread'),
     }));
-    
     if (searchValue) {
       const search = searchValue.toLowerCase();
       result = result.filter(n => 
@@ -308,19 +295,15 @@ export default function NotificationsPage() {
         (n.body || n.message || '').toLowerCase().includes(search)
       );
     }
-    
     if (filterValues.status && filterValues.status !== 'all') {
       result = result.filter(n => n.status === filterValues.status);
     }
-    
     if (filterValues.type && filterValues.type !== 'all') {
       result = result.filter(n => n.type === filterValues.type);
     }
-    
     if (filterValues.priority && filterValues.priority !== 'all') {
       result = result.filter(n => n.priority === parseInt(filterValues.priority));
     }
-    
     const dateRange = filterValues.dateRange as { from?: Date; to?: Date } | undefined;
     if (dateRange?.from) {
       const from = dateRange.from;
@@ -331,14 +314,10 @@ export default function NotificationsPage() {
         return date >= from && date <= to;
       });
     }
-    
     return result;
   }, [notificationsData, searchValue, filterValues]);
 
-  const groupedNotifications = useMemo(() => 
-    groupNotificationsByDate(notifications), [notifications]
-  );
-
+  const groupedNotifications = useMemo(() => groupNotificationsByDate(notifications), [notifications]);
   const stats = useMemo(() => ({
     total: notifications.length,
     unread: notifications.filter(n => n.status === 'unread').length,
@@ -347,56 +326,12 @@ export default function NotificationsPage() {
   }), [notifications]);
 
   const markAsReadMutation = useMutation({
-    mutationFn: async (notificationId: string) => {
-      return await apiRequest(`/api/notifications/${notificationId}/read`, 'POST');
-    },
-    onMutate: async (notificationId: string) => {
-      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
-      const previousData = queryClient.getQueryData(QUERY_KEYS.notificationsByUser(userId));
-      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          notifications: old.notifications.map((n: any) =>
-            n.id === notificationId ? { ...n, isRead: true, status: 'read' } : n
-          ),
-          unreadCount: Math.max(0, (old.unreadCount || 0) - 1),
-        };
-      });
-      return { previousData };
-    },
-    onError: (_err, _notificationId, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), context.previousData);
-      }
-    },
-    onSettled: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
-    },
+    mutationFn: async (notificationId: string) => apiRequest(`/api/notifications/${notificationId}/read`, 'POST'),
+    onSettled: () => queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) }),
   });
 
   const markAllAsReadMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest('/api/notifications/mark-all-read', 'POST');
-    },
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
-      const previousData = queryClient.getQueryData(QUERY_KEYS.notificationsByUser(userId));
-      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          notifications: old.notifications.map((n: any) => ({ ...n, isRead: true, status: 'read' })),
-          unreadCount: 0,
-        };
-      });
-      return { previousData };
-    },
-    onError: (_err, _variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), context.previousData);
-      }
-    },
+    mutationFn: async () => apiRequest('/api/notifications/mark-all-read', 'POST'),
     onSettled: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
       toast({ title: 'تم بنجاح', description: 'تم تعليم جميع الإشعارات كمقروءة' });
@@ -405,31 +340,7 @@ export default function NotificationsPage() {
   });
 
   const markSelectedAsReadMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}/read`, 'POST')));
-      return ids;
-    },
-    onMutate: async (ids: string[]) => {
-      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
-      const previousData = queryClient.getQueryData(QUERY_KEYS.notificationsByUser(userId));
-      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
-        if (!old) return old;
-        const idsSet = new Set(ids);
-        return {
-          ...old,
-          notifications: old.notifications.map((n: any) =>
-            idsSet.has(n.id) ? { ...n, isRead: true, status: 'read' } : n
-          ),
-          unreadCount: Math.max(0, (old.unreadCount || 0) - ids.length),
-        };
-      });
-      return { previousData };
-    },
-    onError: (_err, _ids, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), context.previousData);
-      }
-    },
+    mutationFn: async (ids: string[]) => Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}/read`, 'POST'))),
     onSettled: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
       toast({ title: 'تم بنجاح', description: `تم تعليم ${selectedIds.size} إشعار كمقروء` });
@@ -438,21 +349,9 @@ export default function NotificationsPage() {
   });
 
   const deleteNotificationsMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      // In a real app, this would be a single DELETE call with IDs
-      await Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}`, 'DELETE')));
-      return ids;
-    },
+    mutationFn: async (ids: string[]) => Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}`, 'DELETE'))),
     onSuccess: (ids) => {
-      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          notifications: old.notifications.filter((n: any) => !ids.includes(n.id)),
-          total: Math.max(0, (old.total || 0) - ids.length),
-          unreadCount: Math.max(0, (old.unreadCount || 0) - old.notifications.filter((n: any) => ids.includes(n.id) && !n.isRead).length),
-        };
-      });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
       toast({ title: 'تم الحذف', description: `تم حذف ${ids.length} إشعار بنجاح` });
       setSelectedIds(new Set());
     },
@@ -461,196 +360,91 @@ export default function NotificationsPage() {
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }, []);
 
   const toggleSelectAll = useCallback(() => {
-    if (selectedIds.size === notifications.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(notifications.map(n => n.id)));
-    }
+    if (selectedIds.size === notifications.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(notifications.map(n => n.id)));
   }, [notifications, selectedIds.size]);
 
   const toggleGroup = useCallback((groupKey: string) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
-      if (next.has(groupKey)) {
-        next.delete(groupKey);
-      } else {
-        next.add(groupKey);
-      }
+      if (next.has(groupKey)) next.delete(groupKey); else next.add(groupKey);
       return next;
     });
   }, []);
 
-  const handleFilterChange = useCallback((key: string, value: any) => {
-    setFilterValues(prev => ({ ...prev, [key]: value }));
-  }, []);
-
+  const handleFilterChange = useCallback((key: string, value: any) => setFilterValues(prev => ({ ...prev, [key]: value })), []);
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
     setFilterValues({ status: "all", type: "all", priority: "all", dateRange: undefined });
   }, []);
 
   const statsItems = useMemo(() => [
-    {
-      title: "إجمالي الإشعارات",
-      value: stats.total,
-      icon: Bell,
-      color: "blue" as const,
-    },
-    {
-      title: "غير مقروء",
-      value: stats.unread,
-      icon: Eye,
-      color: "orange" as const,
-      status: stats.unread > 0 ? "warning" as const : "normal" as const,
-    },
-    {
-      title: "تنبيهات حرجة",
-      value: stats.critical,
-      icon: AlertOctagon,
-      color: "red" as const,
-      status: stats.critical > 0 ? "critical" as const : "normal" as const,
-    },
-    {
-      title: "أولوية عالية",
-      value: stats.high,
-      icon: Activity,
-      color: "amber" as const,
-    }
+    { title: "إجمالي الإشعارات", value: stats.total, icon: Bell, color: "blue" as const },
+    { title: "غير مقروء", value: stats.unread, icon: Eye, color: "orange" as const, status: stats.unread > 0 ? "warning" as const : "normal" as const },
+    { title: "تنبيهات حرجة", value: stats.critical, icon: AlertOctagon, color: "red" as const, status: stats.critical > 0 ? "critical" as const : "normal" as const },
+    { title: "أولوية عالية", value: stats.high, icon: Activity, color: "amber" as const }
   ], [stats]);
 
   const formatNotificationTime = (dateString: string) => {
-    if (!dateString) {
-      return 'غير محدد';
-    }
+    if (!dateString) return 'غير محدد';
     const date = parseISO(dateString);
-    if (isToday(date)) {
-      return format(date, 'HH:mm', { locale: ar });
-    }
-    return format(date, 'dd MMM، HH:mm', { locale: ar });
+    return isToday(date) ? format(date, 'HH:mm', { locale: ar }) : format(date, 'dd MMM، HH:mm', { locale: ar });
   };
 
   const NotificationCard = ({ notification }: { notification: Notification }) => {
     const config = notificationTypeConfig[notification.type] || notificationTypeConfig.system;
     const priority = priorityConfig[notification.priority as number] || priorityConfig[3];
-    const Icon = config.icon;
     const isUnread = notification.status === 'unread';
     const isSelected = selectedIds.has(notification.id);
+    const Icon = config.icon;
 
     return (
-      <div
-        className={cn(
-          "group relative flex items-start gap-3 p-4 rounded-xl border transition-all duration-200",
-          "hover:shadow-md active:scale-[0.99]",
-          isUnread 
-            ? "bg-gradient-to-l from-blue-50/80 to-white dark:from-blue-900/10 dark:to-slate-900 border-blue-200 dark:border-blue-800" 
-            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700",
-          isSelected && "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-900"
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleSelection(notification.id)}
-            className="mt-1"
-          />
-          
-          <div className={cn(
-            "flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105",
-            config.bgColor
-          )}>
-            <Icon className={cn("h-5 w-5", config.color)} />
+      <div className={cn(
+        "group relative flex items-start gap-4 p-5 rounded-[1.5rem] border transition-all duration-300 shadow-sm",
+        isUnread ? "bg-gradient-to-br from-blue-50/50 via-white to-white dark:from-blue-900/10 border-blue-200 dark:border-blue-800" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
+        isSelected && "ring-2 ring-blue-500 ring-offset-4 bg-blue-50/30 border-blue-300",
+        "hover:shadow-xl hover:-translate-y-1 active:scale-[0.98]"
+      )}>
+        <div className="flex flex-col items-center gap-4">
+          <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(notification.id)} className="w-5 h-5 rounded-lg border-2 data-[state=checked]:bg-blue-600 shadow-sm" />
+          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110 shadow-lg relative", config.bgColor)}>
+            <Icon className={cn("h-7 w-7", config.color)} />
+            {isUnread && <span className="absolute -top-1 -right-1 flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-blue-600 border-2 border-white shadow-sm"></span></span>}
           </div>
         </div>
-
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className={cn(
-                "text-sm font-semibold leading-tight",
-                isUnread ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"
-              )}>
-                {notification.title}
-              </h3>
-              {isUnread && (
-                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              )}
+        <div className="flex-1 min-w-0 space-y-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h3 className={cn("text-lg font-black leading-tight tracking-tight", isUnread ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-400")}>{notification.title}</h3>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className={cn("text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full border-none shadow-sm", priority.bgColor, priority.color)}>{priority.label}</Badge>
+                <Badge variant="outline" className={cn("text-[10px] font-black px-2.5 py-0.5 rounded-full border shadow-sm", config.bgColor, config.color, config.borderColor)}>{config.label}</Badge>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Badge variant="outline" className={cn("text-xs h-5 px-1.5", priority.bgColor, priority.color)}>
-                {priority.label}
-              </Badge>
-              <Badge variant="outline" className={cn("text-xs h-5 px-1.5", config.bgColor, config.color)}>
-                {config.label}
-              </Badge>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button size="sm" variant="ghost" className="h-9 w-9 p-0 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"><MoreVertical className="h-5 w-5 text-slate-400" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-2 rounded-2xl shadow-2xl" dir="rtl">
+                <DropdownMenuItem onClick={() => markAsReadMutation.mutate(notification.id)} className="rounded-xl gap-3 py-2.5 font-bold"><Eye className="h-4 w-4 text-blue-500" /> تعليم كمقروء</DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1.5" />
+                <DropdownMenuItem onClick={() => confirm('حذف؟') && deleteNotificationsMutation.mutate([notification.id])} className="text-red-600 rounded-xl gap-3 py-2.5 font-bold"><Trash2 className="h-4 w-4" /> حذف الإشعار</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-
-          <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
-            {notification.body || notification.message || 'لا يوجد محتوى'}
-          </p>
-
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <Clock className="h-3.5 w-3.5" />
-              <span>{formatNotificationTime(notification.createdAt)}</span>
+          <p className={cn("text-[0.95rem] line-clamp-3 leading-relaxed", isUnread ? "text-slate-800 dark:text-slate-200 font-semibold" : "text-slate-500 dark:text-slate-500")}>{notification.body || notification.message || 'لا يوجد محتوى لهذا الإشعار'}</p>
+          <div className="flex flex-wrap items-center justify-between pt-4 gap-4 border-t border-slate-100 dark:border-slate-800/50">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800/50"><Clock className="h-4 w-4 text-blue-500" /><span>{formatNotificationTime(notification.createdAt)}</span></div>
+              {notification.projectId && <div className="flex items-center gap-2 text-xs font-bold text-slate-500 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800/50"><Package className="h-4 w-4 text-emerald-500" /><span>مشروع: {notification.projectId.substring(0, 8)}</span></div>}
             </div>
-
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {notification.payload?.action === 'open_task' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2 text-xs gap-1 border-blue-200 text-blue-600 hover:bg-blue-50"
-                  onClick={() => window.location.href = `/tasks/${notification.payload.taskId}`}
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  عرض المهمة
-                </Button>
-              )}
-              {isUnread && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-xs gap-1"
-                  onClick={() => markAsReadMutation.mutate(notification.id)}
-                  disabled={markAsReadMutation.isPending}
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">مقروء</span>
-                </Button>
-              )}
-
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-xs gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                onClick={() => {
-                  if (confirm('هل أنت متأكد من حذف هذا الإشعار؟')) {
-                    deleteNotificationsMutation.mutate([notification.id]);
-                  }
-                }}
-                disabled={deleteNotificationsMutation.isPending}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-              
-              {notification.actionRequired && (
-                <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">
-                  <Zap className="h-3 w-3 ml-1" />
-                  إجراء مطلوب
-                </Badge>
-              )}
+            <div className="flex items-center gap-2">
+              {notification.payload?.action === 'open_task' && <Button size="sm" variant="default" className="h-9 px-5 text-xs font-black gap-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg shadow-blue-500/20" onClick={() => window.location.href = `/tasks/${notification.payload.taskId}`}><Zap className="h-4 w-4 fill-white" />انتقل للمهمة</Button>}
+              {isUnread && <Button size="sm" variant="outline" className="h-9 px-5 text-xs font-black gap-2 text-blue-600 border-blue-200 hover:bg-blue-50 rounded-full shadow-sm" onClick={() => markAsReadMutation.mutate(notification.id)} disabled={markAsReadMutation.isPending}><CheckCircle className="h-4 w-4" />تمت القراءة</Button>}
             </div>
           </div>
         </div>
@@ -661,188 +455,95 @@ export default function NotificationsPage() {
   const NotificationGroup = ({ groupKey, notifications: groupNotifs }: { groupKey: string; notifications: Notification[] }) => {
     const isExpanded = expandedGroups.has(groupKey);
     const unreadCount = groupNotifs.filter(n => n.status === 'unread').length;
-
     return (
-      <div className="space-y-2">
-        <button
-          onClick={() => toggleGroup(groupKey)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-slate-500" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-slate-500" />
-            )}
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              {groupLabels[groupKey]}
-            </span>
-            <Badge variant="secondary" className="text-xs h-5">
-              {groupNotifs.length}
-            </Badge>
-            {unreadCount > 0 && (
-              <Badge className="bg-blue-500 text-white text-xs h-5">
-                {unreadCount} جديد
-              </Badge>
-            )}
+      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <button onClick={() => toggleGroup(groupKey)} className="w-full flex items-center justify-between p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 shadow-sm transition-all duration-300">
+          <div className="flex items-center gap-4">
+            <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300", isExpanded ? "bg-blue-600 rotate-0" : "bg-slate-100 dark:bg-slate-800 rotate-90")}>
+              {isExpanded ? <ChevronDown className="h-5 w-5 text-white" /> : <ChevronRight className="h-5 w-5 text-slate-500" />}
+            </div>
+            <div className="text-right">
+              <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight block">{groupLabels[groupKey]}</span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{groupNotifs.length} إشعار</span>
+                {unreadCount > 0 && <Badge className="bg-blue-600 text-white text-[10px] font-black h-5 px-2">{unreadCount} غير مقروء</Badge>}
+              </div>
+            </div>
           </div>
+          <div className="flex-1 mx-8 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-transparent" />
         </button>
-        
-        {isExpanded && (
-          <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
-            {groupNotifs.map(notification => (
-              <NotificationCard key={notification.id} notification={notification} />
-            ))}
-          </div>
-        )}
+        {isExpanded && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in zoom-in-95 duration-300">{groupNotifs.map(notification => <NotificationCard key={notification.id} notification={notification} />)}</div>}
       </div>
     );
   };
 
   const LoadingSkeleton = () => (
-    <div className="space-y-4">
-      {[1, 2, 3, 4, 5].map(i => (
-        <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-          <Skeleton className="w-10 h-10 rounded-xl" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {[1, 2, 3, 4, 5, 6].map(i => (
+        <div key={i} className="p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+          <div className="flex items-center gap-4"><Skeleton className="w-14 h-14 rounded-2xl bg-slate-100" /><div className="flex-1 space-y-2"><Skeleton className="h-5 w-3/4 rounded-full" /><Skeleton className="h-3 w-1/2 rounded-full" /></div></div>
+          <Skeleton className="h-20 w-full rounded-2xl" /><div className="flex justify-between items-center pt-2"><Skeleton className="h-8 w-24 rounded-full" /><Skeleton className="h-8 w-20 rounded-full" /></div>
         </div>
       ))}
     </div>
   );
 
   const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-        <Bell className="h-10 w-10 text-slate-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
-        لا توجد إشعارات
-      </h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-6">
-        {searchValue || Object.values(filterValues).some(v => v && v !== 'all')
-          ? 'لا توجد نتائج تطابق معايير البحث أو الفلترة'
-          : 'ستظهر إشعاراتك الجديدة هنا عندما تصل'}
-      </p>
-      {(searchValue || Object.values(filterValues).some(v => v && v !== 'all')) && (
-        <Button variant="outline" onClick={handleResetFilters}>
-          <X className="h-4 w-4 ml-2" />
-          إعادة تعيين الفلاتر
-        </Button>
-      )}
+    <div className="flex flex-col items-center justify-center py-24 px-8 text-center bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed border-slate-200 shadow-inner">
+      <div className="w-28 h-28 rounded-[2.5rem] bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center mb-8 ring-8 ring-slate-50/50"><Bell className="h-14 w-14 text-slate-300 animate-bounce" /></div>
+      <h3 className="text-3xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">صندوق الوارد نظيف تماماً!</h3>
+      <p className="text-lg text-slate-500 dark:text-slate-400 max-w-md mb-10 font-medium leading-relaxed">لا توجد تنبيهات جديدة حالياً. استمتع بيومك!</p>
+      <Button variant="default" onClick={handleResetFilters} className="rounded-[1.5rem] h-14 px-10 font-black text-lg bg-blue-600 shadow-xl shadow-blue-500/20 transition-all active:scale-95"><RefreshCw className="h-5 w-5 ml-3" />تحديث القائمة</Button>
     </div>
   );
 
   return (
-    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/50 overflow-hidden">
-      <div className="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
-        {/* ملخص الإحصائيات الموحد */}
-        <div className="px-1">
-          <UnifiedStats 
-            stats={statsItems}
-            columns={4}
-          />
-        </div>
-
-        {/* شريط البحث والفلترة الموحد */}
-        <UnifiedFilterDashboard
-          searchValue={searchValue}
-          onSearchChange={setSearchValue}
-          filterValues={filterValues}
-          onFilterChange={handleFilterChange}
-          filters={filterConfigs}
-          onReset={handleResetFilters}
-          onRefresh={() => refetch()}
-          isRefreshing={isLoading}
-          searchPlaceholder="بحث في الإشعارات..."
-          actions={
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 gap-2">
-                    <MoreVertical className="h-4 w-4" />
-                    خيارات
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56" dir="rtl">
-                  <DropdownMenuItem onClick={toggleSelectAll}>
-                    <CheckCheck className="ml-2 h-4 w-4" />
-                    {selectedIds.size === notifications.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => markAllAsReadMutation.mutate()}
-                    disabled={markAllAsReadMutation.isPending || stats.unread === 0}
-                  >
-                    <Eye className="ml-2 h-4 w-4" />
-                    تعليم الكل كمقروء
-                  </DropdownMenuItem>
-                  {selectedIds.size > 0 && (
-                    <DropdownMenuItem 
-                      onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
-                      disabled={markSelectedAsReadMutation.isPending}
-                      className="text-blue-600"
-                    >
-                      <CheckCircle className="ml-2 h-4 w-4" />
-                      تعليم المحدد ({selectedIds.size}) كمقروء
-                    </DropdownMenuItem>
-                  )}
-                  {selectedIds.size > 0 && (
-                    <DropdownMenuItem 
-                      onClick={() => {
-                        if (confirm(`هل أنت متأكد من حذف ${selectedIds.size} إشعار؟`)) {
-                          deleteNotificationsMutation.mutate(Array.from(selectedIds));
-                        }
-                      }}
-                      disabled={deleteNotificationsMutation.isPending}
-                      className="text-red-600 font-medium"
-                    >
-                      <Trash2 className="ml-2 h-4 w-4" />
-                      حذف المحدد ({selectedIds.size})
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem 
-                    className="text-red-600"
-                    onClick={() => {
-                      if (confirm('هل أنت متأكد من حذف جميع الإشعارات القديمة؟')) {
-                        // Logic for clearing old notifications
-                      }
-                    }}
-                  >
-                    <Trash2 className="ml-2 h-4 w-4" />
-                    حذف الإشعارات القديمة
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
+      <div className="flex-1 p-4 md:p-8 lg:p-12 space-y-10 max-w-8xl mx-auto w-full">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 blur-[100px] rounded-full -mr-48 -mt-48 group-hover:bg-blue-500/10 transition-all duration-1000" />
+          <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-10">
+            <div className="flex items-center gap-8">
+              <div className="w-20 h-20 bg-gradient-to-tr from-blue-600 to-indigo-700 rounded-3xl flex items-center justify-center shadow-2xl animate-in zoom-in duration-700"><Bell className="h-10 w-10 text-white" /></div>
+              <div className="space-y-1"><h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-none">مركز الإشعارات</h1><p className="text-lg text-slate-500 dark:text-slate-400 font-bold max-w-lg">واجهة تفاعلية متطورة لمتابعة كافة الأنشطة والتنبيهات والمهام في الوقت الفعلي.</p></div>
             </div>
-          }
-        />
-
-        {/* قائمة الإشعارات */}
-        <ScrollArea className="flex-1 -mx-4 px-4">
-          <div className="space-y-6 pb-6 pt-2">
-            {isLoading ? (
-              <LoadingSkeleton />
-            ) : notifications.length > 0 ? (
-              groupOrder.map(groupKey => {
-                const groupNotifs = groupedNotifications[groupKey];
-                if (!groupNotifs || groupNotifs.length === 0) return null;
-                return (
-                  <NotificationGroup
-                    key={groupKey}
-                    groupKey={groupKey}
-                    notifications={groupNotifs}
-                  />
-                );
-              })
-            ) : (
-              <EmptyState />
-            )}
+            <div className="flex flex-wrap items-center gap-4">
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl animate-in slide-in-from-top-4">
+                  <span className="px-4 text-sm font-black text-blue-600">{selectedIds.size} مختارة</span>
+                  <Button variant="default" size="sm" className="h-11 px-6 rounded-xl font-black bg-blue-600" onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}><CheckCheck className="ml-2 h-4 w-4" />مقروء</Button>
+                  <Button variant="destructive" size="sm" className="h-11 px-6 rounded-xl font-black" onClick={() => confirm('حذف المختارة؟') && deleteNotificationsMutation.mutate(Array.from(selectedIds))}><Trash2 className="ml-2 h-4 w-4" />حذف</Button>
+                </div>
+              )}
+              <Button variant="outline" size="lg" className="h-14 px-8 rounded-[1.25rem] font-black border-2 transition-all shadow-sm" onClick={toggleSelectAll}>{selectedIds.size === notifications.length ? 'إلغاء التحديد' : 'تحديد الكل'}</Button>
+              <Button variant="default" size="lg" className="h-14 px-8 rounded-[1.25rem] font-black bg-slate-900 dark:bg-blue-600 hover:scale-105 transition-all shadow-2xl active:scale-95 text-white" onClick={() => markAllAsReadMutation.mutate()} disabled={markAllAsReadMutation.isPending || stats.unread === 0}><CheckCheck className="ml-3 h-5 w-5" />تعليم الكل كمقروء</Button>
+            </div>
           </div>
-        </ScrollArea>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+          {statsItems.map((stat, idx) => {
+            const Icon = stat.icon;
+            return (
+              <div key={idx} className={cn("bg-white dark:bg-slate-900 p-8 rounded-[2rem] border shadow-sm transition-all hover:shadow-xl hover:-translate-y-1 relative overflow-hidden group animate-in fade-in slide-in-from-bottom-4", idx === 1 && stat.value > 0 && "ring-2 ring-orange-500/50", idx === 2 && stat.value > 0 && "ring-2 ring-red-500/50")} style={{ animationDelay: `${idx * 100}ms` }}>
+                <div className={cn("absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full -mr-16 -mt-16 opacity-10", stat.color === 'blue' ? "bg-blue-600" : stat.color === 'orange' ? "bg-orange-600" : stat.color === 'red' ? "bg-red-600" : "bg-amber-600")} />
+                <div className="flex items-center justify-between relative z-10">
+                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110", stat.color === 'blue' ? "bg-blue-50 text-blue-600" : stat.color === 'orange' ? "bg-orange-50 text-orange-600" : stat.color === 'red' ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600")}><Icon className="h-7 w-7" /></div>
+                  <div className="text-left"><span className="text-4xl font-black text-slate-900 dark:text-white block tabular-nums">{stat.value}</span><span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{stat.title}</span></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border shadow-lg">
+          <UnifiedFilterDashboard searchValue={searchValue} onSearchChange={setSearchValue} filterValues={filterValues} onFilterChange={handleFilterChange} filters={filterConfigs} onReset={handleResetFilters} onRefresh={() => refetch()} isRefreshing={isLoading} searchPlaceholder="ابحث عن إشعار محدد..." title="تصفية ذكية" />
+        </div>
+        <div className="space-y-12 pb-24">
+          {isLoading ? <LoadingSkeleton /> : notifications.length > 0 ? groupOrder.map(groupKey => {
+            const groupNotifs = groupedNotifications[groupKey];
+            if (!groupNotifs || groupNotifs.length === 0) return null;
+            return <NotificationGroup key={groupKey} groupKey={groupKey} notifications={groupNotifs} />;
+          }) : <EmptyState />}
+        </div>
       </div>
     </div>
   );

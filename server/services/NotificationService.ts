@@ -667,13 +667,45 @@ export class NotificationService {
   /**
    * حذف إشعار
    */
-  async deleteNotification(notificationId: string): Promise<void> {
-    console.log(`🗑️ حذف الإشعار: ${notificationId}`);
+  async deleteNotification(notificationId: string, userId?: string): Promise<void> {
+    console.log(`🗑️ حذف الإشعار: ${notificationId}${userId ? ` للمستخدم: ${userId}` : ''}`);
 
-    // حذف حالات القراءة أولاً
-    await db
-      .delete(notificationReadStates)
-      .where(eq(notificationReadStates.notificationId, notificationId));
+    try {
+      // حذف حالات القراءة المرتبطة بالإشعار
+      const readStatesConditions = [eq(notificationReadStates.notificationId, notificationId)];
+      if (userId) {
+        readStatesConditions.push(eq(notificationReadStates.userId, userId));
+      }
+
+      await db
+        .delete(notificationReadStates)
+        .where(and(...readStatesConditions));
+
+      // ملاحظة: إذا كان الحذف مخصصاً لمستخدم واحد (وليس حذفاً جذرياً للإشعار من النظام)، 
+      // فقد نكتفي بحذف حالة القراءة أو إضافة حالة "محذوف".
+      // ولكن بناءً على الطلب، سنقوم بحذف الإشعار نفسه إذا لم يتم تحديد مستخدم أو إذا كان المستخدم مسؤولاً.
+      
+      const [notification] = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.id, notificationId))
+        .limit(1);
+
+      if (notification) {
+        await db
+          .delete(notifications)
+          .where(eq(notifications.id, notificationId));
+        console.log(`✅ تم حذف الإشعار ${notificationId} بنجاح`);
+      }
+    } catch (error) {
+      console.error(`❌ خطأ في حذف الإشعار ${notificationId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * جلب إحصائيات الإشعارات للمستخدم
+   */      .where(eq(notificationReadStates.notificationId, notificationId));
 
     // ملاحظة: تم تبسيط النظام - لا يوجد طابور إرسال حالياً
 

@@ -110,6 +110,28 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
 });
 
 /**
+ * 🗑️ حذف إشعار محدد
+ * DELETE /api/notifications/:id
+ */
+notificationRouter.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId || req.user?.email;
+    if (!userId) return res.status(401).json({ success: false, message: "غير مخول" });
+
+    const notificationId = req.params.id;
+    const { NotificationService } = await import('../../services/NotificationService');
+    const notificationService = new NotificationService();
+
+    await notificationService.deleteNotification(notificationId, userId);
+
+    res.json({ success: true, message: "تم حذف الإشعار بنجاح" });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في حذف الإشعار:', error);
+    res.status(500).json({ success: false, message: "فشل في حذف الإشعار" });
+  }
+});
+
+/**
  * 🗑️ حذف جماعي للإشعارات "الغريبة" أو المشبوهة
  * DELETE /api/notifications/bulk-delete-suspicious
  */

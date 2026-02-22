@@ -150,13 +150,6 @@ export function UnifiedStats({
           </div>
         ))}
       </div>
-
-      {(criticalStats.length > 0 || warningStats.length > 0) && (
-        <div className="mt-2 p-2 sm:p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-800 dark:text-amber-200">
-          {criticalStats.length > 0 && <p className="truncate">⚠️ {criticalStats.length} عنصر حرج</p>}
-          {warningStats.length > 0 && <p className="mt-1 truncate">⚡ {warningStats.length} تحذير</p>}
-        </div>
-      )}
     </div>
   );
 }

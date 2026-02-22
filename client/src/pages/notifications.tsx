@@ -269,9 +269,10 @@ export default function NotificationsPage() {
     queryKey: QUERY_KEYS.notificationsByUser(userId),
     queryFn: async () => {
       try {
-        const result = await apiRequest(`/api/notifications?limit=100`);
+        const result = await apiRequest(`/api/notifications?limit=100&unreadOnly=false`);
         return result.data || result || { notifications: [], unreadCount: 0, total: 0 };
       } catch (error) {
+        console.error('فشل في جلب الإشعارات:', error);
         return { notifications: [], unreadCount: 0, total: 0 };
       }
     },
@@ -335,7 +336,7 @@ export default function NotificationsPage() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      return await apiRequest(`/api/notifications/${notificationId}/mark-read`, 'POST');
+      return await apiRequest(`/api/notifications/${notificationId}/read`, 'POST');
     },
     onMutate: async (notificationId: string) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
@@ -358,7 +359,7 @@ export default function NotificationsPage() {
       }
     },
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notifications, exact: false });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
     },
   });
 
@@ -385,7 +386,7 @@ export default function NotificationsPage() {
       }
     },
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notifications, exact: false });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
       toast({ title: 'تم بنجاح', description: 'تم تعليم جميع الإشعارات كمقروءة' });
       setSelectedIds(new Set());
     },
@@ -393,7 +394,7 @@ export default function NotificationsPage() {
 
   const markSelectedAsReadMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}/mark-read`, 'POST')));
+      await Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}/read`, 'POST')));
       return ids;
     },
     onMutate: async (ids: string[]) => {
@@ -418,7 +419,7 @@ export default function NotificationsPage() {
       }
     },
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notifications, exact: false });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
       toast({ title: 'تم بنجاح', description: `تم تعليم ${selectedIds.size} إشعار كمقروء` });
       setSelectedIds(new Set());
     },

@@ -6,6 +6,8 @@ interface FloatingButtonContextType {
   floatingAction: (() => void) | null;
   floatingLabel: string;
   refreshAction: (() => void) | null;
+  setShowAddButton: (show: boolean) => void;
+  showAddButton: boolean;
 }
 
 const FloatingButtonContext = createContext<FloatingButtonContextType | undefined>(undefined);
@@ -14,6 +16,7 @@ export function FloatingButtonProvider({ children }: { children: ReactNode }) {
   const [floatingAction, setAction] = useState<(() => void) | null>(null);
   const [refreshAction, setRefreshActionState] = useState<(() => void) | null>(null);
   const [floatingLabel, setLabel] = useState<string>('إضافة جديد');
+  const [showAddButton, setShowAddButton] = useState<boolean>(false);
 
   const setFloatingAction = useCallback((action: (() => void) | null, label: string = 'إضافة جديد') => {
     setAction(prevAction => {
@@ -40,6 +43,8 @@ export function FloatingButtonProvider({ children }: { children: ReactNode }) {
       floatingAction,
       floatingLabel,
       refreshAction,
+      setShowAddButton,
+      showAddButton,
     }}>
       {children}
     </FloatingButtonContext.Provider>

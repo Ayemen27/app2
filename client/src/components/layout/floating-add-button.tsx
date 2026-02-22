@@ -4,10 +4,11 @@ import { useFloatingButton } from "./floating-button-context";
 import { cn } from "@/lib/utils";
 
 export default function FloatingAddButton() {
-  const { floatingAction, floatingLabel, refreshAction } = useFloatingButton();
+  const context = useFloatingButton() as any;
+  const { floatingAction, floatingLabel, refreshAction, showAddButton } = context;
   
   // إذا لم يتم تعيين أي إجراء، لا نعرض شيئاً
-  if (!floatingAction && !refreshAction) {
+  if (!floatingAction && !refreshAction && !showAddButton) {
     return null;
   }
 
@@ -27,9 +28,12 @@ export default function FloatingAddButton() {
       )}
 
       {/* زر الإضافة العائم */}
-      {floatingAction && (
+      {(floatingAction || showAddButton) && (
         <Button
-          onClick={() => floatingAction()}
+          onClick={() => {
+            console.log("FAB Clicked, action exists:", !!floatingAction);
+            if (floatingAction) floatingAction();
+          }}
           className="h-12 w-12 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 border-0 text-white"
           size="icon"
           title={floatingLabel}

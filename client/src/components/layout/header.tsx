@@ -150,6 +150,8 @@ export default function Header() {
           )}
         </Button>
 
+        {/* AIChatTrigger removed per user request */}
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 

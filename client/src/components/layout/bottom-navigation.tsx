@@ -20,8 +20,6 @@ const navigationItems = [
   { path: "/", icon: Home, label: "الرئيسية", key: "dashboard" },
   { path: "/projects", icon: Building2, label: "المشاريع", key: "projects" },
   { path: "/workers", icon: Users, label: "العمال", key: "workers" },
-  { path: "/material-purchase", icon: Package, label: "المشتريات", key: "material_purchase" },
-  { path: "/transport-management", icon: Truck, label: "النقل", key: "transport_management" },
   { path: "/worker-attendance", icon: UserCheck, label: "حضور", key: "attendance" },
   { path: "/daily-expenses", icon: Calculator, label: "المصاريف", key: "expenses" },
 ];
@@ -95,7 +93,6 @@ const allPagesData = [
   {
     category: "الذكاء الاصطناعي والمزامنة",
     pages: [
-      { path: "/ai-chat", icon: Brain, label: "الوكيل الذكي", description: "مساعد ذكي لإدارة المشاريع والاستعلامات", requireAdmin: true },
       { path: "/local-db", icon: Database, label: "إدارة القاعدة المحلية", description: "فحص حالة البيانات المحلية والمزامنة", requireAdmin: true },
       { path: "/admin/backups", icon: Shield, label: "النسخ الاحتياطي", description: "إدارة واستعادة النسخ الاحتياطية", requireAdmin: true },
       { path: "/admin/sync", icon: RefreshCw, label: "إدارة المزامنة", description: "مراقبة حالة المزامنة والتحكم في البيانات", requireAdmin: true },

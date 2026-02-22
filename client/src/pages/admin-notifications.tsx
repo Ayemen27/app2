@@ -47,11 +47,19 @@ export default function AdminNotificationsPage() {
 
   // تعيين الأزرار العائمة
   useEffect(() => {
-    const handleAdd = () => setIsCreateDialogOpen(true);
-    setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
-    if (setShowAddButton) setShowAddButton(true);
+    const handleAdd = () => {
+      console.log("Floating button clicked - Opening dialog");
+      setIsCreateDialogOpen(true);
+    };
+    
+    // تأخير طفيف لضمان استقرار الحالة والتغلب على مشاكل التوقيت
+    const timer = setTimeout(() => {
+      setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
+      if (setShowAddButton) setShowAddButton(true);
+    }, 200);
     
     return () => {
+      clearTimeout(timer);
       setFloatingAction(null);
       setRefreshAction(null);
       if (setShowAddButton) setShowAddButton(false);

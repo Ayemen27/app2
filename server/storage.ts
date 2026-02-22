@@ -335,7 +335,6 @@ export interface IStorage {
   // Notifications
   createNotification(notif: InsertNotification): Promise<Notification>;
   getNotifications(userId?: string): Promise<Notification[]>;
-}
 
   // =====================================================
   // Wells Management System (نظام إدارة الآبار)

@@ -6,7 +6,7 @@ import {
   type InsertNotification
 } from "@shared/schema";
 import { db } from "../db";
-import { eq, and, desc, or, inArray, sql } from "drizzle-orm";
+import { eq, and, desc, or, inArray, sql, isNull } from "drizzle-orm";
 import Mustache from 'mustache';
 import { z } from 'zod';
 import { TelegramService } from './TelegramService';

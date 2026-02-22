@@ -167,7 +167,7 @@ export function StatsCard({
     <Card className={cn(
       colors.border, 
       colors.bg, 
-      "border-l-4 hover:shadow-md transition-all duration-300 h-full rounded-xl overflow-hidden shadow-sm",
+      "border-l-4 hover:shadow-md transition-all duration-300 h-full min-h-[80px] sm:min-h-[100px] rounded-xl overflow-hidden shadow-sm",
       className
     )}>
       <CardContent className="p-4 flex flex-col justify-between h-full">
@@ -178,21 +178,21 @@ export function StatsCard({
                 {displayLabel}
               </p>
             </LabelWithTooltip>
-            <p className={cn("text-2xl font-black font-mono tracking-tight leading-none", colors.text)}>
+            <p className={cn("text-base sm:text-lg md:text-xl font-black font-mono tracking-tight leading-none", colors.text)}>
               {displayValue}
             </p>
           </div>
-          <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm", colors.iconBg)}>
-            <Icon className={cn("h-6 w-6", colors.iconColor)} />
+          <div className={cn("h-6 w-6 sm:h-8 sm:w-9 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm", colors.iconBg)}>
+            <Icon className={cn("h-3.5 w-3.5 sm:h-4.5 sm:h-5", colors.iconColor)} />
           </div>
         </div>
         
         {(secondaryLabel || color === 'critical' || color === 'warning') && (
-          <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/5 flex items-center gap-2">
-            {color === 'critical' && <AlertCircle className="h-3.5 w-3.5 text-red-600 animate-pulse" />}
-            {color === 'warning' && <Zap className="h-3.5 w-3.5 text-amber-600" />}
-            {SecondaryIcon && <SecondaryIcon className="h-3.5 w-3.5 opacity-70" />}
-            <span className="text-[10px] font-bold opacity-80 truncate">
+          <div className="mt-2 sm:mt-4 pt-2 sm:pt-3 border-t border-black/5 dark:border-white/5 flex items-center gap-2">
+            {color === 'critical' && <AlertCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-600 animate-pulse" />}
+            {color === 'warning' && <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600" />}
+            {SecondaryIcon && <SecondaryIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 opacity-70" />}
+            <span className="text-[9px] sm:text-[10px] font-bold opacity-80 truncate">
               {secondaryLabel || (color === 'critical' ? '1 عنصر حرج' : color === 'warning' ? '1 تحذير' : '')}
             </span>
           </div>

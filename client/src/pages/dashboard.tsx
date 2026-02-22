@@ -504,7 +504,7 @@ export default function Dashboard() {
               color: "purple"
             },
             {
-              title: "أيام العمل المكتملة",
+              title: "أيام العمل",
               value: currentStats.completedDays,
               icon: Calendar,
               color: "teal"
@@ -521,6 +521,18 @@ export default function Dashboard() {
               icon: Truck,
               color: "orange",
               formatter: formatCurrency
+            },
+            {
+              title: "عناصر حرجة",
+              value: "1 عنصر حرج",
+              icon: AlertCircle,
+              color: "critical"
+            },
+            {
+              title: "تحذيرات",
+              value: "1 تحذير",
+              icon: Zap,
+              color: "warning"
             }
           ]}
           columns={3}

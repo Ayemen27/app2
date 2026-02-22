@@ -15,11 +15,8 @@ interface StatsGridProps {
   columns?: 2 | 3 | 4;
 }
 
-export const StatsGrid: React.FC<StatsGridProps> = ({ stats, columns = 4 }) => {
-  const gridClass = `grid grid-cols-1 sm:grid-cols-2 ${
-    columns === 3 ? "lg:grid-cols-3" : 
-    columns === 4 ? "lg:grid-cols-4" : "lg:grid-cols-2"
-  } gap-3 sm:gap-4`;
+export const StatsGrid: React.FC<StatsGridProps> = ({ stats, columns = 3 }) => {
+  const gridClass = `grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-3 gap-2 sm:gap-4`;
 
   return (
     <div className={gridClass}>

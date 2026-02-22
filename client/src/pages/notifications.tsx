@@ -341,6 +341,24 @@ export default function NotificationsPage() {
             </div>
 
             <div className="flex items-center gap-1 flex-1 px-1">
+              {selectedIds.size > 2 && (
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="flex-1 h-12 rounded-2xl font-black text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800 text-orange-600 dark:text-orange-400 gap-1.5 transition-all active:scale-95 group"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                      <X className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <span className="hidden sm:inline">إلغاء الكل</span>
+                    <span className="sm:hidden">إلغاء</span>
+                  </Button>
+                  <div className="w-px h-8 bg-slate-200 dark:bg-slate-800 mx-1 opacity-50" />
+                </>
+              )}
+
               <Button 
                 variant="ghost" 
                 size="sm"
@@ -350,7 +368,7 @@ export default function NotificationsPage() {
                 <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
                   <CheckCheck className="h-4 w-4 text-slate-600 dark:text-slate-400 group-hover:text-blue-600" />
                 </div>
-                <span className="hidden sm:inline">تحديد الكل</span>
+                <span className="hidden sm:inline">{selectedIds.size === notifications.length ? 'إلغاء التحديد' : 'تحديد الكل'}</span>
                 <span className="sm:hidden">الكل</span>
               </Button>
 

@@ -344,7 +344,11 @@ export class DatabaseStorage implements IStorage {
   async upsertDevice(device: InsertDevice): Promise<Device> {
     const [existing] = await db.select().from(devices).where(eq(devices.deviceId, device.deviceId));
     if (existing) {
-      const [updated] = await db.update(devices).set({ ...device, lastSeen: new Date() }).where(eq(devices.deviceId, device.deviceId)).returning();
+      const [updated] = await db.update(devices).set({ 
+        ...device, 
+        lastSeen: new Date(),
+        metadata: { ...(existing.metadata as object || {}), ...(device.metadata as object || {}) }
+      }).where(eq(devices.deviceId, device.deviceId)).returning();
       return updated;
     }
     const [inserted] = await db.insert(devices).values(device).returning();
@@ -352,7 +356,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDevices(): Promise<Device[]> {
-    return await db.select().from(devices);
+    return await db.select().from(devices).orderBy(desc(devices.lastSeen));
   }
 
   async createCrash(crash: InsertCrash): Promise<Crash> {

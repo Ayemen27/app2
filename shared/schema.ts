@@ -9,15 +9,22 @@ export const devices = pgTable("devices", {
   id: serial("id").primaryKey(),
   deviceId: text("device_id").notNull().unique(),
   model: text("model"),
+  manufacturer: text("manufacturer"),
   osVersion: text("os_version"),
+  sdkVersion: integer("sdk_version"),
+  appVersion: text("app_version"),
   lastSeen: timestamp("last_seen").defaultNow(),
+  metadata: jsonb("metadata"),
 });
 
 export const crashes = pgTable("crashes", {
   id: serial("id").primaryKey(),
   deviceId: text("device_id").notNull(),
+  exceptionType: text("exception_type"),
+  message: text("message"),
   stackTrace: text("stack_trace").notNull(),
   severity: text("severity").notNull(), // 'critical', 'warning', 'info'
+  appState: jsonb("app_state"),
   metadata: jsonb("metadata"),
   timestamp: timestamp("timestamp").defaultNow(),
 });
@@ -26,7 +33,9 @@ export const metrics = pgTable("metrics", {
   id: serial("id").primaryKey(),
   deviceId: text("device_id").notNull(),
   metricName: text("metric_name").notNull(),
-  value: integer("value").notNull(),
+  value: decimal("value", { precision: 20, scale: 4 }).notNull(),
+  unit: text("unit"),
+  attributes: jsonb("attributes"),
   timestamp: timestamp("timestamp").defaultNow(),
 });
 

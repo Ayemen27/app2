@@ -9,7 +9,7 @@ import {
   Bell, Users, Zap, BarChart3, AlertCircle, CheckCircle2,
   RefreshCw, MoreVertical, Download, Upload, Settings,
   AlertTriangle, MessageSquare, ShieldCheck, Mail, Smartphone,
-  TrendingUp, Trash2, Plus
+  TrendingUp, Trash2, Plus, Clock, Eye, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,25 +29,34 @@ import { useFloatingButton } from '@/components/layout/floating-button-context';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function AdminNotificationsPage() {
   const { toast } = useToast();
   const { isAuthenticated, getAccessToken, isLoading: isAuthLoading } = useAuth();
   const [selectedTab, setSelectedTab] = useState('overview');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const { setFloatingAction, setRefreshAction } = useFloatingButton();
+  const [viewingNotification, setViewingNotification] = useState<any>(null);
+  const { setFloatingAction, setRefreshAction, setShowAddButton } = useFloatingButton();
 
   // تعيين الأزرار العائمة
   useEffect(() => {
     const handleAdd = () => setIsCreateDialogOpen(true);
     setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
+    if (setShowAddButton) setShowAddButton(true);
     
-    // سيتم تعريف refetch لاحقاً، سنستخدم wrapper
     return () => {
       setFloatingAction(null);
       setRefreshAction(null);
+      if (setShowAddButton) setShowAddButton(false);
     };
-  }, [setFloatingAction, setRefreshAction]);
+  }, [setFloatingAction, setRefreshAction, setShowAddButton]);
 
   const filterConfigs = [
     {
@@ -266,46 +275,77 @@ export default function AdminNotificationsPage() {
           </TabsContent>
 
           <TabsContent value="notifications" className="mt-0">
-            <UnifiedCardGrid columns={3}>
+            <UnifiedCardGrid columns={1} className="max-w-4xl mx-auto space-y-4">
               {isLoadingNotifications ? (
-                Array.from({ length: 6 }).map((_, i) => <UnifiedCard key={i} title="" fields={[]} isLoading={true} />)
+                Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-24 bg-slate-100 dark:bg-slate-800 animate-pulse rounded-2xl" />)
               ) : notifications.length > 0 ? (
-                notifications.map((notif: any) => (
-                  <UnifiedCard
-                    key={notif.id}
-                    title={notif.title}
-                    subtitle={format(new Date(notif.createdAt), 'PPp', { locale: ar })}
-                    titleIcon={typeIcons[notif.type] || Bell}
-                    badges={[
-                      { 
-                        label: priorityMap[notif.priority]?.label || 'عادي', 
-                        variant: priorityMap[notif.priority]?.color || 'outline' 
-                      },
-                      {
-                        label: notif.isRead ? 'مقروء' : 'جديد',
-                        variant: notif.isRead ? 'secondary' : 'default'
-                      }
-                    ]}
-                    fields={[
-                      { label: "المحتوى", value: notif.message, emphasis: true },
-                      { label: "المستهدف", value: notif.recipientType === 'all' ? 'الجميع' : 'محدد', color: "info" }
-                    ]}
-                    actions={[
-                      { 
-                        icon: Trash2, 
-                        label: "حذف", 
-                        onClick: () => deleteMutation.mutate(notif.id),
-                        color: "red"
-                      }
-                    ]}
-                    compact={true}
-                  />
-                ))
+                notifications.map((notif: any) => {
+                  const config = priorityMap[notif.priority] || priorityMap['3'];
+                  const Icon = typeIcons[notif.type] || Bell;
+                  
+                  return (
+                    <div 
+                      key={notif.id}
+                      onClick={() => setViewingNotification(notif)}
+                      className={cn(
+                        "group relative flex items-start gap-4 p-4 rounded-2xl border transition-all duration-300 cursor-pointer",
+                        "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-primary/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-12 h-12 rounded-xl flex items-center justify-center shadow-sm shrink-0",
+                        notif.type === 'safety' ? "bg-red-50 dark:bg-red-900/20" : "bg-slate-50 dark:bg-slate-800"
+                      )}>
+                        <Icon className={cn("h-6 w-6", notif.type === 'safety' ? "text-red-600" : "text-primary")} />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                            {notif.title}
+                          </h3>
+                          <Badge variant={config.color} className="text-[10px] font-bold px-2 py-0">
+                            {config.label}
+                          </Badge>
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+                          {notif.message}
+                        </p>
+                        
+                        <div className="flex items-center gap-4 text-[11px] text-slate-400 font-medium">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{format(new Date(notif.createdAt), 'PPp', { locale: ar })}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            <span>{notif.recipientType === 'all' ? 'الجميع' : 'مستهدف'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 self-center">
+                        <Button 
+                          size="icon" 
+                          variant="ghost" 
+                          className="h-9 w-9 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if(confirm('هل أنت متأكد من حذف هذا الإشعار؟')) deleteMutation.mutate(notif.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
-                <div className="col-span-full py-20 text-center border-2 border-dashed rounded-xl">
-                  <Bell className="mx-auto h-12 w-12 text-muted-foreground/20" />
-                  <h3 className="mt-4 text-lg font-semibold">لا توجد إشعارات</h3>
-                  <p className="text-muted-foreground">لم يتم العثور على إشعارات تطابق معايير البحث.</p>
+                <div className="col-span-full py-20 text-center border-2 border-dashed rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/50">
+                  <Bell className="mx-auto h-16 w-16 text-muted-foreground/20 animate-pulse" />
+                  <h3 className="mt-4 text-xl font-bold">لا توجد إشعارات</h3>
+                  <p className="text-muted-foreground mt-2">لم يتم العثور على إشعارات تطابق معايير البحث.</p>
                 </div>
               )}
             </UnifiedCardGrid>
@@ -330,6 +370,67 @@ export default function AdminNotificationsPage() {
             </UnifiedCardGrid>
           </TabsContent>
         </Tabs>
+
+        {/* حوار عرض تفاصيل الإشعار */}
+        <Dialog open={!!viewingNotification} onOpenChange={(open) => !open && setViewingNotification(null)}>
+          <DialogContent className="sm:max-w-lg rounded-[2rem] overflow-hidden border-none shadow-2xl p-0 gap-0">
+            {viewingNotification && (
+              <>
+                <div className={cn(
+                  "h-32 w-full flex items-center justify-center relative overflow-hidden",
+                  viewingNotification.type === 'safety' ? "bg-red-600" : "bg-primary"
+                )}>
+                  <div className="absolute inset-0 opacity-20">
+                    <Zap className="absolute -top-4 -left-4 h-32 w-32 rotate-12" />
+                    <Bell className="absolute -bottom-4 -right-4 h-32 w-32 -rotate-12" />
+                  </div>
+                  <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-xl flex items-center justify-center ring-4 ring-white/10 relative z-10 shadow-inner">
+                    {(typeIcons[viewingNotification.type] || Bell)({ className: "h-10 w-10 text-white" })}
+                  </div>
+                </div>
+
+                <div className="p-8 pt-6 space-y-6">
+                  <div className="space-y-2 text-center">
+                    <Badge variant={priorityMap[viewingNotification.priority]?.color} className="mb-2">
+                      {priorityMap[viewingNotification.priority]?.label}
+                    </Badge>
+                    <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white">
+                      {viewingNotification.title}
+                    </DialogTitle>
+                    <DialogDescription className="flex items-center justify-center gap-2 font-medium">
+                      <Clock className="h-4 w-4 text-primary" />
+                      {format(new Date(viewingNotification.createdAt), 'PPPP p', { locale: ar })}
+                    </DialogDescription>
+                  </div>
+
+                  <div className="p-6 rounded-[1.5rem] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 shadow-inner">
+                    <p className="text-base leading-relaxed text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap">
+                      {viewingNotification.message}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex flex-col items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold">المستهدف</span>
+                      <span className="text-sm font-black">{viewingNotification.recipientType === 'all' ? 'الجميع' : 'مستهدف'}</span>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 flex flex-col items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold">النوع</span>
+                      <span className="text-sm font-black">{viewingNotification.type}</span>
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full h-14 rounded-2xl font-black text-lg shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98]"
+                    onClick={() => setViewingNotification(null)}
+                  >
+                    إغلاق التفاصيل
+                  </Button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

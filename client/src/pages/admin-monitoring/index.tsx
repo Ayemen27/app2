@@ -16,13 +16,13 @@ export default function AdminMonitoring() {
     refetchInterval: 30000,
   });
 
-  // جلب الإحصائيات اللحظية
-  const { data: statsData, isLoading: statsLoading } = useQuery({
-    queryKey: QUERY_KEYS.healthStats,
-    refetchInterval: 15000,
+  // جلب إحصائيات الأجهزة والانهيارات
+  const { data: monitoringStats, isLoading: monitoringLoading } = useQuery({
+    queryKey: ["/api/monitoring/stats"],
+    refetchInterval: 10000,
   });
 
-  if (healthLoading || statsLoading) return (
+  if (healthLoading || statsLoading || monitoringLoading) return (
     <div className="flex items-center justify-center h-[calc(100vh-200px)]">
       <div className="flex flex-col items-center gap-4">
         <div className="relative">

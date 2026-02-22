@@ -7,16 +7,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
-  Bell, BellOff, AlertCircle, AlertTriangle, Clock,
-  Trash2, CheckCheck, Search, Calendar, ChevronDown, ChevronRight,
-  Shield, Wrench, Package, Users, MessageSquare, Zap, RefreshCw, X,
-  Eye, SlidersHorizontal, MoreVertical, CheckCircle, Filter
+  Bell, Clock, Trash2, CheckCheck, RefreshCw, Eye, 
+  MoreVertical, CheckCircle, Shield, Wrench, Package, 
+  Users, MessageSquare, AlertTriangle, AlertCircle, Zap,
+  ChevronDown, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
-import { UnifiedSearchFilter, useUnifiedFilter, FilterConfig } from '@/components/ui/unified-search-filter';
+import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
+import type { FilterConfig } from '@/components/ui/unified-search-filter';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import {
@@ -27,15 +28,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { UnifiedStats } from "@/components/ui/unified-stats";
 
 interface Notification {
   id: string;
@@ -252,13 +244,8 @@ export default function NotificationsPage() {
     },
   ];
 
-  const {
-    searchValue,
-    filterValues,
-    onSearchChange,
-    onFilterChange,
-    onReset,
-  } = useUnifiedFilter({
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
     status: 'all',
     type: 'all',
     priority: 'all',
@@ -481,6 +468,15 @@ export default function NotificationsPage() {
     });
   }, []);
 
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchValue("");
+    setFilterValues({ status: "all", type: "all", priority: "all", dateRange: undefined });
+  }, []);
+
   const formatNotificationTime = (dateString: string) => {
     if (!dateString) {
       return 'غير محدد';
@@ -643,20 +639,20 @@ export default function NotificationsPage() {
   );
 
   const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <div className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
         <Bell className="h-10 w-10 text-slate-400" />
       </div>
       <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
         لا توجد إشعارات
       </h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm">
+      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-6">
         {searchValue || Object.values(filterValues).some(v => v && v !== 'all')
           ? 'لا توجد نتائج تطابق معايير البحث أو الفلترة'
           : 'ستظهر إشعاراتك الجديدة هنا عندما تصل'}
       </p>
       {(searchValue || Object.values(filterValues).some(v => v && v !== 'all')) && (
-        <Button variant="outline" className="mt-4" onClick={onReset}>
+        <Button variant="outline" onClick={handleResetFilters}>
           <X className="h-4 w-4 ml-2" />
           إعادة تعيين الفلاتر
         </Button>
@@ -665,105 +661,60 @@ export default function NotificationsPage() {
   );
 
   return (
-    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/50">
-      {/* قسم الإحصائيات الموحد */}
-      <div className="p-4 bg-white/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-        <UnifiedStats
-          stats={[
-            {
-              title: "إجمالي الإشعارات",
-              value: stats.total,
-              icon: Bell,
-              color: "blue"
-            },
-            {
-              title: "غير مقروء",
-              value: stats.unread,
-              icon: BellOff,
-              color: "amber",
-              status: stats.unread > 0 ? "warning" : "normal"
-            },
-            {
-              title: "حرج",
-              value: stats.critical,
-              icon: AlertTriangle,
-              color: "red",
-              status: stats.critical > 0 ? "critical" : "normal"
-            },
-            {
-              title: "عالي الأولوية",
-              value: stats.high,
-              icon: Zap,
-              color: "orange"
-            }
-          ]}
-          columns={4}
-          hideHeader={true}
-        />
-      </div>
-
+    <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950/50 overflow-hidden">
       <div className="flex-1 overflow-hidden flex flex-col p-4 space-y-4">
         {/* شريط البحث والفلترة الموحد */}
-        <div className="px-4 py-2 bg-white/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-          <UnifiedSearchFilter
-            searchValue={searchValue}
-            onSearchChange={onSearchChange}
-            filterValues={filterValues}
-            onFilterChange={onFilterChange}
-            configs={filterConfigs}
-            onReset={onReset}
-            variant="horizontal"
-            showFilterButtons={true}
-            action={
-              <div className="flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 gap-2">
-                      <MoreVertical className="h-4 w-4" />
-                      خيارات
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56" dir="rtl">
-                    <DropdownMenuItem onClick={toggleSelectAll}>
-                      <CheckCheck className="ml-2 h-4 w-4" />
-                      {selectedIds.size === notifications.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+        <UnifiedFilterDashboard
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          filters={filterConfigs}
+          onReset={handleResetFilters}
+          onRefresh={() => refetch()}
+          isRefreshing={isLoading}
+          searchPlaceholder="بحث في الإشعارات..."
+          actions={
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 gap-2">
+                    <MoreVertical className="h-4 w-4" />
+                    خيارات
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" dir="rtl">
+                  <DropdownMenuItem onClick={toggleSelectAll}>
+                    <CheckCheck className="ml-2 h-4 w-4" />
+                    {selectedIds.size === notifications.length ? 'إلغاء تحديد الكل' : 'تحديد الكل'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => markAllAsReadMutation.mutate()}
+                    disabled={markAllAsReadMutation.isPending || stats.unread === 0}
+                  >
+                    <Eye className="ml-2 h-4 w-4" />
+                    تعليم الكل كمقروء
+                  </DropdownMenuItem>
+                  {selectedIds.size > 0 && (
                     <DropdownMenuItem 
-                      onClick={() => markAllAsReadMutation.mutate()}
-                      disabled={markAllAsReadMutation.isPending || stats.unread === 0}
+                      onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
+                      disabled={markSelectedAsReadMutation.isPending}
+                      className="text-blue-600"
                     >
-                      <Eye className="ml-2 h-4 w-4" />
-                      تعليم الكل كمقروء
+                      <CheckCircle className="ml-2 h-4 w-4" />
+                      تعليم المحدد ({selectedIds.size}) كمقروء
                     </DropdownMenuItem>
-                    {selectedIds.size > 0 && (
-                      <DropdownMenuItem 
-                        onClick={() => markSelectedAsReadMutation.mutate(Array.from(selectedIds))}
-                        disabled={markSelectedAsReadMutation.isPending}
-                        className="text-blue-600"
-                      >
-                        <CheckCircle className="ml-2 h-4 w-4" />
-                        تعليم المحدد ({selectedIds.size}) كمقروء
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem className="text-red-600">
-                      <Trash2 className="ml-2 h-4 w-4" />
-                      حذف الإشعارات القديمة
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => refetch()}
-                >
-                  <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-                </Button>
-              </div>
-            }
-          />
-        </div>
+                  )}
+                  <DropdownMenuItem className="text-red-600">
+                    <Trash2 className="ml-2 h-4 w-4" />
+                    حذف الإشعارات القديمة
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          }
+        />
 
         {/* قائمة الإشعارات */}
         <ScrollArea className="flex-1 -mx-4 px-4">

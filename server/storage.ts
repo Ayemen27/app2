@@ -328,6 +328,19 @@ export interface IStorage {
   markAllNotificationsAsRead(userId: string): Promise<void>;
   getReadNotifications(userId: string, notificationType?: string): Promise<NotificationReadState[]>;
 
+  // Notifications
+  async createNotification(notif: InsertNotification): Promise<Notification> {
+    const [newNotif] = await db.insert(notifications).values(notif).returning();
+    return newNotif;
+  }
+
+  async getNotifications(userId?: string): Promise<Notification[]> {
+    if (userId) {
+      return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+    }
+    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+  }
+
   // =====================================================
   // Wells Management System (نظام إدارة الآبار)
   // =====================================================

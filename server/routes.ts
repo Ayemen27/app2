@@ -6,7 +6,12 @@ import { TelegramService } from "./services/TelegramService";
 import { GoogleDriveService } from "./services/GoogleDriveService";
 import { insertCrashSchema, insertMetricSchema, insertDeviceSchema } from "@shared/schema";
 
+import { FcmService } from "./services/FcmService";
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // FCM Initialization
+  FcmService.initialize();
+
   // Monitoring Routes
   app.post("/api/devices", async (req, res) => {
     try {
@@ -48,6 +53,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/notifications/announcement", async (req, res) => {
+    try {
+      const { title, body, priority, targetPlatform, recipients } = req.body;
+      const result = await FcmService.sendNotification({
+        title,
+        message: body,
+        type: 'announcement',
+        priority,
+        targetPlatform,
+        recipients
+      });
+      res.json(result);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
     }
   });
 

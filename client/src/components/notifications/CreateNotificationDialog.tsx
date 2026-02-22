@@ -43,6 +43,7 @@ const notificationSchema = z.object({
   priority: z.number().min(1).max(5),
   recipientType: z.enum(['all', 'admins', 'workers', 'specific']),
   specificUserId: z.string().optional(),
+  targetPlatform: z.enum(['all', 'android', 'web']).default('all'),
 });
 
 type NotificationFormData = z.infer<typeof notificationSchema>;
@@ -272,6 +273,36 @@ export function CreateNotificationDialog({
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="targetPlatform"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>المنصة المستهدفة</FormLabel>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { value: 'all', label: 'الجميع', icon: Zap },
+                          { value: 'android', label: 'أندرويد فقط', icon: Smartphone },
+                          { value: 'web', label: 'الويب فقط', icon: Bell },
+                        ].map((option) => (
+                          <Button
+                            key={option.value}
+                            type="button"
+                            variant={field.value === option.value ? "default" : "outline"}
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => field.onChange(option.value)}
+                          >
+                            <option.icon className="h-3.5 w-3.5" />
+                            {option.label}
+                          </Button>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}

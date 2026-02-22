@@ -176,6 +176,28 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   revokedReason: varchar("revoked_reason"),
 });
 
+// Notifications table (جدول الإشعارات)
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // null if broadcast
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull().default("system"),
+  priority: integer("priority").default(3),
+  isRead: boolean("is_read").default(false).notNull(),
+  targetPlatform: text("target_platform").default("all").notNull(), // 'all', 'android', 'web'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
+  id: true, 
+  createdAt: true,
+  isRead: true 
+});
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
 // Email Verification Tokens table (جدول رموز التحقق من البريد الإلكتروني)
 export const emailVerificationTokens = pgTable("email_verification_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

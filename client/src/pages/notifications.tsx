@@ -10,13 +10,14 @@ import {
   Bell, Clock, Trash2, CheckCheck, RefreshCw, Eye, 
   MoreVertical, CheckCircle, Shield, Wrench, Package, 
   Users, MessageSquare, AlertTriangle, AlertCircle, Zap,
-  ChevronDown, ChevronRight
+  ChevronDown, ChevronRight, Info, AlertOctagon, Activity
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
 import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
+import { UnifiedStats } from '@/components/ui/unified-stats';
 import type { FilterConfig } from '@/components/ui/unified-search-filter';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -477,6 +478,35 @@ export default function NotificationsPage() {
     setFilterValues({ status: "all", type: "all", priority: "all", dateRange: undefined });
   }, []);
 
+  const statsItems = useMemo(() => [
+    {
+      title: "إجمالي الإشعارات",
+      value: stats.total,
+      icon: Bell,
+      color: "blue" as const,
+    },
+    {
+      title: "غير مقروء",
+      value: stats.unread,
+      icon: Eye,
+      color: "orange" as const,
+      status: stats.unread > 0 ? "warning" as const : "normal" as const,
+    },
+    {
+      title: "تنبيهات حرجة",
+      value: stats.critical,
+      icon: AlertOctagon,
+      color: "red" as const,
+      status: stats.critical > 0 ? "critical" as const : "normal" as const,
+    },
+    {
+      title: "أولوية عالية",
+      value: stats.high,
+      icon: Activity,
+      color: "amber" as const,
+    }
+  ], [stats]);
+
   const formatNotificationTime = (dateString: string) => {
     if (!dateString) {
       return 'غير محدد';
@@ -719,6 +749,12 @@ export default function NotificationsPage() {
         {/* قائمة الإشعارات */}
         <ScrollArea className="flex-1 -mx-4 px-4">
           <div className="space-y-6 pb-6 pt-2">
+            {/* ملخص الإحصائيات الموحد */}
+            <UnifiedStats 
+              stats={statsItems}
+              columns={4}
+            />
+
             {isLoading ? (
               <LoadingSkeleton />
             ) : notifications.length > 0 ? (

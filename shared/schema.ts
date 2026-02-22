@@ -1107,11 +1107,6 @@ export type InsertNotificationReadState = z.infer<typeof insertNotificationReadS
 export type NotificationReadState = typeof notificationReadStates.$inferSelect;
 
 
-// ==================== جدول الإشعارات العامة ====================
-
-// تم دمج هذا الجدول مع الجدول الرئيسي في بداية الملف لتجنب التكرار
-
-
 // ==================== جداول الوكيل الذكي AI Agent ====================
 
 // جلسات المحادثات

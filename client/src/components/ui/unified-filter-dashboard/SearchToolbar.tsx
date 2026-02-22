@@ -211,7 +211,7 @@ export function SearchToolbar({
     });
   }
 
-  const allActions = [...defaultActions, ...actions];
+  const allActions = [...defaultActions, ...(Array.isArray(actions) ? actions : [])];
 
   return (
     <div 

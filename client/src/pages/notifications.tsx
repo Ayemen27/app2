@@ -208,16 +208,19 @@ export default function NotificationsPage() {
     const priority = priorityConfig[notification.priority as number] || priorityConfig[3];
     const isUnread = notification.status === 'unread';
     const isSelected = selectedIds.has(notification.id);
+    const [isExpanded, setIsExpanded] = React.useState(false);
     const Icon = config.icon;
+    const message = notification.body || notification.message || '';
+    const isLongMessage = message.length > 60;
 
     return (
       <div className={cn(
-        "group relative flex items-center gap-3 p-2 px-3 rounded-xl border transition-all duration-300",
+        "group relative flex items-start gap-3 p-2 px-3 rounded-xl border transition-all duration-300",
         isUnread ? "bg-blue-50/40 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800",
         isSelected && "ring-2 ring-blue-500 ring-offset-0 bg-blue-50/50 dark:bg-blue-900/20",
         "hover:shadow-sm active:scale-[0.995]"
       )}>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 mt-1">
           <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(notification.id)} className="w-4 h-4 rounded border-2 data-[state=checked]:bg-blue-600 shadow-sm" />
           <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shadow-sm relative group-hover:scale-105 transition-transform", config.bgColor)}>
             <Icon className={cn("h-4 w-4", config.color)} />
@@ -225,32 +228,49 @@ export default function NotificationsPage() {
           </div>
         </div>
         
-        <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
-          <div className="flex flex-col min-w-0">
-            <h3 className={cn("text-sm font-black leading-tight truncate", isUnread ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-400")}>
-              {notification.title}
-              <span className={cn("mx-2 text-[12px] font-medium hidden sm:inline", isUnread ? "text-slate-700 dark:text-slate-300" : "text-slate-500")}>
-                - {notification.body || notification.message}
-              </span>
-            </h3>
-            <div className="flex items-center gap-2 mt-0.5">
-              <Badge variant="secondary" className={cn("text-[8px] uppercase font-black px-1.5 py-0 rounded-full", priority.bgColor, priority.color)}>{priority.label}</Badge>
-              <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
-                <Clock className="h-2.5 w-2.5 text-blue-400" />
-                <span>{notification.createdAt && format(parseISO(notification.createdAt), 'HH:mm', { locale: ar })}</span>
+        <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col min-w-0">
+              <h3 className={cn("text-sm font-black leading-tight truncate", isUnread ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-400")}>
+                {notification.title}
+                {!isExpanded && (
+                  <span className={cn("mx-2 text-[12px] font-medium hidden sm:inline", isUnread ? "text-slate-700 dark:text-slate-300" : "text-slate-500")}>
+                    - {message}
+                  </span>
+                )}
+              </h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant="secondary" className={cn("text-[8px] uppercase font-black px-1.5 py-0 rounded-full", priority.bgColor, priority.color)}>{priority.label}</Badge>
+                <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
+                  <Clock className="h-2.5 w-2.5 text-blue-400" />
+                  <span>{notification.createdAt && format(parseISO(notification.createdAt), 'HH:mm', { locale: ar })}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {isLongMessage && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-2 text-[10px] font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                >
+                  {isExpanded ? 'طي' : 'عرض المزيد'}
+                </Button>
+              )}
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                {isUnread && <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" onClick={() => markAsReadMutation.mutate(notification.id)}><Check className="h-3.5 w-3.5" /></Button>}
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full" onClick={() => confirm('حذف هذا الإشعار؟') && deleteNotificationsMutation.mutate([notification.id])}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden md:flex items-center gap-2">
-              <Badge variant="outline" className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border shadow-sm", config.bgColor, config.color, config.borderColor)}>{config.label}</Badge>
+          {isExpanded && (
+            <div className="mt-2 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300 animate-in fade-in slide-in-from-top-1 duration-200 pb-2">
+              {message}
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-              {isUnread && <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" onClick={() => markAsReadMutation.mutate(notification.id)}><Check className="h-3.5 w-3.5" /></Button>}
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full" onClick={() => confirm('حذف هذا الإشعار؟') && deleteNotificationsMutation.mutate([notification.id])}><Trash2 className="h-3.5 w-3.5" /></Button>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     );

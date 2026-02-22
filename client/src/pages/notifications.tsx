@@ -713,6 +713,7 @@ export default function NotificationsPage() {
             configs={filterConfigs}
             onReset={onReset}
             variant="horizontal"
+            showFilterButtons={true}
             action={
               <div className="flex items-center gap-2">
                 <DropdownMenu>
@@ -745,6 +746,10 @@ export default function NotificationsPage() {
                         تعليم المحدد ({selectedIds.size}) كمقروء
                       </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem className="text-red-600">
+                      <Trash2 className="ml-2 h-4 w-4" />
+                      حذف الإشعارات القديمة
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button

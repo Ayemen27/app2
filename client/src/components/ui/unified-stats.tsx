@@ -45,10 +45,10 @@ export function UnifiedStats({
         {stats.map((stat, index) => (
           <div key={index} className="relative">
             {stat.status === "critical" && (
-              <div className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full animate-pulse z-10 border-2 border-white dark:border-slate-900" />
             )}
             {stat.status === "warning" && (
-              <div className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-amber-500 rounded-full animate-pulse z-10 border-2 border-white dark:border-slate-900" />
             )}
 
             <StatsCard
@@ -118,10 +118,10 @@ export function UnifiedStats({
         {stats.map((stat, index) => (
           <div key={index} className="relative">
             {stat.status === "critical" && (
-              <div className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full animate-pulse z-10 border-2 border-white dark:border-slate-900" />
             )}
             {stat.status === "warning" && (
-              <div className="absolute -top-1 -right-1 h-2 w-2 bg-amber-500 rounded-full animate-pulse z-10" />
+              <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-amber-500 rounded-full animate-pulse z-10 border-2 border-white dark:border-slate-900" />
             )}
 
             <StatsCard

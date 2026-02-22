@@ -437,6 +437,27 @@ export default function NotificationsPage() {
     },
   });
 
+  const deleteNotificationsMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      // In a real app, this would be a single DELETE call with IDs
+      await Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}`, 'DELETE')));
+      return ids;
+    },
+    onSuccess: (ids) => {
+      queryClient.setQueryData(QUERY_KEYS.notificationsByUser(userId), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          notifications: old.notifications.filter((n: any) => !ids.includes(n.id)),
+          total: Math.max(0, (old.total || 0) - ids.length),
+          unreadCount: Math.max(0, (old.unreadCount || 0) - old.notifications.filter((n: any) => ids.includes(n.id) && !n.isRead).length),
+        };
+      });
+      toast({ title: 'تم الحذف', description: `تم حذف ${ids.length} إشعار بنجاح` });
+      setSelectedIds(new Set());
+    },
+  });
+
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -598,6 +619,20 @@ export default function NotificationsPage() {
                   <span className="hidden sm:inline">مقروء</span>
                 </Button>
               )}
+
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs gap-1 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                onClick={() => {
+                  if (confirm('هل أنت متأكد من حذف هذا الإشعار؟')) {
+                    deleteNotificationsMutation.mutate([notification.id]);
+                  }
+                }}
+                disabled={deleteNotificationsMutation.isPending}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
               
               {notification.actionRequired && (
                 <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">
@@ -744,7 +779,28 @@ export default function NotificationsPage() {
                       تعليم المحدد ({selectedIds.size}) كمقروء
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem className="text-red-600">
+                  {selectedIds.size > 0 && (
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        if (confirm(`هل أنت متأكد من حذف ${selectedIds.size} إشعار؟`)) {
+                          deleteNotificationsMutation.mutate(Array.from(selectedIds));
+                        }
+                      }}
+                      disabled={deleteNotificationsMutation.isPending}
+                      className="text-red-600 font-medium"
+                    >
+                      <Trash2 className="ml-2 h-4 w-4" />
+                      حذف المحدد ({selectedIds.size})
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem 
+                    className="text-red-600"
+                    onClick={() => {
+                      if (confirm('هل أنت متأكد من حذف جميع الإشعارات القديمة؟')) {
+                        // Logic for clearing old notifications
+                      }
+                    }}
+                  >
                     <Trash2 className="ml-2 h-4 w-4" />
                     حذف الإشعارات القديمة
                   </DropdownMenuItem>

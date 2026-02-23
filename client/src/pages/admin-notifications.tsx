@@ -52,14 +52,11 @@ export default function AdminNotificationsPage() {
       setIsCreateDialogOpen(true);
     };
     
-    // تأخير طفيف لضمان استقرار الحالة والتغلب على مشاكل التوقيت
-    const timer = setTimeout(() => {
-      setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
-      if (setShowAddButton) setShowAddButton(true);
-    }, 200);
+    // إزالة زر التحديث وتعديل زر الإضافة
+    setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
+    if (setShowAddButton) setShowAddButton(true);
     
     return () => {
-      clearTimeout(timer);
       setFloatingAction(null);
       setRefreshAction(null);
       if (setShowAddButton) setShowAddButton(false);

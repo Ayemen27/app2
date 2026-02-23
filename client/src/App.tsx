@@ -117,9 +117,15 @@ function Router() {
 
         // طلب الصلاحيات على المنصات الأصلية (أندرويد/iOS)
         if (Capacitor.isNativePlatform()) {
-          requestAllPermissions().then(() => {
-            console.log('✅ تم طلب صلاحيات الإشعارات');
-          });
+          try {
+            const perm = await PushNotifications.checkPermissions();
+            if (perm.receive === 'prompt') {
+              await PushNotifications.requestPermissions();
+            }
+            console.log('✅ تم فحص وطلب صلاحيات الإشعارات');
+          } catch (e) {
+            console.error('❌ خطأ في طلب الصلاحيات:', e);
+          }
         }
 
         initSyncListener();
@@ -319,6 +325,7 @@ function Router() {
 
 import { initializeNativePush, requestAllPermissions } from "./services/capacitorPush";
 import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 
 import SystemCheckPage from "./pages/SystemCheckPage";
 import SyncManagementPage from "./pages/system/SyncManagementPage";

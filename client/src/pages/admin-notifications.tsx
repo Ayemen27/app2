@@ -51,10 +51,12 @@ export default function AdminNotificationsPage() {
       console.log("Floating button clicked - Opening dialog");
       setIsCreateDialogOpen(true);
     };
-    
-    // إزالة زر التحديث وتعديل زر الإضافة
+
+    // إرسال الإجراء فوراً دون تأخير لضمان استجابة سريعة
     setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
     if (setShowAddButton) setShowAddButton(true);
+    // إبطال مفعول زر التحديث نهائياً من هذا السياق
+    setRefreshAction(null);
     
     return () => {
       setFloatingAction(null);
@@ -119,18 +121,6 @@ export default function AdminNotificationsPage() {
     },
     enabled: isAuthenticated && !isAuthLoading
   });
-
-  // تحديث إجراء التحديث العائم عند تغير دالة refetch
-  useEffect(() => {
-    if (refetch) {
-      setRefreshAction(() => {
-        return () => {
-          refetch();
-          toast({ title: 'تم تحديث البيانات' });
-        };
-      });
-    }
-  }, [refetch, setRefreshAction, toast]);
 
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: [QUERY_KEYS.adminNotifications, 'activity'],

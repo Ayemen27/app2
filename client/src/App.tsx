@@ -115,6 +115,13 @@ function Router() {
         await initializeDB();
         console.log('✅ تم تهيئة قاعدة البيانات المحلية');
 
+        // طلب الصلاحيات على المنصات الأصلية (أندرويد/iOS)
+        if (Capacitor.isNativePlatform()) {
+          requestAllPermissions().then(() => {
+            console.log('✅ تم طلب صلاحيات الإشعارات');
+          });
+        }
+
         initSyncListener();
         initSilentSyncObserver(30000);
         initAuditLog().catch(err => console.warn('[AuditLog] Init failed:', err));

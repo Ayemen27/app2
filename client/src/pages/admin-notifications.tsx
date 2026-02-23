@@ -112,7 +112,7 @@ export default function AdminNotificationsPage() {
         ...(filterValues.priority !== 'all' && { priority: filterValues.priority }),
         ...(searchValue && { search: searchValue })
       });
-      const response = await fetch(`/api/admin/notifications?${params}`, {
+      const response = await fetch(`/api/notifications/all?${params}`, {
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في جلب البيانات');

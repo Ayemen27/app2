@@ -115,6 +115,7 @@
     "express-rate-limit": "^7.1.5",
     "express-session": "^1.19.0",
     "express-slow-down": "^3.0.0",
+    "express-validator": "^7.3.1",
     "file-saver": "^2.0.5",
     "firebase": "^12.7.0",
     "framer-motion": "^11.13.1",
@@ -141,6 +142,7 @@
     "pako": "^2.1.0",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "path-to-regexp": "^0.1.7",
     "pg": "^8.16.3",
     "playwright": "^1.57.0",
     "puppeteer": "^24.16.1",
@@ -203,7 +205,6 @@
     "bufferutil": "^4.0.8"
   },
   "overrides": {
-    "path-to-regexp": "0.1.7",
     "esbuild": "^0.25.0",
     "@esbuild-kit/core-utils@*": {
       "esbuild": "^0.25.0"

@@ -45,25 +45,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/notifications/monitoring/stats", async (_req, res) => {
     try {
-      const devices = await storage.getDevices();
-      const recentCrashes = await storage.getRecentCrashes(10);
+      const devices = await storage.getDevices ? await storage.getDevices() : [];
+      const recentCrashes = await storage.getRecentCrashes ? await storage.getRecentCrashes(10) : [];
       
       // جلب إحصائيات الإشعارات الفعلية
       const notifications = await storage.getAdminNotifications ? await storage.getAdminNotifications() : [];
       
       res.json({
-        total: notifications.length,
-        unread: notifications.filter((n: any) => !n.read).length,
-        critical: notifications.filter((n: any) => n.priority === 1 || n.priority === 'critical').length,
-        deviceCount: devices.length,
-        recentCrashes,
-        userStats: [], // يمكن توسيعه لاحقاً
+        total: notifications.length || 0,
+        unread: notifications.filter((n: any) => !n.read).length || 0,
+        critical: notifications.filter((n: any) => n.priority === 1 || n.priority === 'critical').length || 0,
+        deviceCount: devices.length || 0,
+        recentCrashes: recentCrashes || [],
+        userStats: [], 
         typeStats: {
-          safety: notifications.filter((n: any) => n.type === 'safety').length
+          safety: notifications.filter((n: any) => n.type === 'safety').length || 0
         }
       });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("[API Error] /api/notifications/monitoring/stats:", e);
+      res.json({
+        total: 0,
+        unread: 0,
+        critical: 0,
+        deviceCount: 0,
+        recentCrashes: [],
+        userStats: [],
+        typeStats: { safety: 0 }
+      });
     }
   });
 

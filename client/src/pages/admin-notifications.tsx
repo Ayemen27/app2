@@ -54,7 +54,7 @@ export default function AdminNotificationsPage() {
     };
     
     // ضبط الإجراء العائم
-    setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
+    setFloatingAction(handleAdd, "إرسال إشعار جديد");
     setShowAddButton(true);
     setRefreshAction(null);
     

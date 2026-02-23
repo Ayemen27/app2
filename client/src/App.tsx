@@ -102,6 +102,7 @@ initializeStorage().catch(console.error);
 startPerformanceMonitoring(30000); // مراقبة كل 30 ثانية
 
 const AdminMonitoring = lazy(() => import("./pages/admin-monitoring"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 
 function Router() {
   useWebSocketSync();
@@ -272,6 +273,13 @@ function Router() {
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
             <AdminMonitoring />
+          </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/dashboard">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <AdminDashboard />
           </Suspense>
         </AdminRoute>
       </Route>

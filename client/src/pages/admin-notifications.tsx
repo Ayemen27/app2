@@ -47,22 +47,19 @@ export default function AdminNotificationsPage() {
 
   // تعيين الأزرار العائمة
   useEffect(() => {
-    // استخدام دالة مرجعية مستقرة لتجنب مشاكل التوقيت
+    // دالة فتح النموذج - نتأكد من أنها تستخدم أحدث حالة
     const handleAdd = () => {
-      console.log("Floating button clicked - Triggering Dialog");
+      console.log("Floating action triggered");
       setIsCreateDialogOpen(true);
     };
     
-    // ضبط الإجراء العائم مع التسمية
+    // ضبط الإجراء العائم
     setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
     setShowAddButton(true);
-    
-    // التأكد من إزالة أي إجراء تحديث قديم لتنظيف الواجهة
     setRefreshAction(null);
     
     return () => {
       setFloatingAction(null);
-      setRefreshAction(null);
       setShowAddButton(false);
     };
   }, [setFloatingAction, setRefreshAction, setShowAddButton]);

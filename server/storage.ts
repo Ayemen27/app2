@@ -51,6 +51,7 @@ export interface IStorage {
   // Notifications
   createNotification(notif: InsertNotification): Promise<Notification>;
   getNotifications(userId?: string): Promise<Notification[]>;
+  getAdminNotifications(): Promise<Notification[]>;
 
   // Tasks
   getTasks(): Promise<Task[]>;
@@ -386,6 +387,10 @@ export class DatabaseStorage implements IStorage {
     if (userId) {
       return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
     }
+    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+  }
+
+  async getAdminNotifications(): Promise<Notification[]> {
     return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
   }
 
@@ -3794,6 +3799,10 @@ export class DatabaseStorage implements IStorage {
     if (userId) {
       return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
     }
+    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+  }
+
+  async getAdminNotifications(): Promise<Notification[]> {
     return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
   }
 

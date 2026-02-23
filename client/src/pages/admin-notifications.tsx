@@ -47,21 +47,23 @@ export default function AdminNotificationsPage() {
 
   // تعيين الأزرار العائمة
   useEffect(() => {
+    // استخدام دالة مرجعية مستقرة لتجنب مشاكل التوقيت
     const handleAdd = () => {
-      console.log("Floating button clicked - Opening dialog");
+      console.log("Floating button clicked - Triggering Dialog");
       setIsCreateDialogOpen(true);
     };
-
-    // إرسال الإجراء فوراً دون تأخير لضمان استجابة سريعة
+    
+    // ضبط الإجراء العائم مع التسمية
     setFloatingAction(() => handleAdd, "إرسال إشعار جديد");
-    if (setShowAddButton) setShowAddButton(true);
-    // إبطال مفعول زر التحديث نهائياً من هذا السياق
+    setShowAddButton(true);
+    
+    // التأكد من إزالة أي إجراء تحديث قديم لتنظيف الواجهة
     setRefreshAction(null);
     
     return () => {
       setFloatingAction(null);
       setRefreshAction(null);
-      if (setShowAddButton) setShowAddButton(false);
+      setShowAddButton(false);
     };
   }, [setFloatingAction, setRefreshAction, setShowAddButton]);
 
@@ -125,7 +127,7 @@ export default function AdminNotificationsPage() {
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: [QUERY_KEYS.adminNotifications, 'activity'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/notifications/stats', {
+      const response = await fetch('/api/notifications/monitoring/stats', {
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في جلب النشاط');

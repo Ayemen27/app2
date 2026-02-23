@@ -43,6 +43,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/notifications/monitoring/stats", async (_req, res) => {
+    try {
+      const devices = await storage.getDevices();
+      const recentCrashes = await storage.getRecentCrashes(10);
+      
+      // جلب إحصائيات الإشعارات الفعلية
+      const notifications = await storage.getAdminNotifications ? await storage.getAdminNotifications() : [];
+      
+      res.json({
+        total: notifications.length,
+        unread: notifications.filter((n: any) => !n.read).length,
+        critical: notifications.filter((n: any) => n.priority === 1 || n.priority === 'critical').length,
+        deviceCount: devices.length,
+        recentCrashes,
+        userStats: [], // يمكن توسيعه لاحقاً
+        typeStats: {
+          safety: notifications.filter((n: any) => n.type === 'safety').length
+        }
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/monitoring/stats", async (_req, res) => {
     try {
       const devices = await storage.getDevices();

@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { Zap, Users, Shield, User, Send, Sparkles, AlertTriangle, ChevronDown, Crown, UserCheck } from "lucide-react";
+import { Zap, Users, Shield, User, Send, Sparkles, AlertTriangle, ChevronDown, Crown, UserCheck, Smartphone, Bell } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 

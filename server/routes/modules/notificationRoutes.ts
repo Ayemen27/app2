@@ -414,8 +414,7 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
     const notificationService = new NotificationService();
     
     const userId = req.user?.userId || req.user?.email || null;
-    const type = req.params.type || req.body.type || 'task';
-    const { title, body, priority, recipientType, recipients, projectId } = req.body;
+    const { title, body, priority, recipients, projectId } = req.body;
 
     console.log(`📝 [API] إنشاء إشعار جديد (${type}) من المستخدم: ${userId}`);
 
@@ -439,6 +438,52 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في إنشاء الإشعار:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: "فشل في إنشاء الإشعار",
+      processingTime: Date.now() - startTime
+    });
+  }
+});
+
+/**
+ * 📥 إنشاء إشعار عام (تجنب 404 عند الطلب المباشر لـ /api/notifications)
+ * POST /api/notifications
+ */
+notificationRouter.post('/', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const { NotificationService } = await import('../../services/NotificationService.js');
+    const notificationService = new NotificationService();
+    
+    const userId = req.user?.userId || req.user?.email || null;
+    const { type, title, body, priority, recipients, projectId } = req.body;
+
+    const finalType = type || 'system';
+
+    console.log(`📝 [API] إنشاء إشعار جديد (${finalType}) عبر المسار الرئيسي من المستخدم: ${userId}`);
+
+    const notificationData = {
+      type: finalType,
+      title: title,
+      body: body,
+      priority: priority || 3,
+      recipients: recipients === 'admins' || recipients === 'all' ? ['admins'] : (Array.isArray(recipients) ? recipients : [recipients]),
+      projectId: projectId || null,
+      channelPreference: { push: true, email: true }
+    };
+
+    const notification = await notificationService.createNotification(notificationData);
+
+    res.json({
+      success: true,
+      data: notification,
+      message: `تم إنشاء إشعار ${finalType} بنجاح`,
+      processingTime: Date.now() - startTime
+    });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في إنشاء الإشعار (المسار الرئيسي):', error);
     res.status(500).json({
       success: false,
       error: error.message,

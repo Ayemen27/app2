@@ -393,11 +393,15 @@ export function UserSelect({
   className?: string;
 }) {
   const options: SelectOption[] = useMemo(() => {
-    const userOptions = users.map(u => ({
-      value: u.id,
-      label: u.fullName || u.username || u.email || u.id,
-      description: u.email || undefined,
-    }));
+    const userOptions = users.map(u => {
+      // تشخيص دقيق للحقول لضمان عدم ظهور القائمة فارغة
+      const name = u.fullName || (u as any).full_name || u.username || (u as any).first_name || u.email || u.id;
+      return {
+        value: u.id,
+        label: name,
+        description: u.email || undefined,
+      };
+    });
     
     if (showAllOption) {
       return [{ value: 'all', label: allOptionLabel }, ...userOptions];

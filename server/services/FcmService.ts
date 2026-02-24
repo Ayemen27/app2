@@ -54,6 +54,28 @@ export class FcmService {
     // 2. إرسال عبر Firebase (لأندرويد)
     if (data.targetPlatform === 'all' || data.targetPlatform === 'android') {
       console.log(`[FCM] Sending push notification to Android: ${data.title}`);
+      
+      // التأكد من أن الإشعار يحتوي على التفاصيل المطلوبة لشريط الحالة
+      const pushPayload = {
+        notification: {
+          title: data.title,
+          body: data.message,
+          android: {
+            priority: data.priority >= 4 ? 'high' : 'normal',
+            notification: {
+              sound: 'default',
+              clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+              channelId: 'high_importance_channel'
+            }
+          }
+        },
+        data: {
+          type: data.type,
+          priority: String(data.priority)
+        }
+      };
+      
+      console.log(`[FCM] Payload generated:`, JSON.stringify(pushPayload));
     }
 
     return { success: true };

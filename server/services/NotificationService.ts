@@ -672,10 +672,49 @@ export class NotificationService {
     unread: number;
     critical: number;
     userStats: any[];
+    typeStats: Record<string, number>;
   }> {
     try {
       const allNotifications = await db.select().from(notifications);
       const total = allNotifications.length;
+      
+      const readStates = await db.select().from(notificationReadStates).where(eq(notificationReadStates.userId, userId));
+      const readIds = new Set(readStates.map(rs => rs.notificationId));
+      
+      const unreadCount = allNotifications.filter(n => !readIds.has(n.id)).length;
+      const criticalCount = allNotifications.filter(n => n.priority === NotificationPriority.EMERGENCY || n.priority === NotificationPriority.HIGH).length;
+      
+      const typeStats: Record<string, number> = {};
+      allNotifications.forEach(n => {
+        typeStats[n.type] = (typeStats[n.type] || 0) + 1;
+      });
+
+      // جلب إحصائيات المستخدمين (تبسيط للمثال)
+      const userStats = await db.select({
+        userId: users.id,
+        userName: users.name,
+        userEmail: users.email
+      }).from(users).limit(10);
+
+      const enrichedUserStats = userStats.map(u => ({
+        ...u,
+        totalNotifications: total,
+        readNotifications: readStates.filter(rs => rs.userId === u.userId).length,
+        lastReadAt: null
+      }));
+
+      return {
+        total,
+        unread: unreadCount,
+        critical: criticalCount,
+        userStats: enrichedUserStats,
+        typeStats
+      };
+    } catch (error) {
+      console.error('Error fetching notification stats:', error);
+      return { total: 0, unread: 0, critical: 0, userStats: [], typeStats: {} };
+    }
+  }      const total = allNotifications.length;
       
       const readStates = await db.select().from(notificationReadStates);
       const readIds = new Set(readStates.filter(rs => rs.isRead).map(rs => rs.notificationId));

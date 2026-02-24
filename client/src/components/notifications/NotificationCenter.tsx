@@ -86,33 +86,28 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         console.log('🔍 [NotificationCenter] استجابة API:', data);
 
         // التعامل مع الشكل الجديد للاستجابة { success, data, unreadCount }
-        if (data.success && Array.isArray(data.data)) {
+        const notificationsData = Array.isArray(data.data) ? data.data : (Array.isArray(data.notifications) ? data.notifications : (Array.isArray(data) ? data : []));
+        const unreadCount = typeof data.unreadCount === 'number' ? data.unreadCount : (Array.isArray(notificationsData) ? notificationsData.filter((n: any) => n.status !== 'read').length : 0);
+
+        if (Array.isArray(notificationsData)) {
           // تحويل البيانات للشكل المتوقع من NotificationCenter
-          const transformedNotifications = data.data.map((n: any) => ({
+          const transformedNotifications = notificationsData.map((n: any) => ({
             id: n.id,
             type: n.type || 'system',
             title: n.title,
-            message: n.message,
-            priority: n.priority === 'critical' ? 1 :
-                      n.priority === 'high' ? 2 :
-                      n.priority === 'medium' ? 3 :
-                      n.priority === 'low' ? 4 : 5,
+            message: n.message || n.body,
+            priority: n.priority === 'critical' || n.priority === 5 || n.priority === 1 ? 1 :
+                      n.priority === 'high' || n.priority === 4 || n.priority === 2 ? 2 :
+                      n.priority === 'medium' || n.priority === 3 ? 3 :
+                      n.priority === 'low' || n.priority === 2 || n.priority === 4 ? 4 : 5,
             createdAt: n.createdAt,
-            isRead: n.status === 'read',
+            isRead: n.status === 'read' || n.isRead === true,
             actionRequired: n.actionRequired || false
           }));
 
           setNotifications(transformedNotifications);
-          setUnreadCount(data.unreadCount || 0);
+          setUnreadCount(unreadCount);
           console.log('✅ [NotificationCenter] تم تحويل وحفظ الإشعارات:', transformedNotifications.length);
-        }
-        // إذا كان التنسيق القديم (مصفوفة مباشرة)
-        else if (Array.isArray(data)) {
-          setNotifications(data.map((n: any) => ({
-            ...n,
-            isRead: n.status === 'read'
-          })));
-          setUnreadCount(data.filter((n: any) => n.status !== 'read').length);
         }
       } else {
         console.error('فشل في جلب الإشعارات');

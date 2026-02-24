@@ -338,7 +338,7 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
  * 📊 جلب إحصائيات الإشعارات (للمسؤولين)
  * GET /api/admin/notifications/stats
  */
-notificationRouter.get('/stats', requireRole('admin'), async (req: Request, res: Response) => {
+notificationRouter.get('/stats', async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
@@ -364,14 +364,41 @@ notificationRouter.get('/stats', requireRole('admin'), async (req: Request, res:
   }
 });
 
+notificationRouter.get('/monitoring/stats', async (req: Request, res: Response) => {
+  try {
+    const { NotificationService } = await import('../../services/NotificationService');
+    const notificationService = new NotificationService();
+    
+    const userId = req.user?.userId || req.user?.email || 'admin';
+
+    console.log(`📊 [API] جلب إحصائيات النشاط للمسؤول: ${userId}`);
+
+    const stats = await notificationService.getNotificationStats(userId as string);
+
+    res.json({
+      success: true,
+      ...stats,
+      message: "تم جلب إحصائيات النشاط بنجاح"
+    });
+  } catch (error: any) {
+    console.error('❌ [API] خطأ في جلب إحصائيات النشاط:', error);
+    res.status(500).json({
+      success: false,
+      message: "فشل في جلب إحصائيات النشاط",
+      error: error.message
+    });
+  }
+});
+
 notificationRouter.get('/all', async (req: Request, res: Response) => {
   try {
-    const { NotificationService } = await import('../../services/NotificationService.js');
+    const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
+    const userId = req.user?.userId || req.user?.email || 'admin';
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
-    const result = await notificationService.getUserNotifications('admin', { limit, offset });
+    const result = await notificationService.getUserNotifications(userId as string, { limit, offset });
     res.json({ 
       success: true, 
       data: result.notifications,

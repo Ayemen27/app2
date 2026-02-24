@@ -146,6 +146,20 @@ export default function UsersManagementPage() {
           value: Array.isArray(allUsers) ? allUsers.filter(u => u.role === 'manager').length : 0,
           icon: Briefcase,
           color: "orange"
+        },
+        {
+          key: "blocked",
+          label: "المحظورين",
+          value: Array.isArray(allUsers) ? allUsers.filter(u => !u.isActive).length : 0,
+          icon: UserX,
+          color: "red"
+        },
+        {
+          key: "unverified",
+          label: "غير محققين",
+          value: Array.isArray(allUsers) ? allUsers.filter(u => !u.emailVerifiedAt).length : 0,
+          icon: Mail,
+          color: "slate"
         }
       ]
     }

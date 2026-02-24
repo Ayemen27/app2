@@ -835,9 +835,9 @@ authRouter.get('/users', requireAuth, async (req: any, res: Response) => {
 
 /**
  * تحديث مستخدم
- * PUT /api/auth/users/:userId
+ * PATCH /api/auth/users/:userId
  */
-authRouter.put('/users/:userId', requireAuth, async (req: any, res: Response) => {
+authRouter.patch('/users/:userId', requireAuth, async (req: any, res: Response) => {
   try {
     if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'غير مصرح' });
@@ -846,9 +846,19 @@ authRouter.put('/users/:userId', requireAuth, async (req: any, res: Response) =>
     const { userId } = req.params;
     const { firstName, lastName, role, isActive } = req.body;
 
+    const updateData: any = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (role !== undefined) updateData.role = role;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, message: 'لا توجد بيانات للتحديث' });
+    }
+
     await db
       .update(users)
-      .set({ firstName, lastName, role, isActive })
+      .set(updateData)
       .where(eq(users.id, userId));
 
     return res.json({ success: true, message: 'تم تحديث المستخدم بنجاح' });

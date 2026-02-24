@@ -46,6 +46,7 @@ export function registerOrganizedRoutes(app: Express) {
 
   // تسجيل مسارات المصادقة والمستخدمين
   app.use('/api', authRouter);
+  app.use('/api/users', authRouter);
 
   // مسارات autocomplete - منطق مختلط (عام/محمي)
   app.use('/api/autocomplete', autocompleteRouter);

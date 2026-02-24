@@ -667,6 +667,9 @@ export class NotificationService {
   /**
    * جلب إحصائيات الإشعارات
    */
+  /**
+   * جلب إحصائيات الإشعارات
+   */
   async getNotificationStats(userId: string): Promise<{
     total: number;
     unread: number;
@@ -678,8 +681,9 @@ export class NotificationService {
       const allNotifications = await db.select().from(notifications);
       const total = allNotifications.length;
       
-      const readStates = await db.select().from(notificationReadStates).where(eq(notificationReadStates.userId, userId));
-      const readIds = new Set(readStates.map(rs => rs.notificationId));
+      const readStates = await db.select().from(notificationReadStates);
+      const userReadStates = readStates.filter(rs => rs.userId === userId);
+      const readIds = new Set(userReadStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
       
       const unreadCount = allNotifications.filter(n => !readIds.has(n.id)).length;
       const criticalCount = allNotifications.filter(n => n.priority === NotificationPriority.EMERGENCY || n.priority === NotificationPriority.HIGH).length;
@@ -689,19 +693,24 @@ export class NotificationService {
         typeStats[n.type] = (typeStats[n.type] || 0) + 1;
       });
 
-      // جلب إحصائيات المستخدمين (تبسيط للمثال)
-      const userStats = await db.select({
-        userId: users.id,
-        userName: users.name,
-        userEmail: users.email
-      }).from(users).limit(10);
+      // جلب إحصائيات المستخدمين بناءً على البيانات الفعلية
+      const allUsers = await db.select().from(users).limit(10);
 
-      const enrichedUserStats = userStats.map(u => ({
-        ...u,
-        totalNotifications: total,
-        readNotifications: readStates.filter(rs => rs.userId === u.userId).length,
-        lastReadAt: null
-      }));
+      const enrichedUserStats = allUsers.map(u => {
+        const userSpecificReadStates = readStates.filter(rs => rs.userId === u.id);
+        const lastRead = userSpecificReadStates
+          .filter(rs => rs.readAt)
+          .sort((a, b) => new Date(b.readAt!).getTime() - new Date(a.readAt!).getTime())[0];
+
+        return {
+          userId: u.id,
+          userName: u.name || u.fullName || u.username || "مستخدم",
+          userEmail: u.email,
+          totalNotifications: total,
+          readNotifications: userSpecificReadStates.filter(rs => rs.isRead).length,
+          lastReadAt: lastRead ? lastRead.readAt : null
+        };
+      });
 
       return {
         total,
@@ -711,46 +720,11 @@ export class NotificationService {
         typeStats
       };
     } catch (error) {
-      console.error('Error fetching notification stats:', error);
+      console.error("Error fetching notification stats:", error);
       return { total: 0, unread: 0, critical: 0, userStats: [], typeStats: {} };
-    }
-  }      const total = allNotifications.length;
-      
-      const readStates = await db.select().from(notificationReadStates);
-      const readIds = new Set(readStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
-      
-      const unread = allNotifications.filter(n => !readIds.has(n.id)).length;
-      const critical = allNotifications.filter(n => n.priority === 5 || n.priority === 1).length;
-
-      // محاكاة إحصائيات المستخدمين بناءً على البيانات الفعلية
-      const userStats = await db.select({
-        userId: users.id,
-        userName: users.fullName,
-        userEmail: users.email,
-      }).from(users).limit(10);
-
-      const enrichedUserStats = userStats.map(u => ({
-        ...u,
-        totalNotifications: total,
-        readNotifications: readStates.filter(rs => rs.userId === u.userId && rs.isRead).length,
-        lastReadAt: readStates.filter(rs => rs.userId === u.userId).sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime())[0]?.readAt
-      }));
-
-      return {
-        total,
-        unread,
-        critical,
-        userStats: enrichedUserStats
-      };
-    } catch (error) {
-      console.error('Error fetching notification stats:', error);
-      return { total: 0, unread: 0, critical: 0, userStats: [] };
     }
   }
 
-  /**
-   * حذف إشعار
-   */
   async deleteNotification(notificationId: string, userId?: string): Promise<void> {
     console.log(`🗑️ حذف الإشعار: ${notificationId}${userId ? ` للمستخدم: ${userId}` : ''}`);
 

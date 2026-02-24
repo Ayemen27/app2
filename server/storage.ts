@@ -202,6 +202,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  updateUserRole(id: string, role: string): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
 
   // Refresh Tokens

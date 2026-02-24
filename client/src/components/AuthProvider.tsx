@@ -324,7 +324,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       name: userData?.name || userData?.fullName || `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || email,
       role: userData?.role || 'admin',
       mfaEnabled: !!userData?.mfaEnabled,
-      emailVerified: userData?.emailVerified === true || true,
+      emailVerified: userData?.emailVerified === true,
     };
 
     console.log('💾 [AuthProvider.login] حفظ البيانات في localStorage...');

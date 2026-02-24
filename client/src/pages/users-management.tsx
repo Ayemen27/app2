@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, Shield, RefreshCw, Briefcase, Eye, Loader2, Search, UserCheck, UserX, Mail, Settings } from 'lucide-react';
+import { Users, Shield, RefreshCw, Briefcase, Eye, Loader2, Search, UserCheck, UserX, Mail, Settings, Edit2, Trash2, Phone, Power, User, MailCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,9 @@ import { useAuth } from '@/components/AuthProvider';
 import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
 import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
 import type { StatsRowConfig } from '@/components/ui/unified-filter-dashboard/types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import AddUserForm from '@/components/forms/add-user-form';
+import { useFloatingButton } from '@/components/layout/floating-button-context';
 import {
   Select,
   SelectContent,
@@ -22,7 +25,12 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 export default function UsersManagementPage() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { setFloatingAction } = useFloatingButton();
+  
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [showDialog, setShowDialog] = useState(false);
   
   const { data: userData, isLoading, refetch } = useQuery<any>({
     queryKey: QUERY_KEYS.users || ["/api/users"],
@@ -61,12 +69,47 @@ export default function UsersManagementPage() {
     },
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest(`/api/users/${userId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.users || ["/api/users"] });
+      toast({
+        title: "تم الحذف",
+        description: "تم حذف المستخدم بنجاح",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "خطأ في الحذف",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleToggleStatus = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      return apiRequest(`/api/users/${userId}`, "PATCH", { isActive: !isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.users || ["/api/users"] });
+      toast({
+        title: "تم تحديث الحالة",
+        description: "تم تغيير حالة المستخدم بنجاح",
+      });
+    }
+  });
+
   const filteredUsers = useMemo(() => {
     if (!Array.isArray(allUsers)) return [];
     if (!searchTerm) return allUsers;
     const lowerSearch = searchTerm.toLowerCase();
     return allUsers.filter(user => 
-      (user.firstName?.toLowerCase() + " " + user.lastName?.toLowerCase()).includes(lowerSearch) ||
+      (user.fullName?.toLowerCase() || "").includes(lowerSearch) ||
+      (user.firstName?.toLowerCase() || "").includes(lowerSearch) ||
+      (user.lastName?.toLowerCase() || "").includes(lowerSearch) ||
       user.email?.toLowerCase().includes(lowerSearch)
     );
   }, [allUsers, searchTerm]);
@@ -99,6 +142,27 @@ export default function UsersManagementPage() {
     }
   ];
 
+  const handleAddUser = () => {
+    setEditingUser(null);
+    setShowDialog(true);
+  };
+
+  const handleEditUser = (user: any) => {
+    setEditingUser(user);
+    setShowDialog(true);
+  };
+
+  const handleDeleteUser = (user: any) => {
+    if (window.confirm(`هل أنت متأكد من حذف المستخدم "${user.fullName || user.email}"؟`)) {
+      deleteUserMutation.mutate(user.id);
+    }
+  };
+
+  useEffect(() => {
+    setFloatingAction(handleAddUser, "إضافة مستخدم جديد");
+    return () => setFloatingAction(null);
+  }, [setFloatingAction]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -125,25 +189,64 @@ export default function UsersManagementPage() {
           filteredUsers.map((user) => (
             <UnifiedCard
               key={user.id}
-              title={`${user.firstName} ${user.lastName}`}
+              title={user.fullName || `${user.firstName} ${user.lastName}`}
               subtitle={user.email}
-              titleIcon={Users}
+              titleIcon={User}
+              headerColor={user.role === 'admin' ? '#9333ea' : user.role === 'manager' ? '#f97316' : '#2563eb'}
               badges={[
                 {
                   label: user.role === 'admin' ? 'مدير نظام' : user.role === 'manager' ? 'مدير مشروع' : 'مستخدم',
                   variant: user.role === 'admin' ? 'default' : user.role === 'manager' ? 'secondary' : 'outline'
+                },
+                {
+                  label: user.isActive ? 'نشط' : 'معطل',
+                  variant: user.isActive ? 'success' : 'destructive'
                 }
               ]}
               fields={[
                 {
-                  label: "الدور",
-                  value: user.role === 'admin' ? 'مدير نظام' : user.role === 'manager' ? 'مدير مشروع' : 'مستخدم (قراءة فقط)',
-                  icon: Shield
+                  label: "البريد",
+                  value: user.email,
+                  icon: Mail,
+                  color: "purple"
+                },
+                {
+                  label: "رقم الهاتف",
+                  value: user.phone || 'غير محدد',
+                  icon: Phone,
+                  color: user.phone ? "success" : "muted"
+                },
+                {
+                  label: "تاريخ الانضمام",
+                  value: user.createdAt ? new Date(user.createdAt).toLocaleDateString('ar-YE') : '-',
+                  icon: UserCheck,
+                  color: "blue"
+                }
+              ]}
+              actions={[
+                {
+                  icon: Edit2,
+                  label: "تعديل",
+                  onClick: () => handleEditUser(user),
+                  color: "blue"
+                },
+                {
+                  icon: Power,
+                  label: user.isActive ? "تعطيل" : "تفعيل",
+                  onClick: () => handleToggleStatus.mutate({ userId: user.id, isActive: user.isActive }),
+                  color: user.isActive ? "yellow" : "green"
+                },
+                {
+                  icon: Trash2,
+                  label: "حذف",
+                  onClick: () => handleDeleteUser(user),
+                  color: "red",
+                  disabled: user.id === currentUser?.id
                 }
               ]}
               footer={
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-500">تغيير الصلاحية</label>
+                <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-xs font-bold text-slate-500">تغيير الصلاحية السريع</label>
                   <Select
                     defaultValue={user.role}
                     onValueChange={(value) => updateRoleMutation.mutate({ userId: user.id, role: value })}
@@ -155,11 +258,12 @@ export default function UsersManagementPage() {
                     <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
                       <SelectItem value="admin" className="font-bold">مدير نظام</SelectItem>
                       <SelectItem value="manager" className="font-bold">مدير مشروع</SelectItem>
-                      <SelectItem value="user" className="font-bold">مستخدم (قراءة فقط)</SelectItem>
+                      <SelectItem value="user" className="font-bold">مستخدم</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               }
+              compact
             />
           ))
         ) : (
@@ -169,6 +273,26 @@ export default function UsersManagementPage() {
           </div>
         )}
       </UnifiedCardGrid>
+
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              {editingUser ? 'تعديل بيانات المستخدم' : 'إضافة مستخدم جديد'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingUser ? 'تعديل الصلاحيات والبيانات الأساسية' : 'إنشاء حساب جديد للموظف أو المدير'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <AddUserForm 
+              user={editingUser} 
+              onSuccess={() => setShowDialog(false)} 
+              onCancel={() => setShowDialog(false)} 
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

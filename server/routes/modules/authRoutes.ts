@@ -864,8 +864,9 @@ authRouter.put('/users/:userId', requireAuth, async (req: any, res: Response) =>
  */
 authRouter.delete('/users/:userId', requireAuth, async (req: any, res: Response) => {
   try {
-    if (req.user?.role !== 'super_admin') {
-      return res.status(403).json({ success: false, message: 'يتطلب صلاحيات المدير الأول' });
+    const userRole = req.user?.role;
+    if (userRole !== 'admin' && userRole !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'يتطلب صلاحيات المدير أو المدير الأول' });
     }
 
     const { userId } = req.params;

@@ -1,4 +1,4 @@
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, RefreshCw, Database, Sun, Moon, BellRing } from "lucide-react";
+import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, RefreshCw, Database, Sun, Moon, BellRing, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";

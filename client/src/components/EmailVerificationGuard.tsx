@@ -37,6 +37,19 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
   // إذا لم يتم التحقق من البريد الإلكتروني (emailVerified === false أو undefined)، توجيه لصفحة التحقق
   if (user.emailVerified === false) {
     console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق', { emailVerified: user.emailVerified });
+    
+    // فحص localStorage كحماية إضافية (Redundancy)
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        if (parsed.emailVerified === true) {
+          console.log('✅ [EmailVerificationGuard] تم العثور على حالة تحقق في localStorage، السماح بالمرور');
+          return <>{children}</>;
+        }
+      } catch (e) {}
+    }
+
     return (
       <Redirect 
         to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} 

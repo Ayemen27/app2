@@ -143,16 +143,27 @@ export default function EmailVerificationPage() {
       console.log('✅ [EmailVerification] تم التحقق بنجاح:', data);
       
       if (data.success) {
+        // نجح التحقق! تحديث حالة المستخدم محلياً فوراً لمنع إعادة التوجيه
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          const user = JSON.parse(savedUser);
+          const updatedUser = { ...user, emailVerified: true };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          // لا نحتاج لاستدعاء setUser هنا لأننا سننتقل لصفحة أخرى أو نعيد التحميل
+          // ولكن للتأكد من أن الحراس (Guards) يرون التغيير إذا بقوا في الصفحة
+        }
+
         setStep('verified');
         toast({
           title: "نجح التحقق! 🎉",
           description: data.message,
         });
 
-        // انتقال تلقائي إلى صفحة تسجيل الدخول بعد 3 ثوان
+        // انتقال تلقائي إلى الصفحة الرئيسية أو لوحة التحكم بدلاً من تسجيل الدخول
+        // بما أن المستخدم مسجل دخول بالفعل (لهذا هو في هذه الصفحة)
         setTimeout(() => {
-          navigate('/login');
-        }, 3000);
+          window.location.href = '/';
+        }, 2000);
       } else {
         setStep('error');
         toast({

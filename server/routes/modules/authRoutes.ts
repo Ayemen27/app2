@@ -186,18 +186,18 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       success: true,
       status: "success",
       message: 'تم تسجيل الدخول بنجاح',
-      token: tokenPair.accessToken, // الحقل الأساسي الذي يتوقعه الأندرويد عادة
+      token: tokenPair.accessToken, 
       accessToken: tokenPair.accessToken,
-      access_token: tokenPair.accessToken, // التنسيق القياسي لبعض مكتبات الأندرويد
+      access_token: tokenPair.accessToken, 
       refreshToken: tokenPair.refreshToken,
-      refresh_token: tokenPair.refreshToken, // التنسيق القياسي لبعض مكتبات الأندرويد
+      refresh_token: tokenPair.refreshToken, 
       user: {
         id: user.id,
         userId: user.id,
         email: user.email,
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         role: user.role || 'user',
-        emailVerified: true
+        emailVerified: !!user.email_verified_at
       },
       userId: user.id,
       email: user.email,
@@ -212,7 +212,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       expiresIn: 900,
       expires_in: 900,
       token_type: "Bearer",
-      emailVerified: true,
+      emailVerified: !!user.email_verified_at,
       data: {
         token: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,
@@ -221,9 +221,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
           id: user.id,
           email: user.email,
           name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-          role: user.role || 'user'
+          role: user.role || 'user',
+          emailVerified: !!user.email_verified_at
         },
-        // إضافة مؤشر للمزامنة التلقائية
         triggerSync: true,
         initialSyncDelay: 1000
       }
@@ -586,10 +586,25 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
     console.log('📧 [AUTH] نتيجة التحقق:', result);
 
     if (result.success) {
-      console.log('✅ [AUTH] تم التحقق من البريد بنجاح:', { userId });
+      console.log('✅ [AUTH] تم التحقق من البريد بنجاح (GET):', { userId });
+      
+      // جلب بيانات المستخدم المحدثة
+      const userResult = await db.execute({
+        text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
+        values: [userId]
+      });
+      const user = userResult.rows[0] as any;
+
       res.json({
         success: true,
-        message: result.message
+        message: result.message,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          role: user.role || 'user',
+          emailVerified: true
+        }
       });
     } else {
       console.log('❌ [AUTH] فشل في التحقق من البريد:', result.message);

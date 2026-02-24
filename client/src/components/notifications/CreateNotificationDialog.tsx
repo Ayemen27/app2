@@ -362,7 +362,7 @@ export function CreateNotificationDialog({
                                   <UserSelect
                                     value={userField.value || ''}
                                     onValueChange={userField.onChange}
-                                    users={users.map((u: any) => ({
+                                    users={(users || []).map((u: any) => ({
                                       id: u.id,
                                       fullName: u.firstName || u.name || 'بدون اسم',
                                       email: u.email

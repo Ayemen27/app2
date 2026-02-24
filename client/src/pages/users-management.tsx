@@ -157,7 +157,7 @@ export default function UsersManagementPage() {
         {
           key: "unverified",
           label: "غير محققين",
-          value: Array.isArray(allUsers) ? allUsers.filter(u => !u.emailVerifiedAt).length : 0,
+          value: Array.isArray(allUsers) ? allUsers.filter(u => u.emailVerifiedAt === null || u.emailVerifiedAt === undefined).length : 0,
           icon: Mail,
           color: "slate"
         }

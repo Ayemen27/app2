@@ -1,30 +1,27 @@
-# Project Configuration & Professional Guidelines
+# Rest-Express Mobile & Web Project
 
 ## Overview
-This project is a professional engineering environment. All interactions and code must adhere to strict standards of precision, analytical thinking, and transparency.
+A cross-platform application built with Node.js (Express) backend and React (Vite) frontend, integrated with Capacitor for Android deployment.
 
-## Professional Guidelines (Mandatory)
-- **Analytical Thinking**: Perform step-by-step analysis before any response or implementation.
-- **No Hallucinations**: Never invent information. If a fact is unknown, state it explicitly.
-- **Precision over Speed**: Do not sacrifice accuracy for quick results.
-- **Decision Rule**:
-  - If uncertain -> quantify the uncertainty.
-  - If information is missing -> request it clearly.
-  - If multiple solutions exist -> select the most realistic/executable and justify the choice.
-- **Honesty over Politeness**: Provide factual reality, even if uncomfortable. Avoid unnecessary "fluff" or flattery.
-- **Realistic Problem Solving**:
-  1. Concise traditional solution.
-  2. Smart, cost-effective alternative.
-  3. Logical unconventional solution (only if applicable).
+## Technical Architecture
+- **Backend**: Express.js with TypeScript (`server/`)
+- **Frontend**: React with Vite (`client/`)
+- **Database**: local.db (SQLite/Drizzle likely)
+- **Mobile**: Capacitor (Android support detected)
+- **AI Integration**: Anthropic SDK installed
 
-## Project Architecture
-- **Tech Stack**: Full-stack JavaScript/TypeScript application.
-- **Frontend**: Likely React/Vite (based on `www/assets` structure).
-- **Backend**: Express/Node.js (implied by Replit standard template and `node_modules`).
-- **Core Systems**:
-  - `system_core/`: Contains global standards and work plans.
-  - `tools/axion-test-engine/`: Custom automation and scanning tools.
-  - `www/`: Static assets and frontend build output.
+## Recent Changes (2026-02-24)
+- Project structure audit completed.
+- Identified hybrid mobile/web capabilities.
+- Verified workflow "Start application" is running.
 
-## Recent Changes
-- (2026-02-23) Internalized and documented professional guidelines from the user.
+## User Preferences
+- **Style**: Professional, analytical, and direct.
+- **Rules**: Step-by-step thinking, no guessing, no flattery.
+- **Logic**: Preference for realistic and executable solutions.
+
+## Project Structure
+- `client/`: Frontend source code.
+- `server/`: Backend API and storage logic.
+- `shared/`: Shared schemas and types.
+- `android/`: Native Android project files.

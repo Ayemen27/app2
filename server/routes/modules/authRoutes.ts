@@ -107,6 +107,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     const user = userResult.rows[0] as any;
 
+    // 🚫 التحقق من حالة الحساب (نشط أم معطل)
+    if (user.is_active === false || user.is_active === 0) {
+      console.log('❌ [AUTH] محاولة دخول لحساب معطل:', email);
+      return res.status(403).json({
+        success: false,
+        message: 'عذراً، حسابك معطل حالياً من قبل الإدارة. يرجى مراجعة الإدارة لتفعيل حسابك.'
+      });
+    }
+
     // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً
     if (!user.email_verified_at) {
       console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
@@ -349,7 +358,7 @@ authRouter.get('/users', requireAuth, async (req: Request, res: Response) => {
     console.log('👥 [AUTH] طلب جلب قائمة المستخدمين', { includeRole });
 
     const result = await db.execute({
-      text: 'SELECT id, email, first_name as "firstName", last_name as "lastName", full_name as "fullName", role, is_active as "isActive" FROM users WHERE is_active = true ORDER BY full_name ASC'
+      text: 'SELECT id, email, first_name as "firstName", last_name as "lastName", full_name as "fullName", role, is_active as "isActive" FROM users ORDER BY full_name ASC'
     });
 
     res.json({

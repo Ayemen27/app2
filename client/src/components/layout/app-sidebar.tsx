@@ -69,11 +69,13 @@ const sections = [
     title: "الإدارة والأمان",
     icon: ShieldCheck,
     items: [
+      { title: "لوحة القيادة", icon: BarChart3, url: "/admin/dashboard" },
       { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
       { title: "سياسات الأمان", icon: ShieldCheck, url: "/security-policies" },
       { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },
       { title: "النسخ الاحتياطي", icon: ShieldCheck, url: "/admin/backups" },
       { title: "إدارة المزامنة", icon: RefreshCw, url: "/admin/sync" },
+      { title: "نظام الرصد", icon: Activity, url: "/admin/monitoring" },
       { title: "قاعدة البيانات", icon: Database, url: "/local-db" },
     ]
   }

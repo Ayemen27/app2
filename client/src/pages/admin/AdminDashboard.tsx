@@ -137,7 +137,7 @@ export default function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {crashes.length > 0 ? crashes.map((crash: any) => (
+                {crashes && crashes.length > 0 ? crashes.map((crash: any) => (
                   <TableRow key={crash.id} className="group cursor-pointer border-slate-50 dark:border-slate-800 hover:bg-slate-50/50 transition-colors">
                     <TableCell className="font-bold text-sm pr-6 text-slate-700 dark:text-slate-200">{crash.deviceId || crash.device}</TableCell>
                     <TableCell>

@@ -102,12 +102,10 @@ export default function UsersManagementPage() {
     }
   });
 
+  const [showDisabled, setShowDisabled] = useState(false);
+
   const filteredUsers = useMemo(() => {
     if (!Array.isArray(allUsers)) return [];
-    
-    // أولاً: تصفية المستخدمين النشطين فقط إذا لم يكن هناك بحث (أو حسب رغبة المستخدم في رؤية المعطلين)
-    // بناءً على وصف المشكلة، المستخدم المعطل يجب أن يظهر فقط عند البحث أو في قائمة معينة
-    // لكن هنا سنبقي على المنطق الحالي مع إضافة فلترة واضحة للحالة إذا لزم الأمر
     
     const lowerSearch = searchTerm.toLowerCase();
     return allUsers.filter(user => {
@@ -117,9 +115,13 @@ export default function UsersManagementPage() {
         (user.lastName?.toLowerCase() || "").includes(lowerSearch) ||
         user.email?.toLowerCase().includes(lowerSearch);
         
+      if (!searchTerm && !showDisabled && !user.isActive) {
+        return false;
+      }
+
       return matchesSearch;
     });
-  }, [allUsers, searchTerm]);
+  }, [allUsers, searchTerm, showDisabled]);
 
   const statsRows: StatsRowConfig[] = [
     {
@@ -190,6 +192,18 @@ export default function UsersManagementPage() {
         isRefreshing={isLoading}
         hideHeader={true}
       />
+
+      <div className="flex items-center gap-2 px-1">
+        <Button
+          variant={showDisabled ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowDisabled(!showDisabled)}
+          className="rounded-xl font-bold gap-2"
+        >
+          {showDisabled ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+          {showDisabled ? "إخفاء المعطلين" : "عرض جميع المستخدمين (بمن فيهم المعطلين)"}
+        </Button>
+      </div>
 
       <UnifiedCardGrid columns={3}>
         {filteredUsers.length > 0 ? (

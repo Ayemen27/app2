@@ -16,6 +16,11 @@ interface EmailVerificationGuardProps {
 export default function EmailVerificationGuard({ children }: EmailVerificationGuardProps) {
   const { user, isLoading } = useAuth();
 
+  // التحقق من حالة التحقق من البريد الإلكتروني مع دعم التوافق
+  const isEmailVerified = 
+    user?.emailVerified === true || 
+    localStorage.getItem('emailVerified') === 'true';
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -29,27 +34,14 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
     return <Redirect to="/login" />;
   }
 
-  // إذا كان المستخدم مديراً، اسمح له بالدخول دائماً (لأن بريدهم محقق يدوياً أو مستثنى)
+  // إذا كان المستخدم مديراً، اسمح له بالدخول دائماً
   if (user.role === 'admin') {
     return <>{children}</>;
   }
 
-  // إذا لم يتم التحقق من البريد الإلكتروني (emailVerified === false أو undefined)، توجيه لصفحة التحقق
-  if (user.emailVerified === false) {
-    console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق', { emailVerified: user.emailVerified });
-    
-    // فحص localStorage كحماية إضافية (Redundancy)
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      try {
-        const parsed = JSON.parse(savedUser);
-        if (parsed.emailVerified === true) {
-          console.log('✅ [EmailVerificationGuard] تم العثور على حالة تحقق في localStorage، السماح بالمرور');
-          return <>{children}</>;
-        }
-      } catch (e) {}
-    }
-
+  // إذا لم يتم التحقق من البريد الإلكتروني، توجيه لصفحة التحقق
+  if (!isEmailVerified) {
+    console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق');
     return (
       <Redirect 
         to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} 

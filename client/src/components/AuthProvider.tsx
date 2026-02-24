@@ -148,11 +148,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (res.ok) {
               const data = await res.json();
               if (data.user) {
-                // تحديث حالة التحقق بدقة
+                // تحديث حالة التحقق بدقة مع دعم التوافق مع localStorage
+                const isEmailVerified = 
+                  data.user.emailVerified === true || 
+                  data.user.email_verified === true ||
+                  !!data.user.emailVerifiedAt || 
+                  !!data.user.email_verified_at ||
+                  localStorage.getItem('emailVerified') === 'true';
+
                 const updatedUser = {
                   ...data.user,
-                  emailVerified: data.user.emailVerified === true || !!data.user.emailVerifiedAt
+                  emailVerified: isEmailVerified
                 };
+                
+                if (isEmailVerified) {
+                  localStorage.setItem('emailVerified', 'true');
+                }
+                
                 setUser(updatedUser);
                 localStorage.setItem('user', JSON.stringify(updatedUser));
               }
@@ -284,6 +296,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const responseData = result?.data || result;
     const userData = responseData?.user || result?.user;
     
+    // التحقق من حالة التحقق من البريد الإلكتروني مع دعم التوافق
+    const isEmailVerified = 
+      userData?.emailVerified === true || 
+      userData?.email_verified === true ||
+      !!userData?.emailVerifiedAt || 
+      !!userData?.email_verified_at ||
+      localStorage.getItem('emailVerified') === 'true';
+
     // دعم جميع أشكال التوكنات الممكنة بمرونة قصوى
     let tokenData = responseData?.tokens?.accessToken || 
                     result?.tokens?.accessToken ||
@@ -329,8 +349,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       name: userData?.name || userData?.fullName || `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || email,
       role: userData?.role || 'admin',
       mfaEnabled: !!userData?.mfaEnabled,
-      emailVerified: userData?.emailVerified === true,
+      emailVerified: isEmailVerified,
     };
+
+    if (isEmailVerified) {
+      localStorage.setItem('emailVerified', 'true');
+    }
 
     console.log('💾 [AuthProvider.login] حفظ البيانات في localStorage...');
     localStorage.setItem('user', JSON.stringify(userToSave));

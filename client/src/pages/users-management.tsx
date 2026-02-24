@@ -113,7 +113,7 @@ export default function UsersManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {allUsers?.map((user) => (
+              {Array.isArray(allUsers) ? allUsers.map((user) => (
                 <TableRow key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                   <TableCell className="font-bold py-4">
                     <div className="flex items-center gap-3">
@@ -149,7 +149,13 @@ export default function UsersManagementPage() {
                     </Select>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-slate-500 font-medium">
+                    لا يوجد مستخدمين لعرضهم أو حدث خطأ في استرداد البيانات.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

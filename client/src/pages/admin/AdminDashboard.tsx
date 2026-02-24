@@ -218,6 +218,9 @@ export default function AdminDashboard() {
                   </p>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

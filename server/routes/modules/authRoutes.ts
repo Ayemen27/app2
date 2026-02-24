@@ -14,6 +14,7 @@ import * as schema from '@shared/schema'; // استيراد المخطط بال�
 import { users } from '@shared/schema'; // استيراد جدول المستخدمين للمرجع المباشر
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js'; // استيراد middleware المصادقة
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
+import { storage } from '../../storage.js';
 
 const authRouter = express.Router();
 

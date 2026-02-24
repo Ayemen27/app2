@@ -645,10 +645,25 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
     const result = await verifyEmailToken(userId, code);
 
     if (result.success) {
-      console.log('✅ [AUTH] تم التحقق من البريد بنجاح:', { userId });
+      console.log('✅ [AUTH] تم التحقق من البريد بنجاح (POST):', { userId });
+      
+      // جلب بيانات المستخدم المحدثة
+      const userResult = await db.execute({
+        text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
+        values: [userId]
+      });
+      const user = userResult.rows[0] as any;
+
       res.json({
         success: true,
-        message: result.message
+        message: result.message,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          role: user.role || 'user',
+          emailVerified: true
+        }
       });
     } else {
       console.log('❌ [AUTH] فشل في التحقق من البريد:', result.message);

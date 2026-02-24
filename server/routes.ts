@@ -114,6 +114,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/monitoring/crashes", async (req, res) => {
+    try {
+      const recentCrashes = await storage.getRecentCrashes(50);
+      res.json({
+        success: true,
+        data: recentCrashes
+      });
+    } catch (e: any) {
+      console.error("[API Error] /api/monitoring/crashes:", e);
+      res.status(500).json({ error: e.message || "Internal Server Error" });
+    }
+  });
+
   app.post("/api/notifications/announcement", async (req, res) => {
     try {
       const { title, body, priority, targetPlatform, recipients } = req.body;

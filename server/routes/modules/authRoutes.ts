@@ -348,7 +348,7 @@ authRouter.get('/users', requireAuth, async (req: Request, res: Response) => {
     console.log('👥 [AUTH] طلب جلب قائمة المستخدمين', { includeRole });
 
     const result = await db.execute({
-      text: 'SELECT id, email, full_name as "fullName", role, is_active as "isActive" FROM users WHERE is_active = true ORDER BY full_name ASC'
+      text: 'SELECT id, email, first_name as "firstName", last_name as "lastName", full_name as "fullName", role, is_active as "isActive" FROM users WHERE is_active = true ORDER BY full_name ASC'
     });
 
     res.json({

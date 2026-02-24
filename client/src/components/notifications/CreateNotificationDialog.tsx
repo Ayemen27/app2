@@ -364,7 +364,7 @@ export function CreateNotificationDialog({
                                     onValueChange={userField.onChange}
                                     users={(Array.isArray(users) ? users : []).map((u: any) => ({
                                       id: u.id,
-                                      fullName: u.firstName || u.name || 'بدون اسم',
+                                      fullName: u.fullName || u.firstName || u.name || 'بدون اسم',
                                       email: u.email
                                     }))}
                                     placeholder="اختر المستخدم..."

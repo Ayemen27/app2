@@ -357,7 +357,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDevices(): Promise<Device[]> {
-    return await db.select().from(devices).orderBy(desc(devices.lastSeen));
+    try {
+      return await db.select().from(devices).orderBy(desc(devices.lastSeen));
+    } catch (error) {
+      console.error("Error fetching devices from database:", error);
+      return [];
+    }
   }
 
   async createCrash(crash: InsertCrash): Promise<Crash> {

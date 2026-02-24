@@ -27,6 +27,7 @@ export const crashes = pgTable("crashes", {
   appState: jsonb("app_state"),
   metadata: jsonb("metadata"),
   timestamp: timestamp("timestamp").defaultNow(),
+  appVersion: text("app_version"),
 });
 
 export const metrics = pgTable("metrics", {

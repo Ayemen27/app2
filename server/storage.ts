@@ -372,7 +372,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRecentCrashes(limit: number): Promise<Crash[]> {
-    return await db.select().from(crashes).orderBy(desc(crashes.timestamp)).limit(limit);
+    try {
+      return await db.select().from(crashes).orderBy(desc(crashes.timestamp)).limit(limit);
+    } catch (error) {
+      console.error("Error fetching crashes from DB, trying fallback query:", error);
+      // Fallback for potentially missing columns like exceptionType or message in some environments
+      const result = await db.execute(sql`SELECT id, device_id, stack_trace, app_version, created_at as timestamp FROM crashes ORDER BY created_at DESC LIMIT ${limit}`);
+      return result.rows.map((r: any) => ({
+        id: r.id,
+        deviceId: r.device_id,
+        stackTrace: r.stack_trace,
+        appVersion: r.app_version,
+        timestamp: r.timestamp,
+        exceptionType: "Unknown",
+        message: "Error details unavailable",
+        severity: "critical",
+        appState: null,
+        metadata: null
+      })) as Crash[];
+    }
   }
 
   async createMetric(metric: InsertMetric): Promise<Metric> {

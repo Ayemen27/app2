@@ -108,7 +108,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     const user = userResult.rows[0] as any;
 
     // 🚫 التحقق من حالة الحساب (نشط أم معطل)
-    if (user.is_active === false || user.is_active === 0) {
+    if (user.is_active === false || user.is_active === 0 || user.is_active === 'false') {
       console.log('❌ [AUTH] محاولة دخول لحساب معطل:', email);
       return res.status(403).json({
         success: false,

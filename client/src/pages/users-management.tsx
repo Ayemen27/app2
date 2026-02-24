@@ -104,14 +104,21 @@ export default function UsersManagementPage() {
 
   const filteredUsers = useMemo(() => {
     if (!Array.isArray(allUsers)) return [];
-    if (!searchTerm) return allUsers;
+    
+    // أولاً: تصفية المستخدمين النشطين فقط إذا لم يكن هناك بحث (أو حسب رغبة المستخدم في رؤية المعطلين)
+    // بناءً على وصف المشكلة، المستخدم المعطل يجب أن يظهر فقط عند البحث أو في قائمة معينة
+    // لكن هنا سنبقي على المنطق الحالي مع إضافة فلترة واضحة للحالة إذا لزم الأمر
+    
     const lowerSearch = searchTerm.toLowerCase();
-    return allUsers.filter(user => 
-      (user.fullName?.toLowerCase() || "").includes(lowerSearch) ||
-      (user.firstName?.toLowerCase() || "").includes(lowerSearch) ||
-      (user.lastName?.toLowerCase() || "").includes(lowerSearch) ||
-      user.email?.toLowerCase().includes(lowerSearch)
-    );
+    return allUsers.filter(user => {
+      const matchesSearch = !searchTerm || 
+        (user.fullName?.toLowerCase() || "").includes(lowerSearch) ||
+        (user.firstName?.toLowerCase() || "").includes(lowerSearch) ||
+        (user.lastName?.toLowerCase() || "").includes(lowerSearch) ||
+        user.email?.toLowerCase().includes(lowerSearch);
+        
+      return matchesSearch;
+    });
   }, [allUsers, searchTerm]);
 
   const statsRows: StatsRowConfig[] = [

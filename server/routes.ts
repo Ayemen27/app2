@@ -76,16 +76,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/monitoring/stats", async (_req, res) => {
+  app.get("/api/monitoring/stats", async (req, res) => {
     try {
-      const devices = await storage.getDevices();
-      const recentCrashes = await storage.getRecentCrashes(10);
+      // Get device count with safety check
+      let deviceCount = 0;
+      try {
+        const devicesList = await storage.getDevices();
+        deviceCount = devicesList.length;
+      } catch (err) {
+        console.error("Error fetching devices:", err);
+      }
+
+      // Get recent crashes with safety check
+      let recentCrashes: any[] = [];
+      try {
+        recentCrashes = await storage.getRecentCrashes(10);
+      } catch (err) {
+        console.error("Error fetching crashes:", err);
+      }
+      
+      // Calculate crash rate (mocked for now, but using real data if available)
+      const crashCount = recentCrashes.length;
+      const divisor = deviceCount || 1;
+      const crashRate = ((crashCount / divisor) * 100).toFixed(2);
+
       res.json({
-        deviceCount: devices.length,
-        recentCrashes
+        success: true,
+        data: {
+          activeDevices: deviceCount,
+          crashRate: parseFloat(crashRate),
+          recentCrashes
+        }
       });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      console.error("[API Error] /api/monitoring/stats:", e);
+      res.status(500).json({ error: e.message || "Internal Server Error" });
     }
   });
 

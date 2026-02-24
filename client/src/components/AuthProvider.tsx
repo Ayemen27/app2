@@ -148,8 +148,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (res.ok) {
               const data = await res.json();
               if (data.user) {
-                setUser(data.user);
-                localStorage.setItem('user', JSON.stringify(data.user));
+                // تحديث حالة التحقق بدقة
+                const updatedUser = {
+                  ...data.user,
+                  emailVerified: data.user.emailVerified === true || !!data.user.emailVerifiedAt
+                };
+                setUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser));
               }
             } else {
               console.warn('⚠️ [AuthProvider] فشل التحقق الصامت (401)، لكن سيتم الحفاظ على الجلسة المحلية.');

@@ -29,8 +29,12 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
     return <Redirect to="/login" />;
   }
 
+  // إذا كان المستخدم مديراً، اسمح له بالدخول دائماً (لأن بريدهم محقق يدوياً أو مستثنى)
+  if (user.role === 'admin') {
+    return <>{children}</>;
+  }
+
   // إذا لم يتم التحقق من البريد الإلكتروني (emailVerified === false أو undefined)، توجيه لصفحة التحقق
-  // إذا كان emailVerified === true، السماح بالوصول
   if (user.emailVerified === false) {
     console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق', { emailVerified: user.emailVerified });
     return (

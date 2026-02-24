@@ -670,6 +670,9 @@ export class NotificationService {
   /**
    * جلب إحصائيات الإشعارات
    */
+  /**
+   * جلب إحصائيات الإشعارات
+   */
   async getNotificationStats(userId: string): Promise<{
     total: number;
     unread: number;
@@ -686,7 +689,7 @@ export class NotificationService {
       const readIds = new Set(userReadStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
       
       const unreadCount = allNotifications.filter(n => !readIds.has(n.id)).length;
-      const criticalCount = allNotifications.filter(n => n.priority === NotificationPriority.EMERGENCY || n.priority === NotificationPriority.HIGH).length;
+      const criticalCount = allNotifications.filter(n => n.priority === NotificationPriority.EMERGENCY || n.priority === NotificationPriority.HIGH || n.priority === 5 || n.priority === 1).length;
       
       const typeStats: Record<string, number> = {};
       allNotifications.forEach(n => {
@@ -700,7 +703,11 @@ export class NotificationService {
         const userSpecificReadStates = readStates.filter(rs => rs.userId === u.id);
         const lastRead = userSpecificReadStates
           .filter(rs => rs.readAt)
-          .sort((a, b) => new Date(b.readAt!).getTime() - new Date(a.readAt!).getTime())[0];
+          .sort((a, b) => {
+             const da = a.readAt ? new Date(a.readAt).getTime() : 0;
+             const db_val = b.readAt ? new Date(b.readAt).getTime() : 0;
+             return db_val - da;
+          })[0];
 
         return {
           userId: u.id,
@@ -724,6 +731,7 @@ export class NotificationService {
       return { total: 0, unread: 0, critical: 0, userStats: [], typeStats: {} };
     }
   }
+
 
   async deleteNotification(notificationId: string, userId?: string): Promise<void> {
     console.log(`🗑️ حذف الإشعار: ${notificationId}${userId ? ` للمستخدم: ${userId}` : ''}`);

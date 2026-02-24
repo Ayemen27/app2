@@ -367,6 +367,56 @@ authRouter.get('/users', requireAuth, async (req: Request, res: Response) => {
 });
 
 /**
+ * 🔑 تحديث دور المستخدم
+ * PATCH /api/users/:id/role
+ */
+authRouter.patch('/users/:id/role', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    console.log(`🔐 [AUTH] محاولة تحديث دور المستخدم ${id} إلى ${role}`);
+
+    // التحقق من صلاحيات المسؤول
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك صلاحية لتعديل أدوار المستخدمين'
+      });
+    }
+
+    if (!role) {
+      return res.status(400).json({
+        success: false,
+        message: 'الدور المطلوب غير محدد'
+      });
+    }
+
+    const updatedUser = await storage.updateUserRole(id, role);
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'المستخدم غير موجود'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'تم تحديث دور المستخدم بنجاح',
+      user: updatedUser
+    });
+  } catch (error: any) {
+    console.error('❌ [AUTH] خطأ في تحديث دور المستخدم:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم أثناء تحديث دور المستخدم',
+      error: error.message
+    });
+  }
+});
+
+/**
  * 🚪 تسجيل الخروج
  * POST /api/auth/logout
  */

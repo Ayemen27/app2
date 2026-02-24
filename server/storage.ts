@@ -2732,6 +2732,23 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async updateUserRole(id: string, role: string): Promise<User | undefined> {
+    try {
+      const [updated] = await db
+        .update(users)
+        .set({
+          role,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, id))
+        .returning();
+      return updated || undefined;
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      throw error;
+    }
+  }
+
   async deleteUser(id: string): Promise<void> {
     try {
       await db.delete(users).where(eq(users.id, id));

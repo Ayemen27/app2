@@ -276,20 +276,6 @@ export async function sendVerificationEmail(
   try {
     console.log('📧 [EmailService] بدء إرسال رمز التحقق للمستخدم:', userId);
 
-    // استثناء المدير الأول من إرسال رموز التحقق
-    if (email === 'binarjoinanalytic@gmail.com') {
-      console.log('⚠️ [EmailService] المدير الأول لا يحتاج لإرسال رموز تحقق');
-      // تحقيق بريد المدير الأول تلقائياً
-      await db.update(users)
-        .set({ emailVerifiedAt: new Date() })
-        .where(eq(users.id, userId));
-      
-      return {
-        success: true,
-        message: 'حساب المدير الأول محقق تلقائياً'
-      };
-    }
-
     // استخدام الاسم المُمرر مباشرة - بدون استعلام قاعدة بيانات غير ضروري
     const displayName = userFullName?.trim() || null;
     console.log('👤 [EmailService] استخدام الاسم المُمرر مباشرة:', displayName || 'بدون اسم');
@@ -374,30 +360,6 @@ export async function verifyEmailToken(
 ): Promise<{ success: boolean; message: string }> {
   try {
     console.log('🔍 [EmailService] بدء التحقق من الرمز:', { userId, tokenLength: token.length });
-
-    // فحص ما إذا كان المدير الأول
-    const userCheck = await db.select({ 
-      email: users.email, 
-      emailVerifiedAt: users.emailVerifiedAt 
-    })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    const isFirstAdmin = userCheck.length > 0 && userCheck[0].email === 'binarjoinanalytic@gmail.com';
-    
-    // المدير الأول يجب أن يكون محقق البريد دائماً
-    if (isFirstAdmin) {
-      console.log('✅ [EmailService] تحقيق بريد المدير الأول تلقائياً...');
-      await db.update(users)
-        .set({ emailVerifiedAt: new Date() })
-        .where(eq(users.id, userId));
-      
-      return {
-        success: true,
-        message: 'تم التحقق من بريدك الإلكتروني بنجاح'
-      };
-    }
 
     // البحث عن الرمز في قاعدة البيانات
     const tokenRecord = await db.select()

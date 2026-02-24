@@ -24,13 +24,21 @@ export default function UsersManagementPage() {
   const { user: currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   
-  const { data: allUsers, isLoading, refetch } = useQuery<any[]>({
+  const { data: userData, isLoading, refetch } = useQuery<any>({
     queryKey: QUERY_KEYS.users || ["/api/users"],
     queryFn: async () => {
       const res = await apiRequest("/api/users", "GET");
       return res;
     }
   });
+
+  const allUsers = useMemo(() => {
+    if (!userData) return [];
+    if (Array.isArray(userData)) return userData;
+    if (userData.users && Array.isArray(userData.users)) return userData.users;
+    if (userData.data && Array.isArray(userData.data)) return userData.data;
+    return [];
+  }, [userData]);
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {

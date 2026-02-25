@@ -1,29 +1,29 @@
 # Project Analysis & Professional Standards Alignment
 
-## 1. Step-by-Step Analytical Thinking
-The project is a sophisticated hybrid Mobile/Web application using React (Vite) and Express (Node.js). It features a robust offline-first synchronization system, AI integration (Anthropic), and comprehensive business logic for construction/well management.
+## 1. Professional AI Agent Standards (User Mandated)
+I am committed to the following standards:
+- **Analytical Thinking**: Step-by-step reasoning before any response.
+- **Accuracy over Speed**: No fabrication or uncertain answers without explicit declaration.
+- **Directness**: Presenting reality as it is, without flattery or evasion.
+- **Innovative Problem Solving**: Proposing non-traditional yet realistic solutions when standard ones fail.
+
+## 2. Step-by-Step Analytical Thinking (Current State)
+The project is a sophisticated hybrid Mobile/Web application using React (Vite) and Express (Node.js). 
 
 ### Architecture Evaluation:
-- **Backend**: Well-organized with modular routes in `server/routes/modules/`. Uses Drizzle ORM with PostgreSQL (mapped to SQLite `local.db` for development).
-- **Frontend**: Clean separation of concerns with `hooks`, `contexts`, `components`, and `pages`. Uses TanStack Query for data fetching and `wouter` for routing.
-- **Offline Logic**: Highly advanced synchronization layer (`client/src/offline/`) with vector clocks, conflict resolution, and background sync.
+- **Backend**: Modular routes in `server/routes/modules/`. Drizzle ORM with PostgreSQL.
+- **Frontend**: TanStack Query + wouter. Offline-first with vector clocks.
+- **Integrity Status**: Monitoring and Security services are present but need tighter UI integration for "Real-time Truth".
 
-## 2. Decision Logic & Justification
-To maintain "Global Standards" and "World Class Quality" requested:
-- **Solution Selection**: I will focus on enhancing the **System Integrity** by adding a comprehensive `SystemCheckPage` if not fully implemented, and ensuring the `DataHealthPage` is properly linked to monitoring services.
-- **Decision**: I've identified that while the system has many parts, the "Monitoring" and "Security" services need to be tightly coupled with the UI to provide the "Reality as it is" feedback requested by the user.
+## 3. Decision Logic & Justification
+- **Standard Alignment**: To meet the "Reality as it is" requirement, the system must expose its internal health metrics directly to the admin.
+- **Decision**: Prioritize the `SystemCheckPage` and `DataHealthPage` as the "Source of Truth" for the user.
 
-## 3. Assumptions & Clarifications
-- **Assumption**: The `local.db` is the primary persistence layer for the current environment.
-- **Assumption**: The user wants a "Professional AI Agent" persona that is analytical and direct.
-
-## 4. Proposed Non-Traditional Solution
-Implement a **Self-Healing Middleware** or **Integrity Guard** that automatically detects schema mismatches between the offline DB and server DB, which is a common failure point in hybrid apps.
-
-## 5. Implementation Status
-- Audited `shared/schema.ts` (1500+ lines): Found comprehensive coverage for users, projects, wells, and financial tracking.
-- Verified `App.tsx`: Routing is well-defined with `AdminRoute` and `ProtectedRoute` wrappers.
-- Verified `server/routes/modules/index.ts`: All modules are correctly registered.
+## 4. Implementation Status & Plans
+- **Audit**: `shared/schema.ts` is robust. `App.tsx` routing is correct.
+- **Self-Healing Middleware**: Planned to detect schema mismatches between offline and server DB.
+- **System Check**: Implementing comprehensive diagnostic checks.
 
 ---
-*Status: Evaluation Complete. System is highly professional. Proceeding with standard-aligned responses.*
+*Status: Operating under Professional Standards. Evaluation Complete.*
+

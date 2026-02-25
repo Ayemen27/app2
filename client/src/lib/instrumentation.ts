@@ -32,7 +32,11 @@ async function initializeInstrumentation() {
     url: '/api/v1/traces', // Proxy through backend or use full URL if known
   });
 
-  provider.addSpanProcessor(new BatchSpanProcessor(exporter));
+  if (typeof provider.addSpanProcessor === 'function') {
+    provider.addSpanProcessor(new BatchSpanProcessor(exporter));
+  } else {
+    console.warn('addSpanProcessor is not available on provider, skipping BatchSpanProcessor registration.');
+  }
   provider.register();
 
   registerInstrumentations({

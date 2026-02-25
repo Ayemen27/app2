@@ -25,7 +25,8 @@ class SQLiteStorage {
       let isConn = false;
       try {
         isConn = (await this.sqlite.isConnection(this.dbName, false)).result ?? false;
-      } catch {
+      } catch (connErr) {
+        console.warn('[SQLite] Connection check failed, assuming false:', connErr);
         isConn = false;
       }
 

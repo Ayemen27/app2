@@ -99,6 +99,8 @@ import { initializeStorage } from './offline/storage-factory';
 
 // تهيئة قاعدة البيانات ونظام المراقبة عند بدء التطبيق
 initializeStorage().catch(console.error);
+import { intelligentMonitor } from './offline/intelligent-monitor';
+intelligentMonitor.initialize().catch(console.error);
 // startPerformanceMonitoring(30000); // مراقبة كل 30 ثانية
 
 const AdminMonitoring = lazy(() => import("./pages/admin-monitoring"));

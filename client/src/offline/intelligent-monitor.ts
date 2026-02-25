@@ -24,6 +24,22 @@ class IntelligentMonitor {
   private listeners: ((event: AppEvent) => void)[] = [];
 
   /**
+   * تهيئة نظام المراقبة
+   */
+  async initialize() {
+    console.log("🚀 [IntelligentMonitor] Initializing...");
+    // Catch-all for unhandled rejections in native environment
+    window.addEventListener('unhandledrejection', (event) => {
+      this.logEvent({
+        type: 'error',
+        severity: 'critical',
+        message: `Unhandled Promise Rejection: ${event.reason?.message || 'Unknown'}`,
+        metadata: { stack: event.reason?.stack }
+      });
+    });
+  }
+
+  /**
    * تسجيل حدث جديد
    */
   logEvent(event: Omit<AppEvent, 'id' | 'timestamp' | 'resolved'>) {

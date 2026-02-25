@@ -47,6 +47,23 @@ const startApp = async () => {
 
     // تهيئة قاعدة البيانات في الخلفية لتجنب حجب الواجهة
     initializeDB().catch(console.error);
+    
+    // تسجيل معالج الأخطاء العالمي لالتقاط الانهيارات المبكرة
+    window.onerror = (message, source, lineno, colno, error) => {
+      console.error("Global error caught:", { message, source, lineno, colno, error });
+      // محاولة إرسال التقرير للسيرفر إذا كان ذلك ممكناً
+      fetch('/api/crashes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exceptionType: 'GlobalUncaughtError',
+          message: String(message),
+          stackTrace: error?.stack || `${source}:${lineno}:${colno}`,
+          severity: 'critical',
+          deviceId: localStorage.getItem('deviceId') || 'unknown'
+        })
+      }).catch(() => {});
+    };
 
     const root = createRoot(rootElement);
     root.render(<App />);

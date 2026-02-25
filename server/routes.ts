@@ -76,26 +76,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/monitoring/crashes", async (req, res) => {
+    try {
+      const recentCrashes = await storage.getRecentCrashes(50);
+      res.json({
+        success: true,
+        data: recentCrashes
+      });
+    } catch (e: any) {
+      console.error("[API Error] /api/monitoring/crashes:", e);
+      res.status(500).json({ error: e.message || "Internal Server Error" });
+    }
+  });
+
   app.get("/api/monitoring/stats", async (req, res) => {
     try {
-      // Get device count with safety check
-      let deviceCount = 0;
-      try {
-        const devicesList = await storage.getDevices();
-        deviceCount = devicesList.length;
-      } catch (err) {
-        console.error("Error fetching devices:", err);
-      }
-
-      // Get recent crashes with safety check
-      let recentCrashes: any[] = [];
-      try {
-        recentCrashes = await storage.getRecentCrashes(10);
-      } catch (err) {
-        console.error("Error fetching crashes:", err);
-      }
-      
-      // Calculate crash rate (mocked for now, but using real data if available)
+      const devicesList = await storage.getDevices();
+      const deviceCount = devicesList.length;
+      const recentCrashes = await storage.getRecentCrashes(10);
       const crashCount = recentCrashes.length;
       const divisor = deviceCount || 1;
       const crashRate = ((crashCount / divisor) * 100).toFixed(2);
@@ -110,19 +108,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (e: any) {
       console.error("[API Error] /api/monitoring/stats:", e);
-      res.status(500).json({ error: e.message || "Internal Server Error" });
-    }
-  });
-
-  app.get("/api/monitoring/crashes", async (req, res) => {
-    try {
-      const recentCrashes = await storage.getRecentCrashes(50);
-      res.json({
-        success: true,
-        data: recentCrashes
-      });
-    } catch (e: any) {
-      console.error("[API Error] /api/monitoring/crashes:", e);
       res.status(500).json({ error: e.message || "Internal Server Error" });
     }
   });

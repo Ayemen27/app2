@@ -8,9 +8,7 @@ const collectorOptions = {
   url: 'http://localhost:4318/v1/traces',
 };
 
-const provider = new WebTracerProvider({
-  // Simplified resource handling if @opentelemetry/resources is problematic
-});
+const provider = new WebTracerProvider();
 
 const exporter = new OTLPTraceExporter(collectorOptions);
 provider.addSpanProcessor(new BatchSpanProcessor(exporter));

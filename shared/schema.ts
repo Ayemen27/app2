@@ -22,8 +22,8 @@ export const crashes = pgTable("crashes", {
   deviceId: text("device_id").notNull(),
   exceptionType: text("exception_type"),
   message: text("message"),
-  stackTrace: text("stack_trace").notNull(),
-  severity: text("severity").notNull(), // 'critical', 'warning', 'info'
+  stackTrace: text("stack_trace"),
+  severity: text("severity"), // 'critical', 'warning', 'info'
   appState: jsonb("app_state"),
   metadata: jsonb("metadata"),
   timestamp: timestamp("timestamp").defaultNow(),

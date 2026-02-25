@@ -373,23 +373,24 @@ export class DatabaseStorage implements IStorage {
 
   async getRecentCrashes(limit: number): Promise<Crash[]> {
     try {
-      return await db.select().from(crashes).orderBy(desc(crashes.timestamp)).limit(limit);
-    } catch (error) {
-      console.error("Error fetching crashes from DB, trying fallback query:", error);
-      // Fallback for potentially missing columns like exceptionType or message in some environments
-      const result = await db.execute(sql`SELECT id, device_id, stack_trace, app_version, created_at as timestamp FROM crashes ORDER BY created_at DESC LIMIT ${limit}`);
-      return result.rows.map((r: any) => ({
+      // Use raw SQL to avoid schema mismatch issues with exception_type column
+      // Added message, severity, app_state, metadata to the SELECT list
+      const result = await db.execute(sql`SELECT id, device_id, stack_trace, app_version, timestamp, exception_type, message, severity, app_state, metadata FROM crashes ORDER BY timestamp DESC LIMIT ${limit}`);
+      return (result.rows || []).map((r: any) => ({
         id: r.id,
         deviceId: r.device_id,
         stackTrace: r.stack_trace,
         appVersion: r.app_version,
         timestamp: r.timestamp,
-        exceptionType: "Unknown",
-        message: "Error details unavailable",
-        severity: "critical",
-        appState: null,
-        metadata: null
+        exceptionType: r.exception_type || "Unknown",
+        message: r.message || "Error details unavailable",
+        severity: r.severity || "critical",
+        appState: r.app_state || null,
+        metadata: r.metadata || null
       })) as Crash[];
+    } catch (error) {
+      console.error("Error fetching crashes from DB:", error);
+      return [];
     }
   }
 

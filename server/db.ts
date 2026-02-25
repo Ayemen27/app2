@@ -170,9 +170,15 @@ try {
               if (typeof query === 'string') {
                 text = query;
               } else if (query && typeof query.toQuery === 'function') {
-                const q = query.toQuery();
-                text = q.text;
-                values = q.values;
+                try {
+                  const q = query.toQuery();
+                  text = q.text;
+                  values = q.values;
+                } catch (e) {
+                  // If toQuery fails, try standard sql/params
+                  text = query.sql || '';
+                  values = query.params || [];
+                }
               } else if (query && typeof query.sql === 'string') {
                 // Handle cases where the query object has sql and params (standard Drizzle/custom)
                 text = query.sql;

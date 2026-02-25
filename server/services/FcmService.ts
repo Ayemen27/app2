@@ -10,15 +10,21 @@ import { eq, or, and } from "drizzle-orm";
 export class FcmService {
   private static isInitialized = false;
 
-  static initialize() {
+  static async initialize() {
     try {
       const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
       if (serviceAccountKey) {
-        // هنا نقوم بتهيئة Firebase Admin فعلياً إذا تم تثبيت المكتبة
-        // const admin = require('firebase-admin');
-        // admin.initializeApp({
-        //   credential: admin.credential.cert(JSON.parse(serviceAccountKey))
-        // });
+        try {
+          const { default: admin } = await import('firebase-admin');
+          if (!admin.apps.length) {
+            admin.initializeApp({
+              credential: admin.credential.cert(JSON.parse(serviceAccountKey))
+            });
+          }
+          console.log("✅ [FCM] Firebase Admin Initialized Successfully");
+        } catch (e: any) {
+          console.error("❌ [FCM] Failed to initialize Firebase Admin:", e.message);
+        }
         console.log("✅ [FCM] Firebase Service Account Key Loaded");
       } else {
         console.warn("⚠️ [FCM] FIREBASE_SERVICE_ACCOUNT_KEY not found in environment variables");
@@ -55,27 +61,37 @@ export class FcmService {
     if (data.targetPlatform === 'all' || data.targetPlatform === 'android') {
       console.log(`[FCM] Sending push notification to Android: ${data.title}`);
       
-      // التأكد من أن الإشعار يحتوي على التفاصيل المطلوبة لشريط الحالة
-      const pushPayload = {
-        notification: {
-          title: data.title,
-          body: data.message,
+      try {
+        const admin = (await import('firebase-admin')).default;
+        const message = {
+          notification: {
+            title: data.title,
+            body: data.message,
+          },
           android: {
             priority: data.priority >= 4 ? 'high' : 'normal',
             notification: {
               sound: 'default',
               clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-              channelId: 'high_importance_channel'
+              channelId: 'high_importance_channel',
+              icon: 'notification_icon'
             }
-          }
-        },
-        data: {
-          type: data.type,
-          priority: String(data.priority)
-        }
-      };
-      
-      console.log(`[FCM] Payload generated:`, JSON.stringify(pushPayload));
+          },
+          data: {
+            type: data.type,
+            priority: String(data.priority),
+            click_action: 'FLUTTER_NOTIFICATION_CLICK'
+          },
+          topic: data.targetPlatform === 'android' ? 'android_users' : 'all_users'
+        };
+
+        const response = await admin.messaging().send(message as any);
+        console.log(`✅ [FCM] Successfully sent message:`, response);
+        return { success: true, messageId: response };
+      } catch (error: any) {
+        console.error(`❌ [FCM] Error sending push notification:`, error.message);
+        return { success: false, error: error.message };
+      }
     }
 
     return { success: true };

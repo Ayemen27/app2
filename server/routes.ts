@@ -10,7 +10,7 @@ import { FcmService } from "./services/FcmService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // FCM Initialization
-  FcmService.initialize();
+  await FcmService.initialize();
 
   // Monitoring Routes
   app.post("/api/devices", async (req, res) => {

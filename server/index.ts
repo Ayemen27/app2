@@ -5,6 +5,9 @@ initializeEnvironment();
 import "../instrumentation.js"; // ✅ تشغيل نظام التتبع OpenTelemetry
 import "./lib/telemetry";
 
+import express, { type Request, Response, NextFunction } from "express";
+import * as Sentry from "@sentry/node";
+import { pool } from "./db";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -32,27 +35,8 @@ import { FcmService } from "./services/FcmService";
 // تهيئة الخدمات الخارجية
 FcmService.initialize();
 
-const setupSession = (app: express.Express) => {
-  // Placeholder for session setup
-  console.log("Session setup placeholder");
-};
-
-
 const app = express();
 
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  tracesSampleRate: 1.0,
-});
-
-// The request handler must be the first middleware on the app
-// Sentry v7+ uses different middleware approach or we need to check the version
-// For Sentry v10, it's often Sentry.setupExpressErrorHandler(app) or similar
-// But to fix the immediate crash based on the log:
-if (Sentry.Handlers) {
-  app.use(Sentry.Handlers.requestHandler());
-  app.use(Sentry.Handlers.tracingHandler());
-}
 
 // 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
 app.use((req, res, next) => {

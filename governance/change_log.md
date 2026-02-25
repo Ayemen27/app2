@@ -1,7 +1,10 @@
 # Change Log
 
 ## [2026-02-25]
+- **BACK-002**: Fixed OpenTelemetry SDK initialization by correcting ESM imports and installing missing peer dependencies.
+- **BACK-002**: Cleaned up server entry point redundancy and ensured proper instrumentation loading.
 - **INF-001**: Completed OTEL Collector configuration.
+
 - **ARCH-001**: Initialized governance documentation (Roadmap, Architecture).
 - **ADMIN-001**: Integrated System Health monitoring into Admin UI.
 - **BACK-001**: Verified backend instrumentation and governance locks.

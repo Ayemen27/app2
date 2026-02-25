@@ -21,6 +21,7 @@ export class FcmService {
               credential: admin.credential.cert(JSON.parse(serviceAccountKey))
             });
           }
+          const messaging = admin.messaging();
           console.log("✅ [FCM] Firebase Admin Initialized Successfully");
         } catch (e: any) {
           console.error("❌ [FCM] Failed to initialize Firebase Admin:", e.message);
@@ -62,7 +63,7 @@ export class FcmService {
       console.log(`[FCM] Sending push notification to Android: ${data.title}`);
       
       try {
-        const admin = (await import('firebase-admin')).default;
+        const { default: admin } = await import('firebase-admin');
         const message = {
           notification: {
             title: data.title,

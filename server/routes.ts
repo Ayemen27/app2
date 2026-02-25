@@ -93,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const devicesList = await storage.getDevices();
       const deviceCount = devicesList.length;
-      const recentCrashes = await storage.getRecentCrashes(10);
+      const recentCrashes = await storage.getRecentCrashes(50);
       const crashCount = recentCrashes.length;
       const divisor = deviceCount || 1;
       const crashRate = ((crashCount / divisor) * 100).toFixed(2);
@@ -109,6 +109,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) {
       console.error("[API Error] /api/monitoring/stats:", e);
       res.status(500).json({ error: e.message || "Internal Server Error" });
+    }
+  });
+
+  // Proxy for OpenTelemetry traces from mobile/frontend
+  app.post("/api/v1/traces", async (req, res) => {
+    try {
+      // Forward to OTLP collector
+      const response = await fetch("http://localhost:4318/v1/traces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body)
+      });
+      res.status(response.status).send(await response.text());
+    } catch (e: any) {
+      console.error("[OTEL Proxy Error]:", e);
+      res.status(502).json({ error: "OTLP collector unreachable" });
     }
   });
 

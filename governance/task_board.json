@@ -77,6 +77,26 @@
       "locked_files": ["server/services/brain.ts"],
       "completion_date": "2026-02-25T22:30:00Z",
       "description": "Develop Brain Service for AI analysis (Skeleton)."
+    },
+    {
+      "task_id": "MOBILE-001",
+      "task_name": "Mobile Tracing Implementation",
+      "agent": "Agent-05",
+      "status": "DONE",
+      "priority": "HIGH",
+      "locked_files": ["client/src/lib/instrumentation.ts", "android/app/src/main/java/com/axion/app/MainActivity.java"],
+      "completion_date": "2026-02-26T10:00:00Z",
+      "description": "Implement OpenTelemetry tracing for the hybrid mobile environment using Capacitor."
+    },
+    {
+      "task_id": "BRAIN-002",
+      "task_name": "Brain Service Correlation Rules",
+      "agent": "Agent-05",
+      "status": "DONE",
+      "priority": "HIGH",
+      "locked_files": ["server/services/brain.ts"],
+      "completion_date": "2026-02-26T10:30:00Z",
+      "description": "Implement actual correlation logic and heuristic rules in the BrainService."
     }
   ]
 }

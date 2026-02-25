@@ -5,6 +5,7 @@
 
 import { Router, Response, NextFunction } from "express";
 import { getAIAgentService } from "../../services/ai-agent";
+import { brainService } from "../../services/brain";
 import { db } from "../../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -416,6 +417,38 @@ router.post("/models/select", requireAdmin, async (req: AuthenticatedRequest, re
     });
   } catch (error: any) {
     console.error("Error selecting model:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * تحليل الأحداث واكتشاف الشذوذ
+ * GET /api/ai/analyze-events
+ */
+router.get("/analyze-events", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const analysis = await brainService.analyzeEvents();
+    res.json(analysis);
+  } catch (error: any) {
+    console.error("Error analyzing events:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * الحصول على إجراءات المعالجة المقترحة
+ * POST /api/ai/suggest-actions
+ */
+router.post("/suggest-actions", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { analysisResult } = req.body;
+    if (!analysisResult) {
+      return res.status(400).json({ error: "analysisResult مطلوب" });
+    }
+    const actions = await brainService.suggestActions(analysisResult);
+    res.json({ actions });
+  } catch (error: any) {
+    console.error("Error suggesting actions:", error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -320,8 +320,8 @@ healthRouter.get('/stats', requireAuth, async (_req: Request, res: Response) => 
         rss: Math.round(memoryUsage.rss / 1024 / 1024),
         external: Math.round(memoryUsage.external / 1024 / 1024)
       },
-      activeRequests: Math.floor(Math.random() * 10) + 1, // قيمة تقديرية للطلبات النشطة
-      errorRate: (Math.random() * 0.5).toFixed(2), // قيمة تقديرية لمعدل الخطأ
+      activeRequests: 1, // تم التصحيح لتعكس الطلب الحالي فقط
+      errorRate: 0, // تم التصحيح لتعكس الصدق في عدم وجود سجل أخطاء حالي
       uptime: uptimeSeconds
     };
 

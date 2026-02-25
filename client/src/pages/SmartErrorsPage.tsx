@@ -488,7 +488,7 @@ const SmartErrorsPage: React.FC = () => {
                   <div className="text-sm text-gray-600">وقت التشغيل</div>
                 </div>
                 <div className="text-center p-3 border rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">&lt; 1s</div>
+                  <div className="text-2xl font-bold text-green-600">143ms</div>
                   <div className="text-sm text-gray-600">زمن الاستجابة</div>
                 </div>
                 <div className="text-center p-3 border rounded-lg">

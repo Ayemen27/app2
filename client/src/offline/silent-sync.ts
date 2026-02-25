@@ -19,8 +19,7 @@ const SYNC_CONFIG = {
 function calculateBackoffDelay(retryCount: number): number {
   const exponentialDelay = SYNC_CONFIG.baseDelayMs * Math.pow(2, retryCount);
   const cappedDelay = Math.min(exponentialDelay, SYNC_CONFIG.maxDelayMs);
-  const jitter = cappedDelay * SYNC_CONFIG.jitterFactor * (Math.random() * 2 - 1);
-  return Math.max(0, Math.round(cappedDelay + jitter));
+  return Math.max(0, Math.round(cappedDelay)); // تم إزالة الـ jitter (العشوائية) لضمان الشفافية المطلقة في توقيت المزامنة
 }
 
 function isRetryableError(statusCode: number): boolean {

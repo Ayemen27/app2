@@ -345,7 +345,7 @@ export async function performLocalOperation(
   endpoint: string
 ): Promise<any> {
   const { smartPut, smartDelete, smartAdd } = await import('./storage-factory');
-  const id = payload.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2));
+  const id = payload.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.floor(Date.now() / 1000).toString(36)));
   const record = { ...payload, id, _isLocal: true, _pendingSync: true };
 
   if (action === 'delete') {
@@ -354,7 +354,7 @@ export async function performLocalOperation(
     await smartPut(tableName, record);
   }
 
-  const queueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+  const queueId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.floor(Date.now() / 1000).toString(36));
   await smartAdd('syncQueue', {
     id: queueId,
     action,

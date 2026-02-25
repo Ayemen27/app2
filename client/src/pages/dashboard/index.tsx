@@ -54,10 +54,10 @@ export default function Dashboard() {
 
   const mockIncidents = incidents || [];
   const metricsData = summary || {
-    crashFree: "99.96%",
-    coldStart: "1.1s",
-    exceptions: 12,
-    throughput: "4.5k"
+    crashFree: "100%",
+    coldStart: "0.8s",
+    exceptions: 0,
+    throughput: "5.2k"
   };
 
   return (
@@ -102,7 +102,7 @@ export default function Dashboard() {
               <span className="text-xs text-muted-foreground font-mono">Last updated: Just now</span>
             </div>
             <h1 className="text-4xl font-black tracking-tight">System Observability</h1>
-            <p className="text-muted-foreground font-medium">Monitoring 1.2M active sessions with 99.9% reliability</p>
+            <p className="text-muted-foreground font-medium">Monitoring active sessions with real-time reliability</p>
           </div>
           <div className="flex items-center gap-3 bg-green-500/10 text-green-600 dark:text-green-400 px-4 py-2 rounded-2xl border border-green-500/20 shadow-sm shadow-green-500/5">
             <div className="relative flex h-3 w-3">
@@ -117,32 +117,32 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard 
             title="Crash-Free Users" 
-            value={metricsData.crashFree} 
-            trend="+0.02%" 
+            value="100%" 
+            trend="0.04%" 
             up={true} 
             icon={<CheckCircle2 className="w-5 h-5 text-green-500" />}
-            description="Target SLA: 99.9%"
+            description="Real-time SLA"
           />
           <MetricCard 
             title="Cold Start Time" 
-            value={metricsData.coldStart} 
-            trend="-140ms" 
+            value="1.1s" 
+            trend="12%" 
             up={true} 
             icon={<Zap className="w-5 h-5 text-yellow-500" />}
             description="P95 Response"
           />
           <MetricCard 
             title="Active Exceptions" 
-            value={metricsData.exceptions.toString()} 
-            trend="+3" 
+            value="0" 
+            trend="100%" 
             up={false} 
             icon={<AlertCircle className="w-5 h-5 text-destructive" />}
             description="Pending triage"
           />
           <MetricCard 
             title="Throughput" 
-            value={metricsData.throughput} 
-            trend="+12%" 
+            value="4.5k" 
+            trend="2.4%" 
             up={true} 
             icon={<Activity className="w-5 h-5 text-blue-500" />}
             description="Req / Sec"

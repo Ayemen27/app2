@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -607,6 +607,32 @@ export type InsertBackupLog = z.infer<typeof insertBackupLogSchema>;
 export const insertBackupSettingsSchema = createInsertSchema(backupSettings);
 export type BackupSettings = typeof backupSettings.$inferSelect;
 export type InsertBackupSettings = z.infer<typeof insertBackupSettingsSchema>;
+
+// Monitoring and System Logs
+export const monitoringData = pgTable("monitoring_data", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  metricName: varchar("metric_name", { length: 255 }).notNull(),
+  metricValue: doublePrecision("metric_value").notNull(),
+  metadata: jsonb("metadata"),
+});
+
+export const systemLogs = pgTable("system_logs", {
+  id: serial("id").primaryKey(),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  level: varchar("level", { length: 50 }).notNull(), // info, warn, error, fatal
+  source: varchar("source", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  details: jsonb("details"),
+});
+
+export const insertMonitoringDataSchema = createInsertSchema(monitoringData);
+export const insertSystemLogSchema = createInsertSchema(systemLogs);
+
+export type MonitoringData = typeof monitoringData.$inferSelect;
+export type InsertMonitoringData = z.infer<typeof insertMonitoringDataSchema>;
+export type SystemLog = typeof systemLogs.$inferSelect;
+export type InsertSystemLog = z.infer<typeof insertSystemLogSchema>;
 
 // Print Settings Table (إعدادات الطباعة)
 export const printSettings = pgTable('print_settings', {

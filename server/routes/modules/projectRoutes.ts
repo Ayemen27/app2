@@ -167,7 +167,12 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     const safeDateFilter = (col: string) => {
       const allowedCols = ['transfer_date', 'date', 'purchase_date'];
       if (!allowedCols.includes(col)) throw new Error('Invalid column name');
-      return sql`(CASE WHEN ${sql.raw(col)} IS NULL OR ${sql.raw(col)} = '' OR ${sql.raw(col)} !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE ${sql.raw(col)}::text END) = ${effectiveDate}`;
+      // Fix: Use text comparison for format safety, and handle empty strings explicitly
+      return sql`(CASE 
+        WHEN ${sql.raw(col)} IS NULL OR ${sql.raw(col)} = '' OR ${sql.raw(col)} !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' 
+        THEN '1970-01-01' 
+        ELSE SUBSTRING(${sql.raw(col)} FROM 1 FOR 10) 
+      END) = ${effectiveDate}`;
     };
 
     const [
@@ -179,7 +184,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       miscExpensesResult,
       projectsList
     ] = await Promise.all([
-      db.select().from(fundTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(fundTransfers.transferDate)),
+      db.select().from(fundTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(sql`CASE WHEN transfer_date = '' OR transfer_date IS NULL THEN '1970-01-01' ELSE transfer_date END`)),
 
       db.select({
             id: workerAttendance.id,
@@ -200,13 +205,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
               sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
             )
           ))
-          .orderBy(desc(workerAttendance.date)),
+          .orderBy(desc(sql`CASE WHEN date = '' OR date IS NULL THEN '1970-01-01' ELSE date END`)),
 
       db.select().from(materialPurchases).where(eq(materialPurchases.purchaseDate, effectiveDate)).orderBy(desc(materialPurchases.purchaseDate)),
 
       db.select().from(transportationExpenses).where(eq(transportationExpenses.date, effectiveDate)).orderBy(desc(transportationExpenses.date)),
 
-      db.select().from(workerTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(workerTransfers.transferDate)),
+      db.select().from(workerTransfers).where(safeDateFilter('transfer_date')).orderBy(desc(sql`CASE WHEN transfer_date = '' OR transfer_date IS NULL THEN '1970-01-01' ELSE transfer_date END`)),
 
       db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, effectiveDate)).orderBy(desc(workerMiscExpenses.date)),
 

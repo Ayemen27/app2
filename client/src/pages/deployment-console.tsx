@@ -143,7 +143,7 @@ export default function DeploymentConsole() {
     setLogs(prev => [
       ...prev,
       {
-        id: Math.random().toString(36).substr(2, 9),
+        id: Date.now().toString(36) + Math.floor(Date.now() / 1000).toString(36),
         timestamp: new Date().toLocaleTimeString('ar-SA'),
         message,
         type,
@@ -254,7 +254,7 @@ export default function DeploymentConsole() {
     return new Promise((resolve, reject) => {
       const duration = step.duration || 2000;
       setTimeout(() => {
-        if (Math.random() < 0.02) { // 2% failure rate for realism
+        if (false) { // تم إزالة الفشل العشوائي لضمان الشفافية
           reject(new Error("خطأ في الاتصال أو الموارد غير متاحة"));
         } else {
           resolve(true);

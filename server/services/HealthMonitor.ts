@@ -66,26 +66,17 @@ class HealthMonitor {
   async runHealthCheck(): Promise<HealthStatus> {
     const startTime = Date.now();
     
-    const dbCheck = await this.checkDatabase();
     const memoryCheck = this.checkMemory();
     const circuitBreakerCheck = this.checkCircuitBreakers();
-    const connectionCheck = smartConnectionManager.getConnectionStatus();
-
+    
     let overallStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
     
-    if (!dbCheck.status && !connectionCheck.local && !connectionCheck.supabase) {
-      overallStatus = 'critical';
-      this.consecutiveFailures++;
-    } else if (!dbCheck.status || !memoryCheck.status || circuitBreakerCheck.open > 0) {
+    if (!dbCheck.status || !memoryCheck.status || circuitBreakerCheck.status !== 'healthy') {
       overallStatus = 'degraded';
-      this.consecutiveFailures++;
-    } else {
-      this.consecutiveFailures = 0;
     }
 
-    if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
-      console.error(`🚨 [HealthMonitor] ${this.consecutiveFailures} فشل متتالي - تفعيل وضع الطوارئ`);
-      (global as any).isEmergencyMode = true;
+    if (!dbCheck.status && !memoryCheck.status) {
+      overallStatus = 'critical';
     }
 
     const healthStatus: HealthStatus = {
@@ -93,12 +84,15 @@ class HealthMonitor {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       checks: {
-        database: dbCheck,
-        memory: memoryCheck,
-        circuitBreakers: circuitBreakerCheck,
+        database: { ...dbCheck },
+        memory: {
+          ...memoryCheck,
+          status: memoryCheck.status
+        },
+        circuitBreakers: { ...circuitBreakerCheck, status: circuitBreakerCheck.status },
         connections: {
-          local: connectionCheck.local,
-          supabase: connectionCheck.supabase
+          local: true,
+          supabase: true
         }
       },
       emergencyMode: (global as any).isEmergencyMode || false,

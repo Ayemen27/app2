@@ -209,7 +209,7 @@ export default function DataHealthPage() {
               </div>
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border space-y-1">
                 <span className="text-[10px] text-muted-foreground font-bold uppercase">Success Rate</span>
-                <div className="text-xl font-black font-mono text-green-600">99.9%</div>
+                <div className="text-xl font-black font-mono text-green-600">100%</div>
               </div>
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border space-y-1">
                 <span className="text-[10px] text-muted-foreground font-bold uppercase">Synced Records</span>

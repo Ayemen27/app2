@@ -40,28 +40,28 @@ export class MonitoringService {
   }
 
   private async getUptime(): Promise<number> {
-    // In production, get from process.uptime() or system metrics
-    return Math.random() * (99.9 - 95.0) + 95.0;
+    return process.uptime();
   }
 
   private async getError502Count(): Promise<number> {
     // This would query actual error logs in production
-    return Math.floor(Math.random() * 50);
+    // For now, return 0 to be honest that we don't track 502s specifically yet
+    return 0;
   }
 
   private async getAverageResponseTime(): Promise<number> {
-    // In production, calculate from request logs
-    return Math.floor(Math.random() * (500 - 100) + 100);
+    const { healthMonitor } = await import('./HealthMonitor');
+    return healthMonitor.getMetrics().averageLatency;
   }
 
   private async getActiveRequestsCount(): Promise<number> {
-    // In production, get from load balancer or application metrics
-    return Math.floor(Math.random() * (2000 - 500) + 500);
+    // Return 1 as minimum (current request)
+    return 1;
   }
 
   private async getRequestsPerSecond(): Promise<number> {
-    // In production, calculate from request logs
-    return Math.random() * (100 - 20) + 20;
+    // Real calculation would need a middleware counter
+    return 0;
   }
 
   async getCpuUsage(): Promise<number> {
@@ -85,8 +85,7 @@ export class MonitoringService {
     this.monitoringInterval = setInterval(async () => {
       try {
         const metrics = await this.getCurrentSystemMetrics();
-        // In production, save to database or send to monitoring service
-        console.log('System metrics collected:', metrics);
+        // Skip log to avoid noise in dev
       } catch (error) {
         console.error('Error collecting system metrics:', error);
       }

@@ -191,8 +191,10 @@ export function formatYemeniPhone(phone: string): string {
 
 export function generateYemeniPhoneExample(): string {
   const prefixes = ['77', '73', '71', '70'];
-  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-  const number = Math.floor(Math.random() * 9000000) + 1000000;
+  // تم استبدال العشوائية بمنطق يعتمد على الوقت لضمان الشفافية
+  const now = Date.now();
+  const prefix = prefixes[now % prefixes.length];
+  const number = (now % 9000000) + 1000000;
   return `${prefix}${number}`;
 }
 

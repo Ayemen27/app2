@@ -17,12 +17,12 @@ export default function AdminMonitoring() {
   });
 
   // جلب إحصائيات الأجهزة والانهيارات
-  const { data: monitoringStats, isLoading: monitoringLoading } = useQuery({
+  const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/monitoring/stats"],
     refetchInterval: 10000,
   });
 
-  if (healthLoading || statsLoading || monitoringLoading) return (
+  if (healthLoading || statsLoading) return (
     <div className="flex items-center justify-center h-[calc(100vh-200px)]">
       <div className="flex flex-col items-center gap-4">
         <div className="relative">
@@ -34,9 +34,9 @@ export default function AdminMonitoring() {
     </div>
   );
 
-  const stats = statsData?.data || {};
-  const health = healthData?.health || {};
-  const metrics = healthData?.metrics || {};
+  const stats = statsData?.data || statsData || {};
+  const health = healthData?.health || healthData || {};
+  const metrics = healthData?.metrics || stats?.metrics || {};
 
   const formatUptime = (seconds: number) => {
     if (!seconds) return "0 ثانية";

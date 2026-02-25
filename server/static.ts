@@ -56,13 +56,19 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath, {
     setHeaders: (res, filePath) => {
-      // Force correct MIME type for JS files to prevent loading issues
-      if (filePath.endsWith('.js')) {
+      // Force correct MIME type for JS and CSS files
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.js' || ext === '.mjs') {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else if (ext === '.css') {
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
       }
       
       // Critical: Cloudflare and Browser MIME/CSP fixes
       res.setHeader('X-Content-Type-Options', 'nosniff');
+      
+      // Allow Vite source mapping and hot reload
+      res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://static.cloudflareinsights.com https://*.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.cloudflareinsights.com https://*.cloudflare.com;");
 
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");

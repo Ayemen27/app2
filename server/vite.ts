@@ -41,19 +41,22 @@ export async function setupVite(app: Express, server: Server) {
       return next();
     }
     
-    // Logic to handle Vite assets specifically
+    // Serve Vite assets
     const isViteAsset = req.path.includes('/src/') || 
                         req.path.includes('/node_modules/') || 
                         req.path.includes('@vite/') || 
-                        req.path.includes('@id/');
+                        req.path.includes('@id/') ||
+                        req.path.endsWith('.tsx') ||
+                        req.path.endsWith('.ts');
 
     if (isViteAsset) {
       if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.js') || req.path.endsWith('.jsx')) {
         res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       }
+      return vite.middlewares(req, res, next);
     }
 
-    return vite.middlewares(req, res, next);
+    next();
   });
   
   app.use((req, res, next) => {
@@ -61,8 +64,10 @@ export async function setupVite(app: Express, server: Server) {
       return next();
     }
 
-    if (req.originalUrl.includes('.') && !req.originalUrl.endsWith('.html') && !req.originalUrl.startsWith('/src/')) {
-      return next();
+    // Logic to decide if we should serve index.html or continue
+    const isAsset = req.path.includes('.') && !req.path.endsWith('.html');
+    if (isAsset && !req.path.startsWith('/src/')) {
+      return vite.middlewares(req, res, next);
     }
 
     try {

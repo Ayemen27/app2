@@ -95,11 +95,11 @@ function PageLoader() {
 }
 
 import { initializeStorage } from './offline/storage-factory';
-import { startPerformanceMonitoring } from './offline/performance-monitor';
+// import { startPerformanceMonitoring } from './offline/performance-monitor';
 
 // تهيئة قاعدة البيانات ونظام المراقبة عند بدء التطبيق
 initializeStorage().catch(console.error);
-startPerformanceMonitoring(30000); // مراقبة كل 30 ثانية
+// startPerformanceMonitoring(30000); // مراقبة كل 30 ثانية
 
 const AdminMonitoring = lazy(() => import("./pages/admin-monitoring"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));

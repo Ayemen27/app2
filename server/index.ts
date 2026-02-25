@@ -62,8 +62,12 @@ app.use((req, res, next) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   
-  if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx')) {
+  if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx') || req.path.endsWith('.js') || req.path.includes('@vite') || req.path.includes('/src/')) {
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  }
+
+  if (req.path.endsWith('.css')) {
+    res.setHeader('Content-Type', 'text/css; charset=utf-8');
   }
 
   const cspConfig = [
@@ -574,18 +578,15 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Setup vite dev server if in development
-if (envConfig.NODE_ENV !== "production") {
-  console.log('🏗️ [Server] Starting Vite development server...');
-  import("./vite.js").then(({ setupVite }) => {
-    setupVite(app, server);
-  }).catch((err) => {
-    console.error('❌ [Server] Failed to load Vite server:', err);
-  });
-} else {
-  console.log('📦 [Server] Serving static files in production...');
-  serveStatic(app);
-}
+  // Setup vite dev server if in development
+  if (envConfig.NODE_ENV !== "production") {
+    console.log('🏗️ [Server] Starting Vite development server...');
+    const { setupVite } = await import("./vite.js");
+    await setupVite(app, server);
+  } else {
+    console.log('📦 [Server] Serving static files in production...');
+    serveStatic(app);
+  }
 
 // ✅ **Error Handler Middleware** - Moved after static/vite
 if (Sentry.Handlers) {

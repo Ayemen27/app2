@@ -38,6 +38,7 @@ import ProjectFundCustody from "./pages/project-fund-custody";
 
 import ProjectsPage from "./pages/projects";
 import DashboardPage from "./pages/dashboard";
+import AnalysisDashboard from "./pages/system/AnalysisDashboard";
 import WorkersPage from "./pages/workers";
 import BackupManager from "./pages/backup-manager";
 import NotificationsPage from "./pages/notifications";
@@ -172,6 +173,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={DashboardPage} />
+      <Route path="/analysis" component={AnalysisDashboard} />
       <Route path="/deployment" component={DeploymentConsole} />
       <Route path="/projects" component={ProjectsPage} />
       <Route path="/workers" component={WorkersPage} />

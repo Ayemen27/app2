@@ -130,7 +130,7 @@ export default function AdminDashboard() {
           <CardContent className="p-4 space-y-3">
             <div className="flex justify-between items-center text-xs">
               <span className="text-muted-foreground">الاستجابة:</span>
-              <span className="font-medium text-green-600">{(health?.metrics?.averageLatency || 0) > 0 ? health.metrics.averageLatency : "15"}ms</span>
+              <span className="font-bold text-green-600">{(health?.metrics?.averageLatency || 0) > 0 ? `${health.metrics.averageLatency}ms` : "جاري الفحص..."}</span>
             </div>
             <Button variant="ghost" className="w-full justify-between h-9 text-xs rounded-xl" asChild>
               <a href="/admin/monitoring">فتح الرصد <ChevronRight className="h-3 w-3" /></a>

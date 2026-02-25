@@ -237,14 +237,20 @@ class HealthMonitor {
     totalRecords: number;
   }> {
     const issues: string[] = [];
-    const tables = ['users', 'projects', 'workers', 'wells', 'suppliers', 'materials', 'monitoring_data', 'system_logs', 'crashes'];
+    // Verify all active tables in the system
+    const tables = [
+      'users', 'projects', 'workers', 'wells', 'suppliers', 
+      'materials', 'metrics', 'audit_logs', 'crashes',
+      'fund_transfers', 'worker_attendance'
+    ];
     let tablesChecked = 0;
     let totalRecords = 0;
 
     for (const table of tables) {
       try {
-        const result = await pool.query(`SELECT count(*) FROM ${table}`);
-        totalRecords += parseInt(result.rows[0].count);
+        const result = await pool.query(`SELECT count(*) FROM "${table}"`);
+        const count = parseInt(result.rows[0].count);
+        totalRecords += count;
         tablesChecked++;
       } catch (e: any) {
         issues.push(`جدول "${table}" غير متاح: ${e.message}`);

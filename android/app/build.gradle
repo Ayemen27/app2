@@ -55,6 +55,9 @@ dependencies {
     implementation 'androidx.core:core-splashscreen:1.0.1'
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
+    
+    // Sentry SDK
+    implementation 'io.sentry:sentry-android:7.0.0'
 }
 
 apply from: 'capacitor.build.gradle'

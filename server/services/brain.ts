@@ -1,6 +1,8 @@
 import { db } from "../db";
 import { eq, desc, lte, gte, and, sql } from "drizzle-orm";
 import { crashes, metrics, devices, auditLogs } from "@shared/schema";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface Anomaly {
   id: string;
@@ -19,10 +21,50 @@ export interface AnalysisResult {
   timestamp: string;
 }
 
+interface BrainRule {
+  id: string;
+  name: string;
+  type: "performance" | "security" | "stability";
+  table: "crashes" | "metrics" | "auditLogs";
+  condition: {
+    threshold?: number;
+    criticalThreshold?: number;
+    valueThreshold?: number;
+    countThreshold?: number;
+    criticalCountThreshold?: number;
+    timeRangeHours: number;
+    metricName?: string;
+    metricNames?: string[];
+    action?: string;
+  };
+  message: string;
+  scoreMultiplier?: number;
+  score?: number;
+  defaultSeverity?: "critical" | "warning" | "info";
+}
+
 export class BrainService {
   private static instance: BrainService;
+  private rules: BrainRule[] = [];
 
-  private constructor() {}
+  private constructor() {
+    this.loadRules();
+  }
+
+  private loadRules() {
+    try {
+      const configPath = path.resolve(process.cwd(), "server/config/brain_rules.json");
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        this.rules = config.rules;
+        console.log(`[BrainService] Loaded ${this.rules.length} rules from config.`);
+      } else {
+        console.warn("[BrainService] Config file not found, using empty rules.");
+      }
+    } catch (error) {
+      console.error("[BrainService] Failed to load rules:", error);
+    }
+  }
 
   public static getInstance(): BrainService {
     if (!BrainService.instance) {
@@ -36,90 +78,90 @@ export class BrainService {
    */
   async analyzeEvents(): Promise<AnalysisResult> {
     console.log("[BrainService] Starting event analysis...");
-    
-    const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24 hours
     const anomalies: Anomaly[] = [];
 
     try {
-      // 1. Fetch recent crashes
-      const recentCrashes = await db.select().from(crashes)
-        .where(gte(crashes.timestamp, startTime))
-        .orderBy(desc(crashes.timestamp))
-        .limit(100);
+      for (const rule of this.rules) {
+        const startTime = new Date(Date.now() - (rule.condition.timeRangeHours || 24) * 60 * 60 * 1000);
 
-      // Rule: Sudden spike in crashes
-      if (recentCrashes.length > 10) {
-        anomalies.push({
-          id: `crash-spike-${Date.now()}`,
-          type: "stability",
-          severity: recentCrashes.length > 50 ? "critical" : "warning",
-          message: `Detected ${recentCrashes.length} crashes in the last 24 hours.`,
-          score: Math.min(recentCrashes.length * 2, 100),
-          metadata: { count: recentCrashes.length },
-          timestamp: new Date().toISOString()
-        });
-      }
+        if (rule.id === "crash_spike") {
+          const recentCrashes = await db.select().from(crashes)
+            .where(gte(crashes.timestamp, startTime))
+            .orderBy(desc(crashes.timestamp))
+            .limit(100);
 
-      // 2. Fetch high-latency metrics
-      const highLatencyMetrics = await db.select().from(metrics)
-        .where(and(
-          gte(metrics.timestamp, startTime),
-          eq(metrics.metricName, "api_latency"),
-          gte(metrics.value, "1000") // latency > 1000ms
-        ))
-        .limit(50);
+          if (recentCrashes.length > (rule.condition.threshold || 0)) {
+            anomalies.push({
+              id: `${rule.id}-${Date.now()}`,
+              type: rule.type,
+              severity: recentCrashes.length > (rule.condition.criticalThreshold || 50) ? "critical" : "warning",
+              message: rule.message.replace("{count}", recentCrashes.length.toString()),
+              score: Math.min(recentCrashes.length * (rule.scoreMultiplier || 1), 100),
+              metadata: { count: recentCrashes.length },
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else if (rule.id === "latency_spike") {
+          const highLatencyMetrics = await db.select().from(metrics)
+            .where(and(
+              gte(metrics.timestamp, startTime),
+              eq(metrics.metricName, rule.condition.metricName || "api_latency"),
+              gte(metrics.value, (rule.condition.valueThreshold || 1000).toString())
+            ))
+            .limit(50);
 
-      if (highLatencyMetrics.length > 5) {
-        anomalies.push({
-          id: `latency-spike-${Date.now()}`,
-          type: "performance",
-          severity: highLatencyMetrics.length > 20 ? "critical" : "warning",
-          message: `High API latency detected in ${highLatencyMetrics.length} samples.`,
-          score: Math.min(highLatencyMetrics.length * 5, 100),
-          metadata: { samples: highLatencyMetrics.length },
-          timestamp: new Date().toISOString()
-        });
-      }
+          if (highLatencyMetrics.length > (rule.condition.countThreshold || 0)) {
+            anomalies.push({
+              id: `${rule.id}-${Date.now()}`,
+              type: rule.type,
+              severity: highLatencyMetrics.length > (rule.condition.criticalCountThreshold || 20) ? "critical" : "warning",
+              message: rule.message.replace("{count}", highLatencyMetrics.length.toString()),
+              score: Math.min(highLatencyMetrics.length * (rule.scoreMultiplier || 1), 100),
+              metadata: { samples: highLatencyMetrics.length },
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else if (rule.id === "brute_force") {
+          const failedLogins = await db.select().from(auditLogs)
+            .where(and(
+              gte(auditLogs.createdAt, startTime),
+              eq(auditLogs.action, rule.condition.action || "LOGIN_FAILED")
+            ))
+            .limit(100);
 
-      // 3. Security: Failed login spikes in audit logs
-      const failedLogins = await db.select().from(auditLogs)
-        .where(and(
-          gte(auditLogs.createdAt, startTime),
-          eq(auditLogs.action, "LOGIN_FAILED")
-        ))
-        .limit(100);
+          if (failedLogins.length > (rule.condition.threshold || 0)) {
+            anomalies.push({
+              id: `${rule.id}-${Date.now()}`,
+              type: rule.type,
+              severity: rule.defaultSeverity || "critical",
+              message: rule.message.replace("{count}", failedLogins.length.toString()),
+              score: Math.min(failedLogins.length * (rule.scoreMultiplier || 1), 100),
+              metadata: { count: failedLogins.length },
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else if (rule.id === "resource_exhaustion") {
+          const metricNames = rule.condition.metricNames || [];
+          const resourceIssues = await db.select().from(metrics)
+            .where(and(
+              gte(metrics.timestamp, startTime),
+              sql`${metrics.metricName} IN (${sql.join(metricNames.map(m => sql.raw(`'${m}'`)), sql.raw(','))})`,
+              gte(metrics.value, (rule.condition.valueThreshold || 90).toString())
+            ))
+            .limit(50);
 
-      if (failedLogins.length > 20) {
-        anomalies.push({
-          id: `brute-force-attempt-${Date.now()}`,
-          type: "security",
-          severity: "critical",
-          message: `Detected ${failedLogins.length} failed login attempts. Potential brute force attack.`,
-          score: Math.min(failedLogins.length * 4, 100),
-          metadata: { count: failedLogins.length },
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      // 4. Resource Exhaustion: High memory/CPU metrics
-      const resourceIssues = await db.select().from(metrics)
-        .where(and(
-          gte(metrics.timestamp, startTime),
-          sql`${metrics.metricName} IN ('memory_usage', 'cpu_usage')`,
-          gte(metrics.value, "90") // > 90%
-        ))
-        .limit(50);
-
-      if (resourceIssues.length > 0) {
-        anomalies.push({
-          id: `resource-exhaustion-${Date.now()}`,
-          type: "performance",
-          severity: "critical",
-          message: `System resource usage (CPU/Memory) exceeded 90% threshold multiple times.`,
-          score: 85,
-          metadata: { occurrences: resourceIssues.length },
-          timestamp: new Date().toISOString()
-        });
+          if (resourceIssues.length > 0) {
+            anomalies.push({
+              id: `${rule.id}-${Date.now()}`,
+              type: rule.type,
+              severity: rule.defaultSeverity || "critical",
+              message: rule.message,
+              score: rule.score || 85,
+              metadata: { occurrences: resourceIssues.length },
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
       }
 
       const totalScore = anomalies.reduce((acc, curr) => acc + curr.score, 0);

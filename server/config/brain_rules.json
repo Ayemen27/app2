@@ -1,0 +1,59 @@
+{
+  "rules": [
+    {
+      "id": "crash_spike",
+      "name": "Sudden spike in crashes",
+      "type": "stability",
+      "table": "crashes",
+      "condition": {
+        "threshold": 10,
+        "criticalThreshold": 50,
+        "timeRangeHours": 24
+      },
+      "message": "Detected {count} crashes in the last 24 hours.",
+      "scoreMultiplier": 2
+    },
+    {
+      "id": "latency_spike",
+      "name": "High API latency",
+      "type": "performance",
+      "table": "metrics",
+      "condition": {
+        "metricName": "api_latency",
+        "valueThreshold": 1000,
+        "countThreshold": 5,
+        "criticalCountThreshold": 20,
+        "timeRangeHours": 24
+      },
+      "message": "High API latency detected in {count} samples.",
+      "scoreMultiplier": 5
+    },
+    {
+      "id": "brute_force",
+      "name": "Failed login spikes",
+      "type": "security",
+      "table": "auditLogs",
+      "condition": {
+        "action": "LOGIN_FAILED",
+        "threshold": 20,
+        "timeRangeHours": 24
+      },
+      "message": "Detected {count} failed login attempts. Potential brute force attack.",
+      "scoreMultiplier": 4,
+      "defaultSeverity": "critical"
+    },
+    {
+      "id": "resource_exhaustion",
+      "name": "High memory/CPU usage",
+      "type": "performance",
+      "table": "metrics",
+      "condition": {
+        "metricNames": ["memory_usage", "cpu_usage"],
+        "valueThreshold": 90,
+        "timeRangeHours": 24
+      },
+      "message": "System resource usage (CPU/Memory) exceeded 90% threshold multiple times.",
+      "score": 85
+    }
+  ]
+}

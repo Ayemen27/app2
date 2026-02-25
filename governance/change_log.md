@@ -1,10 +1,16 @@
 # Change Log
 
-## [2026-02-25]
+## [2026-02-25] - التوثيق التقني وإصلاح OTEL
+- **إصلاح**: حل مشكلة فشل بناء Vite بسبب تعارض في مكتبات OpenTelemetry (Selective Manual Instrumentation).
+- **إضافة**: إنشاء تقرير حادثة تفصيلي في `governance/incident_reports/INCIDENT-2026-02-25-OTEL-VITE.md`.
+- **هيكلة**: إنشاء خدمة `BrainService` (Skeleton) لبدء مرحلة الذكاء الاصطناعي.
+
+## [2026-02-25] - التتبع والحوكمة
+- **FRONT-001**: تفعيل تتبع الواجهة الأمامية وإصلاح أخطاء التجميع.
+- **BRAIN-001**: تهيئة هيكل خدمة الذكاء الاصطناعي الأساسية.
 - **BACK-002**: Fixed OpenTelemetry SDK initialization by correcting ESM imports and installing missing peer dependencies.
 - **BACK-002**: Cleaned up server entry point redundancy and ensured proper instrumentation loading.
 - **INF-001**: Completed OTEL Collector configuration.
-
 - **ARCH-001**: Initialized governance documentation (Roadmap, Architecture).
 - **ADMIN-001**: Integrated System Health monitoring into Admin UI.
 - **BACK-001**: Verified backend instrumentation and governance locks.

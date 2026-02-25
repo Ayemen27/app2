@@ -15,10 +15,28 @@
       "task_id": "INF-001",
       "task_name": "Setup OTEL Collector Config",
       "agent": "Agent-Infrastructure",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "HIGH",
       "locked_files": ["otel-collector-config.yaml"],
       "description": "Define the base configuration for OpenTelemetry collection."
+    },
+    {
+      "task_id": "BACK-001",
+      "task_name": "Backend Instrumentation",
+      "agent": "Agent-Backend",
+      "status": "DONE",
+      "priority": "HIGH",
+      "locked_files": ["server/index.ts", "instrumentation.js"],
+      "description": "Integrate OpenTelemetry SDK into the Express server."
+    },
+    {
+      "task_id": "INF-002",
+      "task_name": "Kafka Infrastructure Planning",
+      "agent": "Agent-Infrastructure",
+      "status": "IN_PROGRESS",
+      "priority": "MEDIUM",
+      "locked_files": ["docker-compose.signoz.yaml"],
+      "description": "Plan the integration of Kafka as the telemetry backbone."
     }
   ]
 }

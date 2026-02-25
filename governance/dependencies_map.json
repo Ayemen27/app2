@@ -1,0 +1,14 @@
+{
+  "relationships": [
+    {
+      "source": "server",
+      "target": "otel-collector",
+      "type": "telemetry-export"
+    },
+    {
+      "source": "client",
+      "target": "server",
+      "type": "api-call"
+    }
+  ]
+}

@@ -23,8 +23,8 @@ export function serveStatic(app: Express) {
   
   // Look for dist in multiple potential locations
   const distPaths = [
-    path.resolve(cwd, "dist", "public"),
     path.resolve(cwd, "www"),
+    path.resolve(cwd, "dist", "public"),
     path.resolve(__dirname, "..", "dist", "public"),
     path.resolve(__dirname, "dist", "public")
   ];

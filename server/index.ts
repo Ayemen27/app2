@@ -627,8 +627,8 @@ app.use((req, res, next) => {
   } else {
     // Serve index.html for SPA routing in production
     const distPaths = [
-      path.resolve(process.cwd(), "dist", "public"),
       path.resolve(process.cwd(), "www"),
+      path.resolve(process.cwd(), "dist", "public"),
     ];
     for (const p of distPaths) {
       const indexPath = path.join(p, "index.html");

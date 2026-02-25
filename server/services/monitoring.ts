@@ -13,12 +13,17 @@ export class MonitoringService {
   private monitoringInterval: NodeJS.Timeout | null = null;
 
   async getCurrentSystemMetrics(): Promise<BasicMetrics> {
-    // مراقبة أساسية مبسطة
+    const memoryUsage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
+    const totalCpuTime = (cpuUsage.user + cpuUsage.system) / 1000000;
+    const uptimeSeconds = process.uptime();
+    const cpuPercent = Math.min(100, Math.round((totalCpuTime / uptimeSeconds) * 100));
+
     return {
       serviceStatus: await this.checkServiceStatus(),
-      uptime: process.uptime(),
-      cpuUsage: await this.getCpuUsage(),
-      memoryUsage: await this.getMemoryUsage(),
+      uptime: uptimeSeconds,
+      cpuUsage: cpuPercent,
+      memoryUsage: Math.round((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100),
     };
   }
 
@@ -59,14 +64,16 @@ export class MonitoringService {
     return Math.random() * (100 - 20) + 20;
   }
 
-  private async getCpuUsage(): Promise<number> {
-    // In production, get from system monitoring
-    return Math.random() * (80 - 10) + 10;
+  async getCpuUsage(): Promise<number> {
+    const cpuUsage = process.cpuUsage();
+    const totalCpuTime = (cpuUsage.user + cpuUsage.system) / 1000000;
+    const uptimeSeconds = process.uptime();
+    return Math.min(100, Math.max(1, Math.round((totalCpuTime / uptimeSeconds) * 100)));
   }
 
-  private async getMemoryUsage(): Promise<number> {
-    // In production, get from system monitoring
-    return Math.random() * (90 - 30) + 30;
+  async getMemoryUsage(): Promise<number> {
+    const memoryUsage = process.memoryUsage();
+    return Math.min(100, Math.max(1, Math.round((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100)));
   }
 
   startMonitoring(interval: number = 30000) {

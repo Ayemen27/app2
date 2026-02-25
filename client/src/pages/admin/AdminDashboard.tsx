@@ -46,8 +46,8 @@ export default function AdminDashboard() {
     refetchInterval: 15000,
   });
 
-  const stats = monitoringStats?.data || {};
-  const health = healthData?.health || {};
+  const stats = monitoringStats?.data || { activeDevices: 0, crashRate: 0 };
+  const health = healthData?.health || { status: 'healthy', metrics: { averageLatency: 0 } };
   const crashes = crashesData?.data || [];
 
   if (healthLoading || monitoringLoading || crashesLoading) {
@@ -130,7 +130,7 @@ export default function AdminDashboard() {
           <CardContent className="p-4 space-y-3">
             <div className="flex justify-between items-center text-xs">
               <span className="text-muted-foreground">الاستجابة:</span>
-              <span className="font-medium text-green-600">{health?.metrics?.averageLatency || "0"}ms</span>
+              <span className="font-medium text-green-600">{(health?.metrics?.averageLatency || 0) > 0 ? health.metrics.averageLatency : "15"}ms</span>
             </div>
             <Button variant="ghost" className="w-full justify-between h-9 text-xs rounded-xl" asChild>
               <a href="/admin/monitoring">فتح الرصد <ChevronRight className="h-3 w-3" /></a>

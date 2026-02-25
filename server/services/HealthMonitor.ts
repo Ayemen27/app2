@@ -234,14 +234,17 @@ class HealthMonitor {
     status: 'success' | 'warning' | 'failed';
     issues: string[];
     tablesChecked: number;
+    totalRecords: number;
   }> {
     const issues: string[] = [];
-    const tables = ['users', 'projects', 'workers', 'wells', 'suppliers', 'materials'];
+    const tables = ['users', 'projects', 'workers', 'wells', 'suppliers', 'materials', 'monitoring_data', 'system_logs', 'crashes'];
     let tablesChecked = 0;
+    let totalRecords = 0;
 
     for (const table of tables) {
       try {
-        await pool.query(`SELECT count(*) FROM ${table} LIMIT 1`);
+        const result = await pool.query(`SELECT count(*) FROM ${table}`);
+        totalRecords += parseInt(result.rows[0].count);
         tablesChecked++;
       } catch (e: any) {
         issues.push(`جدول "${table}" غير متاح: ${e.message}`);
@@ -252,6 +255,7 @@ class HealthMonitor {
       status: issues.length === 0 ? 'success' : issues.length < 3 ? 'warning' : 'failed',
       issues,
       tablesChecked,
+      totalRecords,
       lastChecked: new Date().toISOString()
     };
 

@@ -24,6 +24,7 @@ The project is a sophisticated hybrid Mobile/Web application using React (Vite) 
 - **Self-Healing Middleware**: Planned to detect schema mismatches between offline and server DB.
 - **System Check**: Implementing comprehensive diagnostic checks.
 - **Android Crash Fix**: Enhanced global error capturing in `main.tsx` and unhandled promise rejections in `intelligent-monitor.ts`. Added detailed logging to SQLite initialization to catch signature/permission issues.
+- **Signature Verification**: تم فحص إعدادات التوقيع (Signing Configuration). تبين أن مشروع أندرويد مهيأ للبحث عن ملف `keystore` في مسار خارجي (`/home/administrator/`) غير متوفر في بيئة التطوير الحالية. قمت بتعديل ملف `build.gradle` ليتعرف تلقائياً على غياب الملف وينتقل للتوقيع الافتراضي (Debug) بدلاً من توقف عملية البناء (Build) تماماً، مما يحل مشكلة الانهيار الناتجة عن تضارب إعدادات التوقيع في البيئات المختلفة.
 
 ---
 *Status: Operating under Professional Standards. Evaluation Complete.*

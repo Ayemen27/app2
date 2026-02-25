@@ -1,3 +1,4 @@
+import "./lib/telemetry";
 import { createRoot } from "react-dom/client";
 import { initializeDB } from "./offline/db";
 import App from "./App";

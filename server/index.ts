@@ -1,22 +1,5 @@
+import "./lib/telemetry";
 import * as Sentry from "@sentry/node";
-import { registerInstrumentations } from "@opentelemetry/instrumentation";
-import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
-import { ExpressInstrumentation } from "@opentelemetry/instrumentation-express";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
-import { NodeSDK } from "@opentelemetry/sdk-node";
-
-// Initialize OpenTelemetry with NodeSDK for stability
-const sdk = new NodeSDK({
-  traceExporter: new OTLPTraceExporter({
-    url: "http://localhost:4318/v1/traces",
-  }),
-  instrumentations: [
-    new HttpInstrumentation(),
-    new ExpressInstrumentation(),
-  ],
-});
-sdk.start();
-
 import express, { type Request, Response, NextFunction } from "express";
 import { initializeEnvironment } from './utils/env-loader';
 // تهيئة البيئة فوراً قبل أي استيراد آخر

@@ -8,6 +8,8 @@ const collectorOptions = {
   url: 'http://localhost:4318/v1/traces',
 };
 
+// Disabled telemetry to fix startup error "provider.addSpanProcessor is not a function"
+/*
 const provider = new WebTracerProvider() as any;
 
 const exporter = new OTLPTraceExporter(collectorOptions);
@@ -24,3 +26,4 @@ registerInstrumentations({
     }),
   ],
 });
+*/

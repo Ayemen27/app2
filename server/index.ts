@@ -9,6 +9,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
+import fs from "fs";
 import { serveStatic, log } from "./static";
 import { envConfig } from "./utils/unified-env";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات
@@ -608,9 +609,6 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 
 // ✅ **404 Handler for API**
 app.use('/api', (req, res, next) => {
-  if (req.path === '/' || req.path === '' || req.path === '/index.html') {
-    return next();
-  }
   res.status(404).json({ 
     success: false, 
     message: `المسار غير موجود: ${req.originalUrl}` 
@@ -622,22 +620,18 @@ app.use((req, res, next) => {
     return next();
   }
   
-  if (envConfig.NODE_ENV !== "production") {
-    return next(); // Let Vite handle it
-  } else {
-    // Serve index.html for SPA routing in production
-    const distPaths = [
-      path.resolve(process.cwd(), "www"),
-      path.resolve(process.cwd(), "dist", "public"),
-    ];
-    for (const p of distPaths) {
-      const indexPath = path.join(p, "index.html");
-      if (fs.existsSync(indexPath)) {
-        return res.sendFile(indexPath);
-      }
+  // Serve index.html for SPA routing
+  const distPaths = [
+    path.resolve(process.cwd(), "www"),
+    path.resolve(process.cwd(), "dist", "public"),
+  ];
+  for (const p of distPaths) {
+    const indexPath = path.join(p, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
     }
-    next();
   }
+  next();
 });
 
 const FINAL_PORT = envConfig.PORT;

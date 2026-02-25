@@ -11,8 +11,8 @@
 - [x] Configure Prometheus & Grafana
 
 ## Phase 2: Instrumentation (IN PROGRESS)
-- [/] Add SDK to Backend (Middleware Initialized)
-- [ ] Add SDK to Frontend
+- [x] Add SDK to Backend (Middleware Initialized)
+- [x] Add SDK to Frontend
 - [ ] Implement Mobile Tracing
 
 ## Phase 3: AI & Analysis

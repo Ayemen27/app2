@@ -33,10 +33,19 @@
       "task_id": "INF-002",
       "task_name": "Kafka Infrastructure Planning",
       "agent": "Agent-Infrastructure",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "priority": "MEDIUM",
       "locked_files": ["docker-compose.signoz.yaml"],
       "description": "Plan the integration of Kafka as the telemetry backbone."
+    },
+    {
+      "task_id": "DATA-001",
+      "task_name": "Event Processing Setup",
+      "agent": "Agent-Data",
+      "status": "IN_PROGRESS",
+      "priority": "HIGH",
+      "locked_files": ["server/services/event-processor.ts"],
+      "description": "Initialize Kafka topics and basic event scoring logic."
     }
   ]
 }

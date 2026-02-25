@@ -617,6 +617,29 @@ app.use('/api', (req, res, next) => {
   });
 });
 
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+  
+  if (envConfig.NODE_ENV !== "production") {
+    return next(); // Let Vite handle it
+  } else {
+    // Serve index.html for SPA routing in production
+    const distPaths = [
+      path.resolve(process.cwd(), "dist", "public"),
+      path.resolve(process.cwd(), "www"),
+    ];
+    for (const p of distPaths) {
+      const indexPath = path.join(p, "index.html");
+      if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath);
+      }
+    }
+    next();
+  }
+});
+
 const FINAL_PORT = envConfig.PORT;
 const NODE_ENV = envConfig.NODE_ENV;
 

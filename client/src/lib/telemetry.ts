@@ -8,7 +8,7 @@ const collectorOptions = {
   url: 'http://localhost:4318/v1/traces',
 };
 
-const provider = new WebTracerProvider();
+const provider = new WebTracerProvider() as any;
 
 const exporter = new OTLPTraceExporter(collectorOptions);
 provider.addSpanProcessor(new BatchSpanProcessor(exporter));

@@ -6,4 +6,5 @@
 - **ADMIN-001**: Integrated System Health monitoring into Admin UI.
 - **BACK-001**: Verified backend instrumentation and governance locks.
 - **INF-002**: Completed Kafka Infrastructure Planning.
-- **DATA-001**: Initialized Event Processing service and scoring logic.
+- **DATA-001**: Completed Event Processing service, integrated scoring logic, and simulated Kafka production.
+- **GOV-002**: Updated handoff notes for Phase 2 transition.

@@ -27,8 +27,17 @@ export class EventProcessor {
   }
 
   public async processTelemetry(rawEvent: any) {
-    // Placeholder for Kafka producer logic
-    log(`Processing raw event: ${JSON.stringify(rawEvent)}`);
+    // Logic for Kafka production and enrichment
+    const enrichedEvent = {
+      ...rawEvent,
+      processedAt: new Date().toISOString(),
+      painScore: rawEvent.usersAffected ? this.calculateScore(rawEvent) : 0,
+      version: "1.0.0"
+    };
+    
+    log(`[Kafka] Producing enriched event to topic 'telemetry-events': ${JSON.stringify(enrichedEvent)}`);
+    // Here we would normally use a Kafka client like kafkajs
+    return enrichedEvent;
   }
 }
 

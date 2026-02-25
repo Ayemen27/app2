@@ -293,6 +293,13 @@ function Router() {
           </Suspense>
         </AdminRoute>
       </Route>
+      <Route path="/admin/system">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <AdminDashboard />
+          </Suspense>
+        </AdminRoute>
+      </Route>
       <Route path="/admin/dashboard">
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>

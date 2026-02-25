@@ -51,6 +51,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/admin/sync': { title: 'إدارة المزامنة', icon: RefreshCw },
   '/admin/dashboard': { title: 'لوحة القيادة الإدارية', icon: BarChart3 },
   '/admin/monitoring': { title: 'نظام الرصد المركزي', icon: Activity },
+  '/admin/system': { title: 'لوحة إدارة النظام المركزية', icon: Settings },
 };
 
 export default function Header() {

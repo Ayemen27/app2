@@ -62,6 +62,8 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 md:pb-6" dir="rtl">
+      {/* Header removed and moved to top bar per user instructions */}
+      
       <div className="flex items-center justify-end gap-3 px-1">
         <Badge variant={health?.status === 'healthy' ? 'success' : 'warning'} className="h-8 px-3 text-[11px] font-bold flex items-center gap-2 rounded-full shadow-sm">
           <ShieldCheck className="h-3.5 w-3.5" />
@@ -71,6 +73,69 @@ export default function AdminDashboard() {
           <Clock className="ml-1.5 h-3.5 w-3.5" />
           تحديث تلقائي
         </Button>
+      </div>
+
+      {/* Services Grid - Managing all services in the system */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-1">
+        <Card className="rounded-3xl border-slate-200 dark:border-slate-800 bg-white/50 backdrop-blur-md overflow-hidden hover:shadow-lg transition-all">
+          <CardHeader className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                <Database className="h-5 w-5" />
+              </div>
+              <CardTitle className="text-sm font-bold">إدارة البيانات</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-muted-foreground">حالة المزامنة:</span>
+              <Badge variant="success" className="text-[10px]">نشط</Badge>
+            </div>
+            <Button variant="ghost" className="w-full justify-between h-9 text-xs rounded-xl" asChild>
+              <a href="/admin/sync">عرض التفاصيل <ChevronRight className="h-3 w-3" /></a>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-3xl border-slate-200 dark:border-slate-800 bg-white/50 backdrop-blur-md overflow-hidden hover:shadow-lg transition-all">
+          <CardHeader className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <CardTitle className="text-sm font-bold">الأمان والنسخ الاحتياطي</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-muted-foreground">آخر نسخة:</span>
+              <span className="font-medium">منذ ساعتين</span>
+            </div>
+            <Button variant="ghost" className="w-full justify-between h-9 text-xs rounded-xl" asChild>
+              <a href="/admin/backups">إدارة النسخ <ChevronRight className="h-3 w-3" /></a>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-3xl border-slate-200 dark:border-slate-800 bg-white/50 backdrop-blur-md overflow-hidden hover:shadow-lg transition-all">
+          <CardHeader className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
+                <ActivityIcon className="h-5 w-5" />
+              </div>
+              <CardTitle className="text-sm font-bold">رصد النظام المركزي</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-muted-foreground">الاستجابة:</span>
+              <span className="font-medium text-green-600">{health?.metrics?.averageLatency || "0"}ms</span>
+            </div>
+            <Button variant="ghost" className="w-full justify-between h-9 text-xs rounded-xl" asChild>
+              <a href="/admin/monitoring">فتح الرصد <ChevronRight className="h-3 w-3" /></a>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Stats Grid using UnifiedStats for consistency */}

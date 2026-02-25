@@ -70,6 +70,7 @@ const sections = [
     icon: ShieldCheck,
     items: [
       { title: "لوحة القيادة", icon: BarChart3, url: "/admin/dashboard" },
+      { title: "إدارة النظام", icon: Settings, url: "/admin/system" },
       { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
       { title: "سياسات الأمان", icon: ShieldCheck, url: "/security-policies" },
       { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },

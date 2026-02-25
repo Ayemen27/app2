@@ -64,8 +64,10 @@ const allPagesData = [
     ]
   },
   {
-    category: "إدارة النظام",
+    category: "الإدارة العامة",
     pages: [
+      { path: "/admin/dashboard", icon: BarChart, label: "لوحة القيادة", description: "مؤشرات الأداء العامة للنظام", requireAdmin: true },
+      { path: "/admin/system", icon: Settings, label: "إدارة النظام", description: "لوحة التحكم المركزية في جميع الخدمات", requireAdmin: true },
       { path: "/users-management", icon: Users, label: "إدارة المستخدمين", description: "إدارة حسابات المستخدمين والصلاحيات", requireAdmin: true },
     ]
   },

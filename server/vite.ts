@@ -46,6 +46,7 @@ export async function setupVite(app: Express, server: Server) {
                         req.path.includes('/node_modules/') || 
                         req.path.includes('@vite/') || 
                         req.path.includes('@id/') ||
+                        req.path.includes('@react-refresh') ||
                         req.path.endsWith('.tsx') ||
                         req.path.endsWith('.ts');
 

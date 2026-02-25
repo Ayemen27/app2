@@ -62,7 +62,7 @@ app.use((req, res, next) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   
-  if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx') || req.path.endsWith('.js') || req.path.includes('@vite') || req.path.includes('/src/')) {
+  if (req.path.endsWith('.tsx') || req.path.endsWith('.ts') || req.path.endsWith('.jsx') || req.path.endsWith('.js') || req.path.includes('@vite') || req.path.includes('/src/') || req.path.includes('/node_modules/')) {
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
   }
 

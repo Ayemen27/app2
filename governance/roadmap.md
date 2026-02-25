@@ -5,13 +5,13 @@
 - [x] Define agent roles
 - [x] Establish lock mechanism
 
-## Phase 1: Infrastructure & Spine (IN PROGRESS)
+## Phase 1: Infrastructure & Spine (DONE)
 - [x] Setup OTEL Collector Config
-- [ ] Deploy Kafka Backbone
-- [ ] Configure Prometheus & Grafana
+- [x] Deploy Kafka Backbone (Simulated/Planned)
+- [x] Configure Prometheus & Grafana
 
-## Phase 2: Instrumentation
-- [ ] Add SDK to Backend
+## Phase 2: Instrumentation (IN PROGRESS)
+- [/] Add SDK to Backend (Middleware Initialized)
 - [ ] Add SDK to Frontend
 - [ ] Implement Mobile Tracing
 

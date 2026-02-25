@@ -1,9 +1,9 @@
-import "./lib/telemetry";
-import * as Sentry from "@sentry/node";
-import express, { type Request, Response, NextFunction } from "express";
 import { initializeEnvironment } from './utils/env-loader';
 // تهيئة البيئة فوراً قبل أي استيراد آخر
 initializeEnvironment();
+
+import "../instrumentation.js"; // ✅ تشغيل نظام التتبع OpenTelemetry
+import "./lib/telemetry";
 
 import cors from "cors";
 import helmet from "helmet";

@@ -173,10 +173,10 @@ try {
                 const q = query.toQuery();
                 text = q.text;
                 values = q.values;
-              } else if (query && typeof query.sql === 'string' && query.params) {
+              } else if (query && typeof query.sql === 'string') {
                 // Handle cases where the query object has sql and params (standard Drizzle/custom)
                 text = query.sql;
-                values = query.params;
+                values = query.params || [];
               } else if (query && query.inlineParams) {
                 // Handle cases where the query object has inlineParams
                 text = query.sql || '';

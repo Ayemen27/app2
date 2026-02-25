@@ -82,9 +82,12 @@ export function registerOrganizedRoutes(app: Express) {
 
   // مسارات العمال - تحتوي على مسارات أساسية ومسارات فرعية
   app.use('/api', workerRouter); // تركيب على /api للمسارات الفرعية مثل worker-attendance
+  app.use('/api/worker-attendance', workerRouter);
+  app.use('/api/worker-misc-expenses', workerRouter);
 
   // المسارات المالية
   app.use('/api', financialRouter); // يحتوي على عدة prefixes
+  app.use('/api/financial-summary', financialRouter);
 
   // مسارات التقارير الاحترافية
   app.use('/api', reportRouter);
@@ -124,6 +127,10 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات سجل تدقيق المزامنة
   app.use('/api/sync-audit', syncAuditRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات سجل تدقيق المزامنة: /api/sync-audit');
+
+  // مسارات الإكمال التلقائي الإضافية
+  app.use('/api/worker-transfer-notes', autocompleteRouter);
+  app.use('/api/worker-transfer-numbers', autocompleteRouter);
 
   // تفعيل معالج الأخطاء العالمي في النهاية لجميع المسارات المسجلة أعلاه
   app.use(globalErrorHandler);

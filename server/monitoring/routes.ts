@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { devices, crashes, metrics, notifications } from "@shared/schema";
+import { devices, crashes, metrics, notifications } from "../../shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { FcmService } from "../services/FcmService";
 

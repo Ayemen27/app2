@@ -7,7 +7,7 @@ import { GoogleDriveService } from "./services/GoogleDriveService";
 import { insertCrashSchema, insertMetricSchema, insertDeviceSchema } from "@shared/schema";
 
 import { FcmService } from "./services/FcmService";
-import { monitoringRouter } from "./routes/monitoring";
+import { monitoringRouter } from "./monitoring/routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // FCM Initialization

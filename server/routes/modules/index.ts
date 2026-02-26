@@ -81,6 +81,7 @@ export function registerOrganizedRoutes(app: Express) {
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات مصاريف الآبار: /api/well-expenses');
 
   // مسارات العمال - تحتوي على مسارات أساسية ومسارات فرعية
+  app.use('/api/workers', workerRouter);
   app.use('/api', workerRouter); // تركيب على /api للمسارات الفرعية مثل worker-attendance
   app.use('/api/worker-attendance', workerRouter);
   app.use('/api/worker-misc-expenses', workerRouter);

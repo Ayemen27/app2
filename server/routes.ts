@@ -14,7 +14,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await FcmService.initialize();
 
   // Initialize Monitoring Routes
-  await monitoringRouter(app);
+  await monitoringRouter(app).catch(err => {
+    console.error("Failed to initialize monitoring router:", err);
+  });
 
   // Monitoring Routes
   app.post("/api/devices", async (req, res) => {

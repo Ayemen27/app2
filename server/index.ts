@@ -521,10 +521,9 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
 });
 
 // Use permissions routes
-// Register old routes for compatibility
-registerRoutes(app);
-
-// Initialize route organizer
+// Register organized routes
+import { registerOrganizedRoutes } from "./routes/modules/index.js";
+registerOrganizedRoutes(app);
 
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
 app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {

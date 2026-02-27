@@ -432,7 +432,8 @@ notificationRouter.get('/user-activity', async (req: Request, res: Response) => 
  */
 notificationRouter.post('/:type', async (req: Request, res: Response) => {
   const type = req.params.type;
-  if (!['task', 'safety', 'system'].includes(type)) {
+  const validTypes = ['task', 'safety', 'system', 'announcement', 'payroll', 'maintenance', 'warranty'];
+  if (!validTypes.includes(type)) {
     return res.status(400).json({ error: 'Invalid notification type' });
   }
   const startTime = Date.now();
@@ -450,7 +451,7 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
       title: title,
       body: body,
       priority: priority || 3,
-      recipients: recipients === 'admins' || recipients === 'all' ? ['admins'] : (Array.isArray(recipients) ? recipients : [recipients]),
+      recipients: recipients === 'admins' || recipients === 'all' ? 'all' : (Array.isArray(recipients) ? recipients : [recipients]),
       projectId: projectId || null,
       channelPreference: { push: true, email: true }
     };
@@ -487,7 +488,7 @@ notificationRouter.post('/', async (req: Request, res: Response) => {
     const userId = req.user?.userId || req.user?.email || null;
     const { type, title, body, priority, recipients, projectId } = req.body;
 
-    const finalType = type || 'system';
+  const finalType = type || 'announcement';
 
     console.log(`📝 [API] إنشاء إشعار جديد (${finalType}) عبر المسار الرئيسي من المستخدم: ${userId}`);
 
@@ -496,7 +497,7 @@ notificationRouter.post('/', async (req: Request, res: Response) => {
       title: title,
       body: body,
       priority: priority || 3,
-      recipients: recipients === 'admins' || recipients === 'all' ? ['admins'] : (Array.isArray(recipients) ? recipients : [recipients]),
+      recipients: recipients === 'admins' || recipients === 'all' ? 'all' : (Array.isArray(recipients) ? recipients : [recipients]),
       projectId: projectId || null,
       channelPreference: { push: true, email: true }
     };

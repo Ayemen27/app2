@@ -1,81 +1,32 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.axion.app"
-    compileSdk 36
-
-    defaultConfig {
-        multiDexEnabled true
-        applicationId "com.axion.app"
-        minSdk 24
-        targetSdk 35
-        versionCode 27
-        versionName "1.0.27"
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-    }
-
+    namespace = "com.axion.app"
+    compileSdk = 34
+    
     signingConfigs {
         release {
-            if (project.hasProperty('AXION_UPLOAD_STORE_FILE')) {
-                storeFile file(AXION_UPLOAD_STORE_FILE)
-                storePassword AXION_UPLOAD_STORE_PASSWORD
-                keyAlias AXION_UPLOAD_KEY_ALIAS
-                keyPassword AXION_UPLOAD_KEY_PASSWORD
-            }
+            storeFile file('/home/runner/workspace/administrator/.axion-keystore/axion-release.keystore')
+            storePassword 'Ay**772283228'
+            keyAlias 'axion-key'
+            keyPassword 'Ay**772283228'
         }
+    }
+
+    defaultConfig {
+        applicationId "com.axion.app"
+        minSdkVersion 22
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
-        }
-        debug {
             minifyEnabled false
-        }
-    }
-    
-    packagingOptions {
-        exclude 'build-data.properties'
-        pickFirst 'lib/*/libc++_shared.so'
-        pickFirst 'lib/*/libsqlcipher.so'
-    }
-    
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_21
-        targetCompatibility JavaVersion.VERSION_21
-    }
-}
-
-dependencies {
-    implementation "androidx.multidex:multidex:2.0.1"
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.core:core-splashscreen:1.0.1'
-    implementation project(':capacitor-android')
-    implementation project(':capacitor-cordova-android-plugins')
-    
-    // Sentry SDK
-    implementation 'io.sentry:sentry-android:7.0.0'
-}
-
-apply from: 'capacitor.build.gradle'
-
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, skipping plugin admission")
-}
-
-android {
-    configurations.all {
-        resolutionStrategy {
-            force 'androidx.core:core:1.13.1'
-            force 'androidx.core:core-ktx:1.13.1'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }

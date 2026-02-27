@@ -102,6 +102,24 @@ if (dbUrl.includes("supabase.co")) {
     
     // العودة للاتصال المستقر والمباشر مع تحسينات الأداء
     finalDbUrl = dbUrl;
+    if (dbUrl.includes("supabase.co")) {
+      const projectRefMatch = dbUrl.match(/@db\.([^.]+)\.supabase\.co/);
+      const projectRef = projectRefMatch ? projectRefMatch[1] : null;
+      
+      if (projectRef) {
+        // التحقق من صحة المستخدم - Supabase يتطلب postgres.[project-ref] للـ Pooler
+        // أو postgres للاتصال المباشر. خطأ Tenant not found يعني غالباً تعارض بينهما.
+        console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
+        
+        // محاولة استخدام المضيف المباشر بالمنفذ 5432 والمستخدم postgres البسيط
+        // هذا هو الحل الأكثر موثوقية لتجاوز مشاكل الـ Tenant في Supabase
+        const urlParts = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@/);
+        if (urlParts) {
+          const password = urlParts[2];
+          finalDbUrl = `postgresql://postgres:${password}@db.${projectRef}.supabase.co:5432/postgres`;
+        }
+      }
+    }
     if (!finalDbUrl.includes("?")) {
       finalDbUrl += "?sslmode=no-verify&connect_timeout=30";
     }

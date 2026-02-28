@@ -179,6 +179,14 @@ main() {
     echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
     
+    # Load SSH variables from .env if not set
+    if [ -f .env ]; then
+        export SSH_HOST=$(grep "^SSH_HOST=" .env | cut -d'=' -f2-)
+        export SSH_USER=$(grep "^SSH_USER=" .env | cut -d'=' -f2-)
+        export SSH_PORT=$(grep "^SSH_PORT=" .env | cut -d'=' -f2-)
+        export SSH_PASSWORD=$(grep "^SSH_PASSWORD=" .env | cut -d'=' -f2-)
+    fi
+    
     if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_PORT" ] || [ -z "$SSH_PASSWORD" ]; then
         log_error "SSH credentials incomplete"
         exit 1

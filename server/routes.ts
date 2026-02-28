@@ -120,18 +120,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Proxy for OpenTelemetry traces from mobile/frontend
   app.post("/api/v1/traces", async (req, res) => {
-    try {
-      // Forward to OTLP collector
-      const response = await fetch("http://localhost:4318/v1/traces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req.body)
-      });
-      res.status(response.status).send(await response.text());
-    } catch (e: any) {
-      console.error("[OTEL Proxy Error]:", e);
-      res.status(502).json({ error: "OTLP collector unreachable" });
-    }
+    // تم تعطيل الوكيل مؤقتاً لتجنب أخطاء الاتصال بـ localhost غير الموجود
+    res.status(202).json({ status: "disabled", message: "OTLP proxy is currently disabled" });
   });
 
   app.post("/api/notifications/announcement", async (req, res) => {

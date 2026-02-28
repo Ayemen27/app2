@@ -24,7 +24,8 @@ const ALL_DATABASE_TABLES = [
   'user_project_permissions', 'permission_audit_logs',
   'report_templates', 'notification_read_states', 'build_deployments',
   'notifications', 'ai_chat_sessions', 'ai_chat_messages', 'ai_usage_stats',
-  'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories'
+  'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories',
+  'equipment', 'equipment_movements'
 ];
 
 const MAX_BATCH_SIZE = 5;

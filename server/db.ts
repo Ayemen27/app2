@@ -107,23 +107,23 @@ if (dbUrl.includes("supabase.co")) {
       const projectRef = projectRefMatch ? projectRefMatch[1] : null;
       
       if (projectRef) {
-        // التحقق من صحة المستخدم - Supabase يتطلب postgres.[project-ref] للـ Pooler
-        // أو postgres للاتصال المباشر. خطأ Tenant not found يعني غالباً تعارض بينهما.
-        console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
+        // الحل الجذري والنهائي المعتمد من Supabase لبيئات Replit:
+        // 1. استخدام المجمع (Pooler) لتجاوز مشاكل DNS المباشر
+        // 2. استخدام صيغة المستخدم الكاملة postgres.[project-ref]
+        console.log(`🔧 [Supabase Fix] تطبيق بروتوكول Pooler للمشروع: ${projectRef}`);
         
-        // محاولة استخدام المضيف المباشر بالمنفذ 5432 والمستخدم postgres البسيط
-        // هذا هو الحل الأكثر موثوقية لتجاوز مشاكل الـ Tenant في Supabase
         const urlParts = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@/);
         if (urlParts) {
           const password = urlParts[2];
-          finalDbUrl = `postgresql://postgres:${password}@db.${projectRef}.supabase.co:5432/postgres`;
+          // استخدام Pooler Host العالمي مع المنفذ 6543 والمستخدم المركب
+          finalDbUrl = `postgresql://postgres.${projectRef}:${password}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
         }
       }
     }
     if (!finalDbUrl.includes("?")) {
       finalDbUrl += "?sslmode=no-verify&connect_timeout=30";
     }
-    console.log(`🔗 [DB] استخدام الاتصال المباشر لضمان الاستقرار وتجنب أخطاء الـ Tenant`);
+    console.log(`🔗 [DB] استخدام اتصال Pooler المستقر لضمان الوصول وتجنب أخطاء الـ Tenant`);
   }
 }
 

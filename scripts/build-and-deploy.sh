@@ -51,6 +51,15 @@ transfer_files_to_server() {
     local VERSION=$1
     log_info "Transferring files to server..."
     
+    # Load SSH variables from .env if not set
+    if [ -f .env ]; then
+        # Export only the needed variables to avoid issues with special characters in other vars
+        export SSH_HOST=$(grep "^SSH_HOST=" .env | cut -d'=' -f2-)
+        export SSH_USER=$(grep "^SSH_USER=" .env | cut -d'=' -f2-)
+        export SSH_PORT=$(grep "^SSH_PORT=" .env | cut -d'=' -f2-)
+        export SSH_PASSWORD=$(grep "^SSH_PASSWORD=" .env | cut -d'=' -f2-)
+    fi
+
     export SSHPASS="$SSH_PASSWORD"
     
     log_info "Creating archive..."
@@ -79,6 +88,14 @@ trigger_build_on_server() {
     local VERSION=$1
     log_info "Starting build on server..."
     
+    # Load SSH variables from .env if not set
+    if [ -f .env ]; then
+        export SSH_HOST=$(grep "^SSH_HOST=" .env | cut -d'=' -f2-)
+        export SSH_USER=$(grep "^SSH_USER=" .env | cut -d'=' -f2-)
+        export SSH_PORT=$(grep "^SSH_PORT=" .env | cut -d'=' -f2-)
+        export SSH_PASSWORD=$(grep "^SSH_PASSWORD=" .env | cut -d'=' -f2-)
+    fi
+
     export SSHPASS="$SSH_PASSWORD"
     
     sshpass -e ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST << REMOTE_CMD
@@ -98,6 +115,8 @@ echo "🔨 Building Web App First..."
 export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info
 export NODE_ENV=production
 
+# Clean old build artifacts to ensure a fresh build
+rm -rf dist www
 npm run build 2>&1 | tail -10
 
 if [ ! -d "dist" ]; then
@@ -111,6 +130,12 @@ cd android
 
 echo ""
 echo "🔨 Syncing Capacitor..."
+# Ensure www directory exists and is updated before sync
+if [ -d "../www" ]; then
+    rm -rf public
+    cp -r ../www public
+fi
+npx cap copy android 2>&1 | tail -5
 npx cap sync android 2>&1 | tail -5
 echo "✅ Capacitor synced"
 

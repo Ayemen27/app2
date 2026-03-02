@@ -302,6 +302,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       userData?.email_verified === true ||
       !!userData?.emailVerifiedAt || 
       !!userData?.email_verified_at ||
+      !!userData?.email_verified || // إضافة هذا الحقل
       localStorage.getItem('emailVerified') === 'true';
 
     // دعم جميع أشكال التوكنات الممكنة بمرونة قصوى

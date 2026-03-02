@@ -29,6 +29,52 @@ function buildWorkerHTML(data: any, worker: any): string {
     </tr>`;
   }).join('');
 
+  // تحضير ملخص المشاريع
+  const projectSummaryMap = (data?.statement || []).reduce((acc: any, item: any) => {
+    const pName = item.projectName || item.project_name || 'غير محدد';
+    if (!acc[pName]) {
+      acc[pName] = { earned: 0, paid: 0, days: 0 };
+    }
+    const amount = parseFloat(item.amount || 0);
+    const paid = parseFloat(item.paid || 0);
+    const days = item.type === 'عمل' ? parseFloat(item.workDays || 0) : 0;
+    
+    acc[pName].earned += amount;
+    acc[pName].paid += paid;
+    acc[pName].days += days;
+    return acc;
+  }, {});
+
+  const projectSummaryRows = Object.entries(projectSummaryMap).map(([name, stats]: [string, any]) => `
+    <tr>
+      <td style="padding:5px;border:1px solid #BFBFBF;font-size:10px;">${name}</td>
+      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;">${stats.days.toFixed(2)}</td>
+      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;">${stats.earned.toLocaleString()}</td>
+      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;">${stats.paid.toLocaleString()}</td>
+      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;font-weight:700;">${(stats.earned - stats.paid).toLocaleString()}</td>
+    </tr>
+  `).join('');
+
+  const projectSummaryTable = (data?.statement || []).length > 0 && Object.keys(projectSummaryMap).length > 1 ? `
+    <div style="margin-top:20px;">
+      <div style="background:#1F4E79;color:#fff;padding:5px 10px;font-size:12px;font-weight:800;border:1px solid #16365C;">ملخص المشاريع التفصيلي</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:2px;">
+        <thead>
+          <tr style="background:#F2F2F2;">
+            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:right;">المشروع</th>
+            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">إجمالي الأيام</th>
+            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">إجمالي المستحق</th>
+            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">إجمالي المدفوع</th>
+            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">المتبقي</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${projectSummaryRows}
+        </tbody>
+      </table>
+    </div>
+  ` : '';
+
   return `<div style="direction:rtl;font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
     <div style="background:#1F4E79;color:#fff;text-align:center;padding:10px 0;font-size:18px;font-weight:800;margin-bottom:12px;">كشف حساب العامل التفصيلي والشامل</div>
     <div style="display:flex;justify-content:space-between;margin:0 10px 12px 10px;font-size:12px;">
@@ -69,6 +115,7 @@ function buildWorkerHTML(data: any, worker: any): string {
         </tr>
       </tbody>
     </table>
+    ${projectSummaryTable}
     <div style="margin-top:20px;">
       <table style="width:300px;border:2px solid #1F4E79;border-collapse:collapse;">
         <tr><td colspan="2" style="background:#00B050;color:#fff;text-align:center;font-weight:800;padding:6px;font-size:13px;border:1px solid #00803A;">الملخص المالي</td></tr>

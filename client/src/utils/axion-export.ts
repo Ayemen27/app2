@@ -788,6 +788,56 @@ export async function exportDetailedWorkerStatement(
   summaryRow.height = 28;
   currentRow++;
 
+  // حساب ملخص المشاريع التفصيلي عند اختيار "تعدد مشاريع"
+  const projectSummaryMap: Record<string, { earned: number, paid: number, days: number }> = {};
+  data.records.forEach(record => {
+    const pName = record.projectName || 'غير محدد';
+    if (!projectSummaryMap[pName]) {
+      projectSummaryMap[pName] = { earned: 0, paid: 0, days: 0 };
+    }
+    projectSummaryMap[pName].earned += (parseFloat(record.amountDue as any) || 0);
+    projectSummaryMap[pName].paid += (parseFloat(record.amountReceived as any) || 0);
+    projectSummaryMap[pName].days += (parseFloat(record.workDays as any) || 0);
+  });
+
+  const projectNames = Object.keys(projectSummaryMap);
+  if (projectNames.length > 1) {
+    currentRow += 1;
+    worksheet.mergeCells(currentRow, 1, currentRow, 11);
+    const summaryTitleCell = worksheet.getCell(currentRow, 1);
+    summaryTitleCell.value = 'ملخص المشاريع التفصيلي المجمع';
+    applyStyle(summaryTitleCell, EXCEL_STYLES.headerSecondary);
+    currentRow++;
+
+    const summaryHeaders = ['المشروع', 'إجمالي الأيام', 'إجمالي المستحق', 'إجمالي المدفوع', 'المتبقي', '', '', '', '', '', ''];
+    const summaryHeaderRow = worksheet.getRow(currentRow);
+    summaryHeaders.forEach((h, i) => {
+      if (h) {
+        const cell = summaryHeaderRow.getCell(i + 1);
+        cell.value = h;
+        applyStyle(cell, EXCEL_STYLES.tableHeader);
+      }
+    });
+    currentRow++;
+
+    projectNames.forEach((pName, idx) => {
+      const stats = projectSummaryMap[pName];
+      const row = worksheet.getRow(currentRow);
+      row.getCell(1).value = pName;
+      row.getCell(2).value = stats.days;
+      row.getCell(3).value = stats.earned;
+      row.getCell(4).value = stats.paid;
+      row.getCell(5).value = stats.earned - stats.paid;
+
+      const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
+      applyRowStyle(row, style, 1, 5);
+      row.getCell(3).numFmt = '#,##0.00';
+      row.getCell(4).numFmt = '#,##0.00';
+      row.getCell(5).numFmt = '#,##0.00';
+      currentRow++;
+    });
+  }
+
   currentRow = addSignatureSection(worksheet, currentRow, [
     { title: 'توقيع العامل' },
     { title: 'توقيع المهندس المشرف' },

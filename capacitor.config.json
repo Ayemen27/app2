@@ -1,0 +1,6 @@
+{
+  "appId": "com.replit.restexpress",
+  "appName": "RestExpress",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}

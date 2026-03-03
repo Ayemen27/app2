@@ -1,22 +1,19 @@
-import sdk from '@adiwajshing/baileys';
-import { Boom } from '@hapi/boom';
-import pino from 'pino';
-import { getWhatsAppAIService } from './WhatsAppAIService';
-
-const { 
-  default: makeWASocket,
+import makeWASocket, { 
   useMultiFileAuthState, 
   DisconnectReason, 
   fetchLatestBaileysVersion,
-  makeCacheableSignalKeyStore
-} = sdk as any;
+  makeCacheableSignalKeyStore,
+  ConnectionState,
+  WAVersion
+} from '@whiskeysockets/baileys';
+import { Boom } from '@hapi/boom';
+import pino from 'pino';
+import { getWhatsAppAIService } from './WhatsAppAIService';
 
 const logger = pino({ level: 'info' });
 
 export class WhatsAppBot {
   private sock: any;
-  private state: any;
-  private saveCreds: any;
   private qr: string | null = null;
   private status: "idle" | "connecting" | "open" | "close" = "idle";
 
@@ -31,9 +28,8 @@ export class WhatsAppBot {
   async restart() {
     if (this.sock) {
       try {
-        await this.sock.logout();
+        await this.sock.end(undefined);
       } catch (e) {}
-      this.sock.end(undefined);
     }
     this.status = "idle";
     this.qr = null;
@@ -43,16 +39,15 @@ export class WhatsAppBot {
   async start() {
     this.status = "connecting";
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-    this.state = state;
-    this.saveCreds = saveCreds;
 
-    // Use a newer version if the automatic one is too old
-    let { version, isLatest } = await fetchLatestBaileysVersion();
-    if (version[0] < 2 || (version[0] === 2 && version[1] < 3000)) {
-      console.log('⚠️ [WhatsAppBot] Detected very old WA version, forcing 2.3000.1015901307');
-      version = [2, 3000, 1015901307];
+    let version: WAVersion = [2, 3000, 1015901307];
+    try {
+      const { version: latestVersion, isLatest } = await fetchLatestBaileysVersion();
+      version = latestVersion;
+      console.log(`📱 [WhatsAppBot] Using WA version v${version.join('.')}, isLatest: ${isLatest}`);
+    } catch (err) {
+      console.log(`⚠️ [WhatsAppBot] Failed to fetch latest version, using fallback: ${version.join('.')}`);
     }
-    console.log(`📱 [WhatsAppBot] Using WA version v${version.join('.')}, isLatest: ${isLatest}`);
 
     try {
       this.sock = makeWASocket({
@@ -78,7 +73,7 @@ export class WhatsAppBot {
 
     this.sock.ev.on('creds.update', saveCreds);
 
-    this.sock.ev.on('connection.update', async (update: any) => {
+    this.sock.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
       const { connection, lastDisconnect, qr } = update;
       
       if (qr) {
@@ -96,7 +91,6 @@ export class WhatsAppBot {
         console.log(`🔌 [WhatsAppBot] Connection closed. Reason: ${statusCode}, Reconnecting: ${shouldReconnect}`);
         
         if (shouldReconnect) {
-          // محاولة إعادة الاتصال بعد 5 ثوانٍ لتجنب حلقة سريعة
           setTimeout(() => {
             console.log('🔄 [WhatsAppBot] Attempting to reconnect...');
             this.start();
@@ -114,6 +108,8 @@ export class WhatsAppBot {
       if (!msg.message || msg.key.fromMe) return;
 
       const from = msg.key.remoteJid;
+      if (!from) return;
+
       const text = msg.message.conversation || 
                    msg.message.extendedTextMessage?.text || 
                    '';
@@ -124,7 +120,6 @@ export class WhatsAppBot {
 
       try {
         const whatsappAIService = getWhatsAppAIService();
-        // تنظيف رقم الهاتف من @s.whatsapp.net للمقارنة
         const cleanPhone = from.split('@')[0];
         const allowedPhone = process.env.ALLOWED_WHATSAPP_PHONE || "00966500000000";
 

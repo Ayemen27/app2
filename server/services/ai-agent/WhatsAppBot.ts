@@ -160,12 +160,30 @@ export class WhatsAppBot {
         const reply = await whatsappAIService.handleIncomingMessage(cleanPhone, text, allowedPhone);
 
         if (reply) {
-          await this.sock.sendMessage(from, { text: reply });
+          await this.safeSendMessage(from, { text: reply });
         }
       } catch (error) {
         console.error('❌ [WhatsAppBot] Error processing message:', error);
       }
     });
+  }
+
+  // دالة إرسال آمنة مع تأخير عشوائي لمحاكاة السلوك البشري
+  async safeSendMessage(jid: string, content: any) {
+    if (!this.sock) return;
+    
+    // تأخير عشوائي بين 2 إلى 5 ثوانٍ
+    const delay = Math.floor(Math.random() * (5000 - 2000 + 1)) + 2000;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    // إضافة حرف غير مرئي في نهاية النص لتنويع المحتوى (Anti-Detection)
+    if (content.text) {
+      const zeroWidthChars = ['\u200B', '\u200C', '\u200D', '\uFEFF'];
+      const randomChar = zeroWidthChars[Math.floor(Math.random() * zeroWidthChars.length)];
+      content.text = content.text + randomChar;
+    }
+
+    return await this.sock.sendMessage(jid, content);
   }
 }
 

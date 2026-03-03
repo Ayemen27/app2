@@ -59,6 +59,10 @@ export interface IStorage {
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined>;
   deleteTask(id: number): Promise<void>;
 
+  // WhatsApp AI
+  getWhatsAppMessagesCount(): Promise<number>;
+  getWhatsAppLastSync(): Promise<Date | null>;
+
   // Projects
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | undefined>;
@@ -447,6 +451,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Projects
+  async getWhatsAppMessagesCount(): Promise<number> {
+    const result = await db.select({ count: count() }).from(auditLogs).where(like(auditLogs.action, 'whatsapp_%'));
+    return Number(result[0].count);
+  }
+
+  async getWhatsAppLastSync(): Promise<Date | null> {
+    const result = await db.select().from(auditLogs).where(like(auditLogs.action, 'whatsapp_sync')).orderBy(desc(auditLogs.createdAt)).limit(1);
+    return result[0]?.createdAt || null;
+  }
+
   async getProjects(): Promise<Project[]> {
     return await db.select().from(projectsTable);
   }

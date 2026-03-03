@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, CheckCircle2, QrCode, MessageSquare, AlertCircle, RefreshCw, Smartphone, Key, ShieldCheck, Zap, History, BarChart3, Settings2 } from "lucide-react";
+import { Loader2, CheckCircle2, QrCode, MessageSquare, AlertCircle, RefreshCw, Smartphone, Key, ShieldCheck, Zap, History, BarChart3, Settings2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { formatDate } from "@/lib/utils";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 export default function WhatsAppSetupPage() {
   const { toast } = useToast();
@@ -17,6 +18,7 @@ export default function WhatsAppSetupPage() {
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "connecting" | "open" | "close">("idle");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [countryCode, setCountryCode] = useState("");
   const [isRequestingCode, setIsRequestingCode] = useState(false);
 
   const { data: botStatus, isLoading: isLoadingStatus } = useQuery({
@@ -32,6 +34,15 @@ export default function WhatsAppSetupPage() {
     enabled: true
   });
 
+  // Fetch real stats from database/API
+  const { data: realStats } = useQuery({
+    queryKey: ["/api/whatsapp-ai/stats"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/whatsapp-ai/stats");
+      return res;
+    }
+  });
+
   useEffect(() => {
     if (botStatus) {
       setStatus(botStatus.status);
@@ -43,6 +54,21 @@ export default function WhatsAppSetupPage() {
       }
     }
   }, [botStatus]);
+
+  const handlePhoneChange = (value: string) => {
+    setPhoneNumber(value);
+    try {
+      // Basic country detection from input
+      const phone = parsePhoneNumberFromString(value.startsWith('+') ? value : `+${value}`);
+      if (phone && phone.country) {
+        setCountryCode(phone.country);
+      } else {
+        setCountryCode("");
+      }
+    } catch (e) {
+      setCountryCode("");
+    }
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -74,38 +100,30 @@ export default function WhatsAppSetupPage() {
 
   const stats = [
     { title: "حالة الاتصال", value: status === "open" ? "متصل" : "غير متصل", icon: Zap, color: status === "open" ? "green" : "red" },
-    { title: "الرسائل المعالجة", value: "128", icon: MessageSquare, color: "blue" },
-    { title: "آخر مزامنة", value: "منذ 5 دقائق", icon: RefreshCw, color: "purple" },
-    { title: "دقة التحليل", value: "98%", icon: ShieldCheck, color: "teal" },
+    { title: "الرسائل المعالجة", value: realStats?.totalMessages?.toString() || "0", icon: MessageSquare, color: "blue" },
+    { title: "آخر مزامنة", value: realStats?.lastSync ? formatDate(realStats.lastSync) : "لا يوجد", icon: RefreshCw, color: "purple" },
+    { title: "دقة التحليل", value: realStats?.accuracy || "0%", icon: ShieldCheck, color: "teal" },
   ];
 
   return (
-    <div className="p-4 space-y-6 animate-in fade-in duration-500">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
-            <MessageSquare className="h-8 w-8 text-green-600" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">إعدادات الربط الذكي (WhatsApp)</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">إدارة اتصال الواتساب ومعالجة البيانات آلياً</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => handleRestart()}
-            className="flex gap-2 rounded-xl"
-            disabled={status === "connecting"}
-          >
-            <RefreshCw className={`h-4 w-4 ${status === "connecting" ? "animate-spin" : ""}`} />
-            تحديث الحالة
-          </Button>
-        </div>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Dynamic Header Action Button */}
+      <div id="header-action-portal" className="hidden">
+        <Button 
+          size="sm"
+          className="gap-2 bg-primary text-white hover:bg-primary/90"
+          onClick={() => {/* logic */}}
+        >
+          <Plus className="h-4 w-4" />
+          إضافة جديد
+        </Button>
       </div>
 
-      {/* Stats Grid */}
+      <style>{`
+        #header-action-portal { display: none; }
+        .layout-header #header-custom-button { display: flex; }
+      `}</style>
+      
       <UnifiedStats stats={stats} columns={4} hideHeader />
 
       <Tabs defaultValue="connection" className="w-full">
@@ -166,15 +184,30 @@ export default function WhatsAppSetupPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 uppercase">رقم الهاتف الدولي</label>
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="9665XXXXXXXX" 
-                        value={phoneNumber} 
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        disabled={status === "open"}
-                        className="rounded-xl font-mono"
-                      />
-                      <Button onClick={() => handleRestart(phoneNumber)} disabled={!phoneNumber || status === "open"}>
+                    <div className="relative flex gap-2">
+                      <div className="relative flex-1">
+                        <Input 
+                          placeholder="9665XXXXXXXX" 
+                          value={phoneNumber} 
+                          onChange={(e) => handlePhoneChange(e.target.value)}
+                          disabled={status === "open"}
+                          className="rounded-xl font-mono pl-10"
+                        />
+                        {countryCode && (
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            <img 
+                              src={`https://flagcdn.com/w20/${countryCode.toLowerCase()}.png`}
+                              alt={countryCode}
+                              className="w-5 h-auto rounded-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <Button 
+                        onClick={() => handleRestart(phoneNumber)} 
+                        disabled={!phoneNumber || status === "open"}
+                        data-restart-trigger
+                      >
                         {isRequestingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : "طلب كود"}
                       </Button>
                     </div>

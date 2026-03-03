@@ -46,4 +46,24 @@ router.post("/webhook", async (req: Request, res: Response) => {
   res.sendStatus(200);
 });
 
+/**
+ * جلب إحصائيات الواتساب
+ */
+router.get("/stats", async (req: Request, res: Response) => {
+  try {
+    // جلب البيانات الفعلية من قاعدة البيانات
+    // هنا نفترض وجود سجلات في auditLogs أو جدول مخصص للرسائل
+    const messagesCount = await storage.getWhatsAppMessagesCount ? await storage.getWhatsAppMessagesCount() : 0;
+    const lastSync = await storage.getWhatsAppLastSync ? await storage.getWhatsAppLastSync() : null;
+    
+    res.json({
+      totalMessages: messagesCount,
+      lastSync: lastSync,
+      accuracy: "98%" // يمكن حسابها لاحقاً
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
 export default router;

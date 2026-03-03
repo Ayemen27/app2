@@ -52,6 +52,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/admin/dashboard': { title: 'لوحة القيادة الإدارية', icon: BarChart3 },
   '/admin/monitoring': { title: 'نظام الرصد المركزي', icon: Activity },
   '/admin/system': { title: 'لوحة إدارة النظام المركزية', icon: Settings },
+  '/whatsapp-setup': { title: 'ربط الواتساب', icon: MessageSquare },
 };
 
 export default function Header() {
@@ -136,6 +137,22 @@ export default function Header() {
       <div className="flex-1" />
       
       <div className="flex items-center gap-2">
+        {location === '/whatsapp-setup' && (
+          <div id="header-custom-button" className="hidden md:flex">
+            {/* Button will be portaled or manually placed here */}
+            <Button 
+              size="sm"
+              className="gap-2 bg-primary text-white hover:bg-primary/90 rounded-xl"
+              onClick={() => {
+                const restartBtn = document.querySelector('[data-restart-trigger]');
+                if (restartBtn) (restartBtn as HTMLElement).click();
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              إضافة جديد
+            </Button>
+          </div>
+        )}
         <NotificationCenter />
         
         <Button

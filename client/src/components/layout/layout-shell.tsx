@@ -31,7 +31,7 @@ export function LayoutShell({
   const { toast } = useToast();
   const mainRef = useRef<HTMLElement | null>(null);
   
-  const pagesWithCustomHeader = ['/ai-chat', '/admin/data-health', '/whatsapp-setup'];
+  const pagesWithCustomHeader = ['/ai-chat', '/admin/data-health'];
   const isCustomHeaderPage = pagesWithCustomHeader.some(page => location === page);
   
   const pagesWithoutNav: string[] = [];

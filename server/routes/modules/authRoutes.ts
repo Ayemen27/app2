@@ -494,7 +494,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       // البحث عن المستخدم مرة أخرى للتأكد
       const userResult = await db.execute({
-        text: 'SELECT id, email, role, first_name, last_name, created_at FROM users WHERE id = $1 OR user_id = $1',
+        text: 'SELECT id, email, role, first_name, last_name, created_at FROM users WHERE id = $1',
         values: [decoded.user_id || decoded.id || decoded.sub]
       });
 

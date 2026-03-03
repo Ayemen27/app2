@@ -32,7 +32,7 @@ export default function WhatsAppSetupPage() {
 
   const handleRestart = async () => {
     try {
-      await apiRequest("POST", "/api/whatsapp-ai/restart");
+      await apiRequest("POST", "/api/whatsapp-ai/restart", {});
       toast({
         title: "جاري إعادة التشغيل",
         description: "يتم الآن إعادة تشغيل بوت الواتساب...",

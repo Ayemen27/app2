@@ -46,21 +46,35 @@ export class WhatsAppBot {
     this.state = state;
     this.saveCreds = saveCreds;
 
-    const { version, isLatest } = await fetchLatestBaileysVersion();
+    // Use a newer version if the automatic one is too old
+    let { version, isLatest } = await fetchLatestBaileysVersion();
+    if (version[0] < 2 || (version[0] === 2 && version[1] < 3000)) {
+      console.log('⚠️ [WhatsAppBot] Detected very old WA version, forcing 2.3000.1015901307');
+      version = [2, 3000, 1015901307];
+    }
     console.log(`📱 [WhatsAppBot] Using WA version v${version.join('.')}, isLatest: ${isLatest}`);
 
-    this.sock = makeWASocket({
-      version,
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, logger),
-      },
-      printQRInTerminal: true,
-      logger,
-      browser: ["BinarJoin", "Chrome", "110.0.0"],
-      connectTimeoutMs: 60000,
-      keepAliveIntervalMs: 15000,
-    });
+    try {
+      this.sock = makeWASocket({
+        version,
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, logger),
+        },
+        printQRInTerminal: true,
+        logger,
+        browser: ["BinarJoin", "Chrome", "121.0.0.0"],
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 30000,
+        emitOwnEvents: true,
+        retryRequestDelayMs: 5000,
+        defaultQueryTimeoutMs: 60000,
+      });
+    } catch (err) {
+      console.error('❌ [WhatsAppBot] Critical error creating socket:', err);
+      this.status = "close";
+      return;
+    }
 
     this.sock.ev.on('creds.update', saveCreds);
 

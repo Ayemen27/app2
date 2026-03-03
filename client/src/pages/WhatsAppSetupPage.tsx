@@ -13,7 +13,10 @@ export default function WhatsAppSetupPage() {
 
   const { data: botStatus, isLoading: isLoadingStatus } = useQuery({
     queryKey: ["/api/whatsapp-ai/status"],
-    refetchInterval: 5000,
+    refetchInterval: (query) => {
+      const data = query.state.data as any;
+      return (data?.status === "connecting" || !data?.qr) ? 2000 : 5000;
+    },
   });
 
   useEffect(() => {
@@ -86,9 +89,9 @@ export default function WhatsAppSetupPage() {
               <div className="p-4 bg-white rounded-xl shadow-inner border">
                 {/* هنا سيتم عرض الـ QR الفعلي المرسل من السيرفر */}
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`} 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`} 
                   alt="WhatsApp QR Code"
-                  className="w-64 h-64"
+                  className="w-64 h-64 mx-auto"
                 />
                 <p className="mt-4 text-xs text-center text-slate-400 font-mono">{qrCode.substring(0, 20)}...</p>
               </div>

@@ -57,25 +57,36 @@ export class WhatsAppBot {
       },
       printQRInTerminal: true,
       logger,
+      browser: ["BinarJoin", "Chrome", "110.0.0"],
+      connectTimeoutMs: 60000,
+      keepAliveIntervalMs: 15000,
     });
 
     this.sock.ev.on('creds.update', saveCreds);
 
-    this.sock.ev.on('connection.update', (update: any) => {
+    this.sock.ev.on('connection.update', async (update: any) => {
       const { connection, lastDisconnect, qr } = update;
       
       if (qr) {
         this.qr = qr;
         this.status = "connecting";
-        console.log('📸 [WhatsAppBot] New QR Code generated. Update ready for UI.');
+        console.log('📸 [WhatsAppBot] New QR Code generated');
       }
 
       if (connection === 'close') {
+        const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
         this.status = "close";
-        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log('🔌 [WhatsAppBot] Connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
+        this.qr = null;
+        
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        console.log(`🔌 [WhatsAppBot] Connection closed. Reason: ${statusCode}, Reconnecting: ${shouldReconnect}`);
+        
         if (shouldReconnect) {
-          this.start();
+          // محاولة إعادة الاتصال بعد 5 ثوانٍ لتجنب حلقة سريعة
+          setTimeout(() => {
+            console.log('🔄 [WhatsAppBot] Attempting to reconnect...');
+            this.start();
+          }, 5000);
         }
       } else if (connection === 'open') {
         this.status = "open";

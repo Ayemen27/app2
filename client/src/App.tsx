@@ -78,7 +78,7 @@ const Reports = lazy(() => import("./pages/axion-reports"));
 const SettingsPage = lazy(() => import("./pages/settings"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
 const AIChatPage = lazy(() => import("./pages/ai-chat"));
-const WhatsAppSetupPage = lazy(() => import("./pages/WhatsAppSetupPage"));
+const WhatsAppSetupPage = lazy(() => import("./pages/whatsapp/index"));
 const SyncComparisonPage = lazy(() => import("./pages/sync-comparison"));
 
 

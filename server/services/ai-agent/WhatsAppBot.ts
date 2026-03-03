@@ -120,6 +120,20 @@ export class WhatsAppBot {
         this.qr = null;
         this.pairingCode = null;
         console.log('✅ [WhatsAppBot] Connection opened successfully');
+        
+        // تسجيل عملية الربط في سجل المزامنة
+        try {
+          const { storage } = await import("../../storage");
+          await storage.createAuditLog?.({
+            userId: "system",
+            action: "whatsapp_connection",
+            module: "whatsapp",
+            description: "تم ربط حساب واتساب بنجاح",
+            status: "success"
+          });
+        } catch (e) {
+          console.error("Failed to log whatsapp connection:", e);
+        }
       }
     });
 

@@ -77,6 +77,7 @@ const sections = [
       { title: "النسخ الاحتياطي", icon: ShieldCheck, url: "/admin/backups" },
       { title: "إدارة المزامنة", icon: RefreshCw, url: "/admin/sync" },
       { title: "نظام الرصد", icon: Activity, url: "/admin/monitoring" },
+      { title: "ربط الواتساب", icon: MessageSquare, url: "/whatsapp-setup" },
       { title: "قاعدة البيانات", icon: Database, url: "/local-db" },
     ]
   }

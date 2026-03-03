@@ -78,6 +78,7 @@ const Reports = lazy(() => import("./pages/axion-reports"));
 const SettingsPage = lazy(() => import("./pages/settings"));
 const UsersManagementPage = lazy(() => import("./pages/users-management"));
 const AIChatPage = lazy(() => import("./pages/ai-chat"));
+const WhatsAppSetupPage = lazy(() => import("./pages/WhatsAppSetupPage"));
 const SyncComparisonPage = lazy(() => import("./pages/sync-comparison"));
 
 
@@ -283,6 +284,13 @@ function Router() {
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
             <AIChatPage />
+          </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/whatsapp-setup">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <WhatsAppSetupPage />
           </Suspense>
         </AdminRoute>
       </Route>

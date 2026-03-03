@@ -17,8 +17,31 @@ export class WhatsAppBot {
   private sock: any;
   private state: any;
   private saveCreds: any;
+  private qr: string | null = null;
+  private status: "idle" | "connecting" | "open" | "close" = "idle";
+
+  getStatus() {
+    return this.status;
+  }
+
+  getQR() {
+    return this.qr;
+  }
+
+  async restart() {
+    if (this.sock) {
+      try {
+        await this.sock.logout();
+      } catch (e) {}
+      this.sock.end(undefined);
+    }
+    this.status = "idle";
+    this.qr = null;
+    return this.start();
+  }
 
   async start() {
+    this.status = "connecting";
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
     this.state = state;
     this.saveCreds = saveCreds;
@@ -42,16 +65,21 @@ export class WhatsAppBot {
       const { connection, lastDisconnect, qr } = update;
       
       if (qr) {
-        console.log('📸 [WhatsAppBot] New QR Code generated. Please scan it in the terminal.');
+        this.qr = qr;
+        this.status = "connecting";
+        console.log('📸 [WhatsAppBot] New QR Code generated. Update ready for UI.');
       }
 
       if (connection === 'close') {
+        this.status = "close";
         const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
         console.log('🔌 [WhatsAppBot] Connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
         if (shouldReconnect) {
           this.start();
         }
       } else if (connection === 'open') {
+        this.status = "open";
+        this.qr = null;
         console.log('✅ [WhatsAppBot] Connection opened successfully');
       }
     });

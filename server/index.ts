@@ -32,8 +32,11 @@ import { healthMonitor } from './services/HealthMonitor';
 import { authRouter } from './routes/modules/authRoutes.js';
 import { FcmService } from "./services/FcmService";
 
+import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
+
 // تهيئة الخدمات الخارجية
 FcmService.initialize();
+getWhatsAppBot().start().catch(console.error);
 
 const app = express();
 

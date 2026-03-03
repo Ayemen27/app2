@@ -26,6 +26,7 @@ import {
   type RefreshToken, type InsertRefreshToken, type AuditLog, type InsertAuditLog,
   type Task, type InsertTask,
   type Device, type InsertDevice, type Crash, type InsertCrash, type Metric, type InsertMetric,
+  type WhatsAppStats, type InsertWhatsAppStats, type WhatsAppMessage, type InsertWhatsAppMessage,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
   refreshTokens, auditLogs,
@@ -36,6 +37,8 @@ import {
   devices,
   crashes,
   metrics,
+  whatsappStats,
+  whatsappMessages,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
@@ -60,8 +63,11 @@ export interface IStorage {
   deleteTask(id: number): Promise<void>;
 
   // WhatsApp AI
+  getWhatsAppStats(): Promise<WhatsAppStats | undefined>;
+  updateWhatsAppStats(stats: Partial<InsertWhatsAppStats>): Promise<WhatsAppStats>;
   getWhatsAppMessagesCount(): Promise<number>;
   getWhatsAppLastSync(): Promise<Date | null>;
+  createWhatsAppMessage(message: InsertWhatsAppMessage): Promise<WhatsAppMessage>;
 
   // Projects
   getProjects(): Promise<Project[]>;
@@ -450,15 +456,44 @@ export class DatabaseStorage implements IStorage {
     await db.delete(tasks).where(eq(tasks.id, id));
   }
 
-  // Projects
+  // WhatsApp AI
+  async getWhatsAppStats(): Promise<WhatsAppStats | undefined> {
+    const result = await db.select().from(whatsappStats).limit(1);
+    return result[0];
+  }
+
+  async updateWhatsAppStats(stats: Partial<InsertWhatsAppStats>): Promise<WhatsAppStats> {
+    const existing = await this.getWhatsAppStats();
+    if (existing) {
+      const [updated] = await db.update(whatsappStats)
+        .set({ ...stats, updatedAt: new Date() })
+        .where(eq(whatsappStats.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [inserted] = await db.insert(whatsappStats)
+        .values(stats as any)
+        .returning();
+      return inserted;
+    }
+  }
+
+  async createWhatsAppMessage(message: InsertWhatsAppMessage): Promise<WhatsAppMessage> {
+    const [inserted] = await db.insert(whatsappMessages).values(message).returning();
+    // Update stats count
+    const stats = await this.getWhatsAppStats();
+    await this.updateWhatsAppStats({ totalMessages: (stats?.totalMessages || 0) + 1 });
+    return inserted;
+  }
+
   async getWhatsAppMessagesCount(): Promise<number> {
-    const result = await db.select({ count: count() }).from(auditLogs).where(like(auditLogs.action, 'whatsapp_%'));
-    return Number(result[0].count);
+    const stats = await this.getWhatsAppStats();
+    return stats?.totalMessages || 0;
   }
 
   async getWhatsAppLastSync(): Promise<Date | null> {
-    const result = await db.select().from(auditLogs).where(like(auditLogs.action, 'whatsapp_sync')).orderBy(desc(auditLogs.createdAt)).limit(1);
-    return result[0]?.createdAt || null;
+    const stats = await this.getWhatsAppStats();
+    return stats?.lastSync || null;
   }
 
   async getProjects(): Promise<Project[]> {

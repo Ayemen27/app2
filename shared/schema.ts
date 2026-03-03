@@ -997,6 +997,38 @@ export type MaterialPurchase = typeof materialPurchases.$inferSelect;
 export type TransportationExpense = typeof transportationExpenses.$inferSelect;
 export type WorkerTransfer = typeof workerTransfers.$inferSelect;
 export type WorkerBalance = typeof workerBalances.$inferSelect;
+// WhatsApp Stats table (جدول إحصائيات الواتساب)
+export const whatsappStats = pgTable("whatsapp_stats", {
+  id: serial("id").primaryKey(),
+  totalMessages: integer("total_messages").default(0).notNull(),
+  lastSync: timestamp("last_sync"),
+  accuracy: text("accuracy").default("0%").notNull(),
+  status: text("status").default("idle").notNull(), // idle, connecting, open, close
+  phoneNumber: text("phone_number"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export const insertWhatsAppStatsSchema = createInsertSchema(whatsappStats).omit({ id: true, createdAt: true, updatedAt: true });
+export type WhatsAppStats = typeof whatsappStats.$inferSelect;
+export type InsertWhatsAppStats = z.infer<typeof insertWhatsAppStatsSchema>;
+
+// WhatsApp Messages table (جدول رسائل الواتساب)
+export const whatsappMessages = pgTable("whatsapp_messages", {
+  id: serial("id").primaryKey(),
+  from: text("from").notNull(),
+  to: text("to").notNull(),
+  body: text("body").notNull(),
+  type: text("type").default("incoming").notNull(), // incoming, outgoing
+  status: text("status").default("received").notNull(), // received, processed, failed
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const insertWhatsAppMessageSchema = createInsertSchema(whatsappMessages).omit({ id: true, createdAt: true });
+export type WhatsAppMessage = typeof whatsappMessages.$inferSelect;
+export type InsertWhatsAppMessage = z.infer<typeof insertWhatsAppMessageSchema>;
+
 export type DailyExpenseSummary = typeof dailyExpenseSummaries.$inferSelect;
 export type WorkerType = typeof workerTypes.$inferSelect;
 export type AutocompleteData = typeof autocompleteData.$inferSelect;

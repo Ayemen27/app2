@@ -51,15 +51,13 @@ router.post("/webhook", async (req: Request, res: Response) => {
  */
 router.get("/stats", async (req: Request, res: Response) => {
   try {
-    // جلب البيانات الفعلية من قاعدة البيانات
-    // هنا نفترض وجود سجلات في auditLogs أو جدول مخصص للرسائل
-    const messagesCount = await storage.getWhatsAppMessagesCount ? await storage.getWhatsAppMessagesCount() : 0;
-    const lastSync = await storage.getWhatsAppLastSync ? await storage.getWhatsAppLastSync() : null;
-    
+    const stats = await storage.getWhatsAppStats();
     res.json({
-      totalMessages: messagesCount,
-      lastSync: lastSync,
-      accuracy: "98%" // يمكن حسابها لاحقاً
+      totalMessages: stats?.totalMessages || 0,
+      lastSync: stats?.lastSync || null,
+      accuracy: stats?.accuracy || "0%",
+      status: stats?.status || "idle",
+      phoneNumber: stats?.phoneNumber || null
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch stats" });

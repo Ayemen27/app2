@@ -116,8 +116,8 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً
-    if (!user.emailVerifiedAt) {
+    // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً (إلا إذا كان دور المستخدم مسؤولاً أو طوارئ)
+    if (!user.emailVerifiedAt && user.role !== 'admin' && user.role !== 'emergency') {
       console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
 
       // إرسال رمز تحقق جديد تلقائياً في الخلفية (بدون انتظار)

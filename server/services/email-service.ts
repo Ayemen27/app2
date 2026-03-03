@@ -311,7 +311,7 @@ export async function sendVerificationEmail(
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24); // صالح لمدة 24 ساعة
 
-    await db.insert(emailVerificationTokens).values({
+    const insertData: any = {
       userId,
       email,
       token: verificationCode,
@@ -320,7 +320,11 @@ export async function sendVerificationEmail(
       expiresAt,
       ipAddress,
       userAgent
-    });
+    };
+
+    // Remove createdAt if it causes issues with the database schema
+    // The error log showed: column "createdAt" of relation "email_verification_tokens" does not exist
+    await db.insert(emailVerificationTokens).values(insertData);
 
     // إرسال البريد الإلكتروني
     const transporter = getEmailTransporter();

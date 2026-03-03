@@ -56,14 +56,23 @@ export default function WhatsAppSetupPage() {
   }, [botStatus]);
 
   const handlePhoneChange = (value: string) => {
-    setPhoneNumber(value);
+    // Clean phone number from non-numeric chars except +
+    const cleanValue = value.replace(/[^\d+]/g, "");
+    setPhoneNumber(cleanValue);
+    
     try {
-      // Basic country detection from input
-      const phone = parsePhoneNumberFromString(value.startsWith('+') ? value : `+${value}`);
+      // Try to parse the number to detect country and flag
+      const phone = parsePhoneNumberFromString(cleanValue.startsWith('+') ? cleanValue : `+${cleanValue}`);
       if (phone && phone.country) {
         setCountryCode(phone.country);
       } else {
-        setCountryCode("");
+        // Fallback if not starting with +
+        const phoneAlt = parsePhoneNumberFromString(`+${cleanValue}`);
+        if (phoneAlt && phoneAlt.country) {
+          setCountryCode(phoneAlt.country);
+        } else {
+          setCountryCode("");
+        }
       }
     } catch (e) {
       setCountryCode("");
@@ -81,16 +90,34 @@ export default function WhatsAppSetupPage() {
   const handleRestart = async (phone?: string) => {
     try {
       setIsRequestingCode(!!phone);
-      await apiRequest("POST", "/api/whatsapp-ai/restart", { phoneNumber: phone });
+      
+      // Validate phone number before sending
+      let formattedPhone = phone;
+      if (phone) {
+        const cleanPhone = phone.replace(/[^\d]/g, "");
+        if (cleanPhone.length < 8) {
+          throw new Error("رقم الهاتف غير صالح (يجب أن يكون 8 أرقام على الأقل)");
+        }
+        formattedPhone = cleanPhone; // Send digits only to server
+      }
+
+      await apiRequest("POST", "/api/whatsapp-ai/restart", { phoneNumber: formattedPhone });
+      
       toast({
         title: phone ? "جاري طلب كود الربط" : "جاري إعادة التشغيل",
-        description: phone ? "يتم الآن إنشاء كود الربط لرقم الهاتف..." : "يتم الآن إعادة تشغيل بوت الواتساب...",
+        description: phone ? `يتم الآن إنشاء كود الربط للرقم ${phone}...` : "يتم الآن إعادة تشغيل بوت الواتساب...",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/status"] });
-    } catch (error) {
+      
+      // Immediate state update
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/status"] });
+      }, 1000);
+      
+    } catch (error: any) {
+      console.error("WhatsApp restart error:", error);
       toast({
-        title: "خطأ",
-        description: "فشل في تنفيذ العملية",
+        title: "خطأ في العملية",
+        description: error.message || "فشل في تنفيذ العملية. يرجى المحاولة مرة أخرى.",
         variant: "destructive",
       });
     } finally {

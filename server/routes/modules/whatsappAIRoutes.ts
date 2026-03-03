@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getWhatsAppAIService } from "../../services/ai-agent/WhatsAppAIService";
 import { getWhatsAppBot } from "../../services/ai-agent/WhatsAppBot";
+import { storage } from "../../storage";
 
 const router = Router();
 

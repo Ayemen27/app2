@@ -125,7 +125,7 @@ export function extractTokenFromReq(req: Request): string | null {
   
   // 3. التحقق من الكوكيز (للمتصفحات)
   if (req.cookies) {
-    const cookieNames = ['accessToken', 'access_token', 'token', 'jwt'];
+    const cookieNames = ['accessToken', 'accessToken', 'token', 'jwt'];
     for (const name of cookieNames) {
       if (req.cookies[name]) return req.cookies[name];
     }

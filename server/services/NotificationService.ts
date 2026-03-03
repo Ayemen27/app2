@@ -558,13 +558,13 @@ export class NotificationService {
       await db.execute(sql.raw(`
         CREATE TABLE IF NOT EXISTS notification_read_states (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id VARCHAR NOT NULL,
+          userId VARCHAR NOT NULL,
           notification_id VARCHAR NOT NULL,
           is_read BOOLEAN DEFAULT false NOT NULL,
           read_at TIMESTAMP,
           action_taken BOOLEAN DEFAULT false,
           created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-          UNIQUE(user_id, notification_id)
+          UNIQUE(userId, notification_id)
         )
       `));
       

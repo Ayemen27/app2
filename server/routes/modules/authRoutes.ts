@@ -117,11 +117,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً
-    if (!user.email_verified_at) {
+    if (!user.emailVerifiedAt) {
       console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
 
       // إرسال رمز تحقق جديد تلقائياً في الخلفية (بدون انتظار)
-      const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
+      const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined;
       void sendVerificationEmail(
         user.id,
         user.email,
@@ -188,41 +188,41 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       message: 'تم تسجيل الدخول بنجاح',
       token: tokenPair.accessToken, 
       accessToken: tokenPair.accessToken,
-      access_token: tokenPair.accessToken, 
+      accessToken: tokenPair.accessToken, 
       refreshToken: tokenPair.refreshToken,
-      refresh_token: tokenPair.refreshToken, 
+      refreshToken: tokenPair.refreshToken, 
       user: {
         id: user.id,
         userId: user.id,
         email: user.email,
-        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
         role: user.role || 'user',
-        emailVerified: !!user.email_verified_at
+        emailVerified: !!user.emailVerifiedAt
       },
       userId: user.id,
       email: user.email,
-      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
       role: user.role || 'user',
       tokens: {
         accessToken: tokenPair.accessToken,
-        access_token: tokenPair.accessToken,
+        accessToken: tokenPair.accessToken,
         refreshToken: tokenPair.refreshToken,
-        refresh_token: tokenPair.refreshToken
+        refreshToken: tokenPair.refreshToken
       },
       expiresIn: 900,
       expires_in: 900,
       token_type: "Bearer",
-      emailVerified: !!user.email_verified_at,
+      emailVerified: !!user.emailVerifiedAt,
       data: {
         token: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,
-        access_token: tokenPair.accessToken,
+        accessToken: tokenPair.accessToken,
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           role: user.role || 'user',
-          emailVerified: !!user.email_verified_at
+          emailVerified: !!user.emailVerifiedAt
         },
         triggerSync: true,
         initialSyncDelay: 1000
@@ -283,14 +283,14 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const hashedPassword = await hashPassword(password);
 
     // إنشاء المستخدم الجديد
-    // تقسيم fullName إلى first_name و last_name (للتوافق مع الحقول القديمة)
+    // تقسيم fullName إلى firstName و lastName (للتوافق مع الحقول القديمة)
     const names = fullName.trim().split(/\s+/);
     const firstName = names[0] || '';
     const lastName = names.slice(1).join(' ') || '';
 
     const newUserResult = await db.execute({
       text: `INSERT INTO users (
-        email, password, first_name, last_name, full_name, 
+        email, password, firstName, lastName, fullName, 
         phone, birth_date, birth_place, gender, 
         role, is_active, created_at
       )
@@ -299,7 +299,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         $6, $7, $8, $9, 
         'user', true, NOW()
       )
-      RETURNING id, email, full_name, created_at`,
+      RETURNING id, email, fullName, created_at`,
       values: [email, hashedPassword, firstName, lastName, fullName, phone || null, birthDate || null, birthPlace || null, gender || null]
     });
 
@@ -308,7 +308,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     console.log('✅ [AUTH] تم إنشاء حساب جديد:', { 
       userId: newUser.id, 
       email: newUser.email,
-      fullName: `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim()
+      fullName: `${newUser.firstName || ''} ${newUser.lastName || ''}`.trim()
     });
 
     // إرسال رمز التحقق من البريد الإلكتروني في الخلفية (بدون انتظار)
@@ -332,7 +332,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         user: {
           id: newUser.id,
           email: newUser.email,
-          fullName: newUser.full_name,
+          fullName: newUser.fullName,
           createdAt: newUser.created_at
         }
       }
@@ -358,7 +358,7 @@ authRouter.get('/users', requireAuth, async (req: Request, res: Response) => {
     console.log('👥 [AUTH] طلب جلب قائمة المستخدمين', { includeRole });
 
     const result = await db.execute({
-      text: 'SELECT id, email, first_name as "firstName", last_name as "lastName", full_name as "fullName", role, is_active as "isActive" FROM users ORDER BY full_name ASC'
+      text: 'SELECT id, email, firstName as "firstName", lastName as "lastName", fullName as "fullName", role, is_active as "isActive" FROM users ORDER BY fullName ASC'
     });
 
     res.json({
@@ -494,7 +494,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       // البحث عن المستخدم مرة أخرى للتأكد
       const userResult = await db.execute({
-        text: 'SELECT id, email, role, first_name, last_name, created_at FROM users WHERE id = $1',
+        text: 'SELECT id, email, role, firstName, lastName, created_at FROM users WHERE id = $1',
         values: [decoded.userId || decoded.id]
       });
 
@@ -538,7 +538,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           role: user.role || 'user'
         }
       };
@@ -590,7 +590,7 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
       
       // جلب بيانات المستخدم المحدثة
       const userResult = await db.execute({
-        text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
+        text: 'SELECT id, email, role, firstName, lastName FROM users WHERE id = $1',
         values: [userId]
       });
       const user = userResult.rows[0] as any;
@@ -601,7 +601,7 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           role: user.role || 'user',
           emailVerified: true
         }
@@ -649,7 +649,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
       
       // جلب بيانات المستخدم المحدثة
       const userResult = await db.execute({
-        text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
+        text: 'SELECT id, email, role, firstName, lastName FROM users WHERE id = $1',
         values: [userId]
       });
       const user = userResult.rows[0] as any;
@@ -660,7 +660,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
           role: user.role || 'user',
           emailVerified: true
         }

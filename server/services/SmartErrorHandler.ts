@@ -411,7 +411,7 @@ export class SmartErrorHandler {
         INSERT INTO error_logs (
           error_type, error_code, table_name, column_name, operation,
           original_message, friendly_message, context, attempted_value,
-          user_id, project_id, stack_trace, query_executed, execution_time,
+          userId, project_id, stack_trace, query_executed, execution_time,
           severity, category, fingerprint, status, occurrence_count,
           first_seen, last_seen, notification_sent, created_at, updated_at
         ) VALUES (
@@ -456,7 +456,7 @@ export class SmartErrorHandler {
           friendly_message TEXT NOT NULL,
           context JSONB,
           attempted_value TEXT,
-          user_id VARCHAR,
+          userId VARCHAR,
           project_id VARCHAR,
           stack_trace TEXT,
           query_executed TEXT,

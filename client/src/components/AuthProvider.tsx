@@ -151,9 +151,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 // تحديث حالة التحقق بدقة مع دعم التوافق مع localStorage
                 const isEmailVerified = 
                   data.user.emailVerified === true || 
-                  data.user.email_verified === true ||
+                  data.user.emailVerified === true ||
                   !!data.user.emailVerifiedAt || 
-                  !!data.user.email_verified_at ||
+                  !!data.user.emailVerifiedAt ||
                   localStorage.getItem('emailVerified') === 'true';
 
                 const updatedUser = {
@@ -314,7 +314,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // إذا كان التوكن مفقوداً، نحاول استخراجه من أي حقل محتمل
     if (!tokenData && result && typeof result === 'object') {
-       const possibleTokenKeys = ['accessToken', 'token', 'jwt', 'auth_token', 'access_token'];
+       const possibleTokenKeys = ['accessToken', 'token', 'jwt', 'auth_token', 'accessToken'];
        const searchIn = [result, responseData, result?.data].filter(Boolean);
        for (const obj of searchIn) {
          for (const key of possibleTokenKeys) {
@@ -328,7 +328,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     if (!refreshTokenData && result && typeof result === 'object') {
-       const possibleRefreshKeys = ['refreshToken', 'refresh_token'];
+       const possibleRefreshKeys = ['refreshToken', 'refreshToken'];
        const searchIn = [result, responseData, result?.data].filter(Boolean);
        for (const obj of searchIn) {
          for (const key of possibleRefreshKeys) {
@@ -355,10 +355,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // حفظ بيانات المستخدم
     const isEmailVerified = 
       userData?.emailVerified === true || 
-      userData?.email_verified === true ||
+      userData?.emailVerified === true ||
       !!userData?.emailVerifiedAt || 
-      !!userData?.email_verified_at ||
-      !!userData?.email_verified ||
+      !!userData?.emailVerifiedAt ||
+      !!userData?.emailVerified ||
       localStorage.getItem('emailVerified') === 'true';
 
     const userToSave = {

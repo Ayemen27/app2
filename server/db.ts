@@ -155,7 +155,7 @@ export const executeSql = async (sqlQuery: string, params: any[] = [], userId?: 
   if (userId && /INSERT|UPDATE|DELETE/i.test(sqlQuery)) {
     try {
       await pool.query(
-        'INSERT INTO audit_logs (user_id, action, meta, created_at) VALUES ($1, $2, $3, NOW())',
+        'INSERT INTO audit_logs (userId, action, meta, created_at) VALUES ($1, $2, $3, NOW())',
         [userId, 'SQL_EXECUTION', JSON.stringify({ query: sqlQuery, rowCount: result.rowCount })]
       );
     } catch (auditError) {

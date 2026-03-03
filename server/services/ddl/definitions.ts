@@ -13,16 +13,16 @@ CREATE TABLE IF NOT EXISTS "users" (
   "email" text NOT NULL UNIQUE,
   "password" text NOT NULL,
   "password_algo" text DEFAULT 'argon2id' NOT NULL,
-  "first_name" text,
-  "last_name" text,
-  "full_name" text,
+  "firstName" text,
+  "lastName" text,
+  "fullName" text,
   "phone" text,
   "birth_date" text,
   "birth_place" text,
   "gender" text,
   "role" text NOT NULL DEFAULT 'admin',
   "is_active" boolean DEFAULT true NOT NULL,
-  "email_verified_at" timestamp,
+  "emailVerifiedAt" timestamp,
   "totp_secret" text,
   "mfa_enabled" boolean DEFAULT false NOT NULL,
   "fcm_token" text,
@@ -36,10 +36,10 @@ CREATE TABLE IF NOT EXISTS "users" (
   "last_modified_by" varchar
 );`;
 
-DATABASE_DDL['refresh_tokens'] = `
-CREATE TABLE IF NOT EXISTS "refresh_tokens" (
+DATABASE_DDL['refreshTokens'] = `
+CREATE TABLE IF NOT EXISTS "refreshTokens" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "user_id" varchar NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "userId" varchar NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "token_hash" text NOT NULL,
   "replaced_by" uuid,
   "revoked" boolean DEFAULT false NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS "refresh_tokens" (
 DATABASE_DDL['audit_logs'] = `
 CREATE TABLE IF NOT EXISTS "audit_logs" (
   "id" serial PRIMARY KEY,
-  "user_id" varchar REFERENCES "users"("id"),
+  "userId" varchar REFERENCES "users"("id"),
   "action" text NOT NULL,
   "meta" jsonb,
   "ip_address" text,
@@ -319,7 +319,7 @@ CREATE TABLE IF NOT EXISTS "daily_expense_summaries" (
 DATABASE_DDL['notifications'] = `
 CREATE TABLE IF NOT EXISTS "notifications" (
   "id" serial PRIMARY KEY,
-  "user_id" varchar REFERENCES "users"("id"),
+  "userId" varchar REFERENCES "users"("id"),
   "title" text NOT NULL,
   "message" text NOT NULL,
   "type" text NOT NULL,
@@ -330,18 +330,18 @@ CREATE TABLE IF NOT EXISTS "notifications" (
 DATABASE_DDL['notification_read_states'] = `
 CREATE TABLE IF NOT EXISTS "notification_read_states" (
   "id" serial PRIMARY KEY,
-  "user_id" varchar NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "userId" varchar NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
   "notification_id" varchar NOT NULL,
   "notification_type" text NOT NULL,
   "read_at" timestamp DEFAULT now() NOT NULL,
-  UNIQUE(user_id, notification_id, notification_type)
+  UNIQUE(userId, notification_id, notification_type)
 );`;
 
 DATABASE_DDL['print_settings'] = `
 CREATE TABLE IF NOT EXISTS "print_settings" (
   "id" serial PRIMARY KEY,
   "report_type" text NOT NULL,
-  "user_id" varchar REFERENCES "users"("id"),
+  "userId" varchar REFERENCES "users"("id"),
   "header_text" text,
   "footer_text" text,
   "logo_url" text,
@@ -407,7 +407,7 @@ CREATE TABLE IF NOT EXISTS "project_fund_transfers" (
 DATABASE_DDL['ai_chat_messages'] = `
 CREATE TABLE IF NOT EXISTS "ai_chat_messages" (
   "id" serial PRIMARY KEY,
-  "user_id" varchar REFERENCES "users"("id"),
+  "userId" varchar REFERENCES "users"("id"),
   "role" text NOT NULL,
   "content" text NOT NULL,
   "created_at" timestamp DEFAULT now() NOT NULL
@@ -416,7 +416,7 @@ CREATE TABLE IF NOT EXISTS "ai_chat_messages" (
 DATABASE_DDL['ai_usage_stats'] = `
 CREATE TABLE IF NOT EXISTS "ai_usage_stats" (
   "id" serial PRIMARY KEY,
-  "user_id" varchar REFERENCES "users"("id"),
+  "userId" varchar REFERENCES "users"("id"),
   "tokens_used" integer NOT NULL,
   "feature" text NOT NULL,
   "created_at" timestamp DEFAULT now() NOT NULL

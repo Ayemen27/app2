@@ -395,7 +395,7 @@ export function UserSelect({
   const options: SelectOption[] = useMemo(() => {
     const userOptions = users.map(u => {
       // تشخيص دقيق للحقول لضمان عدم ظهور القائمة فارغة
-      const name = u.fullName || (u as any).full_name || u.username || (u as any).first_name || u.email || u.id;
+      const name = u.fullName || (u as any).fullName || u.username || (u as any).firstName || u.email || u.id;
       return {
         value: u.id,
         label: name,

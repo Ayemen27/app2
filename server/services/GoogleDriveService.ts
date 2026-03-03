@@ -63,7 +63,7 @@ export class GoogleDriveService {
     if (clientId && clientSecret && refreshToken) {
       try {
         const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-        oauth2Client.setCredentials({ refresh_token: refreshToken });
+        oauth2Client.setCredentials({ refreshToken: refreshToken });
         console.log('🔑 [GoogleDriveService] استخدام OAuth2');
         return oauth2Client;
       } catch (e: any) {

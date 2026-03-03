@@ -304,7 +304,8 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     }
 
     // جلب بيانات المستخدم - دعم Argon2-based identity
-    const user = await storage.getUser(decoded.sub || decoded.user_id);
+    const user_id = decoded.sub || decoded.user_id || decoded.id;
+    const user = await storage.getUser(user_id);
 
     if (!user || !user.is_active) {
       return res.status(401).json({

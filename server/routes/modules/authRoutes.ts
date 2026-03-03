@@ -7,7 +7,15 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { db } from '../../db.js';
 import { sql, eq, and, desc, gte, lte, or, like } from 'drizzle-orm';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, generateTokenPair } from '../../auth/jwt-utils.js';
+import { 
+  generateAccessToken, 
+  generateRefreshToken, 
+  verifyRefreshToken, 
+  generateTokenPair,
+  refreshAccessToken,
+  revokeToken,
+  JWT_CONFIG 
+} from '../../auth/jwt-utils.js';
 import { hashPassword, verifyPassword } from '../../auth/crypto-utils.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 import * as schema from '@shared/schema'; // استيراد المخطط بالكامل
@@ -476,50 +484,53 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
     // التحقق من صحة refresh token
     try {
-      // ✅ فحص وجود الرمز أولاً
-      if (!refreshToken || refreshToken === 'undefined' || refreshToken === 'null') {
-        console.error('❌ [AUTH] Refresh token مفقود أو غير صالح:', refreshToken);
-        return res.status(401).json({ success: false, message: 'جلسة العمل غير صالحة' });
-      }
-
-      const decoded = await verifyRefreshToken(refreshToken) as any;
+      const decoded = await verifyRefreshToken(refreshToken);
 
       if (!decoded) {
-        console.log('❌ [AUTH] Refresh token غير صالح');
+        console.log('❌ [AUTH] Refresh token غير صالح أو منتهي');
         return res.status(401).json({
           success: false,
-          message: 'Refresh token غير صالح'
+          message: 'جلسة العمل منتهية، يرجى تسجيل الدخول مرة أخرى'
         });
       }
 
-      // البحث عن المستخدم مرة أخرى للتأكد
-      const userResult = await db.execute({
-        text: 'SELECT id, email, role, first_name, last_name, created_at FROM users WHERE id = $1',
-        values: [decoded.user_id || decoded.id || decoded.sub]
-      });
+      // استخراج المعرف بشكل مرن لدعم مختلف هياكل الـ JWT (userId أو id)
+      const userId = decoded.userId || decoded.user_id || decoded.id || decoded.sub;
 
-      if (userResult.rows.length === 0) {
+      if (!userId) {
+        console.error('❌ [AUTH] معرف المستخدم مفقود في الرمز:', decoded);
+        return res.status(401).json({ success: false, message: 'بيانات الاعتماد غير صالحة' });
+      }
+
+      // البحث عن المستخدم في قاعدة البيانات
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (!user) {
+        console.error('❌ [AUTH] المستخدم غير موجود في قاعدة البيانات:', { userId });
         return res.status(401).json({
           success: false,
           message: 'المستخدم غير موجود'
         });
       }
 
-      const user = userResult.rows[0] as any;
+      // التحقق من حالة الحساب
+      if (user.is_active === "false" || user.is_active === false) {
+        return res.status(403).json({ success: false, message: 'الحساب معطل' });
+      }
 
-      // إنشاء رموز جديدة (تدوير الرموز)
-      const tokenPair = await generateTokenPair(
-        String(user.id),
-        String(user.email),
-        String(user.role || 'user'),
-        req.ip || 'unknown',
-        req.get('user-agent') || 'unknown',
-        { deviceId: 'mobile-rotation' }
-      );
+      // تجديد الرموز باستخدام النظام المركزي (jwt-utils) لضمان تدوير الجلسات بشكل صحيح
+      const tokenPair = await refreshAccessToken(refreshToken);
 
-      console.log('✅ [AUTH] تم تجديد الرموز بنجاح (تدوير):', { user_id: user.id });
+      if (!tokenPair) {
+        return res.status(401).json({
+          success: false,
+          message: 'فشل تجديد الجلسة، يرجى تسجيل الدخول'
+        });
+      }
 
-      // إذا كان الطلب من الويب (بواسطة الكوكيز)، نقوم بتحديث الكوكي أيضاً
+      console.log('✅ [AUTH] تم تجديد الرموز بنجاح:', { user_id: user.id });
+
+      // إذا كان الطلب من الويب (بواسطة الكوكيز)، نقوم بتحديث الكوكي
       if (cookieToken) {
         res.cookie('refreshToken', tokenPair.refreshToken, {
           httpOnly: true,
@@ -538,12 +549,12 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          name: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           role: user.role || 'user'
         }
       };
 
-    res.json(responseData);
+      return res.json(responseData);
 
     } catch (tokenError: any) {
       console.log('❌ [AUTH] Refresh token غير صالح:', tokenError.message);

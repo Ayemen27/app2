@@ -181,6 +181,7 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
       .limit(1);
 
     if (user.length === 0 || user[0].is_active === false) {
+      console.log('❌ [JWT] User not found or inactive:', { userId: payload.userId });
       return null;
     }
 
@@ -191,12 +192,12 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
       .from(authUserSessions)
       .where(
         and(
-          eq(authUserSessions.userId, payload.userId),
+          or(
+            eq(authUserSessions.userId, payload.userId),
+            eq(authUserSessions.user_id, payload.userId)
+          ),
           eq(authUserSessions.accessTokenHash, tokenHash),
           eq(authUserSessions.isRevoked, false),
-          // التحقق من عدم انتهاء صلاحية الجلسة
-          // نستخدم expiresAt للجلسة وليس للـ access token لأن access token ينتهي كل 15 دقيقة
-          // ولكن الجلسة تستمر 30 يوم
           gte(authUserSessions.expiresAt, new Date())
         )
       )
@@ -308,7 +309,10 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
       })
       .from(users)
       .leftJoin(authUserSessions, and(
-        eq(authUserSessions.userId, users.id),
+        or(
+          eq(authUserSessions.userId, users.id),
+          eq(authUserSessions.user_id, users.id)
+        ),
         eq(authUserSessions.sessionToken, payload.sessionId),
         eq(authUserSessions.isRevoked, false),
         gte(authUserSessions.expiresAt, new Date())
@@ -412,6 +416,7 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       .limit(1);
 
     if (user.length === 0 || user[0].is_active === false) {
+      console.log('❌ [JWT-PROD] User not found or inactive:', { userId: payload.userId });
       return null;
     }
 
@@ -422,7 +427,10 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       .from(authUserSessions)
       .where(
         and(
-          eq(authUserSessions.userId, payload.userId),
+          or(
+            eq(authUserSessions.userId, payload.userId),
+            eq(authUserSessions.user_id, payload.userId)
+          ),
           eq(authUserSessions.refreshTokenHash, refreshTokenHash),
           eq(authUserSessions.isRevoked, false),
           gte(authUserSessions.expiresAt, new Date())

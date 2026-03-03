@@ -1,0 +1,94 @@
+import sdk from '@adiwajshing/baileys';
+import { Boom } from '@hapi/boom';
+import pino from 'pino';
+import { getWhatsAppAIService } from './WhatsAppAIService';
+
+const { 
+  default: makeWASocket,
+  useMultiFileAuthState, 
+  DisconnectReason, 
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore
+} = sdk as any;
+
+const logger = pino({ level: 'info' });
+
+export class WhatsAppBot {
+  private sock: any;
+  private state: any;
+  private saveCreds: any;
+
+  async start() {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    this.state = state;
+    this.saveCreds = saveCreds;
+
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`📱 [WhatsAppBot] Using WA version v${version.join('.')}, isLatest: ${isLatest}`);
+
+    this.sock = makeWASocket({
+      version,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+      printQRInTerminal: true,
+      logger,
+    });
+
+    this.sock.ev.on('creds.update', saveCreds);
+
+    this.sock.ev.on('connection.update', (update: any) => {
+      const { connection, lastDisconnect, qr } = update;
+      
+      if (qr) {
+        console.log('📸 [WhatsAppBot] New QR Code generated. Please scan it in the terminal.');
+      }
+
+      if (connection === 'close') {
+        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+        console.log('🔌 [WhatsAppBot] Connection closed due to ', lastDisconnect?.error, ', reconnecting ', shouldReconnect);
+        if (shouldReconnect) {
+          this.start();
+        }
+      } else if (connection === 'open') {
+        console.log('✅ [WhatsAppBot] Connection opened successfully');
+      }
+    });
+
+    this.sock.ev.on('messages.upsert', async (m: any) => {
+      const msg = m.messages[0];
+      if (!msg.message || msg.key.fromMe) return;
+
+      const from = msg.key.remoteJid;
+      const text = msg.message.conversation || 
+                   msg.message.extendedTextMessage?.text || 
+                   '';
+
+      if (!text) return;
+
+      console.log(`📩 [WhatsAppBot] Message from ${from}: ${text}`);
+
+      try {
+        const whatsappAIService = getWhatsAppAIService();
+        // تنظيف رقم الهاتف من @s.whatsapp.net للمقارنة
+        const cleanPhone = from.split('@')[0];
+        const allowedPhone = process.env.ALLOWED_WHATSAPP_PHONE || "00966500000000";
+
+        const reply = await whatsappAIService.handleIncomingMessage(cleanPhone, text, allowedPhone);
+
+        if (reply) {
+          await this.sock.sendMessage(from, { text: reply });
+        }
+      } catch (error) {
+        console.error('❌ [WhatsAppBot] Error processing message:', error);
+      }
+    });
+  }
+}
+
+let botInstance: WhatsAppBot | null = null;
+export function getWhatsAppBot() {
+  if (!botInstance) botInstance = new WhatsAppBot();
+  return botInstance;
+}

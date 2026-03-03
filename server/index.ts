@@ -632,9 +632,15 @@ console.log('🔧 بيئة التشغيل:', NODE_ENV);
 import { BackupService } from "./services/BackupService";
 import { FinancialLedgerService } from "./services/FinancialLedgerService";
 
+import { WhatsAppBot, getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
+
 // ... داخل الدالة الرئيسية أو عند بدء التشغيل
 (async () => {
   try {
+    // تشغيل بوت الواتساب
+    const whatsappBot = getWhatsAppBot();
+    whatsappBot.start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
+
     // await BackupService.initialize();
     
     // ✅ تشغيل الخادم أولاً لضمان فتح المنفذ فوراً

@@ -101,7 +101,7 @@ export default function WhatsAppSetupPage() {
         formattedPhone = cleanPhone; // Send digits only to server
       }
 
-      await apiRequest("POST", "/api/whatsapp-ai/restart", { phoneNumber: formattedPhone });
+      await apiRequest("/api/whatsapp-ai/restart", "POST", { phoneNumber: formattedPhone });
       
       toast({
         title: phone ? "جاري طلب كود الربط" : "جاري إعادة التشغيل",
@@ -220,15 +220,15 @@ export default function WhatsAppSetupPage() {
                           disabled={status === "open"}
                           className="rounded-xl font-mono pl-10"
                         />
-                        {countryCode && (
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
                             <img 
-                              src={`https://flagcdn.com/w20/${countryCode.toLowerCase()}.png`}
+                              src={`https://flagcdn.com/w40/${countryCode.toLowerCase()}.png`}
                               alt={countryCode}
-                              className="w-5 h-auto rounded-sm"
+                              className="w-6 h-auto rounded-sm shadow-sm"
+                              onError={(e) => (e.currentTarget.style.display = 'none')}
                             />
+                            <span className="text-[10px] font-bold text-slate-400">{countryCode}</span>
                           </div>
-                        )}
                       </div>
                       <Button 
                         onClick={() => handleRestart(phoneNumber)} 

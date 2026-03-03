@@ -295,40 +295,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // استخراج بيانات المستخدم والتوكنات بمرونة عالية
     const responseData = result?.data || result;
     const userData = responseData?.user || result?.user;
-    
-    // التحقق من حالة التحقق من البريد الإلكتروني مع دعم التوافق
-    const isEmailVerified = 
-      userData?.emailVerified === true || 
-      userData?.email_verified === true ||
-      !!userData?.emailVerifiedAt || 
-      !!userData?.email_verified_at ||
-      !!userData?.email_verified || // إضافة هذا الحقل
-      localStorage.getItem('emailVerified') === 'true';
 
     // دعم جميع أشكال التوكنات الممكنة بمرونة قصوى
-    let tokenData = responseData?.tokens?.accessToken || 
-                    result?.tokens?.accessToken ||
-                    responseData?.accessToken || 
+    let tokenData = responseData?.token ||
+                    responseData?.accessToken ||
+                    result?.token ||
                     result?.accessToken ||
-                    result?.data?.accessToken ||
-                    responseData?.token ||
-                    result?.token;
-                     
-    let refreshTokenData = responseData?.tokens?.refreshToken || 
-                           result?.tokens?.refreshToken ||
-                           responseData?.refreshToken || 
+                    responseData?.tokens?.accessToken ||
+                    result?.tokens?.accessToken ||
+                    result?.data?.token ||
+                    result?.data?.accessToken;
+
+    let refreshTokenData = responseData?.refreshToken ||
                            result?.refreshToken ||
+                           responseData?.tokens?.refreshToken ||
+                           result?.tokens?.refreshToken ||
                            result?.data?.refreshToken;
 
-    // إذا كان التوكن مفقوداً، نحاول استخراجه من استجابة السيرفر المباشرة إذا كانت موجودة
+    // إذا كان التوكن مفقوداً، نحاول استخراجه من أي حقل محتمل
     if (!tokenData && result && typeof result === 'object') {
-       // البحث عن أي حقل يشبه التوكن
-       const possibleTokenKeys = ['accessToken', 'token', 'jwt', 'auth_token'];
-       for (const key of possibleTokenKeys) {
-         if (result[key]) {
-           tokenData = result[key];
-           break;
+       const possibleTokenKeys = ['accessToken', 'token', 'jwt', 'auth_token', 'access_token'];
+       const searchIn = [result, responseData, result?.data].filter(Boolean);
+       for (const obj of searchIn) {
+         for (const key of possibleTokenKeys) {
+           if (obj[key]) {
+             tokenData = obj[key];
+             break;
+           }
          }
+         if (tokenData) break;
+       }
+    }
+
+    if (!refreshTokenData && result && typeof result === 'object') {
+       const possibleRefreshKeys = ['refreshToken', 'refresh_token'];
+       const searchIn = [result, responseData, result?.data].filter(Boolean);
+       for (const obj of searchIn) {
+         for (const key of possibleRefreshKeys) {
+           if (obj[key]) {
+             refreshTokenData = obj[key];
+             break;
+           }
+         }
+         if (refreshTokenData) break;
        }
     }
 
@@ -344,8 +353,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     // حفظ بيانات المستخدم
+    const isEmailVerified = 
+      userData?.emailVerified === true || 
+      userData?.email_verified === true ||
+      !!userData?.emailVerifiedAt || 
+      !!userData?.email_verified_at ||
+      !!userData?.email_verified ||
+      localStorage.getItem('emailVerified') === 'true';
+
     const userToSave = {
-      id: userData?.id || 'unknown',
+      id: userData?.id || userData?.userId || 'unknown',
       email: userData?.email || email,
       name: userData?.name || userData?.fullName || `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || email,
       role: userData?.role || 'admin',

@@ -11,16 +11,18 @@ router.get("/status", (req: Request, res: Response) => {
   const bot = getWhatsAppBot();
   res.json({
     status: bot.getStatus(),
-    qr: bot.getQR()
+    qr: bot.getQR(),
+    pairingCode: bot.getPairingCode()
   });
 });
 
 /**
- * إعادة تشغيل البوت
+ * إعادة تشغيل البوت مع إمكانية طلب كود الربط بالهاتف
  */
 router.post("/restart", async (req: Request, res: Response) => {
+  const { phoneNumber } = req.body;
   const bot = getWhatsAppBot();
-  await bot.restart();
+  await bot.restart(phoneNumber);
   res.json({ success: true });
 });
 

@@ -15,6 +15,7 @@ const logger = pino({ level: 'info' });
 export class WhatsAppBot {
   private sock: any;
   private qr: string | null = null;
+  private pairingCode: string | null = null;
   private status: "idle" | "connecting" | "open" | "close" = "idle";
 
   getStatus() {
@@ -25,7 +26,11 @@ export class WhatsAppBot {
     return this.qr;
   }
 
-  async restart() {
+  getPairingCode() {
+    return this.pairingCode;
+  }
+
+  async restart(phoneNumber?: string) {
     if (this.sock) {
       try {
         await this.sock.end(undefined);
@@ -33,10 +38,11 @@ export class WhatsAppBot {
     }
     this.status = "idle";
     this.qr = null;
-    return this.start();
+    this.pairingCode = null;
+    return this.start(phoneNumber);
   }
 
-  async start() {
+  async start(phoneNumber?: string) {
     this.status = "connecting";
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
@@ -56,7 +62,7 @@ export class WhatsAppBot {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, logger),
         },
-        printQRInTerminal: true,
+        printQRInTerminal: !phoneNumber,
         logger,
         browser: ["BinarJoin", "Chrome", "121.0.0.0"],
         connectTimeoutMs: 60000,
@@ -65,6 +71,18 @@ export class WhatsAppBot {
         retryRequestDelayMs: 5000,
         defaultQueryTimeoutMs: 60000,
       });
+
+      if (phoneNumber && !state.creds.registered) {
+        setTimeout(async () => {
+          try {
+            const code = await this.sock.requestPairingCode(phoneNumber);
+            this.pairingCode = code;
+            console.log(`🔢 [WhatsAppBot] Pairing Code generated: ${code}`);
+          } catch (err) {
+            console.error('❌ [WhatsAppBot] Error requesting pairing code:', err);
+          }
+        }, 5000);
+      }
     } catch (err) {
       console.error('❌ [WhatsAppBot] Critical error creating socket:', err);
       this.status = "close";
@@ -86,6 +104,7 @@ export class WhatsAppBot {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
         this.status = "close";
         this.qr = null;
+        this.pairingCode = null;
         
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
         console.log(`🔌 [WhatsAppBot] Connection closed. Reason: ${statusCode}, Reconnecting: ${shouldReconnect}`);
@@ -99,6 +118,7 @@ export class WhatsAppBot {
       } else if (connection === 'open') {
         this.status = "open";
         this.qr = null;
+        this.pairingCode = null;
         console.log('✅ [WhatsAppBot] Connection opened successfully');
       }
     });

@@ -28,8 +28,21 @@ export default function WhatsAppSetupPage() {
       setStatus(botStatus.status);
       setQrCode(botStatus.qr || null);
       setPairingCode(botStatus.pairingCode || null);
+      
+      // إذا كان البوت متصلاً، قم بإفراغ رقم الهاتف والكود
+      if (botStatus.status === "open") {
+        setPhoneNumber("");
+      }
     }
   }, [botStatus]);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "تم النسخ",
+      description: "تم نسخ الكود إلى الحافظة",
+    });
+  };
 
   const handleRestart = async (phone?: string) => {
     try {
@@ -139,16 +152,28 @@ export default function WhatsAppSetupPage() {
             </div>
 
             {pairingCode && (
-              <div className="mt-6 p-6 bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-xl text-center">
+              <div className="mt-6 p-6 bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-200 dark:border-indigo-800 rounded-xl text-center relative group">
                 <p className="text-sm text-indigo-600 dark:text-indigo-400 mb-2 font-bold flex items-center justify-center gap-2">
                   <Key className="h-4 w-4" /> كود الربط الخاص بك:
                 </p>
-                <div className="text-4xl font-black tracking-[0.5em] text-indigo-900 dark:text-white font-mono">
+                <div 
+                  className="text-4xl font-black tracking-[0.5em] text-indigo-900 dark:text-white font-mono cursor-pointer hover:text-indigo-600 transition-colors"
+                  onClick={() => copyToClipboard(pairingCode)}
+                  title="اضغط للنسخ"
+                >
                   {pairingCode}
                 </div>
                 <p className="mt-4 text-xs text-slate-500">
                   افتح واتساب {">"} الأجهزة المرتبطة {">"} ربط جهاز {">"} الربط برقم الهاتف بدلاً من ذلك {">"} أدخل هذا الكود
                 </p>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => copyToClipboard(pairingCode)}
+                >
+                  نسخ
+                </Button>
               </div>
             )}
 

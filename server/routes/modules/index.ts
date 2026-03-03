@@ -13,6 +13,7 @@ import projectRouter from './projectRoutes.js';
 import { projectTypeRouter } from './projectTypeRoutes.js';
 import wellRouter from './wellRoutes.js';
 import wellExpenseRouter from './wellExpenseRoutes.js';
+import whatsappAIRoutes from './whatsappAIRoutes.js';
 // import sshRoutes from './sshRoutes'; // معطل مؤقتاً بسبب مشكلة ssh2
 import workerRouter from './workerRoutes.js';
 import financialRouter from './financialRoutes.js';
@@ -79,6 +80,10 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات مصاريف الآبار
   app.use('/api/well-expenses', wellExpenseRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات مصاريف الآبار: /api/well-expenses');
+
+  // 📱 مسارات واتساب الذكاء الاصطناعي
+  app.use('/api/whatsapp-ai', whatsappAIRoutes);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات واتساب الذكاء الاصطناعي: /api/whatsapp-ai');
 
   // مسارات العمال - تحتوي على مسارات أساسية ومسارات فرعية
   app.use('/api/workers', workerRouter);
@@ -166,6 +171,7 @@ export function registerOrganizedRoutes(app: Express) {
 const REGISTERED_ROUTE_FILES = new Set([
   'healthRoutes', 'projectRoutes', 'projectTypeRoutes', 'wellRoutes',
   'wellExpenseRoutes', 'workerRoutes', 'financialRoutes', 'autocompleteRoutes',
+  'whatsappAIRoutes',
   'notificationRoutes', 'reportRoutes', 'activityRoutes', 'aiRoutes',
   'syncRoutes', 'tasks', 'securityRoutes', 'backupRoutes',
   'downloadProxyRoutes', 'ledgerRoutes', 'equipmentRoutes', 'syncAuditRoutes', 'index',

@@ -13,15 +13,15 @@ export const wellExpenseRouter = express.Router();
 wellExpenseRouter.use(requireAuth);
 
 /**
- * GET /api/well-expenses/:wellId - جلب مصاريف البئر
+ * GET /api/well-expenses/:well_id - جلب مصاريف البئر
  */
-wellExpenseRouter.get('/:wellId', async (req: Request, res: Response) => {
+wellExpenseRouter.get('/:well_id', async (req: Request, res: Response) => {
   try {
-    const wellId = parseInt(req.params.wellId);
+    const well_id = parseInt(req.params.well_id);
     const { type, startDate, endDate } = req.query;
 
-    const expenses = await WellExpenseService.getWellExpenses(wellId, {
-      wellId,
+    const expenses = await WellExpenseService.getWellExpenses(well_id, {
+      well_id,
       expenseType: type as string,
       startDate: startDate as string,
       endDate: endDate as string
@@ -75,18 +75,18 @@ wellExpenseRouter.post('/', async (req: Request, res: Response) => {
  */
 wellExpenseRouter.post('/link', async (req: Request, res: Response) => {
   try {
-    const { wellId, referenceType, referenceId } = req.body;
+    const { well_id, referenceType, referenceId } = req.body;
 
-    if (!wellId || !referenceType || !referenceId) {
+    if (!well_id || !referenceType || !referenceId) {
       return res.status(400).json({
         success: false,
         error: 'MISSING_PARAMS',
-        message: 'معاملات مفقودة: wellId, referenceType, referenceId'
+        message: 'معاملات مفقودة: well_id, referenceType, referenceId'
       });
     }
 
     const expense = await WellExpenseService.linkExistingExpense(
-      wellId,
+      well_id,
       referenceType,
       referenceId
     );
@@ -127,12 +127,12 @@ wellExpenseRouter.delete('/:expenseId', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/well-expenses/cost-report/:wellId - تقرير تكلفة البئر
+ * GET /api/well-expenses/cost-report/:well_id - تقرير تكلفة البئر
  */
-wellExpenseRouter.get('/cost-report/:wellId', async (req: Request, res: Response) => {
+wellExpenseRouter.get('/cost-report/:well_id', async (req: Request, res: Response) => {
   try {
-    const wellId = parseInt(req.params.wellId);
-    const report = await WellExpenseService.getWellCostReport(wellId);
+    const well_id = parseInt(req.params.well_id);
+    const report = await WellExpenseService.getWellCostReport(well_id);
 
     res.json({
       success: true,
@@ -149,12 +149,12 @@ wellExpenseRouter.get('/cost-report/:wellId', async (req: Request, res: Response
 });
 
 /**
- * GET /api/well-expenses/project-costs/:projectId - ملخص تكاليف المشروع
+ * GET /api/well-expenses/project-costs/:project_id - ملخص تكاليف المشروع
  */
-wellExpenseRouter.get('/project-costs/:projectId', async (req: Request, res: Response) => {
+wellExpenseRouter.get('/project-costs/:project_id', async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
-    const summary = await WellExpenseService.getProjectCostSummary(projectId);
+    const { project_id } = req.params;
+    const summary = await WellExpenseService.getProjectCostSummary(project_id);
 
     res.json({
       success: true,

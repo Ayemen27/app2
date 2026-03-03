@@ -6,9 +6,9 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface WellSelectorProps {
-  projectId?: string;
+  project_id?: string;
   value?: number | string;
-  onChange: (wellId: number | undefined) => void;
+  onChange: (well_id: number | undefined) => void;
   showLabel?: boolean;
   disabled?: boolean;
   optional?: boolean;
@@ -19,7 +19,7 @@ interface WellSelectorProps {
  * Well Selector Component - shows only when project type is "آبار" (Wells)
  */
 export function WellSelector({
-  projectId,
+  project_id,
   value,
   onChange,
   showLabel = true,
@@ -28,11 +28,11 @@ export function WellSelector({
 }: WellSelectorProps) {
   // جلب الآبار
   const { data: wells = [], isLoading } = useQuery({
-    queryKey: QUERY_KEYS.wellsByProject(projectId),
+    queryKey: QUERY_KEYS.wellsByProject(project_id),
     queryFn: async () => {
-      if (!projectId) return [];
+      if (!project_id) return [];
       try {
-        const response = await apiRequest(`/api/wells?projectId=${projectId}`);
+        const response = await apiRequest(`/api/wells?project_id=${project_id}`);
         // Handle both possible response structures
         if (response && response.success && Array.isArray(response.data)) {
           return response.data;
@@ -43,7 +43,7 @@ export function WellSelector({
         return [];
       }
     },
-    enabled: !!projectId,
+    enabled: !!project_id,
     staleTime: 5 * 60 * 1000
   });
 
@@ -59,7 +59,7 @@ export function WellSelector({
     return wellOptions;
   }, [wells, optional]);
 
-  if (!projectId || wells.length === 0) {
+  if (!project_id || wells.length === 0) {
     return null;
   }
 

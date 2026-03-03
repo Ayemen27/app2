@@ -139,7 +139,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي${lastSyncTime ? `, ${deltaTablesCount} تفاضلي، ${fullTablesCount} كامل` : ''})`);
 
     SyncAuditService.logBulkSync({
-      userId: (req as any).user?.id,
+      user_id: (req as any).user?.id,
       userName: (req as any).user?.name || (req as any).user?.email,
       syncType: lastSyncTime ? 'delta_sync' : 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
@@ -176,7 +176,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح في المزامنة:', error);
     SyncAuditService.logBulkSync({
-      userId: (req as any).user?.id,
+      user_id: (req as any).user?.id,
       userName: (req as any).user?.name || (req as any).user?.email,
       syncType: 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
@@ -216,7 +216,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     console.log(`✅ [Sync] POST اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
     SyncAuditService.logBulkSync({
-      userId: (req as any).user?.id,
+      user_id: (req as any).user?.id,
       userName: (req as any).user?.name || (req as any).user?.email,
       syncType: lastSyncTime ? 'delta_sync' : 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
@@ -252,7 +252,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح:', error);
     SyncAuditService.logBulkSync({
-      userId: (req as any).user?.id,
+      user_id: (req as any).user?.id,
       userName: (req as any).user?.name || (req as any).user?.email,
       syncType: 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
@@ -295,7 +295,7 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
     console.log(`⚡ [Sync] اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
     SyncAuditService.logBulkSync({
-      userId: (req as any).user?.id,
+      user_id: (req as any).user?.id,
       userName: (req as any).user?.name || (req as any).user?.email,
       syncType: 'instant_sync',
       tablesCount: tablesToSync.length,
@@ -325,7 +325,7 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ [Sync] خطأ في المزامنة الفورية:', error);
     SyncAuditService.logBulkSync({
-      userId: (req as any).user?.id,
+      user_id: (req as any).user?.id,
       userName: (req as any).user?.name || (req as any).user?.email,
       syncType: 'instant_sync',
       tablesCount: 0,

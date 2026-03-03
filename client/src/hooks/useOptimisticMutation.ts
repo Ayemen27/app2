@@ -102,7 +102,7 @@ export function useOptimisticCreate<TData extends { id: string }>(
       const tempItem = {
         ...newData,
         id: `temp-${Date.now()}`,
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       } as unknown as TData;
       return [...(oldData || []), tempItem];
     },
@@ -134,7 +134,7 @@ export function useOptimisticUpdate<TData extends { id: string }>(
   });
 }
 
-export function useOptimisticToggle<TData extends { id: string; isActive: boolean }>(
+export function useOptimisticToggle<TData extends { id: string; is_active: boolean }>(
   queryKey: QueryKey,
   endpoint: string,
   options?: {
@@ -147,11 +147,11 @@ export function useOptimisticToggle<TData extends { id: string; isActive: boolea
     queryKey,
     mutationFn: async ({ id, currentStatus }) => {
       const newStatus = !currentStatus;
-      return apiRequest(`${endpoint}/${id}`, 'PATCH', { isActive: newStatus });
+      return apiRequest(`${endpoint}/${id}`, 'PATCH', { is_active: newStatus });
     },
     getOptimisticUpdate: (oldData, { id }) =>
       (oldData || []).map((item) =>
-        item.id === id ? { ...item, isActive: !item.isActive } : item
+        item.id === id ? { ...item, is_active: !item.is_active } : item
       ),
     successMessage: options?.successMessage || 'تم تغيير الحالة بنجاح',
     errorMessage: options?.errorMessage || 'فشل تغيير الحالة',

@@ -298,7 +298,7 @@ export default function AIChatPage() {
           setMessages(res.map(m => ({
             role: m.role,
             content: m.content,
-            timestamp: new Date(m.createdAt),
+            timestamp: new Date(m.created_at),
             steps: m.steps
           })));
         }

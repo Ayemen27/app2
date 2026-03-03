@@ -11,7 +11,7 @@ import type { Worker } from "@shared/schema";
 interface WorkerCardProps {
   worker: Worker;
   date: string;
-  onAttendanceChange: (workerId: string, attendance: {
+  onAttendanceChange: (worker_id: string, attendance: {
     isPresent: boolean;
     startTime?: string;
     endTime?: string;

@@ -114,9 +114,9 @@ export default function LoginPage() {
           variant: "default",
         });
         // التوجيه إلى صفحة التحقق من البريد مع المعلومات اللازمة
-        const userId = error.userId || error.data?.userId;
+        const user_id = error.user_id || error.data?.user_id;
         const email = error.email || error.data?.email || form.getValues('email');
-        navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+        navigate(`/verify-email?user_id=${user_id}&email=${encodeURIComponent(email)}`);
         return;
       }
       

@@ -11,9 +11,9 @@ export type ValidationError = {
 type Errors = Record<string, string>;
 
 type SettlementData = {
-  workerId?: string;
+  worker_id?: string;
   amount?: number;
-  projectId?: string;
+  project_id?: string;
   settlementType?: string;
   paymentMethod?: string;
   settlementDate?: string;
@@ -29,10 +29,10 @@ export default function useWorkersSettlementValidation() {
     const e: Errors = {};
     const vErrors: ValidationError[] = [];
     
-    if (!data.workerId || typeof data.workerId !== "string") {
-      e.workerId = "معرّف العامل مطلوب";
+    if (!data.worker_id || typeof data.worker_id !== "string") {
+      e.worker_id = "معرّف العامل مطلوب";
       vErrors.push({
-        field: 'workerId',
+        field: 'worker_id',
         message: 'معرّف العامل مطلوب',
         type: 'error'
       });
@@ -48,10 +48,10 @@ export default function useWorkersSettlementValidation() {
       });
     }
     
-    if (!data.projectId) {
-      e.projectId = "معرّف المشروع مطلوب";
+    if (!data.project_id) {
+      e.project_id = "معرّف المشروع مطلوب";
       vErrors.push({
-        field: 'projectId',
+        field: 'project_id',
         message: 'معرّف المشروع مطلوب',
         type: 'error'
       });

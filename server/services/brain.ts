@@ -124,7 +124,7 @@ export class BrainService {
         } else if (rule.id === "brute_force") {
           const failedLogins = await db.select().from(auditLogs)
             .where(and(
-              gte(auditLogs.createdAt, startTime),
+              gte(auditLogs.created_at, startTime),
               eq(auditLogs.action, rule.condition.action || "LOGIN_FAILED")
             ))
             .limit(100);

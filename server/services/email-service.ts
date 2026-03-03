@@ -267,14 +267,14 @@ const emailTemplates = {
  * إرسال رمز التحقق من البريد الإلكتروني
  */
 export async function sendVerificationEmail(
-  userId: string,
+  user_id: string,
   email: string,
   ipAddress?: string,
   userAgent?: string,
   userFullName?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('📧 [EmailService] بدء إرسال رمز التحقق للمستخدم:', userId);
+    console.log('📧 [EmailService] بدء إرسال رمز التحقق للمستخدم:', user_id);
 
     // استخدام الاسم المُمرر مباشرة - بدون استعلام قاعدة بيانات غير ضروري
     const displayName = userFullName?.trim() || null;
@@ -292,7 +292,7 @@ export async function sendVerificationEmail(
     // حذف الرموز القديمة المنتهية الصلاحية للمستخدم
     await db.delete(emailVerificationTokens)
       .where(and(
-        eq(emailVerificationTokens.userId, userId),
+        eq(emailVerificationTokens.user_id, user_id),
         eq(emailVerificationTokens.email, email)
       ));
 
@@ -303,7 +303,7 @@ export async function sendVerificationEmail(
     // إنشاء رابط التحقق
     const domain = getDynamicDomain();
     const protocol = getProtocol();
-    const verificationLink = `${protocol}://${domain}/verify-email?token=${verificationCode}&userId=${userId}`;
+    const verificationLink = `${protocol}://${domain}/verify-email?token=${verificationCode}&user_id=${user_id}`;
     
     console.log('🔗 [EmailService] رابط التحقق المُنشأ:', verificationLink);
 
@@ -312,7 +312,7 @@ export async function sendVerificationEmail(
     expiresAt.setHours(expiresAt.getHours() + 24); // صالح لمدة 24 ساعة
 
     const insertData: any = {
-      userId,
+      user_id,
       email,
       token: verificationCode,
       tokenHash,
@@ -322,8 +322,8 @@ export async function sendVerificationEmail(
       userAgent
     };
 
-    // Remove createdAt if it causes issues with the database schema
-    // The error log showed: column "createdAt" of relation "email_verification_tokens" does not exist
+    // Remove created_at if it causes issues with the database schema
+    // The error log showed: column "created_at" of relation "email_verification_tokens" does not exist
     await db.insert(emailVerificationTokens).values(insertData);
 
     // إرسال البريد الإلكتروني
@@ -359,22 +359,22 @@ export async function sendVerificationEmail(
  * التحقق من رمز البريد الإلكتروني
  */
 export async function verifyEmailToken(
-  userId: string,
+  user_id: string,
   token: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    console.log('🔍 [EmailService] بدء التحقق من الرمز:', { userId, tokenLength: token.length });
+    console.log('🔍 [EmailService] بدء التحقق من الرمز:', { user_id, tokenLength: token.length });
 
     // البحث عن الرمز في قاعدة البيانات
     const tokenRecord = await db.select()
       .from(emailVerificationTokens)
       .where(and(
-        eq(emailVerificationTokens.userId, userId),
+        eq(emailVerificationTokens.user_id, user_id),
         eq(emailVerificationTokens.token, token)
       ))
       .limit(1);
 
-    console.log('🔍 [EmailService] نتيجة البحث:', { found: tokenRecord.length > 0, userId, token });
+    console.log('🔍 [EmailService] نتيجة البحث:', { found: tokenRecord.length > 0, user_id, token });
 
     if (tokenRecord.length === 0) {
       console.log('❌ [EmailService] لم يتم العثور على الرمز');
@@ -420,8 +420,8 @@ export async function verifyEmailToken(
 
     // تحديث حساب المستخدم لتأكيد تحقق البريد الإلكتروني
     const userUpdate = await db.update(users)
-      .set({ emailVerifiedAt: new Date() })
-      .where(eq(users.id, userId));
+      .set({ email_verified_at: new Date() })
+      .where(eq(users.id, user_id));
     
     console.log('📝 [EmailService] تم تحديث users بنجاح');
 
@@ -429,15 +429,15 @@ export async function verifyEmailToken(
     const verifyUpdate = await db.select({
       id: users.id,
       email: users.email,
-      emailVerifiedAt: users.emailVerifiedAt
+      email_verified_at: users.email_verified_at
     })
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, user_id))
       .limit(1);
     
     console.log('🔍 [EmailService] فحص البيانات بعد التحديث:', verifyUpdate.length > 0 ? verifyUpdate[0] : 'لا توجد بيانات');
 
-    console.log('✅ [EmailService] اكتمل التحقق من البريد الإلكتروني بنجاح للمستخدم:', userId);
+    console.log('✅ [EmailService] اكتمل التحقق من البريد الإلكتروني بنجاح للمستخدم:', user_id);
 
     return {
       success: true,
@@ -498,7 +498,7 @@ export async function sendPasswordResetEmail(
 
     // حذف رموز الاسترجاع القديمة للمستخدم
     await db.delete(passwordResetTokens)
-      .where(eq(passwordResetTokens.userId, user.id));
+      .where(eq(passwordResetTokens.user_id, user.id));
     console.log('🗑️ [EmailService] تم حذف رموز الاسترجاع القديمة');
 
     // إنشاء رمز استرجاع جديد
@@ -517,7 +517,7 @@ export async function sendPasswordResetEmail(
     expiresAt.setHours(expiresAt.getHours() + 1); // صالح لمدة ساعة واحدة
 
     await db.insert(passwordResetTokens).values({
-      userId: user.id,
+      user_id: user.id,
       token: resetToken,
       tokenHash,
       expiresAt,
@@ -623,14 +623,14 @@ export async function resetPasswordWithToken(
     // تحديث كلمة مرور المستخدم
     await db.update(users)
       .set({ password: hashedPassword })
-      .where(eq(users.id, record.userId));
+      .where(eq(users.id, record.user_id));
 
     // تحديث حالة الرمز كمستخدم
     await db.update(passwordResetTokens)
       .set({ usedAt: new Date() })
       .where(eq(passwordResetTokens.id, record.id));
 
-    console.log('✅ [EmailService] تم تحديث كلمة المرور بنجاح للمستخدم:', record.userId);
+    console.log('✅ [EmailService] تم تحديث كلمة المرور بنجاح للمستخدم:', record.user_id);
 
     return {
       success: true,

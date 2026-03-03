@@ -24,8 +24,8 @@ interface Worker {
   dailyWage: string;
   phone?: string | null;
   hireDate?: string | null;
-  isActive: boolean;
-  createdAt: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 interface WorkerType {
@@ -33,7 +33,7 @@ interface WorkerType {
   name: string;
   usageCount: number;
   lastUsed: string;
-  createdAt: string;
+  created_at: string;
 }
 
 interface WorkerStats {
@@ -145,13 +145,13 @@ const WorkerCardWrapper = ({
   exportProgress?: number;
   exportingWorkerId: string | null;
 }) => {
-  const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
+  const project_idForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
   
   const { data: statsData, isLoading: statsLoading } = useQuery<{ success: boolean; data: WorkerStats }>({
     queryKey: QUERY_KEYS.workerStats(worker.id, selectedProjectId),
     queryFn: async () => {
-      const url = projectIdForApi 
-        ? `/api/workers/${worker.id}/stats?projectId=${projectIdForApi}`
+      const url = project_idForApi 
+        ? `/api/workers/${worker.id}/stats?project_id=${project_idForApi}`
         : `/api/workers/${worker.id}/stats`;
       return apiRequest(url, 'GET');
     },
@@ -160,7 +160,7 @@ const WorkerCardWrapper = ({
     retry: 1,
     placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
-    enabled: worker.isActive,
+    enabled: worker.is_active,
   });
 
   const stats = statsData?.data;
@@ -195,15 +195,15 @@ const WorkerCardWrapper = ({
         title={worker.name}
         subtitle={worker.hireDate ? new Date(worker.hireDate).toLocaleDateString('en-GB') : undefined}
         titleIcon={User}
-        headerColor={worker.isActive ? '#22c55e' : '#ef4444'}
+        headerColor={worker.is_active ? '#22c55e' : '#ef4444'}
         badges={[
           {
             label: worker.type,
             variant: 'secondary',
           },
           {
-            label: worker.isActive ? 'نشط' : 'غير نشط',
-            variant: worker.isActive ? 'success' : 'destructive',
+            label: worker.is_active ? 'نشط' : 'غير نشط',
+            variant: worker.is_active ? 'success' : 'destructive',
           }
         ]}
         fields={[
@@ -254,10 +254,10 @@ const WorkerCardWrapper = ({
           },
           {
             icon: Power,
-            label: worker.isActive ? "إيقاف" : "تفعيل",
+            label: worker.is_active ? "إيقاف" : "تفعيل",
             onClick: onToggleStatus,
             disabled: isToggling,
-            color: worker.isActive ? "yellow" : "green",
+            color: worker.is_active ? "yellow" : "green",
           },
           {
             icon: Trash2,
@@ -474,8 +474,8 @@ export default function WorkersPage() {
                            worker.type.toLowerCase().includes(searchValue.toLowerCase()) ||
                            (worker.phone && worker.phone.includes(searchValue));
       const matchesStatus = filterValues.status === 'all' || 
-                           (filterValues.status === 'active' && worker.isActive) ||
-                           (filterValues.status === 'inactive' && !worker.isActive);
+                           (filterValues.status === 'active' && worker.is_active) ||
+                           (filterValues.status === 'inactive' && !worker.is_active);
       const matchesType = filterValues.type === 'all' || worker.type === filterValues.type;
       return matchesSearch && matchesStatus && matchesType;
     });
@@ -483,8 +483,8 @@ export default function WorkersPage() {
 
   const stats = useMemo(() => ({
     total: Array.isArray(workers) ? workers.length : 0,
-    active: Array.isArray(workers) ? workers.filter(w => w.isActive).length : 0,
-    inactive: Array.isArray(workers) ? workers.filter(w => !w.isActive).length : 0,
+    active: Array.isArray(workers) ? workers.filter(w => w.is_active).length : 0,
+    inactive: Array.isArray(workers) ? workers.filter(w => !w.is_active).length : 0,
     avgWage: Array.isArray(workers) && workers.length > 0 
       ? workers.reduce((sum, w) => sum + parseFloat(w.dailyWage), 0) / workers.length 
       : 0
@@ -553,7 +553,7 @@ export default function WorkersPage() {
 
   const handleToggleStatus = (worker: Worker) => {
     setTogglingWorkerId(worker.id);
-    updateWorkerMutation.mutate({ id: worker.id, data: { isActive: !worker.isActive } });
+    updateWorkerMutation.mutate({ id: worker.id, data: { is_active: !worker.is_active } });
   };
 
   const handleExportStatement = async (worker: Worker, type: 'excel' | 'pdf' = 'excel') => {
@@ -562,7 +562,7 @@ export default function WorkersPage() {
     setShowExportOptions(null);
     
     try {
-      const projectIdForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
+      const project_idForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
       const progressInterval = setInterval(() => {
         setExportProgress(prev => {
           if (prev >= 90) {
@@ -573,7 +573,7 @@ export default function WorkersPage() {
         });
       }, 200);
 
-      const url = `/api/reports/worker-statement?workerId=${worker.id}${projectIdForApi ? `&projectId=${projectIdForApi}` : ''}`;
+      const url = `/api/reports/worker-statement?worker_id=${worker.id}${project_idForApi ? `&project_id=${project_idForApi}` : ''}`;
       const res = await apiRequest(url, 'GET');
       
       clearInterval(progressInterval);

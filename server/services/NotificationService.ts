@@ -18,7 +18,7 @@ export interface NotificationPayload {
   payload?: Record<string, any>;
   priority?: number;
   recipients?: string[] | string;
-  projectId?: string;
+  project_id?: string;
   scheduledAt?: Date;
   channelPreference?: {
     push?: boolean;
@@ -80,7 +80,7 @@ export class NotificationService {
     }
 
     const notificationData: InsertNotification = {
-      projectId: data.projectId || null,
+      project_id: data.project_id || null,
       type: data.type,
       title: data.title,
       body: data.body,
@@ -109,7 +109,7 @@ export class NotificationService {
       title: data.title,
       body: data.body,
       priority: data.priority,
-      projectId: data.projectId,
+      project_id: data.project_id,
     }).catch((err) => {
       console.warn(`⚠️ [NotificationService] فشل إرسال تيليجرام: ${err.message}`);
     });
@@ -132,7 +132,7 @@ export class NotificationService {
     body: string;
     location?: { lat: number; lng: number };
     severity: 'low' | 'medium' | 'high' | 'critical';
-    projectId: string;
+    project_id: string;
     recipients?: string[];
   }): Promise<Notification> {
     console.log(`🚨 إنشاء تنبيه أمني: ${data.severity}`);
@@ -156,7 +156,7 @@ export class NotificationService {
       payload,
       priority,
       recipients: data.recipients || [],
-      projectId: data.projectId,
+      project_id: data.project_id,
       channelPreference: {
         push: true,
         email: data.severity === 'critical',
@@ -172,7 +172,7 @@ export class NotificationService {
     title: string;
     body: string;
     taskId: string;
-    projectId: string;
+    project_id: string;
     assignedTo: string[];
     dueDate?: Date;
   }): Promise<Notification> {
@@ -192,7 +192,7 @@ export class NotificationService {
       payload,
       priority: NotificationPriority.HIGH,
       recipients: data.assignedTo,
-      projectId: data.projectId,
+      project_id: data.project_id,
       channelPreference: {
         push: true,
         email: true,
@@ -205,10 +205,10 @@ export class NotificationService {
    * إنشاء إشعار راتب
    */
   async createPayrollNotification(data: {
-    workerId: string;
+    worker_id: string;
     workerName: string;
     amount: number;
-    projectId: string;
+    project_id: string;
     paymentType: 'salary' | 'bonus' | 'advance';
   }): Promise<Notification> {
     console.log(`💰 إنشاء إشعار راتب: ${data.workerName} - ${data.amount}`);
@@ -219,7 +219,7 @@ export class NotificationService {
 
     const payload = {
       type: 'payroll',
-      workerId: data.workerId,
+      worker_id: data.worker_id,
       amount: data.amount,
       paymentType: data.paymentType,
       action: 'open_payroll'
@@ -231,8 +231,8 @@ export class NotificationService {
       body: `تم ${title} للعامل ${data.workerName} بمبلغ ${data.amount} ريال`,
       payload,
       priority: NotificationPriority.MEDIUM,
-      recipients: [data.workerId],
-      projectId: data.projectId
+      recipients: [data.worker_id],
+      project_id: data.project_id
     });
   }
 
@@ -242,7 +242,7 @@ export class NotificationService {
   async createAnnouncement(data: {
     title: string;
     body: string;
-    projectId?: string;
+    project_id?: string;
     recipients: string[] | 'all';
     priority?: number;
   }): Promise<Notification> {
@@ -268,7 +268,7 @@ export class NotificationService {
       payload,
       priority: data.priority || NotificationPriority.INFO,
       recipients,
-      projectId: data.projectId,
+      project_id: data.project_id,
       channelPreference: {
         push: true,
         email: false,
@@ -288,9 +288,9 @@ export class NotificationService {
         }
       });
       
-      const userIds = users.map(user => user.id);
-      console.log(`📋 تم جلب ${userIds.length} مستخدم نشط للإشعارات`);
-      return userIds;
+      const user_ids = users.map(user => user.id);
+      console.log(`📋 تم جلب ${user_ids.length} مستخدم نشط للإشعارات`);
+      return user_ids;
     } catch (error) {
       console.error('خطأ في جلب المستخدمين النشطين:', error);
       // محاولة الحصول على مستخدم افتراضي من قاعدة البيانات بدلاً من 'default'
@@ -313,23 +313,23 @@ export class NotificationService {
   /**
    * تحديد ما إذا كان المستخدم مسؤولاً
    */
-  private async isAdmin(userId: string): Promise<boolean> {
+  private async isAdmin(user_id: string): Promise<boolean> {
     try {
       // التحقق السريع من المعرفات المعروفة
-      if (userId === 'admin' || userId === 'مسؤول') {
+      if (user_id === 'admin' || user_id === 'مسؤول') {
         return true;
       }
 
       // التحقق من قاعدة البيانات
       const user = await db.query.users.findFirst({
         where: (users, { eq, or }) => or(
-          eq(users.id, userId),
-          eq(users.email, userId)
+          eq(users.id, user_id),
+          eq(users.email, user_id)
         )
       });
 
       if (!user) {
-        console.log(`❌ لم يتم العثور على المستخدم: ${userId}`);
+        console.log(`❌ لم يتم العثور على المستخدم: ${user_id}`);
         return false;
       }
 
@@ -348,12 +348,12 @@ export class NotificationService {
   /**
    * تحديد نوع الإشعارات المسموحة للمستخدم حسب الدور
    */
-  private async getAllowedNotificationTypes(userId: string): Promise<string[]> {
+  private async getAllowedNotificationTypes(user_id: string): Promise<string[]> {
     try {
       const user = await db.query.users.findFirst({
         where: (users, { eq, or }) => or(
-          eq(users.id, userId),
-          eq(users.email, userId)
+          eq(users.id, user_id),
+          eq(users.email, user_id)
         )
       });
 
@@ -382,11 +382,11 @@ export class NotificationService {
    * جلب الإشعارات للمستخدم مع الفلترة المحسنة
    */
   async getUserNotifications(
-    userId: string, 
+    user_id: string, 
     filters: {
       type?: string;
       unreadOnly?: boolean;
-      projectId?: string;
+      project_id?: string;
       limit?: number;
       offset?: number;
     } = {}
@@ -395,11 +395,11 @@ export class NotificationService {
     unreadCount: number;
     total: number;
   }> {
-    const isUserAdmin = await this.isAdmin(userId);
-    console.log(`📥 جلب إشعارات المستخدم: ${userId} (نوع: ${isUserAdmin ? 'مسؤول' : 'مستخدم عادي'})`);
+    const isUserAdmin = await this.isAdmin(user_id);
+    console.log(`📥 جلب إشعارات المستخدم: ${user_id} (نوع: ${isUserAdmin ? 'مسؤول' : 'مستخدم عادي'})`);
 
     const conditions = [];
-    const allowedTypes = await this.getAllowedNotificationTypes(userId);
+    const allowedTypes = await this.getAllowedNotificationTypes(user_id);
 
     // فلترة حسب الأنواع المسموحة للمستخدم - لا نفلتر إذا كان المستخدم مسؤول
     if (!isUserAdmin) {
@@ -412,8 +412,8 @@ export class NotificationService {
     }
 
     // فلترة حسب المشروع
-    if (filters.projectId) {
-      conditions.push(eq(notifications.projectId, filters.projectId));
+    if (filters.project_id) {
+      conditions.push(eq(notifications.project_id, filters.project_id));
     }
 
     // فلترة الإشعارات للمستخدم - تحسين البحث
@@ -422,7 +422,7 @@ export class NotificationService {
       // المسؤول يرى جميع الإشعارات أو التي تخصه
       conditions.push(
         or(
-          sql`notifications.recipients::text LIKE '%' || ${userId} || '%'`,
+          sql`notifications.recipients::text LIKE '%' || ${user_id} || '%'`,
           sql`notifications.recipients::text LIKE '%admin%'`,
           sql`notifications.recipients::text LIKE '%مسؤول%'`,
           isNull(notifications.recipients) // الإشعارات العامة
@@ -432,7 +432,7 @@ export class NotificationService {
       // المستخدم العادي يرى فقط إشعاراته الشخصية والعامة (من الأنواع المسموحة)
       conditions.push(
         or(
-          sql`notifications.recipients::text LIKE '%' || ${userId} || '%'`,
+          sql`notifications.recipients::text LIKE '%' || ${user_id} || '%'`,
           isNull(notifications.recipients) // الإشعارات العامة
         )
       );
@@ -443,11 +443,11 @@ export class NotificationService {
       .select()
       .from(notifications)
       .where(and(...conditions))
-      .orderBy(desc(notifications.createdAt))
+      .orderBy(desc(notifications.created_at))
       .limit(filters.limit || 50)
       .offset(filters.offset || 0);
 
-    console.log(`🔍 تم العثور على ${notificationList.length} إشعار للمستخدم ${userId}`);
+    console.log(`🔍 تم العثور على ${notificationList.length} إشعار للمستخدم ${user_id}`);
 
     // جلب حالة القراءة للإشعارات (مخصصة لكل مستخدم)
     const notificationIds = notificationList.map((n: any) => n.id);
@@ -457,18 +457,18 @@ export class NotificationService {
         .from(notificationReadStates)
         .where(
           and(
-            eq(notificationReadStates.userId, userId), // مهم: حالة القراءة مخصصة للمستخدم
+            eq(notificationReadStates.user_id, user_id), // مهم: حالة القراءة مخصصة للمستخدم
             inArray(notificationReadStates.notificationId, notificationIds)
           )
         ) : [];
 
-    console.log(`📖 تم العثور على ${readStates.length} حالة قراءة للمستخدم ${userId}`);
+    console.log(`📖 تم العثور على ${readStates.length} حالة قراءة للمستخدم ${user_id}`);
     
     // تسجيل تفاصيل حالات القراءة للتشخيص
     if (readStates.length > 0) {
       console.log(`📋 [DEBUG] عينة من حالات القراءة:`, readStates.slice(0, 3).map((rs: any) => ({
         notificationId: rs.notificationId,
-        userId: rs.userId,
+        user_id: rs.user_id,
         isRead: rs.isRead,
         readAt: rs.readAt
       })));
@@ -508,7 +508,7 @@ export class NotificationService {
     // حساب عدد غير المقروءة
     const unreadCount = enrichedNotifications.filter((n: any) => !n.isRead).length;
 
-    console.log(`📊 المستخدم ${userId}: ${filteredNotifications.length} إشعار، غير مقروء: ${unreadCount}`);
+    console.log(`📊 المستخدم ${user_id}: ${filteredNotifications.length} إشعار، غير مقروء: ${unreadCount}`);
 
     return {
       notifications: filteredNotifications,
@@ -520,16 +520,16 @@ export class NotificationService {
   /**
    * فحص حالة قراءة إشعار معين للمستخدم
    */
-  async checkNotificationReadState(notificationId: string, userId: string): Promise<boolean> {
+  async checkNotificationReadState(notificationId: string, user_id: string): Promise<boolean> {
     try {
-      console.log(`🔍 بدء فحص حالة الإشعار ${notificationId} للمستخدم ${userId}`);
+      console.log(`🔍 بدء فحص حالة الإشعار ${notificationId} للمستخدم ${user_id}`);
       
       const readState = await db
         .select()
         .from(notificationReadStates)
         .where(
           and(
-            eq(notificationReadStates.userId, userId),
+            eq(notificationReadStates.user_id, user_id),
             eq(notificationReadStates.notificationId, notificationId)
           )
         )
@@ -538,7 +538,7 @@ export class NotificationService {
       console.log(`📖 نتائج فحص الإشعار ${notificationId}:`, readState);
       
       const isRead = readState.length > 0 && readState[0].isRead;
-      console.log(`🎯 حالة النهائية للإشعار ${notificationId} للمستخدم ${userId}: ${isRead ? 'مقروء' : 'غير مقروء'}`);
+      console.log(`🎯 حالة النهائية للإشعار ${notificationId} للمستخدم ${user_id}: ${isRead ? 'مقروء' : 'غير مقروء'}`);
       
       return isRead;
     } catch (error) {
@@ -558,13 +558,13 @@ export class NotificationService {
       await db.execute(sql.raw(`
         CREATE TABLE IF NOT EXISTS notification_read_states (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-          userId VARCHAR NOT NULL,
+          user_id VARCHAR NOT NULL,
           notification_id VARCHAR NOT NULL,
           is_read BOOLEAN DEFAULT false NOT NULL,
           read_at TIMESTAMP,
           action_taken BOOLEAN DEFAULT false,
           created_at TIMESTAMP DEFAULT NOW() NOT NULL,
-          UNIQUE(userId, notification_id)
+          UNIQUE(user_id, notification_id)
         )
       `));
       
@@ -575,15 +575,15 @@ export class NotificationService {
     }
   }
 
-  async markAsRead(notificationId: string, userId: string): Promise<void> {
-    console.log(`✅ بدء تعليم الإشعار كمقروء: ${notificationId} للمستخدم: ${userId}`);
+  async markAsRead(notificationId: string, user_id: string): Promise<void> {
+    console.log(`✅ بدء تعليم الإشعار كمقروء: ${notificationId} للمستخدم: ${user_id}`);
 
     try {
       await db
         .delete(notificationReadStates)
         .where(
           and(
-            eq(notificationReadStates.userId, userId),
+            eq(notificationReadStates.user_id, user_id),
             eq(notificationReadStates.notificationId, notificationId)
           )
         );
@@ -591,7 +591,7 @@ export class NotificationService {
       await db
         .insert(notificationReadStates)
         .values({
-          userId,
+          user_id,
           notificationId,
           isRead: true,
           readAt: new Date(),
@@ -607,8 +607,8 @@ export class NotificationService {
   /**
    * تعليم جميع الإشعارات كمقروءة
    */
-  async markAllAsRead(userId: string, projectId?: string): Promise<void> {
-    console.log(`✅ تعليم جميع الإشعارات كمقروءة للمستخدم: ${userId}`);
+  async markAllAsRead(user_id: string, project_id?: string): Promise<void> {
+    console.log(`✅ تعليم جميع الإشعارات كمقروءة للمستخدم: ${user_id}`);
 
     // جلب جميع الإشعارات أولاً للفحص
     const allNotifications = await db
@@ -633,8 +633,8 @@ export class NotificationService {
     const conditions = [];
     
     // إضافة شروط متعددة للتأكد من جلب جميع الإشعارات المناسبة
-    if (projectId) {
-      conditions.push(eq(notifications.projectId, projectId));
+    if (project_id) {
+      conditions.push(eq(notifications.project_id, project_id));
     }
 
     // إصلاح الاستعلام لتجنب مشاكل النوع
@@ -653,7 +653,7 @@ export class NotificationService {
     let markedCount = 0;
     for (const notification of userNotifications) {
       try {
-        await this.markAsRead(notification.id, userId);
+        await this.markAsRead(notification.id, user_id);
         markedCount++;
         console.log(`✅ تم تعليم الإشعار ${notification.id} كمقروء`);
       } catch (error) {
@@ -673,7 +673,7 @@ export class NotificationService {
   /**
    * جلب إحصائيات الإشعارات
    */
-  async getNotificationStats(userId: string): Promise<{
+  async getNotificationStats(user_id: string): Promise<{
     total: number;
     unread: number;
     critical: number;
@@ -685,7 +685,7 @@ export class NotificationService {
       const total = allNotifications.length;
       
       const readStates = await db.select().from(notificationReadStates);
-      const userReadStates = readStates.filter(rs => rs.userId === userId);
+      const userReadStates = readStates.filter(rs => rs.user_id === user_id);
       const readIds = new Set(userReadStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
       
       const unreadCount = allNotifications.filter(n => !readIds.has(n.id)).length;
@@ -700,7 +700,7 @@ export class NotificationService {
       const allUsers = await db.select().from(users).limit(10);
 
       const enrichedUserStats = allUsers.map(u => {
-        const userSpecificReadStates = readStates.filter(rs => rs.userId === u.id);
+        const userSpecificReadStates = readStates.filter(rs => rs.user_id === u.id);
         const lastRead = userSpecificReadStates
           .filter(rs => rs.readAt)
           .sort((a, b) => {
@@ -710,8 +710,8 @@ export class NotificationService {
           })[0];
 
         return {
-          userId: u.id,
-          userName: u.name || u.fullName || u.username || "مستخدم",
+          user_id: u.id,
+          userName: u.name || u.full_name || u.username || "مستخدم",
           userEmail: u.email,
           totalNotifications: total,
           readNotifications: userSpecificReadStates.filter(rs => rs.isRead).length,
@@ -733,14 +733,14 @@ export class NotificationService {
   }
 
 
-  async deleteNotification(notificationId: string, userId?: string): Promise<void> {
-    console.log(`🗑️ حذف الإشعار: ${notificationId}${userId ? ` للمستخدم: ${userId}` : ''}`);
+  async deleteNotification(notificationId: string, user_id?: string): Promise<void> {
+    console.log(`🗑️ حذف الإشعار: ${notificationId}${user_id ? ` للمستخدم: ${user_id}` : ''}`);
 
     try {
       // حذف حالات القراءة المرتبطة بالإشعار
       const readStatesConditions = [eq(notificationReadStates.notificationId, notificationId)];
-      if (userId) {
-        readStatesConditions.push(eq(notificationReadStates.userId, userId));
+      if (user_id) {
+        readStatesConditions.push(eq(notificationReadStates.user_id, user_id));
       }
 
       await db
@@ -762,7 +762,7 @@ export class NotificationService {
   /**
    * جلب إحصائيات الإشعارات
    */
-  async getNotificationStats(userId: string): Promise<{
+  async getNotificationStats(user_id: string): Promise<{
     total: number;
     unread: number;
     byType: Record<string, number>;
@@ -770,17 +770,17 @@ export class NotificationService {
     userType: 'admin' | 'user';
     allowedTypes: string[];
   }> {
-    console.log(`📊 حساب إحصائيات الإشعارات للمستخدم: ${userId}`);
+    console.log(`📊 حساب إحصائيات الإشعارات للمستخدم: ${user_id}`);
 
-    const isAdmin = await this.isAdmin(userId);
-    const allowedTypes = await this.getAllowedNotificationTypes(userId);
+    const isAdmin = await this.isAdmin(user_id);
+    const allowedTypes = await this.getAllowedNotificationTypes(user_id);
     
     // بناء شروط البحث مع فصل الصلاحيات
     const conditions = [inArray(notifications.type, allowedTypes)];
     
     if (isAdmin) {
       const adminCondition = or(
-        sql`${notifications.recipients} @> ARRAY[${userId}]`,
+        sql`${notifications.recipients} @> ARRAY[${user_id}]`,
         sql`${notifications.recipients} @> ARRAY['admin']`,
         sql`${notifications.recipients} @> ARRAY['مسؤول']`,
         sql`${notifications.recipients} IS NULL`
@@ -790,7 +790,7 @@ export class NotificationService {
       }
     } else {
       const userCondition = or(
-        sql`${notifications.recipients} @> ARRAY[${userId}]`,
+        sql`${notifications.recipients} @> ARRAY[${user_id}]`,
         sql`${notifications.recipients} IS NULL`
       );
       if (userCondition) {
@@ -806,7 +806,7 @@ export class NotificationService {
     const readStates = await db
       .select()
       .from(notificationReadStates)
-      .where(eq(notificationReadStates.userId, userId));
+      .where(eq(notificationReadStates.user_id, user_id));
 
     const readNotificationIds = readStates
       .filter((rs: any) => rs.isRead)
@@ -835,7 +835,7 @@ export class NotificationService {
       allowedTypes
     };
 
-    console.log(`📊 مستخدم ${userId} (نوع: ${stats.userType}): ${stats.total} إشعار، ${stats.unread} غير مقروء`);
+    console.log(`📊 مستخدم ${user_id} (نوع: ${stats.userType}): ${stats.total} إشعار، ${stats.unread} غير مقروء`);
     return stats;
   }
 
@@ -874,7 +874,7 @@ export class NotificationService {
     }
     
     const allNotifications = await query
-      .orderBy(desc(notifications.createdAt))
+      .orderBy(desc(notifications.created_at))
       .limit(limit)
       .offset(offset);
     
@@ -892,7 +892,7 @@ export class NotificationService {
         return {
           ...notification,
           readStates: readStates.map((rs: any) => ({
-            userId: rs.userId,
+            user_id: rs.user_id,
             isRead: rs.isRead,
             readAt: rs.readAt,
             actionTaken: rs.actionTaken || false
@@ -940,7 +940,7 @@ export class NotificationService {
         const userReadStates = await db
           .select()
           .from(notificationReadStates)
-          .where(eq(notificationReadStates.userId, user.id));
+          .where(eq(notificationReadStates.user_id, user.id));
         
         const readNotifications = userReadStates.filter((rs: any) => rs.isRead).length;
         const unreadNotifications = userReadStates.filter((rs: any) => !rs.isRead).length;
@@ -952,7 +952,7 @@ export class NotificationService {
           .sort((a: any, b: any) => new Date(b.readAt).getTime() - new Date(a.readAt).getTime())[0];
         
         return {
-          userId: user.id,
+          user_id: user.id,
           userName: user.name || user.email?.split('@')[0] || 'مستخدم',
           userEmail: user.email,
           userRole: user.role || 'user',

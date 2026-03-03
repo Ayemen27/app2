@@ -11,7 +11,7 @@ import {
 } from '../../shared/schema';
 
 export interface WellExpenseDTO {
-  wellId: number;
+  well_id: number;
   expenseType: 'labor' | 'operational_material' | 'consumable_material' | 'transport' | 'service';
   description: string;
   category: string;
@@ -24,7 +24,7 @@ export interface WellExpenseDTO {
 }
 
 export interface ExpenseFilters {
-  wellId?: number;
+  well_id?: number;
   expenseType?: string;
   startDate?: string;
   endDate?: string;
@@ -36,12 +36,12 @@ export class WellExpenseService {
   /**
    * إضافة مصروف مباشر للبئر
    */
-  static async addExpense(data: WellExpenseDTO, userId: string) {
+  static async addExpense(data: WellExpenseDTO, user_id: string) {
     try {
       // التحقق من وجود البئر
       const well = await db.select()
         .from(wells)
-        .where(eq(wells.id, data.wellId))
+        .where(eq(wells.id, data.well_id))
         .limit(1);
 
       if (!well.length) {
@@ -50,7 +50,7 @@ export class WellExpenseService {
 
       // إنشاء المصروف
       const newExpense = await db.insert(wellExpenses).values({
-        wellId: data.wellId,
+        well_id: data.well_id,
         expenseType: data.expenseType,
         referenceType: null,
         referenceId: null,
@@ -61,7 +61,7 @@ export class WellExpenseService {
         unitPrice: data.unitPrice ? String(data.unitPrice) : null,
         totalAmount: String(data.totalAmount),
         expenseDate: new Date(data.expenseDate),
-        createdBy: userId,
+        createdBy: user_id,
         notes: data.notes || null
       }).returning();
 
@@ -77,7 +77,7 @@ export class WellExpenseService {
    * ربط مصروف موجود من جدول آخر ببئر
    */
   static async linkExistingExpense(
-    wellId: number,
+    well_id: number,
     referenceType: 'worker_attendance' | 'material_purchase' | 'transportation',
     referenceId: number
   ) {
@@ -85,7 +85,7 @@ export class WellExpenseService {
       // التحقق من وجود البئر
       const well = await db.select()
         .from(wells)
-        .where(eq(wells.id, wellId))
+        .where(eq(wells.id, well_id))
         .limit(1);
 
       if (!well.length) {
@@ -109,7 +109,7 @@ export class WellExpenseService {
 
         // إنشاء مصروف مرتبط
         const linkedExpense = await db.insert(wellExpenses).values({
-          wellId,
+          well_id,
           expenseType,
           referenceType: 'worker_attendance',
           referenceId: Number(referenceId),
@@ -143,7 +143,7 @@ export class WellExpenseService {
         expenseType = materialType;
 
         const linkedExpense = await db.insert(wellExpenses).values({
-          wellId,
+          well_id,
           expenseType,
           referenceType: 'material_purchase',
           referenceId: Number(referenceId),
@@ -171,7 +171,7 @@ export class WellExpenseService {
         expenseType = 'transport';
 
         const linkedExpense = await db.insert(wellExpenses).values({
-          wellId,
+          well_id,
           expenseType,
           referenceType: 'transportation',
           referenceId: Number(referenceId),
@@ -212,11 +212,11 @@ export class WellExpenseService {
   /**
    * جلب مصاريف البئر
    */
-  static async getWellExpenses(wellId: number, filters?: ExpenseFilters) {
+  static async getWellExpenses(well_id: number, filters?: ExpenseFilters) {
     try {
       let query = db.select()
         .from(wellExpenses)
-        .where(eq(wellExpenses.wellId, wellId));
+        .where(eq(wellExpenses.well_id, well_id));
 
       if (filters?.expenseType) {
         query = query.where(eq(wellExpenses.expenseType, filters.expenseType)) as any;
@@ -241,12 +241,12 @@ export class WellExpenseService {
   /**
    * حساب تقرير تكلفة البئر الشامل
    */
-  static async getWellCostReport(wellId: number) {
+  static async getWellCostReport(well_id: number) {
     try {
-      const expenses = await this.getWellExpenses(wellId);
+      const expenses = await this.getWellExpenses(well_id);
 
       const report = {
-        wellId,
+        well_id,
         summary: {
           totalCost: 0,
           laborCost: 0,
@@ -321,7 +321,7 @@ export class WellExpenseService {
         };
       }
 
-      console.log('✅ تم حساب تقرير التكاليف للبئر:', wellId);
+      console.log('✅ تم حساب تقرير التكاليف للبئر:', well_id);
       return report;
     } catch (error) {
       console.error('❌ خطأ في حساب التقرير:', error);
@@ -332,15 +332,15 @@ export class WellExpenseService {
   /**
    * ملخص تكاليف المشروع
    */
-  static async getProjectCostSummary(projectId: string) {
+  static async getProjectCostSummary(project_id: string) {
     try {
       // جلب جميع آبار المشروع
       const projectWells = await db.select()
         .from(wells)
-        .where(eq(wells.projectId, projectId));
+        .where(eq(wells.project_id, project_id));
 
       const summary = {
-        projectId,
+        project_id,
         totalWells: projectWells.length,
         totalProjectCost: 0,
         costPerWell: {} as any,
@@ -358,7 +358,7 @@ export class WellExpenseService {
         summary.averageCostPerWell = Math.round(summary.totalProjectCost / projectWells.length);
       }
 
-      console.log('✅ تم حساب ملخص تكاليف المشروع:', projectId);
+      console.log('✅ تم حساب ملخص تكاليف المشروع:', project_id);
       return summary;
     } catch (error) {
       console.error('❌ خطأ في حساب ملخص المشروع:', error);

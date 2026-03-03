@@ -3,9 +3,9 @@ import { z } from "zod";
 
 // تعريف أنواع البيانات
 export interface WorkerSettlementData {
-  workerId: string;
+  worker_id: string;
   workerName?: string;
-  projectId: string;
+  project_id: string;
   amount: number;
   settlementType: "full" | "partial" | "advance";
   paymentMethod: "cash" | "transfer" | "check";
@@ -17,8 +17,8 @@ type ValidationErrors = Record<string, string>;
 
 // schema للتحقق من صحة البيانات
 const workerSettlementSchema = z.object({
-  workerId: z.string().min(1, "معرّف العامل مطلوب"),
-  projectId: z.string().min(1, "معرّف المشروع مطلوب"),
+  worker_id: z.string().min(1, "معرّف العامل مطلوب"),
+  project_id: z.string().min(1, "معرّف المشروع مطلوب"),
   amount: z.number().positive("المبلغ يجب أن يكون أكبر من صفر"),
   settlementType: z.enum(["full", "partial", "advance"], {
     errorMap: () => ({ message: "نوع التسوية غير صحيح" })
@@ -83,12 +83,12 @@ export function useWorkersSettlementValidation() {
   const validateMinimum = useCallback((data: Partial<WorkerSettlementData>): boolean => {
     const minErrors: ValidationErrors = {};
 
-    if (!data.workerId) {
-      minErrors.workerId = "معرّف العامل مطلوب";
+    if (!data.worker_id) {
+      minErrors.worker_id = "معرّف العامل مطلوب";
     }
 
-    if (!data.projectId) {
-      minErrors.projectId = "معرّف المشروع مطلوب";
+    if (!data.project_id) {
+      minErrors.project_id = "معرّف المشروع مطلوب";
     }
 
     if (!data.amount || data.amount <= 0) {
@@ -126,15 +126,15 @@ export function useWorkersSettlementValidation() {
     const fieldErrors: ValidationErrors = {};
 
     switch (fieldName) {
-      case 'workerId':
+      case 'worker_id':
         if (!value || value.trim() === '') {
-          fieldErrors.workerId = "معرّف العامل مطلوب";
+          fieldErrors.worker_id = "معرّف العامل مطلوب";
         }
         break;
 
-      case 'projectId':
+      case 'project_id':
         if (!value || value.trim() === '') {
-          fieldErrors.projectId = "معرّف المشروع مطلوب";
+          fieldErrors.project_id = "معرّف المشروع مطلوب";
         }
         break;
 

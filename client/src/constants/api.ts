@@ -63,16 +63,16 @@ export const API_ENDPOINTS = {
   notificationById: (id: string) => `/api/notifications/${id}`,
   notificationMarkRead: (id: string) => `/api/notifications/${id}/read`,
   notificationsMarkAllRead: "/api/notifications/mark-all-read",
-  projectWorkers: (projectId: string) => `/api/projects/${projectId}/workers`,
-  projectMaterialPurchases: (projectId: string, date?: string) =>
-    date ? `/api/projects/${projectId}/material-purchases?date=${date}` : `/api/projects/${projectId}/material-purchases`,
-  projectWorkerAttendance: (projectId: string, date?: string) =>
-    date ? `/api/projects/${projectId}/worker-attendance?date=${date}` : `/api/projects/${projectId}/worker-attendance`,
-  projectDailyExpenses: (projectId: string, date: string) =>
-    `/api/projects/${projectId}/daily-expenses/${date}`,
-  projectPreviousBalance: (projectId: string, date?: string) =>
-    date ? `/api/projects/${projectId}/previous-balance/${date}` : `/api/projects/${projectId}/previous-balance`,
-  projectDailySummary: (projectId: string, date: string) =>
-    `/api/projects/${projectId}/daily-summary/${date}`,
-  projectStats: (projectId: string) => `/api/projects/${projectId}/stats`,
+  projectWorkers: (project_id: string) => `/api/projects/${project_id}/workers`,
+  projectMaterialPurchases: (project_id: string, date?: string) =>
+    date ? `/api/projects/${project_id}/material-purchases?date=${date}` : `/api/projects/${project_id}/material-purchases`,
+  projectWorkerAttendance: (project_id: string, date?: string) =>
+    date ? `/api/projects/${project_id}/worker-attendance?date=${date}` : `/api/projects/${project_id}/worker-attendance`,
+  projectDailyExpenses: (project_id: string, date: string) =>
+    `/api/projects/${project_id}/daily-expenses/${date}`,
+  projectPreviousBalance: (project_id: string, date?: string) =>
+    date ? `/api/projects/${project_id}/previous-balance/${date}` : `/api/projects/${project_id}/previous-balance`,
+  projectDailySummary: (project_id: string, date: string) =>
+    `/api/projects/${project_id}/daily-summary/${date}`,
+  projectStats: (project_id: string) => `/api/projects/${project_id}/stats`,
 } as const;

@@ -53,7 +53,7 @@ export interface IStorage {
 
   // Notifications
   createNotification(notif: InsertNotification): Promise<Notification>;
-  getNotifications(userId?: string): Promise<Notification[]>;
+  getNotifications(user_id?: string): Promise<Notification[]>;
   getAdminNotifications(): Promise<Notification[]>;
 
   // Tasks
@@ -89,7 +89,7 @@ export interface IStorage {
   createWorkerType(workerType: InsertWorkerType): Promise<WorkerType>;
   
   // Fund Transfers
-  getFundTransfers(projectId: string, date?: string): Promise<FundTransfer[]>;
+  getFundTransfers(project_id: string, date?: string): Promise<FundTransfer[]>;
   getFundTransferByNumber(transferNumber: string): Promise<FundTransfer | undefined>;
   createFundTransfer(transfer: InsertFundTransfer): Promise<FundTransfer>;
   updateFundTransfer(id: string, transfer: Partial<InsertFundTransfer>): Promise<FundTransfer | undefined>;
@@ -103,7 +103,7 @@ export interface IStorage {
   deleteProjectFundTransfer(id: string): Promise<void>;
   
   // Worker Attendance
-  getWorkerAttendance(projectId: string, date?: string): Promise<WorkerAttendance[]>;
+  getWorkerAttendance(project_id: string, date?: string): Promise<WorkerAttendance[]>;
   getWorkerAttendanceById(id: string): Promise<WorkerAttendance | null>;
   createWorkerAttendance(attendance: InsertWorkerAttendance): Promise<WorkerAttendance>;
   updateWorkerAttendance(id: string, attendance: Partial<InsertWorkerAttendance>): Promise<WorkerAttendance | undefined>;
@@ -116,10 +116,10 @@ export interface IStorage {
   findMaterialByNameAndUnit(name: string, unit: string): Promise<Material | undefined>;
   
   // Material Purchases
-  getMaterialPurchases(projectId: string, dateFrom?: string, dateTo?: string): Promise<MaterialPurchase[]>;
+  getMaterialPurchases(project_id: string, dateFrom?: string, dateTo?: string): Promise<MaterialPurchase[]>;
   getMaterialPurchasesWithFilters(filters: {
-    supplierId?: string;
-    projectId?: string;
+    supplier_id?: string;
+    project_id?: string;
     dateFrom?: string;
     dateTo?: string;
     purchaseType?: string;
@@ -132,37 +132,37 @@ export interface IStorage {
   
   // Transportation Expenses
   getAllTransportationExpenses(): Promise<TransportationExpense[]>;
-  getTransportationExpenses(projectId: string, date?: string): Promise<TransportationExpense[]>;
+  getTransportationExpenses(project_id: string, date?: string): Promise<TransportationExpense[]>;
   createTransportationExpense(expense: InsertTransportationExpense): Promise<TransportationExpense>;
   updateTransportationExpense(id: string, expense: Partial<InsertTransportationExpense>): Promise<TransportationExpense | undefined>;
   deleteTransportationExpense(id: string): Promise<void>;
   
   // Daily Expense Summaries
-  getDailyExpenseSummary(projectId: string, date: string): Promise<DailyExpenseSummary | undefined>;
+  getDailyExpenseSummary(project_id: string, date: string): Promise<DailyExpenseSummary | undefined>;
   createOrUpdateDailyExpenseSummary(summary: InsertDailyExpenseSummary): Promise<DailyExpenseSummary>;
   updateDailyExpenseSummary(id: string, summary: Partial<InsertDailyExpenseSummary>): Promise<DailyExpenseSummary | undefined>;
-  getPreviousDayBalance(projectId: string, currentDate: string): Promise<string>;
-  deleteDailySummary(projectId: string, date: string): Promise<void>;
-  getDailySummary(projectId: string, date: string): Promise<DailyExpenseSummary | null>;
+  getPreviousDayBalance(project_id: string, currentDate: string): Promise<string>;
+  deleteDailySummary(project_id: string, date: string): Promise<void>;
+  getDailySummary(project_id: string, date: string): Promise<DailyExpenseSummary | null>;
   
   // Worker Balance Management
-  getWorkerBalance(workerId: string, projectId: string): Promise<WorkerBalance | undefined>;
-  updateWorkerBalance(workerId: string, projectId: string, balance: Partial<InsertWorkerBalance>): Promise<WorkerBalance>;
+  getWorkerBalance(worker_id: string, project_id: string): Promise<WorkerBalance | undefined>;
+  updateWorkerBalance(worker_id: string, project_id: string, balance: Partial<InsertWorkerBalance>): Promise<WorkerBalance>;
   
   // Worker Transfers
-  getWorkerTransfers(workerId: string, projectId?: string): Promise<WorkerTransfer[]>;
+  getWorkerTransfers(worker_id: string, project_id?: string): Promise<WorkerTransfer[]>;
   getWorkerTransfer(id: string): Promise<WorkerTransfer | null>;
   createWorkerTransfer(transfer: InsertWorkerTransfer): Promise<WorkerTransfer>;
   updateWorkerTransfer(id: string, transfer: Partial<InsertWorkerTransfer>): Promise<WorkerTransfer | undefined>;
   deleteWorkerTransfer(id: string): Promise<void>;
   getAllWorkerTransfers(): Promise<WorkerTransfer[]>;
-  getFilteredWorkerTransfers(projectId?: string, date?: string): Promise<WorkerTransfer[]>;
+  getFilteredWorkerTransfers(project_id?: string, date?: string): Promise<WorkerTransfer[]>;
   
   // Project Statistics
-  getProjectStatistics(projectId: string): Promise<any>;
+  getProjectStatistics(project_id: string): Promise<any>;
   
   // Reports
-  getWorkerAccountStatement(workerId: string, projectId?: string, dateFrom?: string, dateTo?: string): Promise<{
+  getWorkerAccountStatement(worker_id: string, project_id?: string, dateFrom?: string, dateTo?: string): Promise<{
     attendance: WorkerAttendance[];
     transfers: WorkerTransfer[];
     balance: WorkerBalance | null;
@@ -170,7 +170,7 @@ export interface IStorage {
   
   // Multi-project worker management
   getWorkersWithMultipleProjects(): Promise<{worker: Worker, projects: Project[], totalBalance: string}[]>;
-  getWorkerMultiProjectStatement(workerId: string, dateFrom?: string, dateTo?: string): Promise<{
+  getWorkerMultiProjectStatement(worker_id: string, dateFrom?: string, dateTo?: string): Promise<{
     worker: Worker;
     projects: {
       project: Project;
@@ -185,9 +185,9 @@ export interface IStorage {
       totalBalance: string;
     };
   }>;
-  getWorkerProjects(workerId: string): Promise<Project[]>;
-  updateDailySummaryForDate(projectId: string, date: string): Promise<void>;
-  getDailyExpensesRange(projectId: string, dateFrom: string, dateTo: string): Promise<any[]>;
+  getWorkerProjects(worker_id: string): Promise<Project[]>;
+  updateDailySummaryForDate(project_id: string, date: string): Promise<void>;
+  getDailyExpensesRange(project_id: string, dateFrom: string, dateTo: string): Promise<any[]>;
   
   // Autocomplete data
   getAutocompleteData(category: string): Promise<AutocompleteData[]>;
@@ -195,15 +195,15 @@ export interface IStorage {
   removeAutocompleteData(category: string, value: string): Promise<void>;
   
   // Worker miscellaneous expenses
-  getWorkerMiscExpenses(projectId: string, date?: string): Promise<WorkerMiscExpense[]>;
+  getWorkerMiscExpenses(project_id: string, date?: string): Promise<WorkerMiscExpense[]>;
   getWorkerMiscExpense(id: string): Promise<WorkerMiscExpense | null>;
   createWorkerMiscExpense(expense: InsertWorkerMiscExpense): Promise<WorkerMiscExpense>;
   updateWorkerMiscExpense(id: string, expense: Partial<InsertWorkerMiscExpense>): Promise<WorkerMiscExpense | undefined>;
   deleteWorkerMiscExpense(id: string): Promise<void>;
   
   // Advanced Reports
-  getExpensesForReport(projectId: string, dateFrom: string, dateTo: string): Promise<any[]>;
-  getIncomeForReport(projectId: string, dateFrom: string, dateTo: string): Promise<any[]>;
+  getExpensesForReport(project_id: string, dateFrom: string, dateTo: string): Promise<any[]>;
+  getIncomeForReport(project_id: string, dateFrom: string, dateTo: string): Promise<any[]>;
   
   // Users
   getUsers(): Promise<User[]>;
@@ -218,18 +218,18 @@ export interface IStorage {
   // Refresh Tokens
   getRefreshToken(id: string): Promise<RefreshToken | undefined>;
   getRefreshTokenByHash(hash: string): Promise<RefreshToken | undefined>;
-  getRefreshTokensByUser(userId: string): Promise<RefreshToken[]>;
+  getRefreshTokensByUser(user_id: string): Promise<RefreshToken[]>;
   createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken>;
   updateRefreshToken(id: string, token: Partial<InsertRefreshToken>): Promise<RefreshToken | undefined>;
-  revokeAllUserTokens(userId: string): Promise<void>;
+  revokeAllUserTokens(user_id: string): Promise<void>;
   revokeTokenFamily(rootId: string): Promise<void>;
 
   // Audit Logs
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
-  getAuditLogs(userId?: string, action?: string): Promise<AuditLog[]>;
+  getAuditLogs(user_id?: string, action?: string): Promise<AuditLog[]>;
 
   // Daily Activity Logs
-  getDailyLogs(projectId?: string, date?: string): Promise<DailyActivityLog[]>;
+  getDailyLogs(project_id?: string, date?: string): Promise<DailyActivityLog[]>;
   createDailyLog(log: InsertDailyActivityLog): Promise<DailyActivityLog>;
   updateDailyLog(id: string, log: Partial<InsertDailyActivityLog>): Promise<DailyActivityLog | undefined>;
   deleteDailyLog(id: string): Promise<void>;
@@ -244,14 +244,14 @@ export interface IStorage {
   
   // Supplier Payments
   getAllSupplierPayments(): Promise<SupplierPayment[]>;
-  getSupplierPayments(supplierId: string, projectId?: string): Promise<SupplierPayment[]>;
+  getSupplierPayments(supplier_id: string, project_id?: string): Promise<SupplierPayment[]>;
   getSupplierPayment(id: string): Promise<SupplierPayment | undefined>;
   createSupplierPayment(payment: InsertSupplierPayment): Promise<SupplierPayment>;
   updateSupplierPayment(id: string, payment: Partial<InsertSupplierPayment>): Promise<SupplierPayment | undefined>;
   deleteSupplierPayment(id: string): Promise<void>;
   
   // Supplier Reports
-  getSupplierAccountStatement(supplierId: string, projectId?: string, dateFrom?: string, dateTo?: string): Promise<{
+  getSupplierAccountStatement(supplier_id: string, project_id?: string, dateFrom?: string, dateTo?: string): Promise<{
     supplier: Supplier;
     purchases: MaterialPurchase[];
     payments: SupplierPayment[];
@@ -273,8 +273,8 @@ export interface IStorage {
   
   // إحصائيات عامة لحساب الموردين
   getSupplierStatistics(filters?: {
-    supplierId?: string;
-    projectId?: string;
+    supplier_id?: string;
+    project_id?: string;
     dateFrom?: string;
     dateTo?: string;
   }): Promise<{
@@ -288,10 +288,10 @@ export interface IStorage {
   }>;
   
   // Purchase filtering for supplier reports
-  getPurchasesBySupplier(supplierId: string, purchaseType?: string, dateFrom?: string, dateTo?: string): Promise<MaterialPurchase[]>;
+  getPurchasesBySupplier(supplier_id: string, purchaseType?: string, dateFrom?: string, dateTo?: string): Promise<MaterialPurchase[]>;
   
   // Print Settings
-  getPrintSettings(reportType?: string, userId?: string): Promise<PrintSettings[]>;
+  getPrintSettings(reportType?: string, user_id?: string): Promise<PrintSettings[]>;
   getPrintSettingsById(id: string): Promise<PrintSettings | undefined>;
   createPrintSettings(settings: InsertPrintSettings): Promise<PrintSettings>;
   updatePrintSettings(id: string, settings: Partial<InsertPrintSettings>): Promise<PrintSettings | undefined>;
@@ -314,14 +314,14 @@ export interface IStorage {
 
   // Equipment - Simple Management
   getEquipment(filters?: {
-    projectId?: string;
+    project_id?: string;
     status?: string;
     type?: string;
     searchTerm?: string;
   }): Promise<Equipment[]>;
   getEquipmentById(id: string): Promise<Equipment | undefined>;
   getEquipmentByCode(code: string): Promise<Equipment | undefined>;
-  getEquipmentByProject(projectId: string): Promise<Equipment[]>;
+  getEquipmentByProject(project_id: string): Promise<Equipment[]>;
   generateNextEquipmentCode(): Promise<string>;
   createEquipment(equipment: InsertEquipment): Promise<Equipment>;
   updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment | undefined>;
@@ -334,10 +334,10 @@ export interface IStorage {
 
   // Notifications
   createNotification(notif: InsertNotification): Promise<Notification>;
-  getNotifications(userId?: string): Promise<Notification[]>;
+  getNotifications(user_id?: string): Promise<Notification[]>;
 
   // Wells Management System (نظام إدارة الآبار)
-  getWellTasks(wellId: number): Promise<WellTask[]>;
+  getWellTasks(well_id: number): Promise<WellTask[]>;
   getWellTask(id: number): Promise<WellTask | undefined>;
   createWellTask(task: InsertWellTask): Promise<WellTask>;
   updateWellTask(id: number, task: Partial<InsertWellTask>): Promise<WellTask | undefined>;
@@ -418,15 +418,15 @@ export class DatabaseStorage implements IStorage {
     return newNotif;
   }
 
-  async getNotifications(userId?: string): Promise<Notification[]> {
-    if (userId) {
-      return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+  async getNotifications(user_id?: string): Promise<Notification[]> {
+    if (user_id) {
+      return await db.select().from(notifications).where(eq(notifications.user_id, user_id)).orderBy(desc(notifications.created_at));
     }
-    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+    return await db.select().from(notifications).orderBy(desc(notifications.created_at));
   }
 
   async getAdminNotifications(): Promise<Notification[]> {
-    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+    return await db.select().from(notifications).orderBy(desc(notifications.created_at));
   }
 
   // Cache للمعدات - تحسين الأداء الفائق
@@ -439,7 +439,7 @@ export class DatabaseStorage implements IStorage {
 
   // Tasks
   async getTasks(): Promise<Task[]> {
-    return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
+    return await db.select().from(tasks).orderBy(desc(tasks.created_at));
   }
 
   async createTask(task: InsertTask): Promise<Task> {
@@ -466,7 +466,7 @@ export class DatabaseStorage implements IStorage {
     const existing = await this.getWhatsAppStats();
     if (existing) {
       const [updated] = await db.update(whatsappStats)
-        .set({ ...stats, updatedAt: new Date() })
+        .set({ ...stats, updated_at: new Date() })
         .where(eq(whatsappStats.id, existing.id))
         .returning();
       return updated;
@@ -678,14 +678,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Fund Transfers
-  async getFundTransfers(projectId: string, date?: string): Promise<FundTransfer[]> {
+  async getFundTransfers(project_id: string, date?: string): Promise<FundTransfer[]> {
     if (date) {
       const result = await db.select().from(fundTransfers)
-        .where(and(eq(fundTransfers.projectId, projectId), sql`DATE(${fundTransfers.transferDate}) = ${date}`));
+        .where(and(eq(fundTransfers.project_id, project_id), sql`DATE(${fundTransfers.transferDate}) = ${date}`));
       return result;
     } else {
       const result = await db.select().from(fundTransfers)
-        .where(eq(fundTransfers.projectId, projectId));
+        .where(eq(fundTransfers.project_id, project_id));
       return result;
     }
   }
@@ -698,7 +698,7 @@ export class DatabaseStorage implements IStorage {
   async createFundTransfer(transfer: InsertFundTransfer): Promise<FundTransfer> {
     try {
       console.log('💾 إنشاء حولة جديدة في قاعدة البيانات:', {
-        projectId: transfer.projectId,
+        project_id: transfer.project_id,
         amount: transfer.amount,
         transferType: transfer.transferType,
         senderName: transfer.senderName
@@ -717,7 +717,7 @@ export class DatabaseStorage implements IStorage {
       
       // تحديث الملخص اليومي في الخلفية (دون انتظار)
       const transferDate = new Date(transfer.transferDate).toISOString().split('T')[0];
-      this.updateDailySummaryForDate(transfer.projectId, transferDate).catch(console.error);
+      this.updateDailySummaryForDate(transfer.project_id, transferDate).catch(console.error);
       
       return newTransfer;
     } catch (error: any) {
@@ -754,12 +754,12 @@ export class DatabaseStorage implements IStorage {
     
     if (updated && oldTransfer) {
       const oldDate = new Date(oldTransfer.transferDate).toISOString().split('T')[0];
-      await this.updateDailySummaryForDate(oldTransfer.projectId, oldDate);
+      await this.updateDailySummaryForDate(oldTransfer.project_id, oldDate);
       
       if (transfer.transferDate) {
         const newDate = new Date(transfer.transferDate).toISOString().split('T')[0];
         if (newDate !== oldDate) {
-          await this.updateDailySummaryForDate(updated.projectId, newDate);
+          await this.updateDailySummaryForDate(updated.project_id, newDate);
         }
       }
     }
@@ -774,18 +774,18 @@ export class DatabaseStorage implements IStorage {
     
     if (transfer) {
       const transferDate = new Date(transfer.transferDate).toISOString().split('T')[0];
-      await this.updateDailySummaryForDate(transfer.projectId, transferDate);
+      await this.updateDailySummaryForDate(transfer.project_id, transferDate);
     }
   }
 
   // دالة مساعدة لجلب عمليات ترحيل الأموال لمشروع معين في تاريخ محدد
-  async getProjectFundTransfersForDate(projectId: string, date: string): Promise<ProjectFundTransfer[]> {
+  async getProjectFundTransfersForDate(project_id: string, date: string): Promise<ProjectFundTransfer[]> {
     const transfers = await db.select().from(projectFundTransfers)
       .where(
         and(
           or(
-            eq(projectFundTransfers.fromProjectId, projectId),
-            eq(projectFundTransfers.toProjectId, projectId)
+            eq(projectFundTransfers.fromProjectId, project_id),
+            eq(projectFundTransfers.toProjectId, project_id)
           ),
           eq(projectFundTransfers.transferDate, date)
         )
@@ -897,14 +897,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Worker Attendance
-  async getWorkerAttendance(projectId: string, date?: string): Promise<WorkerAttendance[]> {
+  async getWorkerAttendance(project_id: string, date?: string): Promise<WorkerAttendance[]> {
     if (date) {
       const result = await db.select().from(workerAttendance)
-        .where(and(eq(workerAttendance.projectId, projectId), eq(workerAttendance.date, date)));
+        .where(and(eq(workerAttendance.project_id, project_id), eq(workerAttendance.date, date)));
       return result;
     } else {
       const result = await db.select().from(workerAttendance)
-        .where(eq(workerAttendance.projectId, projectId));
+        .where(eq(workerAttendance.project_id, project_id));
       return result;
     }
   }
@@ -918,9 +918,9 @@ export class DatabaseStorage implements IStorage {
     // التحقق من عدم وجود حضور مسجل مسبقاً لنفس العامل في نفس اليوم
     const existingAttendance = await db.select().from(workerAttendance)
       .where(and(
-        eq(workerAttendance.workerId, attendance.workerId),
+        eq(workerAttendance.worker_id, attendance.worker_id),
         eq(workerAttendance.date, attendance.date),
-        eq(workerAttendance.projectId, attendance.projectId)
+        eq(workerAttendance.project_id, attendance.project_id)
       ));
     
     if (existingAttendance.length > 0) {
@@ -953,7 +953,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // تحديث الملخص اليومي في الخلفية (دون انتظار)
-      this.updateDailySummaryForDate(attendance.projectId, attendance.date).catch(console.error);
+      this.updateDailySummaryForDate(attendance.project_id, attendance.date).catch(console.error);
       
       return newAttendance;
     } catch (error: any) {
@@ -1014,7 +1014,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     if (updated) {
-      await this.updateDailySummaryForDate(updated.projectId, updated.date);
+      await this.updateDailySummaryForDate(updated.project_id, updated.date);
     }
     
     return updated || undefined;
@@ -1026,7 +1026,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(workerAttendance).where(eq(workerAttendance.id, id));
     
     if (attendance) {
-      await this.updateDailySummaryForDate(attendance.projectId, attendance.date);
+      await this.updateDailySummaryForDate(attendance.project_id, attendance.date);
     }
   }
 
@@ -1050,12 +1050,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Material Purchases
-  async getMaterialPurchases(projectId: string, dateFrom?: string, dateTo?: string, purchaseType?: string): Promise<any[]> {
+  async getMaterialPurchases(project_id: string, dateFrom?: string, dateTo?: string, purchaseType?: string): Promise<any[]> {
     // جلب مشتريات المواد - البيانات محفوظة مباشرة بدون انضمام
     const purchases = await db
       .select({
         id: materialPurchases.id,
-        projectId: materialPurchases.projectId,
+        project_id: materialPurchases.project_id,
         quantity: materialPurchases.quantity,
         unitPrice: materialPurchases.unitPrice,
         totalAmount: materialPurchases.totalAmount,
@@ -1066,7 +1066,7 @@ export class DatabaseStorage implements IStorage {
         invoicePhoto: materialPurchases.invoicePhoto,
         notes: materialPurchases.notes,
         purchaseDate: materialPurchases.purchaseDate,
-        createdAt: materialPurchases.createdAt,
+        created_at: materialPurchases.created_at,
         // بيانات المادة محفوظة مباشرة في الجدول
         materialName: materialPurchases.materialName,
         unit: materialPurchases.unit
@@ -1074,7 +1074,7 @@ export class DatabaseStorage implements IStorage {
       .from(materialPurchases)
       .where(
         (() => {
-          const conditions = [eq(materialPurchases.projectId, projectId)];
+          const conditions = [eq(materialPurchases.project_id, project_id)];
           
           if (dateFrom && dateTo) {
             conditions.push(eq(materialPurchases.purchaseDate, dateFrom));
@@ -1087,12 +1087,12 @@ export class DatabaseStorage implements IStorage {
           return and(...conditions);
         })()
       )
-      .orderBy(materialPurchases.createdAt);
+      .orderBy(materialPurchases.created_at);
 
     // تحويل البيانات للشكل المطلوب
     return purchases.map(purchase => ({
       id: purchase.id,
-      projectId: purchase.projectId,
+      project_id: purchase.project_id,
       quantity: purchase.quantity,
       unitPrice: purchase.unitPrice,
       totalAmount: purchase.totalAmount,
@@ -1103,14 +1103,14 @@ export class DatabaseStorage implements IStorage {
       invoicePhoto: purchase.invoicePhoto,
       notes: purchase.notes,
       purchaseDate: purchase.purchaseDate,
-      createdAt: purchase.createdAt,
+      created_at: purchase.created_at,
       // تجهيز بيانات المادة بنفس التنسيق المتوقع
       material: {
         id: null, // لا يوجد معرف منفصل للمادة
         name: purchase.materialName,
         category: null, // الفئة غير محفوظة في المشتريات
         unit: purchase.unit,
-        createdAt: null
+        created_at: null
       },
       // إضافة الحقول مباشرة أيضاً للتوافق مع الواجهة
       materialName: purchase.materialName,
@@ -1119,39 +1119,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMaterialPurchasesWithFilters(filters: {
-    supplierId?: string;
-    projectId?: string;
+    supplier_id?: string;
+    project_id?: string;
     dateFrom?: string;
     dateTo?: string;
     purchaseType?: string;
   }): Promise<any[]> {
-    const { supplierId, projectId, dateFrom, dateTo, purchaseType } = filters;
+    const { supplier_id, project_id, dateFrom, dateTo, purchaseType } = filters;
     
     // إنشاء شروط البحث
     const conditions = [];
     
-    if (supplierId) {
+    if (supplier_id) {
       // جلب اسم المورد من جدول الموردين
       const supplierData = await db.select({ name: suppliers.name })
         .from(suppliers)
-        .where(eq(suppliers.id, supplierId));
+        .where(eq(suppliers.id, supplier_id));
       
       const supplierName = supplierData[0]?.name;
-      console.log(`🔍 البحث عن المورد: ID=${supplierId}, Name=${supplierName}`);
+      console.log(`🔍 البحث عن المورد: ID=${supplier_id}, Name=${supplierName}`);
       
       if (supplierName) {
         // البحث بـ supplierName أولاً (لأن البيانات محفوظة بهذا الشكل)
         conditions.push(eq(materialPurchases.supplierName, supplierName));
         console.log(`✅ إضافة شرط البحث بـ supplierName: ${supplierName}`);
       } else {
-        console.log(`❌ لم يتم العثور على اسم المورد للـ ID: ${supplierId}`);
-        // في حالة عدم وجود اسم، ابحث بـ supplierId
-        conditions.push(eq(materialPurchases.supplierId, supplierId));
+        console.log(`❌ لم يتم العثور على اسم المورد للـ ID: ${supplier_id}`);
+        // في حالة عدم وجود اسم، ابحث بـ supplier_id
+        conditions.push(eq(materialPurchases.supplier_id, supplier_id));
       }
     }
     
-    if (projectId && projectId !== 'all') {
-      conditions.push(eq(materialPurchases.projectId, projectId));
+    if (project_id && project_id !== 'all') {
+      conditions.push(eq(materialPurchases.project_id, project_id));
     }
     
     if (dateFrom) {
@@ -1180,9 +1180,9 @@ export class DatabaseStorage implements IStorage {
     const purchases = await db
       .select({
         id: materialPurchases.id,
-        projectId: materialPurchases.projectId,
-        materialId: materialPurchases.materialId,
-        supplierId: materialPurchases.supplierId,
+        project_id: materialPurchases.project_id,
+        material_id: materialPurchases.material_id,
+        supplier_id: materialPurchases.supplier_id,
         quantity: materialPurchases.quantity,
         unitPrice: materialPurchases.unitPrice,
         totalAmount: materialPurchases.totalAmount,
@@ -1193,7 +1193,7 @@ export class DatabaseStorage implements IStorage {
         invoicePhoto: materialPurchases.invoicePhoto,
         notes: materialPurchases.notes,
         purchaseDate: materialPurchases.purchaseDate,
-        createdAt: materialPurchases.createdAt,
+        created_at: materialPurchases.created_at,
         // إضافة الحقول المالية المطلوبة
         paidAmount: materialPurchases.paidAmount,
         remainingAmount: materialPurchases.remainingAmount,
@@ -1206,10 +1206,10 @@ export class DatabaseStorage implements IStorage {
         projectName: projects.name
       })
       .from(materialPurchases)
-      .leftJoin(materials, eq(materialPurchases.materialId, materials.id))
-      .leftJoin(projects, eq(materialPurchases.projectId, projects.id))
+      .leftJoin(materials, eq(materialPurchases.material_id, materials.id))
+      .leftJoin(projects, eq(materialPurchases.project_id, projects.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(materialPurchases.createdAt);
+      .orderBy(materialPurchases.created_at);
       
     console.log(`📊 استعلم قاعدة البيانات وحصل على ${purchases.length} مشترى`);
 
@@ -1217,9 +1217,9 @@ export class DatabaseStorage implements IStorage {
     
     return purchases.map(purchase => ({
       id: purchase.id,
-      projectId: purchase.projectId,
-      materialId: purchase.materialId,
-      supplierId: purchase.supplierId,
+      project_id: purchase.project_id,
+      material_id: purchase.material_id,
+      supplier_id: purchase.supplier_id,
       quantity: purchase.quantity,
       unitPrice: purchase.unitPrice,
       totalAmount: purchase.totalAmount,
@@ -1230,13 +1230,13 @@ export class DatabaseStorage implements IStorage {
       invoicePhoto: purchase.invoicePhoto,
       notes: purchase.notes,
       purchaseDate: purchase.purchaseDate,
-      createdAt: purchase.createdAt,
+      created_at: purchase.created_at,
       // إضافة الحقول المفقودة بقيم افتراضية
       paidAmount: purchase.paidAmount || "0",
       remainingAmount: purchase.remainingAmount || "0",
       dueDate: purchase.dueDate || null,
       material: {
-        id: purchase.materialId,
+        id: purchase.material_id,
         name: purchase.materialName,
         category: purchase.materialCategory,
         unit: purchase.materialUnit
@@ -1284,7 +1284,7 @@ export class DatabaseStorage implements IStorage {
     
     // تحديث الملخص اليومي في الخلفية (دون انتظار) لتحسين الأداء
     setImmediate(() => {
-      this.updateDailySummaryForDate(purchase.projectId, purchase.purchaseDate)
+      this.updateDailySummaryForDate(purchase.project_id, purchase.purchaseDate)
         .catch(error => console.error("Error updating daily summary:", error));
     });
     
@@ -1314,7 +1314,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(materialPurchases).where(eq(materialPurchases.id, id));
     
     if (purchase) {
-      await this.updateDailySummaryForDate(purchase.projectId, purchase.purchaseDate);
+      await this.updateDailySummaryForDate(purchase.project_id, purchase.purchaseDate);
     }
   }
 
@@ -1328,13 +1328,13 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getTransportationExpenses(projectId: string, date?: string): Promise<TransportationExpense[]> {
+  async getTransportationExpenses(project_id: string, date?: string): Promise<TransportationExpense[]> {
     if (date) {
       return await db.select().from(transportationExpenses)
-        .where(and(eq(transportationExpenses.projectId, projectId), eq(transportationExpenses.date, date)));
+        .where(and(eq(transportationExpenses.project_id, project_id), eq(transportationExpenses.date, date)));
     } else {
       return await db.select().from(transportationExpenses)
-        .where(eq(transportationExpenses.projectId, projectId));
+        .where(eq(transportationExpenses.project_id, project_id));
     }
   }
 
@@ -1345,7 +1345,7 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     // تحديث الملخص اليومي في الخلفية (دون انتظار)
-    this.updateDailySummaryForDate(expense.projectId, expense.date).catch(console.error);
+    this.updateDailySummaryForDate(expense.project_id, expense.date).catch(console.error);
     
     return newExpense;
   }
@@ -1365,20 +1365,20 @@ export class DatabaseStorage implements IStorage {
     await db.delete(transportationExpenses).where(eq(transportationExpenses.id, id));
     
     if (expense) {
-      await this.updateDailySummaryForDate(expense.projectId, expense.date);
+      await this.updateDailySummaryForDate(expense.project_id, expense.date);
     }
   }
 
   // Daily Expense Summaries
-  async getDailyExpenseSummary(projectId: string, date: string): Promise<DailyExpenseSummary | undefined> {
+  async getDailyExpenseSummary(project_id: string, date: string): Promise<DailyExpenseSummary | undefined> {
     const [summary] = await db.select().from(dailyExpenseSummaries)
-      .where(and(eq(dailyExpenseSummaries.projectId, projectId), eq(dailyExpenseSummaries.date, date)));
+      .where(and(eq(dailyExpenseSummaries.project_id, project_id), eq(dailyExpenseSummaries.date, date)));
     return summary || undefined;
   }
 
-  async getLatestDailySummary(projectId: string): Promise<DailyExpenseSummary | undefined> {
+  async getLatestDailySummary(project_id: string): Promise<DailyExpenseSummary | undefined> {
     const [summary] = await db.select().from(dailyExpenseSummaries)
-      .where(eq(dailyExpenseSummaries.projectId, projectId))
+      .where(eq(dailyExpenseSummaries.project_id, project_id))
       .orderBy(sql`${dailyExpenseSummaries.date} DESC`)
       .limit(1);
     return summary || undefined;
@@ -1393,7 +1393,7 @@ export class DatabaseStorage implements IStorage {
         .insert(dailyExpenseSummaries)
         .values(summary)
         .onConflictDoUpdate({
-          target: [dailyExpenseSummaries.projectId, dailyExpenseSummaries.date],
+          target: [dailyExpenseSummaries.project_id, dailyExpenseSummaries.date],
           set: {
             carriedForwardAmount: summary.carriedForwardAmount,
             totalFundTransfers: summary.totalFundTransfers,
@@ -1406,12 +1406,12 @@ export class DatabaseStorage implements IStorage {
             totalWorkerTransfers: summary.totalWorkerTransfers,
             totalWorkerMiscExpenses: summary.totalWorkerMiscExpenses,
             notes: summary.notes,
-            updatedAt: new Date()
+            updated_at: new Date()
           }
         })
         .returning();
       
-      console.log(`✅ Daily summary upserted for project ${summary.projectId} on ${summary.date}`);
+      console.log(`✅ Daily summary upserted for project ${summary.project_id} on ${summary.date}`);
       return result;
     } catch (error) {
       console.error('❌ Error upserting daily summary:', error);
@@ -1419,19 +1419,19 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getPreviousDayBalance(projectId: string, currentDate: string): Promise<string> {
-    const cacheKey = `prev-balance-${projectId}-${currentDate}`;
+  async getPreviousDayBalance(project_id: string, currentDate: string): Promise<string> {
+    const cacheKey = `prev-balance-${project_id}-${currentDate}`;
     const cached = this.cache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp < 30000)) {
       return cached.data;
     }
 
-    console.log(`Getting previous day balance for project ${projectId}, date: ${currentDate}`);
+    console.log(`Getting previous day balance for project ${project_id}, date: ${currentDate}`);
     
     const [result] = await db.select({ remainingBalance: dailyExpenseSummaries.remainingBalance })
       .from(dailyExpenseSummaries)
       .where(and(
-        eq(dailyExpenseSummaries.projectId, projectId),
+        eq(dailyExpenseSummaries.project_id, project_id),
         sql`${dailyExpenseSummaries.date} < ${currentDate}`
       ))
       .orderBy(desc(dailyExpenseSummaries.date))
@@ -1443,16 +1443,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // إزالة الملخصات المكررة للتاريخ الواحد
-  async removeDuplicateSummaries(projectId: string, date: string): Promise<void> {
+  async removeDuplicateSummaries(project_id: string, date: string): Promise<void> {
     try {
       // البحث عن الملخصات المكررة
       const duplicates = await db.select()
         .from(dailyExpenseSummaries)
         .where(and(
-          eq(dailyExpenseSummaries.projectId, projectId),
+          eq(dailyExpenseSummaries.project_id, project_id),
           eq(dailyExpenseSummaries.date, date)
         ))
-        .orderBy(dailyExpenseSummaries.createdAt);
+        .orderBy(dailyExpenseSummaries.created_at);
 
       // إذا كان هناك أكثر من ملخص، احذف الأقدم واحتفظ بالأحدث
       if (duplicates.length > 1) {
@@ -1461,7 +1461,7 @@ export class DatabaseStorage implements IStorage {
           await db.delete(dailyExpenseSummaries)
             .where(eq(dailyExpenseSummaries.id, summary.id));
         }
-        console.log(`🗑️ Removed ${toDelete.length} duplicate summaries for ${projectId} on ${date}`);
+        console.log(`🗑️ Removed ${toDelete.length} duplicate summaries for ${project_id} on ${date}`);
       }
     } catch (error) {
       console.error('Error removing duplicate summaries:', error);
@@ -1469,7 +1469,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // تحديث الملخص اليومي تلقائياً مع تحسينات الأداء المحسنة
-  async updateDailySummaryForDate(projectId: string, date: string): Promise<void> {
+  async updateDailySummaryForDate(project_id: string, date: string): Promise<void> {
     try {
       
       // تشغيل جميع الاستعلامات بشكل متوازي لتحسين الأداء
@@ -1483,21 +1483,21 @@ export class DatabaseStorage implements IStorage {
         workerMiscExpenses,
         carriedForwardAmount
       ] = await Promise.all([
-        this.getFundTransfers(projectId, date),
-        this.getProjectFundTransfersForDate(projectId, date),
-        this.getWorkerAttendance(projectId, date),
-        this.getMaterialPurchases(projectId, date), // جلب جميع المشتريات
-        this.getTransportationExpenses(projectId, date),
-        this.getFilteredWorkerTransfers(projectId, date),
-        this.getWorkerMiscExpenses(projectId, date),
-        this.getPreviousDayBalance(projectId, date).then(balance => parseFloat(balance))
+        this.getFundTransfers(project_id, date),
+        this.getProjectFundTransfersForDate(project_id, date),
+        this.getWorkerAttendance(project_id, date),
+        this.getMaterialPurchases(project_id, date), // جلب جميع المشتريات
+        this.getTransportationExpenses(project_id, date),
+        this.getFilteredWorkerTransfers(project_id, date),
+        this.getWorkerMiscExpenses(project_id, date),
+        this.getPreviousDayBalance(project_id, date).then(balance => parseFloat(balance))
       ]);
 
       const totalFundTransfers = fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
       
       // حساب عمليات ترحيل الأموال منفصلة (الواردة والصادرة)
-      const incomingTransfers = projectTransfers.filter(t => t.toProjectId === projectId).reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      const outgoingTransfers = projectTransfers.filter(t => t.fromProjectId === projectId).reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const incomingTransfers = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const outgoingTransfers = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
       
       // استخدام المبلغ المدفوع بدلاً من إجمالي الأجر اليومي
       // تم التعديل لضمان عدم احتساب المبالغ غير المدفوعة (0) في المصاريف النقدية
@@ -1528,7 +1528,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       await this.createOrUpdateDailyExpenseSummary({
-        projectId,
+        project_id,
         date,
         carriedForwardAmount: carriedForwardAmount.toString(),
         totalIncome: totalIncome.toString(),
@@ -1551,27 +1551,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   // إعادة حساب جميع الأرصدة لمشروع معين لإصلاح أي أخطاء
-  async recalculateAllBalances(projectId: string): Promise<void> {
-    console.log(`🔄 Recalculating all balances for project ${projectId}...`);
+  async recalculateAllBalances(project_id: string): Promise<void> {
+    console.log(`🔄 Recalculating all balances for project ${project_id}...`);
     
     try {
       // الحصول على جميع التواريخ التي بها ملخصات يومية
       const existingSummaries = await db.select()
         .from(dailyExpenseSummaries)
-        .where(eq(dailyExpenseSummaries.projectId, projectId))
+        .where(eq(dailyExpenseSummaries.project_id, project_id))
         .orderBy(sql`${dailyExpenseSummaries.date} ASC`);
 
       // حذف جميع الملخصات الموجودة
       await db.delete(dailyExpenseSummaries)
-        .where(eq(dailyExpenseSummaries.projectId, projectId));
+        .where(eq(dailyExpenseSummaries.project_id, project_id));
 
       // إعادة حساب كل تاريخ بالترتيب الصحيح
       for (const summary of existingSummaries) {
         console.log(`📅 Recalculating ${summary.date}...`);
-        await this.updateDailySummaryForDate(projectId, summary.date);
+        await this.updateDailySummaryForDate(project_id, summary.date);
       }
 
-      console.log(`✅ All balances recalculated successfully for project ${projectId}`);
+      console.log(`✅ All balances recalculated successfully for project ${project_id}`);
     } catch (error) {
       console.error(`❌ Error recalculating balances:`, error);
       throw error;
@@ -1579,10 +1579,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Worker Balance Management
-  async getWorkerBalance(workerId: string, projectId: string): Promise<WorkerBalance | undefined> {
+  async getWorkerBalance(worker_id: string, project_id: string): Promise<WorkerBalance | undefined> {
     // حساب الرصيد ديناميكياً من سجلات الحضور
     const attendanceRecords = await db.select().from(workerAttendance)
-      .where(and(eq(workerAttendance.workerId, workerId), eq(workerAttendance.projectId, projectId)));
+      .where(and(eq(workerAttendance.worker_id, worker_id), eq(workerAttendance.project_id, project_id)));
     
     let totalEarned = 0;
     let totalPaid = 0;
@@ -1594,7 +1594,7 @@ export class DatabaseStorage implements IStorage {
     });
     
     const transferRecords = await db.select().from(workerTransfers)
-      .where(and(eq(workerTransfers.workerId, workerId), eq(workerTransfers.projectId, projectId)));
+      .where(and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id)));
     
     let totalTransferred = 0;
     transferRecords.forEach(transfer => {
@@ -1604,22 +1604,22 @@ export class DatabaseStorage implements IStorage {
     const currentBalance = totalEarned - totalPaid - totalTransferred;
     
     const balance: WorkerBalance = {
-      id: `${workerId}-${projectId}`,
-      workerId,
-      projectId,
+      id: `${worker_id}-${project_id}`,
+      worker_id,
+      project_id,
       totalEarned: totalEarned.toString(),
       totalPaid: totalPaid.toString(),
       totalTransferred: totalTransferred.toString(),
       currentBalance: currentBalance.toString(),
       lastUpdated: new Date(),
-      createdAt: new Date()
+      created_at: new Date()
     };
     
     return balance;
   }
 
-  async updateWorkerBalance(workerId: string, projectId: string, balance: Partial<InsertWorkerBalance>): Promise<WorkerBalance> {
-    const existing = await this.getWorkerBalance(workerId, projectId);
+  async updateWorkerBalance(worker_id: string, project_id: string, balance: Partial<InsertWorkerBalance>): Promise<WorkerBalance> {
+    const existing = await this.getWorkerBalance(worker_id, project_id);
     
     if (existing) {
       const [updated] = await db
@@ -1632,8 +1632,8 @@ export class DatabaseStorage implements IStorage {
       const [newBalance] = await db
         .insert(workerBalances)
         .values({
-          workerId,
-          projectId,
+          worker_id,
+          project_id,
           totalEarned: '0',
           totalPaid: '0',
           totalTransferred: '0',
@@ -1646,13 +1646,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Worker Transfers
-  async getWorkerTransfers(workerId: string, projectId?: string): Promise<WorkerTransfer[]> {
-    if (projectId) {
+  async getWorkerTransfers(worker_id: string, project_id?: string): Promise<WorkerTransfer[]> {
+    if (project_id) {
       return await db.select().from(workerTransfers)
-        .where(and(eq(workerTransfers.workerId, workerId), eq(workerTransfers.projectId, projectId)));
+        .where(and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id)));
     } else {
       return await db.select().from(workerTransfers)
-        .where(eq(workerTransfers.workerId, workerId));
+        .where(eq(workerTransfers.worker_id, worker_id));
     }
   }
 
@@ -1686,13 +1686,13 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(workerTransfers);
   }
 
-  async getFilteredWorkerTransfers(projectId?: string, date?: string): Promise<WorkerTransfer[]> {
-    if (projectId && date) {
+  async getFilteredWorkerTransfers(project_id?: string, date?: string): Promise<WorkerTransfer[]> {
+    if (project_id && date) {
       return await db.select().from(workerTransfers)
-        .where(and(eq(workerTransfers.projectId, projectId), eq(workerTransfers.transferDate, date)));
-    } else if (projectId) {
+        .where(and(eq(workerTransfers.project_id, project_id), eq(workerTransfers.transferDate, date)));
+    } else if (project_id) {
       return await db.select().from(workerTransfers)
-        .where(eq(workerTransfers.projectId, projectId));
+        .where(eq(workerTransfers.project_id, project_id));
     } else if (date) {
       return await db.select().from(workerTransfers)
         .where(eq(workerTransfers.transferDate, date));
@@ -1702,7 +1702,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Reports
-  async getWorkerAccountStatement(workerId: string, projectId?: string, dateFrom?: string, dateTo?: string): Promise<{
+  async getWorkerAccountStatement(worker_id: string, project_id?: string, dateFrom?: string, dateTo?: string): Promise<{
     worker: Worker | null;
     attendance: any[];
     transfers: WorkerTransfer[];
@@ -1717,12 +1717,12 @@ export class DatabaseStorage implements IStorage {
   }> {
     try {
       // جلب بيانات العامل
-      const [worker] = await db.select().from(workers).where(eq(workers.id, workerId));
+      const [worker] = await db.select().from(workers).where(eq(workers.id, worker_id));
       
-      let attendanceConditions = [eq(workerAttendance.workerId, workerId)];
+      let attendanceConditions = [eq(workerAttendance.worker_id, worker_id)];
       
-      if (projectId) {
-        attendanceConditions.push(eq(workerAttendance.projectId, projectId));
+      if (project_id) {
+        attendanceConditions.push(eq(workerAttendance.project_id, project_id));
       }
       
       if (dateFrom) {
@@ -1739,7 +1739,7 @@ export class DatabaseStorage implements IStorage {
 
       // جلب بيانات المشاريع المرتبطة بالحضور
       const projectsMap = new Map();
-      const uniqueProjectIds = Array.from(new Set(attendanceData.map(record => record.projectId)));
+      const uniqueProjectIds = Array.from(new Set(attendanceData.map(record => record.project_id)));
       
       for (const pId of uniqueProjectIds) {
         const [project] = await db.select().from(projects).where(eq(projects.id, pId));
@@ -1751,14 +1751,14 @@ export class DatabaseStorage implements IStorage {
       // دمج بيانات الحضور مع بيانات المشروع
       const attendance = attendanceData.map((record: any) => ({
         ...record,
-        project: projectsMap.get(record.projectId) || null
+        project: projectsMap.get(record.project_id) || null
       }));
       
       // Get worker transfers (including family transfers)
-      let transfersConditions = [eq(workerTransfers.workerId, workerId)];
+      let transfersConditions = [eq(workerTransfers.worker_id, worker_id)];
       
-      if (projectId) {
-        transfersConditions.push(eq(workerTransfers.projectId, projectId));
+      if (project_id) {
+        transfersConditions.push(eq(workerTransfers.project_id, project_id));
       }
       
       if (dateFrom) {
@@ -1775,8 +1775,8 @@ export class DatabaseStorage implements IStorage {
       
       // Get worker balance (calculated dynamically to include all transfers)
       let balance: WorkerBalance | null = null;
-      if (projectId) {
-        const workerBalance = await this.getWorkerBalance(workerId, projectId);
+      if (project_id) {
+        const workerBalance = await this.getWorkerBalance(worker_id, project_id);
         balance = workerBalance || null;
       }
       
@@ -1826,29 +1826,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // دالة جديدة لجلب كشف حساب العامل من مشاريع متعددة
-  async getWorkerAccountStatementMultipleProjects(workerId: string, projectIds: string[], dateFrom?: string, dateTo?: string): Promise<{
+  async getWorkerAccountStatementMultipleProjects(worker_id: string, project_ids: string[], dateFrom?: string, dateTo?: string): Promise<{
     worker: Worker | null;
     attendance: any[];
     transfers: WorkerTransfer[];
     balance: WorkerBalance | null;
-    projectsInfo: { projectId: string; projectName: string }[];
+    projectsInfo: { project_id: string; projectName: string }[];
   }> {
     try {
       // جلب معلومات المشاريع
       const projectsInfo = await Promise.all(
-        projectIds.map(async (projectId) => {
-          const project = await this.getProject(projectId);
+        project_ids.map(async (project_id) => {
+          const project = await this.getProject(project_id);
           return {
-            projectId,
-            projectName: project?.name || `مشروع ${projectId}`
+            project_id,
+            projectName: project?.name || `مشروع ${project_id}`
           };
         })
       );
 
       // جلب الحضور من المشاريع المحددة
       let attendanceConditions = [
-        eq(workerAttendance.workerId, workerId),
-        inArray(workerAttendance.projectId, projectIds)
+        eq(workerAttendance.worker_id, worker_id),
+        inArray(workerAttendance.project_id, project_ids)
       ];
       
       if (dateFrom) {
@@ -1865,23 +1865,23 @@ export class DatabaseStorage implements IStorage {
       
       // إضافة بيانات المشروع لكل سجل حضور
       const projectsMap = new Map();
-      for (const projectId of projectIds) {
-        const project = await this.getProject(projectId);
+      for (const project_id of project_ids) {
+        const project = await this.getProject(project_id);
         if (project) {
-          projectsMap.set(projectId, project);
+          projectsMap.set(project_id, project);
         }
       }
       
       // دمج بيانات الحضور مع بيانات المشروع
       const attendance = attendanceData.map((record: any) => ({
         ...record,
-        project: projectsMap.get(record.projectId) || null
+        project: projectsMap.get(record.project_id) || null
       }));
       
       // جلب التحويلات من المشاريع المحددة
       let transfersConditions = [
-        eq(workerTransfers.workerId, workerId),
-        inArray(workerTransfers.projectId, projectIds)
+        eq(workerTransfers.worker_id, worker_id),
+        inArray(workerTransfers.project_id, project_ids)
       ];
       
       if (dateFrom) {
@@ -1898,18 +1898,18 @@ export class DatabaseStorage implements IStorage {
       
       // حساب الرصيد الإجمالي من جميع المشاريع
       let totalBalance = 0;
-      for (const projectId of projectIds) {
-        const workerBalance = await this.getWorkerBalance(workerId, projectId);
+      for (const project_id of project_ids) {
+        const workerBalance = await this.getWorkerBalance(worker_id, project_id);
         if (workerBalance) {
           totalBalance += parseFloat(workerBalance.currentBalance);
         }
       }
       
       const balance: WorkerBalance = {
-        id: `multi-${workerId}`,
-        createdAt: new Date(),
-        workerId,
-        projectId: projectIds[0], // المشروع الأول كمرجع
+        id: `multi-${worker_id}`,
+        created_at: new Date(),
+        worker_id,
+        project_id: project_ids[0], // المشروع الأول كمرجع
         totalEarned: "0",
         totalPaid: "0", 
         totalTransferred: "0",
@@ -1918,7 +1918,7 @@ export class DatabaseStorage implements IStorage {
       };
       
       // جلب بيانات العامل
-      const [worker] = await db.select().from(workers).where(eq(workers.id, workerId));
+      const [worker] = await db.select().from(workers).where(eq(workers.id, worker_id));
       
       return {
         worker,
@@ -1944,7 +1944,7 @@ export class DatabaseStorage implements IStorage {
     return [];
   }
 
-  async getWorkerMultiProjectStatement(workerId: string, dateFrom?: string, dateTo?: string): Promise<{
+  async getWorkerMultiProjectStatement(worker_id: string, dateFrom?: string, dateTo?: string): Promise<{
     worker: Worker;
     projects: {
       project: Project;
@@ -1959,14 +1959,14 @@ export class DatabaseStorage implements IStorage {
       totalBalance: string;
     };
   }> {
-    const [worker] = await db.select().from(workers).where(eq(workers.id, workerId));
+    const [worker] = await db.select().from(workers).where(eq(workers.id, worker_id));
     if (!worker) {
       throw new Error('Worker not found');
     }
 
     try {
       // جلب جميع المشاريع التي عمل بها العامل
-      let projectConditions = [eq(workerAttendance.workerId, workerId)];
+      let projectConditions = [eq(workerAttendance.worker_id, worker_id)];
       
       if (dateFrom) {
         projectConditions.push(gte(workerAttendance.date, dateFrom));
@@ -1977,7 +1977,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // الحصول على المشاريع المميزة
-      const distinctProjects = await db.selectDistinct({ projectId: workerAttendance.projectId })
+      const distinctProjects = await db.selectDistinct({ project_id: workerAttendance.project_id })
         .from(workerAttendance)
         .where(and(...projectConditions));
       
@@ -1988,14 +1988,14 @@ export class DatabaseStorage implements IStorage {
       let totalBalance = 0;
       
       // لكل مشروع، احسب التفاصيل
-      for (const { projectId } of distinctProjects) {
-        const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+      for (const { project_id } of distinctProjects) {
+        const [project] = await db.select().from(projects).where(eq(projects.id, project_id));
         if (!project) continue;
         
         // جلب الحضور لهذا المشروع
         let attendanceConditions = [
-          eq(workerAttendance.workerId, workerId),
-          eq(workerAttendance.projectId, projectId)
+          eq(workerAttendance.worker_id, worker_id),
+          eq(workerAttendance.project_id, project_id)
         ];
         
         if (dateFrom) {
@@ -2012,8 +2012,8 @@ export class DatabaseStorage implements IStorage {
         
         // جلب التحويلات لهذا المشروع
         let transfersConditions = [
-          eq(workerTransfers.workerId, workerId),
-          eq(workerTransfers.projectId, projectId)
+          eq(workerTransfers.worker_id, worker_id),
+          eq(workerTransfers.project_id, project_id)
         ];
         
         if (dateFrom) {
@@ -2038,7 +2038,7 @@ export class DatabaseStorage implements IStorage {
         const projectPaid = attendance.reduce((sum, record) => sum + (Number(record.paidAmount) || 0), 0);
         const projectTransferred = transfers.reduce((sum, transfer) => sum + (Number(transfer.amount) || 0), 0);
         
-        const balance = await this.getWorkerBalance(workerId, projectId);
+        const balance = await this.getWorkerBalance(worker_id, project_id);
         
         projectsList.push({
           project,
@@ -2078,21 +2078,21 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getWorkerProjects(workerId: string): Promise<Project[]> {
+  async getWorkerProjects(worker_id: string): Promise<Project[]> {
     try {
-      const projectIds = await db
-        .selectDistinct({ projectId: workerAttendance.projectId })
+      const project_ids = await db
+        .selectDistinct({ project_id: workerAttendance.project_id })
         .from(workerAttendance)
-        .where(eq(workerAttendance.workerId, workerId));
+        .where(eq(workerAttendance.worker_id, worker_id));
       
-      if (projectIds.length === 0) {
+      if (project_ids.length === 0) {
         return [];
       }
       
       const projectsList = await db
         .select()
         .from(projects)
-        .where(inArray(projects.id, projectIds.map(p => p.projectId)));
+        .where(inArray(projects.id, project_ids.map(p => p.project_id)));
       
       return projectsList;
     } catch (error) {
@@ -2101,12 +2101,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getWorkerAttendanceForPeriod(workerId: string, projectId: string, dateFrom: string, dateTo: string): Promise<WorkerAttendance[]> {
+  async getWorkerAttendanceForPeriod(worker_id: string, project_id: string, dateFrom: string, dateTo: string): Promise<WorkerAttendance[]> {
     try {
       return await db.select().from(workerAttendance)
         .where(and(
-          eq(workerAttendance.workerId, workerId),
-          eq(workerAttendance.projectId, projectId),
+          eq(workerAttendance.worker_id, worker_id),
+          eq(workerAttendance.project_id, project_id),
           gte(workerAttendance.date, dateFrom),
           lte(workerAttendance.date, dateTo)
         ))
@@ -2117,15 +2117,15 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getFundTransfersForWorker(workerId: string, projectId: string, dateFrom: string, dateTo: string): Promise<FundTransfer[]> {
+  async getFundTransfersForWorker(worker_id: string, project_id: string, dateFrom: string, dateTo: string): Promise<FundTransfer[]> {
     try {
       // البحث عن التحويلات المالية التي تخص هذا العامل
-      const worker = await this.getWorker(workerId);
+      const worker = await this.getWorker(worker_id);
       if (!worker) return [];
 
       return await db.select().from(fundTransfers)
         .where(and(
-          eq(fundTransfers.projectId, projectId),
+          eq(fundTransfers.project_id, project_id),
           sql`DATE(${fundTransfers.transferDate}) >= ${dateFrom}`,
           sql`DATE(${fundTransfers.transferDate}) <= ${dateTo}`,
           or(
@@ -2140,7 +2140,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getProjectStatistics(projectId: string): Promise<{
+  async getProjectStatistics(project_id: string): Promise<{
     totalWorkers: number;
     totalExpenses: number;
     totalIncome: number;
@@ -2151,18 +2151,18 @@ export class DatabaseStorage implements IStorage {
     lastActivity: string;
   }> {
     try {
-      console.time(`getProjectStatistics-${projectId}`);
+      console.time(`getProjectStatistics-${project_id}`);
       
       // فحص Cache أولاً - تحسين الأداء الفائق
       const now = Date.now();
-      const cachedStats = this.projectStatsCache.get(projectId);
+      const cachedStats = this.projectStatsCache.get(project_id);
       if (cachedStats && (now - cachedStats.timestamp) < this.CACHE_DURATION) {
-        console.log(`⚡ استخدام Cache للمشروع ${projectId} - سرعة فائقة!`);
-        console.timeEnd(`getProjectStatistics-${projectId}`);
+        console.log(`⚡ استخدام Cache للمشروع ${project_id} - سرعة فائقة!`);
+        console.timeEnd(`getProjectStatistics-${project_id}`);
         return cachedStats.data;
       }
       
-      console.log(`🔍 حساب إحصائيات المشروع: ${projectId}`);
+      console.log(`🔍 حساب إحصائيات المشروع: ${project_id}`);
       
       // حساب الإحصائيات الكلية الحقيقية من جميع المعاملات
       const [
@@ -2180,28 +2180,28 @@ export class DatabaseStorage implements IStorage {
         db.execute(sql`
           SELECT COUNT(DISTINCT worker_id) as count
           FROM worker_attendance 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${project_id}
         `),
         
         // إجمالي تحويلات العهدة
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM fund_transfers 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${project_id}
         `),
         
         // التحويلات الواردة للمشروع
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM project_fund_transfers 
-          WHERE to_project_id = ${projectId}
+          WHERE to_project_id = ${project_id}
         `),
         
         // التحويلات الصادرة من المشروع
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM project_fund_transfers 
-          WHERE from_project_id = ${projectId}
+          WHERE from_project_id = ${project_id}
         `),
         
         // إجمالي المبالغ المدفوعة فعلياً فقط (المبالغ التي تم صرفها فعلاً) والأيام
@@ -2210,7 +2210,7 @@ export class DatabaseStorage implements IStorage {
             COALESCE(SUM(CASE WHEN paid_amount > 0 THEN CAST(paid_amount AS DECIMAL) ELSE 0 END), 0) as total_wages,
             COUNT(DISTINCT date) as completed_days
           FROM worker_attendance 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${project_id}
         `),
         
         // إجمالي مشتريات المواد النقدية (المدفوعة فعلياً)
@@ -2220,28 +2220,28 @@ export class DatabaseStorage implements IStorage {
             COALESCE(SUM(CASE WHEN purchase_type = 'أجل' THEN CAST(total_amount AS DECIMAL) ELSE 0 END), 0) as credit_total,
             COUNT(DISTINCT id) as count
           FROM material_purchases 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${project_id}
         `),
         
         // إجمالي النقل
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM transportation_expenses 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${project_id}
         `),
         
         // مصاريف العمال المتنوعة
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM worker_misc_expenses 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${project_id}
         `),
         
         // حوالات الأهل (من العامل للأهل)
         db.execute(sql`
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
           FROM worker_transfers 
-          WHERE project_id = ${projectId}
+          WHERE project_id = ${project_id}
         `)
       ]);
 
@@ -2288,13 +2288,13 @@ export class DatabaseStorage implements IStorage {
       };
 
       // حفظ في Cache للاستخدام السريع لاحقاً
-      this.projectStatsCache.set(projectId, {
+      this.projectStatsCache.set(project_id, {
         data: result,
         timestamp: now
       });
       
-      console.timeEnd(`getProjectStatistics-${projectId}`);
-      console.log(`⚡ تم حساب وحفظ إحصائيات المشروع ${projectId} في Cache`);
+      console.timeEnd(`getProjectStatistics-${project_id}`);
+      console.log(`⚡ تم حساب وحفظ إحصائيات المشروع ${project_id} في Cache`);
 
       return result;
     } catch (error) {
@@ -2427,7 +2427,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getDailyExpensesRange(projectId: string, dateFrom: string, dateTo: string): Promise<any[]> {
+  async getDailyExpensesRange(project_id: string, dateFrom: string, dateTo: string): Promise<any[]> {
     try {
       const startDate = new Date(dateFrom);
       const endDate = new Date(dateTo);
@@ -2436,11 +2436,11 @@ export class DatabaseStorage implements IStorage {
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const currentDate = d.toISOString().split('T')[0];
         
-        let dailySummary = await this.getDailyExpenseSummary(projectId, currentDate);
+        let dailySummary = await this.getDailyExpenseSummary(project_id, currentDate);
         
         if (!dailySummary) {
-          await this.updateDailySummaryForDate(projectId, currentDate);
-          dailySummary = await this.getDailyExpenseSummary(projectId, currentDate);
+          await this.updateDailySummaryForDate(project_id, currentDate);
+          dailySummary = await this.getDailyExpenseSummary(project_id, currentDate);
         }
 
         if (dailySummary) {
@@ -2452,14 +2452,14 @@ export class DatabaseStorage implements IStorage {
             workerTransfers,
             workerMiscExpenses
           ] = await Promise.all([
-            this.getFundTransfers(projectId, currentDate),
-            this.getWorkerAttendance(projectId, currentDate),
-            this.getMaterialPurchases(projectId, currentDate, currentDate),
-            this.getTransportationExpenses(projectId, currentDate),
-            this.getWorkerTransfers("", projectId).then(transfers => 
+            this.getFundTransfers(project_id, currentDate),
+            this.getWorkerAttendance(project_id, currentDate),
+            this.getMaterialPurchases(project_id, currentDate, currentDate),
+            this.getTransportationExpenses(project_id, currentDate),
+            this.getWorkerTransfers("", project_id).then(transfers => 
               transfers.filter(t => t.transferDate === currentDate)
             ),
-            this.getWorkerMiscExpenses(projectId, currentDate)
+            this.getWorkerMiscExpenses(project_id, currentDate)
           ]);
 
           // حساب إجمالي نثريات العمال
@@ -2497,16 +2497,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Worker miscellaneous expenses methods
-  async getWorkerMiscExpenses(projectId: string, date?: string): Promise<WorkerMiscExpense[]> {
+  async getWorkerMiscExpenses(project_id: string, date?: string): Promise<WorkerMiscExpense[]> {
     try {
       if (date) {
         return await db.select().from(workerMiscExpenses)
-          .where(and(eq(workerMiscExpenses.projectId, projectId), eq(workerMiscExpenses.date, date)))
-          .orderBy(workerMiscExpenses.createdAt);
+          .where(and(eq(workerMiscExpenses.project_id, project_id), eq(workerMiscExpenses.date, date)))
+          .orderBy(workerMiscExpenses.created_at);
       } else {
         return await db.select().from(workerMiscExpenses)
-          .where(eq(workerMiscExpenses.projectId, projectId))
-          .orderBy(workerMiscExpenses.date, workerMiscExpenses.createdAt);
+          .where(eq(workerMiscExpenses.project_id, project_id))
+          .orderBy(workerMiscExpenses.date, workerMiscExpenses.created_at);
       }
     } catch (error) {
       console.error('Error getting worker misc expenses:', error);
@@ -2561,14 +2561,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Advanced Reports
-  async getExpensesForReport(projectId: string, dateFrom: string, dateTo: string): Promise<any[]> {
+  async getExpensesForReport(project_id: string, dateFrom: string, dateTo: string): Promise<any[]> {
     // جلب جميع المصروفات من مصادر مختلفة
     const expenses: any[] = [];
 
     // 1. أجور العمال المدفوعة فعلياً فقط
     const workerWages = await db.select({
       id: workerAttendance.id,
-      projectId: workerAttendance.projectId,
+      project_id: workerAttendance.project_id,
       date: workerAttendance.date,
       category: sql`'عمالة'`.as('category'),
       subcategory: workers.type,
@@ -2579,9 +2579,9 @@ export class DatabaseStorage implements IStorage {
       type: sql`'wages'`.as('type')
     })
     .from(workerAttendance)
-    .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+    .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(and(
-      eq(workerAttendance.projectId, projectId),
+      eq(workerAttendance.project_id, project_id),
       gte(workerAttendance.date, dateFrom),
       lte(workerAttendance.date, dateTo),
       eq(workerAttendance.isPresent, true),
@@ -2591,7 +2591,7 @@ export class DatabaseStorage implements IStorage {
     // 2. مشتريات المواد (النقدية فقط - المشتريات الآجلة لا تُحسب كمصروفات)
     const materialPurchasesData = await db.select({
       id: materialPurchases.id,
-      projectId: materialPurchases.projectId,
+      project_id: materialPurchases.project_id,
       date: materialPurchases.purchaseDate,
       category: sql`'مشتريات'`.as('category'),
       subcategory: materialPurchases.purchaseType, // نوع الدفع كفئة فرعية
@@ -2602,9 +2602,9 @@ export class DatabaseStorage implements IStorage {
       type: sql`'materials'`.as('type')
     })
     .from(materialPurchases)
-    .leftJoin(materials, eq(materialPurchases.materialId, materials.id))
+    .leftJoin(materials, eq(materialPurchases.material_id, materials.id))
     .where(and(
-      eq(materialPurchases.projectId, projectId),
+      eq(materialPurchases.project_id, project_id),
       gte(materialPurchases.purchaseDate, dateFrom),
       lte(materialPurchases.purchaseDate, dateTo),
       eq(materialPurchases.purchaseType, 'نقد') // فقط المشتريات النقدية تُحسب كمصروفات
@@ -2613,7 +2613,7 @@ export class DatabaseStorage implements IStorage {
     // 3. مصروفات النقل
     const transportExpenses = await db.select({
       id: transportationExpenses.id,
-      projectId: transportationExpenses.projectId,
+      project_id: transportationExpenses.project_id,
       date: transportationExpenses.date,
       category: sql`'مواصلات'`.as('category'),
       subcategory: sql`'أجور نقل'`.as('subcategory'),
@@ -2625,7 +2625,7 @@ export class DatabaseStorage implements IStorage {
     })
     .from(transportationExpenses)
     .where(and(
-      eq(transportationExpenses.projectId, projectId),
+      eq(transportationExpenses.project_id, project_id),
       gte(transportationExpenses.date, dateFrom),
       lte(transportationExpenses.date, dateTo)
     ));
@@ -2633,7 +2633,7 @@ export class DatabaseStorage implements IStorage {
     // 4. تحويلات العمال
     const workerTransfersExp = await db.select({
       id: workerTransfers.id,
-      projectId: workerTransfers.projectId,
+      project_id: workerTransfers.project_id,
       date: workerTransfers.transferDate,
       category: sql`'تحويلات عمال'`.as('category'),
       subcategory: sql`'تحويل'`.as('subcategory'),
@@ -2644,9 +2644,9 @@ export class DatabaseStorage implements IStorage {
       type: sql`'worker_transfers'`.as('type')
     })
     .from(workerTransfers)
-    .leftJoin(workers, eq(workerTransfers.workerId, workers.id))
+    .leftJoin(workers, eq(workerTransfers.worker_id, workers.id))
     .where(and(
-      eq(workerTransfers.projectId, projectId),
+      eq(workerTransfers.project_id, project_id),
       gte(workerTransfers.transferDate, dateFrom),
       lte(workerTransfers.transferDate, dateTo)
     ));
@@ -2654,7 +2654,7 @@ export class DatabaseStorage implements IStorage {
     // 5. نثريات العمال
     const workerMiscExp = await db.select({
       id: workerMiscExpenses.id,
-      projectId: workerMiscExpenses.projectId,
+      project_id: workerMiscExpenses.project_id,
       date: workerMiscExpenses.date,
       category: sql`'نثريات'`.as('category'),
       subcategory: sql`'نثريات عمال'`.as('subcategory'),
@@ -2666,7 +2666,7 @@ export class DatabaseStorage implements IStorage {
     })
     .from(workerMiscExpenses)
     .where(and(
-      eq(workerMiscExpenses.projectId, projectId),
+      eq(workerMiscExpenses.project_id, project_id),
       gte(workerMiscExpenses.date, dateFrom),
       lte(workerMiscExpenses.date, dateTo)
     ));
@@ -2675,7 +2675,7 @@ export class DatabaseStorage implements IStorage {
     expenses.push(...workerWages, ...materialPurchasesData, ...transportExpenses, ...workerTransfersExp, ...workerMiscExp);
 
     // إضافة اسم المشروع لكل سجل
-    const project = await this.getProject(projectId);
+    const project = await this.getProject(project_id);
     const projectName = project?.name || 'غير محدد';
 
     return expenses.map(expense => ({
@@ -2690,11 +2690,11 @@ export class DatabaseStorage implements IStorage {
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 
-  async getIncomeForReport(projectId: string, dateFrom: string, dateTo: string): Promise<any[]> {
+  async getIncomeForReport(project_id: string, dateFrom: string, dateTo: string): Promise<any[]> {
     // جلب تحويلات العهدة (الإيرادات)
     const income = await db.select({
       id: fundTransfers.id,
-      projectId: fundTransfers.projectId,
+      project_id: fundTransfers.project_id,
       date: fundTransfers.transferDate,
       transferNumber: fundTransfers.transferNumber,
       senderName: fundTransfers.senderName,
@@ -2704,14 +2704,14 @@ export class DatabaseStorage implements IStorage {
     })
     .from(fundTransfers)
     .where(and(
-      eq(fundTransfers.projectId, projectId),
+      eq(fundTransfers.project_id, project_id),
       gte(sql`date(${fundTransfers.transferDate})`, dateFrom),
       lte(sql`date(${fundTransfers.transferDate})`, dateTo)
     ))
     .orderBy(fundTransfers.transferDate);
 
     // إضافة اسم المشروع
-    const project = await this.getProject(projectId);
+    const project = await this.getProject(project_id);
     const projectName = project?.name || 'غير محدد';
 
     return income.map(inc => ({
@@ -2728,7 +2728,7 @@ export class DatabaseStorage implements IStorage {
   // Users methods
   async getUsers(): Promise<User[]> {
     try {
-      return await db.select().from(users).orderBy(users.createdAt);
+      return await db.select().from(users).orderBy(users.created_at);
     } catch (error) {
       console.error('Error getting users:', error);
       return [];
@@ -2773,7 +2773,7 @@ export class DatabaseStorage implements IStorage {
         .insert(users)
         .values({
           ...user,
-          updatedAt: new Date()
+          updated_at: new Date()
         })
         .returning();
       return newUser;
@@ -2789,7 +2789,7 @@ export class DatabaseStorage implements IStorage {
         .update(users)
         .set({
           ...user,
-          updatedAt: new Date()
+          updated_at: new Date()
         })
         .where(eq(users.id, id))
         .returning();
@@ -2806,7 +2806,7 @@ export class DatabaseStorage implements IStorage {
         .update(users)
         .set({
           role,
-          updatedAt: new Date()
+          updated_at: new Date()
         })
         .where(eq(users.id, id))
         .returning();
@@ -2837,8 +2837,8 @@ export class DatabaseStorage implements IStorage {
     return token || undefined;
   }
 
-  async getRefreshTokensByUser(userId: string): Promise<RefreshToken[]> {
-    return await db.select().from(refreshTokens).where(eq(refreshTokens.userId, userId));
+  async getRefreshTokensByUser(user_id: string): Promise<RefreshToken[]> {
+    return await db.select().from(refreshTokens).where(eq(refreshTokens.user_id, user_id));
   }
 
   async createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken> {
@@ -2851,8 +2851,8 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async revokeAllUserTokens(userId: string): Promise<void> {
-    await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, userId));
+  async revokeAllUserTokens(user_id: string): Promise<void> {
+    await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.user_id, user_id));
   }
 
   async revokeTokenFamily(rootId: string): Promise<void> {
@@ -2877,8 +2877,8 @@ export class DatabaseStorage implements IStorage {
         paymentTerms: suppliers.paymentTerms,
         totalDebt: suppliers.totalDebt,
         notes: suppliers.notes,
-        isActive: suppliers.isActive,
-        createdAt: suppliers.createdAt,
+        is_active: suppliers.is_active,
+        created_at: suppliers.created_at,
       }).from(suppliers).orderBy(suppliers.name);
     } catch (error) {
       console.error('Error getting suppliers:', error);
@@ -2916,7 +2916,7 @@ export class DatabaseStorage implements IStorage {
         address: supplier.address || null,
         paymentTerms: supplier.paymentTerms || "نقد",
         totalDebt: supplier.totalDebt || '0',
-        isActive: supplier.isActive !== undefined ? supplier.isActive : true,
+        is_active: supplier.is_active !== undefined ? supplier.is_active : true,
         notes: supplier.notes || null
       };
       
@@ -2969,11 +2969,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getSupplierPayments(supplierId: string, projectId?: string): Promise<SupplierPayment[]> {
+  async getSupplierPayments(supplier_id: string, project_id?: string): Promise<SupplierPayment[]> {
     try {
-      const conditions = [eq(supplierPayments.supplierId, supplierId)];
-      if (projectId) {
-        conditions.push(eq(supplierPayments.projectId, projectId));
+      const conditions = [eq(supplierPayments.supplier_id, supplier_id)];
+      if (project_id) {
+        conditions.push(eq(supplierPayments.project_id, project_id));
       }
       
       return await db.select().from(supplierPayments)
@@ -3032,7 +3032,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Supplier Reports methods
-  async getSupplierAccountStatement(supplierId: string, projectId?: string, dateFrom?: string, dateTo?: string): Promise<{
+  async getSupplierAccountStatement(supplier_id: string, project_id?: string, dateFrom?: string, dateTo?: string): Promise<{
     supplier: Supplier;
     purchases: MaterialPurchase[];
     payments: SupplierPayment[];
@@ -3053,19 +3053,19 @@ export class DatabaseStorage implements IStorage {
   }> {
     try {
       // جلب بيانات المورد
-      const supplier = await this.getSupplier(supplierId);
+      const supplier = await this.getSupplier(supplier_id);
       if (!supplier) {
         throw new Error('المورد غير موجود');
       }
 
-      // شروط التصفية للمشتريات (نحتاج للبحث بـ supplierName بدلاً من supplierId)
+      // شروط التصفية للمشتريات (نحتاج للبحث بـ supplierName بدلاً من supplier_id)
       const supplierName = supplier.name;
       const purchaseConditions = [eq(materialPurchases.supplierName, supplierName)];
-      const paymentConditions = [eq(supplierPayments.supplierId, supplierId)];
+      const paymentConditions = [eq(supplierPayments.supplier_id, supplier_id)];
       
-      if (projectId && projectId !== 'all') {
-        purchaseConditions.push(eq(materialPurchases.projectId, projectId));
-        paymentConditions.push(eq(supplierPayments.projectId, projectId));
+      if (project_id && project_id !== 'all') {
+        purchaseConditions.push(eq(materialPurchases.project_id, project_id));
+        paymentConditions.push(eq(supplierPayments.project_id, project_id));
       }
       
       if (dateFrom) {
@@ -3138,9 +3138,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getPurchasesBySupplier(supplierId: string, purchaseType?: string, dateFrom?: string, dateTo?: string): Promise<MaterialPurchase[]> {
+  async getPurchasesBySupplier(supplier_id: string, purchaseType?: string, dateFrom?: string, dateTo?: string): Promise<MaterialPurchase[]> {
     try {
-      const conditions = [eq(materialPurchases.supplierId, supplierId)];
+      const conditions = [eq(materialPurchases.supplier_id, supplier_id)];
       
       if (purchaseType) {
         conditions.push(eq(materialPurchases.purchaseType, purchaseType));
@@ -3164,8 +3164,8 @@ export class DatabaseStorage implements IStorage {
 
   // تنفيذ دالة إحصائيات الموردين العامة
   async getSupplierStatistics(filters?: {
-    supplierId?: string;
-    projectId?: string;
+    supplier_id?: string;
+    project_id?: string;
     dateFrom?: string;
     dateTo?: string;
     purchaseType?: string;
@@ -3188,29 +3188,29 @@ export class DatabaseStorage implements IStorage {
       const purchaseConditions = [];
       const paymentConditions = [];
       
-      if (filters?.supplierId) {
+      if (filters?.supplier_id) {
         // للبحث بالمورد المحدد
         try {
-          const supplier = await this.getSupplier(filters.supplierId);
+          const supplier = await this.getSupplier(filters.supplier_id);
           if (supplier) {
             purchaseConditions.push(eq(materialPurchases.supplierName, supplier.name));
-            paymentConditions.push(eq(supplierPayments.supplierId, filters.supplierId));
+            paymentConditions.push(eq(supplierPayments.supplier_id, filters.supplier_id));
           } else {
             // إذا لم يوجد المورد، نبحث مباشرة بالـ ID في جدول المشتريات
-            purchaseConditions.push(eq(materialPurchases.supplierId, filters.supplierId));
-            paymentConditions.push(eq(supplierPayments.supplierId, filters.supplierId));
+            purchaseConditions.push(eq(materialPurchases.supplier_id, filters.supplier_id));
+            paymentConditions.push(eq(supplierPayments.supplier_id, filters.supplier_id));
           }
         } catch (error) {
           console.error('⚠️ خطأ في البحث عن المورد، سيتم البحث بالـ ID مباشرة:', error);
           // في حالة خطأ، نبحث مباشرة بالـ ID
-          purchaseConditions.push(eq(materialPurchases.supplierId, filters.supplierId));
-          paymentConditions.push(eq(supplierPayments.supplierId, filters.supplierId));
+          purchaseConditions.push(eq(materialPurchases.supplier_id, filters.supplier_id));
+          paymentConditions.push(eq(supplierPayments.supplier_id, filters.supplier_id));
         }
       }
       
-      if (filters?.projectId && filters.projectId !== 'all') {
-        purchaseConditions.push(eq(materialPurchases.projectId, filters.projectId));
-        paymentConditions.push(eq(supplierPayments.projectId, filters.projectId));
+      if (filters?.project_id && filters.project_id !== 'all') {
+        purchaseConditions.push(eq(materialPurchases.project_id, filters.project_id));
+        paymentConditions.push(eq(supplierPayments.project_id, filters.project_id));
       }
       
       if (filters?.dateFrom) {
@@ -3306,7 +3306,7 @@ export class DatabaseStorage implements IStorage {
       const activeSupplierNames = Array.from(new Set(purchases.map(p => p.supplierName).filter(name => name !== null)));
       
       return {
-        totalSuppliers: filters?.supplierId ? 1 : allSuppliers.length,
+        totalSuppliers: filters?.supplier_id ? 1 : allSuppliers.length,
         totalCashPurchases: totalCashPurchases.toString(),
         totalCreditPurchases: totalCreditPurchases.toString(),
         totalDebt: totalDebt.toString(),
@@ -3321,7 +3321,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Print Settings Methods
-  async getPrintSettings(reportType?: string, userId?: string): Promise<PrintSettings[]> {
+  async getPrintSettings(reportType?: string, user_id?: string): Promise<PrintSettings[]> {
     try {
       const conditions = [];
       
@@ -3329,13 +3329,13 @@ export class DatabaseStorage implements IStorage {
         conditions.push(eq(printSettings.reportType, reportType));
       }
       
-      if (userId) {
-        conditions.push(eq(printSettings.userId, userId));
+      if (user_id) {
+        conditions.push(eq(printSettings.user_id, user_id));
       }
       
       return await db.select().from(printSettings)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(printSettings.createdAt);
+        .orderBy(printSettings.created_at);
     } catch (error) {
       console.error('Error getting print settings:', error);
       return [];
@@ -3404,25 +3404,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   // دالتان إضافيتان للإصلاح
-  async deleteDailySummary(projectId: string, date: string): Promise<void> {
+  async deleteDailySummary(project_id: string, date: string): Promise<void> {
     try {
       await db.delete(dailyExpenseSummaries)
         .where(and(
-          eq(dailyExpenseSummaries.projectId, projectId),
+          eq(dailyExpenseSummaries.project_id, project_id),
           eq(dailyExpenseSummaries.date, date)
         ));
-      console.log(`✅ تم حذف ملخص ${date} للمشروع ${projectId}`);
+      console.log(`✅ تم حذف ملخص ${date} للمشروع ${project_id}`);
     } catch (error) {
       console.error('Error deleting daily summary:', error);
       throw error;
     }
   }
 
-  async getDailySummary(projectId: string, date: string): Promise<DailyExpenseSummary | null> {
+  async getDailySummary(project_id: string, date: string): Promise<DailyExpenseSummary | null> {
     try {
       const [summary] = await db.select().from(dailyExpenseSummaries)
         .where(and(
-          eq(dailyExpenseSummaries.projectId, projectId),
+          eq(dailyExpenseSummaries.project_id, project_id),
           eq(dailyExpenseSummaries.date, date)
         ));
       return summary || null;
@@ -3455,7 +3455,7 @@ export class DatabaseStorage implements IStorage {
   async getActiveReportTemplate(): Promise<ReportTemplate | undefined> {
     try {
       const [template] = await db.select().from(reportTemplates)
-        .where(eq(reportTemplates.isActive, true))
+        .where(eq(reportTemplates.is_active, true))
         .orderBy(sql`updated_at DESC`)
         .limit(1);
       return template || undefined;
@@ -3468,10 +3468,10 @@ export class DatabaseStorage implements IStorage {
   async createReportTemplate(template: InsertReportTemplate): Promise<ReportTemplate> {
     try {
       // إذا كان هذا القالب سيكون نشطاً، إلغاء تفعيل القوالب الأخرى
-      if (template.isActive) {
+      if (template.is_active) {
         await db.update(reportTemplates)
-          .set({ isActive: false })
-          .where(eq(reportTemplates.isActive, true));
+          .set({ is_active: false })
+          .where(eq(reportTemplates.is_active, true));
       }
 
       const [newTemplate] = await db
@@ -3493,15 +3493,15 @@ export class DatabaseStorage implements IStorage {
   async updateReportTemplate(id: string, template: Partial<InsertReportTemplate>): Promise<ReportTemplate | undefined> {
     try {
       // إذا كان سيتم تفعيل هذا القالب، إلغاء تفعيل القوالب الأخرى
-      if (template.isActive) {
+      if (template.is_active) {
         await db.update(reportTemplates)
-          .set({ isActive: false })
-          .where(eq(reportTemplates.isActive, true));
+          .set({ is_active: false })
+          .where(eq(reportTemplates.is_active, true));
       }
 
       const [updated] = await db
         .update(reportTemplates)
-        .set({ ...template, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .set({ ...template, updated_at: sql`CURRENT_TIMESTAMP` })
         .where(eq(reportTemplates.id, id))
         .returning();
       return updated || undefined;
@@ -3570,7 +3570,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEquipment(filters?: {
-    projectId?: string;
+    project_id?: string;
     status?: string;
     type?: string;
     searchTerm?: string;
@@ -3618,7 +3618,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   private applyFiltersToCache(data: any[], filters?: {
-    projectId?: string;
+    project_id?: string;
     status?: string;
     type?: string;
     searchTerm?: string;
@@ -3627,10 +3627,10 @@ export class DatabaseStorage implements IStorage {
 
     return data.filter(item => {
       // فلتر المشروع
-      if (filters.projectId && filters.projectId !== 'all') {
-        if (filters.projectId === 'warehouse') {
+      if (filters.project_id && filters.project_id !== 'all') {
+        if (filters.project_id === 'warehouse') {
           if (item.currentProjectId) return false;
-        } else if (item.currentProjectId !== filters.projectId) {
+        } else if (item.currentProjectId !== filters.project_id) {
           return false;
         }
       }
@@ -3668,10 +3668,10 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getEquipmentByProject(projectId: string): Promise<Equipment[]> {
+  async getEquipmentByProject(project_id: string): Promise<Equipment[]> {
     try {
       return await db.select().from(equipment)
-        .where(eq(equipment.currentProjectId, projectId))
+        .where(eq(equipment.currentProjectId, project_id))
         .orderBy(equipment.code);
     } catch (error) {
       console.error('Error getting equipment by project:', error);
@@ -3714,7 +3714,7 @@ export class DatabaseStorage implements IStorage {
       
       const [updatedEquipment] = await db
         .update(equipment)
-        .set({ ...equipmentData, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .set({ ...equipmentData, updated_at: sql`CURRENT_TIMESTAMP` })
         .where(eq(equipment.id, id))
         .returning();
       
@@ -3778,13 +3778,13 @@ export class DatabaseStorage implements IStorage {
   // =====================================================
 
   // Notification Read States Implementation
-  async isNotificationRead(userId: string, notificationId: string, notificationType: string): Promise<boolean> {
+  async isNotificationRead(user_id: string, notificationId: string, notificationType: string): Promise<boolean> {
     try {
       const [state] = await db.select({
         isRead: notificationReadStates.isRead
       }).from(notificationReadStates)
         .where(and(
-          eq(notificationReadStates.userId, userId),
+          eq(notificationReadStates.user_id, user_id),
           eq(notificationReadStates.notificationId, notificationId)
         ));
       return state?.isRead || false;
@@ -3794,19 +3794,19 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getNotificationReadState(userId: string, notificationId: string, notificationType: string): Promise<NotificationReadState | undefined> {
+  async getNotificationReadState(user_id: string, notificationId: string, notificationType: string): Promise<NotificationReadState | undefined> {
     try {
       const [state] = await db.select({
         id: notificationReadStates.id,
-        userId: notificationReadStates.userId,
+        user_id: notificationReadStates.user_id,
         notificationId: notificationReadStates.notificationId,
         isRead: notificationReadStates.isRead,
         readAt: notificationReadStates.readAt,
         actionTaken: notificationReadStates.actionTaken,
-        createdAt: notificationReadStates.createdAt
+        created_at: notificationReadStates.created_at
       }).from(notificationReadStates)
         .where(and(
-          eq(notificationReadStates.userId, userId),
+          eq(notificationReadStates.user_id, user_id),
           eq(notificationReadStates.notificationId, notificationId)
         ));
       return state || undefined;
@@ -3816,9 +3816,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async markNotificationAsRead(userId: string, notificationId: string, notificationType: string): Promise<void> {
+  async markNotificationAsRead(user_id: string, notificationId: string, notificationType: string): Promise<void> {
     try {
-      const existingState = await this.getNotificationReadState(userId, notificationId, notificationType);
+      const existingState = await this.getNotificationReadState(user_id, notificationId, notificationType);
       
       if (existingState) {
         await db.update(notificationReadStates)
@@ -3826,7 +3826,7 @@ export class DatabaseStorage implements IStorage {
           .where(eq(notificationReadStates.id, existingState.id));
       } else {
         await db.insert(notificationReadStates).values({
-          userId: userId,
+          user_id: user_id,
           notificationId: notificationId,
           isRead: true,
           readAt: new Date()
@@ -3838,12 +3838,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async markAllNotificationsAsRead(userId: string): Promise<void> {
+  async markAllNotificationsAsRead(user_id: string): Promise<void> {
     try {
       await db.update(notificationReadStates)
         .set({ isRead: true, readAt: new Date() })
         .where(and(
-          eq(notificationReadStates.userId, userId),
+          eq(notificationReadStates.user_id, user_id),
           eq(notificationReadStates.isRead, false)
         ));
     } catch (error) {
@@ -3852,18 +3852,18 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getReadNotifications(userId: string, notificationType?: string): Promise<NotificationReadState[]> {
+  async getReadNotifications(user_id: string, notificationType?: string): Promise<NotificationReadState[]> {
     try {
-      const conditions = [eq(notificationReadStates.userId, userId), eq(notificationReadStates.isRead, true)];
+      const conditions = [eq(notificationReadStates.user_id, user_id), eq(notificationReadStates.isRead, true)];
 
       return await db.select({
         id: notificationReadStates.id,
-        userId: notificationReadStates.userId,
+        user_id: notificationReadStates.user_id,
         notificationId: notificationReadStates.notificationId,
         isRead: notificationReadStates.isRead,
         readAt: notificationReadStates.readAt,
         actionTaken: notificationReadStates.actionTaken,
-        createdAt: notificationReadStates.createdAt
+        created_at: notificationReadStates.created_at
       }).from(notificationReadStates)
         .where(and(...conditions))
         .orderBy(desc(notificationReadStates.readAt));
@@ -3886,23 +3886,23 @@ export class DatabaseStorage implements IStorage {
     return newNotif;
   }
 
-  async getNotifications(userId?: string): Promise<Notification[]> {
-    if (userId) {
-      return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+  async getNotifications(user_id?: string): Promise<Notification[]> {
+    if (user_id) {
+      return await db.select().from(notifications).where(eq(notifications.user_id, user_id)).orderBy(desc(notifications.created_at));
     }
-    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+    return await db.select().from(notifications).orderBy(desc(notifications.created_at));
   }
 
   async getAdminNotifications(): Promise<Notification[]> {
-    return await db.select().from(notifications).orderBy(desc(notifications.createdAt));
+    return await db.select().from(notifications).orderBy(desc(notifications.created_at));
   }
 
   // Well Tasks
-  async getWellTasks(wellId: number): Promise<WellTask[]> {
+  async getWellTasks(well_id: number): Promise<WellTask[]> {
     try {
       return await db.select()
         .from(wellTasks)
-        .where(eq(wellTasks.wellId, wellId))
+        .where(eq(wellTasks.well_id, well_id))
         .orderBy(wellTasks.taskOrder);
     } catch (error) {
       console.error('Error getting well tasks:', error);
@@ -3939,7 +3939,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const [updated] = await db
         .update(wellTasks)
-        .set({ ...task, updatedAt: new Date() })
+        .set({ ...task, updated_at: new Date() })
         .where(eq(wellTasks.id, id))
         .returning();
       return updated || undefined;
@@ -4009,12 +4009,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getWellTaskAccountsByWell(wellId: number): Promise<WellTaskAccount[]> {
+  async getWellTaskAccountsByWell(well_id: number): Promise<WellTaskAccount[]> {
     try {
       return await db.select()
         .from(wellTaskAccounts)
         .innerJoin(wellTasks, eq(wellTaskAccounts.taskId, wellTasks.id))
-        .where(eq(wellTasks.wellId, wellId))
+        .where(eq(wellTasks.well_id, well_id))
         .then(results => results.map(r => r.well_task_accounts));
     } catch (error) {
       console.error('Error getting well task accounts by well:', error);
@@ -4023,11 +4023,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Well Expenses
-  async getWellExpenses(wellId: number, dateFrom?: string, dateTo?: string): Promise<WellExpense[]> {
+  async getWellExpenses(well_id: number, dateFrom?: string, dateTo?: string): Promise<WellExpense[]> {
     try {
       let query = db.select()
         .from(wellExpenses)
-        .where(eq(wellExpenses.wellId, wellId));
+        .where(eq(wellExpenses.well_id, well_id));
 
       if (dateFrom) {
         query = query.andWhere(gte(wellExpenses.expenseDate, dateFrom));
@@ -4092,12 +4092,12 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getWellExpensesByType(wellId: number, expenseType: string): Promise<WellExpense[]> {
+  async getWellExpensesByType(well_id: number, expenseType: string): Promise<WellExpense[]> {
     try {
       return await db.select()
         .from(wellExpenses)
         .where(and(
-          eq(wellExpenses.wellId, wellId),
+          eq(wellExpenses.well_id, well_id),
           eq(wellExpenses.expenseType, expenseType)
         ))
         .orderBy(desc(wellExpenses.expenseDate));
@@ -4108,19 +4108,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Well Audit Logs
-  async getWellAuditLogs(wellId?: number, taskId?: number, limit?: number): Promise<WellAuditLog[]> {
+  async getWellAuditLogs(well_id?: number, taskId?: number, limit?: number): Promise<WellAuditLog[]> {
     try {
       let query = db.select()
         .from(wellAuditLogs);
 
-      if (wellId) {
-        query = query.where(eq(wellAuditLogs.wellId, wellId));
+      if (well_id) {
+        query = query.where(eq(wellAuditLogs.well_id, well_id));
       }
       if (taskId) {
         query = query.where(eq(wellAuditLogs.taskId, taskId));
       }
 
-      query = query.orderBy(desc(wellAuditLogs.createdAt));
+      query = query.orderBy(desc(wellAuditLogs.created_at));
 
       if (limit) {
         query = query.limit(limit);
@@ -4233,14 +4233,14 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAuditLogs(userId?: string, action?: string): Promise<AuditLog[]> {
+  async getAuditLogs(user_id?: string, action?: string): Promise<AuditLog[]> {
     const conditions = [];
-    if (userId) conditions.push(eq(auditLogs.userId, userId));
+    if (user_id) conditions.push(eq(auditLogs.user_id, user_id));
     if (action) conditions.push(eq(auditLogs.action, action));
     
     return await db.select().from(auditLogs)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(auditLogs.createdAt));
+      .orderBy(desc(auditLogs.created_at));
   }
 
   async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
@@ -4249,9 +4249,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Daily Activity Logs Implementation
-  async getDailyLogs(projectId?: string, date?: string): Promise<DailyActivityLog[]> {
+  async getDailyLogs(project_id?: string, date?: string): Promise<DailyActivityLog[]> {
     let query = db.select().from(dailyActivityLogs).orderBy(desc(dailyActivityLogs.logDate));
-    if (projectId) query = query.where(eq(dailyActivityLogs.projectId, projectId)) as any;
+    if (project_id) query = query.where(eq(dailyActivityLogs.project_id, project_id)) as any;
     if (date) query = query.where(eq(dailyActivityLogs.logDate, date)) as any;
     return await query;
   }
@@ -4281,8 +4281,8 @@ export class DatabaseStorage implements IStorage {
     return token || undefined;
   }
 
-  async getRefreshTokensByUser(userId: string): Promise<RefreshToken[]> {
-    return await db.select().from(refreshTokens).where(eq(refreshTokens.userId, userId));
+  async getRefreshTokensByUser(user_id: string): Promise<RefreshToken[]> {
+    return await db.select().from(refreshTokens).where(eq(refreshTokens.user_id, user_id));
   }
 
   async createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken> {
@@ -4295,14 +4295,14 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async revokeAllUserTokens(userId: string): Promise<void> {
-    await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, userId));
+  async revokeAllUserTokens(user_id: string): Promise<void> {
+    await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.user_id, user_id));
   }
 
   async revokeTokenFamily(rootId: string): Promise<void> {
     const token = await this.getRefreshToken(rootId);
     if (token) {
-      await this.revokeAllUserTokens(token.userId);
+      await this.revokeAllUserTokens(token.user_id);
     }
   }
 

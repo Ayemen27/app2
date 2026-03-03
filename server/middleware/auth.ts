@@ -13,13 +13,13 @@ import { envConfig } from '../utils/unified-env';
 export interface AuthenticatedRequest extends Request {
   user?: {
     id?: string;
-    userId: string;
+    user_id: string;
     email: string;
-    firstName?: string;
-    lastName?: string;
+    first_name?: string;
+    last_name?: string;
     role: string;
-    isActive?: boolean;
-    mfaEnabled?: boolean;
+    is_active?: boolean;
+    mfa_enabled?: boolean;
     sessionId: string;
   };
 }
@@ -171,14 +171,14 @@ const verifyToken = async (token: string): Promise<any> => {
 };
 
 // التحقق من الجلسة في قاعدة البيانات
-const verifySession = async (userId: string, sessionId: string) => {
+const verifySession = async (user_id: string, sessionId: string) => {
   try {
     const session = await db
       .select()
       .from(authUserSessions)
       .where(
         and(
-          eq(authUserSessions.userId, userId),
+          eq(authUserSessions.user_id, user_id),
           eq(authUserSessions.sessionToken, sessionId),
           eq(authUserSessions.isRevoked, false),
           gt(authUserSessions.expiresAt, new Date())
@@ -304,9 +304,9 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     }
 
     // جلب بيانات المستخدم - دعم Argon2-based identity
-    const user = await storage.getUser(decoded.sub || decoded.userId);
+    const user = await storage.getUser(decoded.sub || decoded.user_id);
 
-    if (!user || !user.isActive) {
+    if (!user || !user.is_active) {
       return res.status(401).json({
         success: false,
         message: 'حساب المستخدم غير نشط أو غير موجود',
@@ -317,13 +317,13 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     // إضافة بيانات المستخدم للـ request مع ضمان تحديث الدور من قاعدة البيانات مباشرة
     req.user = {
       id: user.id,
-      userId: user.id,
+      user_id: user.id,
       email: user.email,
-      firstName: user.firstName || undefined,
-      lastName: user.lastName || undefined,
+      first_name: user.first_name || undefined,
+      last_name: user.last_name || undefined,
       role: user.role || 'user', // استخدام الدور من قاعدة البيانات مباشرة
-      isActive: user.isActive,
-      mfaEnabled: user.mfaEnabled || undefined,
+      is_active: user.is_active,
+      mfa_enabled: user.mfa_enabled || undefined,
       sessionId: decoded.sessionId || 'jwt-session'
     };
 
@@ -392,25 +392,25 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 
     if (token) {
       const decoded = await verifyToken(token);
-      const session = await verifySession(decoded.userId, decoded.sessionId);
+      const session = await verifySession(decoded.user_id, decoded.sessionId);
 
       if (session) {
         const user = await db
           .select()
           .from(users)
-          .where(eq(users.id, decoded.userId))
+          .where(eq(users.id, decoded.user_id))
           .limit(1);
 
-        if (user.length && user[0].isActive) {
+        if (user.length && user[0].is_active) {
           req.user = {
             id: user[0].id,
-            userId: user[0].id,
+            user_id: user[0].id,
             email: user[0].email,
-            firstName: user[0].firstName || undefined,
-            lastName: user[0].lastName || undefined,
+            first_name: user[0].first_name || undefined,
+            last_name: user[0].last_name || undefined,
             role: user[0].role,
-            isActive: user[0].isActive,
-            mfaEnabled: user[0].mfaEnabled || undefined,
+            is_active: user[0].is_active,
+            mfa_enabled: user[0].mfa_enabled || undefined,
             sessionId: decoded.sessionId
           };
         }

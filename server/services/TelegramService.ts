@@ -158,7 +158,7 @@ export class TelegramService {
     title: string;
     body: string;
     priority?: number;
-    projectId?: string;
+    project_id?: string;
   }): Promise<boolean> {
     const priorityEmoji = (notification.priority || 3) >= 4 ? '🔴' :
                           (notification.priority || 3) >= 3 ? '🟡' : '🟢';
@@ -180,7 +180,7 @@ export class TelegramService {
       ``,
       `${typeLabel}`,
       `${notification.body}`,
-      notification.projectId ? `📍 المشروع: ${notification.projectId}` : '',
+      notification.project_id ? `📍 المشروع: ${notification.project_id}` : '',
       `🕐 ${new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' })}`,
     ].filter(Boolean).join('\n');
 

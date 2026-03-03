@@ -40,8 +40,8 @@ export interface ErrorContext {
   tableName?: string;
   columnName?: string;
   attemptedValue?: any;
-  userId?: string;
-  projectId?: string;
+  user_id?: string;
+  project_id?: string;
   stackTrace?: string;
   queryExecuted?: string;
   executionTime?: number;
@@ -339,7 +339,7 @@ export class SmartErrorHandler {
         body: this.buildNotificationBody(error),
         priority: this.mapSeverityToPriority(error.severity),
         recipients: ['default'], // سيتم إرسال للإدارة
-        projectId: error.context.projectId,
+        project_id: error.context.project_id,
         payload: {
           errorType: error.errorType,
           tableName: error.tableName,
@@ -411,14 +411,14 @@ export class SmartErrorHandler {
         INSERT INTO error_logs (
           error_type, error_code, table_name, column_name, operation,
           original_message, friendly_message, context, attempted_value,
-          userId, project_id, stack_trace, query_executed, execution_time,
+          user_id, project_id, stack_trace, query_executed, execution_time,
           severity, category, fingerprint, status, occurrence_count,
           first_seen, last_seen, notification_sent, created_at, updated_at
         ) VALUES (
           ${error.errorType}, ${error.errorCode || null}, ${error.tableName}, ${error.columnName || null},
           ${error.operation}, ${error.originalMessage}, ${error.arabicMessage},
           ${JSON.stringify(error.context)}, ${String(error.context.attemptedValue || '')},
-          ${error.context.userId || null}, ${error.context.projectId || null}, ${error.context.stackTrace || null},
+          ${error.context.user_id || null}, ${error.context.project_id || null}, ${error.context.stackTrace || null},
           ${error.context.queryExecuted || null}, ${error.context.executionTime || null},
           ${error.severity}, ${error.category}, ${error.fingerprint}, 'new', 1,
           NOW(), NOW(), true, NOW(), NOW()
@@ -456,7 +456,7 @@ export class SmartErrorHandler {
           friendly_message TEXT NOT NULL,
           context JSONB,
           attempted_value TEXT,
-          userId VARCHAR,
+          user_id VARCHAR,
           project_id VARCHAR,
           stack_trace TEXT,
           query_executed TEXT,

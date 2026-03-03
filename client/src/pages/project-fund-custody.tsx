@@ -110,7 +110,7 @@ export default function ProjectFundCustody() {
     }
 
     if (filterValues.project && filterValues.project !== 'all') {
-      filtered = filtered.filter(t => t.projectId === filterValues.project);
+      filtered = filtered.filter(t => t.project_id === filterValues.project);
     }
 
     if (filterValues.transferType) {
@@ -201,7 +201,7 @@ export default function ProjectFundCustody() {
   const form = useForm<FundTransferFormData>({
     resolver: zodResolver(insertFundTransferSchema),
     defaultValues: {
-      projectId: "",
+      project_id: "",
       amount: "",
       senderName: "",
       transferNumber: "",
@@ -216,7 +216,7 @@ export default function ProjectFundCustody() {
     const handleAddTransfer = () => {
       setEditingTransfer(null);
       form.reset({
-        projectId: "",
+        project_id: "",
         amount: "",
         senderName: "",
         transferNumber: "",
@@ -232,7 +232,7 @@ export default function ProjectFundCustody() {
   }, [setFloatingAction, form]);
 
   const onSubmit = (data: FundTransferFormData) => {
-    if (!data.projectId) {
+    if (!data.project_id) {
       toast({
         title: "خطأ",
         description: "يجب تحديد المشروع",
@@ -247,7 +247,7 @@ export default function ProjectFundCustody() {
   const startEdit = (transfer: any) => {
     setEditingTransfer(transfer);
     form.reset({
-      projectId: transfer.projectId,
+      project_id: transfer.project_id,
       amount: transfer.amount,
       senderName: transfer.senderName || "",
       transferNumber: transfer.transferNumber || "",
@@ -489,7 +489,7 @@ export default function ProjectFundCustody() {
                   <div className="grid grid-cols-2 gap-3 md:gap-4">
                     <FormField
                       control={form.control}
-                      name="projectId"
+                      name="project_id"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-semibold">المشروع *</FormLabel>

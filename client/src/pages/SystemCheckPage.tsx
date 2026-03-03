@@ -894,7 +894,7 @@ export default function SystemCheckPage() {
           <div className="space-y-2 mb-6 max-h-[50vh] overflow-y-auto">
             {displayChecks.map((check) => {
               const Icon = getIcon(check.id);
-              const isActive = currentCheck === check.id;
+              const is_active = currentCheck === check.id;
               const isExpanded = expandedCheck === check.id;
               const hasDetails = check.expandedDetails && Object.keys(check.expandedDetails).length > 0;
               
@@ -922,7 +922,7 @@ export default function SystemCheckPage() {
                       check.status === 'unavailable' && "bg-slate-100 dark:bg-slate-800 text-slate-400",
                       check.status === 'pending' && "bg-muted text-muted-foreground"
                     )}>
-                      {check.status === 'checking' || isActive ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                      {check.status === 'checking' || is_active ? <Loader2 className="w-4 h-4 animate-spin" /> :
                        check.status === 'granted' ? <CheckCircle2 className="w-4 h-4" /> :
                        ['denied', 'warning'].includes(check.status) ? <AlertCircle className="w-4 h-4" /> :
                        <Icon className="w-4 h-4" />}

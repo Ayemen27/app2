@@ -13,8 +13,8 @@ export async function deleteOldRecords(
     let deleted = 0;
 
     for (const record of allRecords) {
-      const createdAt = record.createdAt ? new Date(record.createdAt).getTime() : 0;
-      if (createdAt > 0 && createdAt < cutoffTime) {
+      const created_at = record.created_at ? new Date(record.created_at).getTime() : 0;
+      if (created_at > 0 && created_at < cutoffTime) {
         await smartDelete(entityName, record.id);
         deleted++;
       }

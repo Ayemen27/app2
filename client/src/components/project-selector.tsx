@@ -10,7 +10,7 @@ import type { Project } from "@shared/schema";
 
 interface ProjectSelectorProps {
   selectedProjectId?: string;
-  onProjectChange: (projectId: string, projectName?: string) => void;
+  onProjectChange: (project_id: string, projectName?: string) => void;
   showHeader?: boolean;
   variant?: "default" | "compact" | "premium";
   className?: string;
@@ -73,10 +73,10 @@ export default function ProjectSelector({
   const selectedProject = Array.isArray(projects) ? projects.find(p => p.id === selectedProjectId) : undefined;
   
   // دالة معالجة تغيير المشروع مع تمرير اسم المشروع
-  const handleProjectChange = (projectId: string) => {
-    const project = Array.isArray(projects) ? projects.find(p => p.id === projectId) : undefined;
+  const handleProjectChange = (project_id: string) => {
+    const project = Array.isArray(projects) ? projects.find(p => p.id === project_id) : undefined;
 
-    onProjectChange(projectId, project?.name);
+    onProjectChange(project_id, project?.name);
   };
 
   if (variant === "compact") {

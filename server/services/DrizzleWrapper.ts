@@ -191,8 +191,8 @@ export class DrizzleWrapper {
     if (!req) return {};
     
     return {
-      userId: req.user?.userId,
-      projectId: req.body?.projectId || req.params?.projectId || req.query?.projectId,
+      user_id: req.user?.user_id,
+      project_id: req.body?.project_id || req.params?.project_id || req.query?.project_id,
       additionalContext: {
         userAgent: req.headers?.['user-agent'],
         ip: req.ip,

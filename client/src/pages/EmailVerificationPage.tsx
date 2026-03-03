@@ -75,18 +75,18 @@ export default function EmailVerificationPage() {
   // استخراج المعطيات من URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('userId');
+    const user_id = urlParams.get('user_id');
     const email = urlParams.get('email');
     const token = urlParams.get('token');
 
-    if (userId && email) {
-      setUserInfo({ id: userId, email });
+    if (user_id && email) {
+      setUserInfo({ id: user_id, email });
     }
 
-    // إذا كان هناك token في URL، تحقق تلقائي مع تمرير userId مباشرة
-    if (token && userId) {
-      console.log('🔄 [EmailVerification] التحقق التلقائي من الرابط:', { token, userId });
-      verifyMutation.mutate({ code: token, userId: userId });
+    // إذا كان هناك token في URL، تحقق تلقائي مع تمرير user_id مباشرة
+    if (token && user_id) {
+      console.log('🔄 [EmailVerification] التحقق التلقائي من الرابط:', { token, user_id });
+      verifyMutation.mutate({ code: token, user_id: user_id });
     }
   }, []);
 
@@ -109,14 +109,14 @@ export default function EmailVerificationPage() {
 
   // طفرة التحقق من الرمز
   const verifyMutation = useMutation({
-    mutationFn: async (data: VerificationFormData & { userId?: string }) => {
+    mutationFn: async (data: VerificationFormData & { user_id?: string }) => {
       console.log('🔍 [EmailVerification] بدء التحقق من الرمز:', {
         code: data.code,
-        userId: data.userId || userInfo.id
+        user_id: data.user_id || userInfo.id
       });
 
-      const userId = data.userId || userInfo.id;
-      if (!userId) {
+      const user_id = data.user_id || userInfo.id;
+      if (!user_id) {
         throw new Error('معرف المستخدم مطلوب');
       }
 
@@ -126,7 +126,7 @@ export default function EmailVerificationPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: userId,
+          user_id: user_id,
           code: data.code
         })
       });
@@ -200,7 +200,7 @@ export default function EmailVerificationPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: userInfo.id,
+          user_id: userInfo.id,
           email: userInfo.email
         })
       });

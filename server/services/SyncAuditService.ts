@@ -119,7 +119,7 @@ function buildDescription(action: string, tableName: string, payload?: any): str
 
 export class SyncAuditService {
   static async logOperation(params: {
-    userId?: string;
+    user_id?: string;
     userName?: string;
     action: string;
     endpoint?: string;
@@ -134,7 +134,7 @@ export class SyncAuditService {
     userAgent?: string;
     durationMs?: number;
     syncType?: string;
-    projectId?: string;
+    project_id?: string;
     projectName?: string;
     amount?: number;
     payload?: any;
@@ -145,7 +145,7 @@ export class SyncAuditService {
       const description = params.description || buildDescription(params.action, table, params.payload || params.newValues);
 
       await db.insert(syncAuditLogs).values({
-        userId: params.userId || null,
+        user_id: params.user_id || null,
         userName: params.userName || null,
         module,
         tableName: table,
@@ -160,7 +160,7 @@ export class SyncAuditService {
         userAgent: params.userAgent || null,
         durationMs: params.durationMs || null,
         syncType: params.syncType || null,
-        projectId: params.projectId || params.payload?.projectId || null,
+        project_id: params.project_id || params.payload?.project_id || null,
         projectName: params.projectName || null,
         amount: params.amount != null ? String(params.amount) : (params.payload?.amount ? String(params.payload.amount) : null),
       });
@@ -170,7 +170,7 @@ export class SyncAuditService {
   }
 
   static async logBulkSync(params: {
-    userId?: string;
+    user_id?: string;
     userName?: string;
     syncType: 'full_backup' | 'delta_sync' | 'instant_sync';
     tablesCount: number;
@@ -197,7 +197,7 @@ export class SyncAuditService {
         : `فشل ${syncLabel}: ${params.errorMessage}`;
 
       await db.insert(syncAuditLogs).values({
-        userId: params.userId || null,
+        user_id: params.user_id || null,
         userName: params.userName || null,
         module: 'مزامنة',
         tableName: 'sync_operation',
@@ -228,8 +228,8 @@ export class SyncAuditService {
     module?: string;
     status?: string;
     action?: string;
-    userId?: string;
-    projectId?: string;
+    user_id?: string;
+    project_id?: string;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -249,19 +249,19 @@ export class SyncAuditService {
     if (params.action && params.action !== 'all') {
       conditions.push(eq(syncAuditLogs.action, params.action));
     }
-    if (params.userId) {
-      conditions.push(eq(syncAuditLogs.userId, params.userId));
+    if (params.user_id) {
+      conditions.push(eq(syncAuditLogs.user_id, params.user_id));
     }
-    if (params.projectId && params.projectId !== 'all') {
-      conditions.push(eq(syncAuditLogs.projectId, params.projectId));
+    if (params.project_id && params.project_id !== 'all') {
+      conditions.push(eq(syncAuditLogs.project_id, params.project_id));
     }
     if (params.dateFrom) {
-      conditions.push(gte(syncAuditLogs.createdAt, new Date(params.dateFrom)));
+      conditions.push(gte(syncAuditLogs.created_at, new Date(params.dateFrom)));
     }
     if (params.dateTo) {
       const toDate = new Date(params.dateTo);
       toDate.setHours(23, 59, 59, 999);
-      conditions.push(lte(syncAuditLogs.createdAt, toDate));
+      conditions.push(lte(syncAuditLogs.created_at, toDate));
     }
     if (params.search) {
       conditions.push(ilike(syncAuditLogs.description, `%${params.search}%`));
@@ -273,7 +273,7 @@ export class SyncAuditService {
       db.select()
         .from(syncAuditLogs)
         .where(whereClause)
-        .orderBy(desc(syncAuditLogs.createdAt))
+        .orderBy(desc(syncAuditLogs.created_at))
         .limit(limit)
         .offset(offset),
       db.select({ count: sql<number>`count(*)::int` })

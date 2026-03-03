@@ -32,15 +32,15 @@ import { sendSuccess, sendError } from '../../middleware/api-response.js';
 financialRouter.get('/financial-summary', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date, dateFrom, dateTo } = req.query;
+    const { project_id, date, dateFrom, dateTo } = req.query;
     
     // تنظيف المدخلات لمنع أرسال سلاسل نصية فارغة
-    const cleanProjectId = projectId && projectId !== "" && projectId !== "all-projects-total" ? projectId as string : "all";
+    const cleanProjectId = project_id && project_id !== "" && project_id !== "all-projects-total" ? project_id as string : "all";
     const cleanDate = date && date !== "" ? date as string : undefined;
     const cleanDateFrom = dateFrom && dateFrom !== "" ? dateFrom as string : undefined;
     const cleanDateTo = dateTo && dateTo !== "" ? dateTo as string : undefined;
 
-    console.log('📊 [API] جلب الملخص المالي الموحد', { projectId: cleanProjectId, date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo });
+    console.log('📊 [API] جلب الملخص المالي الموحد', { project_id: cleanProjectId, date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo });
 
     if (cleanProjectId && cleanProjectId !== 'all') {
       // تمرير معاملات التاريخ دائماً للخدمة لضمان احترام الفلترة في جميع الحالات
@@ -101,8 +101,8 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
 financialRouter.get('/daily-expense-summaries', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date } = req.query;
-    if (!projectId || !date) {
+    const { project_id, date } = req.query;
+    if (!project_id || !date) {
       return sendError(res, 'معرف المشروع والتاريخ مطلوبان', 400);
     }
 
@@ -115,7 +115,7 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
       cleanDate = cleanDate.split(' ')[0];
     }
 
-    console.log(`🔍 [API] جلب الملخص اليومي للمشروع ${projectId} بتاريخ ${cleanDate}`);
+    console.log(`🔍 [API] جلب الملخص اليومي للمشروع ${project_id} بتاريخ ${cleanDate}`);
     
     // البحث في قاعدة البيانات باستخدام التاريخ المنظف
     // نستخدم db مباشرة لتجنب التخمين في storage interface
@@ -123,7 +123,7 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
       .from(dailyExpenseSummaries)
       .where(
         and(
-          eq(dailyExpenseSummaries.projectId, projectId as string),
+          eq(dailyExpenseSummaries.project_id, project_id as string),
           eq(dailyExpenseSummaries.date, cleanDate)
         )
       )
@@ -177,18 +177,18 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
     const transfers = await db
       .select({
         id: fundTransfers.id,
-        projectId: fundTransfers.projectId,
+        project_id: fundTransfers.project_id,
         amount: fundTransfers.amount,
         senderName: fundTransfers.senderName,
         transferNumber: fundTransfers.transferNumber,
         transferType: fundTransfers.transferType,
         transferDate: fundTransfers.transferDate,
         notes: fundTransfers.notes,
-        createdAt: fundTransfers.createdAt,
+        created_at: fundTransfers.created_at,
         projectName: projects.name
       })
       .from(fundTransfers)
-      .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
+      .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
       .orderBy(desc(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END)`));
 
     const duration = Date.now() - startTime;
@@ -249,7 +249,7 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
       });
     }
 
-    if (validationResult.data.projectId === 'all') {
+    if (validationResult.data.project_id === 'all') {
       return res.status(400).json({
         success: false,
         error: 'مشروع غير صالح',
@@ -292,7 +292,7 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
 
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordFundTransfer(
-        newTransfer[0].projectId,
+        newTransfer[0].project_id,
         parseFloat(newTransfer[0].amount),
         newTransfer[0].transferDate,
         newTransfer[0].id,
@@ -397,7 +397,7 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'تعديل تحويل عهدة', (req as any).user?.id);
       return FinancialLedgerService.recordFundTransfer(
-        t.projectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
       );
     }, 'fund-transfer/PATCH');
 
@@ -504,12 +504,12 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
 financialRouter.get('/daily-project-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date } = req.query;
+    const { project_id, date } = req.query;
 
     console.log('🏗️ [API] جلب تحويلات أموال المشاريع للمصروفات اليومية');
-    console.log('🔍 [API] معاملات الطلب:', { projectId, date });
+    console.log('🔍 [API] معاملات الطلب:', { project_id, date });
 
-    if (!projectId || !date) {
+    if (!project_id || !date) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -528,18 +528,18 @@ financialRouter.get('/daily-project-transfers', async (req: Request, res: Respon
         description: projectFundTransfers.description,
         transferReason: projectFundTransfers.transferReason,
         transferDate: projectFundTransfers.transferDate,
-        createdAt: projectFundTransfers.createdAt,
+        created_at: projectFundTransfers.created_at,
         fromProjectName: sql<string>`(SELECT name FROM projects WHERE id = ${projectFundTransfers.fromProjectId})`,
         toProjectName: sql<string>`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`
       })
       .from(projectFundTransfers)
       .where(
         and(
-          sql`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`,
+          sql`(${projectFundTransfers.fromProjectId} = ${project_id} OR ${projectFundTransfers.toProjectId} = ${project_id})`,
           sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END) = ${date}::date`
         )
       )
-      .orderBy(desc(projectFundTransfers.createdAt));
+      .orderBy(desc(projectFundTransfers.created_at));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل مشروع للصفحة اليومية في ${duration}ms`);
@@ -567,9 +567,9 @@ financialRouter.get('/daily-project-transfers', async (req: Request, res: Respon
 financialRouter.get('/project-fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date, dateFrom, dateTo } = req.query;
+    const { project_id, date, dateFrom, dateTo } = req.query;
     console.log('🏗️ [API] جلب تحويلات أموال المشاريع من قاعدة البيانات');
-    console.log('🔍 [API] فلترة حسب المشروع:', projectId || 'جميع المشاريع');
+    console.log('🔍 [API] فلترة حسب المشروع:', project_id || 'جميع المشاريع');
     console.log('📅 [API] فلترة حسب التاريخ:', { date, dateFrom, dateTo });
 
     let baseQuery = db
@@ -581,7 +581,7 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
         description: projectFundTransfers.description,
         transferReason: projectFundTransfers.transferReason,
         transferDate: projectFundTransfers.transferDate,
-        createdAt: projectFundTransfers.createdAt,
+        created_at: projectFundTransfers.created_at,
         fromProjectName: sql`from_project.name`.as('fromProjectName'),
         toProjectName: sql`to_project.name`.as('toProjectName')
       })
@@ -593,9 +593,9 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
     const conditions: any[] = [];
 
     // فلترة حسب المشروع
-    if (projectId && projectId !== 'all') {
-      conditions.push(sql`(${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId})`);
-      console.log('✅ [API] تم تطبيق فلترة المشروع:', projectId);
+    if (project_id && project_id !== 'all') {
+      conditions.push(sql`(${projectFundTransfers.fromProjectId} = ${project_id} OR ${projectFundTransfers.toProjectId} = ${project_id})`);
+      console.log('✅ [API] تم تطبيق فلترة المشروع:', project_id);
     }
 
     // فلترة حسب التاريخ - محسنة لتحسين الأداء
@@ -841,7 +841,7 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
       .update(projectFundTransfers)
       .set({
         ...validationResult.data,
-        updatedAt: new Date()
+        updated_at: new Date()
       } as any)
       .where(eq(projectFundTransfers.id, id))
       .returning();
@@ -878,13 +878,13 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
 financialRouter.get('/worker-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const projectId = req.query.projectId as string | undefined;
-    console.log('👷‍♂️ [API] جلب تحويلات العمال:', projectId ? `للمشروع ${projectId}` : 'جميع المشاريع');
+    const project_id = req.query.project_id as string | undefined;
+    console.log('👷‍♂️ [API] جلب تحويلات العمال:', project_id ? `للمشروع ${project_id}` : 'جميع المشاريع');
 
     let query = db.select().from(workerTransfers);
     
-    if (projectId && projectId !== 'all') {
-      query = query.where(eq(workerTransfers.projectId, projectId)) as any;
+    if (project_id && project_id !== 'all') {
+      query = query.where(eq(workerTransfers.project_id, project_id)) as any;
     }
     
     const transfers = await query.orderBy(desc(workerTransfers.transferDate));
@@ -952,7 +952,7 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
     const wt = newTransfer[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordWorkerTransfer(
-        wt.projectId, parseFloat(wt.amount), wt.transferDate, wt.id, (req as any).user?.id
+        wt.project_id, parseFloat(wt.amount), wt.transferDate, wt.id, (req as any).user?.id
       ),
       'worker-transfer/POST'
     );
@@ -1047,7 +1047,7 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
       return FinancialLedgerService.recordWorkerTransfer(
-        t.projectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
       );
     }, 'worker-transfers/PATCH');
 
@@ -1109,7 +1109,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
-      projectId: transferToDelete.projectId,
+      project_id: transferToDelete.project_id,
       amount: transferToDelete.amount,
       recipientName: transferToDelete.recipientName
     });
@@ -1234,7 +1234,7 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
       });
     }
 
-    if (validationResult.data.projectId === 'all') {
+    if (validationResult.data.project_id === 'all') {
       return res.status(400).json({
         success: false,
         error: 'مشروع غير صالح',
@@ -1251,7 +1251,7 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
     const record = newExpense[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordMiscExpense(
-        record.projectId, parseFloat(record.amount), record.date, record.id, (req as any).user?.id
+        record.project_id, parseFloat(record.amount), record.date, record.id, (req as any).user?.id
       ),
       'worker-misc-expenses/POST'
     );
@@ -1346,7 +1346,7 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
       return FinancialLedgerService.recordMiscExpense(
-        t.projectId, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
       );
     }, 'worker-misc-expenses/PATCH');
 
@@ -1408,7 +1408,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
     const expenseToDelete = existingExpense[0];
     console.log('🗑️ [API] سيتم حذف مصروف العامل المتنوع:', {
       id: expenseToDelete.id,
-      projectId: expenseToDelete.projectId,
+      project_id: expenseToDelete.project_id,
       amount: expenseToDelete.amount,
       description: expenseToDelete.description
     });
@@ -1612,7 +1612,7 @@ financialRouter.get('/suppliers', async (req: Request, res: Response) => {
     console.log('🏪 [API] جلب جميع الموردين من قاعدة البيانات');
 
     const suppliersList = await db.select().from(suppliers)
-      .where(eq(suppliers.isActive, true))
+      .where(eq(suppliers.is_active, true))
       .orderBy(suppliers.name);
 
     const duration = Date.now() - startTime;
@@ -1704,17 +1704,17 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
 financialRouter.get('/material-purchases', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, supplierId, dateFrom, dateTo, purchaseType } = req.query;
+    const { project_id, supplier_id, dateFrom, dateTo, purchaseType } = req.query;
     
-    console.log('📋 [MaterialPurchases] معاملات الطلب:', { projectId, supplierId, dateFrom, dateTo, purchaseType });
+    console.log('📋 [MaterialPurchases] معاملات الطلب:', { project_id, supplier_id, dateFrom, dateTo, purchaseType });
     
     // بناء شروط ديناميكية
     const conditions: any[] = [];
-    if (projectId && projectId !== 'all') {
-      conditions.push(eq(materialPurchases.projectId, projectId as string));
+    if (project_id && project_id !== 'all') {
+      conditions.push(eq(materialPurchases.project_id, project_id as string));
     }
-    if (supplierId && supplierId !== 'all') {
-      conditions.push(eq(materialPurchases.supplierId, supplierId as string));
+    if (supplier_id && supplier_id !== 'all') {
+      conditions.push(eq(materialPurchases.supplier_id, supplier_id as string));
     }
     if (purchaseType && purchaseType !== 'all') {
       conditions.push(eq(materialPurchases.purchaseType, purchaseType as string));
@@ -1731,7 +1731,7 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
     let query = db
       .select({
         id: materialPurchases.id,
-        projectId: materialPurchases.projectId,
+        project_id: materialPurchases.project_id,
         materialName: materialPurchases.materialName,
         materialCategory: materialPurchases.materialCategory,
         materialUnit: materialPurchases.materialUnit,
@@ -1747,7 +1747,7 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
         projectName: projects.name
       })
       .from(materialPurchases)
-      .leftJoin(projects, eq(materialPurchases.projectId, projects.id));
+      .leftJoin(projects, eq(materialPurchases.project_id, projects.id));
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as any;
@@ -1854,7 +1854,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     const p = newPurchase[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordMaterialPurchase(
-        p.projectId, parseFloat(p.totalAmount || '0'), p.purchaseDate, p.id, p.purchaseType || 'نقد', (req as any).user?.id
+        p.project_id, parseFloat(p.totalAmount || '0'), p.purchaseDate, p.id, p.purchaseType || 'نقد', (req as any).user?.id
       ),
       'material-purchase/POST'
     );
@@ -1879,7 +1879,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
           description: p.notes || null,
           purchaseDate: p.purchaseDate,
           purchasePrice: safePurchasePrice,
-          projectId: p.projectId,
+          project_id: p.project_id,
         }).returning();
 
         const eqCode = `EQ-${String(newEquipment.id).padStart(5, '0')}`;
@@ -1997,7 +1997,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'تعديل مشتراة', (req as any).user?.id);
       return FinancialLedgerService.recordMaterialPurchase(
-        mp.projectId, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', (req as any).user?.id
+        mp.project_id, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', (req as any).user?.id
       );
     }, 'material-purchase/PATCH');
 
@@ -2020,7 +2020,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
           description: mp.notes || null,
           purchaseDate: mp.purchaseDate,
           purchasePrice: safePurchasePrice,
-          projectId: mp.projectId,
+          project_id: mp.project_id,
         }).returning();
 
         const eqCode2 = `EQ-${String(newEquipment.id).padStart(5, '0')}`;
@@ -2121,11 +2121,11 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
 financialRouter.get('/transportation-expenses', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.query;
+    const { project_id } = req.query;
     
     let query: any = db.select().from(transportationExpenses);
-    if (projectId) {
-      query = query.where(eq(transportationExpenses.projectId, projectId as string));
+    if (project_id) {
+      query = query.where(eq(transportationExpenses.project_id, project_id as string));
     }
     
     const expenses = await query.orderBy(desc(transportationExpenses.date));
@@ -2163,7 +2163,7 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
     const te = newExpense[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordTransportExpense(
-        te.projectId, parseFloat(te.amount || '0'), te.date, te.id, (req as any).user?.id
+        te.project_id, parseFloat(te.amount || '0'), te.date, te.id, (req as any).user?.id
       ),
       'transport-expense/POST'
     );
@@ -2250,7 +2250,7 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'تعديل نفقة نقل', (req as any).user?.id);
       return FinancialLedgerService.recordTransportExpense(
-        tu.projectId, parseFloat(tu.amount || '0'), tu.date, tu.id, (req as any).user?.id
+        tu.project_id, parseFloat(tu.amount || '0'), tu.date, tu.id, (req as any).user?.id
       );
     }, 'transport-expense/PATCH');
 
@@ -2329,12 +2329,12 @@ financialRouter.delete('/transportation-expenses/:id', async (req: Request, res:
 financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date } = req.query;
+    const { project_id, date } = req.query;
     
-    if (!projectId || !date) {
+    if (!project_id || !date) {
       return res.status(400).json({
         success: false,
-        message: 'projectId و date مطلوبان',
+        message: 'project_id و date مطلوبان',
         processingTime: Date.now() - startTime
       });
     }
@@ -2345,7 +2345,7 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       .from(dailyExpenseSummaries)
       .where(
         and(
-          eq(dailyExpenseSummaries.projectId, projectId as string),
+          eq(dailyExpenseSummaries.project_id, project_id as string),
           eq(dailyExpenseSummaries.date, date as string)
         )
       )
@@ -2357,7 +2357,7 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       .from(workerAttendance)
       .where(
         and(
-          eq(workerAttendance.projectId, projectId as string),
+          eq(workerAttendance.project_id, project_id as string),
           eq(workerAttendance.date, date as string)
         )
       );
@@ -2414,12 +2414,12 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
 financialRouter.get('/daily-attendance-details', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date } = req.query;
+    const { project_id, date } = req.query;
     
-    if (!projectId || !date) {
+    if (!project_id || !date) {
       return res.status(400).json({
         success: false,
-        message: 'projectId و date مطلوبان',
+        message: 'project_id و date مطلوبان',
         processingTime: Date.now() - startTime
       });
     }
@@ -2428,7 +2428,7 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
     const attendanceRecords = await db
       .select({
         id: workerAttendance.id,
-        workerId: workerAttendance.workerId,
+        worker_id: workerAttendance.worker_id,
         workerName: workers.name,
         workDays: workerAttendance.workDays,
         dailyWage: workers.dailyWage,
@@ -2436,10 +2436,10 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
         paidAmount: workerAttendance.paidAmount
       })
       .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+      .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
       .where(
         and(
-          eq(workerAttendance.projectId, projectId as string),
+          eq(workerAttendance.project_id, project_id as string),
           eq(workerAttendance.date, date as string)
         )
       )
@@ -2483,12 +2483,12 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
 financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, workerId, dateFrom, dateTo } = req.query;
+    const { project_id, worker_id, dateFrom, dateTo } = req.query;
     
-    if (!projectId || !workerId) {
+    if (!project_id || !worker_id) {
       return res.status(400).json({
         success: false,
-        message: 'projectId و workerId مطلوبان',
+        message: 'project_id و worker_id مطلوبان',
         processingTime: Date.now() - startTime
       });
     }
@@ -2498,8 +2498,8 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
       .select()
       .from(workerTransfers)
       .where(and(
-        eq(workerTransfers.projectId, projectId as string),
-        eq(workerTransfers.workerId, workerId as string)
+        eq(workerTransfers.project_id, project_id as string),
+        eq(workerTransfers.worker_id, worker_id as string)
       ))
       .orderBy(desc(workerTransfers.transferDate));
     
@@ -2551,14 +2551,14 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
 financialRouter.get('/worker-statement-excel', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, workerId, dateFrom, dateTo } = req.query;
+    const { project_id, worker_id, dateFrom, dateTo } = req.query;
     
-    console.log('📋 [WorkerStatement] طلب بيان العامل:', { projectId, workerId, dateFrom, dateTo });
+    console.log('📋 [WorkerStatement] طلب بيان العامل:', { project_id, worker_id, dateFrom, dateTo });
     
-    if (!projectId || !workerId) {
+    if (!project_id || !worker_id) {
       return res.status(400).json({
         success: false,
-        message: 'projectId و workerId مطلوبان',
+        message: 'project_id و worker_id مطلوبان',
         processingTime: Date.now() - startTime
       });
     }
@@ -2567,14 +2567,14 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     const workerData = await db
       .select()
       .from(workers)
-      .where(eq(workers.id, workerId as string))
+      .where(eq(workers.id, worker_id as string))
       .limit(1);
 
     if (workerData.length === 0) {
       return res.json({
         success: true,
         data: {
-          worker: { id: workerId, name: '', type: '', dailyWage: 0 },
+          worker: { id: worker_id, name: '', type: '', dailyWage: 0 },
           attendance: [],
           transfers: [],
           summary: { totalWorkDays: 0, totalEarned: 0, totalPaid: 0, totalTransfers: 0, remainingBalance: 0 }
@@ -2591,8 +2591,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
       .select()
       .from(workerAttendance)
       .where(and(
-        eq(workerAttendance.projectId, projectId as string),
-        eq(workerAttendance.workerId, workerId as string)
+        eq(workerAttendance.project_id, project_id as string),
+        eq(workerAttendance.worker_id, worker_id as string)
       ))
       .orderBy(desc(workerAttendance.date));
     
@@ -2640,8 +2640,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
       .select()
       .from(workerTransfers)
       .where(and(
-        eq(workerTransfers.projectId, projectId as string),
-        eq(workerTransfers.workerId, workerId as string)
+        eq(workerTransfers.project_id, project_id as string),
+        eq(workerTransfers.worker_id, worker_id as string)
       ));
     
     console.log(`🔍 [WorkerStatement] عدد الحوالات الكاملة: ${transferRecords.length}`);
@@ -2721,15 +2721,15 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
 financialRouter.get('/suppliers/statistics', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { supplierId, projectId, dateFrom, dateTo, purchaseType } = req.query;
+    const { supplier_id, project_id, dateFrom, dateTo, purchaseType } = req.query;
     
     // بناء شروط الفلترة
     const conditions: any[] = [];
-    if (supplierId && supplierId !== 'all') {
-      conditions.push(eq(materialPurchases.supplierId, supplierId as string));
+    if (supplier_id && supplier_id !== 'all') {
+      conditions.push(eq(materialPurchases.supplier_id, supplier_id as string));
     }
-    if (projectId && projectId !== 'all') {
-      conditions.push(eq(materialPurchases.projectId, projectId as string));
+    if (project_id && project_id !== 'all') {
+      conditions.push(eq(materialPurchases.project_id, project_id as string));
     }
     if (purchaseType && purchaseType !== 'all') {
       conditions.push(eq(materialPurchases.purchaseType, purchaseType as string));
@@ -2742,7 +2742,7 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
     }
 
     // جلب الموردين
-    const suppliersList = await db.select().from(suppliers).where(eq(suppliers.isActive, true));
+    const suppliersList = await db.select().from(suppliers).where(eq(suppliers.is_active, true));
     
     // جلب المشتريات مع الفلترة
     let purchasesQuery = db.select().from(materialPurchases);
@@ -2828,7 +2828,7 @@ financialRouter.get('/material-purchases/date-range', async (req: Request, res: 
 financialRouter.get('/materials', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const materialsList = await db.select().from(materials).orderBy(desc(materials.createdAt));
+    const materialsList = await db.select().from(materials).orderBy(desc(materials.created_at));
     const duration = Date.now() - startTime;
     
     return res.json({

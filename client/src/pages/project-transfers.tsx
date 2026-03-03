@@ -284,8 +284,8 @@ export default function ProjectTransfers() {
     setShowCreateModal(true);
   };
 
-  const getProjectName = (projectId: string) => {
-    return projects.find((p: Project) => p.id === projectId)?.name || "غير محدد";
+  const getProjectName = (project_id: string) => {
+    return projects.find((p: Project) => p.id === project_id)?.name || "غير محدد";
   };
 
   const formatCurrency = (amount: number) => {

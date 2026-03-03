@@ -8,45 +8,45 @@ import { MapPin, Wrench, TrendingUp, DollarSign, Edit2, Trash2, BarChart3 } from
 import { useToast } from "@/hooks/use-toast";
 
 interface WellDetailCardProps {
-  wellId: number;
+  well_id: number;
   onEdit?: () => void;
   onDelete?: () => void;
   onViewCosts?: () => void;
 }
 
-export function WellDetailCard({ wellId, onEdit, onDelete, onViewCosts }: WellDetailCardProps) {
+export function WellDetailCard({ well_id, onEdit, onDelete, onViewCosts }: WellDetailCardProps) {
   const { toast } = useToast();
 
   // جلب تفاصيل البئر
   const { data: well, isLoading: wellLoading } = useQuery({
-    queryKey: QUERY_KEYS.wellById(wellId),
+    queryKey: QUERY_KEYS.wellById(well_id),
     queryFn: async () => {
-      const response = await apiRequest(`/wells/${wellId}`);
+      const response = await apiRequest(`/wells/${well_id}`);
       return response.data;
     }
   });
 
   // جلب مصاريف البئر
   const { data: expenses = [] } = useQuery({
-    queryKey: QUERY_KEYS.wellExpenses(wellId),
+    queryKey: QUERY_KEYS.wellExpenses(well_id),
     queryFn: async () => {
-      const response = await apiRequest(`/well-expenses/${wellId}`);
+      const response = await apiRequest(`/well-expenses/${well_id}`);
       return response.data || [];
     }
   });
 
   // جلب تقرير التكاليف
   const { data: costReport } = useQuery({
-    queryKey: QUERY_KEYS.wellCostReport(wellId),
+    queryKey: QUERY_KEYS.wellCostReport(well_id),
     queryFn: async () => {
-      const response = await apiRequest(`/well-expenses/cost-report/${wellId}`);
+      const response = await apiRequest(`/well-expenses/cost-report/${well_id}`);
       return response.data;
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/wells/${wellId}`, { method: 'DELETE' } as any);
+      return apiRequest(`/wells/${well_id}`, { method: 'DELETE' } as any);
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });

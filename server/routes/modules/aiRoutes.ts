@@ -35,13 +35,13 @@ router.use(authenticate);
 /**
  * التحقق من أن المستخدم مسؤول (admin)
  */
-async function isAdmin(userId: string): Promise<boolean> {
-  if (!userId) return false;
+async function isAdmin(user_id: string): Promise<boolean> {
+  if (!user_id) return false;
   try {
     const user = await db
       .select({ id: users.id, role: users.role })
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, user_id))
       .limit(1);
 
     if (user.length === 0) return false;
@@ -57,15 +57,15 @@ async function isAdmin(userId: string): Promise<boolean> {
  */
 async function requireAdmin(req: any, res: Response, next: NextFunction) {
   // ✅ التحقق أولاً من وجود المستخدم في الطلب (تم تعيينه بواسطة authenticate middleware)
-  if (!req.user || !req.user.userId) {
+  if (!req.user || !req.user.user_id) {
     console.error("❌ [AI/Auth] User not found in request. Authentication failed.");
     return res.status(401).json({ error: "غير مصرح - يرجى تسجيل الدخول" });
   }
 
-  const userId = req.user.userId;
+  const user_id = req.user.user_id;
   const userRole = req.user.role;
 
-  console.log(`🔍 [AI/Auth] Verifying admin for user: ${userId} (Role in token: ${userRole})`);
+  console.log(`🔍 [AI/Auth] Verifying admin for user: ${user_id} (Role in token: ${userRole})`);
 
   // ✅ السماح للمسؤولين بناءً على الدور الموجود في التوكن (أسرع)
   if (userRole === 'admin' || userRole === 'super_admin') {
@@ -74,9 +74,9 @@ async function requireAdmin(req: any, res: Response, next: NextFunction) {
 
   // Fallback: التحقق من قاعدة البيانات إذا لم يكن الدور واضحاً في التوكن
   try {
-    const isAdminUser = await isAdmin(userId);
+    const isAdminUser = await isAdmin(user_id);
     if (!isAdminUser) {
-      console.warn(`⚠️ [AI/Auth] Access denied for user: ${userId}`);
+      console.warn(`⚠️ [AI/Auth] Access denied for user: ${user_id}`);
       return res.status(403).json({ error: "هذه الميزة متاحة فقط للمسؤولين" });
     }
     next();
@@ -111,13 +111,13 @@ router.get("/status", async (req: AuthenticatedRequest, res: Response) => {
  */
 router.get("/access", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    console.log(`🔍 [AI/Access] Checking access for user: ${req.user?.userId} (Role: ${req.user?.role})`);
-    if (!req.user || !req.user.userId) {
+    console.log(`🔍 [AI/Access] Checking access for user: ${req.user?.user_id} (Role: ${req.user?.role})`);
+    if (!req.user || !req.user.user_id) {
       return res.json({ hasAccess: false, reason: "غير مسجل الدخول" });
     }
 
     // ✅ التحقق من الدور في التوكن أولاً
-    const hasAccess = req.user.role === 'admin' || await isAdmin(req.user.userId);
+    const hasAccess = req.user.role === 'admin' || await isAdmin(req.user.user_id);
     
     console.log(`✅ [AI/Access] Result: ${hasAccess}`);
     res.json({ 
@@ -139,13 +139,13 @@ router.post("/sessions", requireAdmin, async (req: AuthenticatedRequest, res: Re
     const { title } = req.body;
     const aiService = getAIAgentService();
     
-    if (!req.user || !req.user.userId) {
+    if (!req.user || !req.user.user_id) {
       console.error("❌ [AI/Sessions] User ID missing in request");
       return res.status(401).json({ error: "غير مصرح - معرف المستخدم مفقود" });
     }
 
-    console.log(`🚀 [AI/Sessions] POST /sessions - User: ${req.user.userId}, Title: ${title}`);
-    const sessionId = await aiService.createSession(req.user.userId, title);
+    console.log(`🚀 [AI/Sessions] POST /sessions - User: ${req.user.user_id}, Title: ${title}`);
+    const sessionId = await aiService.createSession(req.user.user_id, title);
 
     res.json({ sessionId });
   } catch (error: any) {
@@ -161,7 +161,7 @@ router.post("/sessions", requireAdmin, async (req: AuthenticatedRequest, res: Re
 router.get("/sessions", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const aiService = getAIAgentService();
-    const sessions = await aiService.getUserSessions(req.user!.userId);
+    const sessions = await aiService.getUserSessions(req.user!.user_id);
 
     res.json(sessions);
   } catch (error: any) {
@@ -195,7 +195,7 @@ router.delete("/sessions/:id", requireAdmin, async (req: AuthenticatedRequest, r
   try {
     const { id } = req.params;
     const aiService = getAIAgentService();
-    const deleted = await aiService.deleteSession(id, req.user!.userId);
+    const deleted = await aiService.deleteSession(id, req.user!.user_id);
 
     if (!deleted) {
       return res.status(404).json({ error: "الجلسة غير موجودة" });

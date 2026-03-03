@@ -299,11 +299,11 @@ export function transformValidationErrors(validationErrors: SimpleValidationErro
 
 function getFieldDisplayName(fieldName: string): string {
   const fieldNames: Record<string, string> = {
-    'projectIds': 'المشاريع المحددة',
+    'project_ids': 'المشاريع المحددة',
     'dateFrom': 'تاريخ البداية',
     'dateTo': 'تاريخ النهاية',
     'dateRange': 'فترة التواريخ',
-    'workerIds': 'العمال المحددين'
+    'worker_ids': 'العمال المحددين'
   };
   
   return fieldNames[fieldName] || fieldName;

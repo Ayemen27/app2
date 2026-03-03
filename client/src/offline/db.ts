@@ -88,7 +88,7 @@ export interface BinarJoinDB extends DBSchema {
       retryCount?: number;
     };
   };
-  userData: { key: string; value: { id: string; type: string; data: any; syncedAt: number; createdAt: number } };
+  userData: { key: string; value: { id: string; type: string; data: any; syncedAt: number; created_at: number } };
   emergencyUsers: { key: string; value: Record<string, any> };
   users: { key: string; value: StoreValue };
   authUserSessions: { key: string; value: StoreValue };
@@ -371,8 +371,8 @@ export async function getListLocal(storeName: string) {
   const { smartGetAll } = await import('./storage-factory');
   const items = await smartGetAll(storeName);
   return items.sort((a: any, b: any) => {
-    const dateA = new Date(a.createdAt || 0).getTime();
-    const dateB = new Date(b.createdAt || 0).getTime();
+    const dateA = new Date(a.created_at || 0).getTime();
+    const dateB = new Date(b.created_at || 0).getTime();
     return dateB - dateA;
   });
 }

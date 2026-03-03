@@ -67,27 +67,27 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(), 
-  passwordAlgo: text("password_algo").default("argon2id").notNull(), // argon2id, legacy
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  fullName: text("full_name"),
+  password_algo: text("password_algo").default("argon2id").notNull(), // argon2id, legacy
+  first_name: text("first_name"),
+  last_name: text("last_name"),
+  full_name: text("full_name"),
   phone: text("phone"),
-  birthDate: text("birth_date"),
-  birthPlace: text("birth_place"),
+  birth_date: text("birth_date"),
+  birth_place: text("birth_place"),
   gender: text("gender"),
   role: text("role").notNull().default("admin"), 
-  isActive: text("is_active").default("true").notNull(),
+  is_active: text("is_active").default("true").notNull(),
   notificationsEnabled: boolean("notifications_enabled").default(false).notNull(), 
-  emailVerifiedAt: timestamp("email_verified_at"), 
-  totpSecret: text("totp_secret"), 
-  mfaEnabled: boolean("mfa_enabled").default(false).notNull(), 
-  fcmToken: text("fcm_token"), 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  lastLogin: timestamp("last_login"),
+  email_verified_at: timestamp("email_verified_at"), 
+  totp_secret: text("totp_secret"), 
+  mfa_enabled: boolean("mfa_enabled").default(false).notNull(), 
+  fcm_token: text("fcm_token"), 
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  last_login: timestamp("last_login"),
   // Refresh Token fields
-  refreshTokenHash: text("refresh_token_hash"),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  refresh_token_hash: text("refresh_token_hash"),
+  refresh_token_expires_at: timestamp("refresh_token_expires_at"),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
@@ -104,7 +104,7 @@ export const users = pgTable("users", {
 // Refresh Tokens table (جدول توكنات التحديث)
 export const refreshTokens = pgTable("refresh_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull(),
   replacedBy: uuid("replaced_by"), // Rotation: المعرف الجديد الذي حل محل هذا التوكن
   revoked: boolean("revoked").default(false).notNull(),
@@ -112,17 +112,17 @@ export const refreshTokens = pgTable("refresh_tokens", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   deviceFingerprint: text("device_fingerprint"), // للتأكد من أن التوكن يستخدم من نفس الجهاز
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Audit Logs table (جدول سجلات التدقيق)
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id),
+  user_id: varchar("user_id").references(() => users.id),
   action: text("action").notNull(),
   meta: jsonb("meta"),
   ipAddress: text("ip_address"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Emergency Users table (جدول مستخدمي الطوارئ - محلي فقط)
@@ -132,7 +132,7 @@ export const emergencyUsers = pgTable("emergency_users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("admin"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Tasks table (جدول المهام)
@@ -141,12 +141,12 @@ export const tasks = pgTable("tasks", {
   title: text("title").notNull(),
   description: text("description"),
   completed: boolean("completed").notNull().default(false),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({ 
   id: true,
-  createdAt: true 
+  created_at: true 
 });
 
 export type InsertTask = z.infer<typeof insertTaskSchema>;
@@ -156,7 +156,7 @@ export type Task = typeof tasks.$inferSelect;
 // Authentication User Sessions table (جدول جلسات المستخدمين)
 export const authUserSessions = pgTable("auth_user_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id),
   sessionToken: varchar("session_token"),
   deviceFingerprint: varchar("device_fingerprint"),
   userAgent: text("user_agent"),
@@ -165,8 +165,8 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   isTrustedDevice: boolean("is_trusted_device").default(false).notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   lastActivity: timestamp("last_activity").defaultNow(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
   deviceId: varchar("device_id"),
   deviceName: varchar("device_name"),
   browserName: varchar("browser_name"),
@@ -179,7 +179,7 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   loginMethod: varchar("login_method"),
   securityFlags: jsonb("security_flags"),
   deviceType: varchar("device_type"),
-  refreshTokenHash: text("refreshTokenHash"),
+  refresh_token_hash: text("refresh_token_hash"),
   accessTokenHash: text("access_token_hash"),
   isRevoked: boolean("is_revoked").default(false).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -189,13 +189,13 @@ export const authUserSessions = pgTable("auth_user_sessions", {
 // Notifications table (جدول الإشعارات)
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id), // null if broadcast
+  user_id: varchar("user_id").references(() => users.id), // null if broadcast
   title: text("title").notNull(),
   body: text("body").notNull(),
   message: text("message"), // Keeping for backward compatibility if needed, but 'body' is preferred
   type: text("type").notNull().default("system"),
   priority: integer("priority").default(3),
-  projectId: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id),
   createdBy: varchar("created_by").references(() => users.id),
   recipients: text("recipients").array(), // For targeted multiple users
   payload: jsonb("payload"),
@@ -206,7 +206,7 @@ export const notifications = pgTable("notifications", {
   channelPreference: jsonb("channel_preference"),
   isRead: boolean("is_read").default(false).notNull(),
   targetPlatform: text("target_platform").default("all").notNull(), // 'all', 'android', 'web'
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
@@ -214,7 +214,7 @@ export const notifications = pgTable("notifications", {
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
   id: true, 
-  createdAt: true,
+  created_at: true,
   isRead: true 
 });
 
@@ -224,14 +224,14 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 // Email Verification Tokens table (جدول رموز التحقق من البريد الإلكتروني)
 export const emailVerificationTokens = pgTable("email_verification_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id),
   email: text("email").notNull(), // البريد الإلكتروني المراد التحقق منه
   token: varchar("token").notNull().unique(), // الرمز المرسل للمستخدم (6 أرقام)
   tokenHash: varchar("token_hash").notNull(), // hash الرمز المحفوظ في قاعدة البيانات
   verificationLink: text("verification_link").notNull(), // رابط التحقق الكامل
   expiresAt: timestamp("expires_at").notNull(), // انتهاء صلاحية الرمز (عادة 24 ساعة)
   verifiedAt: timestamp("verified_at"), // متى تم التحقق من البريد
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   ipAddress: inet("ip_address"), // IP الذي طلب التحقق
   userAgent: text("user_agent"), // User Agent الذي طلب التحقق
   attemptsCount: integer("attempts_count").default(0).notNull(), // عدد محاولات استخدام الرمز
@@ -240,12 +240,12 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
 // Password Reset Tokens table (جدول رموز استرجاع كلمة المرور)
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id),
   token: varchar("token").notNull().unique(), // الرمز المرسل للمستخدم
   tokenHash: varchar("token_hash").notNull(), // hash الرمز المحفوظ في قاعدة البيانات
   expiresAt: timestamp("expires_at").notNull(), // انتهاء صلاحية الرمز (عادة ساعة واحدة)
   usedAt: timestamp("used_at"), // متى تم استخدام الرمز
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   ipAddress: inet("ip_address"), // IP الذي طلب الاسترجاع
   userAgent: text("user_agent"), // User Agent الذي طلب الاسترجاع
 });
@@ -255,8 +255,8 @@ export const projectTypes = pgTable("project_types", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull().unique(),
   description: text("description"),
-  isActive: boolean("isActive").default(true).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  is_active: boolean("is_active").default(true).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
 }, (table) => ({
   uniqueProjectTypeName: sql`UNIQUE ("name")`,
@@ -278,10 +278,10 @@ export const projects = pgTable("projects", {
   contactPhone: text("contact_phone"), // إعادة إضافة رقم الهاتف
   notes: text("notes"), // إعادة إضافة الملاحظات
   imageUrl: text("image_url"), // صورة المشروع (اختيارية)
-  projectTypeId: integer("project_type_id").references(() => projectTypes.id, { onDelete: "set null" }), // نوع المشروع
-  isActive: boolean("isActive").default(true).notNull(), // إعادة إضافة الحالة النشطة
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
+  project_type_id: integer("project_type_id").references(() => projectTypes.id, { onDelete: "set null" }), // نوع المشروع
+  is_active: boolean("is_active").default(true).notNull(), // إعادة إضافة الحالة النشطة
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
   ...syncFields,
 }, (table) => ({
   uniqueProjectName: sql`UNIQUE ("name")`,
@@ -295,8 +295,8 @@ export const workers = pgTable("workers", {
   dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(),
   phone: text("phone"), // رقم الهاتف
   hireDate: text("hire_date"), // تاريخ التوظيف (YYYY-MM-DD)
-  isActive: boolean("isActive").default(true).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  is_active: boolean("is_active").default(true).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
 }, (table) => ({
   uniqueWorkerName: sql`UNIQUE ("name")`,
@@ -306,7 +306,7 @@ export const workers = pgTable("workers", {
 // تم تحسين هذا الجدول لدعم تتبع حالة الإنجاز ونسب التنفيذ تلقائياً
 export const wells = pgTable("wells", {
   id: serial("id").primaryKey(),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   wellNumber: integer("well_number").notNull(), // رقم البئر
   ownerName: text("owner_name").notNull(), // اسم المالك
   region: varchar("region", { length: 100 }).notNull(), // المنطقة
@@ -326,8 +326,8 @@ export const wells = pgTable("wells", {
   completionDate: date("completion_date"), // تاريخ الانتهاء (nullable)
   notes: text("notes"),
   createdBy: varchar("created_by").notNull().references(() => users.id),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
   ...syncFields,
 }, (table) => ({
   uniqueWellNumberInProject: sql`UNIQUE (project_id, well_number)`,
@@ -336,21 +336,21 @@ export const wells = pgTable("wells", {
 // Fund transfers (تحويلات العهدة)
 export const fundTransfers = pgTable("fund_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   senderName: text("sender_name"), // اسم المرسل
   transferNumber: text("transfer_number").unique(), // رقم الحولة - فريد
   transferType: text("transfer_type").notNull(), // حولة، تسليم يدوي، صراف
   transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Worker attendance
 export const workerAttendance = pgTable("worker_attendance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
   attendanceDate: text("attendance_date").notNull(), // YYYY-MM-DD format
   date: text("date"), // عمود إضافي للتاريخ - nullable
   startTime: text("start_time"), // HH:MM format
@@ -370,8 +370,8 @@ export const workerAttendance = pgTable("worker_attendance", {
   remainingAmount: decimal("remaining_amount", { precision: 15, scale: 2 }).default('0'), // المتبقي في حساب العامل - nullable في قاعدة البيانات
   paymentType: text("payment_type").default("partial"), // "full" | "partial" | "credit" - nullable في قاعدة البيانات
   notes: text("notes"), // ملاحظات
-  wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // قيد فريد لمنع تسجيل حضور مكرر لنفس العامل في نفس اليوم
   uniqueWorkerDate: sql`UNIQUE (worker_id, attendance_date, project_id)`,
@@ -386,9 +386,9 @@ export const suppliers = pgTable("suppliers", {
   address: text("address"),
   paymentTerms: text("payment_terms").default("نقد"), // نقد، 30 يوم، 60 يوم، etc
   totalDebt: decimal("total_debt", { precision: 12, scale: 2 }).default('0').notNull(), // إجمالي المديونية
-  isActive: boolean("isActive").default(true).notNull(),
+  is_active: boolean("is_active").default(true).notNull(),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Materials
@@ -397,16 +397,16 @@ export const materials = pgTable("materials", {
   name: text("name").notNull(),
   category: text("category").notNull(), // حديد، أسمنت، رمل، etc
   unit: text("unit").notNull(), // طن، كيس، متر مكعب، etc
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Material purchases - محسن للمحاسبة الصحيحة
 export const materialPurchases = pgTable("material_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  supplierId: varchar("supplier_id").references(() => suppliers.id, { onDelete: "set null" }), // ربط بالمورد
-  materialId: varchar("material_id").references(() => materials.id, { onDelete: "set null" }), // إعادة إضافة المادة للتوافق
-  materialName: text("material_name").notNull(), // اسم المادة بدلاً من materialId
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  supplier_id: varchar("supplier_id").references(() => suppliers.id, { onDelete: "set null" }), // ربط بالمورد
+  material_id: varchar("material_id").references(() => materials.id, { onDelete: "set null" }), // إعادة إضافة المادة للتوافق
+  materialName: text("material_name").notNull(), // اسم المادة بدلاً من material_id
   materialCategory: text("material_category"), // فئة المادة (حديد، أسمنت، إلخ)
   materialUnit: text("material_unit"), // وحدة المادة الأساسية
   quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
@@ -424,10 +424,10 @@ export const materialPurchases = pgTable("material_purchases", {
   invoicePhoto: text("invoice_photo"), // base64 or file path
   notes: text("notes"),
   purchaseDate: text("purchase_date").notNull(), // YYYY-MM-DD format
-  wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   addToInventory: boolean("add_to_inventory").default(false), // إضافة المادة للمخزن/المعدات تلقائياً
   equipmentId: integer("equipment_id"), // ربط بالمعدة المنشأة تلقائياً (إن وجدت)
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // إضافة قيد فريد لضمان عدم تكرار الفواتير بشكل غير مقصود
   uniqueInvoice: sql`UNIQUE (project_id, supplier_id, invoice_number, purchase_date)`,
@@ -436,36 +436,36 @@ export const materialPurchases = pgTable("material_purchases", {
 // Supplier payments (مدفوعات الموردين)
 export const supplierPayments = pgTable("supplier_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  supplierId: varchar("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  purchaseId: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }), // ربط بفاتورة محددة
+  supplier_id: varchar("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  purchase_id: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }), // ربط بفاتورة محددة
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   paymentMethod: text("payment_method").notNull().default("نقد"), // نقد، حوالة، شيك
   paymentDate: text("payment_date").notNull(), // YYYY-MM-DD format
   referenceNumber: text("reference_number"), // رقم المرجع أو الشيك
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Transportation expenses (أجور المواصلات)
 export const transportationExpenses = pgTable("transportation_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  workerId: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }), // optional, for worker-specific transport
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }), // optional, for worker-specific transport
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description").notNull(),
   category: text("category").notNull().default("other"), // نقل عمال، توريد مواد، صيانة، بترول، إلخ
   date: text("date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
-  wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Worker balance transfers (حوالات الحساب للأهالي)
 export const workerTransfers = pgTable("worker_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   transferNumber: text("transfer_number"), // رقم الحوالة
   senderName: text("sender_name"), // اسم المرسل
@@ -474,26 +474,26 @@ export const workerTransfers = pgTable("worker_transfers", {
   transferMethod: text("transfer_method").notNull(), // "hawaleh" | "bank" | "cash"
   transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Worker account balances (أرصدة حسابات العمال)
 export const workerBalances = pgTable("worker_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   totalEarned: decimal("total_earned", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المكتسب
   totalPaid: decimal("total_paid", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المدفوع
   totalTransferred: decimal("total_transferred", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المحول للأهل
   currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).default('0').notNull(), // الرصيد الحالي
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Daily Activity Logs (سجلات النشاط اليومي)
 export const dailyActivityLogs = pgTable("daily_activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   engineerId: varchar("engineer_id").notNull().references(() => users.id),
   logDate: text("log_date").notNull(), // YYYY-MM-DD
   activityTitle: text("activity_title").notNull(),
@@ -503,12 +503,12 @@ export const dailyActivityLogs = pgTable("daily_activity_logs", {
   temperature: integer("temperature"),
   humidity: integer("humidity"),
   images: jsonb("images").default([]), // Array of image URLs/metadata
-  wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط بالبئر
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط بالبئر
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertDailyActivityLogSchema = createInsertSchema(dailyActivityLogs).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertDailyActivityLogSchema = createInsertSchema(dailyActivityLogs).omit({ id: true, created_at: true, updated_at: true });
 export type DailyActivityLog = typeof dailyActivityLogs.$inferSelect;
 export type InsertDailyActivityLog = z.infer<typeof insertDailyActivityLogSchema>;
 
@@ -529,7 +529,7 @@ export const dateStringSchema = z.preprocess((val) => {
 // Daily expense summaries (ملخص المصروفات اليومية)
 export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   date: text("date").notNull(), // YYYY-MM-DD format
   carriedForwardAmount: decimal("carried_forward_amount", { precision: 15, scale: 2 }).default('0').notNull(),
   totalFundTransfers: decimal("total_fund_transfers", { precision: 15, scale: 2 }).default('0').notNull(),
@@ -542,8 +542,8 @@ export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   totalExpenses: decimal("total_expenses", { precision: 15, scale: 2 }).notNull(),
   remainingBalance: decimal("remaining_balance", { precision: 15, scale: 2 }).notNull(),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Worker types table (أنواع العمال)
@@ -552,7 +552,7 @@ export const workerTypes = pgTable("worker_types", {
   name: text("name").notNull().unique(), // اسم نوع العامل
   usageCount: integer("usage_count").default(1).notNull(), // عدد مرات الاستخدام
   lastUsed: timestamp("last_used").defaultNow().notNull(), // آخر استخدام
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Autocomplete data table (بيانات الإكمال التلقائي)
@@ -562,19 +562,19 @@ export const autocompleteData = pgTable("autocomplete_data", {
   value: text("value").notNull(), // القيمة المحفوظة
   usageCount: integer("usage_count").default(1).notNull(), // عدد مرات الاستخدام
   lastUsed: timestamp("last_used").defaultNow().notNull(), // آخر استخدام
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Worker miscellaneous expenses table (نثريات العمال)
 export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description").notNull(), // وصف النثريات
   date: text("date").notNull(), // تاريخ النثريات
   notes: text("notes"), // ملاحظات إضافية
-  wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Backup Logs Table (سجل النسخ الاحتياطي)
@@ -586,7 +586,7 @@ export const backupLogs = pgTable("backup_logs", {
   destination: text("destination").notNull(), // local, gdrive, telegram, all
   errorMessage: text("error_message"),
   triggeredBy: varchar("triggered_by").references(() => users.id),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Backup Settings Table (إعدادات النسخ الاحتياطي)
@@ -597,7 +597,7 @@ export const backupSettings = pgTable("backup_settings", {
   telegramNotificationsEnabled: boolean("telegram_notifications_enabled").default(false).notNull(),
   gdriveEnabled: boolean("gdrive_enabled").default(false).notNull(),
   retentionDays: integer("retention_days").default(30).notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertBackupLogSchema = createInsertSchema(backupLogs);
@@ -679,12 +679,12 @@ export const printSettings = pgTable('print_settings', {
 
   // System settings
   isDefault: boolean('is_default').notNull().default(false),
-  isActive: boolean('is_active').notNull().default(true),
-  userId: text('user_id'),
+  is_active: boolean('is_active').notNull().default(true),
+  user_id: text('user_id'),
 
   // Timestamps
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // Project fund transfers table (ترحيل الأموال بين المشاريع)
@@ -696,8 +696,8 @@ export const projectFundTransfers = pgTable("project_fund_transfers", {
   description: text("description"), // وصف الترحيل
   transferReason: text("transfer_reason"), // سبب الترحيل
   transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Security Policies (سياسات الأمان)
@@ -720,8 +720,8 @@ export const securityPolicies = pgTable("security_policies", {
   createdBy: varchar("created_by"),
   approvedBy: varchar("approved_by"),
   approvedAt: timestamp("approved_at"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Security Policy Suggestions (اقتراحات سياسات الأمان)
@@ -744,8 +744,8 @@ export const securityPolicySuggestions = pgTable("security_policy_suggestions", 
   reviewedAt: timestamp("reviewed_at"),
   implementedAs: varchar("implemented_as").references(() => securityPolicies.id, { onDelete: "set null" }),
   implementedAt: timestamp("implemented_at"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Security Policy Implementations (تنفيذ سياسات الأمان)
@@ -763,8 +763,8 @@ export const securityPolicyImplementations = pgTable("security_policy_implementa
   implementationDate: timestamp("implementation_date"),
   verificationDate: timestamp("verification_date"),
   nextReview: timestamp("next_review"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // Security Policy Violations (انتهاكات سياسات الأمان)
@@ -782,22 +782,22 @@ export const securityPolicyViolations = pgTable("security_policy_violations", {
   detectedAt: timestamp("detected_at").notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at"),
   resolvedBy: varchar("resolved_by"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
 });
 
 // User Project Permissions table (صلاحيات المستخدمين على المشاريع)
 export const userProjectPermissions = pgTable("user_project_permissions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  projectId: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   canView: boolean("can_view").default(true).notNull(),
   canAdd: boolean("can_add").default(false).notNull(),
   canEdit: boolean("can_edit").default(false).notNull(),
   canDelete: boolean("can_delete").default(false).notNull(),
   assignedBy: varchar("assigned_by").references(() => users.id),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueUserProject: sql`UNIQUE (user_id, project_id)`
 }));
@@ -808,23 +808,23 @@ export const permissionAuditLogs = pgTable("permission_audit_logs", {
   action: varchar("action").notNull(), // assign, unassign, update_permissions
   actorId: varchar("actor_id").notNull().references(() => users.id),
   targetUserId: varchar("target_user_id").references(() => users.id),
-  projectId: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id),
   oldPermissions: jsonb("old_permissions"), // الصلاحيات القديمة
   newPermissions: jsonb("new_permissions"), // الصلاحيات الجديدة
   ipAddress: inet("ip_address"),
   userAgent: text("user_agent"),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Schema definitions for forms
-export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
-export const insertWorkerSchema = createInsertSchema(workers).omit({ id: true, createdAt: true });
-export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({ id: true, createdAt: true }).extend({
+export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, created_at: true });
+export const insertWorkerSchema = createInsertSchema(workers).omit({ id: true, created_at: true });
+export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({ id: true, created_at: true }).extend({
   transferDate: dateStringSchema,
   amount: z.preprocess((val) => (val === null || val === undefined) ? "0" : val.toString(), z.string()),
 });
-export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, createdAt: true }).extend({
+export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, created_at: true }).extend({
   attendanceDate: dateStringSchema,
   dailyWage: z.coerce.string(),
   actualWage: z.coerce.string().optional(),
@@ -857,8 +857,8 @@ export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance)
   message: "وقت البداية يجب أن يكون قبل وقت النهاية (للورديات العادية)",
   path: ["endTime"]
 });
-export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, createdAt: true });
-export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, createdAt: true }).extend({
+export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, created_at: true });
+export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, created_at: true }).extend({
   purchaseDate: dateStringSchema,
   quantity: z.coerce.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن تكون الكمية 0 أو أكثر"), 
   unit: z.string().min(1, "وحدة القياس مطلوبة").default("كيس"), 
@@ -868,22 +868,22 @@ export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases
   paidAmount: z.coerce.string().default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المدفوع 0 أو أكثر"), 
   remainingAmount: z.coerce.string().default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المتبقي 0 أو أكثر"), 
 });
-export const insertTransportationExpenseSchema = createInsertSchema(transportationExpenses).omit({ id: true, createdAt: true }).extend({
+export const insertTransportationExpenseSchema = createInsertSchema(transportationExpenses).omit({ id: true, created_at: true }).extend({
   date: dateStringSchema,
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
-export const insertWorkerTransferSchema = createInsertSchema(workerTransfers).omit({ id: true, createdAt: true }).extend({
+export const insertWorkerTransferSchema = createInsertSchema(workerTransfers).omit({ id: true, created_at: true }).extend({
   transferDate: dateStringSchema,
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal في قاعدة البيانات
 });
-export const insertProjectFundTransferSchema = createInsertSchema(projectFundTransfers).omit({ id: true, createdAt: true }).extend({
+export const insertProjectFundTransferSchema = createInsertSchema(projectFundTransfers).omit({ id: true, created_at: true }).extend({
   transferDate: dateStringSchema,
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
-export const insertDailyExpenseSummarySchema = createInsertSchema(dailyExpenseSummaries).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertWorkerTypeSchema = createInsertSchema(workerTypes).omit({ id: true, createdAt: true, lastUsed: true });
-export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData).omit({ id: true, createdAt: true, lastUsed: true });
-export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, createdAt: true }).extend({
+export const insertDailyExpenseSummarySchema = createInsertSchema(dailyExpenseSummaries).omit({ id: true, created_at: true, updated_at: true });
+export const insertWorkerTypeSchema = createInsertSchema(workerTypes).omit({ id: true, created_at: true, lastUsed: true });
+export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData).omit({ id: true, created_at: true, lastUsed: true });
+export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, created_at: true }).extend({
   date: dateStringSchema,
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
@@ -892,21 +892,21 @@ export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpens
 export const insertUserProjectPermissionSchema = createInsertSchema(userProjectPermissions).omit({ 
   id: true, 
   assignedAt: true, 
-  updatedAt: true 
+  updated_at: true 
 });
 
 // 📋 **Permission Audit Log Schema**
 export const insertPermissionAuditLogSchema = createInsertSchema(permissionAuditLogs).omit({ 
   id: true, 
-  createdAt: true 
+  created_at: true 
 });
 
 // 🛡️ **Enhanced User Input Validation - حماية أمنية محسّنة**
 export const insertUserSchema = createInsertSchema(users).omit({ 
   id: true, 
-  createdAt: true, 
-  updatedAt: true, 
-  lastLogin: true 
+  created_at: true, 
+  updated_at: true, 
+  last_login: true 
 }).extend({
   email: z.string()
     .min(5, "البريد الإلكتروني قصير جداً")
@@ -918,11 +918,11 @@ export const insertUserSchema = createInsertSchema(users).omit({
     .max(128, "كلمة المرور طويلة جداً")
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).*$/, 
            "كلمة المرور يجب أن تحتوي على حرف كبير وصغير ورقم ورمز خاص"),
-  firstName: z.string()
+  first_name: z.string()
     .min(1, "الاسم الأول مطلوب")
     .max(100, "الاسم الأول طويل جداً")
     .regex(/^[a-zA-Zا-ي0-9\s\-']+$/, "الاسم يحتوي على أحرف غير مسموحة"),
-  lastName: z.string()
+  last_name: z.string()
     .max(100, "اسم العائلة طويل جداً")
     .regex(/^[a-zA-Zا-ي0-9\s\-']*$/, "اسم العائلة يحتوي على أحرف غير مسموحة")
     .optional(),
@@ -934,7 +934,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 // 🛡️ **Enhanced Worker Input Validation**
 export const enhancedInsertWorkerSchema = createInsertSchema(workers).omit({ 
   id: true, 
-  createdAt: true 
+  created_at: true 
 }).extend({
   name: z.string()
     .min(2, "اسم العامل قصير جداً")
@@ -953,7 +953,7 @@ export const enhancedInsertWorkerSchema = createInsertSchema(workers).omit({
 // 🛡️ **Enhanced Project Input Validation**  
 export const enhancedInsertProjectSchema = createInsertSchema(projects).omit({
   id: true,
-  createdAt: true
+  created_at: true
 }).extend({
   name: z.string()
     .min(2, "اسم المشروع قصير جداً")
@@ -981,11 +981,11 @@ export const uuidSchema = z.string()
   .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i, "معرف UUID غير صحيح")
   .or(z.string().regex(/^[a-z0-9-]{8,50}$/, "معرف غير صحيح"));
 
-export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
-export const insertSupplierPaymentSchema = createInsertSchema(supplierPayments).omit({ id: true, createdAt: true }).extend({
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, created_at: true });
+export const insertSupplierPaymentSchema = createInsertSchema(supplierPayments).omit({ id: true, created_at: true }).extend({
   amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
 });
-export const insertPrintSettingsSchema = createInsertSchema(printSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPrintSettingsSchema = createInsertSchema(printSettings).omit({ id: true, created_at: true, updated_at: true });
 
 // Type definitions
 export type Project = typeof projects.$inferSelect;
@@ -1005,11 +1005,11 @@ export const whatsappStats = pgTable("whatsapp_stats", {
   accuracy: text("accuracy").default("0%").notNull(),
   status: text("status").default("idle").notNull(), // idle, connecting, open, close
   phoneNumber: text("phone_number"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertWhatsAppStatsSchema = createInsertSchema(whatsappStats).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWhatsAppStatsSchema = createInsertSchema(whatsappStats).omit({ id: true, created_at: true, updated_at: true });
 export type WhatsAppStats = typeof whatsappStats.$inferSelect;
 export type InsertWhatsAppStats = z.infer<typeof insertWhatsAppStatsSchema>;
 
@@ -1022,10 +1022,10 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   type: text("type").default("incoming").notNull(), // incoming, outgoing
   status: text("status").default("received").notNull(), // received, processed, failed
   metadata: jsonb("metadata"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertWhatsAppMessageSchema = createInsertSchema(whatsappMessages).omit({ id: true, createdAt: true });
+export const insertWhatsAppMessageSchema = createInsertSchema(whatsappMessages).omit({ id: true, created_at: true });
 export type WhatsAppMessage = typeof whatsappMessages.$inferSelect;
 export type InsertWhatsAppMessage = z.infer<typeof insertWhatsAppMessageSchema>;
 
@@ -1063,8 +1063,8 @@ export type InsertProjectFundTransfer = z.infer<typeof insertProjectFundTransfer
 // Auth User Sessions Schemas
 export const insertAuthUserSessionSchema = createInsertSchema(authUserSessions).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
+  created_at: true,
+  updated_at: true,
   lastActivity: true,
 });
 
@@ -1114,15 +1114,15 @@ export const reportTemplates = pgTable('report_templates', {
   showDate: boolean('show_date').notNull().default(true),
   showPageNumbers: boolean('show_page_numbers').notNull().default(true),
 
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  is_active: boolean('is_active').notNull().default(true),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
 });
 
 export const insertReportTemplateSchema = createInsertSchema(reportTemplates).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
+  created_at: true,
+  updated_at: true,
 });
 
 export type InsertReportTemplate = z.infer<typeof insertReportTemplateSchema>;
@@ -1142,11 +1142,11 @@ export type ReportTemplate = typeof reportTemplates.$inferSelect;
 export const notificationReadStates = pgTable("notification_read_states", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   notificationId: text("notification_id").notNull(), // معرف الإشعار (مثل maintenance-tool-id)
-  userId: varchar("user_id").references(() => users.id), // المستخدم الذي قرأ الإشعار (null للعام)
+  user_id: varchar("user_id").references(() => users.id), // المستخدم الذي قرأ الإشعار (null للعام)
   isRead: boolean("is_read").default(true).notNull(), // حالة القراءة
   readAt: timestamp("read_at").defaultNow().notNull(), // تاريخ القراءة
   deviceInfo: text("device_info"), // معلومات الجهاز للمراجعة
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   // قيد فريد لمنع تكرار الإدخال لنفس الإشعار والمستخدم
   uniqueNotificationUser: sql`UNIQUE (notification_id, user_id)`
@@ -1166,12 +1166,12 @@ export const buildDeployments = pgTable("build_deployments", {
   startTime: timestamp("start_time").defaultNow().notNull(),
   endTime: timestamp("end_time"),
   triggeredBy: varchar("triggered_by").references(() => users.id),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertBuildDeploymentSchema = createInsertSchema(buildDeployments).omit({
   id: true,
-  createdAt: true,
+  created_at: true,
 });
 
 export type BuildDeployment = typeof buildDeployments.$inferSelect;
@@ -1182,7 +1182,7 @@ export type InsertBuildDeployment = z.infer<typeof insertBuildDeploymentSchema>;
 // Insert schema for notification read states
 export const insertNotificationReadStateSchema = createInsertSchema(notificationReadStates).omit({
   id: true,
-  createdAt: true,
+  created_at: true,
 });
 export type InsertNotificationReadState = z.infer<typeof insertNotificationReadStateSchema>;
 export type NotificationReadState = typeof notificationReadStates.$inferSelect;
@@ -1193,13 +1193,13 @@ export type NotificationReadState = typeof notificationReadStates.$inferSelect;
 // جلسات المحادثات
 export const aiChatSessions = pgTable("ai_chat_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title: text("title").default("محادثة جديدة"),
-  isActive: boolean("isActive").default(true).notNull(),
+  is_active: boolean("is_active").default(true).notNull(),
   lastMessageAt: timestamp("last_message_at"),
   messagesCount: integer("messages_count").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // رسائل المحادثات
@@ -1213,38 +1213,38 @@ export const aiChatMessages = pgTable("ai_chat_messages", {
   tokensUsed: integer("tokens_used"),
   action: text("action"), // نوع الأمر المنفذ
   actionData: jsonb("action_data"), // بيانات الأمر
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // إحصائيات استخدام النماذج
 export const aiUsageStats = pgTable("ai_usage_stats", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   date: text("date").notNull(), // YYYY-MM-DD
   provider: text("provider").notNull(), // openai, gemini
   model: text("model").notNull(),
   requestsCount: integer("requests_count").default(0).notNull(),
   tokensUsed: integer("tokens_used").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Schemas for AI tables
 export const insertAiChatSessionSchema = createInsertSchema(aiChatSessions).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
+  created_at: true,
+  updated_at: true,
 });
 
 export const insertAiChatMessageSchema = createInsertSchema(aiChatMessages).omit({
   id: true,
-  createdAt: true,
+  created_at: true,
 });
 
 export const insertAiUsageStatsSchema = createInsertSchema(aiUsageStats).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
+  created_at: true,
+  updated_at: true,
 });
 
 // Types for AI tables
@@ -1264,7 +1264,7 @@ export type InsertAiUsageStats = z.infer<typeof insertAiUsageStatsSchema>;
 // 3. جدول مهام البئر (well_tasks)
 export const wellTasks = pgTable("well_tasks", {
   id: serial("id").primaryKey(),
-  wellId: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
   taskType: varchar("task_type", { length: 50 }).notNull(), // نجارة، حفر، صبة، تركيب_ألواح، تركيب_مضخة، تمديدات، اختبار
   description: text("description"), // استرجاع الوصف
   estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }), // استرجاع التكلفة التقديرية
@@ -1277,8 +1277,8 @@ export const wellTasks = pgTable("well_tasks", {
   completedBy: varchar("completed_by").references(() => users.id, { onDelete: "set null" }),
   createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }), // استرجاع المنشئ
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // 4. جدول محاسبة المهام (well_task_accounts)
@@ -1296,7 +1296,7 @@ export const wellTaskAccounts = pgTable("well_task_accounts", {
 // 5. جدول مصاريف البئر (well_expenses)
 export const wellExpenses = pgTable("well_expenses", {
   id: serial("id").primaryKey(),
-  wellId: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
   expenseType: varchar("expense_type", { length: 50 }).notNull(), // labor, operational_material, consumable_material, transport, service
   referenceType: varchar("reference_type", { length: 50 }), // worker_attendance, material_purchase, transport
   referenceId: varchar("reference_id"), // ID من الجدول المرجعي
@@ -1308,24 +1308,24 @@ export const wellExpenses = pgTable("well_expenses", {
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
   expenseDate: date("expense_date").notNull(),
   createdBy: varchar("created_by").notNull().references(() => users.id),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   notes: text("notes"),
 });
 
 // 6. جدول سجل تدقيق الآبار (well_audit_logs)
 export const wellAuditLogs = pgTable("well_audit_logs", {
   id: serial("id").primaryKey(),
-  wellId: integer("well_id").references(() => wells.id, { onDelete: "set null" }),
+  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }),
   taskId: integer("task_id").references(() => wellTasks.id, { onDelete: "set null" }),
   action: varchar("action", { length: 50 }).notNull(), // create, update, delete, status_change, account
   entityType: varchar("entity_type", { length: 50 }).notNull(), // well, task, expense, account
   entityId: integer("entity_id").notNull(),
   previousData: jsonb("previous_data"),
   newData: jsonb("new_data"),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id),
   ipAddress: inet("ip_address"),
   userAgent: text("user_agent"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // 7. جدول تصنيفات المواد (material_categories)
@@ -1336,26 +1336,26 @@ export const materialCategories = pgTable("material_categories", {
   type: varchar("type", { length: 20 }).notNull(), // operational, consumable
   unit: varchar("unit", { length: 20 }).notNull(),
   description: text("description"),
-  isActive: boolean("isActive").default(true).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(), // استخدام الاسم الموحد
+  is_active: boolean("is_active").default(true).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(), // استخدام الاسم الموحد
 });
 
 // Insert Schemas for Wells Tracking System
 export const insertProjectTypeSchema = createInsertSchema(projectTypes).omit({
   id: true,
-  createdAt: true,
+  created_at: true,
 });
 
 export const insertWellSchema = createInsertSchema(wells).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
+  created_at: true,
+  updated_at: true,
 });
 
 export const insertWellTaskSchema = createInsertSchema(wellTasks).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
+  created_at: true,
+  updated_at: true,
 });
 
 export const insertWellTaskAccountSchema = createInsertSchema(wellTaskAccounts).omit({
@@ -1365,12 +1365,12 @@ export const insertWellTaskAccountSchema = createInsertSchema(wellTaskAccounts).
 
 export const insertWellExpenseSchema = createInsertSchema(wellExpenses).omit({
   id: true,
-  createdAt: true,
+  created_at: true,
 });
 
 export const insertWellAuditLogSchema = createInsertSchema(wellAuditLogs).omit({
   id: true,
-  createdAt: true,
+  created_at: true,
 });
 
 export const insertMaterialCategorySchema = createInsertSchema(materialCategories).omit({
@@ -1411,9 +1411,9 @@ export const equipment = pgTable("equipment", {
   description: text("description"),
   purchaseDate: text("purchase_date"),
   purchasePrice: text("purchase_price"),
-  projectId: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id),
   imageUrl: text("image_url"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const equipmentMovements = pgTable("equipment_movements", {
@@ -1429,7 +1429,7 @@ export const equipmentMovements = pgTable("equipment_movements", {
 });
 
 export type Equipment = typeof equipment.$inferSelect;
-export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, createdAt: true });
+export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, created_at: true });
 export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
 
 export type EquipmentMovement = typeof equipmentMovements.$inferSelect;
@@ -1449,14 +1449,14 @@ export const accountTypes = pgTable("account_types", {
   category: text("category").notNull(), // asset, liability, equity, revenue, expense
   normalBalance: text("normal_balance").notNull(), // debit, credit
   parentId: integer("parent_id"),
-  isActive: boolean("isActive").default(true),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  is_active: boolean("is_active").default(true),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const journalEntries = pgTable("journal_entries", {
   id: uuid("id").defaultRandom().primaryKey(),
   entryNumber: serial("entry_number"),
-  projectId: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id),
   entryDate: text("entry_date").notNull(), // YYYY-MM-DD
   description: text("description").notNull(),
   sourceTable: text("source_table").notNull(), // fund_transfers, material_purchases, etc
@@ -1466,7 +1466,7 @@ export const journalEntries = pgTable("journal_entries", {
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
   status: text("status").default("posted"), // draft, posted, reversed
   createdBy: varchar("created_by").references(() => users.id),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
 });
 
@@ -1477,28 +1477,28 @@ export const journalLines = pgTable("journal_lines", {
   debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
   creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
   description: text("description"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const financialAuditLog = pgTable("financial_audit_log", {
   id: uuid("id").defaultRandom().primaryKey(),
-  projectId: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id),
   action: text("action").notNull(), // create, update, delete, reverse
   entityType: text("entity_type").notNull(), // fund_transfer, material_purchase, etc
   entityId: text("entity_id").notNull(),
   previousData: jsonb("previous_data"),
   newData: jsonb("new_data"),
   changedFields: jsonb("changed_fields"),
-  userId: varchar("user_id").references(() => users.id),
+  user_id: varchar("user_id").references(() => users.id),
   userEmail: text("user_email"),
   reason: text("reason"),
   ipAddress: inet("ip_address"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const reconciliationRecords = pgTable("reconciliation_records", {
   id: uuid("id").defaultRandom().primaryKey(),
-  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  project_id: varchar("project_id").references(() => projects.id).notNull(),
   reconciliationDate: text("reconciliation_date").notNull(), // YYYY-MM-DD
   ledgerBalance: decimal("ledger_balance", { precision: 15, scale: 2 }).notNull(),
   computedBalance: decimal("computed_balance", { precision: 15, scale: 2 }).notNull(),
@@ -1507,46 +1507,46 @@ export const reconciliationRecords = pgTable("reconciliation_records", {
   resolvedBy: varchar("resolved_by").references(() => users.id),
   resolvedAt: timestamp("resolved_at"),
   notes: text("notes"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const summaryInvalidations = pgTable("summary_invalidations", {
   id: uuid("id").defaultRandom().primaryKey(),
-  projectId: varchar("project_id").references(() => projects.id).notNull(),
+  project_id: varchar("project_id").references(() => projects.id).notNull(),
   invalidatedFrom: text("invalidated_from").notNull(), // YYYY-MM-DD
   reason: text("reason").notNull(),
   sourceTable: text("source_table"),
   sourceId: text("source_id"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertAccountTypeSchema = createInsertSchema(accountTypes).omit({ id: true, createdAt: true });
+export const insertAccountTypeSchema = createInsertSchema(accountTypes).omit({ id: true, created_at: true });
 export type AccountType = typeof accountTypes.$inferSelect;
 export type InsertAccountType = z.infer<typeof insertAccountTypeSchema>;
 
-export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, entryNumber: true, createdAt: true });
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({ id: true, entryNumber: true, created_at: true });
 export type JournalEntry = typeof journalEntries.$inferSelect;
 export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
 
-export const insertJournalLineSchema = createInsertSchema(journalLines).omit({ id: true, createdAt: true });
+export const insertJournalLineSchema = createInsertSchema(journalLines).omit({ id: true, created_at: true });
 export type JournalLine = typeof journalLines.$inferSelect;
 export type InsertJournalLine = z.infer<typeof insertJournalLineSchema>;
 
-export const insertFinancialAuditLogSchema = createInsertSchema(financialAuditLog).omit({ id: true, createdAt: true });
+export const insertFinancialAuditLogSchema = createInsertSchema(financialAuditLog).omit({ id: true, created_at: true });
 export type FinancialAuditLog = typeof financialAuditLog.$inferSelect;
 export type InsertFinancialAuditLog = z.infer<typeof insertFinancialAuditLogSchema>;
 
-export const insertReconciliationRecordSchema = createInsertSchema(reconciliationRecords).omit({ id: true, createdAt: true });
+export const insertReconciliationRecordSchema = createInsertSchema(reconciliationRecords).omit({ id: true, created_at: true });
 export type ReconciliationRecord = typeof reconciliationRecords.$inferSelect;
 export type InsertReconciliationRecord = z.infer<typeof insertReconciliationRecordSchema>;
 
-export const insertSummaryInvalidationSchema = createInsertSchema(summaryInvalidations).omit({ id: true, createdAt: true });
+export const insertSummaryInvalidationSchema = createInsertSchema(summaryInvalidations).omit({ id: true, created_at: true });
 export type SummaryInvalidation = typeof summaryInvalidations.$inferSelect;
 export type InsertSummaryInvalidation = z.infer<typeof insertSummaryInvalidationSchema>;
 
 export const syncAuditLogs = pgTable("sync_audit_logs", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id),
+  user_id: varchar("user_id").references(() => users.id),
   userName: text("user_name"),
   module: varchar("module", { length: 50 }).notNull(),
   tableName: varchar("table_name", { length: 100 }).notNull(),
@@ -1561,13 +1561,13 @@ export const syncAuditLogs = pgTable("sync_audit_logs", {
   userAgent: text("user_agent"),
   durationMs: integer("duration_ms"),
   syncType: varchar("sync_type", { length: 30 }),
-  projectId: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id),
   projectName: text("project_name"),
   amount: decimal("amount", { precision: 15, scale: 2 }),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertSyncAuditLogSchema = createInsertSchema(syncAuditLogs).omit({ id: true, createdAt: true });
+export const insertSyncAuditLogSchema = createInsertSchema(syncAuditLogs).omit({ id: true, created_at: true });
 export type SyncAuditLog = typeof syncAuditLogs.$inferSelect;
 export type InsertSyncAuditLog = z.infer<typeof insertSyncAuditLogSchema>;
 
@@ -1578,11 +1578,11 @@ export const idempotencyKeys = pgTable("idempotency_keys", {
   method: varchar("method", { length: 10 }).notNull(),
   statusCode: integer("status_code").notNull(),
   responseBody: jsonb("response_body"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
 });
 
-export const insertIdempotencyKeySchema = createInsertSchema(idempotencyKeys).omit({ id: true, createdAt: true });
+export const insertIdempotencyKeySchema = createInsertSchema(idempotencyKeys).omit({ id: true, created_at: true });
 export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
 export type InsertIdempotencyKey = z.infer<typeof insertIdempotencyKeySchema>;
 

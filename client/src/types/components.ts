@@ -5,8 +5,8 @@ export interface Project {
   id: ProjectId;
   name: string;
   status: 'active' | 'completed' | 'paused';
-  createdAt?: Date;
-  updatedAt?: Date;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export interface ProjectSelectorProps {

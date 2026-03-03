@@ -29,7 +29,7 @@ const ACCOUNT_CODES = {
 export class FinancialLedgerService {
 
   static async createJournalEntry(params: {
-    projectId: string;
+    project_id: string;
     entryDate: string;
     description: string;
     sourceTable: string;
@@ -52,7 +52,7 @@ export class FinancialLedgerService {
     }
 
     const [entry] = await db.insert(journalEntries).values({
-      projectId: params.projectId,
+      project_id: params.project_id,
       entryDate: params.entryDate,
       description: params.description,
       sourceTable: params.sourceTable,
@@ -78,9 +78,9 @@ export class FinancialLedgerService {
     return entry.id;
   }
 
-  static async recordFundTransfer(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+  static async recordFundTransfer(project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
     const entryId = await this.createJournalEntry({
-      projectId, entryDate: date,
+      project_id, entryDate: date,
       description: `تحويل عهدة بقيمة ${amount}`,
       sourceTable: 'fund_transfers', sourceId,
       createdBy,
@@ -89,14 +89,14 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.FUND_TRANSFER_IN, debitAmount: 0, creditAmount: amount, description: 'تحويل عهدة وارد' },
       ]
     });
-    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: تحويل عهدة', 'fund_transfers', sourceId);
+    await this.invalidateSummaries(project_id, date, 'تسجيل قيد: تحويل عهدة', 'fund_transfers', sourceId);
     return entryId;
   }
 
-  static async recordMaterialPurchase(projectId: string, amount: number, date: string, sourceId: string, purchaseType: string, createdBy?: string) {
+  static async recordMaterialPurchase(project_id: string, amount: number, date: string, sourceId: string, purchaseType: string, createdBy?: string) {
     if (purchaseType === 'نقد' || purchaseType === 'نقداً') {
       return this.createJournalEntry({
-        projectId, entryDate: date,
+        project_id, entryDate: date,
         description: `شراء مواد نقداً بقيمة ${amount}`,
         sourceTable: 'material_purchases', sourceId,
         createdBy,
@@ -107,7 +107,7 @@ export class FinancialLedgerService {
       });
     } else {
       return this.createJournalEntry({
-        projectId, entryDate: date,
+        project_id, entryDate: date,
         description: `شراء مواد آجل بقيمة ${amount}`,
         sourceTable: 'material_purchases', sourceId,
         createdBy,
@@ -119,9 +119,9 @@ export class FinancialLedgerService {
     }
   }
 
-  static async recordWorkerWage(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+  static async recordWorkerWage(project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
     const entryId = await this.createJournalEntry({
-      projectId, entryDate: date,
+      project_id, entryDate: date,
       description: `أجر عامل بقيمة ${amount}`,
       sourceTable: 'worker_attendance', sourceId,
       createdBy,
@@ -130,13 +130,13 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع أجر' },
       ]
     });
-    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: أجر عامل', 'worker_attendance', sourceId);
+    await this.invalidateSummaries(project_id, date, 'تسجيل قيد: أجر عامل', 'worker_attendance', sourceId);
     return entryId;
   }
 
-  static async recordTransportExpense(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+  static async recordTransportExpense(project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
     const entryId = await this.createJournalEntry({
-      projectId, entryDate: date,
+      project_id, entryDate: date,
       description: `مصاريف نقل بقيمة ${amount}`,
       sourceTable: 'transportation_expenses', sourceId,
       createdBy,
@@ -145,13 +145,13 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع نقل' },
       ]
     });
-    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: مصاريف نقل', 'transportation_expenses', sourceId);
+    await this.invalidateSummaries(project_id, date, 'تسجيل قيد: مصاريف نقل', 'transportation_expenses', sourceId);
     return entryId;
   }
 
-  static async recordWorkerTransfer(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+  static async recordWorkerTransfer(project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
     const entryId = await this.createJournalEntry({
-      projectId, entryDate: date,
+      project_id, entryDate: date,
       description: `حوالة عامل بقيمة ${amount}`,
       sourceTable: 'worker_transfers', sourceId,
       createdBy,
@@ -160,13 +160,13 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع حوالة' },
       ]
     });
-    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: حوالة عامل', 'worker_transfers', sourceId);
+    await this.invalidateSummaries(project_id, date, 'تسجيل قيد: حوالة عامل', 'worker_transfers', sourceId);
     return entryId;
   }
 
-  static async recordMiscExpense(projectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+  static async recordMiscExpense(project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
     const entryId = await this.createJournalEntry({
-      projectId, entryDate: date,
+      project_id, entryDate: date,
       description: `مصروف متنوع بقيمة ${amount}`,
       sourceTable: 'worker_misc_expenses', sourceId,
       createdBy,
@@ -175,13 +175,13 @@ export class FinancialLedgerService {
         { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع مصروف' },
       ]
     });
-    await this.invalidateSummaries(projectId, date, 'تسجيل قيد: مصروف متنوع', 'worker_misc_expenses', sourceId);
+    await this.invalidateSummaries(project_id, date, 'تسجيل قيد: مصروف متنوع', 'worker_misc_expenses', sourceId);
     return entryId;
   }
 
   static async recordProjectTransfer(fromProjectId: string, toProjectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
     await this.createJournalEntry({
-      projectId: fromProjectId, entryDate: date,
+      project_id: fromProjectId, entryDate: date,
       description: `تحويل صادر لمشروع آخر بقيمة ${amount}`,
       sourceTable: 'project_fund_transfers', sourceId,
       createdBy,
@@ -192,7 +192,7 @@ export class FinancialLedgerService {
     });
 
     await this.createJournalEntry({
-      projectId: toProjectId, entryDate: date,
+      project_id: toProjectId, entryDate: date,
       description: `تحويل وارد من مشروع آخر بقيمة ${amount}`,
       sourceTable: 'project_fund_transfers', sourceId,
       createdBy,
@@ -216,7 +216,7 @@ export class FinancialLedgerService {
     await db.update(journalEntries).set({ status: 'reversed' }).where(eq(journalEntries.id, entryId));
 
     return this.createJournalEntry({
-      projectId: original[0].projectId || '',
+      project_id: original[0].project_id || '',
       entryDate: original[0].entryDate,
       description: `عكس: ${original[0].description} - السبب: ${reason}`,
       sourceTable: original[0].sourceTable,
@@ -234,27 +234,27 @@ export class FinancialLedgerService {
   }
 
   static async logFinancialChange(params: {
-    projectId?: string;
+    project_id?: string;
     action: string;
     entityType: string;
     entityId: string;
     previousData?: any;
     newData?: any;
     changedFields?: string[];
-    userId?: string;
+    user_id?: string;
     userEmail?: string;
     reason?: string;
   }) {
     try {
       await db.insert(financialAuditLog).values({
-        projectId: params.projectId || undefined,
+        project_id: params.project_id || undefined,
         action: params.action,
         entityType: params.entityType,
         entityId: params.entityId,
         previousData: params.previousData,
         newData: params.newData,
         changedFields: params.changedFields,
-        userId: params.userId || undefined,
+        user_id: params.user_id || undefined,
         userEmail: params.userEmail,
         reason: params.reason,
       });
@@ -276,7 +276,7 @@ export class FinancialLedgerService {
 
       for (const entry of existing) {
         await this.reverseEntry(entry.id, reason, createdBy);
-        await this.invalidateSummaries(entry.projectId || '', entry.entryDate, reason, sourceTable, sourceId);
+        await this.invalidateSummaries(entry.project_id || '', entry.entryDate, reason, sourceTable, sourceId);
       }
       console.log(`🔄 [Ledger] عكس ${existing.length} قيد لـ ${sourceTable}/${sourceId}: ${reason}`);
       return existing[0].id;
@@ -294,22 +294,22 @@ export class FinancialLedgerService {
     }
   }
 
-  static async invalidateSummaries(projectId: string, fromDate: string, reason: string, sourceTable?: string, sourceId?: string) {
+  static async invalidateSummaries(project_id: string, fromDate: string, reason: string, sourceTable?: string, sourceId?: string) {
     try {
       await db.insert(summaryInvalidations).values({
-        projectId,
+        project_id,
         invalidatedFrom: fromDate,
         reason,
         sourceTable: sourceTable || undefined,
         sourceId: sourceId || undefined,
       });
-      console.log(`🔄 [Invalidation] أُبطلت ملخصات ${projectId} من ${fromDate}: ${reason}`);
+      console.log(`🔄 [Invalidation] أُبطلت ملخصات ${project_id} من ${fromDate}: ${reason}`);
     } catch (error) {
       console.error('⚠️ [Invalidation] فشل في إبطال الملخصات:', error);
     }
   }
 
-  static async runReconciliation(projectId: string, date: string): Promise<{
+  static async runReconciliation(project_id: string, date: string): Promise<{
     ledgerBalance: number;
     computedBalance: number;
     discrepancy: number;
@@ -323,7 +323,7 @@ export class FinancialLedgerService {
       INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
       WHERE je.project_id = $1 AND je.entry_date <= $2 AND je.status = 'posted'
         AND jl.account_code = '1100'
-    `, [projectId, date]);
+    `, [project_id, date]);
     const ledgerBalance = parseFloat(String(ledgerResult.rows[0]?.balance || '0'));
 
     const computedResult = await pool.query(`
@@ -354,14 +354,14 @@ export class FinancialLedgerService {
       )
       SELECT 
         COALESCE((SELECT SUM(total) FROM income), 0) - COALESCE((SELECT SUM(total) FROM expenses), 0) as balance
-    `, [projectId, date]);
+    `, [project_id, date]);
     const computedBalance = parseFloat(String(computedResult.rows[0]?.balance || '0'));
 
     const discrepancy = Math.abs(ledgerBalance - computedBalance);
     const status = discrepancy < 0.01 ? 'matched' : 'discrepancy';
 
     await db.insert(reconciliationRecords).values({
-      projectId,
+      project_id,
       reconciliationDate: date,
       ledgerBalance: ledgerBalance.toFixed(2),
       computedBalance: computedBalance.toFixed(2),
@@ -369,13 +369,13 @@ export class FinancialLedgerService {
       status,
     });
 
-    console.log(`🔍 [Reconciliation] ${projectId}@${date}: دفتر=${ledgerBalance}, محسوب=${computedBalance}, فرق=${discrepancy}, حالة=${status}`);
+    console.log(`🔍 [Reconciliation] ${project_id}@${date}: دفتر=${ledgerBalance}, محسوب=${computedBalance}, فرق=${discrepancy}, حالة=${status}`);
     return { ledgerBalance, computedBalance, discrepancy, status };
   }
 
-  static async getLedgerBalance(projectId: string, upToDate?: string): Promise<number> {
+  static async getLedgerBalance(project_id: string, upToDate?: string): Promise<number> {
     const dateFilter = upToDate ? `AND je.entry_date <= $2` : '';
-    const params = upToDate ? [projectId, upToDate] : [projectId];
+    const params = upToDate ? [project_id, upToDate] : [project_id];
 
     const result = await pool.query(`
       SELECT 
@@ -391,14 +391,14 @@ export class FinancialLedgerService {
     return parseFloat(String(result.rows[0]?.balance || '0'));
   }
 
-  static async getProjectJournalEntries(projectId: string, fromDate?: string, toDate?: string) {
-    const conditions: any[] = [eq(journalEntries.projectId, projectId)];
+  static async getProjectJournalEntries(project_id: string, fromDate?: string, toDate?: string) {
+    const conditions: any[] = [eq(journalEntries.project_id, project_id)];
     if (fromDate) conditions.push(gte(journalEntries.entryDate, fromDate));
     if (toDate) conditions.push(lte(journalEntries.entryDate, toDate));
 
     return db.select().from(journalEntries)
       .where(and(...conditions))
-      .orderBy(desc(journalEntries.createdAt));
+      .orderBy(desc(journalEntries.created_at));
   }
 
   static async runDailyReconciliation(): Promise<void> {
@@ -427,9 +427,9 @@ export class FinancialLedgerService {
     }
   }
 
-  static async getTrialBalance(projectId: string, upToDate?: string) {
+  static async getTrialBalance(project_id: string, upToDate?: string) {
     const dateFilter = upToDate ? `AND je.entry_date <= $2` : '';
-    const params = upToDate ? [projectId, upToDate] : [projectId];
+    const params = upToDate ? [project_id, upToDate] : [project_id];
 
     const result = await pool.query(`
       SELECT 

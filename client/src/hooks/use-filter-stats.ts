@@ -90,7 +90,7 @@ export function useFilterStats({
     let hasActive = false;
 
     Object.entries(filterValues).forEach(([key, value]) => {
-      const isActive = (() => {
+      const is_active = (() => {
         if (value === null || value === undefined) return false;
         if (value === 'all' || value === '') return false;
         if (value instanceof Date) return true;
@@ -99,7 +99,7 @@ export function useFilterStats({
         return true;
       })();
 
-      if (isActive) {
+      if (is_active) {
         count++;
         hasActive = true;
       }

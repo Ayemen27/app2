@@ -109,7 +109,7 @@ async function handleOfflineCreate(
     _isLocal: true,
     _pendingSync: true,
     _offlineCreatedAt: Date.now(),
-    createdAt: data?.createdAt || new Date().toISOString(),
+    created_at: data?.created_at || new Date().toISOString(),
   };
 
   await smartPut(storeName, record);
@@ -145,7 +145,7 @@ async function handleOfflineUpdate(
     id,
     _pendingSync: true,
     _offlineUpdatedAt: Date.now(),
-    updatedAt: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 
   await smartPut(storeName, updated);

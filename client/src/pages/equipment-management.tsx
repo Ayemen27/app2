@@ -31,7 +31,7 @@ interface Equipment {
   status: string;
   condition: string;
   currentProjectId: string | null;
-  projectId: string | null;
+  project_id: string | null;
   purchasePrice: string | number | null;
   purchaseDate: string | null;
   description?: string;
@@ -88,9 +88,9 @@ export function EquipmentManagement() {
       if (filterValues.status !== 'all') params.append('status', filterValues.status);
       if (filterValues.type !== 'all') params.append('type', filterValues.type);
       if (filterValues.project !== 'all' && filterValues.project !== 'warehouse') {
-        params.append('projectId', filterValues.project);
+        params.append('project_id', filterValues.project);
       } else if (filterValues.project === 'warehouse') {
-        params.append('projectId', '');
+        params.append('project_id', '');
       }
       
       try {
@@ -173,7 +173,7 @@ export function EquipmentManagement() {
     assigned: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'assigned').length : 0,
     maintenance: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0,
     outOfService: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service' || e.status === 'lost').length : 0,
-    inWarehouse: Array.isArray(equipment) ? equipment.filter((e: Equipment) => !(e.currentProjectId || e.projectId)).length : 0,
+    inWarehouse: Array.isArray(equipment) ? equipment.filter((e: Equipment) => !(e.currentProjectId || e.project_id)).length : 0,
   }), [equipment]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
@@ -447,7 +447,7 @@ export function EquipmentManagement() {
       currentRow++;
 
       filteredEquipment.forEach((item: Equipment, index: number) => {
-        const eqProjectId = item.currentProjectId || item.projectId;
+        const eqProjectId = item.currentProjectId || item.project_id;
         const projectName = eqProjectId 
           ? (Array.isArray(projects) ? projects.find((p: any) => p.id === eqProjectId)?.name : undefined) || 'مشروع غير معروف'
           : 'المستودع';
@@ -534,7 +534,7 @@ export function EquipmentManagement() {
     const maintenanceCount = filteredEquipment.filter(e => e.status === 'maintenance').length;
 
     const rows = filteredEquipment.map((item: Equipment, idx: number) => {
-      const itemProjId = item.currentProjectId || item.projectId;
+      const itemProjId = item.currentProjectId || item.project_id;
       const itemProjectName = itemProjId
         ? (Array.isArray(projects) ? projects.find((p: any) => p.id === itemProjId)?.name : undefined) || '\u0645\u0634\u0631\u0648\u0639 \u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641'
         : '\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639';
@@ -759,7 +759,7 @@ export function EquipmentManagement() {
       ) : (
         <UnifiedCardGrid columns={3}>
           {Array.isArray(equipment) && equipment.map((item: Equipment) => {
-            const eqProjId = item.currentProjectId || item.projectId;
+            const eqProjId = item.currentProjectId || item.project_id;
             const projectName = eqProjId 
               ? (Array.isArray(projects) ? projects.find((p: any) => p.id === eqProjId)?.name : undefined) || 'مشروع غير معروف'
               : 'المستودع';
@@ -933,8 +933,8 @@ export function EquipmentManagement() {
                     <div>
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">الموقع الحالي</div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {(selectedEquipment.currentProjectId || selectedEquipment.projectId)
-                          ? projects.find((p: any) => p.id === (selectedEquipment.currentProjectId || selectedEquipment.projectId))?.name || 'مشروع غير معروف'
+                        {(selectedEquipment.currentProjectId || selectedEquipment.project_id)
+                          ? projects.find((p: any) => p.id === (selectedEquipment.currentProjectId || selectedEquipment.project_id))?.name || 'مشروع غير معروف'
                           : 'المستودع'
                         }
                       </div>

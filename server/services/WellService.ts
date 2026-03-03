@@ -11,7 +11,7 @@ import {
 } from '../../shared/schema';
 
 export interface CreateWellDTO {
-  projectId: string;
+  project_id: string;
   wellNumber: number;
   ownerName: string;
   region: string;
@@ -54,12 +54,12 @@ export class WellService {
    * الآبار - العمليات الأساسية
    */
 
-  static async getAllWells(projectId?: string, filters?: any) {
+  static async getAllWells(project_id?: string, filters?: any) {
     try {
       let query = db.select().from(wells);
 
-      if (projectId) {
-        query = query.where(eq(wells.projectId, projectId)) as any;
+      if (project_id) {
+        query = query.where(eq(wells.project_id, project_id)) as any;
       }
 
       const wellsList = await query.orderBy(wells.wellNumber);
@@ -70,11 +70,11 @@ export class WellService {
     }
   }
 
-  static async getWellById(wellId: number) {
+  static async getWellById(well_id: number) {
     try {
       const well = await db.select()
         .from(wells)
-        .where(eq(wells.id, wellId))
+        .where(eq(wells.id, well_id))
         .limit(1);
 
       if (!well.length) {
@@ -91,7 +91,7 @@ export class WellService {
   static async createWell(data: CreateWellDTO) {
     try {
       const newWell = await db.insert(wells).values({
-        projectId: data.projectId,
+        project_id: data.project_id,
         wellNumber: data.wellNumber,
         ownerName: data.ownerName,
         region: data.region,
@@ -116,7 +116,7 @@ export class WellService {
     }
   }
 
-  static async updateWell(wellId: number, data: UpdateWellDTO) {
+  static async updateWell(well_id: number, data: UpdateWellDTO) {
     try {
       const updateData: any = {};
       
@@ -128,14 +128,14 @@ export class WellService {
       if (data.completionDate !== undefined) updateData.completionDate = data.completionDate ? new Date(data.completionDate) : null;
       if (data.notes !== undefined) updateData.notes = data.notes;
       
-      updateData.updatedAt = new Date();
+      updateData.updated_at = new Date();
       
       const updated = await db.update(wells)
         .set(updateData)
-        .where(eq(wells.id, wellId))
+        .where(eq(wells.id, well_id))
         .returning();
 
-      console.log('✅ تم تحديث البئر:', wellId);
+      console.log('✅ تم تحديث البئر:', well_id);
       return updated[0];
     } catch (error) {
       console.error('❌ [WellService] خطأ في تحديث البئر:', error);
@@ -143,10 +143,10 @@ export class WellService {
     }
   }
 
-  static async deleteWell(wellId: number) {
+  static async deleteWell(well_id: number) {
     try {
-      await db.delete(wells).where(eq(wells.id, wellId));
-      console.log('✅ تم حذف البئر:', wellId);
+      await db.delete(wells).where(eq(wells.id, well_id));
+      console.log('✅ تم حذف البئر:', well_id);
     } catch (error) {
       console.error('❌ [WellService] خطأ في حذف البئر:', error);
       throw error;
@@ -157,12 +157,12 @@ export class WellService {
    * المهام (Tasks)
    */
 
-  static async getWellTasks(wellId: number) {
+  static async getWellTasks(well_id: number) {
     try {
       const tasks = await db.select()
         .from(wellTasks)
-        .where(eq(wellTasks.wellId, wellId))
-        .orderBy(wellTasks.createdAt);
+        .where(eq(wellTasks.well_id, well_id))
+        .orderBy(wellTasks.created_at);
 
       return tasks;
     } catch (error) {
@@ -171,17 +171,17 @@ export class WellService {
     }
   }
 
-  static async createTask(wellId: number, data: CreateTaskDTO, userId: string) {
+  static async createTask(well_id: number, data: CreateTaskDTO, user_id: string) {
     try {
       const newTask = await db.insert(wellTasks).values({
-        wellId,
+        well_id,
         taskType: data.taskType,
         description: data.description,
         assignedTo: data.assignedTo || null,
         status: 'pending',
         estimatedCost: data.estimatedCost ? String(data.estimatedCost) : null,
         isAccounted: false,
-        createdBy: userId,
+        createdBy: user_id,
       }).returning();
 
       console.log('✅ تم إنشاء مهمة جديدة:', newTask[0].id);
@@ -192,12 +192,12 @@ export class WellService {
     }
   }
 
-  static async updateTaskStatus(taskId: number, status: string, userId: string) {
+  static async updateTaskStatus(taskId: number, status: string, user_id: string) {
     try {
       const updated = await db.update(wellTasks)
         .set({
           status,
-          updatedAt: new Date()
+          updated_at: new Date()
         })
         .where(eq(wellTasks.id, taskId))
         .returning();
@@ -205,12 +205,12 @@ export class WellService {
       // تسجيل في سجل التدقيق
       if (updated.length > 0) {
         await db.insert(wellAuditLogs).values({
-          wellId: updated[0].wellId,
+          well_id: updated[0].well_id,
           wellTaskId: taskId,
           action: 'STATUS_CHANGED',
           previousValue: { status: 'unknown' },
           newValue: { status },
-          userId,
+          user_id,
         });
       }
 
@@ -262,17 +262,17 @@ export class WellService {
       await db.update(wellTasks)
         .set({
           isAccounted: true,
-          updatedAt: new Date()
+          updated_at: new Date()
         })
         .where(eq(wellTasks.id, taskId));
 
       // تسجيل في سجل التدقيق
       await db.insert(wellAuditLogs).values({
-        wellId: taskData.wellId,
+        well_id: taskData.well_id,
         wellTaskId: taskId,
         action: 'ACCOUNTED',
         newValue: data,
-        userId: accountantId,
+        user_id: accountantId,
       });
 
       console.log('✅ تمت محاسبة المهمة:', taskId);
@@ -283,7 +283,7 @@ export class WellService {
     }
   }
 
-  static async getPendingAccountingTasks(projectId?: string) {
+  static async getPendingAccountingTasks(project_id?: string) {
     try {
       let query = db.select()
         .from(wellTasks)
@@ -294,14 +294,14 @@ export class WellService {
           )
         );
 
-      if (projectId) {
-        query = query.innerJoin(wells, eq(wellTasks.wellId, wells.id))
-          .where(eq(wells.projectId, projectId)) as any;
+      if (project_id) {
+        query = query.innerJoin(wells, eq(wellTasks.well_id, wells.id))
+          .where(eq(wells.project_id, project_id)) as any;
       }
 
-      const tasks = await query.orderBy(asc(wellTasks.createdAt));
+      const tasks = await query.orderBy(asc(wellTasks.created_at));
       // @ts-ignore - isAccounted exists in database but might be missing from type
-      return tasks.filter((task: any) => !projectId || task.well_tasks.isAccounted !== undefined);
+      return tasks.filter((task: any) => !project_id || task.well_tasks.isAccounted !== undefined);
     } catch (error) {
       console.error('❌ [WellService] خطأ في جلب المهام المعلقة:', error);
       throw error;
@@ -312,10 +312,10 @@ export class WellService {
    * التقارير (Reports)
    */
 
-  static async getWellProgress(wellId: number) {
+  static async getWellProgress(well_id: number) {
     try {
-      const well = await this.getWellById(wellId);
-      const tasks = await this.getWellTasks(wellId);
+      const well = await this.getWellById(well_id);
+      const tasks = await this.getWellTasks(well_id);
 
       const completedTasks = tasks.filter((t: any) => t.status === 'completed');
       const accountedTasks = tasks.filter((t: any) => t.isAccounted);
@@ -335,9 +335,9 @@ export class WellService {
     }
   }
 
-  static async getProjectWellsSummary(projectId: string) {
+  static async getProjectWellsSummary(project_id: string) {
     try {
-      const projectWells = await this.getAllWells(projectId);
+      const projectWells = await this.getAllWells(project_id);
 
       const summary = {
         totalWells: projectWells.length,

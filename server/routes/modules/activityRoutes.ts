@@ -20,10 +20,10 @@ const router = express.Router();
 router.get('/recent-activities', authenticate, async (req, res) => {
   console.log('🔍 [API] تم استقبال طلب: GET /api/recent-activities');
   try {
-    const { projectId } = req.query;
+    const { project_id } = req.query;
     const limit = parseInt(req.query.limit as string) || 20;
 
-    console.log('📊 [API] جلب آخر الإجراءات:', { projectId, limit });
+    console.log('📊 [API] جلب آخر الإجراءات:', { project_id, limit });
 
     // جمع البيانات من جداول مختلفة
     const activities: any[] = [];
@@ -34,13 +34,13 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         id: fundTransfers.id,
         amount: fundTransfers.amount,
         description: fundTransfers.notes,
-        createdAt: fundTransfers.createdAt,
-        projectId: fundTransfers.projectId,
+        created_at: fundTransfers.created_at,
+        project_id: fundTransfers.project_id,
         projectName: projects.name,
       })
       .from(fundTransfers)
-      .leftJoin(projects, eq(fundTransfers.projectId, projects.id))
-      .orderBy(desc(fundTransfers.createdAt))
+      .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
+      .orderBy(desc(fundTransfers.created_at))
       .limit(limit);
 
     activities.push(...transfers.map(t => ({
@@ -56,17 +56,17 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         id: projectFundTransfers.id,
         amount: projectFundTransfers.amount,
         description: projectFundTransfers.description,
-        createdAt: projectFundTransfers.createdAt,
-        projectId: projectFundTransfers.toProjectId,
+        created_at: projectFundTransfers.created_at,
+        project_id: projectFundTransfers.toProjectId,
         projectName: sql<string>`(SELECT name FROM projects WHERE id = ${projectFundTransfers.toProjectId})`,
       })
       .from(projectFundTransfers)
-      .orderBy(desc(projectFundTransfers.createdAt))
+      .orderBy(desc(projectFundTransfers.created_at))
       .limit(limit);
 
-    const projectTransfers = projectId && projectId !== 'all'
+    const projectTransfers = project_id && project_id !== 'all'
       ? await projectTransfersQuery.where(
-          sql`${projectFundTransfers.fromProjectId} = ${projectId} OR ${projectFundTransfers.toProjectId} = ${projectId}`
+          sql`${projectFundTransfers.fromProjectId} = ${project_id} OR ${projectFundTransfers.toProjectId} = ${project_id}`
         )
       : await projectTransfersQuery;
 
@@ -83,17 +83,17 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         id: workerMiscExpenses.id,
         amount: workerMiscExpenses.amount,
         description: workerMiscExpenses.description,
-        createdAt: workerMiscExpenses.createdAt,
-        projectId: workerMiscExpenses.projectId,
+        created_at: workerMiscExpenses.created_at,
+        project_id: workerMiscExpenses.project_id,
         projectName: projects.name,
       })
       .from(workerMiscExpenses)
-      .leftJoin(projects, eq(workerMiscExpenses.projectId, projects.id))
-      .orderBy(desc(workerMiscExpenses.createdAt))
+      .leftJoin(projects, eq(workerMiscExpenses.project_id, projects.id))
+      .orderBy(desc(workerMiscExpenses.created_at))
       .limit(limit);
 
-    const workerExpenses = projectId && projectId !== 'all'
-      ? await workerExpensesQuery.where(eq(workerMiscExpenses.projectId, projectId as string))
+    const workerExpenses = project_id && project_id !== 'all'
+      ? await workerExpensesQuery.where(eq(workerMiscExpenses.project_id, project_id as string))
       : await workerExpensesQuery;
 
     activities.push(...workerExpenses.map(e => ({
@@ -109,17 +109,17 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         id: materialPurchases.id,
         amount: materialPurchases.totalAmount,
         description: materialPurchases.materialName,
-        createdAt: materialPurchases.createdAt,
-        projectId: materialPurchases.projectId,
+        created_at: materialPurchases.created_at,
+        project_id: materialPurchases.project_id,
         projectName: projects.name,
       })
       .from(materialPurchases)
-      .leftJoin(projects, eq(materialPurchases.projectId, projects.id))
-      .orderBy(desc(materialPurchases.createdAt))
+      .leftJoin(projects, eq(materialPurchases.project_id, projects.id))
+      .orderBy(desc(materialPurchases.created_at))
       .limit(limit);
 
-    const materials = projectId && projectId !== 'all'
-      ? await materialsQuery.where(eq(materialPurchases.projectId, projectId as string))
+    const materials = project_id && project_id !== 'all'
+      ? await materialsQuery.where(eq(materialPurchases.project_id, project_id as string))
       : await materialsQuery;
 
     activities.push(...materials.map(m => ({
@@ -135,17 +135,17 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         id: workerTransfers.id,
         amount: workerTransfers.amount,
         description: workerTransfers.notes,
-        createdAt: workerTransfers.createdAt,
-        projectId: workerTransfers.projectId,
+        created_at: workerTransfers.created_at,
+        project_id: workerTransfers.project_id,
         projectName: projects.name,
       })
       .from(workerTransfers)
-      .leftJoin(projects, eq(workerTransfers.projectId, projects.id))
-      .orderBy(desc(workerTransfers.createdAt))
+      .leftJoin(projects, eq(workerTransfers.project_id, projects.id))
+      .orderBy(desc(workerTransfers.created_at))
       .limit(limit);
 
-    const transfers2 = projectId && projectId !== 'all'
-      ? await workerTransfersQuery.where(eq(workerTransfers.projectId, projectId as string))
+    const transfers2 = project_id && project_id !== 'all'
+      ? await workerTransfersQuery.where(eq(workerTransfers.project_id, project_id as string))
       : await workerTransfersQuery;
 
     activities.push(...transfers2.map(t => ({
@@ -161,19 +161,19 @@ router.get('/recent-activities', authenticate, async (req, res) => {
         id: dailyActivityLogs.id,
         amount: sql<string>`'0'`, // لا يوجد مبلغ مالي مباشر
         description: dailyActivityLogs.activityTitle,
-        createdAt: dailyActivityLogs.createdAt,
-        projectId: dailyActivityLogs.projectId,
+        created_at: dailyActivityLogs.created_at,
+        project_id: dailyActivityLogs.project_id,
         projectName: projects.name,
         weather: dailyActivityLogs.weatherConditions,
         progress: dailyActivityLogs.progressPercentage,
       })
       .from(dailyActivityLogs)
-      .leftJoin(projects, eq(dailyActivityLogs.projectId, projects.id))
-      .orderBy(desc(dailyActivityLogs.createdAt))
+      .leftJoin(projects, eq(dailyActivityLogs.project_id, projects.id))
+      .orderBy(desc(dailyActivityLogs.created_at))
       .limit(limit);
 
-    const dailyLogs = projectId && projectId !== 'all'
-      ? await dailyLogsQuery.where(eq(dailyActivityLogs.projectId, projectId as string))
+    const dailyLogs = project_id && project_id !== 'all'
+      ? await dailyLogsQuery.where(eq(dailyActivityLogs.project_id, project_id as string))
       : await dailyLogsQuery;
 
     activities.push(...dailyLogs.map(l => ({
@@ -185,7 +185,7 @@ router.get('/recent-activities', authenticate, async (req, res) => {
 
     // ترتيب حسب التاريخ
     activities.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
     // تجهيز النتيجة النهائية

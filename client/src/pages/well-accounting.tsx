@@ -70,12 +70,12 @@ export default function WellAccounting() {
       try {
         const localWells = await getListLocal('wells');
         if (localWells && localWells.length > 0) {
-          return localWells.filter((w: any) => w.projectId === selectedProjectId);
+          return localWells.filter((w: any) => w.project_id === selectedProjectId);
         }
       } catch (e) {
         console.warn('Local wells fetch failed', e);
       }
-      const response = await apiRequest(`/wells?projectId=${selectedProjectId}`);
+      const response = await apiRequest(`/wells?project_id=${selectedProjectId}`);
       return response.data || [];
     },
     enabled: !!selectedProjectId
@@ -100,7 +100,7 @@ export default function WellAccounting() {
       try {
         const localTasks = await getListLocal('wellTasks');
         if (localTasks && localTasks.length > 0) {
-          return localTasks.filter((t: any) => t.wellId === selectedWellId);
+          return localTasks.filter((t: any) => t.well_id === selectedWellId);
         }
       } catch (e) {
         console.warn('Local tasks fetch failed', e);
@@ -117,11 +117,11 @@ export default function WellAccounting() {
       if (!selectedWellId) throw new Error('البئر غير محددة');
       return performLocalOperation('wellTasks', 'create', {
         ...data,
-        wellId: selectedWellId,
-        projectId: selectedProjectId,
+        well_id: selectedWellId,
+        project_id: selectedProjectId,
         paidAmount: 0,
         expectedAmount: parseFloat(data.amount) || 0,
-        createdAt: new Date().toISOString()
+        created_at: new Date().toISOString()
       }, `/api/wells/${selectedWellId}/tasks`);
     },
     onSuccess: () => {
@@ -166,8 +166,8 @@ export default function WellAccounting() {
       return performLocalOperation('wellTaskAccounts', 'create', {
         taskId,
         amount: parseFloat(amount) || 0,
-        projectId: selectedProjectId,
-        createdAt: new Date().toISOString()
+        project_id: selectedProjectId,
+        created_at: new Date().toISOString()
       }, `/wells/tasks/${taskId}/account`);
     },
     onSuccess: () => {

@@ -18,7 +18,7 @@ interface Notification {
   title: string;
   message: string;
   priority: 'info' | 'low' | 'medium' | 'high' | 'critical';
-  createdAt: string;
+  created_at: string;
   status: 'read' | 'unread';
   actionRequired: boolean;
 }
@@ -71,7 +71,7 @@ export function NotificationsDropdown() {
   
   // آخر 5 إشعارات
   const recentNotifications = Array.isArray(notifications) ? notifications
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5) : [];
 
   return (
@@ -180,7 +180,7 @@ export function NotificationsDropdown() {
                                   <div className="flex items-center gap-1 text-xs text-gray-500">
                                     <Clock className="h-3 w-3" />
                                     <span>
-                                      {new Date(notification.createdAt).toLocaleDateString('en-GB', {
+                                      {new Date(notification.created_at).toLocaleDateString('en-GB', {
                                         month: 'short',
                                         day: 'numeric',
                                         hour: '2-digit',

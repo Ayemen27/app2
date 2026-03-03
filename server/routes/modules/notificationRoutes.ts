@@ -4,7 +4,7 @@
  * 
  * تم نقل جميع منطق الإشعارات من routes.ts مع الحفاظ على:
  * - جميع المسارات السبعة المطلوبة 
- * - استخراج userId من JWT
+ * - استخراج user_id من JWT
  * - التحقق من الأذونات  
  * - استخدام NotificationService للعمليات
  * - معالجة الأخطاء والتسجيل
@@ -24,7 +24,7 @@ notificationRouter.use(requireAuth);
 /**
  * 📥 جلب الإشعارات - استخدام NotificationService الحقيقي
  * GET /api/notifications
- * يدعم query parameters للفلترة والترقيم: limit, offset, type, unreadOnly, projectId
+ * يدعم query parameters للفلترة والترقيم: limit, offset, type, unreadOnly, project_id
  */
 /**
  * 🔑 تسجيل توكن الإشعارات وتحديث حالة التفعيل
@@ -33,9 +33,9 @@ notificationRouter.use(requireAuth);
 notificationRouter.post('/push/token', async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
-    const userId = req.user?.userId || req.user?.email;
+    const user_id = req.user?.user_id || req.user?.email;
 
-    if (!userId) {
+    if (!user_id) {
       return res.status(401).json({ success: false, message: "غير مخول" });
     }
 
@@ -45,11 +45,11 @@ notificationRouter.post('/push/token', async (req: Request, res: Response) => {
 
     await db.update(users)
       .set({ 
-        fcmToken: token,
+        fcm_token: token,
         notificationsEnabled: true,
-        updatedAt: new Date()
+        updated_at: new Date()
       })
-      .where(eq(users.id, userId as string));
+      .where(eq(users.id, user_id as string));
 
     res.json({ success: true, message: "تم تسجيل التوكن وتفعيل الإشعارات بنجاح" });
   } catch (error: any) {
@@ -63,10 +63,10 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
-    const userId = req.user?.userId || req.user?.email || null;
+    // استخراج user_id الحقيقي من JWT - إصلاح مشكلة "default"
+    const user_id = req.user?.user_id || req.user?.email || null;
     
-    if (!userId) {
+    if (!user_id) {
       return res.status(401).json({
         success: false,
         error: "غير مخول - لم يتم العثور على معرف المستخدم",
@@ -74,19 +74,19 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
       });
     }
     
-    const { limit, offset, type, unreadOnly, projectId } = req.query;
+    const { limit, offset, type, unreadOnly, project_id } = req.query;
 
-    console.log(`📥 [API] جلب الإشعارات للمستخدم: ${userId}`);
+    console.log(`📥 [API] جلب الإشعارات للمستخدم: ${user_id}`);
 
-    const result = await notificationService.getUserNotifications(userId, {
+    const result = await notificationService.getUserNotifications(user_id, {
       limit: limit ? parseInt(limit as string) : 50,
       offset: offset ? parseInt(offset as string) : 0,
       type: type as string,
       unreadOnly: unreadOnly === 'true',
-      projectId: projectId as string
+      project_id: project_id as string
     });
 
-    console.log(`✅ [API] تم جلب ${result.notifications.length} إشعار للمستخدم ${userId}`);
+    console.log(`✅ [API] تم جلب ${result.notifications.length} إشعار للمستخدم ${user_id}`);
 
     res.json({
       success: true,
@@ -115,14 +115,14 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
  */
 notificationRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.userId || req.user?.email;
-    if (!userId) return res.status(401).json({ success: false, message: "غير مخول" });
+    const user_id = req.user?.user_id || req.user?.email;
+    if (!user_id) return res.status(401).json({ success: false, message: "غير مخول" });
 
     const notificationId = req.params.id;
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
 
-    await notificationService.deleteNotification(notificationId, userId);
+    await notificationService.deleteNotification(notificationId, user_id);
 
     res.json({ success: true, message: "تم حذف الإشعار بنجاح" });
   } catch (error: any) {
@@ -137,8 +137,8 @@ notificationRouter.delete('/:id', async (req: Request, res: Response) => {
  */
 notificationRouter.delete('/bulk-delete-suspicious', async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.userId || req.user?.email;
-    if (!userId) return res.status(401).json({ success: false, message: "غير مخول" });
+    const user_id = req.user?.user_id || req.user?.email;
+    if (!user_id) return res.status(401).json({ success: false, message: "غير مخول" });
 
     const { db } = await import('../../db');
     const { notifications } = await import('../../../shared/schema');
@@ -148,7 +148,7 @@ notificationRouter.delete('/bulk-delete-suspicious', async (req: Request, res: R
     await db.delete(notifications)
       .where(
         and(
-          eq(notifications.userId, userId as string),
+          eq(notifications.user_id, user_id as string),
           or(
             like(notifications.title, '%162162162%'),
             like(notifications.message, '%162162162%'),
@@ -179,9 +179,9 @@ notificationRouter.patch('/:id', async (req: Request, res: Response) => {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    const userId = req.user?.userId || req.user?.email || null;
+    const user_id = req.user?.user_id || req.user?.email || null;
     
-    if (!userId) {
+    if (!user_id) {
       return res.status(401).json({
         success: false,
         error: "غير مخول - لم يتم العثور على معرف المستخدم",
@@ -219,10 +219,10 @@ notificationRouter.post('/:id/read', async (req: Request, res: Response) => {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
-    const userId = req.user?.userId || req.user?.email || null;
+    // استخراج user_id الحقيقي من JWT - إصلاح مشكلة "default"
+    const user_id = req.user?.user_id || req.user?.email || null;
     
-    if (!userId) {
+    if (!user_id) {
       return res.status(401).json({
         success: false,
         error: "غير مخول - لم يتم العثور على معرف المستخدم",
@@ -232,9 +232,9 @@ notificationRouter.post('/:id/read', async (req: Request, res: Response) => {
     
     const notificationId = req.params.id;
 
-    console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء للمستخدم: ${userId}`);
+    console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء للمستخدم: ${user_id}`);
 
-    await notificationService.markAsRead(notificationId, userId);
+    await notificationService.markAsRead(notificationId, user_id);
 
     res.json({
       success: true,
@@ -259,10 +259,10 @@ notificationRouter.post('/:id/mark-read', async (req: Request, res: Response) =>
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
-    const userId = req.user?.userId || req.user?.email || null;
+    // استخراج user_id الحقيقي من JWT - إصلاح مشكلة "default"
+    const user_id = req.user?.user_id || req.user?.email || null;
     
-    if (!userId) {
+    if (!user_id) {
       return res.status(401).json({
         success: false,
         error: "غير مخول - لم يتم العثور على معرف المستخدم",
@@ -272,9 +272,9 @@ notificationRouter.post('/:id/mark-read', async (req: Request, res: Response) =>
     
     const notificationId = req.params.id;
 
-    console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء (مسار بديل) للمستخدم: ${userId}`);
+    console.log(`✅ [API] تعليم الإشعار ${notificationId} كمقروء (مسار بديل) للمستخدم: ${user_id}`);
 
-    await notificationService.markAsRead(notificationId, userId);
+    await notificationService.markAsRead(notificationId, user_id);
 
     res.json({
       success: true,
@@ -293,17 +293,17 @@ notificationRouter.post('/:id/mark-read', async (req: Request, res: Response) =>
 /**
  * 👀 تعليم جميع الإشعارات كمقروءة
  * POST /api/notifications/mark-all-read
- * يدعم تحديد projectId لتخصيص نطاق التحديث
+ * يدعم تحديد project_id لتخصيص نطاق التحديث
  */
 notificationRouter.post('/mark-all-read', async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
-    const userId = req.user?.userId || req.user?.email || null;
+    // استخراج user_id الحقيقي من JWT - إصلاح مشكلة "default"
+    const user_id = req.user?.user_id || req.user?.email || null;
     
-    if (!userId) {
+    if (!user_id) {
       return res.status(401).json({
         success: false,
         error: "غير مخول - لم يتم العثور على معرف المستخدم",
@@ -311,11 +311,11 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
       });
     }
     
-    const projectId = req.body.projectId;
+    const project_id = req.body.project_id;
 
-    console.log(`✅ [API] تعليم جميع الإشعارات كمقروءة للمستخدم: ${userId}`);
+    console.log(`✅ [API] تعليم جميع الإشعارات كمقروءة للمستخدم: ${user_id}`);
 
-    await notificationService.markAllAsRead(userId, projectId);
+    await notificationService.markAllAsRead(user_id, project_id);
 
     res.json({
       success: true,
@@ -343,11 +343,11 @@ notificationRouter.get('/stats', async (req: Request, res: Response) => {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    const userId = req.user?.userId || req.user?.email || 'admin';
+    const user_id = req.user?.user_id || req.user?.email || 'admin';
 
-    console.log(`📊 [API] جلب إحصائيات الإشعارات للمسؤول: ${userId}`);
+    console.log(`📊 [API] جلب إحصائيات الإشعارات للمسؤول: ${user_id}`);
 
-    const stats = await notificationService.getNotificationStats(userId as string);
+    const stats = await notificationService.getNotificationStats(user_id as string);
 
     res.json({
       success: true,
@@ -369,11 +369,11 @@ notificationRouter.get('/monitoring/stats', async (req: Request, res: Response) 
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    const userId = req.user?.userId || req.user?.email || 'admin';
+    const user_id = req.user?.user_id || req.user?.email || 'admin';
 
-    console.log(`📊 [API] جلب إحصائيات النشاط للمسؤول: ${userId}`);
+    console.log(`📊 [API] جلب إحصائيات النشاط للمسؤول: ${user_id}`);
 
-    const stats = await notificationService.getNotificationStats(userId as string);
+    const stats = await notificationService.getNotificationStats(user_id as string);
 
     res.json({
       success: true,
@@ -394,11 +394,11 @@ notificationRouter.get('/all', async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
-    const userId = req.user?.userId || req.user?.email || 'admin';
+    const user_id = req.user?.user_id || req.user?.email || 'admin';
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
-    const result = await notificationService.getUserNotifications(userId as string, { limit, offset });
+    const result = await notificationService.getUserNotifications(user_id as string, { limit, offset });
     res.json({ 
       success: true, 
       data: result.notifications,
@@ -441,10 +441,10 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
     const { NotificationService } = await import('../../services/NotificationService.js');
     const notificationService = new NotificationService();
     
-    const userId = req.user?.userId || req.user?.email || null;
-    const { title, body, priority, recipients, projectId } = req.body;
+    const user_id = req.user?.user_id || req.user?.email || null;
+    const { title, body, priority, recipients, project_id } = req.body;
 
-    console.log(`📝 [API] إنشاء إشعار جديد (${type}) من المستخدم: ${userId}`);
+    console.log(`📝 [API] إنشاء إشعار جديد (${type}) من المستخدم: ${user_id}`);
 
     const notificationData = {
       type: type,
@@ -452,7 +452,7 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
       body: body,
       priority: priority || 3,
       recipients: recipients === 'admins' || recipients === 'all' ? 'all' : (Array.isArray(recipients) ? recipients : [recipients]),
-      projectId: projectId || null,
+      project_id: project_id || null,
       channelPreference: { push: true, email: true }
     };
 
@@ -485,12 +485,12 @@ notificationRouter.post('/', async (req: Request, res: Response) => {
     const { NotificationService } = await import('../../services/NotificationService.js');
     const notificationService = new NotificationService();
     
-    const userId = req.user?.userId || req.user?.email || null;
-    const { type, title, body, priority, recipients, projectId } = req.body;
+    const user_id = req.user?.user_id || req.user?.email || null;
+    const { type, title, body, priority, recipients, project_id } = req.body;
 
   const finalType = type || 'announcement';
 
-    console.log(`📝 [API] إنشاء إشعار جديد (${finalType}) عبر المسار الرئيسي من المستخدم: ${userId}`);
+    console.log(`📝 [API] إنشاء إشعار جديد (${finalType}) عبر المسار الرئيسي من المستخدم: ${user_id}`);
 
     const notificationData = {
       type: finalType,
@@ -498,7 +498,7 @@ notificationRouter.post('/', async (req: Request, res: Response) => {
       body: body,
       priority: priority || 3,
       recipients: recipients === 'admins' || recipients === 'all' ? 'all' : (Array.isArray(recipients) ? recipients : [recipients]),
-      projectId: projectId || null,
+      project_id: project_id || null,
       channelPreference: { push: true, email: true }
     };
 
@@ -531,19 +531,19 @@ notificationRouter.post('/test/create', requireRole('admin'), async (req: Reques
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
-    const userId = req.user?.userId || req.user?.email || null;
-    const { type, title, body, priority, recipients, projectId } = req.body;
+    // استخراج user_id الحقيقي من JWT - إصلاح مشكلة "default"
+    const user_id = req.user?.user_id || req.user?.email || null;
+    const { type, title, body, priority, recipients, project_id } = req.body;
 
-    console.log(`🔧 [TEST] إنشاء إشعار اختبار من المستخدم: ${userId}`);
+    console.log(`🔧 [TEST] إنشاء إشعار اختبار من المستخدم: ${user_id}`);
 
     const notificationData = {
       type: type || 'announcement',
       title: title || 'إشعار اختبار',
       body: body || 'هذا إشعار اختبار لفحص النظام',
       priority: priority || 3,
-      recipients: recipients || [userId],
-      projectId: projectId || null,
+      recipients: recipients || [user_id],
+      project_id: project_id || null,
       channelPreference: { push: true, email: true } // تفعيل البريد للاختبار
     };
 
@@ -574,10 +574,10 @@ notificationRouter.get('/test/stats', requireRole('admin'), async (req: Request,
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
     
-    // استخراج userId الحقيقي من JWT - إصلاح مشكلة "default"
-    const userId = req.user?.userId || req.user?.email || null;
+    // استخراج user_id الحقيقي من JWT - إصلاح مشكلة "default"
+    const user_id = req.user?.user_id || req.user?.email || null;
     
-    if (!userId) {
+    if (!user_id) {
       return res.status(401).json({
         success: false,
         error: "غير مخول - لم يتم العثور على معرف المستخدم",
@@ -585,9 +585,9 @@ notificationRouter.get('/test/stats', requireRole('admin'), async (req: Request,
       });
     }
 
-    console.log(`📊 [TEST] جلب إحصائيات الإشعارات للمستخدم: ${userId}`);
+    console.log(`📊 [TEST] جلب إحصائيات الإشعارات للمستخدم: ${user_id}`);
 
-    const stats = await notificationService.getNotificationStats(userId);
+    const stats = await notificationService.getNotificationStats(user_id);
 
     res.json({
       success: true,

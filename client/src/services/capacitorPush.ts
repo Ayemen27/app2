@@ -23,7 +23,7 @@ export const requestAllPermissions = async () => {
  * Native Push Notifications Service using Capacitor
  * Handles registration, permissions, and listeners for Android/iOS
  */
-export const initializeNativePush = async (_userId: string) => {
+export const initializeNativePush = async (_user_id: string) => {
   if (!Capacitor.isNativePlatform()) {
     console.log('[NativePush] Not a native platform, skipping initialization');
     return;

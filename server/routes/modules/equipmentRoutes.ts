@@ -13,7 +13,7 @@ function buildEquipmentCode(id: number): string {
 
 equipmentRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const { searchTerm, status, type, projectId } = req.query;
+    const { searchTerm, status, type, project_id } = req.query;
 
     let conditions: any[] = [];
 
@@ -26,17 +26,17 @@ equipmentRouter.get('/', async (req: Request, res: Response) => {
     if (type && typeof type === 'string' && type !== 'all') {
       conditions.push(eq(equipment.type, type));
     }
-    if (typeof projectId === 'string') {
-      if (projectId === '') {
-        conditions.push(sql`${equipment.projectId} IS NULL`);
+    if (typeof project_id === 'string') {
+      if (project_id === '') {
+        conditions.push(sql`${equipment.project_id} IS NULL`);
       } else {
-        conditions.push(eq(equipment.projectId, projectId));
+        conditions.push(eq(equipment.project_id, project_id));
       }
     }
 
     const query = conditions.length > 0
-      ? db.select().from(equipment).where(and(...conditions)).orderBy(desc(equipment.createdAt))
-      : db.select().from(equipment).orderBy(desc(equipment.createdAt));
+      ? db.select().from(equipment).where(and(...conditions)).orderBy(desc(equipment.created_at))
+      : db.select().from(equipment).orderBy(desc(equipment.created_at));
 
     const result = await query;
 
@@ -72,7 +72,7 @@ equipmentRouter.get('/:id', async (req: Request, res: Response) => {
 
 equipmentRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, projectId, imageUrl } = req.body;
+    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = req.body;
 
     if (!name) {
       return res.status(400).json({ success: false, message: 'اسم المعدة مطلوب' });
@@ -94,7 +94,7 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
       description: description || null,
       purchaseDate: purchaseDate || null,
       purchasePrice: purchasePrice || null,
-      projectId: projectId || null,
+      project_id: project_id || null,
       imageUrl: imageUrl || null,
     }).returning();
 
@@ -129,7 +129,7 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'المعدة غير موجودة' });
     }
 
-    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, projectId, imageUrl } = req.body;
+    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = req.body;
 
     let qty = existing.quantity;
     if (quantity !== undefined) {
@@ -151,7 +151,7 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
         description: description !== undefined ? description : existing.description,
         purchaseDate: purchaseDate !== undefined ? purchaseDate : existing.purchaseDate,
         purchasePrice: purchasePrice !== undefined ? purchasePrice : existing.purchasePrice,
-        projectId: projectId !== undefined ? projectId : existing.projectId,
+        project_id: project_id !== undefined ? project_id : existing.project_id,
         imageUrl: imageUrl !== undefined ? imageUrl : existing.imageUrl,
       })
       .where(eq(equipment.id, id))
@@ -228,7 +228,7 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
 
     const [movement] = await db.insert(equipmentMovements).values({
       equipmentId: id,
-      fromProjectId: item.projectId || null,
+      fromProjectId: item.project_id || null,
       toProjectId: toProjectId || null,
       quantity: transferQty,
       reason: reason || null,
@@ -237,10 +237,10 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
     }).returning();
 
     await db.update(equipment)
-      .set({ projectId: toProjectId || null })
+      .set({ project_id: toProjectId || null })
       .where(eq(equipment.id, id));
 
-    console.log(`✅ [Equipment] تم نقل معدة "${item.name}" من ${item.projectId || 'المخزن'} إلى ${toProjectId || 'المخزن'}`);
+    console.log(`✅ [Equipment] تم نقل معدة "${item.name}" من ${item.project_id || 'المخزن'} إلى ${toProjectId || 'المخزن'}`);
 
     res.status(201).json({
       success: true,

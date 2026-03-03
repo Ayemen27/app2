@@ -14,7 +14,7 @@ interface User {
   email: string;
   name: string;
   role: string;
-  mfaEnabled: boolean;
+  mfa_enabled: boolean;
   emailVerified: boolean;
 }
 
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             password: 'admin',
             name: 'مسؤول الطوارئ',
             role: 'admin',
-            createdAt: new Date().toISOString()
+            created_at: new Date().toISOString()
           }]);
         }
       } catch (err) {
@@ -152,8 +152,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 const isEmailVerified = 
                   data.user.emailVerified === true || 
                   data.user.emailVerified === true ||
-                  !!data.user.emailVerifiedAt || 
-                  !!data.user.emailVerifiedAt ||
+                  !!data.user.email_verified_at || 
+                  !!data.user.email_verified_at ||
                   localStorage.getItem('emailVerified') === 'true';
 
                 const updatedUser = {
@@ -282,7 +282,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.status === 403 && errorData.requireEmailVerification) {
         const error = new Error(errorData.message || 'يجب التحقق من البريد الإلكتروني أولاً');
         (error as any).requireEmailVerification = true;
-        (error as any).userId = errorData.data?.userId;
+        (error as any).user_id = errorData.data?.user_id;
         (error as any).email = errorData.data?.email;
         (error as any).status = 403;
         (error as any).data = errorData.data;
@@ -356,17 +356,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isEmailVerified = 
       userData?.emailVerified === true || 
       userData?.emailVerified === true ||
-      !!userData?.emailVerifiedAt || 
-      !!userData?.emailVerifiedAt ||
+      !!userData?.email_verified_at || 
+      !!userData?.email_verified_at ||
       !!userData?.emailVerified ||
       localStorage.getItem('emailVerified') === 'true';
 
     const userToSave = {
-      id: userData?.id || userData?.userId || 'unknown',
+      id: userData?.id || userData?.user_id || 'unknown',
       email: userData?.email || email,
-      name: userData?.name || userData?.fullName || `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || email,
+      name: userData?.name || userData?.full_name || `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim() || email,
       role: userData?.role || 'admin',
-      mfaEnabled: !!userData?.mfaEnabled,
+      mfa_enabled: !!userData?.mfa_enabled,
       emailVerified: isEmailVerified,
     };
 

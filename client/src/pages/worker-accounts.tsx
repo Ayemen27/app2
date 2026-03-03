@@ -57,7 +57,7 @@ interface Worker {
   name: string;
   type: string;
   dailyWage: string;
-  isActive: boolean;
+  is_active: boolean;
 }
 
 interface Project {
@@ -68,8 +68,8 @@ interface Project {
 
 interface WorkerTransfer {
   id: string;
-  workerId: string;
-  projectId: string;
+  worker_id: string;
+  project_id: string;
   amount: number;
   recipientName: string;
   recipientPhone?: string;
@@ -80,8 +80,8 @@ interface WorkerTransfer {
 }
 
 interface TransferFormData {
-  workerId: string;
-  projectId: string;
+  worker_id: string;
+  project_id: string;
   amount: number;
   recipientName: string;
   recipientPhone: string;
@@ -125,8 +125,8 @@ export default function WorkerAccountsPage() {
   };
 
   const [formData, setFormData] = useState<TransferFormData>({
-    workerId: '',
-    projectId: '',
+    worker_id: '',
+    project_id: '',
     amount: 0,
     recipientName: '',
     recipientPhone: '',
@@ -166,7 +166,7 @@ export default function WorkerAccountsPage() {
 
   const { data: workers = [], isLoading: isLoadingWorkers } = useQuery<Worker[]>({
     queryKey: QUERY_KEYS.workers,
-    select: (data: Worker[]) => Array.isArray(data) ? data.filter(w => w.isActive) : []
+    select: (data: Worker[]) => Array.isArray(data) ? data.filter(w => w.is_active) : []
   });
 
   const { data: projects = [] } = useQuery<Project[]>({
@@ -178,7 +178,7 @@ export default function WorkerAccountsPage() {
     queryKey: QUERY_KEYS.workerTransfers(selectedProjectId),
     queryFn: async () => {
       const url = selectedProject 
-        ? `/api/worker-transfers?projectId=${selectedProject}` 
+        ? `/api/worker-transfers?project_id=${selectedProject}` 
         : '/api/worker-transfers';
       const response = await apiRequest(url, 'GET');
       return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
@@ -189,8 +189,8 @@ export default function WorkerAccountsPage() {
     const handleAddNew = () => {
       setEditingTransfer(null);
       setFormData({
-        workerId: preselectedWorker || '',
-        projectId: '',
+        worker_id: preselectedWorker || '',
+        project_id: '',
         amount: 0,
         recipientName: '',
         recipientPhone: '',
@@ -311,8 +311,8 @@ export default function WorkerAccountsPage() {
       if (transfer) {
         setEditingTransfer(transfer);
         setFormData({
-          workerId: transfer.workerId,
-          projectId: transfer.projectId,
+          worker_id: transfer.worker_id,
+          project_id: transfer.project_id,
           amount: transfer.amount,
           recipientName: transfer.recipientName,
           recipientPhone: transfer.recipientPhone || '',
@@ -328,8 +328,8 @@ export default function WorkerAccountsPage() {
 
   const resetForm = () => {
     setFormData({
-      workerId: '',
-      projectId: '',
+      worker_id: '',
+      project_id: '',
       amount: 0,
       recipientName: '',
       recipientPhone: '',
@@ -341,7 +341,7 @@ export default function WorkerAccountsPage() {
   };
 
   const handleSubmit = () => {
-    if (!formData.workerId || !formData.projectId || !formData.amount || !formData.recipientName || !formData.transferDate) {
+    if (!formData.worker_id || !formData.project_id || !formData.amount || !formData.recipientName || !formData.transferDate) {
       toast({
         title: "خطأ",
         description: "الرجاء ملء جميع الحقول المطلوبة",
@@ -363,8 +363,8 @@ export default function WorkerAccountsPage() {
   const handleEdit = (transfer: WorkerTransfer) => {
     setEditingTransfer(transfer);
     setFormData({
-      workerId: transfer.workerId,
-      projectId: transfer.projectId,
+      worker_id: transfer.worker_id,
+      project_id: transfer.project_id,
       amount: transfer.amount,
       recipientName: transfer.recipientName,
       recipientPhone: transfer.recipientPhone || '',
@@ -402,11 +402,11 @@ export default function WorkerAccountsPage() {
     let result = [...transfers];
     
     if (selectedProject && selectedProject !== 'all') {
-      result = result.filter(t => t.projectId === selectedProject);
+      result = result.filter(t => t.project_id === selectedProject);
     }
     
     if (selectedWorkerId && selectedWorkerId !== 'all') {
-      result = result.filter(t => t.workerId === selectedWorkerId);
+      result = result.filter(t => t.worker_id === selectedWorkerId);
     }
     
     if (transferMethodFilter && transferMethodFilter !== 'all') {
@@ -416,7 +416,7 @@ export default function WorkerAccountsPage() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(t => {
-        const worker = workers.find(w => w.id === t.workerId);
+        const worker = workers.find(w => w.id === t.worker_id);
         return (
           worker?.name.toLowerCase().includes(term) ||
           t.recipientName.toLowerCase().includes(term) ||
@@ -458,7 +458,7 @@ export default function WorkerAccountsPage() {
     const bankAmount = bankTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const hawalehAmount = hawalehTransfers.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     
-    const uniqueWorkers = new Set(filteredTransfers.map(t => t.workerId)).size;
+    const uniqueWorkers = new Set(filteredTransfers.map(t => t.worker_id)).size;
     
     // استخدام البيانات الموحدة للحوالات الكلية إذا لم يكن هناك فلتر
     const isFiltered = (selectedProject && selectedProject !== 'all') || 
@@ -659,8 +659,8 @@ export default function WorkerAccountsPage() {
     });
 
     filteredTransfers.forEach((transfer, index) => {
-      const worker = workers.find(w => w.id === transfer.workerId);
-      const project = projects.find(p => p.id === transfer.projectId);
+      const worker = workers.find(w => w.id === transfer.worker_id);
+      const project = projects.find(p => p.id === transfer.project_id);
       const row = worksheet.addRow([
         index + 1,
         formatDate(transfer.transferDate),
@@ -771,8 +771,8 @@ export default function WorkerAccountsPage() {
       ) : (
         <UnifiedCardGrid columns={2}>
           {filteredTransfers.map((transfer) => {
-            const worker = workers.find(w => w.id === transfer.workerId);
-            const project = projects.find(p => p.id === transfer.projectId);
+            const worker = workers.find(w => w.id === transfer.worker_id);
+            const project = projects.find(p => p.id === transfer.project_id);
             
             return (
               <UnifiedCard
@@ -859,8 +859,8 @@ export default function WorkerAccountsPage() {
               <div className="flex flex-col gap-1.5">
                 <Label>العامل *</Label>
                 <WorkerSelect
-                  value={formData.workerId}
-                  onValueChange={(value) => setFormData({...formData, workerId: value})}
+                  value={formData.worker_id}
+                  onValueChange={(value) => setFormData({...formData, worker_id: value})}
                   workers={workers}
                   placeholder="اختر العامل"
                 />
@@ -868,8 +868,8 @@ export default function WorkerAccountsPage() {
               <div className="flex flex-col gap-1.5">
                 <Label>المشروع *</Label>
                 <ProjectSelect
-                  value={formData.projectId}
-                  onValueChange={(value) => setFormData({...formData, projectId: value})}
+                  value={formData.project_id}
+                  onValueChange={(value) => setFormData({...formData, project_id: value})}
                   projects={projects}
                   placeholder="اختر المشروع"
                 />

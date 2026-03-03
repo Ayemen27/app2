@@ -8,8 +8,8 @@ interface TempFile {
   data: Buffer;
   fileName: string;
   mimeType: string;
-  createdAt: number;
-  userId: string;
+  created_at: number;
+  user_id: string;
 }
 
 const tempFiles = new Map<string, TempFile>();
@@ -23,7 +23,7 @@ const MAX_FILES_PER_USER = 5;
 setInterval(() => {
   const now = Date.now();
   for (const [id, file] of tempFiles) {
-    if (now - file.createdAt > FILE_TTL) {
+    if (now - file.created_at > FILE_TTL) {
       tempFiles.delete(id);
     }
   }
@@ -31,8 +31,8 @@ setInterval(() => {
 
 router.post('/temp-download', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id || (req as any).user?.userId;
-    if (!userId) {
+    const user_id = (req as any).user?.id || (req as any).user?.user_id;
+    if (!user_id) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
@@ -46,8 +46,8 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
       const now = Date.now();
       let oldest: { key: string; time: number } | null = null;
       for (const [key, file] of tempFiles) {
-        if (!oldest || file.createdAt < oldest.time) {
-          oldest = { key, time: file.createdAt };
+        if (!oldest || file.created_at < oldest.time) {
+          oldest = { key, time: file.created_at };
         }
       }
       if (oldest) tempFiles.delete(oldest.key);
@@ -55,13 +55,13 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
 
     let userFileCount = 0;
     for (const file of tempFiles.values()) {
-      if (file.userId === userId) userFileCount++;
+      if (file.user_id === user_id) userFileCount++;
     }
     if (userFileCount >= MAX_FILES_PER_USER) {
       let oldestUserFile: { key: string; time: number } | null = null;
       for (const [key, file] of tempFiles) {
-        if (file.userId === userId && (!oldestUserFile || file.createdAt < oldestUserFile.time)) {
-          oldestUserFile = { key, time: file.createdAt };
+        if (file.user_id === user_id && (!oldestUserFile || file.created_at < oldestUserFile.time)) {
+          oldestUserFile = { key, time: file.created_at };
         }
       }
       if (oldestUserFile) tempFiles.delete(oldestUserFile.key);
@@ -79,11 +79,11 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
       data: buffer,
       fileName,
       mimeType,
-      createdAt: Date.now(),
-      userId,
+      created_at: Date.now(),
+      user_id,
     });
 
-    console.log(`[TempDownload] Stored file: ${fileName} (${buffer.length} bytes) id=${id} user=${userId}`);
+    console.log(`[TempDownload] Stored file: ${fileName} (${buffer.length} bytes) id=${id} user=${user_id}`);
 
     return res.json({ success: true, downloadUrl: `/api/temp-download/${id}` });
   } catch (error) {

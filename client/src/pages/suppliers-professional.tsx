@@ -117,8 +117,8 @@ export default function SuppliersPage() {
         (supplier.contactPerson && supplier.contactPerson.toLowerCase().includes(searchValue.toLowerCase())) ||
         (supplier.phone && supplier.phone.includes(searchValue));
       const matchesStatus = filterValues.status === 'all' || 
-        (filterValues.status === 'active' && supplier.isActive) ||
-        (filterValues.status === 'inactive' && !supplier.isActive);
+        (filterValues.status === 'active' && supplier.is_active) ||
+        (filterValues.status === 'inactive' && !supplier.is_active);
       
       return matchesSearch && matchesStatus;
     });
@@ -126,8 +126,8 @@ export default function SuppliersPage() {
 
   const stats = useMemo(() => ({
     total: (suppliers as Supplier[]).length,
-    active: (suppliers as Supplier[]).filter((s: Supplier) => s.isActive).length,
-    inactive: (suppliers as Supplier[]).filter((s: Supplier) => !s.isActive).length,
+    active: (suppliers as Supplier[]).filter((s: Supplier) => s.is_active).length,
+    inactive: (suppliers as Supplier[]).filter((s: Supplier) => !s.is_active).length,
     totalDebt: (suppliers as Supplier[]).reduce((sum: number, s: Supplier) => sum + (parseFloat(s.totalDebt?.toString() || '0') || 0), 0),
   }), [suppliers]);
 
@@ -309,11 +309,11 @@ export default function SuppliersPage() {
                 title={supplier.name}
                 subtitle={supplier.contactPerson || undefined}
                 titleIcon={Building}
-                headerColor={supplier.isActive ? '#22c55e' : '#6b7280'}
+                headerColor={supplier.is_active ? '#22c55e' : '#6b7280'}
                 badges={[
                   {
-                    label: supplier.isActive ? "نشط" : "معطل",
-                    variant: supplier.isActive ? "success" : "secondary",
+                    label: supplier.is_active ? "نشط" : "معطل",
+                    variant: supplier.is_active ? "success" : "secondary",
                   },
                   ...(debt > 0 ? [{
                     label: "مديون",
@@ -343,7 +343,7 @@ export default function SuppliersPage() {
                   },
                   {
                     label: "تاريخ الإضافة",
-                    value: supplier.createdAt ? new Date(supplier.createdAt).toLocaleDateString('en-GB') : "غير محدد",
+                    value: supplier.created_at ? new Date(supplier.created_at).toLocaleDateString('en-GB') : "غير محدد",
                     icon: Calendar,
                   },
                   ...(supplier.address ? [{

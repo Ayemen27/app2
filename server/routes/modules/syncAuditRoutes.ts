@@ -6,15 +6,15 @@ const router = express.Router();
 
 router.get('/logs', authenticate, async (req, res) => {
   try {
-    const { page, limit, module, status, action, userId, projectId, search, dateFrom, dateTo } = req.query;
+    const { page, limit, module, status, action, user_id, project_id, search, dateFrom, dateTo } = req.query;
     const result = await SyncAuditService.getLogs({
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 50,
       module: module as string,
       status: status as string,
       action: action as string,
-      userId: userId as string,
-      projectId: projectId as string,
+      user_id: user_id as string,
+      project_id: project_id as string,
       search: search as string,
       dateFrom: dateFrom as string,
       dateTo: dateTo as string,

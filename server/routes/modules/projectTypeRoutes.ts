@@ -53,10 +53,10 @@ projectTypeRouter.get('/', async (req: Request, res: Response) => {
     
     // فلترة حسب الحالة
     if (activeOnly === 'true') {
-      query = query.where(eq(projectTypes.isActive, true)) as any;
+      query = query.where(eq(projectTypes.is_active, true)) as any;
     }
 
-    const typesList = await query.orderBy(desc(projectTypes.createdAt));
+    const typesList = await query.orderBy(desc(projectTypes.created_at));
 
     // فلترة البحث في الـ application layer
     let filteredList = typesList;
@@ -323,7 +323,7 @@ projectTypeRouter.delete('/:id', requireRoles(['admin']), async (req: Request, r
     // التحقق من عدم استخدام النوع في مشاريع
     const projectsUsingType = await db.select({ count: sql<number>`count(*)` })
       .from(projects)
-      .where(eq(projects.projectTypeId, typeId));
+      .where(eq(projects.project_type_id, typeId));
 
     const usageCount = Number(projectsUsingType[0]?.count || 0);
 
@@ -378,7 +378,7 @@ projectTypeRouter.get('/stats/summary', async (req: Request, res: Response) => {
     const totalTypes = await db.select({ count: sql<number>`count(*)` }).from(projectTypes);
     const activeTypes = await db.select({ count: sql<number>`count(*)` })
       .from(projectTypes)
-      .where(eq(projectTypes.isActive, true));
+      .where(eq(projectTypes.is_active, true));
 
     res.json({
       success: true,

@@ -101,11 +101,11 @@ export default function SupplierAccountsPage() {
       
       // إضافة المورد فقط إذا كان محدداً وليس "all"
       if (selectedSupplierId && selectedSupplierId !== 'all') {
-        params.append('supplierId', selectedSupplierId);
+        params.append('supplier_id', selectedSupplierId);
       }
       
-      const projectIdForApi = getProjectIdForApi();
-      if (projectIdForApi) params.append('projectId', projectIdForApi);
+      const project_idForApi = getProjectIdForApi();
+      if (project_idForApi) params.append('project_id', project_idForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       
@@ -181,11 +181,11 @@ export default function SupplierAccountsPage() {
       
       // إضافة المورد فقط إذا كان محدداً وليس "all"
       if (selectedSupplierId && selectedSupplierId !== 'all') {
-        params.append('supplierId', selectedSupplierId);
+        params.append('supplier_id', selectedSupplierId);
       }
       
-      const projectIdForApi = getProjectIdForApi();
-      if (projectIdForApi) params.append('projectId', projectIdForApi);
+      const project_idForApi = getProjectIdForApi();
+      if (project_idForApi) params.append('project_id', project_idForApi);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       
@@ -366,7 +366,7 @@ export default function SupplierAccountsPage() {
 
     purchases.forEach((purchase, index) => {
       const row = worksheet.getRow(currentRow);
-      const projectName = projects.find(p => p.id === purchase.projectId)?.name || 'غير محدد';
+      const projectName = projects.find(p => p.id === purchase.project_id)?.name || 'غير محدد';
       const materialName = purchase.materialName || 'غير محدد';
       
       const rowData = [
@@ -680,11 +680,11 @@ export default function SupplierAccountsPage() {
         ) : (
           <UnifiedCardGrid columns={2}>
             {purchases.map((purchase) => {
-              const projectName = projects.find(p => p.id === purchase.projectId)?.name || 'غير محدد';
+              const projectName = projects.find(p => p.id === purchase.project_id)?.name || 'غير محدد';
               const materialName = purchase.materialName || 'غير محدد';
               // إصلاح: استخدام supplierName من purchase أو البحث في قائمة suppliers
               const supplierName = purchase.supplierName || 
-                                   suppliers.find(s => s.id === purchase.supplierId)?.name || 
+                                   suppliers.find(s => s.id === purchase.supplier_id)?.name || 
                                    'غير محدد';
               const remaining = parseFloat(purchase.remainingAmount || "0");
               const invoiceDateStr = purchase.invoiceDate || purchase.purchaseDate;

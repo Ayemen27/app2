@@ -33,7 +33,7 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 interface DailyExpenseData {
   date: string;
   projectName: string;
-  projectId: string;
+  project_id: string;
   totalIncome: number;
   totalExpenses: number;
   remainingBalance: number;
@@ -106,7 +106,7 @@ export default function DailyExpensesBulkExport() {
   };
 
   // دالة جلب بيانات المصروفات اليومية لفترة
-  const fetchDailyExpensesForPeriod = async (projectId: string, fromDate: string, toDate: string) => {
+  const fetchDailyExpensesForPeriod = async (project_id: string, fromDate: string, toDate: string) => {
     const expenses: DailyExpenseData[] = [];
     const startDate = new Date(fromDate);
     const endDate = new Date(toDate);
@@ -118,7 +118,7 @@ export default function DailyExpensesBulkExport() {
       
       try {
         const token = localStorage.getItem('accessToken');
-        const response = await fetch(`/api/reports/daily-expenses/${projectId}/${dateStr}`, {
+        const response = await fetch(`/api/reports/daily-expenses/${project_id}/${dateStr}`, {
           headers: {
             'Authorization': token ? `Bearer ${token}` : ''
           }

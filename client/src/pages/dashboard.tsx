@@ -73,7 +73,7 @@ export default function Dashboard() {
     name: '',
     status: 'active',
     description: '',
-    projectTypeId: null as number | null
+    project_type_id: null as number | null
   });
 
   const queryClient = useQueryClient();
@@ -89,7 +89,7 @@ export default function Dashboard() {
 
   // استخدام الملخص المالي الموحد من ExpenseLedgerService
   const { totals: currentTotals, isLoading: financialLoading } = useFinancialSummary({
-    projectId: selectedProjectId || 'all',
+    project_id: selectedProjectId || 'all',
     enabled: true
   });
 
@@ -218,7 +218,7 @@ export default function Dashboard() {
         description: "تم إضافة المشروع بنجاح",
       });
       setShowProjectModal(false);
-      setProjectData({ name: '', status: 'active', description: '', projectTypeId: null });
+      setProjectData({ name: '', status: 'active', description: '', project_type_id: null });
     },
     onError: (error) => {
       toast({
@@ -266,7 +266,7 @@ export default function Dashboard() {
     queryKey: QUERY_KEYS.recentActivitiesByProject(selectedProjectId),
     queryFn: async () => {
       try {
-        const projectFilter = selectedProjectId ? `?projectId=${selectedProjectId}` : '';
+        const projectFilter = selectedProjectId ? `?project_id=${selectedProjectId}` : '';
         const response = await apiRequest(`/api/recent-activities${projectFilter}`, "GET");
         return response?.data || [];
       } catch (error) {
@@ -402,8 +402,8 @@ export default function Dashboard() {
   }, [currentTotals]);
 
   // وظيفة للحصول على إحصائيات مشروع معين من قائمة المشاريع الكلية
-  const getProjectStats = useCallback((projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+  const getProjectStats = useCallback((project_id: string) => {
+    const project = projects.find(p => p.id === project_id);
     return project?.stats || {
       totalIncome: 0,
       totalExpenses: 0,
@@ -555,20 +555,20 @@ export default function Dashboard() {
           </div>
           <UnifiedCardGrid columns={2}>
             {filteredProjects.map((project: ProjectWithStats) => {
-              const projectId = project.id || '';
+              const project_id = project.id || '';
               const projectName = project.name || '';
               const projectStatus = project.status || 'active';
               const statusBadge = getStatusBadge(projectStatus);
-              const isSelected = projectId === selectedProjectId;
+              const isSelected = project_id === selectedProjectId;
               // استخدام بيانات ExpenseLedgerService للإحصائيات المالية
-              const projectStats = getProjectStats(projectId);
+              const projectStats = getProjectStats(project_id);
               const income = projectStats?.totalIncome || 0;
               const expenses = projectStats?.totalExpenses || 0;
               const balance = projectStats?.currentBalance || 0;
               const workers = projectStats?.activeWorkers || 0;
               return (
                 <UnifiedCard
-                  key={projectId}
+                  key={project_id}
                   title={projectName}
                   titleIcon={Building2}
                   headerColor={getStatusColor(projectStatus)}
@@ -605,11 +605,11 @@ export default function Dashboard() {
                     {
                       icon: isSelected ? CheckCircle : Eye,
                       label: isSelected ? "محدد" : "تحديد",
-                      onClick: () => selectProject(projectId),
+                      onClick: () => selectProject(project_id),
                       color: isSelected ? "green" : "blue"
                     }
                   ]}
-                  onClick={() => selectProject(projectId)}
+                  onClick={() => selectProject(project_id)}
                   compact
                 />
               );
@@ -770,7 +770,7 @@ export default function Dashboard() {
                     phone: workerData.phone || null,
                     type: workerData.type,
                     dailyWage: parsedWage.toString(),
-                    isActive: true,
+                    is_active: true,
                   });
                 }}
                 disabled={addWorkerMutation.isPending}
@@ -819,8 +819,8 @@ export default function Dashboard() {
             <div className="form-field">
               <Label htmlFor="project-type">نوع المشروع</Label>
               <ProjectTypeSelect
-                value={projectData.projectTypeId?.toString() || ""}
-                onValueChange={(val) => setProjectData({...projectData, projectTypeId: val ? parseInt(val) : null})}
+                value={projectData.project_type_id?.toString() || ""}
+                onValueChange={(val) => setProjectData({...projectData, project_type_id: val ? parseInt(val) : null})}
                 projectTypes={projectTypes}
                 placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
                 disabled={typesLoading}
@@ -856,7 +856,7 @@ export default function Dashboard() {
                       name: projectData.name,
                       status: projectData.status,
                       description: projectData.description || null,
-                      projectTypeId: projectData.projectTypeId
+                      project_type_id: projectData.project_type_id
                     });
                   }
                 }}

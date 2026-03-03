@@ -74,7 +74,7 @@ export default function TransportManagement() {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Form states
-  const [workerId, setWorkerId] = useState<string>("");
+  const [worker_id, setWorkerId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [date, setDate] = useState<string>(getCurrentDate());
@@ -297,8 +297,8 @@ export default function TransportManagement() {
           description: expense.description,
           amount: Number(expense.amount),
           category: categoriesMap[expense.category] || expense.category || "أخرى",
-          worker: workers.find(w => w.id === expense.workerId)?.name || "مصروف عام",
-          well: expense.wellId || "N/A",
+          worker: workers.find(w => w.id === expense.worker_id)?.name || "مصروف عام",
+          well: expense.well_id || "N/A",
           notes: expense.notes || ""
         });
 
@@ -375,26 +375,26 @@ export default function TransportManagement() {
     }
 
     saveMutation.mutate({
-      projectId: selectedProjectId,
-      workerId: workerId || null,
+      project_id: selectedProjectId,
+      worker_id: worker_id || null,
       amount: amount,
       description: description,
       date: date,
       category: category,
       notes: notes,
-      wellId: selectedWellId
+      well_id: selectedWellId
     });
   };
 
   const handleEdit = (expense: TransportationExpense) => {
     setEditingExpenseId(expense.id);
-    setWorkerId(expense.workerId || "");
+    setWorkerId(expense.worker_id || "");
     setAmount(expense.amount.toString());
     setDescription(expense.description);
     setDate(expense.date);
     setNotes(expense.notes || "");
     setCategory(expense.category || "worker_transport");
-    setSelectedWellId(expense.wellId || undefined);
+    setSelectedWellId(expense.well_id || undefined);
     setIsDialogOpen(true);
   };
 
@@ -549,7 +549,7 @@ export default function TransportManagement() {
                       </Label>
                       <Combobox
                         options={workers.map(w => String(w.name))}
-                        value={workers.find(w => w.id === workerId)?.name || ""}
+                        value={workers.find(w => w.id === worker_id)?.name || ""}
                         onValueChange={(val) => {
                           const worker = workers.find(w => w.name === val);
                           if (worker) setWorkerId(worker.id);
@@ -562,7 +562,7 @@ export default function TransportManagement() {
                         <Hash className="h-3 w-3" /> البئر
                       </Label>
                       <WellSelector 
-                        projectId={selectedProjectId}
+                        project_id={selectedProjectId}
                         value={selectedWellId} 
                         onChange={setSelectedWellId}
                         showLabel={false}
@@ -682,9 +682,9 @@ export default function TransportManagement() {
                     },
                     {
                       label: "البئر",
-                      value: expense.wellId ? `بئر ${expense.wellId}` : "N/A",
+                      value: expense.well_id ? `بئر ${expense.well_id}` : "N/A",
                       icon: Hash,
-                      hidden: !expense.wellId,
+                      hidden: !expense.well_id,
                       color: "info",
                       iconClassName: "text-amber-500"
                     }

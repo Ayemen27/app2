@@ -21,7 +21,7 @@ export default function WellCostReport() {
     queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      const response = await apiRequest(`/wells?projectId=${selectedProjectId}`);
+      const response = await apiRequest(`/wells?project_id=${selectedProjectId}`);
       return response.data || [];
     },
     enabled: !!selectedProjectId

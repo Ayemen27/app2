@@ -215,7 +215,7 @@ export default function MaterialPurchase() {
       address: supplierFormAddress.trim() || undefined,
       paymentTerms: supplierFormPaymentTerms || undefined,
       notes: supplierFormNotes.trim() || undefined,
-      isActive: true,
+      is_active: true,
     };
 
     addSupplierMutation.mutate(supplierData);
@@ -414,12 +414,12 @@ export default function MaterialPurchase() {
   }, [materials, purchaseList]);
 
   // الموردين النشطين من قاعدة البيانات
-  const activeSuppliers = Array.isArray(suppliers) ? suppliers.filter(supplier => supplier.isActive) : [];
+  const activeSuppliers = Array.isArray(suppliers) ? suppliers.filter(supplier => supplier.is_active) : [];
 
   const addMaterialPurchaseMutation = useMutation({
     mutationFn: async (data: any) => {
       // ✅ التأكد من وجود معرف المشروع قبل الإرسال
-      if (!data.projectId || data.projectId === "all") {
+      if (!data.project_id || data.project_id === "all") {
         throw new Error("يرجى اختيار مشروع محدد أولاً قبل إضافة المشتريات");
       }
 
@@ -434,8 +434,8 @@ export default function MaterialPurchase() {
       ]);
 
       // تنفيذ العملية الأساسية
-      // تم تغيير المسار ليتوافق مع الخادم: /api/projects/:projectId/material-purchases
-      return apiRequest(`/api/projects/${data.projectId}/material-purchases`, "POST", data);
+      // تم تغيير المسار ليتوافق مع الخادم: /api/projects/:project_id/material-purchases
+      return apiRequest(`/api/projects/${data.project_id}/material-purchases`, "POST", data);
     },
     onMutate: async (data) => {
       // فوري - تحديث البيانات محلياً قبل انتظار الخادم
@@ -443,7 +443,7 @@ export default function MaterialPurchase() {
       const previousData = queryClient.getQueryData(QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate));
 
       queryClient.setQueryData(QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate), (old: any) => {
-        const newPurchase = { id: `temp-${Date.now()}`, ...data, createdAt: new Date().toISOString() };
+        const newPurchase = { id: `temp-${Date.now()}`, ...data, created_at: new Date().toISOString() };
         const safeOld = Array.isArray(old) ? old : (old && typeof old === 'object' && Array.isArray(old.data) ? old.data : []);
         return [...safeOld, newPurchase];
       });
@@ -714,7 +714,7 @@ export default function MaterialPurchase() {
     const totalAmount = parseFloat(totalAmountValue);
     
     const purchaseData = {
-      projectId: selectedProjectId,
+      project_id: selectedProjectId,
       materialName: materialName.trim(),
       materialCategory: materialCategory?.trim() || null,
       materialUnit: materialUnit.trim(),
@@ -729,7 +729,7 @@ export default function MaterialPurchase() {
       invoiceDate: invoiceDate || new Date().toISOString().split('T')[0],
       purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
       notes: notes?.trim() || '',
-      wellId: selectedWellId || null,
+      well_id: selectedWellId || null,
       invoicePhoto: invoicePhoto || '',
       addToInventory: addToInventory,
       status: 'completed'
@@ -755,13 +755,13 @@ export default function MaterialPurchase() {
   const { data: allMaterialPurchases = [], isLoading: materialPurchasesLoading, refetch: refetchMaterialPurchases } = useQuery<any[]>({
     queryKey: QUERY_KEYS.materialPurchasesFiltered(getProjectIdForApi() ?? 'all', selectedDate),
     queryFn: async () => {
-      const projectIdForApi = getProjectIdForApi();
+      const project_idForApi = getProjectIdForApi();
       const baseUrl = `/api/material-purchases`;
       
       const queryParams = new URLSearchParams();
-      // إذا كان projectId هو 'all'، لا نرسله كمعامل projectId للخادم بل نتركه ليجلب الكل
-      if (projectIdForApi && projectIdForApi !== 'all') {
-        queryParams.append('projectId', projectIdForApi);
+      // إذا كان project_id هو 'all'، لا نرسله كمعامل project_id للخادم بل نتركه ليجلب الكل
+      if (project_idForApi && project_idForApi !== 'all') {
+        queryParams.append('project_id', project_idForApi);
       }
       
       // نرسل التاريخ فقط إذا كان محدداً، وإلا سيجلب السيرفر الكل
@@ -794,7 +794,7 @@ export default function MaterialPurchase() {
       // فلترة حسب المشروع المحدد - استخدام isAllProjects
       const matchesProject = isAllProjects || 
         !selectedProjectId || 
-        purchase.projectId === selectedProjectId;
+        purchase.project_id === selectedProjectId;
 
       const matchesSearch = searchValue === '' || 
         purchase.materialName?.toLowerCase().includes(searchValue.toLowerCase()) ||
@@ -1225,7 +1225,7 @@ export default function MaterialPurchase() {
 
             {/* Well Selector */}
             <WellSelector
-              projectId={selectedProjectId}
+              project_id={selectedProjectId}
               value={selectedWellId}
               onChange={setSelectedWellId}
               optional={true}

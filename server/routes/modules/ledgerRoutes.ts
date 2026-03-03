@@ -11,14 +11,14 @@ export const ledgerRouter = express.Router();
 
 ledgerRouter.use(requireAuth);
 
-ledgerRouter.get('/trial-balance/:projectId', async (req: Request, res: Response) => {
+ledgerRouter.get('/trial-balance/:project_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
+    const { project_id } = req.params;
     const { date } = req.query;
 
     const trialBalance = await FinancialLedgerService.getTrialBalance(
-      projectId, date as string | undefined
+      project_id, date as string | undefined
     );
 
     const totalDebit = trialBalance.reduce((sum: number, row: any) => sum + parseFloat(row.total_debit || '0'), 0);
@@ -37,19 +37,19 @@ ledgerRouter.get('/trial-balance/:projectId', async (req: Request, res: Response
   }
 });
 
-ledgerRouter.get('/balance/:projectId', async (req: Request, res: Response) => {
+ledgerRouter.get('/balance/:project_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
+    const { project_id } = req.params;
     const { date } = req.query;
 
     const balance = await FinancialLedgerService.getLedgerBalance(
-      projectId, date as string | undefined
+      project_id, date as string | undefined
     );
 
     res.json({
       success: true,
-      data: { balance, projectId, date: date || 'cumulative' },
+      data: { balance, project_id, date: date || 'cumulative' },
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
@@ -57,14 +57,14 @@ ledgerRouter.get('/balance/:projectId', async (req: Request, res: Response) => {
   }
 });
 
-ledgerRouter.get('/journal/:projectId', async (req: Request, res: Response) => {
+ledgerRouter.get('/journal/:project_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
+    const { project_id } = req.params;
     const { fromDate, toDate } = req.query;
 
     const entries = await FinancialLedgerService.getProjectJournalEntries(
-      projectId, fromDate as string | undefined, toDate as string | undefined
+      project_id, fromDate as string | undefined, toDate as string | undefined
     );
 
     res.json({
@@ -96,17 +96,17 @@ ledgerRouter.get('/journal-entry/:entryId/lines', async (req: Request, res: Resp
   }
 });
 
-ledgerRouter.post('/reconcile/:projectId', async (req: Request, res: Response) => {
+ledgerRouter.post('/reconcile/:project_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
+    const { project_id } = req.params;
     const { date } = req.body;
 
     if (!date) {
       return res.status(400).json({ success: false, error: 'التاريخ مطلوب' });
     }
 
-    const result = await FinancialLedgerService.runReconciliation(projectId, date);
+    const result = await FinancialLedgerService.runReconciliation(project_id, date);
 
     res.json({
       success: true,
@@ -119,16 +119,16 @@ ledgerRouter.post('/reconcile/:projectId', async (req: Request, res: Response) =
   }
 });
 
-ledgerRouter.get('/audit-log/:projectId', async (req: Request, res: Response) => {
+ledgerRouter.get('/audit-log/:project_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
+    const { project_id } = req.params;
     const { limit: limitStr } = req.query;
     const limit = Math.min(parseInt(String(limitStr || '50'), 10), 200);
 
     const logs = await db.select().from(financialAuditLog)
-      .where(eq(financialAuditLog.projectId, projectId))
-      .orderBy(desc(financialAuditLog.createdAt))
+      .where(eq(financialAuditLog.project_id, project_id))
+      .orderBy(desc(financialAuditLog.created_at))
       .limit(limit);
 
     res.json({
@@ -142,14 +142,14 @@ ledgerRouter.get('/audit-log/:projectId', async (req: Request, res: Response) =>
   }
 });
 
-ledgerRouter.get('/reconciliation-history/:projectId', async (req: Request, res: Response) => {
+ledgerRouter.get('/reconciliation-history/:project_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.params;
+    const { project_id } = req.params;
 
     const records = await db.select().from(reconciliationRecords)
-      .where(eq(reconciliationRecords.projectId, projectId))
-      .orderBy(desc(reconciliationRecords.createdAt))
+      .where(eq(reconciliationRecords.project_id, project_id))
+      .orderBy(desc(reconciliationRecords.created_at))
       .limit(30);
 
     res.json({
@@ -187,14 +187,14 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
   }
 });
 
-ledgerRouter.get('/summary/:projectId', async (req: Request, res: Response) => {
+ledgerRouter.get('/summary/:project_id', async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
+    const { project_id } = req.params;
     const { date } = req.query;
 
     const summary = date
-      ? await ExpenseLedgerService.getDailyFinancialSummary(projectId, date as string)
-      : await ExpenseLedgerService.getProjectFinancialSummary(projectId);
+      ? await ExpenseLedgerService.getDailyFinancialSummary(project_id, date as string)
+      : await ExpenseLedgerService.getProjectFinancialSummary(project_id);
 
     res.json({ success: true, data: summary, message: 'تم جلب الملخص المالي بنجاح' });
   } catch (error: any) {
@@ -216,11 +216,11 @@ ledgerRouter.get('/projects-stats', async (_req: Request, res: Response) => {
   }
 });
 
-ledgerRouter.get('/daily-summary/:projectId/:date', async (req: Request, res: Response) => {
+ledgerRouter.get('/daily-summary/:project_id/:date', async (req: Request, res: Response) => {
   try {
-    const { projectId, date } = req.params;
+    const { project_id, date } = req.params;
 
-    const summary = await ExpenseLedgerService.getDailyFinancialSummary(projectId, date);
+    const summary = await ExpenseLedgerService.getDailyFinancialSummary(project_id, date);
 
     res.json({ success: true, data: summary, message: 'تم جلب الملخص اليومي بنجاح' });
   } catch (error: any) {

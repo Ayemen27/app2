@@ -14,14 +14,14 @@ wellRouter.use(requireAuth);
 
 /**
  * GET /api/wells - جلب قائمة الآبار
- * يدعم ?projectId= query parameter (يشمل 'all' لجميع الآبار)
+ * يدعم ?project_id= query parameter (يشمل 'all' لجميع الآبار)
  */
 wellRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.query;
+    const { project_id } = req.query;
     
-    // إذا كان projectId=all أو undefined، أرجع جميع الآبار
-    const filteredProjectId = projectId === 'all' || !projectId ? undefined : (projectId as string);
+    // إذا كان project_id=all أو undefined، أرجع جميع الآبار
+    const filteredProjectId = project_id === 'all' || !project_id ? undefined : (project_id as string);
     const wells = await WellService.getAllWells(filteredProjectId);
 
     res.json({
@@ -44,8 +44,8 @@ wellRouter.get('/', async (req: Request, res: Response) => {
  */
 wellRouter.get('/:id', async (req: Request, res: Response) => {
   try {
-    const wellId = parseInt(req.params.id);
-    const well = await WellService.getWellById(wellId);
+    const well_id = parseInt(req.params.id);
+    const well = await WellService.getWellById(well_id);
 
     res.json({
       success: true,
@@ -98,8 +98,8 @@ wellRouter.post('/', async (req: Request, res: Response) => {
  */
 wellRouter.put('/:id', async (req: Request, res: Response) => {
   try {
-    const wellId = parseInt(req.params.id);
-    const well = await WellService.updateWell(wellId, req.body);
+    const well_id = parseInt(req.params.id);
+    const well = await WellService.updateWell(well_id, req.body);
 
     res.json({
       success: true,
@@ -120,8 +120,8 @@ wellRouter.put('/:id', async (req: Request, res: Response) => {
  */
 wellRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const wellId = parseInt(req.params.id);
-    await WellService.deleteWell(wellId);
+    const well_id = parseInt(req.params.id);
+    await WellService.deleteWell(well_id);
 
     res.json({
       success: true,
@@ -141,8 +141,8 @@ wellRouter.delete('/:id', async (req: Request, res: Response) => {
  */
 wellRouter.get('/:id/tasks', async (req: Request, res: Response) => {
   try {
-    const wellId = parseInt(req.params.id);
-    const tasks = await WellService.getWellTasks(wellId);
+    const well_id = parseInt(req.params.id);
+    const tasks = await WellService.getWellTasks(well_id);
 
     res.json({
       success: true,
@@ -164,9 +164,9 @@ wellRouter.get('/:id/tasks', async (req: Request, res: Response) => {
 wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    const wellId = parseInt(req.params.id);
+    const well_id = parseInt(req.params.id);
 
-    const task = await WellService.createTask(wellId, req.body, user.id);
+    const task = await WellService.createTask(well_id, req.body, user.id);
 
     res.status(201).json({
       success: true,
@@ -236,8 +236,8 @@ wellRouter.post('/tasks/:taskId/account', async (req: Request, res: Response) =>
  */
 wellRouter.get('/accounting/pending', async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.query;
-    const tasks = await WellService.getPendingAccountingTasks(projectId as string);
+    const { project_id } = req.query;
+    const tasks = await WellService.getPendingAccountingTasks(project_id as string);
 
     res.json({
       success: true,
@@ -258,8 +258,8 @@ wellRouter.get('/accounting/pending', async (req: Request, res: Response) => {
  */
 wellRouter.get('/:id/progress', async (req: Request, res: Response) => {
   try {
-    const wellId = parseInt(req.params.id);
-    const progress = await WellService.getWellProgress(wellId);
+    const well_id = parseInt(req.params.id);
+    const progress = await WellService.getWellProgress(well_id);
 
     res.json({
       success: true,
@@ -276,12 +276,12 @@ wellRouter.get('/:id/progress', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/wells/summary/:projectId - ملخص المشروع
+ * GET /api/wells/summary/:project_id - ملخص المشروع
  */
-wellRouter.get('/summary/:projectId', async (req: Request, res: Response) => {
+wellRouter.get('/summary/:project_id', async (req: Request, res: Response) => {
   try {
-    const { projectId } = req.params;
-    const summary = await WellService.getProjectWellsSummary(projectId);
+    const { project_id } = req.params;
+    const summary = await WellService.getProjectWellsSummary(project_id);
 
     res.json({
       success: true,

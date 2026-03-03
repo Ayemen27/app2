@@ -34,9 +34,9 @@ reportRouter.use(requireAuth);
 reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date } = req.query;
+    const { project_id, date } = req.query;
 
-    if (!projectId || !date) {
+    if (!project_id || !date) {
       return res.status(400).json({
         success: false,
         error: 'معرف المشروع والتاريخ مطلوبان',
@@ -49,7 +49,7 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
     // جلب بيانات الحضور والأجور - استخدام الأجر المسجل في سجل الحضور نفسه
     const attendanceData = await db
       .select({
-        workerId: workerAttendance.workerId,
+        worker_id: workerAttendance.worker_id,
         workerName: workers.name,
         workerType: workers.type,
         workDays: workerAttendance.workDays,
@@ -60,10 +60,10 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
         workDescription: workerAttendance.workDescription
       })
       .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+      .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
       .where(
         and(
-          eq(workerAttendance.projectId, projectId as string),
+          eq(workerAttendance.project_id, project_id as string),
           eq(workerAttendance.attendanceDate, dateStr)
         )
       );
@@ -86,7 +86,7 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
       .from(materialPurchases)
       .where(
         and(
-          eq(materialPurchases.projectId, projectId as string),
+          eq(materialPurchases.project_id, project_id as string),
           eq(materialPurchases.purchaseDate, dateStr)
         )
       );
@@ -100,10 +100,10 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
         workerName: workers.name
       })
       .from(transportationExpenses)
-      .leftJoin(workers, eq(transportationExpenses.workerId, workers.id))
+      .leftJoin(workers, eq(transportationExpenses.worker_id, workers.id))
       .where(
         and(
-          eq(transportationExpenses.projectId, projectId as string),
+          eq(transportationExpenses.project_id, project_id as string),
           eq(transportationExpenses.date, dateStr)
         )
       );
@@ -119,7 +119,7 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
       .from(workerMiscExpenses)
       .where(
         and(
-          eq(workerMiscExpenses.projectId, projectId as string),
+          eq(workerMiscExpenses.project_id, project_id as string),
           eq(workerMiscExpenses.date, dateStr)
         )
       );
@@ -134,10 +134,10 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
         transferMethod: workerTransfers.transferMethod
       })
       .from(workerTransfers)
-      .leftJoin(workers, eq(workerTransfers.workerId, workers.id))
+      .leftJoin(workers, eq(workerTransfers.worker_id, workers.id))
       .where(
         and(
-          eq(workerTransfers.projectId, projectId as string),
+          eq(workerTransfers.project_id, project_id as string),
           eq(workerTransfers.transferDate, dateStr)
         )
       );
@@ -154,7 +154,7 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
       .from(fundTransfers)
       .where(
         and(
-          eq(fundTransfers.projectId, projectId as string),
+          eq(fundTransfers.project_id, project_id as string),
           sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END) = ${dateStr}::date`
         )
       );
@@ -177,7 +177,7 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
     const balance = totalFundTransfers - totalExpenses;
 
     // جلب اسم المشروع
-    const projectInfo = await db.select().from(projects).where(eq(projects.id, projectId as string)).limit(1);
+    const projectInfo = await db.select().from(projects).where(eq(projects.id, project_id as string)).limit(1);
 
     const duration = Date.now() - startTime;
 
@@ -206,9 +206,9 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
 reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, dateFrom, dateTo, groupBy = 'day' } = req.query;
+    const { project_id, dateFrom, dateTo, groupBy = 'day' } = req.query;
 
-    if (!projectId || !dateFrom || !dateTo) {
+    if (!project_id || !dateFrom || !dateTo) {
       return res.status(400).json({
         success: false,
         error: 'معرف المشروع وفترة التاريخ مطلوبة',
@@ -226,13 +226,13 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalWages: sql<number>`COALESCE(SUM(CAST(${workerAttendance.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
-        workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`
+        workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`
       })
       .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+      .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
       .where(
         and(
-          eq(workerAttendance.projectId, projectId as string),
+          eq(workerAttendance.project_id, project_id as string),
           gte(workerAttendance.attendanceDate, dateFromStr),
           lte(workerAttendance.attendanceDate, dateToStr)
         )
@@ -251,7 +251,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .from(materialPurchases)
       .where(
         and(
-          eq(materialPurchases.projectId, projectId as string),
+          eq(materialPurchases.project_id, project_id as string),
           gte(materialPurchases.purchaseDate, dateFromStr),
           lte(materialPurchases.purchaseDate, dateToStr)
         )
@@ -269,7 +269,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .from(transportationExpenses)
       .where(
         and(
-          eq(transportationExpenses.projectId, projectId as string),
+          eq(transportationExpenses.project_id, project_id as string),
           gte(transportationExpenses.date, dateFromStr),
           lte(transportationExpenses.date, dateToStr)
         )
@@ -287,7 +287,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .from(fundTransfers)
       .where(
         and(
-          eq(fundTransfers.projectId, projectId as string),
+          eq(fundTransfers.project_id, project_id as string),
           gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, dateFromStr),
           lte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, dateToStr)
         )
@@ -305,7 +305,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .from(workerMiscExpenses)
       .where(
         and(
-          eq(workerMiscExpenses.projectId, projectId as string),
+          eq(workerMiscExpenses.project_id, project_id as string),
           gte(workerMiscExpenses.date, dateFromStr),
           lte(workerMiscExpenses.date, dateToStr)
         )
@@ -341,7 +341,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     };
 
     // جلب اسم المشروع
-    const projectInfo = await db.select().from(projects).where(eq(projects.id, projectId as string)).limit(1);
+    const projectInfo = await db.select().from(projects).where(eq(projects.id, project_id as string)).limit(1);
 
     // بناء بيانات الرسم البياني
     const chartData = attendanceSummary.map(day => {
@@ -368,11 +368,11 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
 
     // حساب الإجماليات الكلية للمشروع
-    const [totalFundsResult] = await db.select({ sum: sql<string>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(eq(fundTransfers.projectId, projectId as string));
-    const [totalWagesResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))` }).from(workerAttendance).where(eq(workerAttendance.projectId, projectId as string));
-    const [totalMaterialsResult] = await db.select({ sum: sql<string>`SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL))` }).from(materialPurchases).where(eq(materialPurchases.projectId, projectId as string));
-    const [totalTransportResult] = await db.select({ sum: sql<string>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(eq(transportationExpenses.projectId, projectId as string));
-    const [totalMiscResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.projectId, projectId as string));
+    const [totalFundsResult] = await db.select({ sum: sql<string>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(eq(fundTransfers.project_id, project_id as string));
+    const [totalWagesResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))` }).from(workerAttendance).where(eq(workerAttendance.project_id, project_id as string));
+    const [totalMaterialsResult] = await db.select({ sum: sql<string>`SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL))` }).from(materialPurchases).where(eq(materialPurchases.project_id, project_id as string));
+    const [totalTransportResult] = await db.select({ sum: sql<string>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(eq(transportationExpenses.project_id, project_id as string));
+    const [totalMiscResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.project_id, project_id as string));
 
     const overallTotalFunds = Number(totalFundsResult?.sum || 0);
     const overallTotalWages = Number(totalWagesResult?.sum || 0);
@@ -380,8 +380,8 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const overallTotalTransport = Number(totalTransportResult?.sum || 0);
     const overallTotalMisc = Number(totalMiscResult?.sum || 0);
 
-    const [activeProjectsCount] = await db.select({ count: sql<number>`count(*)` }).from(projects).where(eq(projects.isActive, true));
-    const [activeWorkersCount] = await db.select({ count: sql<number>`count(*)` }).from(workers).where(eq(workers.isActive, true));
+    const [activeProjectsCount] = await db.select({ count: sql<number>`count(*)` }).from(projects).where(eq(projects.is_active, true));
+    const [activeWorkersCount] = await db.select({ count: sql<number>`count(*)` }).from(workers).where(eq(workers.is_active, true));
 
     res.json({
       success: true,
@@ -419,24 +419,24 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
 reportRouter.get('/reports/worker-statement', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { workerId, dateFrom, dateTo, projectId } = req.query;
+    const { worker_id, dateFrom, dateTo, project_id } = req.query;
 
-    if (!workerId) {
+    if (!worker_id) {
       return res.status(400).json({ success: false, error: 'معرف العامل مطلوب' });
     }
 
-    const worker = await db.select().from(workers).where(eq(workers.id, workerId as string)).limit(1);
+    const worker = await db.select().from(workers).where(eq(workers.id, worker_id as string)).limit(1);
     if (!worker.length) {
       return res.status(404).json({ success: false, error: 'العامل غير موجود' });
     }
 
     // بناء الفلاتر
-    const filters = [eq(workerAttendance.workerId, workerId as string)];
-    const transferFilters = [eq(workerTransfers.workerId, workerId as string)];
+    const filters = [eq(workerAttendance.worker_id, worker_id as string)];
+    const transferFilters = [eq(workerTransfers.worker_id, worker_id as string)];
 
-    if (projectId && projectId !== 'all') {
-      filters.push(eq(workerAttendance.projectId, projectId as string));
-      transferFilters.push(eq(workerTransfers.projectId, projectId as string));
+    if (project_id && project_id !== 'all') {
+      filters.push(eq(workerAttendance.project_id, project_id as string));
+      transferFilters.push(eq(workerTransfers.project_id, project_id as string));
     }
     if (dateFrom) {
       filters.push(gte(workerAttendance.attendanceDate, dateFrom as string));
@@ -459,7 +459,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         projectName: projects.name
       })
       .from(workerAttendance)
-      .leftJoin(projects, eq(workerAttendance.projectId, projects.id))
+      .leftJoin(projects, eq(workerAttendance.project_id, projects.id))
       .where(and(...filters))
       .orderBy(asc(workerAttendance.attendanceDate));
 
@@ -472,7 +472,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         projectName: projects.name
       })
       .from(workerTransfers)
-      .leftJoin(projects, eq(workerTransfers.projectId, projects.id))
+      .leftJoin(projects, eq(workerTransfers.project_id, projects.id))
       .where(and(...transferFilters))
       .orderBy(asc(workerTransfers.transferDate));
     
@@ -544,7 +544,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
  * 📊 مؤشرات الأداء الأساسية (Dashboard KPIs)
  */
 reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) => {
-  const { projectId, range } = req.query;
+  const { project_id, range } = req.query;
   const startTime = Date.now();
 
   try {
@@ -560,24 +560,24 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     }
 
     // تطبيق الفلاتر على الاستعلامات
-    const projectFilter = projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(fundTransfers.projectId, projectId as string) : sql`1=1`;
+    const projectFilter = project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(fundTransfers.project_id, project_id as string) : sql`1=1`;
     const attendanceFilter = and(
-      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(workerAttendance.projectId, projectId as string) : sql`1=1`,
+      project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(workerAttendance.project_id, project_id as string) : sql`1=1`,
       range === 'today' ? sql`(CASE WHEN ${workerAttendance.attendanceDate} IS NULL OR ${workerAttendance.attendanceDate} = '' OR ${workerAttendance.attendanceDate} !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${workerAttendance.attendanceDate}::date END) = ${new Date().toISOString().split('T')[0]}::date` : 
       range === 'this-month' ? sql`${workerAttendance.attendanceDate} >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
     );
     const materialsFilter = and(
-      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(materialPurchases.projectId, projectId as string) : sql`1=1`,
+      project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(materialPurchases.project_id, project_id as string) : sql`1=1`,
       range === 'today' ? eq(materialPurchases.purchaseDate, new Date().toISOString().split('T')[0]) : 
       range === 'this-month' ? gte(materialPurchases.purchaseDate, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
     );
     const transportFilter = and(
-      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(transportationExpenses.projectId, projectId as string) : sql`1=1`,
+      project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(transportationExpenses.project_id, project_id as string) : sql`1=1`,
       range === 'today' ? eq(transportationExpenses.date, new Date().toISOString().split('T')[0]) : 
       range === 'this-month' ? gte(transportationExpenses.date, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
     );
     const miscFilter = and(
-      projectId && projectId !== 'all' && projectId !== 'undefined' ? eq(workerMiscExpenses.projectId, projectId as string) : sql`1=1`,
+      project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(workerMiscExpenses.project_id, project_id as string) : sql`1=1`,
       range === 'today' ? eq(workerMiscExpenses.date, new Date().toISOString().split('T')[0]) : 
       range === 'this-month' ? gte(workerMiscExpenses.date, new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]) : sql`1=1`
     );
@@ -593,7 +593,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     const [totalTransport] = await db.select({ sum: sql<string>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(transportFilter);
     const [totalMisc] = await db.select({ sum: sql<string>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(miscFilter);
 
-    const [activeWorkers] = await db.select({ count: sql<number>`count(distinct ${workerAttendance.workerId})` }).from(workerAttendance).where(attendanceFilter);
+    const [activeWorkers] = await db.select({ count: sql<number>`count(distinct ${workerAttendance.worker_id})` }).from(workerAttendance).where(attendanceFilter);
 
     // بناء بيانات الرسم البياني الزمني (آخر 7 أيام كعينة)
     const chartData = await db.select({
@@ -632,9 +632,9 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
 reportRouter.get('/reports/projects-comparison', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectIds, dateFrom, dateTo } = req.query;
+    const { project_ids, dateFrom, dateTo } = req.query;
 
-    if (!projectIds) {
+    if (!project_ids) {
       return res.status(400).json({
         success: false,
         error: 'معرفات المشاريع مطلوبة',
@@ -642,17 +642,17 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
       });
     }
 
-    const projectIdArray = (projectIds as string).split(',');
+    const project_idArray = (project_ids as string).split(',');
 
     const comparisonData = await Promise.all(
-      projectIdArray.map(async (projectId) => {
+      project_idArray.map(async (project_id) => {
         // جلب معلومات المشروع
-        const projectInfo = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+        const projectInfo = await db.select().from(projects).where(eq(projects.id, project_id)).limit(1);
 
         if (!projectInfo.length) return null;
 
         // بناء شروط التاريخ
-        let dateConditions: any[] = [eq(workerAttendance.projectId, projectId)];
+        let dateConditions: any[] = [eq(workerAttendance.project_id, project_id)];
         if (dateFrom && dateTo) {
           dateConditions.push(gte(workerAttendance.attendanceDate, dateFrom as string));
           dateConditions.push(lte(workerAttendance.attendanceDate, dateTo as string));
@@ -663,13 +663,13 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
           .select({
             totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
             totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
-            workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`
+            workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`
           })
           .from(workerAttendance)
           .where(and(...dateConditions));
 
         // إحصائيات المواد
-        let materialConditions: any[] = [eq(materialPurchases.projectId, projectId)];
+        let materialConditions: any[] = [eq(materialPurchases.project_id, project_id)];
         if (dateFrom && dateTo) {
           materialConditions.push(gte(materialPurchases.purchaseDate, dateFrom as string));
           materialConditions.push(lte(materialPurchases.purchaseDate, dateTo as string));
@@ -683,7 +683,7 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
           .where(and(...materialConditions));
 
         // إحصائيات النقل
-        let transportConditions: any[] = [eq(transportationExpenses.projectId, projectId)];
+        let transportConditions: any[] = [eq(transportationExpenses.project_id, project_id)];
         if (dateFrom && dateTo) {
           transportConditions.push(gte(transportationExpenses.date, dateFrom as string));
           transportConditions.push(lte(transportationExpenses.date, dateTo as string));
@@ -702,7 +702,7 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
             total: sql<number>`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`
           })
           .from(fundTransfers)
-          .where(eq(fundTransfers.projectId, projectId));
+          .where(eq(fundTransfers.project_id, project_id));
 
         const totalIncome = Number(fundStats[0]?.total || 0);
         const totalWages = Number(attendanceStats[0]?.totalPaid || 0);
@@ -769,14 +769,14 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
  * 👷 بيان العامل التفصيلي
  * Worker Detailed Statement
  */
-reportRouter.get('/reports/worker-statement/:workerId', async (req: Request, res: Response) => {
+reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { workerId } = req.params;
-    const { projectId, dateFrom, dateTo } = req.query;
+    const { worker_id } = req.params;
+    const { project_id, dateFrom, dateTo } = req.query;
 
     // جلب معلومات العامل
-    const workerInfo = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    const workerInfo = await db.select().from(workers).where(eq(workers.id, worker_id)).limit(1);
 
     if (!workerInfo.length) {
       return res.status(404).json({
@@ -787,9 +787,9 @@ reportRouter.get('/reports/worker-statement/:workerId', async (req: Request, res
     }
 
     // بناء شروط الاستعلام
-    let conditions: any[] = [eq(workerAttendance.workerId, workerId)];
-    if (projectId) {
-      conditions.push(eq(workerAttendance.projectId, projectId as string));
+    let conditions: any[] = [eq(workerAttendance.worker_id, worker_id)];
+    if (project_id) {
+      conditions.push(eq(workerAttendance.project_id, project_id as string));
     }
     if (dateFrom) {
       conditions.push(gte(workerAttendance.attendanceDate, dateFrom as string));
@@ -803,7 +803,7 @@ reportRouter.get('/reports/worker-statement/:workerId', async (req: Request, res
       .select({
         id: workerAttendance.id,
         date: workerAttendance.attendanceDate,
-        projectId: workerAttendance.projectId,
+        project_id: workerAttendance.project_id,
         projectName: projects.name,
         workDays: workerAttendance.workDays,
         dailyWage: workerAttendance.dailyWage,
@@ -813,14 +813,14 @@ reportRouter.get('/reports/worker-statement/:workerId', async (req: Request, res
         workDescription: workerAttendance.workDescription
       })
       .from(workerAttendance)
-      .leftJoin(projects, eq(workerAttendance.projectId, projects.id))
+      .leftJoin(projects, eq(workerAttendance.project_id, projects.id))
       .where(and(...conditions))
       .orderBy(desc(workerAttendance.attendanceDate));
 
     // جلب حوالات العامل
-    let transferConditions: any[] = [eq(workerTransfers.workerId, workerId)];
-    if (projectId) {
-      transferConditions.push(eq(workerTransfers.projectId, projectId as string));
+    let transferConditions: any[] = [eq(workerTransfers.worker_id, worker_id)];
+    if (project_id) {
+      transferConditions.push(eq(workerTransfers.project_id, project_id as string));
     }
     if (dateFrom) {
       transferConditions.push(gte(workerTransfers.transferDate, dateFrom as string));
@@ -840,7 +840,7 @@ reportRouter.get('/reports/worker-statement/:workerId', async (req: Request, res
         notes: workerTransfers.notes
       })
       .from(workerTransfers)
-      .leftJoin(projects, eq(workerTransfers.projectId, projects.id))
+      .leftJoin(projects, eq(workerTransfers.project_id, projects.id))
       .where(and(...transferConditions))
       .orderBy(desc(workerTransfers.transferDate));
 
@@ -905,7 +905,7 @@ reportRouter.get('/reports/worker-statement/:workerId', async (req: Request, res
 reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId } = req.query;
+    const { project_id } = req.query;
 
     // الحصول على التاريخ الحالي وتاريخ بداية الشهر
     const today = new Date();
@@ -913,12 +913,12 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
     const todayStr = today.toISOString().split('T')[0];
 
-    let projectCondition = projectId ? eq(workerAttendance.projectId, projectId as string) : sql`1=1`;
+    let projectCondition = project_id ? eq(workerAttendance.project_id, project_id as string) : sql`1=1`;
 
     // إحصائيات اليوم
     const todayStats = await db
       .select({
-        workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`,
+        workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`
       })
@@ -933,14 +933,14 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     // إحصائيات الشهر - باستخدام الأجر الحالي للعامل
     const monthStats = await db
       .select({
-        workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.workerId})`,
+        workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalWages: sql<number>`COALESCE(SUM(CAST(${workers.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         activeDays: sql<number>`COUNT(DISTINCT ${workerAttendance.attendanceDate})`
       })
       .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+      .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
       .where(
         and(
           projectCondition,
@@ -950,7 +950,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
       );
 
     // مشتريات الشهر
-    let materialProjectCondition = projectId ? eq(materialPurchases.projectId, projectId as string) : sql`1=1`;
+    let materialProjectCondition = project_id ? eq(materialPurchases.project_id, project_id as string) : sql`1=1`;
     const monthMaterials = await db
       .select({
         total: sql<number>`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`
@@ -978,7 +978,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
         count: sql<number>`COUNT(*)`
       })
       .from(workers)
-      .where(eq(workers.isActive, true));
+      .where(eq(workers.is_active, true));
 
     const duration = Date.now() - startTime;
 

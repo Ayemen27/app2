@@ -661,7 +661,7 @@ export class BackupService {
               compressed: f.endsWith('.gz'),
               format: f.endsWith('.gz') ? 'json.gz' : f.endsWith('.json') ? 'json' : 'sqlite',
               status: 'success',
-              createdAt: stats.mtime.toISOString(),
+              created_at: stats.mtime.toISOString(),
               tablesCount: meta?.tablesCount || (meta?.tables ? Object.keys(meta.tables || {}).length : null),
               totalRows: meta?.totalRows || null,
               durationMs: meta?.durationMs || null,
@@ -671,7 +671,7 @@ export class BackupService {
           }
         })
         .filter((log): log is NonNullable<typeof log> => log !== null)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       return { success: true, logs, total: logs.length };
     } catch (error: any) {

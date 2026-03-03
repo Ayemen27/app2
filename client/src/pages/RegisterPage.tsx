@@ -63,13 +63,13 @@ const countries = [
 ];
 
 const registerSchema = z.object({
-  fullName: z.string().min(1, "الاسم الرباعي مطلوب"),
+  full_name: z.string().min(1, "الاسم الرباعي مطلوب"),
   email: z.string().email("البريد الإلكتروني غير صحيح"),
   phone: z.string().min(9, "رقم الهاتف غير صحيح"),
   password: z.string().min(6, "كلمة المرور يجب أن لا تقل عن 6 أحرف"),
   confirmPassword: z.string().min(1, "تأكيد كلمة المرور مطلوب"),
-  birthDate: z.string().min(1, "تاريخ الميلاد مطلوب"),
-  birthPlace: z.string().min(1, "مكان الميلاد مطلوب"),
+  birth_date: z.string().min(1, "تاريخ الميلاد مطلوب"),
+  birth_place: z.string().min(1, "مكان الميلاد مطلوب"),
   gender: z.string().min(1, "الجنس مطلوب"),
   terms: z.boolean().refine(v => v === true, "يجب الموافقة على الشروط"),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -174,13 +174,13 @@ export default function RegisterPage() {
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      fullName: "",
+      full_name: "",
       email: "",
       phone: "",
       password: "",
       confirmPassword: "",
-      birthDate: "",
-      birthPlace: "",
+      birth_date: "",
+      birth_place: "",
       gender: "ذكر",
       terms: false,
     },
@@ -204,9 +204,9 @@ export default function RegisterPage() {
         title: "تم إنشاء الحساب بنجاح",
         description: "تم إرسال رمز التحقق إلى بريدك الإلكتروني",
       });
-      const userId = data?.data?.user?.id;
+      const user_id = data?.data?.user?.id;
       const email = data?.data?.user?.email || form.getValues('email');
-      navigate(`/verify-email?userId=${userId}&email=${encodeURIComponent(email)}`);
+      navigate(`/verify-email?user_id=${user_id}&email=${encodeURIComponent(email)}`);
     },
     onError: (error: Error) => {
       toast({
@@ -255,7 +255,7 @@ export default function RegisterPage() {
             <form onSubmit={form.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
               <FormField
                 control={form.control}
-                name="fullName"
+                name="full_name"
                 render={({ field }) => (
                   <FormItem className="space-y-0">
                     <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
@@ -437,7 +437,7 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-2">
                 <FormField
                   control={form.control}
-                  name="birthPlace"
+                  name="birth_place"
                   render={({ field }) => (
                     <FormItem className="space-y-0">
                       <div className="bg-card dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-sm h-12 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-blue-600/10">
@@ -458,7 +458,7 @@ export default function RegisterPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="birthDate"
+                  name="birth_date"
                   render={({ field }) => (
                     <FormItem className="space-y-0">
                       <Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
@@ -529,7 +529,7 @@ export default function RegisterPage() {
                             <Button 
                               onClick={() => {
                                 const formattedDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
-                                form.setValue("birthDate", formattedDate);
+                                form.setValue("birth_date", formattedDate);
                                 setIsDateDialogOpen(false);
                               }}
                               className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl"

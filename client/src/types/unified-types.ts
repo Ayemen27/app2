@@ -12,8 +12,8 @@ export interface Project {
   status: 'active' | 'completed' | 'paused';
   description?: string;
   budget?: number;
-  createdAt?: string;
-  updatedAt?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ProjectStats {
@@ -40,7 +40,7 @@ export interface Worker {
   type: string;
   dailyWage: number;
   status?: 'active' | 'inactive';
-  createdAt?: string;
+  created_at?: string;
 }
 
 // ============================================================
@@ -64,7 +64,7 @@ export interface Notification {
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
   read: boolean;
-  createdAt: string;
+  created_at: string;
 }
 
 // ============================================================

@@ -128,7 +128,7 @@ export class NotificationQueueWorker {
     const startTime = Date.now();
     
     try {
-      console.log(`📤 معالجة إشعار: ${item.notificationId} للمستخدم: ${item.userId}`);
+      console.log(`📤 معالجة إشعار: ${item.notificationId} للمستخدم: ${item.user_id}`);
 
       // قفل العنصر لمنع المعالجة المتكررة
       const lockResult = await this.lockQueueItem(item.id);
@@ -138,7 +138,7 @@ export class NotificationQueueWorker {
       }
 
       // فحص إعدادات المستخدم
-      const userSettings = await this.getUserSettings(item.userId, item.channel);
+      const userSettings = await this.getUserSettings(item.user_id, item.channel);
       if (!this.shouldSendNotification(userSettings)) {
         await this.updateQueueStatus(item.id, 'skipped', 'تم تخطي الإشعار حسب إعدادات المستخدم');
         return;
@@ -185,16 +185,16 @@ export class NotificationQueueWorker {
   /**
    * جلب إعدادات المستخدم للإشعارات
    */
-  private async getUserSettings(userId: string, channel: string): Promise<any> {
+  private async getUserSettings(user_id: string, channel: string): Promise<any> {
     try {
       const settings = await db
         .select()
         .from(notificationSettings)
-        .where(eq(notificationSettings.userId, userId));
+        .where(eq(notificationSettings.user_id, user_id));
 
       return settings.find(s => this.channelMatches(s.notificationType, channel)) || null;
     } catch (error) {
-      console.error(`خطأ في جلب إعدادات المستخدم ${userId}:`, error);
+      console.error(`خطأ في جلب إعدادات المستخدم ${user_id}:`, error);
       return null;
     }
   }
@@ -333,7 +333,7 @@ export class NotificationQueueWorker {
     // تسجيل المقاييس
     await this.recordMetric({
       notificationId: item.notificationId,
-      recipientId: item.userId,
+      recipientId: item.user_id,
       deliveryMethod: item.channel,
       status: 'sent',
       sentAt: now,
@@ -371,7 +371,7 @@ export class NotificationQueueWorker {
     // تسجيل المقاييس
     await this.recordMetric({
       notificationId: item.notificationId,
-      recipientId: item.userId,
+      recipientId: item.user_id,
       deliveryMethod: item.channel,
       status: 'failed',
       sentAt: now,

@@ -52,7 +52,7 @@ interface BackupLog {
   compressed: boolean;
   format: string;
   status: string;
-  createdAt: string;
+  created_at: string;
   tablesCount: number | null;
   totalRows: number | null;
   durationMs: number | null;
@@ -438,7 +438,7 @@ export default function BackupManager() {
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {formatDate(log.createdAt)}
+                          {formatDate(log.created_at)}
                         </span>
                       </div>
                     </div>

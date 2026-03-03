@@ -139,7 +139,7 @@ export class EmergencyAuthService {
     success: boolean;
     message: string;
     data?: {
-      userId: string;
+      user_id: string;
       email: string;
       name: string;
       role: string;
@@ -178,13 +178,13 @@ export class EmergencyAuthService {
           if (adminCreds.password === password) {
             this.clearAttempts(email);
             const token = generateAccessToken({
-              userId: 'emergency-admin',
+              user_id: 'emergency-admin',
               email: adminCreds.email,
               role: 'admin',
             });
 
             const refreshToken = await generateRefreshToken({
-              userId: 'emergency-admin',
+              user_id: 'emergency-admin',
               email: adminCreds.email,
               role: 'admin',
             });
@@ -194,7 +194,7 @@ export class EmergencyAuthService {
               success: true,
               message: 'تم تسجيل الدخول بنجاح (وضع الطوارئ)',
               data: {
-                userId: 'emergency-admin',
+                user_id: 'emergency-admin',
                 email: adminCreds.email,
                 name: 'Administrator (Emergency Mode)',
                 role: 'admin',
@@ -242,19 +242,19 @@ export class EmergencyAuthService {
 
       // إنشاء رموز الوصول
       const accessToken = generateAccessToken({
-        userId: String(user.id),
+        user_id: String(user.id),
         email: String(user.email),
         role: String(user.role),
       });
 
       const refreshToken = await generateRefreshToken({
-        userId: String(user.id),
+        user_id: String(user.id),
         email: String(user.email),
         role: String(user.role),
       });
 
       console.log('✅ [EMERGENCY] تم تسجيل دخول المستخدم الطارئ بنجاح:', {
-        userId: user.id,
+        user_id: user.id,
         email: user.email,
         role: user.role,
       });
@@ -263,7 +263,7 @@ export class EmergencyAuthService {
         success: true,
         message: 'تم تسجيل الدخول بنجاح (وضع الطوارئ)',
         data: {
-          userId: String(user.id),
+          user_id: String(user.id),
           email: String(user.email),
           name: String(user.name),
           role: String(user.role),
@@ -329,7 +329,7 @@ export class EmergencyAuthService {
           password: hashedPassword,
           name,
           role,
-          createdAt: new Date(),
+          created_at: new Date(),
         })
         .returning();
 
@@ -362,18 +362,18 @@ export class EmergencyAuthService {
   /**
    * الحصول على معلومات مستخدم طارئ
    */
-  static async getEmergencyUser(userId: string): Promise<{
+  static async getEmergencyUser(user_id: string): Promise<{
     id: string;
     email: string;
     name: string;
     role: string;
-    createdAt: Date;
+    created_at: Date;
   } | null> {
     try {
       const result = await db
         .select()
         .from(emergencyUsers)
-        .where(eq(emergencyUsers.id, userId));
+        .where(eq(emergencyUsers.id, user_id));
 
       return result[0] || null;
     } catch (error: any) {

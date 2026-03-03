@@ -49,8 +49,8 @@ export default function UsersManagementPage() {
   }, [userData]);
 
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const res = await apiRequest(`/api/users/${userId}/role`, "PATCH", { role });
+    mutationFn: async ({ user_id, role }: { user_id: string; role: string }) => {
+      const res = await apiRequest(`/api/users/${user_id}/role`, "PATCH", { role });
       return res;
     },
     onSuccess: () => {
@@ -70,8 +70,8 @@ export default function UsersManagementPage() {
   });
 
   const deleteUserMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      return apiRequest(`/api/users/${userId}`, "DELETE");
+    mutationFn: async (user_id: string) => {
+      return apiRequest(`/api/users/${user_id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.users || ["/api/users"] });
@@ -90,8 +90,8 @@ export default function UsersManagementPage() {
   });
 
   const handleToggleStatus = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      return apiRequest(`/api/users/${userId}`, "PATCH", { isActive: !isActive });
+    mutationFn: async ({ user_id, is_active }: { user_id: string; is_active: boolean }) => {
+      return apiRequest(`/api/users/${user_id}`, "PATCH", { is_active: !is_active });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.users || ["/api/users"] });
@@ -110,12 +110,12 @@ export default function UsersManagementPage() {
     const lowerSearch = searchTerm.toLowerCase();
     return allUsers.filter(user => {
       const matchesSearch = !searchTerm || 
-        (user.fullName?.toLowerCase() || "").includes(lowerSearch) ||
-        (user.firstName?.toLowerCase() || "").includes(lowerSearch) ||
-        (user.lastName?.toLowerCase() || "").includes(lowerSearch) ||
+        (user.full_name?.toLowerCase() || "").includes(lowerSearch) ||
+        (user.first_name?.toLowerCase() || "").includes(lowerSearch) ||
+        (user.last_name?.toLowerCase() || "").includes(lowerSearch) ||
         user.email?.toLowerCase().includes(lowerSearch);
         
-      if (!searchTerm && !showDisabled && !user.isActive) {
+      if (!searchTerm && !showDisabled && !user.is_active) {
         return false;
       }
 
@@ -150,14 +150,14 @@ export default function UsersManagementPage() {
         {
           key: "blocked",
           label: "المحظورين",
-          value: Array.isArray(allUsers) ? allUsers.filter(u => !u.isActive).length : 0,
+          value: Array.isArray(allUsers) ? allUsers.filter(u => !u.is_active).length : 0,
           icon: UserX,
           color: "red"
         },
         {
           key: "unverified",
           label: "غير محققين",
-          value: Array.isArray(allUsers) ? allUsers.filter(u => u.emailVerifiedAt === null || u.emailVerifiedAt === undefined).length : 0,
+          value: Array.isArray(allUsers) ? allUsers.filter(u => u.email_verified_at === null || u.email_verified_at === undefined).length : 0,
           icon: Mail,
           color: "slate"
         }
@@ -176,7 +176,7 @@ export default function UsersManagementPage() {
   };
 
   const handleDeleteUser = (user: any) => {
-    if (window.confirm(`هل أنت متأكد من حذف المستخدم "${user.fullName || user.email}"؟`)) {
+    if (window.confirm(`هل أنت متأكد من حذف المستخدم "${user.full_name || user.email}"؟`)) {
       deleteUserMutation.mutate(user.id);
     }
   };
@@ -224,7 +224,7 @@ export default function UsersManagementPage() {
           filteredUsers.map((user) => (
             <UnifiedCard
               key={user.id}
-              title={user.fullName || `${user.firstName} ${user.lastName}`}
+              title={user.full_name || `${user.first_name} ${user.last_name}`}
               subtitle={user.email}
               titleIcon={User}
               headerColor={user.role === 'admin' ? '#9333ea' : user.role === 'manager' ? '#f97316' : '#2563eb'}
@@ -234,8 +234,8 @@ export default function UsersManagementPage() {
                   variant: user.role === 'admin' ? 'default' : user.role === 'manager' ? 'secondary' : 'outline'
                 },
                 {
-                  label: user.isActive ? 'نشط' : 'معطل',
-                  variant: user.isActive ? 'success' : 'destructive'
+                  label: user.is_active ? 'نشط' : 'معطل',
+                  variant: user.is_active ? 'success' : 'destructive'
                 }
               ]}
               fields={[
@@ -253,7 +253,7 @@ export default function UsersManagementPage() {
                 },
                 {
                   label: "تاريخ الانضمام",
-                  value: user.createdAt ? new Date(user.createdAt).toLocaleDateString('ar-YE') : '-',
+                  value: user.created_at ? new Date(user.created_at).toLocaleDateString('ar-YE') : '-',
                   icon: UserCheck,
                   color: "blue"
                 }
@@ -267,9 +267,9 @@ export default function UsersManagementPage() {
                 },
                 {
                   icon: Power,
-                  label: user.isActive ? "تعطيل" : "تفعيل",
-                  onClick: () => handleToggleStatus.mutate({ userId: user.id, isActive: user.isActive }),
-                  color: user.isActive ? "yellow" : "green"
+                  label: user.is_active ? "تعطيل" : "تفعيل",
+                  onClick: () => handleToggleStatus.mutate({ user_id: user.id, is_active: user.is_active }),
+                  color: user.is_active ? "yellow" : "green"
                 },
                 {
                   icon: Trash2,
@@ -284,7 +284,7 @@ export default function UsersManagementPage() {
                   <label className="text-xs font-bold text-slate-500">تغيير الصلاحية السريع</label>
                   <Select
                     defaultValue={user.role}
-                    onValueChange={(value) => updateRoleMutation.mutate({ userId: user.id, role: value })}
+                    onValueChange={(value) => updateRoleMutation.mutate({ user_id: user.id, role: value })}
                     disabled={updateRoleMutation.isPending || user.id === currentUser?.id}
                   >
                     <SelectTrigger className="w-full h-9 rounded-xl font-bold border-slate-200 dark:border-slate-700">

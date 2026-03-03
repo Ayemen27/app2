@@ -109,8 +109,8 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
       const activeProjects = await db.execute(sql`SELECT id FROM projects WHERE status = 'active' OR status = 'in_progress'`);
       if (activeProjects.rows.length > 0) {
         const balanceEntries = activeProjects.rows.map(p => ({
-          workerId: newWorker[0].id,
-          projectId: p.id,
+          worker_id: newWorker[0].id,
+          project_id: p.id,
           totalEarned: '0',
           totalPaid: '0',
           totalTransferred: '0',
@@ -226,10 +226,10 @@ workerRouter.get('/workers/search/:query', async (req: Request, res: Response) =
 workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const workerId = req.params.id;
-    console.log('🔍 [API] طلب جلب عامل محدد:', workerId);
+    const worker_id = req.params.id;
+    console.log('🔍 [API] طلب جلب عامل محدد:', worker_id);
 
-    if (!workerId) {
+    if (!worker_id) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -239,14 +239,14 @@ workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
       });
     }
 
-    const worker = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq(workers.id, worker_id)).limit(1);
 
     if (worker.length === 0) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
         success: false,
         error: 'العامل غير موجود',
-        message: `لم يتم العثور على عامل بالمعرف: ${workerId}`,
+        message: `لم يتم العثور على عامل بالمعرف: ${worker_id}`,
         processingTime: duration
       });
     }
@@ -284,12 +284,12 @@ workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
 workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const workerId = req.params.id;
+    const worker_id = req.params.id;
     console.log('🔄 [API] طلب تحديث العامل من المستخدم:', req.user?.email);
-    console.log('📋 [API] ID العامل:', workerId);
+    console.log('📋 [API] ID العامل:', worker_id);
     console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
 
-    if (!workerId) {
+    if (!worker_id) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -300,15 +300,15 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
     }
 
     // التحقق من وجود العامل أولاً
-    const existingWorker = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq(workers.id, worker_id)).limit(1);
 
     if (existingWorker.length === 0) {
       const duration = Date.now() - startTime;
-      console.error('❌ [API] العامل غير موجود:', workerId);
+      console.error('❌ [API] العامل غير موجود:', worker_id);
       return res.status(404).json({
         success: false,
         error: 'العامل غير موجود',
-        message: `لم يتم العثور على عامل بالمعرف: ${workerId}`,
+        message: `لم يتم العثور على عامل بالمعرف: ${worker_id}`,
         processingTime: duration
       });
     }
@@ -344,7 +344,7 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
     const [updatedWorker] = await db
       .update(workers)
       .set(validationResult.data)
-      .where(eq(workers.id, workerId))
+      .where(eq(workers.id, worker_id))
       .returning();
 
     // إذا تم تغيير اليومية، نقوم بتحديث جميع سجلات الحضور السابقة وإعادة حساب الأرصدة
@@ -360,7 +360,7 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
           actual_wage = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
           total_pay = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
           remaining_amount = (CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
-        WHERE worker_id = ${workerId}
+        WHERE worker_id = ${worker_id}
       `);
       
       attendanceUpdatedCount = attendanceUpdateResult.rowCount || 0;
@@ -381,7 +381,7 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
             WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
           ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),
           last_updated = NOW()
-        WHERE wb.worker_id = ${workerId}
+        WHERE wb.worker_id = ${worker_id}
       `);
       console.log('✅ [API] تم إعادة حساب وتحديث كافة أرصدة العامل بنجاح');
     }
@@ -436,11 +436,11 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
 workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const workerId = req.params.id;
+    const worker_id = req.params.id;
     console.log('🗑️ [API] طلب حذف العامل من المستخدم:', req.user?.email);
-    console.log('📋 [API] ID العامل:', workerId);
+    console.log('📋 [API] ID العامل:', worker_id);
 
-    if (!workerId) {
+    if (!worker_id) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -451,15 +451,15 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     }
 
     // التحقق من وجود العامل أولاً وجلب بياناته للـ logging
-    const existingWorker = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    const existingWorker = await db.select().from(workers).where(eq(workers.id, worker_id)).limit(1);
 
     if (existingWorker.length === 0) {
       const duration = Date.now() - startTime;
-      console.error('❌ [API] العامل غير موجود:', workerId);
+      console.error('❌ [API] العامل غير موجود:', worker_id);
       return res.status(404).json({
         success: false,
         error: 'العامل غير موجود',
-        message: `لم يتم العثور على عامل بالمعرف: ${workerId}`,
+        message: `لم يتم العثور على عامل بالمعرف: ${worker_id}`,
         processingTime: duration
       });
     }
@@ -476,10 +476,10 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     const attendanceRecords = await db.select({
       id: workerAttendance.id,
       date: workerAttendance.date,
-      projectId: workerAttendance.projectId
+      project_id: workerAttendance.project_id
     })
     .from(workerAttendance)
-    .where(eq(workerAttendance.workerId, workerId))
+    .where(eq(workerAttendance.worker_id, worker_id))
     .limit(5); // جلب 5 سجلات كحد أقصى للمعاينة
 
     if (attendanceRecords.length > 0) {
@@ -490,7 +490,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
         count: sql`COUNT(*)`
       })
       .from(workerAttendance)
-      .where(eq(workerAttendance.workerId, workerId));
+      .where(eq(workerAttendance.worker_id, worker_id));
 
       const totalCount = totalAttendanceCount[0]?.count || attendanceRecords.length;
 
@@ -511,7 +511,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     console.log('🔍 [API] فحص سجلات التحويلات المالية المرتبطة بالعامل...');
     const transferRecords = await db.select({ id: workerTransfers.id })
       .from(workerTransfers)
-      .where(eq(workerTransfers.workerId, workerId))
+      .where(eq(workerTransfers.worker_id, worker_id))
       .limit(1);
 
     if (transferRecords.length > 0) {
@@ -522,7 +522,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
         count: sql`COUNT(*)`
       })
       .from(workerTransfers)
-      .where(eq(workerTransfers.workerId, workerId));
+      .where(eq(workerTransfers.worker_id, worker_id));
 
       const transfersCount = totalTransfersCount[0]?.count || transferRecords.length;
 
@@ -543,7 +543,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     console.log('🔍 [API] فحص سجلات مصاريف النقل المرتبطة بالعامل...');
     const transportRecords = await db.select({ id: transportationExpenses.id })
       .from(transportationExpenses)
-      .where(eq(transportationExpenses.workerId, workerId))
+      .where(eq(transportationExpenses.worker_id, worker_id))
       .limit(1);
 
     if (transportRecords.length > 0) {
@@ -554,7 +554,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
         count: sql`COUNT(*)`
       })
       .from(transportationExpenses)
-      .where(eq(transportationExpenses.workerId, workerId));
+      .where(eq(transportationExpenses.worker_id, worker_id));
 
       const transportCount = totalTransportCount[0]?.count || transportRecords.length;
 
@@ -575,7 +575,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     console.log('🔍 [API] فحص أرصدة العمال المرتبطة بالعامل...');
     const balanceRecords = await db.select({ id: workerBalances.id })
       .from(workerBalances)
-      .where(eq(workerBalances.workerId, workerId))
+      .where(eq(workerBalances.worker_id, worker_id))
       .limit(1);
 
     if (balanceRecords.length > 0) {
@@ -586,7 +586,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
         count: sql`COUNT(*)`
       })
       .from(workerBalances)
-      .where(eq(workerBalances.workerId, workerId));
+      .where(eq(workerBalances.worker_id, worker_id));
 
       const balanceCount = totalBalanceCount[0]?.count || balanceRecords.length;
 
@@ -607,7 +607,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     console.log('🗑️ [API] حذف العامل من قاعدة البيانات (لا توجد سجلات مرتبطة)...');
     const deletedWorker = await db
       .delete(workers)
-      .where(eq(workers.id, workerId))
+      .where(eq(workers.id, worker_id))
       .returning();
 
     const duration = Date.now() - startTime;
@@ -746,7 +746,7 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
       return FinancialLedgerService.recordWorkerTransfer(
-        t.projectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
       );
     }, 'worker-transfers/PATCH');
 
@@ -811,7 +811,7 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
-      workerId: transferToDelete.workerId,
+      worker_id: transferToDelete.worker_id,
       amount: transferToDelete.amount,
       recipientName: transferToDelete.recipientName
     });
@@ -878,23 +878,23 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 workerRouter.get('/worker-misc-expenses', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const {projectId, date} = req.query;
+    const {project_id, date} = req.query;
     console.log('📊 [API] جلب مصاريف العمال المتنوعة');
-    console.log('🔍 [API] معاملات الفلترة:', {projectId, date});
+    console.log('🔍 [API] معاملات الفلترة:', {project_id, date});
 
     // بناء الاستعلام مع الفلترة
     let query;
 
     // تطبيق الفلترة حسب المعاملات الموجودة
-    if (projectId && date) {
+    if (project_id && date) {
       // فلترة بكل من المشروع والتاريخ
       query = db.select().from(workerMiscExpenses).where(and(
-        eq(workerMiscExpenses.projectId, projectId as string),
+        eq(workerMiscExpenses.project_id, project_id as string),
         eq(workerMiscExpenses.date, date as string)
       ));
-    } else if (projectId) {
+    } else if (project_id) {
       // فلترة بالمشروع فقط
-      query = db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.projectId, projectId as string));
+      query = db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.project_id, project_id as string));
     } else if (date) {
       // فلترة بالتاريخ فقط
       query = db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, date as string));
@@ -1002,7 +1002,7 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
       return FinancialLedgerService.recordMiscExpense(
-        t.projectId, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
       );
     }, 'worker-misc-expenses/PATCH');
 
@@ -1134,11 +1134,11 @@ workerRouter.post('/worker-types', async (req: Request, res: Response) => {
 workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const { projectId, date } = req.query;
+    const { project_id, date } = req.query;
 
-    console.log(`📊 [API] جلب حضور العمال للمشروع: ${projectId}${date ? ` للتاريخ: ${date}` : ''}`);
+    console.log(`📊 [API] جلب حضور العمال للمشروع: ${project_id}${date ? ` للتاريخ: ${date}` : ''}`);
 
-    if (!projectId) {
+    if (!project_id) {
       return res.status(400).json({
         success: false,
         error: 'معرف المشروع مطلوب',
@@ -1159,17 +1159,17 @@ workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
 
     if (cleanDate) {
       whereCondition = and(
-        eq(workerAttendance.projectId, projectId as string),
+        eq(workerAttendance.project_id, project_id as string),
         eq(workerAttendance.attendanceDate, cleanDate)
       )!;
     } else {
-      whereCondition = eq(workerAttendance.projectId, projectId as string);
+      whereCondition = eq(workerAttendance.project_id, project_id as string);
     }
 
     const attendance = await db.select({
       id: workerAttendance.id,
-      workerId: workerAttendance.workerId,
-      projectId: workerAttendance.projectId,
+      worker_id: workerAttendance.worker_id,
+      project_id: workerAttendance.project_id,
       date: workerAttendance.date,
       attendanceDate: workerAttendance.attendanceDate,
       startTime: workerAttendance.startTime,
@@ -1182,11 +1182,11 @@ workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
       remainingAmount: workerAttendance.remainingAmount,
       paymentType: workerAttendance.paymentType,
       isPresent: workerAttendance.isPresent,
-      createdAt: workerAttendance.createdAt,
+      created_at: workerAttendance.created_at,
       workerName: workers.name
     })
     .from(workerAttendance)
-    .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+    .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(whereCondition)
     .orderBy(workerAttendance.attendanceDate);
 
@@ -1214,17 +1214,17 @@ workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
 
 /**
  * 📊 جلب حضور العمال لمشروع محدد (مسار قديم للتوافق)
- * GET /projects/:projectId/worker-attendance
+ * GET /projects/:project_id/worker-attendance
  */
-workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, res: Response) => {
+workerRouter.get('/projects/:project_id/worker-attendance', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const {projectId} = req.params;
+    const {project_id} = req.params;
     const {date} = req.query;
 
-    console.log(`📊 [API] جلب حضور العمال للمشروع (مسار قديم): ${projectId}${date ? ` للتاريخ: ${date}` : ''}`);
+    console.log(`📊 [API] جلب حضور العمال للمشروع (مسار قديم): ${project_id}${date ? ` للتاريخ: ${date}` : ''}`);
 
-    if (!projectId) {
+    if (!project_id) {
       return res.status(400).json({
         success: false,
         error: 'معرف المشروع مطلوب',
@@ -1245,17 +1245,17 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
 
     if (cleanDate) {
       whereCondition = and(
-        eq(workerAttendance.projectId, projectId),
+        eq(workerAttendance.project_id, project_id),
         eq(workerAttendance.attendanceDate, cleanDate)
       )!;
     } else {
-      whereCondition = eq(workerAttendance.projectId, projectId);
+      whereCondition = eq(workerAttendance.project_id, project_id);
     }
 
     const attendance = await db.select({
       id: workerAttendance.id,
-      workerId: workerAttendance.workerId,
-      projectId: workerAttendance.projectId,
+      worker_id: workerAttendance.worker_id,
+      project_id: workerAttendance.project_id,
       date: workerAttendance.date,
       attendanceDate: workerAttendance.attendanceDate,
       startTime: workerAttendance.startTime,
@@ -1268,11 +1268,11 @@ workerRouter.get('/projects/:projectId/worker-attendance', async (req: Request, 
       remainingAmount: workerAttendance.remainingAmount,
       paymentType: workerAttendance.paymentType,
       isPresent: workerAttendance.isPresent,
-      createdAt: workerAttendance.createdAt,
+      created_at: workerAttendance.created_at,
       workerName: workers.name
     })
     .from(workerAttendance)
-    .leftJoin(workers, eq(workerAttendance.workerId, workers.id))
+    .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(whereCondition)
     .orderBy(workerAttendance.attendanceDate);
 
@@ -1339,9 +1339,9 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     const attendanceToDelete = existingAttendance[0];
     console.log('🗑️ [API] سيتم حذف سجل الحضور:', {
       id: attendanceToDelete.id,
-      workerId: attendanceToDelete.workerId,
+      worker_id: attendanceToDelete.worker_id,
       date: attendanceToDelete.date,
-      projectId: attendanceToDelete.projectId
+      project_id: attendanceToDelete.project_id
     });
 
     FinancialLedgerService.safeRecord(
@@ -1362,7 +1362,7 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       io.emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
-        projectId: deletedAttendance[0].projectId,
+        project_id: deletedAttendance[0].project_id,
         date: deletedAttendance[0].date
       });
     }
@@ -1370,7 +1370,7 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف سجل الحضور بنجاح في ${duration}ms:`, {
       id: deletedAttendance[0].id,
-      workerId: deletedAttendance[0].workerId,
+      worker_id: deletedAttendance[0].worker_id,
       date: deletedAttendance[0].date
     });
 
@@ -1449,10 +1449,10 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       if (errorMessages.date) {
         detailedMessage += '• التاريخ: ' + errorMessages.date[0] + '\n';
       }
-      if (errorMessages.projectId) {
+      if (errorMessages.project_id) {
         detailedMessage += '• المشروع: يجب اختيار مشروع محدد\n';
       }
-      if (errorMessages.workerId) {
+      if (errorMessages.worker_id) {
         detailedMessage += '• العامل: يجب اختيار عامل\n';
       }
 
@@ -1489,8 +1489,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     const existingAttendance = await db.select()
       .from(workerAttendance)
       .where(and(
-        eq(workerAttendance.workerId, validationResult.data.workerId),
-        eq(workerAttendance.projectId, validationResult.data.projectId),
+        eq(workerAttendance.worker_id, validationResult.data.worker_id),
+        eq(workerAttendance.project_id, validationResult.data.project_id),
         eq(workerAttendance.date, attendanceDate),
         sql`CAST(${workerAttendance.paidAmount} AS DECIMAL(15,2)) = CAST(${validationResult.data.paidAmount} AS DECIMAL(15,2))`,
         sql`CAST(${workerAttendance.workDays} AS DECIMAL(15,2)) = CAST(${workDays} AS DECIMAL(15,2))`
@@ -1515,7 +1515,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     const newAttendance = await db.insert(workerAttendance)
       .values([dataWithCalculatedFields])
       .onConflictDoUpdate({
-        target: [workerAttendance.workerId, workerAttendance.attendanceDate, workerAttendance.projectId],
+        target: [workerAttendance.worker_id, workerAttendance.attendanceDate, workerAttendance.project_id],
         set: {
           workDays: dataWithCalculatedFields.workDays,
           dailyWage: dataWithCalculatedFields.dailyWage,
@@ -1525,7 +1525,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
           remainingAmount: dataWithCalculatedFields.remainingAmount,
           paymentType: dataWithCalculatedFields.paymentType,
           notes: dataWithCalculatedFields.notes,
-          updatedAt: new Date()
+          updated_at: new Date()
         }
       })
       .returning();
@@ -1533,14 +1533,14 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء حضور العامل بنجاح في ${duration}ms:`, {
       id: newAttendance[0].id,
-      workerId: newAttendance[0].workerId,
+      worker_id: newAttendance[0].worker_id,
       date: newAttendance[0].date
     });
 
     const record = newAttendance[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordWorkerWage(
-        record.projectId, parseFloat(record.actualWage || '0'), record.date, record.id, (req as any).user?.id
+        record.project_id, parseFloat(record.actualWage || '0'), record.date, record.id, (req as any).user?.id
       ),
       'worker-attendance/POST'
     );
@@ -1551,7 +1551,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       io.emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
-        projectId: newAttendance[0].projectId,
+        project_id: newAttendance[0].project_id,
         date: newAttendance[0].date
       });
     }
@@ -1660,28 +1660,28 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     }
 
     // تحديث حضور العامل
-    const updatedAttendance = await db
+    const updated_attendance = await db
       .update(workerAttendance)
       .set(updateData)
       .where(eq(workerAttendance.id, attendanceId))
       .returning();
 
-    const t = updatedAttendance[0];
+    const t = updated_attendance[0];
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'تعديل حضور عامل', (req as any).user?.id);
       return FinancialLedgerService.recordWorkerWage(
-        t.projectId, parseFloat(t.actualWage || '0'), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.actualWage || '0'), t.date, t.id, (req as any).user?.id
       );
     }, 'worker-attendance/PATCH');
 
     // 🔌 Broadcast real-time update via WebSocket
     const io = (global as any).io;
-    if (io && updatedAttendance[0]) {
+    if (io && updated_attendance[0]) {
       io.emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
-        projectId: updatedAttendance[0].projectId,
-        date: updatedAttendance[0].date
+        project_id: updated_attendance[0].project_id,
+        date: updated_attendance[0].date
       });
     }
 
@@ -1690,8 +1690,8 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
 
     res.json({
       success: true,
-      data: updatedAttendance[0],
-      message: `تم تحديث حضور العامل بتاريخ ${updatedAttendance[0].date} بنجاح`,
+      data: updated_attendance[0],
+      message: `تم تحديث حضور العامل بتاريخ ${updated_attendance[0].date} بنجاح`,
       processingTime: duration
     });
 
@@ -1800,7 +1800,7 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
       return FinancialLedgerService.recordWorkerTransfer(
-        t.projectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
       );
     }, 'worker-transfers/PATCH');
 
@@ -1876,7 +1876,7 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
-      workerId: transferToDelete.workerId,
+      worker_id: transferToDelete.worker_id,
       amount: transferToDelete.amount,
       recipientName: transferToDelete.recipientName
     });
@@ -1934,16 +1934,16 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 
 /**
  * 📊 جلب المصاريف المتنوعة للعمال لمشروع محدد
- * GET /projects/:projectId/worker-misc-expenses
+ * GET /projects/:project_id/worker-misc-expenses
  */
-workerRouter.get('/projects/:projectId/worker-misc-expenses', async (req: Request, res: Response) => {
+workerRouter.get('/projects/:project_id/worker-misc-expenses', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const {projectId} = req.params;
+    const {project_id} = req.params;
 
-    console.log(`📊 [API] جلب المصاريف المتنوعة للعمال للمشروع: ${projectId}`);
+    console.log(`📊 [API] جلب المصاريف المتنوعة للعمال للمشروع: ${project_id}`);
 
-    if (!projectId) {
+    if (!project_id) {
       return res.status(400).json({
         success: false,
         error: 'معرف المشروع مطلوب',
@@ -1953,7 +1953,7 @@ workerRouter.get('/projects/:projectId/worker-misc-expenses', async (req: Reques
 
     const expenses = await db.select()
       .from(workerMiscExpenses)
-      .where(eq(workerMiscExpenses.projectId, projectId))
+      .where(eq(workerMiscExpenses.project_id, project_id))
       .orderBy(workerMiscExpenses.date);
 
     const duration = Date.now() - startTime;
@@ -2052,7 +2052,7 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
       return FinancialLedgerService.recordMiscExpense(
-        t.projectId, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
       );
     }, 'worker-misc-expenses/PATCH');
 
@@ -2094,20 +2094,20 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
  * 📊 جلب إحصائيات العامل
  * GET /api/workers/:id/stats
  * Query params:
- *   - projectId: فلترة بمشروع محدد (اختياري)
+ *   - project_id: فلترة بمشروع محدد (اختياري)
  *   - 'all' أو عدم التحديد = جميع المشاريع
  */
 workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const workerId = req.params.id;
-    const projectId = req.query.projectId as string | undefined;
-    const isAllProjects = !projectId || projectId === 'all';
+    const worker_id = req.params.id;
+    const project_id = req.query.project_id as string | undefined;
+    const isAllProjects = !project_id || project_id === 'all';
 
-    console.log('📊 [API] جلب إحصائيات العامل:', workerId);
-    console.log('📊 [API] فلترة بمشروع:', projectId || 'جميع المشاريع');
+    console.log('📊 [API] جلب إحصائيات العامل:', worker_id);
+    console.log('📊 [API] فلترة بمشروع:', project_id || 'جميع المشاريع');
 
-    if (!workerId) {
+    if (!worker_id) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -2118,26 +2118,26 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     }
 
     // التحقق من وجود العامل أولاً
-    const worker = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    const worker = await db.select().from(workers).where(eq(workers.id, worker_id)).limit(1);
 
     if (worker.length === 0) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
         success: false,
         error: 'العامل غير موجود',
-        message: `لم يتم العثور على عامل بالمعرف: ${workerId}`,
+        message: `لم يتم العثور على عامل بالمعرف: ${worker_id}`,
         processingTime: duration
       });
     }
 
     // بناء شرط الفلترة بالمشروع
     const attendanceWhereCondition = isAllProjects 
-      ? eq(workerAttendance.workerId, workerId)
-      : and(eq(workerAttendance.workerId, workerId), eq(workerAttendance.projectId, projectId));
+      ? eq(workerAttendance.worker_id, worker_id)
+      : and(eq(workerAttendance.worker_id, worker_id), eq(workerAttendance.project_id, project_id));
 
     const transfersWhereCondition = isAllProjects
-      ? eq(workerTransfers.workerId, workerId)
-      : and(eq(workerTransfers.workerId, workerId), eq(workerTransfers.projectId, projectId));
+      ? eq(workerTransfers.worker_id, worker_id)
+      : and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id));
 
     // حساب إجمالي عدد أيام العمل من جدول workerAttendance
     const totalWorkDaysResult = await db.select({
@@ -2147,12 +2147,12 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     .where(attendanceWhereCondition);
 
     const totalWorkDays = Number(totalWorkDaysResult[0]?.totalDays) || 0;
-    console.log(`📊 [API] إجمالي أيام العمل للعامل ${workerId}${!isAllProjects ? ` في المشروع ${projectId}` : ''}: ${totalWorkDays}`);
+    console.log(`📊 [API] إجمالي أيام العمل للعامل ${worker_id}${!isAllProjects ? ` في المشروع ${project_id}` : ''}: ${totalWorkDays}`);
 
     // جلب تاريخ آخر حضور للعامل
     const lastAttendanceResult = await db.select({
       lastAttendanceDate: workerAttendance.attendanceDate,
-      projectId: workerAttendance.projectId
+      project_id: workerAttendance.project_id
     })
     .from(workerAttendance)
     .where(attendanceWhereCondition)
@@ -2168,8 +2168,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     // حساب معدل الحضور الشهري
     const monthlyAttendanceCondition = isAllProjects
-      ? and(eq(workerAttendance.workerId, workerId), sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`)
-      : and(eq(workerAttendance.workerId, workerId), eq(workerAttendance.projectId, projectId), sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`);
+      ? and(eq(workerAttendance.worker_id, worker_id), sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`)
+      : and(eq(workerAttendance.worker_id, worker_id), eq(workerAttendance.project_id, project_id), sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`);
 
     const monthlyAttendanceResult = await db.select({
       monthlyDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
@@ -2199,7 +2199,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     .where(attendanceWhereCondition);
 
     const totalPaidWages = Number(totalPaidWagesResult[0]?.totalPaidWages) || 0;
-    console.log(`💰 [API] إجمالي الأجور المدفوعة (paidAmount) للعامل ${workerId}: ${totalPaidWages}`);
+    console.log(`💰 [API] إجمالي الأجور المدفوعة (paidAmount) للعامل ${worker_id}: ${totalPaidWages}`);
 
     // إجمالي السحبيات = التحويلات + الأجور المدفوعة
     const totalTransfers = totalTransfersOnly + totalPaidWages;
@@ -2207,7 +2207,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     // حساب عدد المشاريع التي عمل بها العامل
     const projectsWorkedResult = await db.select({
-      projectsCount: sql`COUNT(DISTINCT ${workerAttendance.projectId})`
+      projectsCount: sql`COUNT(DISTINCT ${workerAttendance.project_id})`
     })
     .from(workerAttendance)
     .where(attendanceWhereCondition);
@@ -2237,7 +2237,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       transfersCount: transfersCount,
       projectsWorked: projectsWorked,
       totalEarnings: totalEarnings,
-      projectId: isAllProjects ? null : projectId,
+      project_id: isAllProjects ? null : project_id,
       isFilteredByProject: !isAllProjects,
       workerInfo: {
         id: worker[0].id,
@@ -2255,7 +2255,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       monthlyAttendanceRate,
       totalTransfers,
       projectsWorked,
-      filteredByProject: !isAllProjects ? projectId : 'جميع المشاريع'
+      filteredByProject: !isAllProjects ? project_id : 'جميع المشاريع'
     });
 
     res.json({

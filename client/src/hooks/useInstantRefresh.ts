@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface RefreshOptions {
-  projectId?: string;
+  project_id?: string;
   date?: string;
   immediate?: boolean;
 }
@@ -47,16 +47,16 @@ export function useInstantRefresh() {
   }, [queryClient]);
 
   const refreshProjectData = useCallback(async (options: RefreshOptions = {}) => {
-    const { projectId, date, immediate = true } = options;
+    const { project_id, date, immediate = true } = options;
     
     const refreshTasks: Promise<void>[] = [];
 
-    if (projectId && projectId !== 'all') {
+    if (project_id && project_id !== 'all') {
       refreshTasks.push(
-        instantRefetch(QUERY_KEYS.dailyExpenses(projectId, date)),
-        instantRefetch(QUERY_KEYS.previousBalance(projectId, date)),
-        instantRefetch(QUERY_KEYS.workerAttendanceAll(projectId)),
-        instantRefetch(QUERY_KEYS.materialPurchases(projectId)),
+        instantRefetch(QUERY_KEYS.dailyExpenses(project_id, date)),
+        instantRefetch(QUERY_KEYS.previousBalance(project_id, date)),
+        instantRefetch(QUERY_KEYS.workerAttendanceAll(project_id)),
+        instantRefetch(QUERY_KEYS.materialPurchases(project_id)),
       );
     }
 
@@ -72,7 +72,7 @@ export function useInstantRefresh() {
     }
   }, [instantRefetch]);
 
-  const refreshOnProjectChange = useCallback(async (projectId: string, projectName?: string) => {
+  const refreshOnProjectChange = useCallback(async (project_id: string, projectName?: string) => {
     queryClient.cancelQueries();
     
     const allKeys = Object.values(CORE_KEYS);
@@ -87,11 +87,11 @@ export function useInstantRefresh() {
       )
     );
 
-    if (projectId && projectId !== 'all') {
+    if (project_id && project_id !== 'all') {
       await queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
-          return Array.isArray(key) && key.some(k => k === projectId);
+          return Array.isArray(key) && key.some(k => k === project_id);
         },
         refetchType: 'all'
       });
@@ -108,12 +108,12 @@ export function useInstantRefresh() {
     );
   }, [queryClient]);
 
-  const refreshOnDateChange = useCallback(async (projectId: string, date: string) => {
+  const refreshOnDateChange = useCallback(async (project_id: string, date: string) => {
     const dateKeys = [
-      QUERY_KEYS.dailyExpenses(projectId, date),
-      QUERY_KEYS.previousBalance(projectId, date),
-      QUERY_KEYS.dailySummary(projectId, date),
-      QUERY_KEYS.dailyProjectTransfers(projectId, date),
+      QUERY_KEYS.dailyExpenses(project_id, date),
+      QUERY_KEYS.previousBalance(project_id, date),
+      QUERY_KEYS.dailySummary(project_id, date),
+      QUERY_KEYS.dailyProjectTransfers(project_id, date),
     ];
 
     await Promise.all(
@@ -123,7 +123,7 @@ export function useInstantRefresh() {
 
   const refreshOnMutation = useCallback(async (
     entityType: keyof typeof CORE_KEYS,
-    projectId?: string,
+    project_id?: string,
     date?: string
   ) => {
     const entityKey = CORE_KEYS[entityType];
@@ -133,8 +133,8 @@ export function useInstantRefresh() {
     
     await instantRefetch(QUERY_KEYS.projectsWithStats);
     
-    if (projectId && date) {
-      await refreshOnDateChange(projectId, date);
+    if (project_id && date) {
+      await refreshOnDateChange(project_id, date);
     }
   }, [instantRefetch, refreshOnDateChange]);
 

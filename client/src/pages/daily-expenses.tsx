@@ -124,8 +124,8 @@ function DailyExpensesContent() {
     queryKey: QUERY_KEYS.workerMiscExpensesFiltered(selectedProjectId, selectedDate),
     queryFn: async () => {
       if ((!selectedProjectId && !isAllProjects) || !selectedDate) return [];
-      const projectId = isAllProjects ? "all" : selectedProjectId;
-      const response = await apiRequest(`/api/worker-misc-expenses?projectId=${projectId}&date=${selectedDate}`, "GET");
+      const project_id = isAllProjects ? "all" : selectedProjectId;
+      const response = await apiRequest(`/api/worker-misc-expenses?project_id=${project_id}&date=${selectedDate}`, "GET");
       return Array.isArray(response) ? response : (response?.data || []);
     },
     enabled: (!!selectedProjectId || isAllProjects) && !!selectedDate
@@ -260,7 +260,7 @@ function DailyExpensesContent() {
     queryKey: QUERY_KEYS.workerAttendance(selectedProjectId, selectedDate),
     queryFn: async () => {
       if (!selectedProjectId || !selectedDate) return [];
-      const response = await apiRequest(`/api/worker-attendance?projectId=${selectedProjectId}&date=${selectedDate}`, "GET");
+      const response = await apiRequest(`/api/worker-attendance?project_id=${selectedProjectId}&date=${selectedDate}`, "GET");
       return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
     },
     enabled: !!selectedProjectId && !!selectedDate
@@ -269,7 +269,7 @@ function DailyExpensesContent() {
   // العمال المتاحين للإضافة (الذين ليس لديهم سجل حضور في هذا اليوم)
   const availableWorkers = useMemo(() => {
     return workers.filter(worker => 
-      !attendanceData.some(attendance => attendance.workerId === worker.id)
+      !attendanceData.some(attendance => attendance.worker_id === worker.id)
     );
   }, [workers, attendanceData]);
 
@@ -302,12 +302,12 @@ function DailyExpensesContent() {
       // ✅ حفظ محلي في قائمة الانتظار عند الفشل
       try {
         const attendanceData = {
-          workerId: selectedWorkerId,
+          worker_id: selectedWorkerId,
           days: workerDays ? parseFloat(workerDays) : 0,
           amount: workerAmount ? parseFloat(workerAmount) : 0,
           notes: workerNotes,
           selectedDate,
-          projectId: selectedProjectId
+          project_id: selectedProjectId
         };
         await queueForSync('create', '/api/worker-attendance', attendanceData);
         toast({
@@ -379,8 +379,8 @@ function DailyExpensesContent() {
     const actualWage = dailyWageNum * workDaysNum;
 
     const attendanceData = {
-      workerId: selectedWorkerId,
-      projectId: selectedProjectId,
+      worker_id: selectedWorkerId,
+      project_id: selectedProjectId,
       attendanceDate: selectedDate || getCurrentDate(),
       workDays: workDaysNum,
       dailyWage: dailyWageNum.toString(),
@@ -390,7 +390,7 @@ function DailyExpensesContent() {
       remainingAmount: (actualWage - paidAmountNum).toString(),
       workDescription: workerNotes || (workDaysNum > 0 ? "أيام عمل" : "مصروف بدون عمل"),
       notes: workerNotes,
-      wellId: selectedWellId || null,
+      well_id: selectedWellId || null,
       paymentType: paidAmountNum > 0 ? (paidAmountNum >= actualWage && actualWage > 0 ? "full" : "partial") : "credit",
     };
 
@@ -427,8 +427,8 @@ function DailyExpensesContent() {
     queryKey: QUERY_KEYS.dailyProjectTransfers(isAllProjects ? "all" : selectedProjectId, selectedDate),
     queryFn: async () => {
       try {
-        const projectId = isAllProjects ? "all" : selectedProjectId;
-        const response = await apiRequest(`/api/daily-project-transfers?projectId=${projectId}&date=${selectedDate || ""}`, "GET");
+        const project_id = isAllProjects ? "all" : selectedProjectId;
+        const response = await apiRequest(`/api/daily-project-transfers?project_id=${project_id}&date=${selectedDate || ""}`, "GET");
         console.log('📊 [ProjectTransfers] استجابة API للصفحة اليومية:', response);
 
         let transferData = [];
@@ -466,7 +466,7 @@ function DailyExpensesContent() {
     isLoading: summaryLoading, 
     refetch: refetchFinancial 
   } = useFinancialSummary({
-    projectId: selectedProjectId === 'all' ? 'all' : selectedProjectId,
+    project_id: selectedProjectId === 'all' ? 'all' : selectedProjectId,
     date: selectedDate && selectedDate !== "null" ? selectedDate : undefined,
     dateFrom: filterValues.dateRange?.from ? formatDate(filterValues.dateRange.from) : undefined,
     dateTo: filterValues.dateRange?.to ? formatDate(filterValues.dateRange.to) : undefined,
@@ -716,7 +716,7 @@ function DailyExpensesContent() {
     if (!searchValue.trim()) return safeAttendance;
     const searchLower = searchValue.toLowerCase().trim();
     return safeAttendance.filter((record: any) => {
-      const worker = workers.find((w: any) => w.id === record.workerId);
+      const worker = workers.find((w: any) => w.id === record.worker_id);
       return (
         worker?.name?.toLowerCase().includes(searchLower) ||
         record.workDescription?.toLowerCase().includes(searchLower) ||
@@ -739,7 +739,7 @@ function DailyExpensesContent() {
     if (!searchValue.trim()) return safeMaterialPurchases;
     const searchLower = searchValue.toLowerCase().trim();
     return safeMaterialPurchases.filter((purchase: any) => {
-      const material = materials.find((m: any) => m.id === purchase.materialId);
+      const material = materials.find((m: any) => m.id === purchase.material_id);
       return (
         material?.name?.toLowerCase().includes(searchLower) ||
         purchase.supplier?.toLowerCase().includes(searchLower) ||
@@ -753,7 +753,7 @@ function DailyExpensesContent() {
     if (!searchValue.trim()) return safeWorkerTransfers;
     const searchLower = searchValue.toLowerCase().trim();
     return safeWorkerTransfers.filter((transfer: any) => {
-      const worker = workers.find((w: any) => w.id === transfer.workerId);
+      const worker = workers.find((w: any) => w.id === transfer.worker_id);
       return (
         worker?.name?.toLowerCase().includes(searchLower) ||
         transfer.notes?.toLowerCase().includes(searchLower) ||
@@ -837,8 +837,8 @@ function DailyExpensesContent() {
   const addFundTransferMutation = useMutation({
     mutationFn: async (data: InsertFundTransfer) => {
       await saveAllFundTransferAutocompleteValues();
-      // أضف wellId إلى البيانات
-      const dataWithWell = { ...data, wellId: fundTransferWellId || null };
+      // أضف well_id إلى البيانات
+      const dataWithWell = { ...data, well_id: fundTransferWellId || null };
       return apiRequest("/api/fund-transfers", "POST", dataWithWell);
     },
     onSuccess: async (newTransfer) => {
@@ -884,8 +884,8 @@ function DailyExpensesContent() {
           transferNumber,
           transferType,
           selectedDate,
-          projectId: selectedProjectId,
-          wellId: fundTransferWellId || null 
+          project_id: selectedProjectId,
+          well_id: fundTransferWellId || null 
         };
         await queueForSync('create', '/api/fund-transfers', dataWithWell);
         toast({
@@ -913,8 +913,8 @@ function DailyExpensesContent() {
         await saveAutocompleteValue('notes', transportNotes);
       }
       
-      // أضف wellId إلى البيانات
-      const dataWithWell = { ...data, wellId: selectedWellId || null };
+      // أضف well_id إلى البيانات
+      const dataWithWell = { ...data, well_id: selectedWellId || null };
       return apiRequest("/api/transportation-expenses", "POST", dataWithWell);
     },
     onSuccess: async (newExpense) => {
@@ -947,8 +947,8 @@ function DailyExpensesContent() {
           amount: transportAmount ? parseFloat(transportAmount) : 0,
           notes: transportNotes,
           selectedDate,
-          projectId: selectedProjectId,
-          wellId: selectedWellId || null
+          project_id: selectedProjectId,
+          well_id: selectedWellId || null
         };
         await queueForSync('create', '/api/transportation-expenses', dataWithWell);
         toast({
@@ -1065,16 +1065,16 @@ function DailyExpensesContent() {
     onMutate: () => {
       // حفظ القيم الحالية لتجنب Race Condition
       return {
-        projectId: selectedProjectId,
+        project_id: selectedProjectId,
         date: selectedDate
       };
     },
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
-      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      const { project_id, date } = context || { project_id: selectedProjectId, date: selectedDate };
       
       // تحديث فوري للقائمة باستخدام setQueryData
-      queryClient.setQueryData(QUERY_KEYS.dailyExpenses(projectId, date), (oldData: any) => {
+      queryClient.setQueryData(QUERY_KEYS.dailyExpenses(project_id, date), (oldData: any) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
@@ -1084,13 +1084,13 @@ function DailyExpensesContent() {
       
       // إبطال الكاش للتأكد من التحديث الكامل
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.dailyExpenses(projectId, date) 
+        queryKey: QUERY_KEYS.dailyExpenses(project_id, date) 
       });
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.materialPurchases(projectId) 
+        queryKey: QUERY_KEYS.materialPurchases(project_id) 
       });
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.previousBalance(projectId) 
+        queryKey: QUERY_KEYS.previousBalance(project_id) 
       });
       
       toast({ 
@@ -1149,16 +1149,16 @@ function DailyExpensesContent() {
     onMutate: () => {
       // حفظ القيم الحالية لتجنب Race Condition
       return {
-        projectId: selectedProjectId,
+        project_id: selectedProjectId,
         date: selectedDate
       };
     },
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
-      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      const { project_id, date } = context || { project_id: selectedProjectId, date: selectedDate };
       
       // تحديث فوري للقائمة باستخدام setQueryData
-      queryClient.setQueryData(QUERY_KEYS.dailyExpenses(projectId, date), (oldData: any) => {
+      queryClient.setQueryData(QUERY_KEYS.dailyExpenses(project_id, date), (oldData: any) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
@@ -1168,13 +1168,13 @@ function DailyExpensesContent() {
       
       // إبطال الكاش للتأكد من التحديث الكامل
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.dailyExpenses(projectId, date) 
+        queryKey: QUERY_KEYS.dailyExpenses(project_id, date) 
       });
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.projectAttendance(projectId) 
+        queryKey: QUERY_KEYS.projectAttendance(project_id) 
       });
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.previousBalance(projectId) 
+        queryKey: QUERY_KEYS.previousBalance(project_id) 
       });
       
       toast({ 
@@ -1211,16 +1211,16 @@ function DailyExpensesContent() {
     onMutate: () => {
       // حفظ القيم الحالية لتجنب Race Condition
       return {
-        projectId: selectedProjectId,
+        project_id: selectedProjectId,
         date: selectedDate
       };
     },
     onSuccess: (_, id, context) => {
       // استخدام القيم المحفوظة من onMutate
-      const { projectId, date } = context || { projectId: selectedProjectId, date: selectedDate };
+      const { project_id, date } = context || { project_id: selectedProjectId, date: selectedDate };
       
       // تحديث فوري للقائمة باستخدام setQueryData
-      queryClient.setQueryData(QUERY_KEYS.dailyExpenses(projectId, date), (oldData: any) => {
+      queryClient.setQueryData(QUERY_KEYS.dailyExpenses(project_id, date), (oldData: any) => {
         if (!oldData) return oldData;
         return {
           ...oldData,
@@ -1230,10 +1230,10 @@ function DailyExpensesContent() {
       
       // إبطال الكاش للتأكد من التحديث الكامل
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.dailyExpenses(projectId, date) 
+        queryKey: QUERY_KEYS.dailyExpenses(project_id, date) 
       });
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.previousBalance(projectId) 
+        queryKey: QUERY_KEYS.previousBalance(project_id) 
       });
       
       toast({ 
@@ -1353,14 +1353,14 @@ function DailyExpensesContent() {
     }
 
     const fundTransferData = {
-      projectId: selectedProjectId,
+      project_id: selectedProjectId,
       amount: fundAmount.toString(),
       senderName: senderName.trim() || "غير محدد",
       transferNumber: transferNumber.trim() || null,
       transferType: transferType,
       transferDate: selectedDate,
       notes: "",
-      wellId: fundTransferWellId || null,
+      well_id: fundTransferWellId || null,
     };
 
     if (editingFundTransferId) {
@@ -1446,13 +1446,13 @@ function DailyExpensesContent() {
     }
 
     const transportData = {
-      projectId: selectedProjectId,
+      project_id: selectedProjectId,
       description: transportDescription,
       amount: transportAmount,
       date: selectedDate || new Date().toISOString().split('T')[0],
       category: transportCategory,
       notes: transportNotes,
-      wellId: selectedWellId || null,
+      well_id: selectedWellId || null,
     };
 
     if (editingTransportationId) {
@@ -1477,7 +1477,7 @@ function DailyExpensesContent() {
     }
 
     saveDailySummaryMutation.mutate({
-      projectId: selectedProjectId,
+      project_id: selectedProjectId,
       date: selectedDate || new Date().toISOString().split('T')[0],
       carriedForwardAmount: carriedForward,
       totalFundTransfers: (totalsValue.totalFundTransfers || 0).toString(),
@@ -1698,8 +1698,8 @@ function DailyExpensesContent() {
           category: 'عهدة',
           amount: cleanNumber(transfer.amount),
           description: `عهدة من ${transfer.senderName || 'غير محدد'}`,
-          projectId: transfer.projectId,
-          projectName: projects.find(p => p.id === transfer.projectId)?.name || 'غير محدد',
+          project_id: transfer.project_id,
+          projectName: projects.find(p => p.id === transfer.project_id)?.name || 'غير محدد',
           transferMethod: transfer.transferType,
           recipientName: transfer.senderName,
         });
@@ -1720,14 +1720,14 @@ function DailyExpensesContent() {
           description: isIncoming 
             ? `ترحيل من ${fromProject?.name || 'مشروع آخر'}`
             : `ترحيل إلى ${toProject?.name || 'مشروع آخر'}`,
-          projectId: isIncoming ? transfer.fromProjectId : transfer.toProjectId,
+          project_id: isIncoming ? transfer.fromProjectId : transfer.toProjectId,
           projectName: isIncoming ? fromProject?.name : toProject?.name,
         });
       });
 
       // إضافة حضور العمال (مصروف أو مؤجل)
       filteredAttendance.forEach((record: any) => {
-        const worker = workers.find((w: any) => w.id === record.workerId);
+        const worker = workers.find((w: any) => w.id === record.worker_id);
         const paidAmount = cleanNumber(record.paidAmount);
         const payableAmount = cleanNumber(record.payableAmount);
         const isDeferred = paidAmount === 0 && payableAmount > 0;
@@ -1739,8 +1739,8 @@ function DailyExpensesContent() {
           category: 'أجور عمال',
           amount: paidAmount,
           description: record.workDescription || 'أجر يومي',
-          projectId: record.projectId,
-          projectName: projects.find(p => p.id === record.projectId)?.name || 'غير محدد',
+          project_id: record.project_id,
+          projectName: projects.find(p => p.id === record.project_id)?.name || 'غير محدد',
           workerName: worker?.name || 'غير محدد',
           workDays: cleanNumber(record.workDays) || undefined,
           dailyWage: cleanNumber(record.dailyWage) || undefined,
@@ -1757,14 +1757,14 @@ function DailyExpensesContent() {
           category: 'مواصلات',
           amount: cleanNumber(expense.amount),
           description: expense.description || 'مصروف مواصلات',
-          projectId: expense.projectId,
-          projectName: projects.find(p => p.id === expense.projectId)?.name || 'غير محدد',
+          project_id: expense.project_id,
+          projectName: projects.find(p => p.id === expense.project_id)?.name || 'غير محدد',
         });
       });
 
       // إضافة مشتريات المواد (مصروف نقدي أو مؤجل)
       filteredMaterialPurchases.forEach((purchase: any) => {
-        const material = materials.find((m: any) => m.id === purchase.materialId);
+        const material = materials.find((m: any) => m.id === purchase.material_id);
         const isCash = purchase.purchaseType === 'نقد';
         
         transactions.push({
@@ -1774,8 +1774,8 @@ function DailyExpensesContent() {
           category: 'مشتريات مواد',
           amount: isCash ? cleanNumber(purchase.totalAmount) : 0,
           description: `شراء ${material?.name || 'مادة'}`,
-          projectId: purchase.projectId,
-          projectName: projects.find(p => p.id === purchase.projectId)?.name || 'غير محدد',
+          project_id: purchase.project_id,
+          projectName: projects.find(p => p.id === purchase.project_id)?.name || 'غير محدد',
           materialName: material?.name || purchase.materialName,
           quantity: cleanNumber(purchase.quantity) || undefined,
           unitPrice: cleanNumber(purchase.unitPrice) || undefined,
@@ -1786,7 +1786,7 @@ function DailyExpensesContent() {
 
       // إضافة تحويلات العمال (مصروف)
       filteredWorkerTransfers.forEach((transfer: any) => {
-        const worker = workers.find((w: any) => w.id === transfer.workerId);
+        const worker = workers.find((w: any) => w.id === transfer.worker_id);
         transactions.push({
           id: transfer.id,
           date: transfer.date || selectedDate || new Date().toISOString().split('T')[0],
@@ -1794,8 +1794,8 @@ function DailyExpensesContent() {
           category: 'حوالات عمال',
           amount: cleanNumber(transfer.amount),
           description: transfer.notes || 'حوالة للعامل',
-          projectId: transfer.projectId,
-          projectName: projects.find(p => p.id === transfer.projectId)?.name || 'غير محدد',
+          project_id: transfer.project_id,
+          projectName: projects.find(p => p.id === transfer.project_id)?.name || 'غير محدد',
           workerName: worker?.name || 'غير محدد',
           recipientName: worker?.name,
         });
@@ -1810,8 +1810,8 @@ function DailyExpensesContent() {
           category: 'نثريات',
           amount: cleanNumber(expense.amount),
           description: expense.description || 'مصروف متنوع',
-          projectId: expense.projectId,
-          projectName: projects.find(p => p.id === expense.projectId)?.name || 'غير محدد',
+          project_id: expense.project_id,
+          projectName: projects.find(p => p.id === expense.project_id)?.name || 'غير محدد',
         });
       });
 
@@ -1964,7 +1964,7 @@ function DailyExpensesContent() {
         <div className="space-y-4">
           {dailyExpensesData.groupedByProjectDate.map((cardData: any, index: number) => (
             <UnifiedCard
-              key={`${cardData.projectId}-${cardData.date}-${index}`}
+              key={`${cardData.project_id}-${cardData.date}-${index}`}
               title={cardData.projectName}
               subtitle={`مصروفات يوم ${formatDate(cardData.date)}`}
               titleIcon={Building}
@@ -2397,7 +2397,7 @@ function DailyExpensesContent() {
                 {selectedProjectId && !isAllProjects && (
                   <div className="flex flex-col">
                     <WellSelector
-                      projectId={selectedProjectId}
+                      project_id={selectedProjectId}
                       value={selectedWellId}
                       onChange={setSelectedWellId}
                       optional={true}
@@ -2612,7 +2612,7 @@ function DailyExpensesContent() {
             {selectedProjectId && !isAllProjects && (
               <div className="mb-3">
                 <WellSelector
-                  projectId={selectedProjectId}
+                  project_id={selectedProjectId}
                   value={selectedWellId}
                   onChange={setSelectedWellId}
                   optional={true}
@@ -2724,7 +2724,7 @@ function DailyExpensesContent() {
                 <h5 className="text-sm font-medium text-muted-foreground mb-2">أجور العمال المضافة اليوم:</h5>
                 <div className="space-y-2">
                   {safeAttendance.map((attendance: any, index) => {
-                    const worker = workers.find(w => w.id === attendance.workerId);
+                    const worker = workers.find(w => w.id === attendance.worker_id);
                     const payableAmount = cleanNumber(attendance.payableAmount);
                     const paidAmount = cleanNumber(attendance.paidAmount);
                     const deferredAmount = payableAmount - paidAmount;
@@ -2997,7 +2997,7 @@ function DailyExpensesContent() {
                     {safeWorkerTransfers.length > 0 && (
                       <div className="space-y-2">
                         {safeWorkerTransfers.map((transfer: any, index: number) => {
-                          const worker = workers.find((w: any) => w.id === transfer.workerId);
+                          const worker = workers.find((w: any) => w.id === transfer.worker_id);
                           const methodLabel = transfer.transferMethod === "hawaleh" ? "حولة" : transfer.transferMethod === "bank" ? "تحويل بنكي" : "نقداً";
                           return (
                             <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-yellow-200 dark:border-yellow-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
@@ -3032,7 +3032,7 @@ function DailyExpensesContent() {
                                     size="sm" 
                                     variant="ghost" 
                                     className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                    onClick={() => setLocation(`/worker-accounts?edit=${transfer.id}&worker=${transfer.workerId}`)}
+                                    onClick={() => setLocation(`/worker-accounts?edit=${transfer.id}&worker=${transfer.worker_id}`)}
                                   >
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
@@ -3179,7 +3179,7 @@ function DailyExpensesContent() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="pt-2">
                       <WorkerMiscExpenses 
-                        projectId={selectedProjectId} 
+                        project_id={selectedProjectId} 
                         selectedDate={selectedDate || new Date().toISOString().split('T')[0]} 
                       />
                     </CollapsibleContent>

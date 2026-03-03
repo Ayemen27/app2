@@ -23,7 +23,7 @@ import type { Worker, InsertWorkerAttendance } from "@shared/schema";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface AttendanceData {
-  [workerId: string]: {
+  [worker_id: string]: {
     isPresent: boolean;
     startTime?: string;
     endTime?: string;
@@ -58,7 +58,7 @@ export default function WorkerAttendance() {
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
   const editId = urlParams.get('edit');
-  const workerId = urlParams.get('worker');
+  const worker_id = urlParams.get('worker');
   const dateParam = urlParams.get('date');
   const [selectedDate, setSelectedDate] = useState<string | null>(dateParam || null);
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
@@ -163,7 +163,7 @@ export default function WorkerAttendance() {
               const response = await apiRequest(url, "GET");
               const records = response?.data || response || [];
               if (Array.isArray(records)) {
-                allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+                allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
               }
             } catch (e) {
               console.error(`Error fetching attendance for project ${project.id}:`, e);
@@ -241,9 +241,9 @@ export default function WorkerAttendance() {
 
   // Effect to populate form when editing
   useEffect(() => {
-    if (attendanceToEdit && workerId) {
+    if (attendanceToEdit && worker_id) {
       const newAttendanceData = { ...attendanceData };
-      newAttendanceData[workerId] = {
+      newAttendanceData[worker_id] = {
         isPresent: true,
         startTime: attendanceToEdit.startTime,
         endTime: attendanceToEdit.endTime,
@@ -254,17 +254,17 @@ export default function WorkerAttendance() {
       };
       setAttendanceData(newAttendanceData);
     }
-  }, [attendanceToEdit, workerId]);
+  }, [attendanceToEdit, worker_id]);
 
   // Delete Attendance Mutation with Optimistic Updates
   const deleteAttendanceMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/worker-attendance/${id}`, "DELETE"),
     onMutate: async (id) => {
       // حفظ المفاتيح الحالية للاستخدام في onError و onSettled
-      const projectId = selectedProjectId;
+      const project_id = selectedProjectId;
       const date = selectedDate;
-      const allKey = QUERY_KEYS.workerAttendanceAll(projectId);
-      const dateKey = QUERY_KEYS.workerAttendance(projectId, date);
+      const allKey = QUERY_KEYS.workerAttendanceAll(project_id);
+      const dateKey = QUERY_KEYS.workerAttendance(project_id, date);
 
       // إلغاء كلا الـ queries
       await queryClient.cancelQueries({ queryKey: allKey });
@@ -327,10 +327,10 @@ export default function WorkerAttendance() {
 
   // Edit Attendance Function - حفظ ID السجل الأصلي للتعديل
   const handleEditAttendance = (record: any) => {
-    const worker = Array.isArray(workers) ? workers.find(w => w.id === record.workerId) : null;
+    const worker = Array.isArray(workers) ? workers.find(w => w.id === record.worker_id) : null;
     if (worker) {
       const newAttendanceData = { ...attendanceData };
-      newAttendanceData[record.workerId] = {
+      newAttendanceData[record.worker_id] = {
         isPresent: true,
         startTime: record.startTime,
         endTime: record.endTime,
@@ -358,7 +358,7 @@ export default function WorkerAttendance() {
         const amount = parseFloat(record.paidAmount?.toString() || "0");
         
         if (days <= 0 && amount <= 0) {
-          const worker = workers.find(w => w.id === record.workerId);
+          const worker = workers.find(w => w.id === record.worker_id);
           const errorMsg = `يرجى إدخال عدد أيام العمل أو مبلغ مالي للعامل ${worker?.name || ''}`;
           toast({ title: "بيانات ناقصة", description: errorMsg, variant: "destructive" });
           throw new Error(errorMsg);
@@ -381,7 +381,7 @@ export default function WorkerAttendance() {
 
       // تحسين منطق الحفظ لتجنب تضارب السجلات الموجودة
       const results = [];
-      const errors: Array<{ workerId: string; workerName: string; error: string }> = [];
+      const errors: Array<{ worker_id: string; workerName: string; error: string }> = [];
 
       for (const record of attendanceRecords) {
         try {
@@ -394,14 +394,14 @@ export default function WorkerAttendance() {
             record.attendanceDate = selectedDate || getCurrentDate();
           }
 
-          console.log(`🔄 محاولة حفظ حضور العامل: ${record.workerId} في التاريخ: ${record.attendanceDate}`);
+          console.log(`🔄 محاولة حفظ حضور العامل: ${record.worker_id} في التاريخ: ${record.attendanceDate}`);
 
           // التحقق من صحة البيانات: يجب إدخال إما أيام عمل أو مبلغ مالي
           const daysNum = parseFloat(record.workDays?.toString() || "0");
           const amountNum = parseFloat(record.paidAmount?.toString() || "0");
 
           if (daysNum <= 0 && amountNum <= 0) {
-            const worker = workers.find(w => w.id === record.workerId);
+            const worker = workers.find(w => w.id === record.worker_id);
             throw new Error(`يرجى إدخال عدد أيام العمل أو مبلغ مالي للعامل ${worker?.name || ''}`);
           }
 
@@ -416,7 +416,7 @@ export default function WorkerAttendance() {
 
           // إذا كان هناك recordId (من التعديل)، قم بالتعديل مباشرة
           if ((record as any).recordId) {
-            console.log(`📝 تحديث سجل موجود للعامل: ${record.workerId} برقم: ${(record as any).recordId}`);
+            console.log(`📝 تحديث سجل موجود للعامل: ${record.worker_id} برقم: ${(record as any).recordId}`);
             const recordToUpdate = { ...record };
             delete (recordToUpdate as any).recordId; // حذف recordId من البيانات المُرسلة
             const updatedRecord = await apiRequest(
@@ -429,17 +429,17 @@ export default function WorkerAttendance() {
             // البحث عن سجل موجود (حالة إضافة جديدة)
             try {
               const existingRecordResponse = await apiRequest(
-                `/api/projects/${record.projectId}/attendance?date=${record.date}&workerId=${record.workerId}`, 
+                `/api/projects/${record.project_id}/attendance?date=${record.date}&worker_id=${record.worker_id}`, 
                 "GET"
               );
 
               const existingRecords = existingRecordResponse?.data || existingRecordResponse || [];
               const existingRecord = Array.isArray(existingRecords) 
-                ? existingRecords.find((r: any) => r.workerId === record.workerId)
+                ? existingRecords.find((r: any) => r.worker_id === record.worker_id)
                 : null;
 
               if (existingRecord) {
-                console.log(`📝 سجل موجود بالفعل للعامل: ${record.workerId} في هذا اليوم - يجب التعديل وليس الإنشاء`);
+                console.log(`📝 سجل موجود بالفعل للعامل: ${record.worker_id} في هذا اليوم - يجب التعديل وليس الإنشاء`);
                 // منع إنشاء سجل جديد - يجب تعديل السجل الموجود
                 const updatedRecord = await apiRequest(
                   `/api/worker-attendance/${existingRecord.id}`, 
@@ -448,7 +448,7 @@ export default function WorkerAttendance() {
                 );
                 results.push(updatedRecord);
               } else {
-                console.log(`➕ إنشاء سجل جديد للعامل: ${record.workerId}`);
+                console.log(`➕ إنشاء سجل جديد للعامل: ${record.worker_id}`);
                 const newRecord = await apiRequest("/api/worker-attendance", "POST", record);
                 results.push(newRecord);
               }
@@ -461,7 +461,7 @@ export default function WorkerAttendance() {
               } catch (createError: any) {
                 // إذا فشل الإنشاء (خطأ UNIQUE)، قد يكون هناك سجل موجود
                 if (createError.message && createError.message.includes("unique") || createError.message.includes("UNIQUE")) {
-                  console.log(`⚠️ هناك سجل موجود بالفعل للعامل ${record.workerId} في هذا اليوم`);
+                  console.log(`⚠️ هناك سجل موجود بالفعل للعامل ${record.worker_id} في هذا اليوم`);
                   // لا نتابع - السجل موجود ولم نتمكن من الوصول إليه
                   throw new Error(`سجل موجود بالفعل للعامل في هذا اليوم. يرجى تحديث الصفحة وتعديل السجل الموجود.`);
                 }
@@ -471,8 +471,8 @@ export default function WorkerAttendance() {
           }
 
         } catch (error: any) {
-          console.error(`❌ فشل في حفظ حضور العامل ${record.workerId}:`, error);
-          const worker = workers.find(w => w.id === record.workerId);
+          console.error(`❌ فشل في حفظ حضور العامل ${record.worker_id}:`, error);
+          const worker = workers.find(w => w.id === record.worker_id);
           const workerName = worker?.name || 'عامل غير معروف';
           
           // استخراج رسالة الخطأ بشكل أفضل
@@ -486,7 +486,7 @@ export default function WorkerAttendance() {
           }
           
           errors.push({
-            workerId: record.workerId,
+            worker_id: record.worker_id,
             workerName: workerName,
             error: errorMsg
           });
@@ -542,8 +542,8 @@ export default function WorkerAttendance() {
           const newData = { ...prevData };
           successful.forEach((record: any) => {
             const savedRecord = record?.data || record;
-            if (savedRecord?.workerId) {
-              delete newData[savedRecord.workerId];
+            if (savedRecord?.worker_id) {
+              delete newData[savedRecord.worker_id];
             }
           });
           return newData;
@@ -585,8 +585,8 @@ export default function WorkerAttendance() {
   });
 
 
-  const handleAttendanceChange = (workerId: string, attendance: AttendanceData[string]) => {
-    const worker = workers.find(w => w.id === workerId);
+  const handleAttendanceChange = (worker_id: string, attendance: AttendanceData[string]) => {
+    const worker = workers.find(w => w.id === worker_id);
     if (worker && attendance.isPresent && attendance.workDays === undefined) {
       attendance.workDays = 1; // Default to 1 day if not set
       const dailyWage = parseFloat(worker.dailyWage || "0");
@@ -597,7 +597,7 @@ export default function WorkerAttendance() {
     
     setAttendanceData(prev => ({
       ...prev,
-      [workerId]: attendance,
+      [worker_id]: attendance,
     }));
   };
 
@@ -605,10 +605,10 @@ export default function WorkerAttendance() {
   const applyBulkSettings = () => {
     const newAttendanceData = { ...attendanceData };
 
-    Object.keys(newAttendanceData).forEach(workerId => {
-      if (newAttendanceData[workerId].isPresent) {
-        newAttendanceData[workerId] = {
-          ...newAttendanceData[workerId],
+    Object.keys(newAttendanceData).forEach(worker_id => {
+      if (newAttendanceData[worker_id].isPresent) {
+        newAttendanceData[worker_id] = {
+          ...newAttendanceData[worker_id],
           startTime: bulkSettings.startTime,
           endTime: bulkSettings.endTime,
           workDays: bulkSettings.workDays,
@@ -705,10 +705,10 @@ export default function WorkerAttendance() {
       
       if (hasWorkErrors) {
         errorMsg += "• يرجى إدخال عدد أيام عمل أكبر من صفر للعمل العادي\n";
-        invalidRecords.forEach(([workerId, data]) => {
+        invalidRecords.forEach(([worker_id, data]) => {
           const recordType = (data as any).recordType || "work";
           if (recordType === "work") {
-            const worker = workers.find(w => w.id === workerId);
+            const worker = workers.find(w => w.id === worker_id);
             errorDetails.push(`  - ${worker?.name || 'عامل غير معروف'}: يجب إدخال أيام العمل`);
           }
         });
@@ -716,10 +716,10 @@ export default function WorkerAttendance() {
       
       if (hasAdvanceErrors) {
         errorMsg += "• يرجى إدخال مبلغ مسحوب أكبر من صفر للسحب المقدم\n";
-        invalidRecords.forEach(([workerId, data]) => {
+        invalidRecords.forEach(([worker_id, data]) => {
           const recordType = (data as any).recordType || "work";
           if (recordType === "advance") {
-            const worker = workers.find(w => w.id === workerId);
+            const worker = workers.find(w => w.id === worker_id);
             errorDetails.push(`  - ${worker?.name || 'عامل غير معروف'}: يجب إدخال المبلغ المسحوب`);
           }
         });
@@ -757,8 +757,8 @@ export default function WorkerAttendance() {
         // للسحب المقدم: paidAmount > 0 فقط
         return data.paidAmount && parseFloat(data.paidAmount) > 0;
       })
-      .map(([workerId, data]) => {
-        const worker = workers.find(w => w.id === workerId);
+      .map(([worker_id, data]) => {
+        const worker = workers.find(w => w.id === worker_id);
         const dailyWage = parseFloat(worker?.dailyWage || "0");
         const recordType = (data as any).recordType || "work";
         
@@ -800,8 +800,8 @@ export default function WorkerAttendance() {
         };
 
         const recordData: any = {
-          projectId: selectedProjectId,
-          workerId,
+          project_id: selectedProjectId,
+          worker_id,
           date: selectedDate,
           attendanceDate: selectedDate,
           startTime: data.startTime || "07:00",
@@ -819,7 +819,7 @@ export default function WorkerAttendance() {
           remainingAmount: remainingAmount.toString(),
           paymentType: data.paymentType || "partial",
           notes: data.notes || "",
-          wellId: selectedWellId || null,
+          well_id: selectedWellId || null,
         };
 
         // إذا كان هناك recordId، أضفه للحفظ حتى نعرف أنه تعديل
@@ -863,7 +863,7 @@ export default function WorkerAttendance() {
     if (searchValue.trim()) {
       const searchLower = searchValue.toLowerCase().trim();
       result = result.filter(record => {
-        const worker = workers.find(w => w.id === record.workerId);
+        const worker = workers.find(w => w.id === record.worker_id);
         return (
           worker?.name?.toLowerCase().includes(searchLower) ||
           record.workDescription?.toLowerCase().includes(searchLower) ||
@@ -891,7 +891,7 @@ export default function WorkerAttendance() {
 
     if (filterValues.type && filterValues.type !== 'all') {
       result = result.filter(record => {
-        const worker = workers.find(w => w.id === record.workerId);
+        const worker = workers.find(w => w.id === record.worker_id);
         return worker?.type === filterValues.type;
       });
     }
@@ -908,7 +908,7 @@ export default function WorkerAttendance() {
     let totalTransfers = 0;
 
     filteredAttendance.forEach(record => {
-      const worker = workers.find(w => w.id === record.workerId);
+      const worker = workers.find(w => w.id === record.worker_id);
       const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
       const workDays = parseFloat(record.workDays || '0');
       const earned = currentDailyWage * workDays;
@@ -1121,7 +1121,7 @@ export default function WorkerAttendance() {
             <CollapsibleContent>
               <div className="p-4 bg-muted/30 border-b space-y-3">
                 <WellSelector
-                  projectId={selectedProjectId}
+                  project_id={selectedProjectId}
                   value={selectedWellId}
                   onChange={setSelectedWellId}
                   optional={true}
@@ -1323,17 +1323,17 @@ export default function WorkerAttendance() {
           {filteredAttendance.length > 0 ? (
             <UnifiedCardGrid columns={2}>
               {filteredAttendance.map((record: any) => {
-                const worker = workers.find(w => w.id === record.workerId);
+                const worker = workers.find(w => w.id === record.worker_id);
                 const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
                 const workDays = parseFloat(record.workDays || '0');
                 const calculatedActualWage = currentDailyWage * workDays;
                 const paidAmount = parseFloat(record.paidAmount || '0');
                 const remainingAmount = calculatedActualWage - paidAmount;
-                const projectName = record.projectName || projects.find(p => p.id === record.projectId)?.name;
+                const projectName = record.projectName || projects.find(p => p.id === record.project_id)?.name;
                 return (
                   <UnifiedCard
                     key={record.id}
-                    title={worker?.name || record.workerId}
+                    title={worker?.name || record.worker_id}
                     subtitle={isAllProjects && projectName ? `${projectName} - ${record.date || record.attendanceDate}` : (record.date || record.attendanceDate)}
                     titleIcon={User}
                     headerColor="#22c55e"

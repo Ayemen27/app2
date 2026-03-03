@@ -216,7 +216,7 @@ export async function performInitialDataPull(): Promise<boolean> {
         id: u.id.toString(),
         email: u.email,
         password: u.password,
-        name: `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
         role: u.role || 'user'
       }));
       await smartSave('emergencyUsers', emergencyData);

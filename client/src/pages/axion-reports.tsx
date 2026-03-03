@@ -72,7 +72,7 @@ export default function AxionReports() {
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     dateRange: null,
-    workerId: "all"
+    worker_id: "all"
   });
 
   const { data: workersList = [] } = useQuery({
@@ -91,7 +91,7 @@ export default function AxionReports() {
       }
       
       if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-        return workersData.filter((w: any) => w.projectId === selectedProjectId);
+        return workersData.filter((w: any) => w.project_id === selectedProjectId);
       }
       return workersData;
     }
@@ -104,7 +104,7 @@ export default function AxionReports() {
       type: "date-range",
     },
     {
-      key: "workerId",
+      key: "worker_id",
       label: "العامل",
       type: "select",
       showSearch: true,
@@ -120,7 +120,7 @@ export default function AxionReports() {
 
   const onFilterChange = (key: string, val: any) => {
     setFilterValues(prev => ({ ...prev, [key]: val }));
-    if (key === "workerId") {
+    if (key === "worker_id") {
       setSelectedWorkerId(val === "all" ? null : val);
     }
   };
@@ -131,9 +131,9 @@ export default function AxionReports() {
     queryFn: async () => {
       if (!selectedWorkerId) return null;
       const params = new URLSearchParams();
-      params.append("workerId", selectedWorkerId);
+      params.append("worker_id", selectedWorkerId);
       if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-        params.append("projectId", selectedProjectId);
+        params.append("project_id", selectedProjectId);
       }
       
       if (filterValues.dateRange?.from) {
@@ -154,7 +154,7 @@ export default function AxionReports() {
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       const params = new URLSearchParams();
-      params.append("projectId", selectedProjectId || 'all');
+      params.append("project_id", selectedProjectId || 'all');
       
       if (filterValues.dateRange?.from) {
         params.append("dateFrom", format(new Date(filterValues.dateRange.from), 'yyyy-MM-dd'));
@@ -377,7 +377,7 @@ export default function AxionReports() {
           onRefresh={refetch}
           onReset={() => {
             setSearchValue("");
-            setFilterValues({ dateRange: null, workerId: "all" });
+            setFilterValues({ dateRange: null, worker_id: "all" });
             setSelectedWorkerId(null);
           }}
           actions={[

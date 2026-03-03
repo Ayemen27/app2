@@ -194,7 +194,7 @@ export class GoogleDriveService {
         id: f.id,
         name: f.name,
         sizeMB: f.size ? (parseInt(f.size) / 1024 / 1024).toFixed(2) : '0',
-        createdAt: f.createdTime,
+        created_at: f.createdTime,
         webViewLink: f.webViewLink,
         webContentLink: f.webContentLink,
       }));

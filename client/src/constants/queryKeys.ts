@@ -23,8 +23,8 @@ export const QUERY_KEYS = {
   equipmentMovements: ["equipment-movements"] as const,
   wells: ["wells"] as const,
   recentActivities: ["/api/recent-activities"] as const,
-  recentActivitiesByProject: (projectId: string) =>
-    ["/api/recent-activities", projectId] as const,
+  recentActivitiesByProject: (project_id: string) =>
+    ["/api/recent-activities", project_id] as const,
   healthFull: ["/api/health/full"] as const,
   incidents: ["/api/incidents"] as const,
   metricsSummary: ["/api/metrics/summary"] as const,
@@ -41,55 +41,55 @@ export const QUERY_KEYS = {
   syncAuditLogsFiltered: (params: Record<string, any>) =>
     ["/api/sync-audit/logs", params] as const,
 
-  projectTransportation: (projectId: string, date?: string, dateRange?: string) =>
-    ["/api/projects", projectId, "transportation", date, dateRange].filter(Boolean) as string[],
+  projectTransportation: (project_id: string, date?: string, dateRange?: string) =>
+    ["/api/projects", project_id, "transportation", date, dateRange].filter(Boolean) as string[],
 
-  projectFundTransfersFiltered: (projectId: string, isAllProjects?: boolean) =>
-    ["/api/projects", projectId, "fund-transfers", isAllProjects].filter(v => v !== undefined) as any[],
-  projectFundTransfersIncoming: (projectId: string, isAllProjects?: boolean) =>
-    ["/api/projects", projectId, "fund-transfers", "incoming", isAllProjects].filter(v => v !== undefined) as any[],
-  projectFundTransfersOutgoing: (projectId: string, isAllProjects?: boolean) =>
-    ["/api/projects", projectId, "fund-transfers", "outgoing", isAllProjects].filter(v => v !== undefined) as any[],
-  projectWorkerAttendanceFiltered: (projectId: string, isAllProjects?: boolean) =>
-    ["/api/projects", projectId, "worker-attendance", isAllProjects].filter(v => v !== undefined) as any[],
-  projectMaterialPurchasesFiltered: (projectId: string, isAllProjects?: boolean) =>
-    ["/api/projects", projectId, "material-purchases", isAllProjects].filter(v => v !== undefined) as any[],
-  transportationExpensesFiltered: (isAllProjects?: boolean, projectId?: string) =>
-    ["/api/transportation-expenses", isAllProjects, projectId].filter(v => v !== undefined) as any[],
-  workerMiscExpensesFiltered: (projectId?: string, date?: string) =>
-    ["/api/worker-misc-expenses", projectId, date].filter(Boolean) as string[],
-  workerTransfersFiltered: (projectId: string, isAllProjects?: boolean) =>
-    ["/api/worker-transfers", projectId, isAllProjects].filter(v => v !== undefined) as any[],
-  workerStats: (workerId: string, projectId?: string) =>
-    ["/api/workers", workerId, "stats", projectId].filter(Boolean) as string[],
-  projectAttendance: (projectId: string) =>
-    ["/api/projects", projectId, "attendance"] as const,
+  projectFundTransfersFiltered: (project_id: string, isAllProjects?: boolean) =>
+    ["/api/projects", project_id, "fund-transfers", isAllProjects].filter(v => v !== undefined) as any[],
+  projectFundTransfersIncoming: (project_id: string, isAllProjects?: boolean) =>
+    ["/api/projects", project_id, "fund-transfers", "incoming", isAllProjects].filter(v => v !== undefined) as any[],
+  projectFundTransfersOutgoing: (project_id: string, isAllProjects?: boolean) =>
+    ["/api/projects", project_id, "fund-transfers", "outgoing", isAllProjects].filter(v => v !== undefined) as any[],
+  projectWorkerAttendanceFiltered: (project_id: string, isAllProjects?: boolean) =>
+    ["/api/projects", project_id, "worker-attendance", isAllProjects].filter(v => v !== undefined) as any[],
+  projectMaterialPurchasesFiltered: (project_id: string, isAllProjects?: boolean) =>
+    ["/api/projects", project_id, "material-purchases", isAllProjects].filter(v => v !== undefined) as any[],
+  transportationExpensesFiltered: (isAllProjects?: boolean, project_id?: string) =>
+    ["/api/transportation-expenses", isAllProjects, project_id].filter(v => v !== undefined) as any[],
+  workerMiscExpensesFiltered: (project_id?: string, date?: string) =>
+    ["/api/worker-misc-expenses", project_id, date].filter(Boolean) as string[],
+  workerTransfersFiltered: (project_id: string, isAllProjects?: boolean) =>
+    ["/api/worker-transfers", project_id, isAllProjects].filter(v => v !== undefined) as any[],
+  workerStats: (worker_id: string, project_id?: string) =>
+    ["/api/workers", worker_id, "stats", project_id].filter(Boolean) as string[],
+  projectAttendance: (project_id: string) =>
+    ["/api/projects", project_id, "attendance"] as const,
   dailyExpensesComplex: (projectSelector: string, dateKey?: string, date?: string) =>
     ["/api/projects", projectSelector, dateKey, date].filter(Boolean) as string[],
 
-  materialPurchases: (projectId: string, date?: string) =>
-    ["/api/projects", projectId, "material-purchases", date].filter(Boolean) as string[],
+  materialPurchases: (project_id: string, date?: string) =>
+    ["/api/projects", project_id, "material-purchases", date].filter(Boolean) as string[],
 
-  workerAttendance: (projectId: string, date?: string) =>
-    ["/api/projects", projectId, "worker-attendance", date].filter(Boolean) as string[],
+  workerAttendance: (project_id: string, date?: string) =>
+    ["/api/projects", project_id, "worker-attendance", date].filter(Boolean) as string[],
 
-  workerAttendanceAll: (projectId: string) =>
-    ["/api/projects", projectId, "worker-attendance"] as const,
+  workerAttendanceAll: (project_id: string) =>
+    ["/api/projects", project_id, "worker-attendance"] as const,
 
-  dailyExpenses: (projectId: string, date?: string) =>
-    ["/api/projects", projectId, "daily-expenses", date].filter(Boolean) as string[],
+  dailyExpenses: (project_id: string, date?: string) =>
+    ["/api/projects", project_id, "daily-expenses", date].filter(Boolean) as string[],
 
-  previousBalance: (projectId: string, date?: string) =>
-    ["/api/projects", projectId, "previous-balance", date].filter(Boolean) as string[],
+  previousBalance: (project_id: string, date?: string) =>
+    ["/api/projects", project_id, "previous-balance", date].filter(Boolean) as string[],
 
-  dailySummary: (projectId: string, date?: string) =>
-    ["/api/projects", projectId, "daily-summary", date].filter(Boolean) as string[],
+  dailySummary: (project_id: string, date?: string) =>
+    ["/api/projects", project_id, "daily-summary", date].filter(Boolean) as string[],
 
-  projectStats: (projectId: string) =>
-    ["/api/projects", projectId, "stats"] as const,
+  projectStats: (project_id: string) =>
+    ["/api/projects", project_id, "stats"] as const,
 
-  workerTransfers: (projectId: string) =>
-    ["/api/worker-transfers", projectId] as const,
+  workerTransfers: (project_id: string) =>
+    ["/api/worker-transfers", project_id] as const,
 
   projectFundTransfers: ["/api/project-fund-transfers"] as const,
   allFundTransfers: ["/api/projects/all/fund-transfers"] as const,
@@ -102,35 +102,35 @@ export const QUERY_KEYS = {
   materialPurchasesFiltered: (...params: string[]) =>
     ["/api/material-purchases", ...params] as const,
 
-  dailyProjectTransfers: (projectId: string, date?: string) =>
-    ["/api/daily-project-transfers", projectId, date].filter(Boolean) as string[],
+  dailyProjectTransfers: (project_id: string, date?: string) =>
+    ["/api/daily-project-transfers", project_id, date].filter(Boolean) as string[],
 
   dailyExpenseSummaries: ["/api/daily-expense-summaries"] as const,
 
-  wellTasks: (wellId: string) =>
-    ["well-tasks", wellId] as const,
-  wellExpenses: (wellId: string) =>
-    ["well-expenses", wellId] as const,
-  wellCostReport: (wellId: string) =>
-    ["well-cost-report", wellId] as const,
-  wellById: (wellId: string) =>
-    ["well", wellId] as const,
-  wellsByProject: (projectId: string) =>
-    ["wells", projectId] as const,
+  wellTasks: (well_id: string) =>
+    ["well-tasks", well_id] as const,
+  wellExpenses: (well_id: string) =>
+    ["well-expenses", well_id] as const,
+  wellCostReport: (well_id: string) =>
+    ["well-cost-report", well_id] as const,
+  wellById: (well_id: string) =>
+    ["well", well_id] as const,
+  wellsByProject: (project_id: string) =>
+    ["wells", project_id] as const,
 
   autocompleteCategory: (category: string) =>
     ["autocomplete", category] as const,
-  autocompleteOwnerNames: (projectId: string) =>
-    ["autocomplete/ownerNames", projectId] as const,
-  autocompleteFanTypes: (projectId: string) =>
-    ["autocomplete/fanTypes", projectId] as const,
-  autocompletePumpPowers: (projectId: string) =>
-    ["autocomplete/pumpPowers", projectId] as const,
-  autocompleteTaskDescriptions: (projectId: string) =>
-    ["autocomplete/taskDescriptions", projectId] as const,
+  autocompleteOwnerNames: (project_id: string) =>
+    ["autocomplete/ownerNames", project_id] as const,
+  autocompleteFanTypes: (project_id: string) =>
+    ["autocomplete/fanTypes", project_id] as const,
+  autocompletePumpPowers: (project_id: string) =>
+    ["autocomplete/pumpPowers", project_id] as const,
+  autocompleteTaskDescriptions: (project_id: string) =>
+    ["autocomplete/taskDescriptions", project_id] as const,
 
-  notificationsByUser: (userId: string) =>
-    ["/api/notifications", userId] as const,
+  notificationsByUser: (user_id: string) =>
+    ["/api/notifications", user_id] as const,
 
   adminNotifications: (...params: any[]) =>
     ["admin-notifications", ...params] as const,
@@ -154,13 +154,13 @@ export const QUERY_KEYS = {
   securityViolations: ["/api/security/violations"] as const,
   securitySuggestions: ["/api/security/suggestions"] as const,
 
-  projectCosts: (projectId: string) =>
-    ["project-costs", projectId] as const,
+  projectCosts: (project_id: string) =>
+    ["project-costs", project_id] as const,
 
   errorLogs: ["/api/error-logs"] as const,
   usersWithRoles: ["/api/users", "with-roles"] as const,
-  workerStatsSimple: (workerId: string) =>
-    ["/api/workers", workerId, "stats"] as const,
+  workerStatsSimple: (worker_id: string) =>
+    ["/api/workers", worker_id, "stats"] as const,
 
   equipmentFiltered: (...params: any[]) =>
     ["equipment", ...params] as const,

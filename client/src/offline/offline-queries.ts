@@ -114,7 +114,7 @@ export async function cleanupOldLocalData(maxAge: number = 30 * 24 * 60 * 60 * 1
     for (const store of Object.values(ENTITY_STORES)) {
       const allRecords = await smartGetAll(store);
       for (const record of allRecords) {
-        if (record.createdAt && record.createdAt < cutoffTime) {
+        if (record.created_at && record.created_at < cutoffTime) {
           await smartDelete(store, record.id);
         }
       }

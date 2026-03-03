@@ -18,7 +18,7 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface Well {
   id: number;
-  projectId: string;
+  project_id: string;
   wellNumber: number;
   ownerName: string;
   region: string;
@@ -35,7 +35,7 @@ interface Well {
   completionDate?: string;
   notes?: string;
   createdBy: string;
-  createdAt: string;
+  created_at: string;
 }
 
 const REGIONS = [
@@ -128,7 +128,7 @@ export default function WellsPage() {
     queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      const response = await apiRequest(`/api/wells?projectId=${selectedProjectId}`);
+      const response = await apiRequest(`/api/wells?project_id=${selectedProjectId}`);
       return response.data || [];
     },
     enabled: !!selectedProjectId,
@@ -221,7 +221,7 @@ export default function WellsPage() {
       }
       return apiRequest('/api/wells', 'POST', {
         ...data,
-        projectId: selectedProjectId
+        project_id: selectedProjectId
       });
     },
     onSuccess: () => {
@@ -248,7 +248,7 @@ export default function WellsPage() {
       if (!selectedWell?.id) throw new Error('معرف البئر غير موجود');
       return apiRequest(`/api/wells/${selectedWell.id}`, 'PUT', {
         ...data,
-        projectId: selectedProjectId
+        project_id: selectedProjectId
       });
     },
     onSuccess: () => {
@@ -271,8 +271,8 @@ export default function WellsPage() {
 
   // حذف بئر
   const deleteWellMutation = useMutation({
-    mutationFn: async (wellId: number) => {
-      return apiRequest(`/api/wells/${wellId}`, 'DELETE');
+    mutationFn: async (well_id: number) => {
+      return apiRequest(`/api/wells/${well_id}`, 'DELETE');
     },
     onSuccess: () => {
       toast({

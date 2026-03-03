@@ -78,7 +78,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
             accessToken: emergencyResult.data.accessToken,
             refreshToken: emergencyResult.data.refreshToken,
             user: {
-              id: emergencyResult.data.userId,
+              id: emergencyResult.data.user_id,
               email: emergencyResult.data.email,
               name: emergencyResult.data.name,
               role: emergencyResult.data.role,
@@ -117,11 +117,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً (إلا إذا كان دور المستخدم مسؤولاً أو طوارئ)
-    if (!user.emailVerifiedAt && user.role !== 'admin' && user.role !== 'emergency') {
+    if (!user.email_verified_at && user.role !== 'admin' && user.role !== 'emergency') {
       console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
 
       // إرسال رمز تحقق جديد تلقائياً في الخلفية (بدون انتظار)
-      const userFullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || undefined;
+      const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
       void sendVerificationEmail(
         user.id,
         user.email,
@@ -139,7 +139,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         requireEmailVerification: true,
         message: 'يجب التحقق من بريدك الإلكتروني أولاً قبل تسجيل الدخول. تم إرسال رمز تحقق جديد',
         data: {
-          userId: user.id,
+          user_id: user.id,
           email: user.email,
           needsVerification: true
         }
@@ -168,7 +168,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     );
 
     console.log('✅ [AUTH-DEBUG] تم توليد زوج الرموز بنجاح:', {
-      userId: user.id,
+      user_id: user.id,
       accessTokenLength: tokenPair.accessToken?.length || 0,
       refreshTokenLength: tokenPair.refreshToken?.length || 0
     });
@@ -193,15 +193,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       refreshToken: tokenPair.refreshToken, 
       user: {
         id: user.id,
-        userId: user.id,
+        user_id: user.id,
         email: user.email,
-        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         role: user.role || 'user',
-        emailVerified: !!user.emailVerifiedAt
+        emailVerified: !!user.email_verified_at
       },
-      userId: user.id,
+      user_id: user.id,
       email: user.email,
-      name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
       role: user.role || 'user',
       tokens: {
         accessToken: tokenPair.accessToken,
@@ -212,7 +212,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       expiresIn: 900,
       expires_in: 900,
       token_type: "Bearer",
-      emailVerified: !!user.emailVerifiedAt,
+      emailVerified: !!user.email_verified_at,
       data: {
         token: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,
@@ -220,9 +220,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           role: user.role || 'user',
-          emailVerified: !!user.emailVerifiedAt
+          emailVerified: !!user.email_verified_at
         },
         triggerSync: true,
         initialSyncDelay: 1000
@@ -230,7 +230,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     };
 
     console.log('📤 [AUTH-DEBUG] إرسال الاستجابة النهائية:', {
-      userId: user.id,
+      user_id: user.id,
       hasToken: !!responseData.token,
       tokenPreview: responseData.token ? (responseData.token.substring(0, 10) + '...') : 'null',
       timestamp: new Date().toISOString()
@@ -256,9 +256,9 @@ authRouter.post('/register', async (req: Request, res: Response) => {
   try {
     console.log('📝 [AUTH] محاولة تسجيل حساب جديد:', { email: req.body.email });
 
-    const { email, password, fullName, phone, birthDate, birthPlace, gender } = req.body;
+    const { email, password, full_name, phone, birth_date, birth_place, gender } = req.body;
 
-    if (!email || !password || !fullName) {
+    if (!email || !password || !full_name) {
       return res.status(400).json({
         success: false,
         message: 'الحقول الأساسية (البريد، كلمة المرور، الاسم الكامل) مطلوبة'
@@ -283,14 +283,14 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const hashedPassword = await hashPassword(password);
 
     // إنشاء المستخدم الجديد
-    // تقسيم fullName إلى firstName و lastName (للتوافق مع الحقول القديمة)
-    const names = fullName.trim().split(/\s+/);
-    const firstName = names[0] || '';
-    const lastName = names.slice(1).join(' ') || '';
+    // تقسيم full_name إلى first_name و last_name (للتوافق مع الحقول القديمة)
+    const names = full_name.trim().split(/\s+/);
+    const first_name = names[0] || '';
+    const last_name = names.slice(1).join(' ') || '';
 
     const newUserResult = await db.execute({
       text: `INSERT INTO users (
-        email, password, firstName, lastName, fullName, 
+        email, password, first_name, last_name, full_name, 
         phone, birth_date, birth_place, gender, 
         role, is_active, created_at
       )
@@ -299,16 +299,16 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         $6, $7, $8, $9, 
         'user', true, NOW()
       )
-      RETURNING id, email, fullName, created_at`,
-      values: [email, hashedPassword, firstName, lastName, fullName, phone || null, birthDate || null, birthPlace || null, gender || null]
+      RETURNING id, email, full_name, created_at`,
+      values: [email, hashedPassword, first_name, last_name, full_name, phone || null, birth_date || null, birth_place || null, gender || null]
     });
 
     const newUser = newUserResult.rows[0] as any;
 
     console.log('✅ [AUTH] تم إنشاء حساب جديد:', { 
-      userId: newUser.id, 
+      user_id: newUser.id, 
       email: newUser.email,
-      fullName: `${newUser.firstName || ''} ${newUser.lastName || ''}`.trim()
+      full_name: `${newUser.first_name || ''} ${newUser.last_name || ''}`.trim()
     });
 
     // إرسال رمز التحقق من البريد الإلكتروني في الخلفية (بدون انتظار)
@@ -317,7 +317,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       newUser.email,
       req.ip || 'unknown',
       req.get('user-agent') || 'unknown',
-      fullName  // تمرير الاسم مباشرة من نموذج التسجيل - بدون استعلام إضافي
+      full_name  // تمرير الاسم مباشرة من نموذج التسجيل - بدون استعلام إضافي
     ).then(emailResult => {
       console.log('📧 [AUTH] نتيجة إرسال بريد التحقق:', emailResult);
     }).catch(emailError => {
@@ -332,8 +332,8 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         user: {
           id: newUser.id,
           email: newUser.email,
-          fullName: newUser.fullName,
-          createdAt: newUser.created_at
+          full_name: newUser.full_name,
+          created_at: newUser.created_at
         }
       }
     });
@@ -358,7 +358,7 @@ authRouter.get('/users', requireAuth, async (req: Request, res: Response) => {
     console.log('👥 [AUTH] طلب جلب قائمة المستخدمين', { includeRole });
 
     const result = await db.execute({
-      text: 'SELECT id, email, firstName as "firstName", lastName as "lastName", fullName as "fullName", role, is_active as "isActive" FROM users ORDER BY fullName ASC'
+      text: 'SELECT id, email, first_name as "first_name", last_name as "last_name", full_name as "full_name", role, is_active as "is_active" FROM users ORDER BY full_name ASC'
     });
 
     res.json({
@@ -494,8 +494,8 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       // البحث عن المستخدم مرة أخرى للتأكد
       const userResult = await db.execute({
-        text: 'SELECT id, email, role, firstName, lastName, created_at FROM users WHERE id = $1',
-        values: [decoded.userId || decoded.id]
+        text: 'SELECT id, email, role, first_name, last_name, created_at FROM users WHERE id = $1',
+        values: [decoded.user_id || decoded.id]
       });
 
       if (userResult.rows.length === 0) {
@@ -517,7 +517,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
         { deviceId: 'mobile-rotation' }
       );
 
-      console.log('✅ [AUTH] تم تجديد الرموز بنجاح (تدوير):', { userId: user.id });
+      console.log('✅ [AUTH] تم تجديد الرموز بنجاح (تدوير):', { user_id: user.id });
 
       // إذا كان الطلب من الويب (بواسطة الكوكيز)، نقوم بتحديث الكوكي أيضاً
       if (cookieToken) {
@@ -538,7 +538,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           role: user.role || 'user'
         }
       };
@@ -565,15 +565,15 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
 /**
  * 📧 تحقق من البريد الإلكتروني - GET (من الرابط في البريل)
- * GET /api/auth/verify-email?userId=...&token=...
+ * GET /api/auth/verify-email?user_id=...&token=...
  */
 authRouter.get('/verify-email', async (req: Request, res: Response) => {
   try {
     console.log('📧 [AUTH] GET طلب تحقق من البريد الإلكتروني من الرابط');
 
-    const { userId, token } = req.query;
+    const { user_id, token } = req.query;
 
-    if (!userId || !token) {
+    if (!user_id || !token) {
       return res.status(400).json({
         success: false,
         message: 'معرف المستخدم ورمز التحقق مطلوبان'
@@ -581,17 +581,17 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
     }
 
     // التحقق من الرمز
-    const result = await verifyEmailToken(userId as string, token as string);
+    const result = await verifyEmailToken(user_id as string, token as string);
 
     console.log('📧 [AUTH] نتيجة التحقق:', result);
 
     if (result.success) {
-      console.log('✅ [AUTH] تم التحقق من البريد بنجاح (GET):', { userId });
+      console.log('✅ [AUTH] تم التحقق من البريد بنجاح (GET):', { user_id });
       
       // جلب بيانات المستخدم المحدثة
       const userResult = await db.execute({
-        text: 'SELECT id, email, role, firstName, lastName FROM users WHERE id = $1',
-        values: [userId]
+        text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
+        values: [user_id]
       });
       const user = userResult.rows[0] as any;
 
@@ -601,7 +601,7 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           role: user.role || 'user',
           emailVerified: true
         }
@@ -632,9 +632,9 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
   try {
     console.log('📧 [AUTH] POST طلب تحقق من البريد الإلكتروني');
 
-    const { userId, code } = req.body;
+    const { user_id, code } = req.body;
 
-    if (!userId || !code) {
+    if (!user_id || !code) {
       return res.status(400).json({
         success: false,
         message: 'معرف المستخدم ورمز التحقق مطلوبان'
@@ -642,15 +642,15 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
     }
 
     // التحقق من الرمز
-    const result = await verifyEmailToken(userId, code);
+    const result = await verifyEmailToken(user_id, code);
 
     if (result.success) {
-      console.log('✅ [AUTH] تم التحقق من البريد بنجاح (POST):', { userId });
+      console.log('✅ [AUTH] تم التحقق من البريد بنجاح (POST):', { user_id });
       
       // جلب بيانات المستخدم المحدثة
       const userResult = await db.execute({
-        text: 'SELECT id, email, role, firstName, lastName FROM users WHERE id = $1',
-        values: [userId]
+        text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
+        values: [user_id]
       });
       const user = userResult.rows[0] as any;
 
@@ -660,7 +660,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
         user: {
           id: user.id,
           email: user.email,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
           role: user.role || 'user',
           emailVerified: true
         }
@@ -691,9 +691,9 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب إعادة إرسال رمز التحقق');
 
-    const { userId, email } = req.body;
+    const { user_id, email } = req.body;
 
-    if (!userId || !email) {
+    if (!user_id || !email) {
       return res.status(400).json({
         success: false,
         message: 'معرف المستخدم والبريد الإلكتروني مطلوبان'
@@ -702,12 +702,12 @@ authRouter.post('/resend-verification', async (req: Request, res: Response) => {
 
     // إرسال رمز تحقق جديد في الخلفية (بدون انتظار)
     void sendVerificationEmail(
-      userId,
+      user_id,
       email,
       req.ip || 'unknown',
       req.get('user-agent') || 'unknown'
     ).then(result => {
-      console.log('✅ [AUTH] تم إعادة إرسال رمز التحقق بنجاح:', { userId, email, success: result.success });
+      console.log('✅ [AUTH] تم إعادة إرسال رمز التحقق بنجاح:', { user_id, email, success: result.success });
     }).catch(error => {
       console.error('❌ [AUTH] فشل في إعادة إرسال رمز التحقق:', error);
     });
@@ -824,35 +824,35 @@ authRouter.get('/users', requireAuth, async (req: any, res: Response) => {
       conditions.push(
         or(
           like(users.email, `%${search}%`),
-          like(users.firstName, `%${search}%`),
-          like(users.lastName, `%${search}%`)
+          like(users.first_name, `%${search}%`),
+          like(users.last_name, `%${search}%`)
         )
       );
     }
     if (role) conditions.push(eq(users.role, role as string));
-    if (status === 'active') conditions.push(eq(users.isActive, true));
-    if (status === 'inactive') conditions.push(eq(users.isActive, false));
-    if (verified === 'verified') conditions.push(sql`${users.emailVerifiedAt} IS NOT NULL`);
-    if (verified === 'unverified') conditions.push(sql`${users.emailVerifiedAt} IS NULL`);
+    if (status === 'active') conditions.push(eq(users.is_active, true));
+    if (status === 'inactive') conditions.push(eq(users.is_active, false));
+    if (verified === 'verified') conditions.push(sql`${users.email_verified_at} IS NOT NULL`);
+    if (verified === 'unverified') conditions.push(sql`${users.email_verified_at} IS NULL`);
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as any;
     }
 
     console.log('📊 [AUTH/users] تنفيذ الاستعلام...');
-    const usersList = await query.orderBy(desc(users.createdAt));
+    const usersList = await query.orderBy(desc(users.created_at));
     console.log(`✅ [AUTH/users] تم جلب ${usersList.length} مستخدم من قاعدة البيانات`);
 
     const sanitizedUsers = usersList.map((u: any) => ({
       id: u.id,
       email: u.email,
-      firstName: u.firstName,
-      lastName: u.lastName,
+      first_name: u.first_name,
+      last_name: u.last_name,
       role: u.role,
-      isActive: u.isActive,
-      emailVerifiedAt: u.emailVerifiedAt,
-      lastLogin: u.lastLogin,
-      createdAt: u.createdAt,
+      is_active: u.is_active,
+      email_verified_at: u.email_verified_at,
+      last_login: u.last_login,
+      created_at: u.created_at,
     }));
 
     console.log('📤 [AUTH/users] إرسال الاستجابة:', { 
@@ -861,7 +861,7 @@ authRouter.get('/users', requireAuth, async (req: any, res: Response) => {
       sampleUser: sanitizedUsers[0] ? {
         id: sanitizedUsers[0].id,
         email: sanitizedUsers[0].email,
-        firstName: sanitizedUsers[0].firstName
+        first_name: sanitizedUsers[0].first_name
       } : 'لا يوجد مستخدمين'
     });
 
@@ -874,22 +874,22 @@ authRouter.get('/users', requireAuth, async (req: any, res: Response) => {
 
 /**
  * تحديث مستخدم
- * PATCH /api/auth/users/:userId
+ * PATCH /api/auth/users/:user_id
  */
-authRouter.patch('/users/:userId', requireAuth, async (req: any, res: Response) => {
+authRouter.patch('/users/:user_id', requireAuth, async (req: any, res: Response) => {
   try {
     if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'غير مصرح' });
     }
 
-    const { userId } = req.params;
-    const { firstName, lastName, role, isActive } = req.body;
+    const { user_id } = req.params;
+    const { first_name, last_name, role, is_active } = req.body;
 
     const updateData: any = {};
-    if (firstName !== undefined) updateData.firstName = firstName;
-    if (lastName !== undefined) updateData.lastName = lastName;
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name !== undefined) updateData.last_name = last_name;
     if (role !== undefined) updateData.role = role;
-    if (isActive !== undefined) updateData.isActive = isActive;
+    if (is_active !== undefined) updateData.is_active = is_active;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ success: false, message: 'لا توجد بيانات للتحديث' });
@@ -898,7 +898,7 @@ authRouter.patch('/users/:userId', requireAuth, async (req: any, res: Response) 
     await db
       .update(users)
       .set(updateData)
-      .where(eq(users.id, userId));
+      .where(eq(users.id, user_id));
 
     return res.json({ success: true, message: 'تم تحديث المستخدم بنجاح' });
   } catch (error) {
@@ -909,22 +909,22 @@ authRouter.patch('/users/:userId', requireAuth, async (req: any, res: Response) 
 
 /**
  * حذف مستخدم
- * DELETE /api/auth/users/:userId
+ * DELETE /api/auth/users/:user_id
  */
-authRouter.delete('/users/:userId', requireAuth, async (req: any, res: Response) => {
+authRouter.delete('/users/:user_id', requireAuth, async (req: any, res: Response) => {
   try {
     const userRole = req.user?.role;
     if (userRole !== 'admin' && userRole !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'يتطلب صلاحيات المدير أو المدير الأول' });
     }
 
-    const { userId } = req.params;
+    const { user_id } = req.params;
 
-    if (userId === req.user.userId) {
+    if (user_id === req.user.user_id) {
       return res.status(400).json({ success: false, message: 'لا يمكنك حذف حسابك الخاص' });
     }
 
-    await db.delete(users).where(eq(users.id, userId));
+    await db.delete(users).where(eq(users.id, user_id));
 
     return res.json({ success: true, message: 'تم حذف المستخدم بنجاح' });
   } catch (error) {
@@ -935,25 +935,25 @@ authRouter.delete('/users/:userId', requireAuth, async (req: any, res: Response)
 
 /**
  * تبديل حالة المستخدم
- * POST /api/auth/users/:userId/toggle-status
+ * POST /api/auth/users/:user_id/toggle-status
  */
-authRouter.post('/users/:userId/toggle-status', requireAuth, async (req: any, res: Response) => {
+authRouter.post('/users/:user_id/toggle-status', requireAuth, async (req: any, res: Response) => {
   try {
     if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'غير مصرح' });
     }
 
-    const { userId } = req.params;
-    const { isActive } = req.body;
+    const { user_id } = req.params;
+    const { is_active } = req.body;
 
-    if (userId === req.user.userId) {
+    if (user_id === req.user.user_id) {
       return res.status(400).json({ success: false, message: 'لا يمكنك تعطيل حسابك الخاص' });
     }
 
     await db
       .update(users)
-      .set({ isActive })
-      .where(eq(users.id, userId));
+      .set({ is_active })
+      .where(eq(users.id, user_id));
 
     return res.json({ success: true, message: 'تم تحديث حالة المستخدم' });
   } catch (error) {

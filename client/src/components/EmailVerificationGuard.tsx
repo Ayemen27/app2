@@ -44,7 +44,7 @@ export default function EmailVerificationGuard({ children }: EmailVerificationGu
     console.log('🚫 [EmailVerificationGuard] المستخدم لم يتم التحقق من البريد، توجيه للتحقق');
     return (
       <Redirect 
-        to={`/verify-email?userId=${user.id}&email=${encodeURIComponent(user.email)}`} 
+        to={`/verify-email?user_id=${user.id}&email=${encodeURIComponent(user.email)}`} 
       />
     );
   }

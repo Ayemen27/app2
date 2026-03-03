@@ -33,7 +33,7 @@ export interface WorkerStats {
 }
 
 export interface ProjectFinancialSummary {
-  projectId: string;
+  project_id: string;
   projectName: string;
   status: string;
   description: string | null;
@@ -71,7 +71,7 @@ export interface AllProjectsSummary {
 }
 
 interface UseFinancialSummaryOptions {
-  projectId?: string | null;
+  project_id?: string | null;
   date?: string | null;
   dateFrom?: string | null;
   dateTo?: string | null;
@@ -79,10 +79,10 @@ interface UseFinancialSummaryOptions {
 }
 
 export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
-  const { projectId, date, dateFrom, dateTo, enabled = true } = options;
+  const { project_id, date, dateFrom, dateTo, enabled = true } = options;
 
-  const queryKey = projectId && projectId !== 'all'
-    ? ["/api/financial-summary", projectId, date, dateFrom, dateTo]
+  const queryKey = project_id && project_id !== 'all'
+    ? ["/api/financial-summary", project_id, date, dateFrom, dateTo]
     : ["/api/financial-summary", "all", date, dateFrom, dateTo];
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -92,8 +92,8 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
         let url = "/api/financial-summary";
         const params = new URLSearchParams();
 
-        if (projectId && projectId !== 'all') {
-          params.append("projectId", projectId);
+        if (project_id && project_id !== 'all') {
+          params.append("project_id", project_id);
         }
         if (date) {
           params.append("date", date);
@@ -126,7 +126,7 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
     refetchOnMount: 'always',
   });
 
-  const isAllProjects = !projectId || projectId === 'all';
+  const isAllProjects = !project_id || project_id === 'all';
 
   if (isAllProjects && data) {
     const allProjectsData = data as AllProjectsSummary;

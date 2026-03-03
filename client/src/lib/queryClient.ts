@@ -543,8 +543,8 @@ export function clearAllCache() {
   queryClient.clear();
 }
 
-export async function invalidateAllProjectData(projectId?: string) {
-  console.log('⚡ [QueryClient] تحديث فوري لجميع بيانات المشروع:', projectId);
+export async function invalidateAllProjectData(project_id?: string) {
+  console.log('⚡ [QueryClient] تحديث فوري لجميع بيانات المشروع:', project_id);
   
   const startTime = Date.now();
   
@@ -574,12 +574,12 @@ export async function invalidateAllProjectData(projectId?: string) {
     })
   );
 
-  if (projectId && projectId !== 'all') {
+  if (project_id && project_id !== 'all') {
     invalidatePromises.push(
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
-          return Array.isArray(key) && key.some(k => String(k) === projectId);
+          return Array.isArray(key) && key.some(k => String(k) === project_id);
         },
         refetchType: 'all'
       })
@@ -597,23 +597,23 @@ export async function invalidateAllProjectData(projectId?: string) {
   console.log(`✅ [QueryClient] تم تحديث جميع البيانات في ${duration}ms`);
 }
 
-export function invalidateDateRelatedData(projectId: string, date: string) {
-  console.log('🔄 [QueryClient] تحديث فوري لبيانات التاريخ:', { projectId, date });
+export function invalidateDateRelatedData(project_id: string, date: string) {
+  console.log('🔄 [QueryClient] تحديث فوري لبيانات التاريخ:', { project_id, date });
   
   queryClient.invalidateQueries({ 
-    queryKey: QUERY_KEYS.dailyExpenses(projectId, date),
+    queryKey: QUERY_KEYS.dailyExpenses(project_id, date),
     refetchType: 'active'
   });
   queryClient.invalidateQueries({ 
-    queryKey: QUERY_KEYS.previousBalance(projectId, date),
+    queryKey: QUERY_KEYS.previousBalance(project_id, date),
     refetchType: 'active'
   });
   queryClient.invalidateQueries({ 
-    queryKey: QUERY_KEYS.dailySummary(projectId, date),
+    queryKey: QUERY_KEYS.dailySummary(project_id, date),
     refetchType: 'active'
   });
   queryClient.invalidateQueries({ 
-    queryKey: QUERY_KEYS.dailyProjectTransfers(projectId, date),
+    queryKey: QUERY_KEYS.dailyProjectTransfers(project_id, date),
     refetchType: 'active'
   });
 }

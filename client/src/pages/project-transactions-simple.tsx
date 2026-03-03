@@ -42,7 +42,7 @@ interface Transaction {
   category: string;
   amount: number;
   description: string;
-  projectId?: string;
+  project_id?: string;
   projectName?: string;
   workDays?: number;
   dailyWage?: number;
@@ -70,7 +70,7 @@ export default function ProjectTransactionsSimple() {
 
   // استخدام الملخص المالي الموحد من ExpenseLedgerService
   const { totals: financialTotals, isLoading: financialLoading } = useFinancialSummary({
-    projectId: selectedProject || 'all',
+    project_id: selectedProject || 'all',
     enabled: true
   });
 
@@ -169,7 +169,7 @@ export default function ProjectTransactionsSimple() {
             try {
               const data = await apiRequest(`/api/projects/${project.id}/fund-transfers`);
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+              allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
               console.error(`❌ خطأ في جلب تحويلات عهدة المشروع ${project.id}:`, e);
             }
@@ -299,7 +299,7 @@ export default function ProjectTransactionsSimple() {
             try {
               const data = await apiRequest(`/api/projects/${project.id}/worker-attendance`);
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+              allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
               console.error(`❌ خطأ في جلب حضور المشروع ${project.id}:`, e);
             }
@@ -343,7 +343,7 @@ export default function ProjectTransactionsSimple() {
               if (response.ok) {
                 const data = await response.json();
                 const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-                allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+                allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
               }
             } catch (e) {
               console.error(`❌ خطأ في جلب مشتريات المشروع ${project.id}:`, e);
@@ -393,9 +393,9 @@ export default function ProjectTransactionsSimple() {
           const allRecords: any[] = [];
           for (const project of projects) {
             try {
-              const data = await apiRequest(`/api/transportation-expenses?projectId=${project.id}`);
+              const data = await apiRequest(`/api/transportation-expenses?project_id=${project.id}`);
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+              allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
               console.error(`❌ خطأ في جلب مصاريف نقل المشروع ${project.id}:`, e);
             }
@@ -405,7 +405,7 @@ export default function ProjectTransactionsSimple() {
         } else {
           let endpoint = '/api/transportation-expenses';
           if (selectedProject) {
-            endpoint = `/api/transportation-expenses?projectId=${selectedProject}`;
+            endpoint = `/api/transportation-expenses?project_id=${selectedProject}`;
           }
           const data = await apiRequest(endpoint);
           const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
@@ -434,9 +434,9 @@ export default function ProjectTransactionsSimple() {
           const allRecords: any[] = [];
           for (const project of projects) {
             try {
-              const data = await apiRequest(`/api/worker-misc-expenses?projectId=${project.id}`);
+              const data = await apiRequest(`/api/worker-misc-expenses?project_id=${project.id}`);
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: project.name })));
+              allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: project.name })));
             } catch (e) {
               console.error(`❌ خطأ في جلب مصاريف المشروع ${project.id}:`, e);
             }
@@ -446,7 +446,7 @@ export default function ProjectTransactionsSimple() {
         } else {
           let endpoint = '/api/worker-misc-expenses';
           if (selectedProject) {
-            endpoint = `/api/worker-misc-expenses?projectId=${selectedProject}`;
+            endpoint = `/api/worker-misc-expenses?project_id=${selectedProject}`;
           }
           const data = await apiRequest(endpoint);
           const expensesData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
@@ -475,9 +475,9 @@ export default function ProjectTransactionsSimple() {
           const allRecords: any[] = [];
           for (const project of projects) {
             try {
-              const data = await apiRequest(`/api/worker-transfers?projectId=${project.id}`);
+              const data = await apiRequest(`/api/worker-transfers?project_id=${project.id}`);
               const records = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-              allRecords.push(...records.map((r: any) => ({ ...r, projectId: project.id, projectName: r.projectName || project.name })));
+              allRecords.push(...records.map((r: any) => ({ ...r, project_id: project.id, projectName: r.projectName || project.name })));
             } catch (e) {
               console.error(`❌ خطأ في جلب حوالات المشروع ${project.id}:`, e);
             }
@@ -487,7 +487,7 @@ export default function ProjectTransactionsSimple() {
         } else {
           const endpoint = !selectedProject
             ? '/api/worker-transfers'
-            : `/api/worker-transfers?projectId=${selectedProject}`;
+            : `/api/worker-transfers?project_id=${selectedProject}`;
           const data = await apiRequest(endpoint);
           const transfersData = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
           console.log(`✅ تم جلب ${transfersData.length} حوالة عمال`);
@@ -513,8 +513,8 @@ export default function ProjectTransactionsSimple() {
     if (isAllProjects) {
       return true; // Show all if 'all projects' is selected
     }
-    // Assuming items have a 'projectId' or similar field, adjust if structure differs
-    return item.projectId === selectedProject;
+    // Assuming items have a 'project_id' or similar field, adjust if structure differs
+    return item.project_id === selectedProject;
   };
 
   // تحويل البيانات إلى قائمة معاملات موحدة
@@ -545,9 +545,9 @@ export default function ProjectTransactionsSimple() {
     });
 
     // Helper function to get project name by id
-    const getProjectName = (projectId: string | number | undefined): string => {
-      if (!projectId) return 'غير محدد';
-      const project = (projects as Project[]).find(p => String(p.id) === String(projectId));
+    const getProjectName = (project_id: string | number | undefined): string => {
+      if (!project_id) return 'غير محدد';
+      const project = (projects as Project[]).find(p => String(p.id) === String(project_id));
       return project?.name || 'غير محدد';
     };
 
@@ -565,8 +565,8 @@ export default function ProjectTransactionsSimple() {
           category: 'تحويل عهدة',
           amount: amount,
           description: `من: ${transfer.senderName || 'غير محدد'}`,
-          projectId: transfer.projectId,
-          projectName: transfer.projectName || getProjectName(transfer.projectId)
+          project_id: transfer.project_id,
+          projectName: transfer.projectName || getProjectName(transfer.project_id)
         });
       }
     });
@@ -587,7 +587,7 @@ export default function ProjectTransactionsSimple() {
             category: '🔄 ترحيل وارد من مشروع',
             amount: amount,
             description: `📥 من مشروع: ${transfer.fromProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`,
-            projectId: transfer.toProjectId,
+            project_id: transfer.toProjectId,
             projectName: transfer.toProjectName || getProjectName(transfer.toProjectId)
           });
         }
@@ -612,7 +612,7 @@ export default function ProjectTransactionsSimple() {
             category: '🔄 ترحيل صادر إلى مشروع',
             amount: amount,
             description: `📤 إلى مشروع: ${transfer.toProjectName || 'مشروع آخر'}${transfer.description ? ` - ${transfer.description}` : ''}`,
-            projectId: transfer.fromProjectId,
+            project_id: transfer.fromProjectId,
             projectName: transfer.fromProjectName || getProjectName(transfer.fromProjectId)
           });
         }
@@ -654,8 +654,8 @@ export default function ProjectTransactionsSimple() {
 
       // عرض السجلات التي لها أيام عمل (سواء مدفوعة أو غير مدفوعة)
       if (date && (payableAmount > 0 || amount > 0)) {
-        // البحث عن العامل باستخدام workerId
-        const worker = Array.isArray(workersArray) ? workersArray.find((w: any) => w.id === attendance.workerId) : undefined;
+        // البحث عن العامل باستخدام worker_id
+        const worker = Array.isArray(workersArray) ? workersArray.find((w: any) => w.id === attendance.worker_id) : undefined;
         const workerName = worker?.name || attendance.workerName || attendance.worker?.name || attendance.name || 'غير محدد';
         const workDaysLabel = attendance.workDays ? ` (${attendance.workDays} يوم)` : '';
         const unpaidLabel = payableAmount > 0 && paidAmount === 0 ? ' - غير مدفوع' : '';
@@ -671,8 +671,8 @@ export default function ProjectTransactionsSimple() {
           workDays: workDaysNum > 0 ? workDaysNum : undefined,
           dailyWage: dailyWage > 0 ? dailyWage : undefined,
           payableAmount: payableAmount > 0 ? payableAmount : undefined,
-          projectId: attendance.projectId,
-          projectName: attendance.projectName || getProjectName(attendance.projectId)
+          project_id: attendance.project_id,
+          projectName: attendance.projectName || getProjectName(attendance.project_id)
         };
 
         allTransactions.push(newTransaction);
@@ -710,8 +710,8 @@ export default function ProjectTransactionsSimple() {
           unitPrice: purchase.unitPrice ? parseFloat(purchase.unitPrice) : undefined,
           paymentType: isDeferred ? 'آجل' : 'نقد',
           supplierName: purchase.supplierName || purchase.supplier?.name || '',
-          projectId: purchase.projectId,
-          projectName: purchase.projectName || getProjectName(purchase.projectId)
+          project_id: purchase.project_id,
+          projectName: purchase.projectName || getProjectName(purchase.project_id)
         });
       }
     });
@@ -731,8 +731,8 @@ export default function ProjectTransactionsSimple() {
           category: 'مواصلات',
           amount: amount,
           description: `نقل: ${expense.description || 'غير محدد'}`,
-          projectId: expense.projectId,
-          projectName: expense.projectName || getProjectName(expense.projectId)
+          project_id: expense.project_id,
+          projectName: expense.projectName || getProjectName(expense.project_id)
         });
       }
     });
@@ -752,8 +752,8 @@ export default function ProjectTransactionsSimple() {
           category: 'نثريات',
           amount: amount,
           description: `متنوع: ${expense.description || expense.workerName || 'غير محدد'}`,
-          projectId: expense.projectId,
-          projectName: expense.projectName || getProjectName(expense.projectId)
+          project_id: expense.project_id,
+          projectName: expense.projectName || getProjectName(expense.project_id)
         });
       }
     });
@@ -765,8 +765,8 @@ export default function ProjectTransactionsSimple() {
       const amount = parseFloat(transfer.amount);
 
       if (date && !isNaN(amount) && amount > 0) {
-        // البحث عن العامل باستخدام workerId
-        const worker = Array.isArray(workersArray) ? workersArray.find((w: any) => w.id === transfer.workerId) : undefined;
+        // البحث عن العامل باستخدام worker_id
+        const worker = Array.isArray(workersArray) ? workersArray.find((w: any) => w.id === transfer.worker_id) : undefined;
         const workerName = worker?.name || transfer.workerName || 'عامل غير معروف';
         const recipientName = transfer.recipientName ? ` → ${transfer.recipientName}` : '';
         const transferMethod = transfer.transferMethod === 'hawaleh' ? '(حولة)' : 
@@ -782,8 +782,8 @@ export default function ProjectTransactionsSimple() {
           workerName: workerName,
           recipientName: transfer.recipientName || '',
           transferMethod: transfer.transferMethod === 'hawaleh' ? 'حولة' : transfer.transferMethod === 'bank' ? 'بنكي' : 'نقداً',
-          projectId: transfer.projectId,
-          projectName: transfer.projectName || getProjectName(transfer.projectId)
+          project_id: transfer.project_id,
+          projectName: transfer.projectName || getProjectName(transfer.project_id)
         });
       }
     });

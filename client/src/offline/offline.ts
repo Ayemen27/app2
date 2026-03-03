@@ -81,7 +81,7 @@ function getPayloadSummary(payload: Record<string, any>): string {
   if (payload.transferNumber) summary.push(`رقم: ${payload.transferNumber}`);
   if (payload.amount) summary.push(`مبلغ: ${payload.amount}`);
   if (payload.name) summary.push(`اسم: ${payload.name}`);
-  if (payload.projectId) summary.push(`مشروع: ${payload.projectId}`);
+  if (payload.project_id) summary.push(`مشروع: ${payload.project_id}`);
   if (payload.id) summary.push(`ID: ${String(payload.id).substring(0, 8)}`);
   return summary.join(' | ') || 'بدون تفاصيل';
 }
@@ -311,7 +311,7 @@ export async function saveUserDataLocal(
   const userData = {
     id, type, data,
     syncedAt: 0,
-    createdAt: Date.now()
+    created_at: Date.now()
   };
   await smartPut('userData', userData);
   return id;
@@ -329,7 +329,7 @@ export async function saveListLocal(
   await smartClear(storeName);
   const enrichedItems = items.map(item => ({
     ...item,
-    createdAt: item.createdAt || Date.now(),
+    created_at: item.created_at || Date.now(),
     _syncedAt: metadata?.syncedAt || Date.now()
   }));
   await smartSave(storeName, enrichedItems);
@@ -338,8 +338,8 @@ export async function saveListLocal(
 export async function getListLocal(storeName: string) {
   const items = await smartGetAll(storeName);
   return items.sort((a: any, b: any) => {
-    const dateA = new Date(a.createdAt || 0).getTime();
-    const dateB = new Date(b.createdAt || 0).getTime();
+    const dateA = new Date(a.created_at || 0).getTime();
+    const dateB = new Date(b.created_at || 0).getTime();
     return dateB - dateA;
   });
 }
@@ -355,7 +355,7 @@ export async function updateItemLocal(
 ): Promise<void> {
   const item = await smartGet(storeName, id);
   if (item) {
-    const updated = { ...item, ...updates, _updatedAt: Date.now() };
+    const updated = { ...item, ...updates, _updated_at: Date.now() };
     await smartPut(storeName, updated);
   }
 }
@@ -371,7 +371,7 @@ export async function addLocalFirst(
     id,
     _isLocal: true,
     _pendingSync: true,
-    createdAt: item.createdAt || new Date().toISOString()
+    created_at: item.created_at || new Date().toISOString()
   };
   await smartPut(storeName, newItem);
   await queueForSync('create', endpoint, newItem);
@@ -390,7 +390,7 @@ export async function updateLocalFirst(
       ...item,
       ...updates,
       _pendingSync: true,
-      updatedAt: new Date().toISOString()
+      updated_at: new Date().toISOString()
     };
     await smartPut(storeName, updatedItem);
     await queueForSync('update', `${endpoint}/${id}`, updates);

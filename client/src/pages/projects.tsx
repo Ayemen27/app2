@@ -246,7 +246,7 @@ export default function ProjectsPage() {
 
   // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات والمشاريع الفردية
   const { totals: financialTotals, allProjects: financialData, isLoading: financialLoading, refetch: refetchFinancial } = useFinancialSummary({
-    projectId: 'all',
+    project_id: 'all',
     enabled: true
   });
 
@@ -255,15 +255,15 @@ export default function ProjectsPage() {
     const map = new Map<string, any>();
     if (financialData?.projects) {
       financialData.projects.forEach((p: any) => {
-        map.set(p.projectId, p);
+        map.set(p.project_id, p);
       });
     }
     return map;
   }, [financialData?.projects]);
 
   // دالة للحصول على إحصائيات المشروع من ExpenseLedgerService (مصدر موحد للحقيقة)
-  const getProjectStats = useCallback((projectId: string) => {
-    const financialProject = financialProjectsMap.get(projectId);
+  const getProjectStats = useCallback((project_id: string) => {
+    const financialProject = financialProjectsMap.get(project_id);
     if (financialProject) {
       return {
         totalIncome: financialProject.income?.totalIncome || 0,
@@ -354,7 +354,7 @@ export default function ProjectsPage() {
       name: "",
       status: "active",
       engineerId: null,
-      projectTypeId: null,
+      project_type_id: null,
     },
   });
 
@@ -365,7 +365,7 @@ export default function ProjectsPage() {
       name: "",
       status: "active",
       engineerId: null,
-      projectTypeId: null,
+      project_type_id: null,
     },
   });
 
@@ -503,10 +503,10 @@ export default function ProjectsPage() {
   });
 
   // جلب إحصائيات الحذف للمشروع
-  const fetchDeletionStats = async (projectId: string) => {
+  const fetchDeletionStats = async (project_id: string) => {
     setIsLoadingDeletionStats(true);
     try {
-      const response = await apiRequest(`/api/projects/${projectId}/deletion-stats`, "GET");
+      const response = await apiRequest(`/api/projects/${project_id}/deletion-stats`, "GET");
       if (response.success && response.data) {
         setDeletionStats({
           stats: response.data.stats,
@@ -615,7 +615,7 @@ export default function ProjectsPage() {
       name: project.name,
       status: project.status,
       engineerId: project.engineerId || null,
-      projectTypeId: project.projectTypeId || null,
+      project_type_id: project.project_type_id || null,
     });
     setIsEditDialogOpen(true);
   };
@@ -943,7 +943,7 @@ export default function ProjectsPage() {
                 )}
                 <FormField
                   control={createForm.control}
-                  name="projectTypeId"
+                  name="project_type_id"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>نوع المشروع</FormLabel>
@@ -1055,7 +1055,7 @@ export default function ProjectsPage() {
               )}
               <FormField
                 control={editForm.control}
-                name="projectTypeId"
+                name="project_type_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>نوع المشروع</FormLabel>
@@ -1153,7 +1153,7 @@ export default function ProjectsPage() {
               <UnifiedCard
                 key={project.id}
                 title={project.name}
-                subtitle={formatDate(project.createdAt)}
+                subtitle={formatDate(project.created_at)}
                 titleIcon={Building2}
                 headerColor={project.status === 'active' ? '#22c55e' : 
                             project.status === 'completed' ? '#3b82f6' : '#ef4444'}

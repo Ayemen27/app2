@@ -323,7 +323,7 @@ export default function AdminNotificationsPage() {
                         <div className="flex items-center gap-4 text-[11px] text-slate-400 font-medium">
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
-                            <span>{format(new Date(notif.createdAt), 'PPp', { locale: ar })}</span>
+                            <span>{format(new Date(notif.created_at), 'PPp', { locale: ar })}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <Users className="h-3 w-3" />
@@ -362,7 +362,7 @@ export default function AdminNotificationsPage() {
             <UnifiedCardGrid columns={3}>
               {activityData?.userStats?.map((user: any) => (
                 <UnifiedCard
-                  key={user.userId}
+                  key={user.user_id}
                   title={user.userName}
                   subtitle={user.userEmail}
                   titleIcon={Users}
@@ -409,7 +409,7 @@ export default function AdminNotificationsPage() {
                     </DialogTitle>
                     <DialogDescription className="flex items-center justify-center gap-2 font-medium">
                       <Clock className="h-4 w-4 text-primary" />
-                      {format(new Date(viewingNotification.createdAt), 'PPPP p', { locale: ar })}
+                      {format(new Date(viewingNotification.created_at), 'PPPP p', { locale: ar })}
                     </DialogDescription>
                   </div>
 

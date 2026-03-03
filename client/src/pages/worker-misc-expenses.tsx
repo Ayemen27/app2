@@ -16,20 +16,20 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface WorkerMiscExpense {
   id: string;
-  projectId: string;
+  project_id: string;
   amount: string;
   description: string;
   date: string;
   notes?: string;
-  createdAt: string;
+  created_at: string;
 }
 
 interface WorkerMiscExpensesProps {
-  projectId: string;
+  project_id: string;
   selectedDate: string;
 }
 
-export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMiscExpensesProps) {
+export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerMiscExpensesProps) {
   const [miscDescription, setMiscDescription] = useState("");
   const [miscAmount, setMiscAmount] = useState("");
   const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
@@ -56,10 +56,10 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   };
 
   const { data: todayMiscExpenses = [] } = useQuery<WorkerMiscExpense[]>({
-    queryKey: QUERY_KEYS.workerMiscExpensesFiltered(projectId, selectedDate),
+    queryKey: QUERY_KEYS.workerMiscExpensesFiltered(project_id, selectedDate),
     queryFn: async () => {
       try {
-        const response = await apiRequest(`/api/worker-misc-expenses?projectId=${projectId}&date=${selectedDate}`, "GET");
+        const response = await apiRequest(`/api/worker-misc-expenses?project_id=${project_id}&date=${selectedDate}`, "GET");
         // معالجة الهيكل المتداخل للاستجابة
         if (response && response.data && Array.isArray(response.data)) {
           return response.data as WorkerMiscExpense[];
@@ -70,7 +70,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
         return [];
       }
     },
-    enabled: !!projectId,
+    enabled: !!project_id,
   });
 
   // تحديث حالة التوسع عند تغير البيانات
@@ -79,7 +79,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   }, [todayMiscExpenses]);
 
   const createMiscExpenseMutation = useMutation({
-    mutationFn: (data: { amount: string; description: string; projectId: string; date: string }) =>
+    mutationFn: (data: { amount: string; description: string; project_id: string; date: string }) =>
       apiRequest("/api/worker-misc-expenses", "POST", data),
     onSuccess: async () => {
       // حفظ قيم الإكمال التلقائي
@@ -160,7 +160,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
   });
 
   const handleAddMiscExpense = async () => {
-    if (!projectId || projectId === "all") {
+    if (!project_id || project_id === "all") {
       toast({
         title: "يرجى تحديد مشروع",
         description: "لا يمكن إضافة نثريات عند اختيار 'جميع المشاريع'. يرجى اختيار مشروع محدد أولاً.",
@@ -201,7 +201,7 @@ export default function WorkerMiscExpenses({ projectId, selectedDate }: WorkerMi
       createMiscExpenseMutation.mutate({
         description: miscDescription,
         amount: miscAmount,
-        projectId,
+        project_id,
         date: selectedDate
       });
     }

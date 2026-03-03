@@ -205,7 +205,7 @@ export default function EnhancedWorkerCard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-reverse space-x-2 mb-1">
                 <h4 className="font-bold text-lg text-foreground truncate" data-testid={`worker-name-detailed-${worker.id}`}>{worker.name}</h4>
-                {worker.isActive ? (
+                {worker.is_active ? (
                   <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" data-testid={`worker-status-active-${worker.id}`} />
                 ) : (
                   <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" data-testid={`worker-status-inactive-${worker.id}`} />

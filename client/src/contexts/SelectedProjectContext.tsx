@@ -35,7 +35,7 @@ interface SelectedProjectContextType {
   selectedProjectName: string;
   isLoading: boolean;
   isAllProjects: boolean;
-  selectProject: (projectId: string, projectName?: string) => void;
+  selectProject: (project_id: string, projectName?: string) => void;
   clearProject: () => void;
   selectAllProjects: () => void;
   hasStoredProject: () => boolean;
@@ -113,8 +113,8 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
 
   const isLoading = !isInitialized || isProjectsLoading;
 
-  const instantRefreshAllData = useCallback(async (projectId?: string) => {
-    console.log("⚡ [SelectedProjectContext] تحديث فوري لجميع البيانات...", projectId);
+  const instantRefreshAllData = useCallback(async (project_id?: string) => {
+    console.log("⚡ [SelectedProjectContext] تحديث فوري لجميع البيانات...", project_id);
     
     const startTime = Date.now();
     
@@ -128,12 +128,12 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
       })
     );
     
-    if (projectId && projectId !== ALL_PROJECTS_ID) {
+    if (project_id && project_id !== ALL_PROJECTS_ID) {
       invalidatePromises.push(
         queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey;
-            return Array.isArray(key) && key.some(k => String(k) === projectId);
+            return Array.isArray(key) && key.some(k => String(k) === project_id);
           },
           refetchType: 'all'
         })
@@ -151,23 +151,23 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
     console.log(`✅ [SelectedProjectContext] تم تحديث جميع البيانات في ${duration}ms`);
   }, [queryClient]);
 
-  const selectProject = useCallback(async (projectId: string, projectName?: string) => {
-    console.log("📁 [SelectedProjectContext] تحديد المشروع الفوري:", { projectId, projectName });
+  const selectProject = useCallback(async (project_id: string, projectName?: string) => {
+    console.log("📁 [SelectedProjectContext] تحديد المشروع الفوري:", { project_id, projectName });
     
-    setSelectedProjectId(projectId);
+    setSelectedProjectId(project_id);
     
     if (projectName) {
       setSelectedProjectName(projectName);
-    } else if (projectId === ALL_PROJECTS_ID) {
+    } else if (project_id === ALL_PROJECTS_ID) {
       setSelectedProjectName(ALL_PROJECTS_NAME);
     }
     
     try {
-      if (projectId && projectId !== "undefined" && projectId !== "null") {
-        localStorage.setItem(SELECTED_PROJECT_KEY, projectId);
+      if (project_id && project_id !== "undefined" && project_id !== "null") {
+        localStorage.setItem(SELECTED_PROJECT_KEY, project_id);
         if (projectName) {
           localStorage.setItem(SELECTED_PROJECT_NAME_KEY, projectName);
-        } else if (projectId === ALL_PROJECTS_ID) {
+        } else if (project_id === ALL_PROJECTS_ID) {
           localStorage.setItem(SELECTED_PROJECT_NAME_KEY, ALL_PROJECTS_NAME);
         }
       } else {
@@ -179,7 +179,7 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
       console.error("❌ [SelectedProjectContext] خطأ في حفظ المشروع:", error);
     }
 
-    await instantRefreshAllData(projectId);
+    await instantRefreshAllData(project_id);
   }, [instantRefreshAllData]);
 
   const selectAllProjects = useCallback(() => {

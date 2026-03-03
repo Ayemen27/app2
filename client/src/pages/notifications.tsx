@@ -38,11 +38,11 @@ interface Notification {
   message?: string;
   body?: string;
   priority: number | string;
-  createdAt: string;
+  created_at: string;
   status?: 'read' | 'unread';
   isRead?: boolean;
   actionRequired?: boolean;
-  projectId?: string;
+  project_id?: string;
   payload?: any;
 }
 
@@ -82,12 +82,12 @@ const getPriorityNumber = (priority: number | string): number => {
 const groupNotificationsByDate = (notifications: Notification[]): Record<string, Notification[]> => {
   const groups: Record<string, Notification[]> = {};
   notifications.forEach(notification => {
-    if (!notification.createdAt) {
+    if (!notification.created_at) {
       if (!groups['older']) groups['older'] = [];
       groups['older'].push(notification);
       return;
     }
-    const date = parseISO(notification.createdAt);
+    const date = parseISO(notification.created_at);
     let groupKey: string;
     if (isToday(date)) groupKey = 'today';
     else if (isYesterday(date)) groupKey = 'yesterday';
@@ -108,7 +108,7 @@ export default function NotificationsPage() {
   const { user } = useAuth();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['today', 'yesterday', 'thisWeek']));
-  const userId = user?.id || '';
+  const user_id = user?.id || '';
 
   const filterConfigs: FilterConfig[] = [
     { key: 'status', label: 'الحالة', type: 'select', options: [{ value: 'all', label: 'الكل' }, { value: 'unread', label: 'غير مقروء' }, { value: 'read', label: 'مقروء' }] },
@@ -121,7 +121,7 @@ export default function NotificationsPage() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ status: 'all', type: 'all', priority: 'all', dateRange: undefined });
 
   const { data: notificationsData, isLoading, refetch } = useQuery({
-    queryKey: QUERY_KEYS.notificationsByUser(userId),
+    queryKey: QUERY_KEYS.notificationsByUser(user_id),
     queryFn: async () => {
       const result = await apiRequest(`/api/notifications?limit=100&unreadOnly=false`);
       if (result.success && result.data) return { notifications: result.data, unreadCount: result.unreadCount || 0, total: result.total || result.data.length };
@@ -129,7 +129,7 @@ export default function NotificationsPage() {
       return result.notifications ? result : { notifications: [], unreadCount: 0, total: 0 };
     },
     refetchInterval: 30000,
-    enabled: !!userId,
+    enabled: !!user_id,
   });
 
   const notifications = useMemo(() => {
@@ -145,7 +145,7 @@ export default function NotificationsPage() {
     if (filterValues.dateRange?.from) {
       const from = filterValues.dateRange.from;
       const to = filterValues.dateRange.to || new Date();
-      result = result.filter(n => { if (!n.createdAt) return false; const d = parseISO(n.createdAt); return d >= from && d <= to; });
+      result = result.filter(n => { if (!n.created_at) return false; const d = parseISO(n.created_at); return d >= from && d <= to; });
     }
     return result;
   }, [notificationsData, searchValue, filterValues]);
@@ -160,13 +160,13 @@ export default function NotificationsPage() {
 
   const markAsReadMutation = useMutation({
     mutationFn: async (id: string) => apiRequest(`/api/notifications/${id}/read`, 'POST'),
-    onSettled: () => queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) }),
+    onSettled: () => queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(user_id) }),
   });
 
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => apiRequest('/api/notifications/mark-all-read', 'POST'),
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(user_id) });
       toast({ title: 'تمت العملية', description: 'تم تعليم جميع الإشعارات كمقروءة' });
       setSelectedIds(new Set());
     },
@@ -175,7 +175,7 @@ export default function NotificationsPage() {
   const markSelectedAsReadMutation = useMutation({
     mutationFn: async (ids: string[]) => Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}/read`, 'POST'))),
     onSettled: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(user_id) });
       toast({ title: 'تمت العملية', description: `تم تعليم ${selectedIds.size} إشعار كمقروء` });
       setSelectedIds(new Set());
     },
@@ -184,7 +184,7 @@ export default function NotificationsPage() {
   const deleteNotificationsMutation = useMutation({
     mutationFn: async (ids: string[]) => Promise.all(ids.map(id => apiRequest(`/api/notifications/${id}`, 'DELETE'))),
     onSuccess: (ids) => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(userId) });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.notificationsByUser(user_id) });
       toast({ title: 'تم الحذف', description: `تم حذف ${ids.length} إشعار بنجاح` });
       setSelectedIds(new Set());
     },
@@ -243,7 +243,7 @@ export default function NotificationsPage() {
                 <Badge variant="secondary" className={cn("text-[8px] uppercase font-black px-1.5 py-0 rounded-full", priority.bgColor, priority.color)}>{priority.label}</Badge>
                 <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400">
                   <Clock className="h-2.5 w-2.5 text-blue-400" />
-                  <span>{notification.createdAt && format(parseISO(notification.createdAt), 'HH:mm', { locale: ar })}</span>
+                  <span>{notification.created_at && format(parseISO(notification.created_at), 'HH:mm', { locale: ar })}</span>
                 </div>
               </div>
             </div>

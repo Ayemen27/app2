@@ -1,19 +1,5 @@
 #!/bin/bash
-# 1. Install dependencies
-npm install --legacy-peer-deps
-
-# 2. Build the web project
-npm run build
-
-# 3. Sync with Capacitor
-npx cap sync android
-
-# 4. Build the signed APK
-cd android
-chmod +x gradlew
-./gradlew assembleRelease
-
-# 5. Move the result to a convenient location
-mkdir -p ../output_apks
-cp app/build/outputs/apk/release/app-release-unsigned.apk ../output_apks/signed-app-release.apk 2>/dev/null || cp app/build/outputs/apk/release/app-release.apk ../output_apks/signed-app-release.apk
-echo "Build complete! APK is in output_apks/signed-app-release.apk"
+set -e
+export SSH_PASSWORD=$(grep SSH_PASSWORD .env | cut -d'=' -f2)
+sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no -p 22 administrator@93.127.142.144 "cd ~/app2 && npm run build && npx cap sync android && cd android && ./gradlew clean assembleRelease && mkdir -p ../output_apks && cp app/build/outputs/apk/release/app-release.apk ../output_apks/signed-app-release.apk"
+echo "Build complete! Signed APK is at ~/app2/output_apks/signed-app-release.apk on the server."

@@ -96,7 +96,8 @@ export const cleanInteger = (value: any): number => {
   return 0;
 };
 
-export const formatDate = (dateInput: string | Date): string => {
+export const formatDate = (dateInput: string | Date | undefined | null): string => {
+  if (!dateInput) return 'N/A';
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
 
   if (isNaN(date.getTime())) {

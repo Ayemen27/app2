@@ -180,7 +180,7 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
       .where(eq(users.id, payload.userId))
       .limit(1);
 
-    if (user.length === 0 || !user[0].isActive) {
+    if (user.length === 0 || user[0].is_active === false) {
       return null;
     }
 
@@ -411,7 +411,7 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       .where(eq(users.id, payload.userId))
       .limit(1);
 
-    if (user.length === 0 || !user[0].isActive) {
+    if (user.length === 0 || user[0].is_active === false) {
       return null;
     }
 

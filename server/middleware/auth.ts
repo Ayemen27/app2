@@ -186,7 +186,25 @@ const verifySession = async (user_id: string, sessionId: string) => {
       )
       .limit(1);
 
-    return session.length > 0 ? session[0] : null;
+    if (session.length > 0) {
+      return session[0];
+    }
+    
+    // Fallback: Check with userId if user_id failed (for schema compatibility)
+    const fallbackSession = await db
+      .select()
+      .from(authUserSessions)
+      .where(
+        and(
+          eq(authUserSessions.userId, user_id),
+          eq(authUserSessions.sessionToken, sessionId),
+          eq(authUserSessions.isRevoked, false),
+          gt(authUserSessions.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+      
+    return fallbackSession.length > 0 ? fallbackSession[0] : null;
   } catch (error) {
     console.error('❌ خطأ في التحقق من الجلسة:', error);
     return null;

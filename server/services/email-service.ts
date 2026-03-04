@@ -300,16 +300,19 @@ export async function sendVerificationEmail(
     const verificationCode = generateVerificationCode();
     const tokenHash = await hashToken(verificationCode);
     
+    // إنشاء معرف ذكي موحد (Smart Identifier)
+    const smartIdentifier = crypto.createHash('md5').update(`${email}-${ipAddress || 'unknown'}`).digest('hex');
+    
     // إنشاء رابط التحقق
     const domain = getDynamicDomain();
     const protocol = getProtocol();
-    const verificationLink = `${protocol}://${domain}/verify-email?token=${verificationCode}&user_id=${user_id}`;
+    const verificationLink = `${protocol}://${domain}/verify-email?token=${verificationCode}&user_id=${user_id}&sid=${smartIdentifier}`;
     
-    console.log('🔗 [EmailService] رابط التحقق المُنشأ:', verificationLink);
+    console.log('🔗 [EmailService] رابط التحقق الذكي المُنشأ:', verificationLink);
 
-    // حفظ الرمز في قاعدة البيانات
+    // حفظ الرمز في قاعدة البيانات مع البيانات الذكية
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // صالح لمدة 24 ساعة
+    expiresAt.setHours(expiresAt.getHours() + 24); 
 
     const insertData: any = {
       user_id,
@@ -319,11 +322,14 @@ export async function sendVerificationEmail(
       verificationLink,
       expiresAt,
       ipAddress,
-      userAgent
+      userAgent,
+      identifier: smartIdentifier,
+      metadata: {
+        platform: userAgent?.includes('Android') ? 'android' : 'web',
+        lastAttempt: new Date().toISOString()
+      }
     };
 
-    // Remove created_at if it causes issues with the database schema
-    // The error log showed: column "created_at" of relation "email_verification_tokens" does not exist
     await db.insert(emailVerificationTokens).values(insertData);
 
     // إرسال البريد الإلكتروني

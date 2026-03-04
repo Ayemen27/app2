@@ -126,26 +126,32 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 
     // التحقق من تفعيل البريد الإلكتروني - منع الدخول نهائياً (إلا إذا كان دور المستخدم مسؤولاً أو طوارئ)
     if (!user.email_verified_at && user.role !== 'admin' && user.role !== 'emergency') {
-      console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- منع تسجيل الدخول');
+      console.log('❌ [AUTH] البريد الإلكتروني غير مفعل للمستخدم:', email, '- التحقق من وجود رمز صالح');
 
-      // إرسال رمز تحقق جديد تلقائياً في الخلفية (بدون انتظار)
-      const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
-      void sendVerificationEmail(
-        user.id,
-        user.email,
-        req.ip || 'unknown',
-        req.get('user-agent') || 'unknown',
-        userFullName
-      ).then(emailResult => {
-        console.log('📧 [AUTH] تم إرسال رمز تحقق تلقائياً:', emailResult.success ? 'نجح' : 'فشل');
-      }).catch(emailError => {
-        console.error('❌ [AUTH] فشل في إرسال رمز التحقق التلقائي:', emailError);
-      });
+      // البحث عن رمز نشط لم ينتهِ
+      const [existingToken] = await db.select().from(schema.emailVerificationTokens)
+        .where(and(
+          eq(schema.emailVerificationTokens.user_id, user.id),
+          gt(schema.emailVerificationTokens.expiresAt, new Date()),
+          isNull(schema.emailVerificationTokens.verifiedAt)
+        )).limit(1);
+
+      if (!existingToken) {
+        console.log('📧 [AUTH] لا يوجد رمز نشط، إرسال رمز جديد تلقائياً');
+        const userFullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || undefined;
+        void sendVerificationEmail(
+          user.id,
+          user.email,
+          req.ip || 'unknown',
+          req.get('user-agent') || 'unknown',
+          userFullName
+        ).catch(err => console.error('❌ [AUTH] Error sending auto-email:', err));
+      }
 
       return res.status(403).json({
         success: false,
         requireEmailVerification: true,
-        message: 'يجب التحقق من بريدك الإلكتروني أولاً قبل تسجيل الدخول. تم إرسال رمز تحقق جديد',
+        message: 'يجب التحقق من بريدك الإلكتروني أولاً قبل تسجيل الدخول. تم إرسال/تحديث رمز التحقق الخاص بك.',
         data: {
           user_id: user.id,
           email: user.email,

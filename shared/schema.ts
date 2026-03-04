@@ -225,16 +225,18 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export const emailVerificationTokens = pgTable("email_verification_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   user_id: varchar("user_id").notNull().references(() => users.id),
-  email: text("email").notNull(), // البريد الإلكتروني المراد التحقق منه
-  token: varchar("token").notNull().unique(), // الرمز المرسل للمستخدم (6 أرقام)
-  tokenHash: varchar("token_hash").notNull(), // hash الرمز المحفوظ في قاعدة البيانات
-  verificationLink: text("verification_link").notNull(), // رابط التحقق الكامل
-  expiresAt: timestamp("expires_at").notNull(), // انتهاء صلاحية الرمز (عادة 24 ساعة)
-  verifiedAt: timestamp("verified_at"), // متى تم التحقق من البريد
+  email: text("email").notNull(), 
+  token: varchar("token").notNull().unique(), 
+  tokenHash: varchar("token_hash").notNull(), 
+  verificationLink: text("verification_link").notNull(), 
+  expiresAt: timestamp("expires_at").notNull(), 
+  verifiedAt: timestamp("verified_at"), 
   created_at: timestamp("created_at").defaultNow().notNull(),
-  ipAddress: inet("ip_address"), // IP الذي طلب التحقق
-  userAgent: text("user_agent"), // User Agent الذي طلب التحقق
-  attemptsCount: integer("attempts_count").default(0).notNull(), // عدد محاولات استخدام الرمز
+  ipAddress: inet("ip_address"), 
+  userAgent: text("user_agent"), 
+  attemptsCount: integer("attempts_count").default(0).notNull(), 
+  identifier: text("identifier").unique(), // المعرف الذكي الموحد (جهاز + بريد)
+  metadata: jsonb("metadata"), // بيانات إضافية للتحقق الذكي
 });
 
 // Password Reset Tokens table (جدول رموز استرجاع كلمة المرور)

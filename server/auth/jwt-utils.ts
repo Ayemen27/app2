@@ -97,9 +97,10 @@ export async function generateTokenPair(
   const accessPayload = { userId, email, role, sessionId, type: 'access' as const };
   const refreshPayload = { userId, email, sessionId, type: 'refresh' as const };
 
-  // إنشاء الرموز
+  const accessTokenExpiry = role === 'admin' ? '4h' : '15m';
+  
   const accessToken = jwt.sign(accessPayload, JWT_SHARED_SECRET, {
-    expiresIn: JWT_CONFIG.accessTokenExpiry,
+    expiresIn: accessTokenExpiry,
     issuer: JWT_CONFIG.issuer
   } as jwt.SignOptions);
   

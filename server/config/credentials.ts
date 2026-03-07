@@ -8,9 +8,8 @@
  * 
  * 🔗 قواعد البيانات (بترتيب الأولوية):
  * 1. DATABASE_URL_CENTRAL - القاعدة المركزية الرئيسية
- * 2. DATABASE_URL_SUPABASE - قاعدة Supabase/External  
- * 3. DATABASE_URL_RAILWAY - قاعدة Railway
- * 4. DATABASE_URL - القاعدة الافتراضية (Replit)
+ * 2. DATABASE_URL_RAILWAY - قاعدة Railway
+ * 3. DATABASE_URL - القاعدة الافتراضية (Replit)
  */
 type CredentialKey = 
   | 'JWT_ACCESS_SECRET'
@@ -18,19 +17,12 @@ type CredentialKey =
   | 'ENCRYPTION_KEY'
   | 'DATABASE_URL'
   | 'DATABASE_URL_CENTRAL'
-  | 'DATABASE_URL_SUPABASE'
   | 'DATABASE_URL_RAILWAY'
-  | 'SUPABASE_URL'
-  | 'SUPABASE_ANON_KEY'
-  | 'SUPABASE_SERVICE_ROLE_KEY'
-  | 'SUPABASE_DATABASE_URL'
-  | 'SUPABASE_DATABASE_PASSWORD'
   | 'NODE_ENV';
 
 // القيم الافتراضية للإعدادات غير الحساسة فقط
 const DEFAULT_VALUES: Partial<Record<CredentialKey, string>> = {
   NODE_ENV: 'development',
-  SUPABASE_URL: '', // فارغ - سيتم تعطيل Supabase إذا لم يتم تكوينه
 };
 
 /**
@@ -76,12 +68,3 @@ export function validateRequiredCredentials(): {
   };
 }
 
-/**
- * التحقق من تكوين Supabase
- */
-export function isSupabaseConfigured(): boolean {
-  const url = getCredential('SUPABASE_URL');
-  const password = getCredential('SUPABASE_DATABASE_PASSWORD');
-  
-  return !!(url && password && url !== '' && !url.includes('placeholder'));
-}

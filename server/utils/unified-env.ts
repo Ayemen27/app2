@@ -26,18 +26,16 @@ export const CURRENT_DOMAIN = isProduction ? PRODUCTION_DOMAIN : REPLIT_DOMAIN;
 /**
  * 🔗 قواعد البيانات المتاحة:
  * - DATABASE_URL_CENTRAL: القاعدة المركزية الرئيسية (PostgreSQL خارجي)
- * - DATABASE_URL_SUPABASE: قاعدة Supabase/External
+ * - DATABASE_URL_RAILWAY: قاعدة Railway
  * - DATABASE_URL: قاعدة Replit الافتراضية (Helium)
  */
 const DATABASE_URL_ACTIVE = 
   process.env.DATABASE_URL_CENTRAL ||
-  process.env.DATABASE_URL_SUPABASE || 
   process.env.DATABASE_URL_RAILWAY || 
   process.env.DATABASE_URL || '';
 
 const DATABASE_SOURCE = 
   process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :
-  process.env.DATABASE_URL_SUPABASE ? 'SUPABASE' :
   process.env.DATABASE_URL_RAILWAY ? 'RAILWAY' :
   process.env.DATABASE_URL ? 'REPLIT' : 'NONE';
 
@@ -53,7 +51,6 @@ export const envConfig = {
   DATABASE_SOURCE,
   DATABASES: {
     CENTRAL: process.env.DATABASE_URL_CENTRAL || null,
-    SUPABASE: process.env.DATABASE_URL_SUPABASE || null,
     RAILWAY: process.env.DATABASE_URL_RAILWAY || null,
     REPLIT: process.env.DATABASE_URL || null,
   }

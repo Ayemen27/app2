@@ -114,12 +114,11 @@ export async function generateTokenPair(
   const refreshTokenHash = hashToken(refreshToken);
 
   try {
-    // حفظ الجلسة في قاعدة البيانات
     const sessionData = {
-      userId,
+      user_id: userId,
       sessionToken: sessionId,
       accessTokenHash,
-      refreshTokenHash,
+      refresh_token_hash: refreshTokenHash,
       expiresAt: refreshExpiresAt,
       isTrustedDevice: false,
     };
@@ -193,10 +192,7 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
       .from(authUserSessions)
       .where(
         and(
-          or(
-            eq(authUserSessions.userId, payload.userId),
-            eq(authUserSessions.user_id, payload.userId)
-          ),
+          eq(authUserSessions.user_id, payload.userId),
           eq(authUserSessions.accessTokenHash, tokenHash),
           eq(authUserSessions.isRevoked, false),
           gte(authUserSessions.expiresAt, new Date())
@@ -316,10 +312,7 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
       })
       .from(users)
       .leftJoin(authUserSessions, and(
-        or(
-          eq(authUserSessions.userId, users.id),
-          eq(authUserSessions.user_id, users.id)
-        ),
+          eq(authUserSessions.user_id, users.id),
         eq(authUserSessions.sessionToken, payload.sessionId),
         eq(authUserSessions.isRevoked, false),
         gte(authUserSessions.expiresAt, new Date())
@@ -370,7 +363,7 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
           .update(authUserSessions)
           .set({
             lastActivity: new Date(),
-            refreshTokenHash: newRefreshTokenHash,
+            refresh_token_hash: newRefreshTokenHash,
           })
           .where(eq(authUserSessions.id, session.id));
       } catch (updateError) {
@@ -434,11 +427,8 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       .from(authUserSessions)
       .where(
         and(
-          or(
-            eq(authUserSessions.userId, payload.userId),
-            eq(authUserSessions.user_id, payload.userId)
-          ),
-          eq(authUserSessions.refreshTokenHash, refreshTokenHash),
+          eq(authUserSessions.user_id, payload.userId),
+          eq(authUserSessions.refresh_token_hash, refreshTokenHash),
           eq(authUserSessions.isRevoked, false),
           gte(authUserSessions.expiresAt, new Date())
         )
@@ -479,7 +469,7 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       .set({
         sessionToken: newSessionId,
         accessTokenHash: newAccessTokenHash,
-        refreshTokenHash: newRefreshTokenHash,
+        refresh_token_hash: newRefreshTokenHash,
         expiresAt: refreshExpiresAt,
         lastActivity: new Date(),
       })
@@ -547,7 +537,7 @@ export async function revokeToken(tokenOrSessionId: string, reason?: string): Pr
         .where(
           or(
             eq(authUserSessions.accessTokenHash, tokenOrSessionId),
-            eq(authUserSessions.refreshTokenHash, tokenOrSessionId),
+            eq(authUserSessions.refresh_token_hash, tokenOrSessionId),
             eq(authUserSessions.deviceId, tokenOrSessionId)
           )
         );
@@ -574,7 +564,7 @@ export async function revokeToken(tokenOrSessionId: string, reason?: string): Pr
 export async function revokeAllUserSessions(userId: string, exceptSessionId?: string): Promise<number> {
   try {
     const conditions = [
-      eq(authUserSessions.userId, userId),
+      eq(authUserSessions.user_id, userId),
       eq(authUserSessions.isRevoked, false),
     ];
 
@@ -636,7 +626,7 @@ export async function getUserActiveSessions(userId: string) {
     .from(authUserSessions)
     .where(
       and(
-        eq(authUserSessions.userId, userId),
+        eq(authUserSessions.user_id, userId),
         eq(authUserSessions.isRevoked, false)
       )
     )

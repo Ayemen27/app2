@@ -196,7 +196,7 @@ const verifySession = async (user_id: string, sessionId: string) => {
       .from(authUserSessions)
       .where(
         and(
-          eq(authUserSessions.userId, user_id),
+          eq(authUserSessions.user_id, user_id),
           eq(authUserSessions.sessionToken, sessionId),
           eq(authUserSessions.isRevoked, false),
           gt(authUserSessions.expiresAt, new Date())

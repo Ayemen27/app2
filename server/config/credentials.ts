@@ -43,7 +43,12 @@ export function getCredential(key: CredentialKey): string {
     return defaultValue;
   }
   
-  // للبيانات الحساسة، إرجاع سلسلة فارغة
+  const isProduction = process.env.NODE_ENV === 'production';
+  const criticalKeys: CredentialKey[] = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL'];
+  if (isProduction && criticalKeys.includes(key)) {
+    throw new Error(`🚨 [Credentials FATAL] Missing required credential "${key}" in production environment`);
+  }
+
   return '';
 }
 

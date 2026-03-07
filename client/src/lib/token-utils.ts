@@ -9,6 +9,34 @@ const AUTH_MODE_KEY = 'authMode';
 
 export type AuthMode = 'online' | 'offline' | 'emergency';
 
+const TOKEN_EXPIRY_BUFFER_SECONDS = 30;
+
+function decodeJwtPayload(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1];
+    const padded = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(padded);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenExpired(token: string, bufferSeconds: number = TOKEN_EXPIRY_BUFFER_SECONDS): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== 'number') return false;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return nowSeconds >= (payload.exp - bufferSeconds);
+}
+
+export function getTokenExpiryTime(token: string): number | null {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== 'number') return null;
+  return payload.exp * 1000;
+}
+
 export function isValidJwt(token: string | null | undefined): boolean {
   if (!token || typeof token !== 'string') return false;
   if (PLACEHOLDER_TOKENS.includes(token)) return false;
@@ -27,6 +55,10 @@ export function getValidToken(key: 'accessToken' | 'refreshToken'): string | nul
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
   const token = localStorage.getItem(key);
   if (!token || !isValidJwt(token)) return null;
+  if (isTokenExpired(token)) {
+    console.log(`[TokenUtils] ${key} expired or expiring soon`);
+    return null;
+  }
   return token;
 }
 

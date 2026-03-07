@@ -4,7 +4,7 @@ import { db } from '../db';
 import { users, authUserSessions } from '../../shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
-import { JWT_SHARED_SECRET } from '../auth/jwt-utils';
+import { JWT_ACCESS_SECRET } from '../auth/jwt-utils';
 import { envConfig } from '../utils/unified-env';
 
 // تم إزالة express-slow-down لأنه غير مستخدم حالياً
@@ -31,12 +31,27 @@ export const generalRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    return req.path === '/api/health' || req.path === '/health' || req.path.startsWith('/api/sync/');
+    return req.path === '/api/health' || req.path === '/health';
   },
   handler: (_req, res) => {
     res.status(429).json({
       success: false,
       message: 'تم تجاوز الحد المسموح من الطلبات، يرجى المحاولة بعد قليل',
+      retryAfter: 15 * 60
+    });
+  }
+});
+
+// Rate Limiting لمسارات المزامنة (أعلى من العادي لكن ليس بلا حدود)
+export const syncRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'تم تجاوز الحد المسموح من طلبات المزامنة، يرجى المحاولة بعد قليل',
       retryAfter: 15 * 60
     });
   }
@@ -155,8 +170,7 @@ const verifyToken = async (token: string): Promise<any> => {
       cleanToken = cleanToken.slice(1, -1);
     }
 
-    // استخدام JWT_SHARED_SECRET الموحد من jwt-utils
-    const secret = JWT_SHARED_SECRET;
+    const secret = JWT_ACCESS_SECRET;
     const issuer = 'construction-management-app-v2';
     
     return jwt.verify(cleanToken, secret, {
@@ -243,11 +257,10 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       '/api/auth/register', 
       '/api/auth/forgot-password',
       '/api/auth/reset-password',
-      '/api/sync/full-backup', 
       '/api/health',
       '/api/auth/resend-verification',
       '/api/auth/verify-email',
-      '/api/auth/refresh' // السماح بمسار التجديد دائماً
+      '/api/auth/refresh'
     ];
     if (publicPaths.includes(req.path) || 
         req.originalUrl.includes('/api/auth/login') || 
@@ -318,26 +331,19 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       }
 
       if (!decoded) {
-        // محاولة التحقق باستخدام المفتاح البديل في حالة فشل المفتاح الأساسي (للتوافق خلال الانتقال)
-        try {
-          const fallbackSecret = 'binarjoin-core-system-v2-2026-ultra-secure-key';
-          decoded = jwt.verify(token, fallbackSecret, { issuer: 'construction-management-app-v2' }) as any;
-          console.log('✅ [AUTH] تم قبول التوكن باستخدام المفتاح الاحتياطي');
-        } catch (fallbackError) {
-          if (error.name === 'TokenExpiredError' || error.message?.includes('expired')) {
-            return res.status(401).json({
-              success: false,
-              message: 'انتهت الجلسة - يرجى تجديد الدخول',
-              code: 'TOKEN_EXPIRED'
-            });
-          }
-
+        if (error.name === 'TokenExpiredError' || error.message?.includes('expired')) {
           return res.status(401).json({
             success: false,
-            message: 'رمز المصادقة غير صالح',
-            code: 'INVALID_TOKEN'
+            message: 'انتهت الجلسة - يرجى تجديد الدخول',
+            code: 'TOKEN_EXPIRED'
           });
         }
+
+        return res.status(401).json({
+          success: false,
+          message: 'رمز المصادقة غير صالح',
+          code: 'INVALID_TOKEN'
+        });
       }
     }
 

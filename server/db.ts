@@ -25,6 +25,14 @@ const rawDbUrl =
   process.env.DATABASE_URL_RAILWAY || 
   "";
 
+if (!isAndroid && !rawDbUrl) {
+  const errorMsg = '🚨 [DB FATAL] No database URL configured. Set DATABASE_URL_CENTRAL or DATABASE_URL_RAILWAY environment variable.';
+  console.error(errorMsg);
+  if (isServerProduction) {
+    throw new Error(errorMsg);
+  }
+}
+
 // تسجيل القاعدة المستخدمة
 const dbSource = process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :
                  process.env.DATABASE_URL_RAILWAY ? 'RAILWAY' : 'NONE';
@@ -210,6 +218,23 @@ try {
 
 export const db = dbInstance;
 export { isEmergencyMode, sqliteInstance };
+
+if (!isAndroid && !isEmergencyMode && rawDbUrl) {
+  (async () => {
+    try {
+      const client = await pool.connect();
+      const result = await client.query('SELECT current_database(), now()');
+      client.release();
+      console.log(`✅ [DB Startup Health Check] Connection verified: ${result.rows[0].current_database}`);
+    } catch (err: any) {
+      console.error(`🚨 [DB Startup Health Check] Failed to verify database connection: ${err.message}`);
+      if (isServerProduction) {
+        console.error('🚨 [DB FATAL] Cannot connect to database in production. Exiting.');
+        process.exit(1);
+      }
+    }
+  })();
+}
 
 // إضافة متغير عالمي لحالة تكامل البيانات
 (global as any).lastIntegrityCheck = {

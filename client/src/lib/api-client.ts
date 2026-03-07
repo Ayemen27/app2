@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { ENV } from './env';
+import { getValidToken, isValidJwt, isTokenExpired } from './token-utils';
 
 // عميل API محسن لمعالجة الأخطاء والاتصالات
 class ApiClient {
@@ -9,26 +10,54 @@ class ApiClient {
     this.baseURL = `${ENV.getApiBaseUrl()}/api`;
   }
 
+  private async getTokenWithRefresh(): Promise<string | null> {
+    let token = getValidToken('accessToken');
+    if (token) return token;
+
+    const rawToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (rawToken && isValidJwt(rawToken) && isTokenExpired(rawToken)) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken && isValidJwt(refreshToken) && !isTokenExpired(refreshToken)) {
+        try {
+          console.log('[ApiClient] Access token expired, attempting proactive refresh...');
+          const refreshResponse = await this.post<{accessToken: string, refreshToken: string}>('/auth/refresh', {
+            refreshToken
+          });
+          if (refreshResponse && refreshResponse.accessToken) {
+            localStorage.setItem('accessToken', refreshResponse.accessToken);
+            if (refreshResponse.refreshToken) {
+              localStorage.setItem('refreshToken', refreshResponse.refreshToken);
+            }
+            return refreshResponse.accessToken;
+          }
+        } catch (e) {
+          console.error('[ApiClient] Proactive refresh failed:', e);
+        }
+      }
+    }
+    return null;
+  }
+
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // استخراج التوكن من localStorage لضمان استخدامه في جميع الطلبات
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    
-    // إذا كان التطبيق يعمل على أندرويد وكان الإنترنت مقطوعاً، نمنع طلبات الويب المباشرة
     if (Capacitor.getPlatform() !== 'web' && typeof navigator !== 'undefined' && !navigator.onLine) {
-      console.warn(`📡 [API] Offline mode on ${Capacitor.getPlatform()}: skipping direct request to ${endpoint}`);
+      console.warn(`[API] Offline mode on ${Capacitor.getPlatform()}: skipping direct request to ${endpoint}`);
       throw new Error('OFFLINE_MODE');
     }
 
+    const isAuthEndpoint = endpoint === '/auth/refresh' || endpoint === '/auth/login';
+    const token = isAuthEndpoint
+      ? (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null)
+      : await this.getTokenWithRefresh();
+
     try {
       const url = `${this.baseURL}${endpoint}`;
-      console.log(`🔄 API Request: ${options.method || 'GET'} ${endpoint}`, options.body || '');
+      console.log(`API Request: ${options.method || 'GET'} ${endpoint}`, options.body || '');
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
 
       if (token && token !== 'undefined' && token !== 'null') {
-        // إزالة أي علامات اقتباس إضافية قد يضيفها نظام الأندرويد تلقائياً
         const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
         headers['Authorization'] = `Bearer ${cleanToken}`;
         headers['x-auth-token'] = cleanToken;
@@ -134,9 +163,38 @@ export async function apiRequest(
     'Content-Type': 'application/json',
   };
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  let token = getValidToken('accessToken');
+  if (!token) {
+    const rawToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (rawToken && isValidJwt(rawToken) && isTokenExpired(rawToken)) {
+      const refreshTokenVal = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      if (refreshTokenVal && isValidJwt(refreshTokenVal) && !isTokenExpired(refreshTokenVal)) {
+        try {
+          console.log('[apiRequest] Access token expired, attempting proactive refresh...');
+          const refreshUrl = `${baseURL}/api/auth/refresh`;
+          const refreshRes = await fetch(refreshUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: refreshTokenVal })
+          });
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            const newToken = refreshData.data?.accessToken || refreshData.accessToken;
+            const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
+            if (newToken) {
+              localStorage.setItem('accessToken', newToken);
+              if (newRefresh) localStorage.setItem('refreshToken', newRefresh);
+              token = newToken;
+            }
+          }
+        } catch (e) {
+          console.error('[apiRequest] Proactive refresh failed:', e);
+        }
+      }
+    }
+  }
+
   if (token) {
-    // إزالة أي علامات اقتباس إضافية قد يضيفها نظام الأندرويد تلقائياً
     const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
     headers['Authorization'] = `Bearer ${cleanToken}`;
     headers['x-auth-token'] = cleanToken;

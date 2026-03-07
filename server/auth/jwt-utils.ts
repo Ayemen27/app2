@@ -12,17 +12,32 @@ import { hashToken } from './crypto-utils.js';
 
 // ملاحظة: تم تفعيل نظام الجلسات مع جدول authUserSessions
 
-// إعدادات JWT - استخدام مفتاح واحد ثابت تماماً وفريد للنظام الجديد لضمان التوافق مع السيرفر الخارجي
-const SHARED_SECRET = process.env.JWT_ACCESS_SECRET || 'binarjoin-core-system-v2-2026-ultra-secure-key';
+const isProduction = process.env.NODE_ENV === 'production' && !process.env.REPLIT_ID;
 
-// تصدير السر لاستخدامه في Middleware لضمان المطابقة الكاملة
-export const JWT_SHARED_SECRET = SHARED_SECRET;
+function getRequiredSecret(envVar: string, name: string): string {
+  const value = process.env[envVar];
+  if (value) return value;
+
+  if (isProduction) {
+    console.error(`FATAL: ${envVar} environment variable is required in production`);
+    process.exit(1);
+  }
+
+  console.warn(`[JWT] ${envVar} not set - using development-only fallback for ${name}. DO NOT use in production.`);
+  return `dev-only-${name}-fallback-${envVar}-not-set`;
+}
+
+const ACCESS_SECRET = getRequiredSecret('JWT_ACCESS_SECRET', 'access-token');
+const REFRESH_SECRET = getRequiredSecret('JWT_REFRESH_SECRET', 'refresh-token');
+
+export const JWT_ACCESS_SECRET = ACCESS_SECRET;
+export const JWT_REFRESH_SECRET = REFRESH_SECRET;
 
 export const JWT_CONFIG = {
-  accessTokenSecret: SHARED_SECRET,
-  refreshTokenSecret: SHARED_SECRET,
-  accessTokenExpiry: '15m', // العودة لـ 15 دقيقة لضمان أمان تدوير الرموز
-  refreshTokenExpiry: '7d', // 7 أيام كافية للمزامنة النشطة
+  accessTokenSecret: ACCESS_SECRET,
+  refreshTokenSecret: REFRESH_SECRET,
+  accessTokenExpiry: '15m',
+  refreshTokenExpiry: '7d',
   issuer: 'construction-management-app-v2',
   algorithm: 'HS256' as const,
 };
@@ -54,7 +69,7 @@ interface TokenPair {
 export function generateAccessToken(payload: { userId: string; email: string; role: string }): string {
   return jwt.sign(
     { ...payload, type: 'access' },
-    JWT_SHARED_SECRET,
+    JWT_ACCESS_SECRET,
     { 
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
@@ -68,7 +83,7 @@ export function generateAccessToken(payload: { userId: string; email: string; ro
 export function generateRefreshToken(payload: { userId: string; email: string }): string {
   return jwt.sign(
     { ...payload, type: 'refresh' },
-    JWT_SHARED_SECRET,
+    JWT_REFRESH_SECRET,
     { 
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
@@ -99,12 +114,12 @@ export async function generateTokenPair(
 
   const accessTokenExpiry = role === 'admin' ? '4h' : '15m';
   
-  const accessToken = jwt.sign(accessPayload, JWT_SHARED_SECRET, {
+  const accessToken = jwt.sign(accessPayload, JWT_ACCESS_SECRET, {
     expiresIn: accessTokenExpiry,
     issuer: JWT_CONFIG.issuer
   } as jwt.SignOptions);
   
-  const refreshToken = jwt.sign(refreshPayload, JWT_SHARED_SECRET, {
+  const refreshToken = jwt.sign(refreshPayload, JWT_REFRESH_SECRET, {
     expiresIn: JWT_CONFIG.refreshTokenExpiry,
     issuer: JWT_CONFIG.issuer
   } as jwt.SignOptions);
@@ -162,8 +177,7 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
       cleanToken = cleanToken.slice(1, -1);
     }
 
-    // فك تشفير JWT
-    const payload = jwt.verify(cleanToken, JWT_SHARED_SECRET, {
+    const payload = jwt.verify(cleanToken, JWT_ACCESS_SECRET, {
       issuer: JWT_CONFIG.issuer,
       ignoreExpiration: process.env.NODE_ENV === 'development',
     }) as any;
@@ -239,7 +253,7 @@ export async function verifyRefreshToken(token: string): Promise<any | null> {
       return null;
     }
 
-    const payload = jwt.verify(token, JWT_SHARED_SECRET, {
+    const payload = jwt.verify(token, JWT_REFRESH_SECRET, {
       issuer: JWT_CONFIG.issuer,
     }) as any;
 
@@ -280,12 +294,11 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
     let payload: any;
     try {
       // محاولة التحقق العادية
-      payload = jwt.verify(refreshToken, JWT_SHARED_SECRET, {
+      payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
         issuer: JWT_CONFIG.issuer,
         ignoreExpiration: true,
       }) as any;
     } catch (verifyError: any) {
-      // في حالة فشل التوقيع في التطوير، نفك التشفير بدون تحقق للمساعدة في الانتقال
       console.warn(`⚠️ [JWT-DEV] فشل التحقق (${verifyError.message})، محاولة فك التشفير الصامت...`);
       payload = jwt.decode(refreshToken) as any;
       
@@ -344,18 +357,16 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
     const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: 'access' as const };
     const refreshPayload = { userId: payload.userId, email: user.email, sessionId: payload.sessionId, type: 'refresh' as const };
 
-    const newAccessToken = jwt.sign(accessPayload, JWT_SHARED_SECRET, {
+    const newAccessToken = jwt.sign(accessPayload, JWT_ACCESS_SECRET, {
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
     } as jwt.SignOptions);
     
-    const newRefreshToken = jwt.sign(refreshPayload, JWT_SHARED_SECRET, {
+    const newRefreshToken = jwt.sign(refreshPayload, JWT_REFRESH_SECRET, {
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
     } as jwt.SignOptions);
 
-    // تحديث البيانات: آخر نشاط + hash الـ refresh token الجديد
-    // فقط إذا كانت الجلسة موجودة
     if (session) {
       const newRefreshTokenHash = hashToken(newRefreshToken);
       try {
@@ -397,8 +408,7 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
   console.log('🔄 [JWT-PROD] بدء تجديد كامل للإنتاج...');
 
   try {
-    // فك تشفير refresh token
-    const payload = jwt.verify(refreshToken, JWT_SHARED_SECRET, {
+    const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
       issuer: JWT_CONFIG.issuer,
       ignoreExpiration: true,
     }) as any;
@@ -449,12 +459,12 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
     const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: 'access' as const };
     const refreshPayload = { userId: payload.userId, email: user[0].email, sessionId: newSessionId, type: 'refresh' as const };
 
-    const newAccessToken = jwt.sign(accessPayload, JWT_SHARED_SECRET, {
+    const newAccessToken = jwt.sign(accessPayload, JWT_ACCESS_SECRET, {
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
     } as jwt.SignOptions);
     
-    const newRefreshToken = jwt.sign(refreshPayload, JWT_SHARED_SECRET, {
+    const newRefreshToken = jwt.sign(refreshPayload, JWT_REFRESH_SECRET, {
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
     } as jwt.SignOptions);

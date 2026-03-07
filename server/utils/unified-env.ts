@@ -34,6 +34,11 @@ const DATABASE_URL_ACTIVE =
   process.env.DATABASE_URL_RAILWAY || 
   process.env.DATABASE_URL || '';
 
+if (!DATABASE_URL_ACTIVE && isProduction) {
+  console.error('🚨 [UnifiedEnv FATAL] No DATABASE_URL configured in production. Set DATABASE_URL_CENTRAL or DATABASE_URL_RAILWAY.');
+  throw new Error('Missing required DATABASE_URL in production environment');
+}
+
 const DATABASE_SOURCE = 
   process.env.DATABASE_URL_CENTRAL ? 'CENTRAL' :
   process.env.DATABASE_URL_RAILWAY ? 'RAILWAY' :

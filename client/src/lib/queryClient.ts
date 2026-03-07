@@ -3,7 +3,7 @@ import { isOnline } from "@/offline/offline-queries";
 import { smartGetAll } from "@/offline/storage-factory";
 import { ENV } from './env';
 import { offlineApiInterceptor, isOfflineSupportedEndpoint, triggerBackgroundSync } from "@/offline/offline-api-interceptor";
-import { isValidJwt, getValidToken } from './token-utils';
+import { isValidJwt, getValidToken, isTokenExpired } from './token-utils';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -301,9 +301,19 @@ export const getQueryFn: <T>(options: {
             }
           }
 
-        // إعداد headers مع Authorization
         const headers: Record<string, string> = {};
-        const accessToken = getStoredAccessToken();
+        let accessToken = getStoredAccessToken();
+
+        if (accessToken && isTokenExpired(accessToken)) {
+          console.log('[QueryClient] Access token expired/expiring, attempting proactive refresh...');
+          const refreshed = await refreshAuthToken();
+          if (refreshed) {
+            accessToken = getStoredAccessToken();
+          } else {
+            accessToken = null;
+          }
+        }
+
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }

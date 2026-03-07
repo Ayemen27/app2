@@ -8,60 +8,11 @@ import { apiRequest } from '../lib/api-client';
 import { smartSave, smartGetAll, smartClear, smartPut, smartGet } from './storage-factory';
 import { intelligentMonitor } from './intelligent-monitor';
 import { ENV } from '../lib/env';
+import { SYNCABLE_TABLES, SERVER_TO_IDB_TABLE_MAP } from '@shared/schema';
 
-export const ALL_SYNC_TABLES = [
-  'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
-  'project_types', 'projects', 'workers', 'wells',
-  'fund_transfers', 'worker_attendance', 'suppliers', 'materials', 'material_purchases',
-  'supplier_payments', 'transportation_expenses', 'worker_transfers', 'worker_balances',
-  'daily_expense_summaries', 'worker_types', 'autocomplete_data', 'worker_misc_expenses',
-  'backup_logs', 'backup_settings', 'print_settings', 'project_fund_transfers',
-  'security_policies', 'security_policy_suggestions', 'security_policy_implementations', 'security_policy_violations',
-  'user_project_permissions', 'permission_audit_logs',
-  'report_templates', 'notification_read_states', 'build_deployments',
-  'notifications', 'ai_chat_sessions', 'ai_chat_messages', 'ai_usage_stats',
-  'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories'
-] as const;
+export const ALL_SYNC_TABLES = SYNCABLE_TABLES;
 
-const SERVER_TO_IDB_MAP: Record<string, string> = {
-  'emergency_users': 'emergencyUsers',
-  'auth_user_sessions': 'authUserSessions',
-  'email_verification_tokens': 'emailVerificationTokens',
-  'password_reset_tokens': 'passwordResetTokens',
-  'project_types': 'projectTypes',
-  'fund_transfers': 'fundTransfers',
-  'worker_attendance': 'workerAttendance',
-  'material_purchases': 'materialPurchases',
-  'supplier_payments': 'supplierPayments',
-  'transportation_expenses': 'transportationExpenses',
-  'worker_transfers': 'workerTransfers',
-  'worker_balances': 'workerBalances',
-  'daily_expense_summaries': 'dailyExpenseSummaries',
-  'worker_types': 'workerTypes',
-  'autocomplete_data': 'autocompleteData',
-  'worker_misc_expenses': 'workerMiscExpenses',
-  'backup_logs': 'backupLogs',
-  'backup_settings': 'backupSettings',
-  'print_settings': 'printSettings',
-  'project_fund_transfers': 'projectFundTransfers',
-  'security_policies': 'securityPolicies',
-  'security_policy_suggestions': 'securityPolicySuggestions',
-  'security_policy_implementations': 'securityPolicyImplementations',
-  'security_policy_violations': 'securityPolicyViolations',
-  'user_project_permissions': 'userProjectPermissions',
-  'permission_audit_logs': 'permissionAuditLogs',
-  'report_templates': 'reportTemplates',
-  'notification_read_states': 'notificationReadStates',
-  'build_deployments': 'buildDeployments',
-  'ai_chat_sessions': 'aiChatSessions',
-  'ai_chat_messages': 'aiChatMessages',
-  'ai_usage_stats': 'aiUsageStats',
-  'well_tasks': 'wellTasks',
-  'well_task_accounts': 'wellTaskAccounts',
-  'well_expenses': 'wellExpenses',
-  'well_audit_logs': 'wellAuditLogs',
-  'material_categories': 'materialCategories',
-};
+const SERVER_TO_IDB_MAP: Record<string, string> = SERVER_TO_IDB_TABLE_MAP;
 
 export function serverTableToIDB(serverName: string): string {
   return SERVER_TO_IDB_MAP[serverName] || serverName;

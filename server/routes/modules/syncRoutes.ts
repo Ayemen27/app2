@@ -8,25 +8,16 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
 import { db, pool } from '../../db.js';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAuth, syncRateLimit } from '../../middleware/auth.js';
 import { SyncAuditService } from '../../services/SyncAuditService.js';
+import { SYNCABLE_TABLES } from '../../../shared/schema.js';
 
 export const syncRouter = express.Router();
 
-const ALL_DATABASE_TABLES = [
-  'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
-  'project_types', 'projects', 'workers', 'wells',
-  'fund_transfers', 'worker_attendance', 'suppliers', 'materials', 'material_purchases',
-  'supplier_payments', 'transportation_expenses', 'worker_transfers', 'worker_balances',
-  'daily_expense_summaries', 'worker_types', 'autocomplete_data', 'worker_misc_expenses',
-  'backup_logs', 'backup_settings', 'print_settings', 'project_fund_transfers',
-  'security_policies', 'security_policy_suggestions', 'security_policy_implementations', 'security_policy_violations',
-  'user_project_permissions', 'permission_audit_logs',
-  'report_templates', 'notification_read_states', 'build_deployments',
-  'notifications', 'ai_chat_sessions', 'ai_chat_messages', 'ai_usage_stats',
-  'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories',
-  'equipment', 'equipment_movements'
-];
+syncRouter.use(requireAuth);
+syncRouter.use(syncRateLimit);
+
+const ALL_DATABASE_TABLES: readonly string[] = SYNCABLE_TABLES;
 
 const MAX_BATCH_SIZE = 5;
 
@@ -528,7 +519,7 @@ const ALLOWED_BATCH_TABLES: Record<string, string> = {
   'autocomplete': 'autocomplete',
 };
 
-syncRouter.post('/batch', requireAuth, async (req: Request, res: Response) => {
+syncRouter.post('/batch', async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
     const { operations } = req.body;

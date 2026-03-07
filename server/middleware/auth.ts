@@ -288,7 +288,15 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       token = token.substring(7).trim();
     }
 
-    // التحقق من صحة الـ token
+    const jwtParts = token.split('.');
+    if (jwtParts.length !== 3 || jwtParts.some(p => p.length === 0)) {
+      return res.status(401).json({
+        success: false,
+        message: 'صيغة رمز المصادقة غير صالحة',
+        code: 'INVALID_TOKEN_FORMAT'
+      });
+    }
+
     let decoded;
     try {
       decoded = await verifyToken(token);

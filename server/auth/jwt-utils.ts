@@ -236,7 +236,13 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
  */
 export async function verifyRefreshToken(token: string): Promise<any | null> {
   try {
-    // فك تشفير JWT
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3 || parts.some(p => p.length === 0)) {
+      console.warn('⚠️ [JWT] refresh token ليس بصيغة JWT صالحة');
+      return null;
+    }
+
     const payload = jwt.verify(token, JWT_SHARED_SECRET, {
       issuer: JWT_CONFIG.issuer,
     }) as any;

@@ -3,6 +3,7 @@ import { isOnline } from "@/offline/offline-queries";
 import { smartGetAll } from "@/offline/storage-factory";
 import { ENV } from './env';
 import { offlineApiInterceptor, isOfflineSupportedEndpoint, triggerBackgroundSync } from "@/offline/offline-api-interceptor";
+import { isValidJwt, getValidToken } from './token-utils';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -82,8 +83,7 @@ export async function apiRequest(
     url = `${apiBase}${cleanEndpoint}`;
   }
 
-  // ✅ جلب التوكن من localStorage بشكل مباشر
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const token = typeof window !== 'undefined' ? getValidToken('accessToken') : null;
   
   if (!token) {
     console.warn(`⚠️ [apiRequest] لا يوجد توكن للطلب: ${method} ${endpoint}`);
@@ -131,12 +131,11 @@ export async function apiRequest(
     // فحص نوع المحتوى
     const contentType = response.headers.get("content-type");
 
-    // إذا كان الرد 401 ولم نحاول التجديد بعد
     if (response.status === 401) {
       console.log('🔄 [apiRequest] 401 Unauthorized - Checking tokens...');
       
-      const refreshTokenValue = localStorage.getItem("refreshToken");
-      if (refreshTokenValue && retryCount === 0) {
+      const refreshTokenValue = getValidToken("refreshToken");
+      if (refreshTokenValue && isValidJwt(refreshTokenValue) && retryCount === 0) {
         try {
           const apiBase = ENV.getApiBaseUrl();
           const refreshUrl = `${apiBase}/api/auth/refresh`;
@@ -325,8 +324,8 @@ export const getQueryFn: <T>(options: {
         if (!res.ok) {
           if (res.status === 401 && retryCount === 0) {
             console.log('🔄 [QueryClient] 401 - محاولة تجديد التوكن...');
-            const refreshTokenValue = localStorage.getItem("refreshToken");
-            if (refreshTokenValue) {
+            const refreshTokenValue = getValidToken("refreshToken");
+            if (refreshTokenValue && isValidJwt(refreshTokenValue)) {
               try {
                 const refreshApiBase = ENV.getApiBaseUrl();
                 const refreshUrl = `${refreshApiBase}/api/auth/refresh`;

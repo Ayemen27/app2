@@ -6,6 +6,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/queryClient";
+import { isValidJwt, clearInvalidTokens, setAuthMode, getAuthMode, isOfflineMode, getValidToken } from "../lib/token-utils";
 
 import { smartGetAll } from "../offline/storage-factory";
 
@@ -51,13 +52,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const isAuthenticated = user !== null;
 
-  // ✅ Helper functions لإدارة التوكنات - مركزية وآمنة
   const getAccessToken = (): string | null => {
-    return localStorage.getItem('accessToken');
+    return getValidToken('accessToken');
   };
 
   const getRefreshToken = (): string | null => {
-    return localStorage.getItem('refreshToken');
+    return getValidToken('refreshToken');
   };
 
   // متغيرات لإدارة Fallback mechanisms
@@ -125,12 +125,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initAuth = async () => {
       console.log('🔐 [AuthProvider] بدء تهيئة المصادقة...', new Date().toISOString());
+      clearInvalidTokens();
       try {
-        const accessToken = localStorage.getItem('accessToken');
+        const accessToken = getValidToken('accessToken');
         const savedUser = localStorage.getItem('user');
 
-        if (!accessToken || !savedUser) {
-          console.log('ℹ️ [AuthProvider] لا توجد بيانات كاملة محفوظة');
+        if (!savedUser) {
+          console.log('ℹ️ [AuthProvider] لا توجد بيانات مستخدم محفوظة');
+          setIsLoading(false);
+          return;
+        }
+
+        if (!accessToken && !isOfflineMode()) {
+          console.log('ℹ️ [AuthProvider] لا يوجد توكن صالح والتطبيق ليس في وضع أوفلاين');
           setIsLoading(false);
           return;
         }
@@ -140,7 +147,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser(parsedUser);
           setIsLoading(false);
           
-          // تحقق صامت تماماً دون أي إمكانية لإعادة التوجيه أو التغيير
+          if (!accessToken) {
+            console.log('📴 [AuthProvider] وضع أوفلاين - تخطي التحقق من السيرفر');
+            return;
+          }
+
           console.log('🛡️ [AuthProvider] جاري التحقق الصامت من الجلسة...');
           fetch(`${API_BASE_URL}/auth/me`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -244,12 +255,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         );
         
         if (emergencyUser) {
-          console.log('🚨 [AuthProvider] تم الدخول بواسطة مستخدم الطوارئ');
+          console.log('🚨 [AuthProvider] تم الدخول بواسطة مستخدم الطوارئ (بدون توكنات)');
+          setAuthMode('emergency');
           result = {
             success: true,
             data: {
               user: { ...emergencyUser, emailVerified: true },
-              tokens: { accessToken: 'emergency-token', refreshToken: 'emergency-refresh' }
+              tokens: null
             }
           };
         } else {
@@ -260,12 +272,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const localUser = localUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
           
           if (localUser) {
-            console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (أوفلاين)');
+            console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (أوفلاين - بدون توكنات)');
+            setAuthMode('offline');
             result = {
               success: true,
               data: {
                 user: localUser,
-                tokens: { accessToken: 'offline-token', refreshToken: 'offline-refresh' }
+                tokens: null
               }
             };
           }
@@ -347,7 +360,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       tokenType: typeof tokenData
     });
 
-    if (!tokenData) {
+    if (!tokenData && !isOfflineMode()) {
       console.error('❌ [AuthProvider.login] التوكن مفقود من الاستجابة:', result);
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
@@ -376,8 +389,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     console.log('💾 [AuthProvider.login] حفظ البيانات في localStorage...');
     localStorage.setItem('user', JSON.stringify(userToSave));
-    localStorage.setItem('accessToken', tokenData);
-    if (refreshTokenData) {
+    if (tokenData && isValidJwt(tokenData)) {
+      localStorage.setItem('accessToken', tokenData);
+      setAuthMode('online');
+    }
+    if (refreshTokenData && isValidJwt(refreshTokenData)) {
       localStorage.setItem('refreshToken', refreshTokenData);
     }
     

@@ -119,14 +119,30 @@ export async function registerBiometric(accessToken: string): Promise<{ success:
 export async function checkBiometricRegistered(email?: string): Promise<boolean> {
   try {
     const apiBase = ENV.getApiBaseUrl();
-    const res = await fetch(`${apiBase}/api/webauthn/login/options`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, checkOnly: true }),
-    });
-    if (!res.ok) return false;
-    const { options } = await res.json();
-    return (options?.allowCredentials?.length || 0) > 0;
+
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      const res = await fetch(`${apiBase}/api/webauthn/status`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.enabled === true;
+      }
+    }
+
+    if (email) {
+      const res = await fetch(`${apiBase}/api/webauthn/login/options`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) return false;
+      const { options } = await res.json();
+      return Array.isArray(options?.allowCredentials) && options.allowCredentials.length > 0;
+    }
+
+    return false;
   } catch {
     return false;
   }

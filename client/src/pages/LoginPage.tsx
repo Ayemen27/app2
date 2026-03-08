@@ -90,16 +90,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     const checkBiometric = async () => {
-      const { isBiometricAvailable, hasBiometricCredentialStored } = await import("../lib/webauthn");
+      const { isBiometricAvailable } = await import("../lib/webauthn");
       const available = await isBiometricAvailable();
-      const hasStored = hasBiometricCredentialStored();
-      setBiometricAvailable(available && hasStored);
+      setBiometricAvailable(available);
     };
     checkBiometric();
   }, []);
 
   const handleBiometricLogin = async () => {
-    const { isBiometricAvailable } = await import("../lib/webauthn");
+    const { isBiometricAvailable, checkBiometricRegistered } = await import("../lib/webauthn");
     const available = await isBiometricAvailable();
     if (!available) {
       toast({
@@ -113,6 +112,17 @@ export default function LoginPage() {
     setBiometricLoading(true);
     try {
       const email = form.getValues('email') || undefined;
+
+      const hasCredentials = await checkBiometricRegistered(email);
+      if (!hasCredentials) {
+        toast({
+          title: "البصمة غير مفعّلة",
+          description: "سجّل الدخول بكلمة المرور أولاً، ثم فعّل البصمة من الإعدادات > الأمان",
+        });
+        setBiometricLoading(false);
+        return;
+      }
+
       await authBiometricLogin(email);
 
       toast({
@@ -124,7 +134,7 @@ export default function LoginPage() {
       if (error.code === 'NO_CREDENTIALS') {
         toast({
           title: "البصمة غير مفعّلة",
-          description: "سجّل الدخول بكلمة المرور أولاً، ثم ستظهر لك رسالة لتفعيل البصمة",
+          description: "سجّل الدخول بكلمة المرور أولاً، ثم فعّل البصمة من الإعدادات > الأمان",
         });
       } else if (error.name === 'NotAllowedError') {
         toast({

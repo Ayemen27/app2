@@ -437,33 +437,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const promptBiometricRegistration = async () => {
-    try {
-      if (localStorage.getItem('biometric_prompt_dismissed') === 'true') return;
-      if (localStorage.getItem('biometric_credential_registered') === 'true') return;
-
-      const { isBiometricAvailable } = await import('../lib/webauthn');
-      const available = await isBiometricAvailable();
-      if (!available) return;
-
-      setTimeout(async () => {
-        const shouldRegister = window.confirm('هل تريد تفعيل الدخول بالبصمة؟');
-        if (shouldRegister) {
-          try {
-            const token = localStorage.getItem('accessToken');
-            if (!token) return;
-            const { registerBiometric } = await import('../lib/webauthn');
-            await registerBiometric(token);
-            console.log('✅ [AuthProvider] تم تسجيل البصمة بنجاح');
-          } catch (err) {
-            console.warn('⚠️ [AuthProvider] فشل تسجيل البصمة:', err);
-          }
-        } else {
-          localStorage.setItem('biometric_prompt_dismissed', 'true');
-        }
-      }, 2000);
-    } catch (err) {
-      console.warn('⚠️ [AuthProvider] خطأ في فحص البصمة:', err);
-    }
+    console.log('ℹ️ [AuthProvider] تفعيل البصمة متاح من الإعدادات > الأمان');
   };
 
   const loginWithBiometric = async (email?: string) => {

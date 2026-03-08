@@ -116,6 +116,22 @@ export async function registerBiometric(accessToken: string): Promise<{ success:
   return result;
 }
 
+export async function checkBiometricRegistered(email?: string): Promise<boolean> {
+  try {
+    const apiBase = ENV.getApiBaseUrl();
+    const res = await fetch(`${apiBase}/api/webauthn/login/options`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, checkOnly: true }),
+    });
+    if (!res.ok) return false;
+    const { options } = await res.json();
+    return (options?.allowCredentials?.length || 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function loginWithBiometric(email?: string): Promise<any> {
   const apiBase = ENV.getApiBaseUrl();
 
@@ -131,6 +147,12 @@ export async function loginWithBiometric(email?: string): Promise<any> {
   }
 
   const { options } = await optionsRes.json();
+
+  if (!options.allowCredentials || options.allowCredentials.length === 0) {
+    const noCredError = new Error('لم يتم تسجيل البصمة بعد. سجّل الدخول بكلمة المرور أولاً ثم فعّل البصمة من الإعدادات');
+    (noCredError as any).code = 'NO_CREDENTIALS';
+    throw noCredError;
+  }
 
   const publicKeyOptions: PublicKeyCredentialRequestOptions = {
     ...options,

@@ -121,7 +121,12 @@ export default function LoginPage() {
       });
       navigate("/");
     } catch (error: any) {
-      if (error.name === 'NotAllowedError') {
+      if (error.code === 'NO_CREDENTIALS') {
+        toast({
+          title: "البصمة غير مفعّلة",
+          description: "سجّل الدخول بكلمة المرور أولاً، ثم ستظهر لك رسالة لتفعيل البصمة",
+        });
+      } else if (error.name === 'NotAllowedError') {
         toast({
           title: "تم الإلغاء",
           description: "تم إلغاء عملية المصادقة بالبصمة",

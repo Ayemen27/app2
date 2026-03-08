@@ -68,9 +68,9 @@ export class AIAgentService {
     try {
       console.log(`📝 [AIAgentService] Creating session for user: ${userId}, title: ${title}`);
       const [session] = await db.insert(aiChatSessions).values({
-        userId,
+        user_id: userId,
         title: title || "محادثة جديدة",
-        isActive: true,
+        is_active: true,
         messagesCount: 0,
       }).returning({ id: aiChatSessions.id });
 

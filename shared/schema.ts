@@ -1588,6 +1588,37 @@ export const insertIdempotencyKeySchema = createInsertSchema(idempotencyKeys).om
 export type IdempotencyKey = typeof idempotencyKeys.$inferSelect;
 export type InsertIdempotencyKey = z.infer<typeof insertIdempotencyKeySchema>;
 
+// WebAuthn Credentials table (جدول بيانات اعتماد WebAuthn للمصادقة البيومترية)
+export const webauthnCredentials = pgTable("webauthn_credentials", {
+  id: serial("id").primaryKey(),
+  user_id: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  credential_id: text("credential_id").notNull().unique(),
+  public_key: text("public_key").notNull(),
+  counter: integer("counter").notNull().default(0),
+  transports: text("transports").array(),
+  device_label: text("device_label"),
+  created_at: timestamp("created_at").defaultNow(),
+  last_used_at: timestamp("last_used_at"),
+});
+
+export const insertWebAuthnCredentialSchema = createInsertSchema(webauthnCredentials).omit({ id: true, created_at: true });
+export type WebAuthnCredential = typeof webauthnCredentials.$inferSelect;
+export type InsertWebAuthnCredential = z.infer<typeof insertWebAuthnCredentialSchema>;
+
+// WebAuthn Challenges table (جدول تحديات WebAuthn المؤقتة)
+export const webauthnChallenges = pgTable("webauthn_challenges", {
+  id: serial("id").primaryKey(),
+  user_id: text("user_id"),
+  challenge: text("challenge").notNull().unique(),
+  type: text("type").notNull(),
+  created_at: timestamp("created_at").defaultNow(),
+  expires_at: timestamp("expires_at").notNull(),
+});
+
+export const insertWebAuthnChallengeSchema = createInsertSchema(webauthnChallenges).omit({ id: true, created_at: true });
+export type WebAuthnChallenge = typeof webauthnChallenges.$inferSelect;
+export type InsertWebAuthnChallenge = z.infer<typeof insertWebAuthnChallengeSchema>;
+
 export const SYNCABLE_TABLES = [
   'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
   'project_types', 'projects', 'workers', 'wells',

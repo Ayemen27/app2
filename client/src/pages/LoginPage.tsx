@@ -81,10 +81,62 @@ const AppLogo = () => (
 export default function LoginPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, loginWithBiometric: authBiometricLogin } = useAuth();
   const [loginMode, setLoginMode] = useState<'online' | 'offline'>('online');
   const [showPassword, setShowPassword] = useState(false);
   const [showAccountMessage, setShowAccountMessage] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+
+  useEffect(() => {
+    const checkBiometric = async () => {
+      const { isBiometricAvailable, hasBiometricCredentialStored } = await import("../lib/webauthn");
+      const available = await isBiometricAvailable();
+      const hasStored = hasBiometricCredentialStored();
+      setBiometricAvailable(available && hasStored);
+    };
+    checkBiometric();
+  }, []);
+
+  const handleBiometricLogin = async () => {
+    const { isBiometricAvailable } = await import("../lib/webauthn");
+    const available = await isBiometricAvailable();
+    if (!available) {
+      toast({
+        title: "غير مدعوم",
+        description: "جهازك لا يدعم تسجيل الدخول بالبصمة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setBiometricLoading(true);
+    try {
+      const email = form.getValues('email') || undefined;
+      await authBiometricLogin(email);
+
+      toast({
+        title: "تم تسجيل الدخول",
+        description: "تم تسجيل الدخول بالبصمة بنجاح",
+      });
+      navigate("/");
+    } catch (error: any) {
+      if (error.name === 'NotAllowedError') {
+        toast({
+          title: "تم الإلغاء",
+          description: "تم إلغاء عملية المصادقة بالبصمة",
+        });
+      } else {
+        toast({
+          title: "فشل تسجيل الدخول",
+          description: error.message || "حدث خطأ أثناء تسجيل الدخول بالبصمة",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
   
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -325,20 +377,19 @@ export default function LoginPage() {
           
           <div className="flex gap-4 mb-4">
             {[
-              { Icon: Fingerprint, label: 'Biometric', testId: 'button-fingerprint' },
-              { Icon: Scan, label: 'QR Scan', testId: 'button-scan-qr' },
-              { Icon: HeadphonesIcon, label: 'Support', testId: 'button-support' }
-            ].map(({ Icon, label, testId }, idx) => (
+              { Icon: Fingerprint, label: 'Biometric', testId: 'button-fingerprint', action: handleBiometricLogin, loading: biometricLoading },
+              { Icon: Scan, label: 'QR Scan', testId: 'button-scan-qr', action: () => alert('QR Scan feature coming soon on Axion Mobile.'), loading: false },
+              { Icon: HeadphonesIcon, label: 'Support', testId: 'button-support', action: () => alert('Support feature coming soon on Axion Mobile.'), loading: false }
+            ].map(({ Icon, label, testId, action, loading }, idx) => (
               <button 
                 key={idx} 
                 type="button"
-                onClick={() => {
-                  alert(`${label} feature coming soon on Axion Mobile.`);
-                }}
-                className="w-12 h-12 bg-card dark:bg-slate-900 rounded-2xl shadow-sm border border-border dark:border-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:shadow-md transition-all active:scale-90"
+                onClick={action}
+                disabled={loading}
+                className="w-12 h-12 bg-card dark:bg-slate-900 rounded-2xl shadow-sm border border-border dark:border-slate-800 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:shadow-md transition-all active:scale-90 disabled:opacity-50"
                 data-testid={testId}
               >
-                <Icon className="w-5 h-5" strokeWidth={1.5} />
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-5 h-5" strokeWidth={1.5} />}
               </button>
             ))}
           </div>

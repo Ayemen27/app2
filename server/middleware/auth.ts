@@ -260,13 +260,16 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       '/api/health',
       '/api/auth/resend-verification',
       '/api/auth/verify-email',
-      '/api/auth/refresh'
+      '/api/auth/refresh',
+      '/api/webauthn/login/options',
+      '/api/webauthn/login/verify'
     ];
     if (publicPaths.includes(req.path) || 
         req.originalUrl.includes('/api/auth/login') || 
         req.originalUrl.includes('/api/auth/forgot-password') ||
         req.originalUrl.includes('/api/auth/reset-password') ||
-        req.originalUrl.includes('/api/auth/resend-verification')) {
+        req.originalUrl.includes('/api/auth/resend-verification') ||
+        req.originalUrl.includes('/api/webauthn/login/')) {
       return next();
     }
   try {

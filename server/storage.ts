@@ -27,6 +27,7 @@ import {
   type Task, type InsertTask,
   type Device, type InsertDevice, type Crash, type InsertCrash, type Metric, type InsertMetric,
   type WhatsAppStats, type InsertWhatsAppStats, type WhatsAppMessage, type InsertWhatsAppMessage,
+  type WebAuthnCredential, type InsertWebAuthnCredential, type WebAuthnChallenge, type InsertWebAuthnChallenge,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
   refreshTokens, auditLogs,
@@ -39,6 +40,8 @@ import {
   metrics,
   whatsappStats,
   whatsappMessages,
+  webauthnCredentials,
+  webauthnChallenges,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
@@ -349,6 +352,19 @@ export interface IStorage {
   getTablePolicies(tableName: string): Promise<any[]>;
   analyzeSecurityThreats(): Promise<any>;
   exportData(): Promise<any>;
+
+  // WebAuthn Credentials
+  createWebAuthnCredential(data: InsertWebAuthnCredential): Promise<WebAuthnCredential>;
+  getWebAuthnCredentialsByUserId(userId: string): Promise<WebAuthnCredential[]>;
+  getWebAuthnCredentialByCredentialId(credentialId: string): Promise<WebAuthnCredential | undefined>;
+  updateWebAuthnCredentialCounter(credentialId: string, counter: number): Promise<void>;
+  deleteWebAuthnCredential(credentialId: string): Promise<void>;
+
+  // WebAuthn Challenges
+  createWebAuthnChallenge(data: InsertWebAuthnChallenge): Promise<WebAuthnChallenge>;
+  getWebAuthnChallenge(challenge: string): Promise<WebAuthnChallenge | undefined>;
+  deleteWebAuthnChallenge(challenge: string): Promise<void>;
+  cleanupExpiredChallenges(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4383,6 +4399,48 @@ export class DatabaseStorage implements IStorage {
       console.error(`❌ خطأ في جلب سياسات الجدول ${tableName}:`, error);
       return [];
     }
+  }
+
+  async createWebAuthnCredential(data: InsertWebAuthnCredential): Promise<WebAuthnCredential> {
+    const [credential] = await db.insert(webauthnCredentials).values(data).returning();
+    return credential;
+  }
+
+  async getWebAuthnCredentialsByUserId(userId: string): Promise<WebAuthnCredential[]> {
+    return await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.user_id, userId));
+  }
+
+  async getWebAuthnCredentialByCredentialId(credentialId: string): Promise<WebAuthnCredential | undefined> {
+    const [credential] = await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.credential_id, credentialId));
+    return credential || undefined;
+  }
+
+  async updateWebAuthnCredentialCounter(credentialId: string, counter: number): Promise<void> {
+    await db.update(webauthnCredentials)
+      .set({ counter, last_used_at: new Date() })
+      .where(eq(webauthnCredentials.credential_id, credentialId));
+  }
+
+  async deleteWebAuthnCredential(credentialId: string): Promise<void> {
+    await db.delete(webauthnCredentials).where(eq(webauthnCredentials.credential_id, credentialId));
+  }
+
+  async createWebAuthnChallenge(data: InsertWebAuthnChallenge): Promise<WebAuthnChallenge> {
+    const [challenge] = await db.insert(webauthnChallenges).values(data).returning();
+    return challenge;
+  }
+
+  async getWebAuthnChallenge(challenge: string): Promise<WebAuthnChallenge | undefined> {
+    const [result] = await db.select().from(webauthnChallenges).where(eq(webauthnChallenges.challenge, challenge));
+    return result || undefined;
+  }
+
+  async deleteWebAuthnChallenge(challenge: string): Promise<void> {
+    await db.delete(webauthnChallenges).where(eq(webauthnChallenges.challenge, challenge));
+  }
+
+  async cleanupExpiredChallenges(): Promise<void> {
+    await db.delete(webauthnChallenges).where(lte(webauthnChallenges.expires_at, new Date()));
   }
 }
 

@@ -32,6 +32,15 @@
 - Database connection fails fast in production if URL missing
 - Sync table definitions centralized in `shared/schema.ts` (SYNCABLE_TABLES constant)
 
+## Biometric/Fingerprint Login (WebAuthn)
+- WebAuthn/FIDO2 implemented for biometric login on mobile
+- DB tables: `webauthn_credentials` (stores public keys), `webauthn_challenges` (temporary challenges)
+- API endpoints: `/api/webauthn/register/options`, `/api/webauthn/register/verify`, `/api/webauthn/login/options`, `/api/webauthn/login/verify`
+- Client utility: `client/src/lib/webauthn.ts`
+- After first successful password login, user is prompted to register fingerprint
+- Fingerprint button on LoginPage triggers biometric authentication
+- Uses `@simplewebauthn/server` package
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

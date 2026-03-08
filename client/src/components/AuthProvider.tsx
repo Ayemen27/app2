@@ -26,7 +26,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
-  // ✅ Helper functions لإدارة التوكنات
+  loginWithBiometric: (email?: string) => Promise<void>;
   getAccessToken: () => string | null;
   getRefreshToken: () => string | null;
 }
@@ -430,7 +430,76 @@ export function AuthProvider({ children }: AuthProviderProps) {
     prefetchCoreData().catch(console.warn);
 
     console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
+
+    promptBiometricRegistration();
+
     return result;
+  };
+
+  const promptBiometricRegistration = async () => {
+    try {
+      if (localStorage.getItem('biometric_prompt_dismissed') === 'true') return;
+      if (localStorage.getItem('biometric_credential_registered') === 'true') return;
+
+      const { isBiometricAvailable } = await import('../lib/webauthn');
+      const available = await isBiometricAvailable();
+      if (!available) return;
+
+      setTimeout(async () => {
+        const shouldRegister = window.confirm('هل تريد تفعيل الدخول بالبصمة؟');
+        if (shouldRegister) {
+          try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) return;
+            const { registerBiometric } = await import('../lib/webauthn');
+            await registerBiometric(token);
+            console.log('✅ [AuthProvider] تم تسجيل البصمة بنجاح');
+          } catch (err) {
+            console.warn('⚠️ [AuthProvider] فشل تسجيل البصمة:', err);
+          }
+        } else {
+          localStorage.setItem('biometric_prompt_dismissed', 'true');
+        }
+      }, 2000);
+    } catch (err) {
+      console.warn('⚠️ [AuthProvider] خطأ في فحص البصمة:', err);
+    }
+  };
+
+  const loginWithBiometric = async (email?: string) => {
+    const { loginWithBiometric: biometricLogin } = await import('../lib/webauthn');
+    const result = await biometricLogin(email);
+
+    if (!result.success) {
+      throw new Error(result.message || 'فشل تسجيل الدخول بالبصمة');
+    }
+
+    const responseData = result.data || result;
+    const userData = responseData.user || result.user;
+    const tokenData = result.token || result.accessToken || responseData.token || responseData.accessToken || result.tokens?.accessToken;
+    const refreshTokenData = result.refreshToken || responseData.refreshToken || result.tokens?.refreshToken;
+
+    if (tokenData) {
+      localStorage.setItem('accessToken', tokenData);
+      setAuthMode('online');
+    }
+    if (refreshTokenData) {
+      localStorage.setItem('refreshToken', refreshTokenData);
+    }
+
+    const userToSave = {
+      id: userData?.id || userData?.user_id || 'unknown',
+      email: userData?.email || email || '',
+      name: userData?.name || userData?.full_name || userData?.email || '',
+      role: userData?.role || 'user',
+      mfa_enabled: !!userData?.mfa_enabled,
+      emailVerified: !!userData?.emailVerified || !!userData?.email_verified_at,
+    };
+
+    localStorage.setItem('user', JSON.stringify(userToSave));
+    setUser(userToSave);
+
+    prefetchCoreData().catch(console.warn);
   };
 
   // تسجيل الخروج
@@ -623,6 +692,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     refreshToken,
+    loginWithBiometric,
     getAccessToken,
     getRefreshToken,
   };

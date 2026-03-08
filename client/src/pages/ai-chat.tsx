@@ -309,9 +309,9 @@ export default function AIChatPage() {
   useEffect(() => {
     if (scrollAreaRef.current) {
       const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (viewport) setTimeout(() => { viewport.scrollTop = viewport.scrollHeight; }, 50);
+      if (viewport) setTimeout(() => { viewport.scrollTop = viewport.scrollHeight; }, 100);
     }
-  }, [messages]);
+  }, [messages, isLoading]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -346,7 +346,7 @@ export default function AIChatPage() {
   const isNewChat = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] relative" dir="rtl">
+    <div className="flex flex-col h-[calc(100dvh-180px)] sm:h-[calc(100dvh-120px)] relative" dir="rtl">
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -488,7 +488,7 @@ export default function AIChatPage() {
                       }
                     </div>
                     <div className={`flex-1 min-w-0 ${message.role === "user" ? "text-right" : ""}`}>
-                      <div className={`inline-block max-w-full rounded-2xl px-4 py-3 ${
+                      <div className={`inline-block max-w-[calc(100%-1rem)] sm:max-w-full rounded-2xl px-4 py-3 overflow-hidden ${
                         message.role === "user"
                           ? "bg-primary text-primary-foreground rounded-tr-md"
                           : message.error 
@@ -501,7 +501,7 @@ export default function AIChatPage() {
                             <span className="text-sm">جاري المعالجة...</span>
                           </div>
                         ) : (
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed" data-testid={`text-message-${index}`}>{message.content}</p>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed break-words" style={{ overflowWrap: 'anywhere' }} data-testid={`text-message-${index}`}>{message.content}</p>
                         )}
                       </div>
                       {showConfirmation && (
@@ -586,7 +586,7 @@ export default function AIChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-card/80 backdrop-blur-sm px-4 py-3">
+      <div className="border-t bg-card/80 backdrop-blur-sm px-4 py-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-2 bg-muted/50 border rounded-2xl p-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
             <Textarea

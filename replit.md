@@ -41,6 +41,14 @@
 - Fingerprint button on LoginPage triggers biometric authentication
 - Uses `@simplewebauthn/server` package
 
+## User Preferences (DB-Persisted Settings)
+- All Settings page preferences stored in PostgreSQL `user_preferences` table
+- DB columns: language, auto_update, dark_mode, font_size, push_notifications, expense_alerts, attendance_alerts, app_lock
+- API: `GET /api/preferences` (loads or creates defaults), `PUT /api/preferences` (Zod-validated update)
+- Route file: `server/routes/modules/preferencesRoutes.ts`
+- Frontend: `client/src/pages/settings.tsx` loads from API, saves on explicit "Save" button
+- Table has FK to `users(id)` with CASCADE delete, unique per user
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

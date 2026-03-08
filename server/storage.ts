@@ -359,6 +359,7 @@ export interface IStorage {
   getWebAuthnCredentialByCredentialId(credentialId: string): Promise<WebAuthnCredential | undefined>;
   updateWebAuthnCredentialCounter(credentialId: string, counter: number): Promise<void>;
   deleteWebAuthnCredential(credentialId: string): Promise<void>;
+  deleteAllWebAuthnCredentialsByUserId(userId: string): Promise<void>;
 
   // WebAuthn Challenges
   createWebAuthnChallenge(data: InsertWebAuthnChallenge): Promise<WebAuthnChallenge>;
@@ -4423,6 +4424,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteWebAuthnCredential(credentialId: string): Promise<void> {
     await db.delete(webauthnCredentials).where(eq(webauthnCredentials.credential_id, credentialId));
+  }
+
+  async deleteAllWebAuthnCredentialsByUserId(userId: string): Promise<void> {
+    await db.delete(webauthnCredentials).where(eq(webauthnCredentials.user_id, userId));
   }
 
   async createWebAuthnChallenge(data: InsertWebAuthnChallenge): Promise<WebAuthnChallenge> {

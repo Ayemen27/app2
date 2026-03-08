@@ -440,4 +440,49 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
   }
 });
 
+webauthnRouter.get('/status', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.user_id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'غير مصرح' });
+    }
+
+    const credentials = await storage.getWebAuthnCredentialsByUserId(userId);
+    res.json({
+      success: true,
+      enabled: credentials.length > 0,
+      count: credentials.length,
+      credentials: credentials.map(c => ({
+        id: c.credential_id,
+        label: c.device_label,
+        created_at: c.created_at,
+        last_used_at: c.last_used_at,
+      })),
+    });
+  } catch (error: any) {
+    console.error('❌ [WebAuthn] Error checking status:', error);
+    res.status(500).json({ success: false, message: 'خطأ في التحقق من حالة البصمة' });
+  }
+});
+
+webauthnRouter.delete('/credentials', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.user_id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'غير مصرح' });
+    }
+
+    await storage.deleteAllWebAuthnCredentialsByUserId(userId);
+    console.log(`🗑️ [WebAuthn] All credentials deleted for user: ${req.user?.email}`);
+
+    res.json({
+      success: true,
+      message: 'تم إلغاء تفعيل البصمة بنجاح',
+    });
+  } catch (error: any) {
+    console.error('❌ [WebAuthn] Error deleting credentials:', error);
+    res.status(500).json({ success: false, message: 'خطأ في إلغاء البصمة' });
+  }
+});
+
 export default webauthnRouter;

@@ -18,7 +18,11 @@ import {
   Upload,
   Trash2,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Fingerprint,
+  CheckCircle2,
+  XCircle,
+  Loader2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -40,15 +44,105 @@ export default function SettingsPage() {
   const { manualSync, isSyncing, isOnline } = useSyncData();
   const [stats, setStats] = useState<{ pendingSync: number; localUserData: number } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [biometricStatus, setBiometricStatus] = useState<'loading' | 'enabled' | 'disabled' | 'unsupported'>('loading');
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   const loadStats = async () => {
     const s = await getSyncStats();
     setStats(s);
   };
 
+  const checkBiometricStatus = async () => {
+    try {
+      const { isBiometricAvailable } = await import("../lib/webauthn");
+      const available = await isBiometricAvailable();
+      if (!available) {
+        setBiometricStatus('unsupported');
+        return;
+      }
+
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setBiometricStatus('disabled');
+        return;
+      }
+
+      const apiBase = (await import("../lib/env")).ENV.getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/webauthn/status`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setBiometricStatus(data.enabled ? 'enabled' : 'disabled');
+      } else {
+        setBiometricStatus('disabled');
+      }
+    } catch {
+      setBiometricStatus('disabled');
+    }
+  };
+
+  const handleEnableBiometric = async () => {
+    setBiometricLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        toast({ title: "خطأ", description: "يجب تسجيل الدخول أولاً", variant: "destructive" });
+        return;
+      }
+      const { registerBiometric } = await import("../lib/webauthn");
+      const result = await registerBiometric(token);
+      if (result.success) {
+        setBiometricStatus('enabled');
+        toast({ title: "تم التفعيل", description: "تم تفعيل الدخول بالبصمة بنجاح" });
+      } else {
+        toast({ title: "فشل التفعيل", description: result.message, variant: "destructive" });
+      }
+    } catch (error: any) {
+      if (error.name === 'NotAllowedError') {
+        toast({ title: "تم الإلغاء", description: "تم إلغاء عملية تسجيل البصمة" });
+      } else {
+        toast({ title: "خطأ", description: error.message || "فشل في تفعيل البصمة", variant: "destructive" });
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  const handleDisableBiometric = async () => {
+    if (!confirm("هل أنت متأكد من إلغاء تفعيل البصمة؟ ستحتاج لإعادة تفعيلها لاستخدامها مرة أخرى.")) return;
+
+    setBiometricLoading(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const apiBase = (await import("../lib/env")).ENV.getApiBaseUrl();
+      const res = await fetch(`${apiBase}/api/webauthn/credentials`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        setBiometricStatus('disabled');
+        localStorage.removeItem('biometric_credential_registered');
+        localStorage.removeItem('biometric_prompt_dismissed');
+        toast({ title: "تم الإلغاء", description: "تم إلغاء تفعيل البصمة بنجاح" });
+      } else {
+        toast({ title: "خطأ", description: "فشل في إلغاء البصمة", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "حدث خطأ", variant: "destructive" });
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
   useEffect(() => {
     setIsDarkMode(document.documentElement.classList.contains("dark"));
     loadStats();
+    checkBiometricStatus();
   }, []);
 
   const handleExport = async () => {
@@ -323,6 +417,76 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
+          <Card className="border-border/40 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Fingerprint className="h-5 w-5 text-blue-500" />
+                الدخول بالبصمة
+              </CardTitle>
+              <CardDescription>تسجيل الدخول باستخدام بصمة الإصبع أو الوجه</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {biometricStatus === 'loading' ? (
+                <div className="flex items-center gap-3 py-4 justify-center" data-testid="biometric-loading">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="text-muted-foreground">جاري التحقق...</span>
+                </div>
+              ) : biometricStatus === 'unsupported' ? (
+                <div className="flex items-center gap-3 py-3 px-4 bg-muted/50 rounded-xl" data-testid="biometric-unsupported">
+                  <XCircle className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <p className="text-sm text-muted-foreground">جهازك لا يدعم تسجيل الدخول بالبصمة</p>
+                </div>
+              ) : biometricStatus === 'enabled' ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 py-3 px-4 bg-green-50 dark:bg-green-950/30 rounded-xl border border-green-200 dark:border-green-900" data-testid="biometric-enabled-status">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-green-700 dark:text-green-300">البصمة مفعّلة</p>
+                      <p className="text-xs text-green-600/70 dark:text-green-400/70">يمكنك تسجيل الدخول بالبصمة من شاشة الدخول</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    className="w-full rounded-xl h-12 text-base gap-2"
+                    onClick={handleDisableBiometric}
+                    disabled={biometricLoading}
+                    data-testid="button-disable-biometric"
+                  >
+                    {biometricLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <XCircle className="h-5 w-5" />
+                    )}
+                    إلغاء تفعيل البصمة
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 py-3 px-4 bg-muted/50 rounded-xl" data-testid="biometric-disabled-status">
+                    <Fingerprint className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium">البصمة غير مفعّلة</p>
+                      <p className="text-xs text-muted-foreground">فعّل البصمة لتسجيل دخول أسرع وأكثر أماناً</p>
+                    </div>
+                  </div>
+                  <Button
+                    className="w-full rounded-xl h-12 text-base gap-2 bg-blue-600 hover:bg-blue-700"
+                    onClick={handleEnableBiometric}
+                    disabled={biometricLoading}
+                    data-testid="button-enable-biometric"
+                  >
+                    {biometricLoading ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Fingerprint className="h-5 w-5" />
+                    )}
+                    تفعيل الدخول بالبصمة
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="border-border/40 shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">

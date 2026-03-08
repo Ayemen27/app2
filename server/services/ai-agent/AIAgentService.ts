@@ -108,8 +108,8 @@ export class AIAgentService {
     return await db
       .select()
       .from(aiChatSessions)
-      .where(eq(aiChatSessions.userId, userId))
-      .orderBy(desc(aiChatSessions.updatedAt));
+      .where(eq(aiChatSessions.user_id, userId))
+      .orderBy(desc(aiChatSessions.updated_at));
   }
 
   /**
@@ -120,7 +120,7 @@ export class AIAgentService {
       .select()
       .from(aiChatMessages)
       .where(eq(aiChatMessages.sessionId, sessionId))
-      .orderBy(aiChatMessages.createdAt);
+      .orderBy(aiChatMessages.created_at);
   }
 
   /**
@@ -131,7 +131,7 @@ export class AIAgentService {
       .delete(aiChatSessions)
       .where(and(
         eq(aiChatSessions.id, sessionId),
-        eq(aiChatSessions.userId, userId)
+        eq(aiChatSessions.user_id, userId)
       ))
       .returning();
     
@@ -164,7 +164,7 @@ export class AIAgentService {
       .set({ 
         messagesCount: sql`${aiChatSessions.messagesCount} + 1`,
         lastMessageAt: new Date(),
-        updatedAt: new Date(),
+        updated_at: new Date(),
       })
       .where(eq(aiChatSessions.id, sessionId));
 
@@ -230,7 +230,7 @@ export class AIAgentService {
         .set({ 
           messagesCount: sql`${aiChatSessions.messagesCount} + 1`,
           lastMessageAt: new Date(),
-          updatedAt: new Date(),
+          updated_at: new Date(),
         })
         .where(eq(aiChatSessions.id, sessionId));
 
@@ -276,7 +276,7 @@ export class AIAgentService {
       .select()
       .from(aiUsageStats)
       .where(and(
-        eq(aiUsageStats.userId, userId),
+        eq(aiUsageStats.user_id, userId),
         eq(aiUsageStats.date, today),
         eq(aiUsageStats.provider, providerString),
         eq(aiUsageStats.model, response.model)
@@ -287,12 +287,12 @@ export class AIAgentService {
         .set({
           requestsCount: sql`${aiUsageStats.requestsCount} + 1`,
           tokensUsed: sql`${aiUsageStats.tokensUsed} + ${response.tokensUsed || 0}`,
-          updatedAt: new Date(),
+          updated_at: new Date(),
         })
         .where(eq(aiUsageStats.id, existing[0].id));
     } else {
       await db.insert(aiUsageStats).values({
-        userId,
+        user_id: userId,
         date: today,
         provider: providerString,
         model: response.model,

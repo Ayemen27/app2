@@ -280,7 +280,7 @@ router.post("/execute-operation", requireAdmin, async (req: AuthenticatedRequest
 router.delete("/operations/:id", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { sessionId } = req.body;
+    const sessionId = (req.query.sessionId as string) || req.body?.sessionId;
 
     if (!sessionId) {
       return res.status(400).json({ error: "sessionId مطلوب" });

@@ -215,9 +215,7 @@ export default function AIChatPage() {
   const cancelOperationMutation = useMutation({
     mutationFn: async (operationId: string) => {
       setPendingOperations(prev => new Set(prev).add(operationId));
-      const res = await apiRequest(`/api/ai/operations/${operationId}`, "DELETE", {
-        sessionId: currentSessionId,
-      });
+      const res = await apiRequest(`/api/ai/operations/${operationId}?sessionId=${currentSessionId}`, "DELETE");
       return { ...res, operationId };
     },
     onSuccess: (data) => {

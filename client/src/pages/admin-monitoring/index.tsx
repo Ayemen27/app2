@@ -47,21 +47,15 @@ export default function AdminMonitoring() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 bg-clip-text text-transparent">نظام الرصد المركزي</h1>
-          <p className="text-muted-foreground mt-1">مراقبة حية لأداء الخادم، صحة البيانات، والعمليات الذكية.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant={health?.status === 'healthy' ? 'success' : 'warning'} className="h-9 px-4 text-sm font-bold flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" />
-            {health?.status === 'healthy' ? 'نظام مستقر' : 'تنبيه في الأداء'}
-          </Badge>
-          <div className="text-[10px] text-muted-foreground text-left hidden md:block">
-            آخر تحديث: {new Date().toLocaleTimeString('ar-SA')}
-          </div>
-        </div>
+    <div className="space-y-4 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Badge variant={health?.status === 'healthy' ? 'success' : 'warning'} className="h-8 px-3 text-xs font-bold flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          {health?.status === 'healthy' ? 'نظام مستقر' : 'تنبيه في الأداء'}
+        </Badge>
+        <span className="text-[10px] text-muted-foreground">
+          آخر تحديث: {new Date().toLocaleTimeString('ar-SA')}
+        </span>
       </div>
       
       <UnifiedStats

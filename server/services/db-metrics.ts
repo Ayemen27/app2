@@ -721,7 +721,18 @@ export class DbMetricsService {
           if (tableName) {
             query = `REINDEX TABLE ${tableName}`;
           } else {
-            query = `REINDEX DATABASE ${(await client.query('SELECT current_database() as name')).rows[0]?.name}`;
+            const tablesResult = await client.query(
+              `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
+            );
+            for (const row of tablesResult.rows) {
+              await client.query(`REINDEX TABLE "${row.tablename}"`);
+            }
+            const duration = Date.now() - startTime;
+            return {
+              success: true,
+              message: `تم إعادة بناء الفهارس لجميع الجداول (${tablesResult.rows.length} جدول) بنجاح`,
+              duration,
+            };
           }
           break;
       }

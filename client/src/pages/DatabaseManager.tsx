@@ -33,25 +33,28 @@ export default function DatabaseManager() {
   const [searchValue, setSearchValue] = useState("");
   const [selectedSource, setSelectedSource] = useState("active");
 
-  const fetchWithAuth = async (url: string) => {
-    // استخدم accessToken بدلاً من token لضمان التطابق مع بقية التطبيق
+  const fetchWithAuth = async (url: string, method: string = "GET", body?: any) => {
     const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
-    // تنظيف التوكن من أي علامات اقتباس أو مسافات
     let cleanToken = token?.trim() || "";
     if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
       cleanToken = cleanToken.slice(1, -1);
     }
     
-    const res = await fetch(url, {
+    const options: RequestInit = {
+      method,
       headers: {
         "Authorization": `Bearer ${cleanToken}`,
         "x-auth-token": cleanToken,
-        "x-access-token": cleanToken
+        "x-access-token": cleanToken,
+        ...(body ? { "Content-Type": "application/json" } : {}),
       },
-    });
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    };
+    
+    const res = await fetch(url, options);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.message || "فشلت عملية جلب البيانات");
+      throw new Error(errorData.message || errorData.error || "فشلت عملية جلب البيانات");
     }
     return res.json();
   };
@@ -108,15 +111,14 @@ export default function DatabaseManager() {
 
   const maintenanceMutation = useMutation({
     mutationFn: async ({ action, tableName }: { action: string; tableName?: string }) => {
-      const res = await apiRequest("POST", "/api/db/maintenance", { action, tableName });
-      return res.json();
+      return fetchWithAuth("/api/db/maintenance", "POST", { action, tableName });
     },
     onSuccess: (result) => {
-      const data = result?.data;
+      const data = result?.data || result;
       toast({
-        title: data?.success ? "تمت العملية بنجاح" : "فشلت العملية",
+        title: data?.success !== false ? "تمت العملية بنجاح" : "فشلت العملية",
         description: data?.message || "تمت العملية",
-        variant: data?.success ? "default" : "destructive",
+        variant: data?.success !== false ? "default" : "destructive",
       });
       refetchAll();
     },
@@ -132,13 +134,14 @@ export default function DatabaseManager() {
     refetchIntegrity();
   };
 
+  const unwrap = (res: any) => res?.data ?? res;
   const connections = Array.isArray(connectionsData) ? connectionsData : (connectionsData?.data || []);
-  const db = overview && typeof overview === 'object' && !Array.isArray(overview) ? overview : null;
-  const tableList = Array.isArray(tables) ? tables : (tables?.data || []);
-  const perf = performance && typeof performance === 'object' && !Array.isArray(performance) ? performance : null;
-  const integrityData = integrity && typeof integrity === 'object' && !Array.isArray(integrity) ? integrity : null;
-  const sysStats = systemStats && typeof systemStats === 'object' ? systemStats : null;
-  const compareData = comparison && typeof comparison === 'object' && !Array.isArray(comparison) ? comparison : null;
+  const db = unwrap(overview) && typeof unwrap(overview) === 'object' ? unwrap(overview) : null;
+  const tableList = (() => { const d = unwrap(tables); return Array.isArray(d) ? d : []; })();
+  const perf = unwrap(performance) && typeof unwrap(performance) === 'object' ? unwrap(performance) : null;
+  const integrityData = unwrap(integrity) && typeof unwrap(integrity) === 'object' ? unwrap(integrity) : null;
+  const sysStats = unwrap(systemStats) && typeof unwrap(systemStats) === 'object' ? unwrap(systemStats) : null;
+  const compareData = unwrap(comparison) && typeof unwrap(comparison) === 'object' ? unwrap(comparison) : null;
 
   const filteredTables = tableList
     .filter((t: any) => t.name.toLowerCase().includes(searchValue.toLowerCase()))
@@ -410,8 +413,8 @@ export default function DatabaseManager() {
                     <InfoRow label="الجداول" value={db.totalTables} />
                     <InfoRow label="السجلات" value={(db.totalRows || 0).toLocaleString()} />
                     <InfoRow label="الفهارس" value={db.totalIndexes} />
-                    <InfoRow label="وقت التشغيل" value={typeof db.uptime === 'object' ? `${db.uptime.days || 0} يوم ${db.uptime.hours || 0} ساعة` : db.uptime} />
-                    <InfoRow label="الاتصالات" value={`${db.activeConnections} / ${db.maxConnections}`} />
+                    <InfoRow label="وقت التشغيل" value={typeof db.uptime === 'object' ? `${db.uptime.days || 0} يوم ${db.uptime.hours || 0} ساعة` : (db.uptime || 'غير متاح')} />
+                    <InfoRow label="الاتصالات" value={db.activeConnections != null && db.maxConnections != null ? `${db.activeConnections} / ${db.maxConnections}` : 'غير متاح'} />
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">لا توجد بيانات</p>
@@ -434,16 +437,16 @@ export default function DatabaseManager() {
                     <div>
                       <div className="flex justify-between gap-2 text-sm mb-1">
                         <span className="text-muted-foreground">المعالج</span>
-                        <span className="font-medium">{sysStats.cpuUsage}%</span>
+                        <span className="font-medium">{sysStats.cpuUsage ?? 0}%</span>
                       </div>
-                      <Progress value={sysStats.cpuUsage} className="h-2" />
+                      <Progress value={sysStats.cpuUsage ?? 0} className="h-2" />
                     </div>
                     <div>
                       <div className="flex justify-between gap-2 text-sm mb-1">
                         <span className="text-muted-foreground">الذاكرة</span>
-                        <span className="font-medium">{sysStats.memoryUsage}%</span>
+                        <span className="font-medium">{sysStats.memoryUsage ?? 0}%</span>
                       </div>
-                      <Progress value={sysStats.memoryUsage} className="h-2" />
+                      <Progress value={sysStats.memoryUsage ?? 0} className="h-2" />
                     </div>
                     {sysStats.memoryDetails && (
                       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -457,7 +460,7 @@ export default function DatabaseManager() {
                         </div>
                       </div>
                     )}
-                    <InfoRow label="وقت التشغيل" value={formatUptime(sysStats.uptime)} />
+                    <InfoRow label="وقت التشغيل" value={sysStats.uptime != null && !isNaN(sysStats.uptime) ? formatUptime(sysStats.uptime) : 'غير متاح'} />
                   </>
                 ) : (
                   <div className="flex items-center justify-center py-8">
@@ -576,7 +579,7 @@ export default function DatabaseManager() {
                         {integrityData.status === 'excellent' ? 'ممتاز' : integrityData.status === 'good' ? 'جيد' : integrityData.status === 'warning' ? 'تحذير' : 'حرج'}
                       </Badge>
                       <p className="text-xs text-muted-foreground mt-1">
-                        آخر فحص: {new Date(integrityData.timestamp).toLocaleString('ar-SA')}
+                        آخر فحص: {integrityData.timestamp ? new Date(integrityData.timestamp).toLocaleString('ar-SA') : 'الآن'}
                       </p>
                     </div>
                   </div>
@@ -626,8 +629,8 @@ export default function DatabaseManager() {
                   <div className="p-3 rounded-lg bg-muted/30">
                     <p className="text-xs font-medium mb-2">استخدام الكتل</p>
                     <div className="flex gap-4 flex-wrap text-xs">
-                      <span>قراءة من القرص: <strong>{perf.blocksRead?.toLocaleString()}</strong></span>
-                      <span>قراءة من الذاكرة: <strong>{perf.blocksHit?.toLocaleString()}</strong></span>
+                      <span>قراءة من القرص: <strong>{(perf.blocksRead ?? 0).toLocaleString()}</strong></span>
+                      <span>قراءة من الذاكرة: <strong>{(perf.blocksHit ?? 0).toLocaleString()}</strong></span>
                     </div>
                   </div>
                 </div>
@@ -976,34 +979,41 @@ function InfoRow({ label, value }: { label: string; value: any }) {
 
 function PerformanceMetrics({ perf, extended }: { perf: any; extended?: boolean }) {
   const perfStats: StatsRowConfig[] = useMemo(() => {
+    const cacheRatio = perf?.cacheHitRatio ?? 0;
+    const committed = perf?.transactionsCommitted ?? 0;
+    const rolledBack = perf?.transactionsRolledBack ?? 0;
+    const deadTuples = perf?.deadTuples ?? 0;
+    const liveTuples = perf?.liveTuples ?? 0;
+    const avgQueryTime = perf?.avgQueryTime ?? 0;
+
     const baseItems = [
       {
         key: 'cache',
         label: 'نسبة الذاكرة المؤقتة',
-        value: `${perf.cacheHitRatio}%`,
+        value: `${cacheRatio}%`,
         icon: Zap,
-        color: (perf.cacheHitRatio > 95 ? 'emerald' : perf.cacheHitRatio > 80 ? 'amber' : 'red') as any,
+        color: (cacheRatio > 95 ? 'emerald' : cacheRatio > 80 ? 'amber' : 'red') as any,
       },
       {
         key: 'committed',
         label: 'المعاملات الناجحة',
-        value: perf.transactionsCommitted?.toLocaleString() || '0',
+        value: committed.toLocaleString(),
         icon: CheckCircle2,
         color: 'green' as const,
       },
       {
         key: 'rolledback',
         label: 'المرتجعة',
-        value: perf.transactionsRolledBack?.toLocaleString() || '0',
+        value: rolledBack.toLocaleString(),
         icon: AlertTriangle,
-        color: (perf.transactionsRolledBack > 10 ? 'red' : 'emerald') as any,
+        color: (rolledBack > 10 ? 'red' : 'emerald') as any,
       },
       {
         key: 'dead',
         label: 'السجلات الميتة',
-        value: perf.deadTuples?.toLocaleString() || '0',
+        value: deadTuples.toLocaleString(),
         icon: Database,
-        color: (perf.deadTuples > 1000 ? 'red' : 'emerald') as any,
+        color: (deadTuples > 1000 ? 'red' : 'emerald') as any,
       },
     ];
 
@@ -1011,14 +1021,14 @@ function PerformanceMetrics({ perf, extended }: { perf: any; extended?: boolean 
       baseItems.splice(1, 0, {
         key: 'avgquery',
         label: 'متوسط زمن الاستعلام',
-        value: perf.avgQueryTime > 0 ? `${perf.avgQueryTime} ms` : 'غير متاح',
+        value: avgQueryTime > 0 ? `${avgQueryTime} ms` : 'غير متاح',
         icon: Activity,
         color: 'blue' as const,
       });
       baseItems.push({
         key: 'live',
         label: 'السجلات الحية',
-        value: perf.liveTuples?.toLocaleString() || '0',
+        value: liveTuples.toLocaleString(),
         icon: Database,
         color: 'blue' as const,
       });
@@ -1095,8 +1105,8 @@ function getColorClasses(color: string) {
   return map[color] || map.blue;
 }
 
-function TableRowDetail({ table, source, expanded, onToggle, onMaintenance, isMaintenanceLoading }: {
-  table: any; source: string; expanded: boolean; onToggle: () => void; onMaintenance: (action: string) => void; isMaintenanceLoading: boolean;
+function TableRowDetail({ table, source, expanded, onToggle, onMaintenance, isMaintenanceLoading, fetchWithAuth }: {
+  table: any; source: string; expanded: boolean; onToggle: () => void; onMaintenance: (action: string) => void; isMaintenanceLoading: boolean; fetchWithAuth: (url: string, method?: string, body?: any) => Promise<any>;
 }) {
   const [details, setDetails] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);

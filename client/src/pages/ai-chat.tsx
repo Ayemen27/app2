@@ -346,7 +346,7 @@ export default function AIChatPage() {
   const isNewChat = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-180px)] sm:h-[calc(100dvh-120px)] relative" dir="rtl">
+    <div className="flex flex-col h-[calc(100dvh-180px)] sm:h-[calc(100dvh-120px)] relative" dir="rtl" style={{ overscrollBehavior: 'none', touchAction: 'pan-y' }}>
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -426,7 +426,7 @@ export default function AIChatPage() {
         </Button>
       </div>
 
-      <ScrollArea ref={scrollAreaRef} className="flex-1">
+      <ScrollArea ref={scrollAreaRef} className="flex-1" style={{ overscrollBehavior: 'contain' }}>
         <div className="max-w-3xl mx-auto px-4 py-6">
           {isNewChat ? (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">

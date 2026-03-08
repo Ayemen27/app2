@@ -134,7 +134,9 @@ export default function LoginPage() {
         title: "تم تسجيل الدخول",
         description: "تم تسجيل الدخول بالبصمة بنجاح",
       });
-      navigate("/");
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 300);
     } catch (error: any) {
       if (error.code === 'NO_CREDENTIALS') {
         toast({

@@ -49,6 +49,17 @@
 - Frontend: `client/src/pages/settings.tsx` loads from API, saves on explicit "Save" button
 - Table has FK to `users(id)` with CASCADE delete, unique per user
 
+## AI Agent (Admin Chat)
+- Route: `/api/ai/chat` calls `AIAgentService.processMessage()` (fixed from broken python subprocess)
+- Backend: `server/services/ai-agent/AIAgentService.ts` — system prompt with ACTION/PROPOSE commands
+- DB actions: `server/services/ai-agent/DatabaseActions.ts` — full CRUD + introspection
+  - `listAllTables()`, `describeTable()`, `searchInTable()`, `insertIntoTable()`, `updateInTable()`, `deleteFromTable()`, `executeRawSelect()`
+  - All table/column names validated against pg_tables whitelist; parameterized queries
+  - `executeRawSelect` has 10s timeout, LIMIT 500 cap, forbidden keyword rejection
+- Write operations use PROPOSE → confirmation flow (operationId `op_xxx`) → executeApprovedOperation
+- Frontend: `client/src/pages/ai-chat.tsx` — inline execute/cancel buttons for pending ops, data table rendering
+- Admin-only access via `requireAdmin` middleware
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

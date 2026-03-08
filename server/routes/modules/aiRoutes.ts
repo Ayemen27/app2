@@ -208,10 +208,8 @@ router.delete("/sessions/:id", requireAdmin, async (req: AuthenticatedRequest, r
   }
 });
 
-import { spawn } from "child_process";
-
 /**
- * إرسال رسالة للوكيل (AgentForge Bridge)
+ * إرسال رسالة للوكيل الذكي
  * POST /api/ai/chat
  */
 router.post("/chat", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -222,45 +220,14 @@ router.post("/chat", requireAdmin, async (req: AuthenticatedRequest, res: Respon
       return res.status(400).json({ error: "sessionId و message مطلوبان" });
     }
 
-    console.log(`🤖 [AI] استدعاء AgentForge للرسالة: ${message}`);
-    
-    // استخدام python3 أو python حسب المتاح في البيئة
-    const pythonCommand = "python3";
-    const pythonProcess = spawn(pythonCommand, ["agent_bridge.py", message]);
-    let pythonData = "";
-    let pythonError = "";
+    const aiService = getAIAgentService();
+    const result = await aiService.processMessage(sessionId, message, req.user!.user_id);
 
-    pythonProcess.stdout.on("data", (data) => {
-      pythonData += data.toString();
+    res.json({
+      message: result.message,
+      steps: result.steps,
+      data: result.data,
     });
-
-    pythonProcess.stderr.on("data", (data) => {
-      pythonError += data.toString();
-    });
-
-    pythonProcess.on("close", async (code) => {
-      if (code !== 0) {
-        console.error(`❌ [AI] خطأ في جسر Python: ${pythonError}`);
-        return res.status(500).json({ error: "فشل في تشغيل وكيل AgentForge" });
-      }
-
-      try {
-        const result = JSON.parse(pythonData);
-        
-        if (result.error) {
-          throw new Error(result.error);
-        }
-
-        // حفظ الرسائل في قاعدة البيانات (اختياري حسب الحاجة ولكن هنا نرجع النتيجة مباشرة)
-        res.json({
-          message: result.message,
-          steps: result.steps
-        });
-      } catch (e: any) {
-        res.status(500).json({ error: e.message });
-      }
-    });
-
   } catch (error: any) {
     console.error("Error processing message:", error);
     res.status(500).json({ error: error.message });

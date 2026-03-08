@@ -43,13 +43,32 @@ const SYSTEM_PROMPT = `أنت وكيل ذكاء اصطناعي احترافي (S
 3. **الواقعية:** قدم الواقع المالي والعملي للمشاريع كما هو، حتى لو كان غير مريح (تجاوز ميزانية، تأخير عمال، إلخ).
 4. **الوصول المباشر:** أنت ملزم باستخدام أوامر [ACTION] للحصول على أي بيانات حقيقية. يمنع قول "لا يمكنني الوصول".
 
-## 🛠️ أدواتك البرمجية (استخدمها بكثافة):
+## 🛠️ أدواتك البرمجية للمشاريع والعمال (استخدمها بكثافة):
 - [ACTION:GET_PROJECT:اسم_أو_معرف] -> بحث واسترجاع هيكل المشروع.
 - [ACTION:PROJECT_EXPENSES:معرف_المشروع] -> تحليل مالي شامل.
 - [ACTION:DAILY_EXPENSES:معرف_المشروع:التاريخ] -> تدقيق يومي.
 - [ACTION:LIST_PROJECTS] -> مراقبة جميع المواقع النشطة.
 - [ACTION:FIND_WORKER:الاسم] -> بحث ذكي عن العمال.
 - [ACTION:WORKER_STATEMENT:معرف_العامل] -> كشف حساب تفصيلي.
+
+## 🗄️ أدوات قاعدة البيانات العامة (للقراءة - تنفذ مباشرة):
+- [ACTION:LIST_TABLES] -> عرض جميع جداول قاعدة البيانات مع عدد السجلات.
+- [ACTION:DESCRIBE_TABLE:اسم_الجدول] -> عرض أعمدة الجدول وأنواعها.
+- [ACTION:SEARCH:اسم_الجدول:اسم_العمود:قيمة_البحث] -> بحث في جدول محدد.
+- [ACTION:SQL_SELECT:SELECT ... FROM ...] -> تنفيذ استعلام SELECT مباشر للقراءة فقط.
+
+## ✏️ أدوات التعديل (تتطلب موافقة المسؤول - استخدم PROPOSE):
+- [PROPOSE:INSERT:اسم_الجدول:{"عمود1":"قيمة1","عمود2":"قيمة2"}] -> اقتراح إضافة سجل جديد.
+- [PROPOSE:UPDATE:اسم_الجدول:معرف_السجل:{"عمود1":"قيمة_جديدة"}] -> اقتراح تحديث سجل.
+- [PROPOSE:DELETE:اسم_الجدول:معرف_السجل] -> اقتراح حذف سجل.
+- [PROPOSE:EXECUTE_SQL:استعلام SQL] -> اقتراح تنفيذ استعلام SQL تعديلي.
+
+## 📋 قواعد استخدام أدوات قاعدة البيانات:
+- لأي طلب يتعلق بالبيانات، استخدم الأدوات أعلاه.
+- عمليات القراءة (ACTION) تنفذ مباشرة بدون موافقة.
+- عمليات الكتابة (INSERT, UPDATE, DELETE) يجب أن تستخدم [PROPOSE] دائماً لأنها تتطلب موافقة المسؤول.
+- إذا أراد المستخدم إضافة أو تعديل أو حذف بيانات، استخدم PROPOSE وليس ACTION.
+- عند اقتراح INSERT، أرسل البيانات كـ JSON صالح.
 
 ## ⚠️ قواعد القرار (Anti-Hallucination):
 - إذا كان الحل غير مؤكد -> وضّح نسبة عدم اليقين.
@@ -401,6 +420,27 @@ export class AIAgentService {
               currentResult = await this.dbActions.getAllWorkers();
               break;
 
+            case "LIST_TABLES":
+              currentResult = await this.dbActions.listAllTables();
+              break;
+
+            case "DESCRIBE_TABLE":
+              currentResult = await this.dbActions.describeTable(actionParams[0] || "");
+              break;
+
+            case "SEARCH":
+              currentResult = await this.dbActions.searchInTable(
+                actionParams[0] || "",
+                actionParams[1] || "",
+                actionParams[2] || "",
+                actionParams[3] ? parseInt(actionParams[3]) : undefined
+              );
+              break;
+
+            case "SQL_SELECT":
+              currentResult = await this.dbActions.executeRawSelect(actionParams.join(":"));
+              break;
+
             case "EXPORT_EXCEL":
               if (actionParams[0] === "WORKER_STATEMENT") {
                 currentResult = await this.reportGenerator.generateWorkerStatementExcel(actionParams[1]);
@@ -453,20 +493,38 @@ export class AIAgentService {
 
     // معالجة أوامر التعديل المقترحة (لا تنفذ - تنتظر الموافقة)
     if (proposeMatch) {
-      const proposeParts = proposeMatch[1].split(":");
-      const proposeType = proposeParts[0];
-      const proposeParams = proposeParts.slice(1);
+      const fullProposeContent = proposeMatch[1];
+      const proposeType = fullProposeContent.split(":")[0];
+      const proposeRest = fullProposeContent.substring(proposeType.length + 1);
+      let proposeParams: string[];
+
+      if (proposeType === "INSERT" || proposeType === "UPDATE") {
+        const jsonStart = proposeRest.indexOf("{");
+        if (jsonStart >= 0) {
+          const beforeJson = proposeRest.substring(0, jsonStart).replace(/:$/, "");
+          const jsonPart = proposeRest.substring(jsonStart);
+          proposeParams = [...beforeJson.split(":").filter(p => p), jsonPart];
+        } else {
+          proposeParams = proposeRest.split(":");
+        }
+      } else if (proposeType === "EXECUTE_SQL") {
+        proposeParams = [proposeRest];
+      } else {
+        proposeParams = proposeRest.split(":");
+      }
+
       action = `PROPOSE_${proposeType}`;
 
-      // حفظ العملية المعلقة
       const operationId = `op_${Date.now()}`;
       this.pendingOperations.set(operationId, {
-        type: proposeType,
+        type: proposeType === "INSERT" ? "INSERT_TABLE" :
+              proposeType === "UPDATE" ? "UPDATE_TABLE" :
+              proposeType === "DELETE" ? "DELETE_TABLE" :
+              proposeType,
         params: proposeParams,
         sessionId: sessionId || "",
       });
 
-      // إزالة الأمر وإضافة تنبيه
       processedResponse = processedResponse.replace(/\[PROPOSE:[^\]]+\]\s*/g, "");
       processedResponse += `\n\n🔐 **معرف العملية:** ${operationId}`;
     }
@@ -537,6 +595,37 @@ export class AIAgentService {
 
         case "DELETE_ATTENDANCE":
           result = await this.dbActions.deleteAttendance(operation.params[0], true);
+          break;
+
+        case "INSERT_TABLE": {
+          const insertTable = operation.params[0];
+          let insertData: Record<string, any> = {};
+          try {
+            insertData = JSON.parse(operation.params[1] || "{}");
+          } catch {
+            result = { success: false, message: "بيانات JSON غير صالحة للإضافة", action: "insert_table" };
+            break;
+          }
+          result = await this.dbActions.insertIntoTable(insertTable, insertData);
+          break;
+        }
+
+        case "UPDATE_TABLE": {
+          const updateTable = operation.params[0];
+          const updateId = operation.params[1];
+          let updateData: Record<string, any> = {};
+          try {
+            updateData = JSON.parse(operation.params[2] || "{}");
+          } catch {
+            result = { success: false, message: "بيانات JSON غير صالحة للتحديث", action: "update_table" };
+            break;
+          }
+          result = await this.dbActions.updateInTable(updateTable, updateId, updateData);
+          break;
+        }
+
+        case "DELETE_TABLE":
+          result = await this.dbActions.deleteFromTable(operation.params[0], operation.params[1], true);
           break;
 
         case "EXECUTE_SQL":

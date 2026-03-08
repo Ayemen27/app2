@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   Send, Bot, Copy, Trash2, Plus, MessageSquare, ArrowUp,
   Sparkles, Loader2, PanelRightOpen, PanelRightClose, X,
-  FileText, BarChart3, Users, ShieldCheck, Check
+  FileText, BarChart3, Users, ShieldCheck, Check, Play, Ban,
+  Table
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +24,57 @@ interface Message {
   pending?: boolean;
   error?: string;
   steps?: { title: string; status: 'completed' | 'in_progress' | 'pending'; description?: string }[];
+  data?: any;
+  operationHandled?: boolean;
+}
+
+function extractOperationId(content: string): string | null {
+  const match = content.match(/معرف العملية:\*?\*?\s*(op_[a-zA-Z0-9_]+)/);
+  return match ? match[1] : null;
+}
+
+function DataTable({ data }: { data: any[] }) {
+  if (!data || data.length === 0) return null;
+  const columns = Object.keys(data[0]);
+  return (
+    <div className="mt-3 border rounded-lg overflow-x-auto" dir="rtl">
+      <table className="w-full text-xs" data-testid="table-data-display">
+        <thead>
+          <tr className="bg-muted/70 border-b">
+            {columns.map((col) => (
+              <th key={col} className="px-3 py-2 text-right font-medium text-muted-foreground whitespace-nowrap">
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, ri) => (
+            <tr key={ri} className="border-b last:border-b-0" data-testid={`row-data-${ri}`}>
+              {columns.map((col) => (
+                <td key={col} className="px-3 py-2 text-right whitespace-nowrap">
+                  {row[col] != null ? String(row[col]) : "-"}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function tryParseDataFromContent(content: string): any[] | null {
+  const jsonMatch = content.match(/```json\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[1].trim());
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
+        return parsed;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 export default function AIChatPage() {
@@ -36,6 +88,7 @@ export default function AIChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -95,17 +148,106 @@ export default function AIChatPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
+      const messageContent = data.message || "عذراً، لم أتمكن من معالجة الطلب حالياً.";
+      const messageData = data.data;
       setMessages((prev) => [...prev, {
         role: "assistant",
-        content: data.message || "عذراً، لم أتمكن من معالجة الطلب حالياً.",
+        content: messageContent,
         timestamp: new Date(),
         steps: data.steps,
+        data: messageData,
       }]);
     },
     onError: (error: any) => {
       setMessages((prev) => [...prev, {
         role: "assistant",
         content: "عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة مرة أخرى.",
+        timestamp: new Date(),
+        error: error.message,
+      }]);
+    },
+  });
+
+  const executeOperationMutation = useMutation({
+    mutationFn: async (operationId: string) => {
+      setPendingOperations(prev => new Set(prev).add(operationId));
+      const res = await apiRequest("/api/ai/execute-operation", "POST", {
+        operationId,
+        sessionId: currentSessionId,
+      });
+      return { ...res, operationId };
+    },
+    onSuccess: (data) => {
+      setPendingOperations(prev => {
+        const next = new Set(prev);
+        next.delete(data.operationId);
+        return next;
+      });
+      setMessages((prev) => {
+        const updated = prev.map(m => {
+          const opId = extractOperationId(m.content);
+          if (opId === data.operationId) return { ...m, operationHandled: true };
+          return m;
+        });
+        return [...updated, {
+          role: "assistant" as const,
+          content: data.message || "تم تنفيذ العملية بنجاح.",
+          timestamp: new Date(),
+          data: data.data,
+        }];
+      });
+    },
+    onError: (error: any, operationId: string) => {
+      setPendingOperations(prev => {
+        const next = new Set(prev);
+        next.delete(operationId);
+        return next;
+      });
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `فشل تنفيذ العملية: ${error.message || "خطأ غير معروف"}`,
+        timestamp: new Date(),
+        error: error.message,
+      }]);
+    },
+  });
+
+  const cancelOperationMutation = useMutation({
+    mutationFn: async (operationId: string) => {
+      setPendingOperations(prev => new Set(prev).add(operationId));
+      const res = await apiRequest(`/api/ai/operations/${operationId}`, "DELETE", {
+        sessionId: currentSessionId,
+      });
+      return { ...res, operationId };
+    },
+    onSuccess: (data) => {
+      setPendingOperations(prev => {
+        const next = new Set(prev);
+        next.delete(data.operationId);
+        return next;
+      });
+      setMessages((prev) => {
+        const updated = prev.map(m => {
+          const opId = extractOperationId(m.content);
+          if (opId === data.operationId) return { ...m, operationHandled: true };
+          return m;
+        });
+        return [...updated, {
+          role: "assistant" as const,
+          content: data.message || "تم إلغاء العملية.",
+          timestamp: new Date(),
+        }];
+      });
+    },
+    onError: (error: any, operationId: string) => {
+      setPendingOperations(prev => {
+        const next = new Set(prev);
+        next.delete(operationId);
+        return next;
+      });
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `فشل إلغاء العملية: ${error.message || "خطأ غير معروف"}`,
         timestamp: new Date(),
         error: error.message,
       }]);
@@ -150,7 +292,7 @@ export default function AIChatPage() {
     try {
       const res = await apiRequest(`/api/ai/sessions/${sessionId}/messages`, "GET");
       if (Array.isArray(res) && res.length > 0) {
-        setMessages(res.map((m: any) => ({ role: m.role, content: m.content, timestamp: new Date(m.created_at), steps: m.steps })));
+        setMessages(res.map((m: any) => ({ role: m.role, content: m.content, timestamp: new Date(m.created_at), steps: m.steps, data: m.data })));
       } else {
         setMessages([]);
       }
@@ -325,69 +467,106 @@ export default function AIChatPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {messages.map((message, index) => (
-                <div key={index} className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}>
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                    message.role === "user" 
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-muted"
-                  }`}>
-                    {message.role === "user" 
-                      ? <span className="text-xs font-bold">{user?.email?.[0]?.toUpperCase()}</span>
-                      : <Bot className="h-4 w-4 text-muted-foreground" />
-                    }
-                  </div>
-                  <div className={`flex-1 min-w-0 ${message.role === "user" ? "text-right" : ""}`}>
-                    <div className={`inline-block max-w-full rounded-2xl px-4 py-3 ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-tr-md"
-                        : message.error 
-                          ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-tl-md"
-                          : "bg-muted rounded-tl-md"
+              {messages.map((message, index) => {
+                const operationId = message.role === "assistant" && !message.pending ? extractOperationId(message.content) : null;
+                const showConfirmation = operationId && !message.operationHandled;
+                const isOperationPending = operationId ? pendingOperations.has(operationId) : false;
+                const tableData = message.role === "assistant" && !message.pending
+                  ? (Array.isArray(message.data) && message.data.length > 0 && typeof message.data[0] === 'object'
+                    ? message.data
+                    : tryParseDataFromContent(message.content))
+                  : null;
+
+                return (
+                  <div key={index} className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : ""}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      message.role === "user" 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-muted"
                     }`}>
-                      {message.pending ? (
-                        <div className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm">جاري المعالجة...</span>
+                      {message.role === "user" 
+                        ? <span className="text-xs font-bold">{user?.email?.[0]?.toUpperCase()}</span>
+                        : <Bot className="h-4 w-4 text-muted-foreground" />
+                      }
+                    </div>
+                    <div className={`flex-1 min-w-0 ${message.role === "user" ? "text-right" : ""}`}>
+                      <div className={`inline-block max-w-full rounded-2xl px-4 py-3 ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-tr-md"
+                          : message.error 
+                            ? "bg-destructive/10 text-destructive border border-destructive/20 rounded-tl-md"
+                            : "bg-muted rounded-tl-md"
+                      }`}>
+                        {message.pending ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">جاري المعالجة...</span>
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed" data-testid={`text-message-${index}`}>{message.content}</p>
+                        )}
+                      </div>
+                      {showConfirmation && (
+                        <div className="flex items-center gap-2 mt-2 flex-wrap" data-testid={`confirmation-actions-${operationId}`}>
+                          <Button
+                            size="sm"
+                            onClick={() => executeOperationMutation.mutate(operationId)}
+                            disabled={isOperationPending}
+                            className="gap-1.5"
+                            data-testid={`button-execute-operation-${operationId}`}
+                          >
+                            {isOperationPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                            تنفيذ
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => cancelOperationMutation.mutate(operationId)}
+                            disabled={isOperationPending}
+                            className="gap-1.5"
+                            data-testid={`button-cancel-operation-${operationId}`}
+                          >
+                            {isOperationPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                            إلغاء
+                          </Button>
                         </div>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed" data-testid={`text-message-${index}`}>{message.content}</p>
+                      )}
+                      {tableData && <DataTable data={tableData} />}
+                      {message.role === "assistant" && !message.pending && (
+                        <div className="flex items-center gap-1 mt-1.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => copyMessage(message.content, index)}
+                            data-testid={`button-copy-${index}`}
+                          >
+                            {copiedIndex === index ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                          </Button>
+                          <span className="text-[10px] text-muted-foreground">
+                            {message.timestamp.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      )}
+                      {message.steps && message.steps.length > 0 && (
+                        <div className="mt-2 p-3 rounded-lg bg-muted/50 border text-xs space-y-1.5">
+                          {message.steps.map((step, si) => (
+                            <div key={si} className="flex items-center gap-2">
+                              {step.status === 'completed' 
+                                ? <Check className="h-3 w-3 text-green-500" />
+                                : step.status === 'in_progress'
+                                  ? <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                  : <div className="h-3 w-3 rounded-full border" />
+                              }
+                              <span className="text-muted-foreground">{step.title}</span>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    {message.role === "assistant" && !message.pending && (
-                      <div className="flex items-center gap-1 mt-1.5">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                          onClick={() => copyMessage(message.content, index)}
-                          data-testid={`button-copy-${index}`}
-                        >
-                          {copiedIndex === index ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-                        </Button>
-                        <span className="text-[10px] text-muted-foreground">
-                          {message.timestamp.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    )}
-                    {message.steps && message.steps.length > 0 && (
-                      <div className="mt-2 p-3 rounded-lg bg-muted/50 border text-xs space-y-1.5">
-                        {message.steps.map((step, si) => (
-                          <div key={si} className="flex items-center gap-2">
-                            {step.status === 'completed' 
-                              ? <Check className="h-3 w-3 text-green-500" />
-                              : step.status === 'in_progress'
-                                ? <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                                : <div className="h-3 w-3 rounded-full border" />
-                            }
-                            <span className="text-muted-foreground">{step.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {isLoading && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">

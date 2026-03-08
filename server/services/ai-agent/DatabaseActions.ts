@@ -706,6 +706,403 @@ export class DatabaseActions {
     }
   }
 
+  // ==================== عمليات قاعدة البيانات العامة ====================
+
+  private async getValidTables(): Promise<string[]> {
+    const result = await pool.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+    );
+    return result.rows.map((r: any) => r.tablename);
+  }
+
+  private async getValidColumns(tableName: string): Promise<string[]> {
+    const result = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1",
+      [tableName]
+    );
+    return result.rows.map((r: any) => r.column_name);
+  }
+
+  private isValidIdentifier(name: string): boolean {
+    return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+  }
+
+  async listAllTables(): Promise<ActionResult> {
+    try {
+      const result = await pool.query(`
+        SELECT t.tablename,
+               (SELECT reltuples::bigint FROM pg_class WHERE relname = t.tablename) AS row_count
+        FROM pg_tables t
+        WHERE t.schemaname = 'public'
+        ORDER BY t.tablename
+      `);
+
+      return {
+        success: true,
+        data: result.rows,
+        message: `تم العثور على ${result.rows.length} جدول في قاعدة البيانات`,
+        action: "list_tables",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ في جلب الجداول: ${error.message}`,
+        action: "list_tables",
+      };
+    }
+  }
+
+  async describeTable(tableName: string): Promise<ActionResult> {
+    try {
+      const validTables = await this.getValidTables();
+      if (!validTables.includes(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" غير موجود. الجداول المتاحة: ${validTables.join(', ')}`,
+          action: "describe_table",
+        };
+      }
+
+      const result = await pool.query(
+        `SELECT column_name, data_type, is_nullable, column_default
+         FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = $1
+         ORDER BY ordinal_position`,
+        [tableName]
+      );
+
+      return {
+        success: true,
+        data: result.rows,
+        message: `جدول "${tableName}" يحتوي على ${result.rows.length} عمود`,
+        action: "describe_table",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ في وصف الجدول: ${error.message}`,
+        action: "describe_table",
+      };
+    }
+  }
+
+  async searchInTable(tableName: string, searchColumn: string, searchValue: string, limit: number = 50): Promise<ActionResult> {
+    try {
+      const validTables = await this.getValidTables();
+      if (!validTables.includes(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" غير موجود`,
+          action: "search_table",
+        };
+      }
+
+      const validColumns = await this.getValidColumns(tableName);
+      if (!validColumns.includes(searchColumn)) {
+        return {
+          success: false,
+          message: `العمود "${searchColumn}" غير موجود في الجدول "${tableName}". الأعمدة المتاحة: ${validColumns.join(', ')}`,
+          action: "search_table",
+        };
+      }
+
+      if (!this.isValidIdentifier(tableName) || !this.isValidIdentifier(searchColumn)) {
+        return {
+          success: false,
+          message: "اسم الجدول أو العمود يحتوي على أحرف غير مسموحة",
+          action: "search_table",
+        };
+      }
+
+      const safeLimit = Math.min(Math.max(1, limit), 500);
+      const result = await pool.query(
+        `SELECT * FROM "${tableName}" WHERE "${searchColumn}"::text ILIKE $1 LIMIT $2`,
+        [`%${searchValue}%`, safeLimit]
+      );
+
+      return {
+        success: true,
+        data: result.rows,
+        message: `تم العثور على ${result.rows.length} نتيجة في "${tableName}"`,
+        action: "search_table",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ في البحث: ${error.message}`,
+        action: "search_table",
+      };
+    }
+  }
+
+  async insertIntoTable(tableName: string, data: Record<string, any>): Promise<ActionResult> {
+    try {
+      const validTables = await this.getValidTables();
+      if (!validTables.includes(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" غير موجود`,
+          action: "insert_table",
+        };
+      }
+
+      const validColumns = await this.getValidColumns(tableName);
+      const columns = Object.keys(data);
+      const invalidColumns = columns.filter(c => !validColumns.includes(c));
+      if (invalidColumns.length > 0) {
+        return {
+          success: false,
+          message: `أعمدة غير صالحة: ${invalidColumns.join(', ')}. الأعمدة المتاحة: ${validColumns.join(', ')}`,
+          action: "insert_table",
+        };
+      }
+
+      for (const col of columns) {
+        if (!this.isValidIdentifier(col)) {
+          return {
+            success: false,
+            message: `اسم العمود "${col}" يحتوي على أحرف غير مسموحة`,
+            action: "insert_table",
+          };
+        }
+      }
+
+      if (!this.isValidIdentifier(tableName)) {
+        return {
+          success: false,
+          message: "اسم الجدول يحتوي على أحرف غير مسموحة",
+          action: "insert_table",
+        };
+      }
+
+      const values = Object.values(data);
+      const columnNames = columns.map(c => `"${c}"`).join(', ');
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+
+      const result = await pool.query(
+        `INSERT INTO "${tableName}" (${columnNames}) VALUES (${placeholders}) RETURNING *`,
+        values
+      );
+
+      return {
+        success: true,
+        data: result.rows[0],
+        message: `تم إضافة سجل جديد في "${tableName}" بنجاح`,
+        action: "insert_table",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ في الإضافة: ${error.message}`,
+        action: "insert_table",
+      };
+    }
+  }
+
+  async updateInTable(tableName: string, id: string, data: Record<string, any>): Promise<ActionResult> {
+    try {
+      const validTables = await this.getValidTables();
+      if (!validTables.includes(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" غير موجود`,
+          action: "update_table",
+        };
+      }
+
+      const validColumns = await this.getValidColumns(tableName);
+      const columns = Object.keys(data);
+      const invalidColumns = columns.filter(c => !validColumns.includes(c));
+      if (invalidColumns.length > 0) {
+        return {
+          success: false,
+          message: `أعمدة غير صالحة: ${invalidColumns.join(', ')}`,
+          action: "update_table",
+        };
+      }
+
+      if (!validColumns.includes('id')) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" لا يحتوي على عمود "id"`,
+          action: "update_table",
+        };
+      }
+
+      for (const col of columns) {
+        if (!this.isValidIdentifier(col)) {
+          return {
+            success: false,
+            message: `اسم العمود "${col}" يحتوي على أحرف غير مسموحة`,
+            action: "update_table",
+          };
+        }
+      }
+
+      if (!this.isValidIdentifier(tableName)) {
+        return {
+          success: false,
+          message: "اسم الجدول يحتوي على أحرف غير مسموحة",
+          action: "update_table",
+        };
+      }
+
+      const values = Object.values(data);
+      const setClauses = columns.map((col, i) => `"${col}" = $${i + 1}`).join(', ');
+      const idParamIndex = values.length + 1;
+
+      const result = await pool.query(
+        `UPDATE "${tableName}" SET ${setClauses} WHERE "id" = $${idParamIndex} RETURNING *`,
+        [...values, id]
+      );
+
+      if (result.rows.length === 0) {
+        return {
+          success: false,
+          message: `لم يتم العثور على سجل بالمعرف "${id}" في "${tableName}"`,
+          action: "update_table",
+        };
+      }
+
+      return {
+        success: true,
+        data: result.rows[0],
+        message: `تم تحديث السجل في "${tableName}" بنجاح`,
+        action: "update_table",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ في التحديث: ${error.message}`,
+        action: "update_table",
+      };
+    }
+  }
+
+  async deleteFromTable(tableName: string, id: string, confirmed: boolean = false): Promise<ActionResult> {
+    try {
+      const validTables = await this.getValidTables();
+      if (!validTables.includes(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" غير موجود`,
+          action: "delete_table",
+        };
+      }
+
+      if (!this.isValidIdentifier(tableName)) {
+        return {
+          success: false,
+          message: "اسم الجدول يحتوي على أحرف غير مسموحة",
+          action: "delete_table",
+        };
+      }
+
+      const validColumns = await this.getValidColumns(tableName);
+      if (!validColumns.includes('id')) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" لا يحتوي على عمود "id"`,
+          action: "delete_table",
+        };
+      }
+
+      if (!confirmed) {
+        const existing = await pool.query(
+          `SELECT * FROM "${tableName}" WHERE "id" = $1`,
+          [id]
+        );
+        if (existing.rows.length === 0) {
+          return {
+            success: false,
+            message: `لم يتم العثور على سجل بالمعرف "${id}" في "${tableName}"`,
+            action: "delete_table",
+          };
+        }
+        return {
+          success: false,
+          requiresConfirmation: true,
+          confirmationMessage: `هل أنت متأكد من حذف السجل "${id}" من جدول "${tableName}"؟ هذا الإجراء لا يمكن التراجع عنه.`,
+          data: existing.rows[0],
+          message: "يتطلب تأكيد",
+          action: "delete_table",
+        };
+      }
+
+      const result = await pool.query(
+        `DELETE FROM "${tableName}" WHERE "id" = $1 RETURNING *`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return {
+          success: false,
+          message: `لم يتم العثور على سجل بالمعرف "${id}" في "${tableName}"`,
+          action: "delete_table",
+        };
+      }
+
+      return {
+        success: true,
+        data: result.rows[0],
+        message: `تم حذف السجل من "${tableName}" بنجاح`,
+        action: "delete_table",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ في الحذف: ${error.message}`,
+        action: "delete_table",
+      };
+    }
+  }
+
+  async executeRawSelect(query: string): Promise<ActionResult> {
+    try {
+      const trimmed = query.trim();
+      const normalized = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
+      
+      if (!/^SELECT\s/i.test(normalized)) {
+        return {
+          success: false,
+          message: "يُسمح فقط باستعلامات SELECT للقراءة. لا يمكن تنفيذ استعلامات تعديلية من هذا الأمر.",
+          action: "raw_select",
+        };
+      }
+
+      const forbidden = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE)\b/i;
+      if (forbidden.test(normalized)) {
+        return {
+          success: false,
+          message: "الاستعلام يحتوي على أوامر تعديلية غير مسموحة. استخدم فقط SELECT للقراءة.",
+          action: "raw_select",
+        };
+      }
+
+      const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? trimmed : `${trimmed} LIMIT 500`;
+      const client = await pool.connect();
+      try {
+        await client.query('SET statement_timeout = 10000');
+        const result = await client.query(limitedQuery);
+        return {
+          success: true,
+          data: result.rows,
+          message: `تم تنفيذ الاستعلام بنجاح - ${result.rows.length} نتيجة`,
+          action: "raw_select",
+        };
+      } finally {
+        await client.query('RESET statement_timeout');
+        client.release();
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ في تنفيذ الاستعلام: ${error.message}`,
+        action: "raw_select",
+      };
+    }
+  }
+
   // ==================== استعلام SQL مخصص (للمسؤول فقط) ====================
 
   async executeCustomQuery(query: string, confirmed: boolean = false): Promise<ActionResult> {

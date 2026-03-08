@@ -1619,6 +1619,24 @@ export const insertWebAuthnChallengeSchema = createInsertSchema(webauthnChalleng
 export type WebAuthnChallenge = typeof webauthnChallenges.$inferSelect;
 export type InsertWebAuthnChallenge = z.infer<typeof insertWebAuthnChallengeSchema>;
 
+export const userPreferences = pgTable("user_preferences", {
+  id: serial("id").primaryKey(),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  language: text("language").default("ar").notNull(),
+  auto_update: boolean("auto_update").default(true).notNull(),
+  dark_mode: boolean("dark_mode").default(false).notNull(),
+  font_size: text("font_size").default("medium").notNull(),
+  push_notifications: boolean("push_notifications").default(true).notNull(),
+  expense_alerts: boolean("expense_alerts").default(true).notNull(),
+  attendance_alerts: boolean("attendance_alerts").default(false).notNull(),
+  app_lock: boolean("app_lock").default(false).notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, updated_at: true });
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
+
 export const SYNCABLE_TABLES = [
   'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
   'project_types', 'projects', 'workers', 'wells',

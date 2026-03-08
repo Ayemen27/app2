@@ -42,6 +42,7 @@ import {
   whatsappMessages,
   webauthnCredentials,
   webauthnChallenges,
+  userPreferences,
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
@@ -360,6 +361,10 @@ export interface IStorage {
   updateWebAuthnCredentialCounter(credentialId: string, counter: number): Promise<void>;
   deleteWebAuthnCredential(credentialId: string): Promise<void>;
   deleteAllWebAuthnCredentialsByUserId(userId: string): Promise<void>;
+
+  // User Preferences
+  getUserPreferences(userId: string): Promise<any | undefined>;
+  upsertUserPreferences(userId: string, prefs: Record<string, any>): Promise<any>;
 
   // WebAuthn Challenges
   createWebAuthnChallenge(data: InsertWebAuthnChallenge): Promise<WebAuthnChallenge>;
@@ -4428,6 +4433,27 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllWebAuthnCredentialsByUserId(userId: string): Promise<void> {
     await db.delete(webauthnCredentials).where(eq(webauthnCredentials.user_id, userId));
+  }
+
+  async getUserPreferences(userId: string): Promise<any | undefined> {
+    const [prefs] = await db.select().from(userPreferences).where(eq(userPreferences.user_id, userId));
+    return prefs;
+  }
+
+  async upsertUserPreferences(userId: string, prefs: Record<string, any>): Promise<any> {
+    const existing = await this.getUserPreferences(userId);
+    if (existing) {
+      const [updated] = await db.update(userPreferences)
+        .set({ ...prefs, updated_at: new Date() })
+        .where(eq(userPreferences.user_id, userId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(userPreferences)
+        .values({ user_id: userId, ...prefs })
+        .returning();
+      return created;
+    }
   }
 
   async createWebAuthnChallenge(data: InsertWebAuthnChallenge): Promise<WebAuthnChallenge> {

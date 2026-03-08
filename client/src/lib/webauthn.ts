@@ -117,6 +117,10 @@ export async function registerBiometric(accessToken: string): Promise<{ success:
 }
 
 export async function checkBiometricRegistered(email?: string): Promise<boolean> {
+  if (hasBiometricCredentialStored()) {
+    return true;
+  }
+
   try {
     const apiBase = ENV.getApiBaseUrl();
 
@@ -127,7 +131,10 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
       });
       if (res.ok) {
         const data = await res.json();
-        return data.enabled === true;
+        if (data.enabled) {
+          localStorage.setItem('biometric_credential_registered', 'true');
+          return true;
+        }
       }
     }
 
@@ -139,7 +146,10 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
       });
       if (!res.ok) return false;
       const { options } = await res.json();
-      return Array.isArray(options?.allowCredentials) && options.allowCredentials.length > 0;
+      if (Array.isArray(options?.allowCredentials) && options.allowCredentials.length > 0) {
+        localStorage.setItem('biometric_credential_registered', 'true');
+        return true;
+      }
     }
 
     return false;
@@ -164,7 +174,10 @@ export async function loginWithBiometric(email?: string): Promise<any> {
 
   const { options } = await optionsRes.json();
 
-  if (!options.allowCredentials || options.allowCredentials.length === 0) {
+  const hasServerCredentials = Array.isArray(options.allowCredentials) && options.allowCredentials.length > 0;
+  const hasLocalFlag = hasBiometricCredentialStored();
+
+  if (!hasServerCredentials && !hasLocalFlag) {
     const noCredError = new Error('لم يتم تسجيل البصمة بعد. سجّل الدخول بكلمة المرور أولاً ثم فعّل البصمة من الإعدادات');
     (noCredError as any).code = 'NO_CREDENTIALS';
     throw noCredError;
@@ -173,10 +186,12 @@ export async function loginWithBiometric(email?: string): Promise<any> {
   const publicKeyOptions: PublicKeyCredentialRequestOptions = {
     ...options,
     challenge: base64urlToBuffer(options.challenge),
-    allowCredentials: (options.allowCredentials || []).map((cred: any) => ({
-      ...cred,
-      id: base64urlToBuffer(cred.id),
-    })),
+    allowCredentials: hasServerCredentials
+      ? options.allowCredentials.map((cred: any) => ({
+          ...cred,
+          id: base64urlToBuffer(cred.id),
+        }))
+      : [],
   };
 
   const assertion = await navigator.credentials.get({

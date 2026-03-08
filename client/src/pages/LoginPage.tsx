@@ -113,14 +113,19 @@ export default function LoginPage() {
     try {
       const email = form.getValues('email') || undefined;
 
-      const hasCredentials = await checkBiometricRegistered(email);
-      if (!hasCredentials) {
-        toast({
-          title: "البصمة غير مفعّلة",
-          description: "سجّل الدخول بكلمة المرور أولاً، ثم فعّل البصمة من الإعدادات > الأمان",
-        });
-        setBiometricLoading(false);
-        return;
+      const { hasBiometricCredentialStored } = await import("../lib/webauthn");
+      const hasLocal = hasBiometricCredentialStored();
+      
+      if (!hasLocal) {
+        const hasCredentials = await checkBiometricRegistered(email);
+        if (!hasCredentials) {
+          toast({
+            title: "البصمة غير مفعّلة",
+            description: "سجّل الدخول بكلمة المرور أولاً، ثم فعّل البصمة من الإعدادات > الأمان",
+          });
+          setBiometricLoading(false);
+          return;
+        }
       }
 
       await authBiometricLogin(email);

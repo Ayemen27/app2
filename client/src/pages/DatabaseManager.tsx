@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, ActionButton, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";

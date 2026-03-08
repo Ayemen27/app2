@@ -1,9 +1,8 @@
-import { Bell, UserCircle, HardHat, Settings, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, CreditCard, FileSpreadsheet, Wrench, LogOut, User, Shield, FolderOpen, CheckCircle2, X, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, RefreshCw, Database, Sun, Moon, BellRing, BarChart3, Plus } from "lucide-react";
+import { HardHat, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, Wrench, FolderOpen, CheckCircle2, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, Database, Sun, Moon, Settings, Bell, Shield, RefreshCw, BarChart3, Wifi, WifiOff, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useAuth } from "@/components/AuthProvider";
-import { usePush } from "@/hooks/usePush";
 import { useQuery } from "@tanstack/react-query";
 import { useSelectedProject, ALL_PROJECTS_ID, ALL_PROJECTS_NAME } from "@/hooks/use-selected-project";
 import { apiRequest } from "@/lib/queryClient";
@@ -17,7 +16,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Project } from "@shared/schema";
@@ -60,7 +59,6 @@ export default function Header() {
   const { toast } = useToast();
   const { selectedProjectId, selectedProjectName, selectProject } = useSelectedProject();
   const [syncState, setSyncState] = useState({ isOnline: true, pendingCount: 0 });
-  const { isPermissionGranted, requestPushPermission, isInitializing } = usePush();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -93,7 +91,7 @@ export default function Header() {
   }, []);
 
   const { isOnline, pendingCount } = syncState;
-  
+
   const { data: projects = [], isLoading: projectsLoading } = useQuery<Project[]>({
     queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
@@ -114,101 +112,128 @@ export default function Header() {
     toast({ title: "تم تحديد المشروع", description: projectName });
   };
 
-  const handlePushToggle = async () => {
-    if (isPermissionGranted) {
-      toast({ title: "الإشعارات مفعّلة", description: "لقد منحت الإذن مسبقاً." });
-      return;
-    }
-    await requestPushPermission();
-  };
+  const displayProjectName = selectedProjectId === ALL_PROJECTS_ID
+    ? ALL_PROJECTS_NAME
+    : (selectedProjectName || "اختر مشروعاً");
 
   return (
-    <div className="flex items-center justify-between h-full w-full px-4" dir="rtl">
-      <div className="flex items-center gap-3">
-        <div className="bg-primary/10 p-1.5 rounded-lg text-primary">
-          <PageIcon className="h-5 w-5" />
-        </div>
-        <div className="flex flex-col justify-center text-right">
-          <h1 className="text-sm font-bold leading-tight text-slate-900 dark:text-white">{currentPage.title}</h1>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">AXION SYSTEM</p>
-        </div>
-      </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="flex items-center justify-between h-full w-full px-2 sm:px-4" dir="rtl">
 
-      <div className="flex-1" />
-      
-      <div className="flex items-center gap-2">
-        {location === '/whatsapp-setup' && (
-          <div id="header-custom-button" className="hidden md:flex">
-            {/* Button will be portaled or manually placed here */}
-            <Button 
-              size="sm"
-              className="gap-2 bg-primary text-white hover:bg-primary/90 rounded-xl"
-              onClick={() => {
-                const restartBtn = document.querySelector('[data-restart-trigger]');
-                if (restartBtn) (restartBtn as HTMLElement).click();
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              إضافة جديد
-            </Button>
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary flex-shrink-0">
+            <PageIcon className="h-[18px] w-[18px]" />
           </div>
-        )}
-        <NotificationCenter />
-        
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleTheme}
-          className="h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50"
-          title={theme === 'light' ? 'الوضع الليلي' : 'الوضع النهاري'}
-          data-testid="button-theme-toggle"
-        >
-          {theme === 'light' ? (
-            <Moon className="h-4 w-4 text-slate-700" />
-          ) : (
-            <Sun className="h-4 w-4 text-amber-400" />
-          )}
-        </Button>
+          <div className="flex flex-col justify-center min-w-0">
+            <h1 className="text-sm font-semibold leading-tight text-foreground truncate">{currentPage.title}</h1>
+            <p className="text-[10px] text-muted-foreground font-medium tracking-wider hidden sm:block">AXION</p>
+          </div>
+        </div>
 
-        {/* AIChatTrigger removed per user request */}
+        <div className="flex-1 min-w-2" />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-9 w-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50"
-              title={selectedProjectId ? (selectedProjectId === ALL_PROJECTS_ID ? ALL_PROJECTS_NAME : selectedProjectName) : "اختر مشروعاً"}
-              data-testid="button-project-selector"
-            >
-              <FolderOpen className="h-4 w-4 text-primary" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 max-h-80" dir="rtl">
-            <DropdownMenuLabel className="text-right">اختيار المشروع</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {projectsLoading ? (
-              <div className="p-4 text-center text-xs">جاري التحميل...</div>
-            ) : (
-              <>
-                <DropdownMenuItem onClick={() => handleProjectSelect(ALL_PROJECTS_ID, ALL_PROJECTS_NAME)} className="flex justify-between items-center text-right">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-blue-600" />
-                    <span>{ALL_PROJECTS_NAME}</span>
-                  </div>
-                  {selectedProjectId === ALL_PROJECTS_ID && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                </DropdownMenuItem>
-                {projects.map((p) => (
-                  <DropdownMenuItem key={p.id} onClick={() => handleProjectSelect(p.id.toString(), p.name)} className="flex justify-between items-center text-right">
-                    <span>{p.name}</span>
-                    {selectedProjectId === p.id.toString() && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+        <div className="flex items-center gap-1 sm:gap-1.5">
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                role="status"
+                aria-live="polite"
+                aria-label={isOnline ? `متصل بالشبكة${pendingCount > 0 ? ` - ${pendingCount} عملية معلقة` : ''}` : 'غير متصل بالشبكة'}
+                className={cn(
+                  "flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors cursor-default",
+                  isOnline
+                    ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40"
+                    : "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40"
+                )}
+                tabIndex={0}
+                data-testid="status-sync"
+              >
+                {isOnline ? (
+                  <Wifi className="h-3.5 w-3.5" />
+                ) : (
+                  <WifiOff className="h-3.5 w-3.5" />
+                )}
+                {pendingCount > 0 && (
+                  <span className="tabular-nums">{pendingCount}</span>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {isOnline ? "متصل بالشبكة" : "غير متصل"}
+              {pendingCount > 0 && ` • ${pendingCount} عملية معلقة`}
+            </TooltipContent>
+          </Tooltip>
+
+          <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2 sm:px-3 rounded-lg text-xs font-medium max-w-[140px] sm:max-w-[180px]"
+                aria-label={`اختيار المشروع: ${displayProjectName}`}
+                data-testid="button-project-selector"
+              >
+                <FolderOpen className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="truncate hidden sm:inline">{displayProjectName}</span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 max-h-80" dir="rtl">
+              <DropdownMenuLabel className="text-right text-xs text-muted-foreground font-medium">اختيار المشروع</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {projectsLoading ? (
+                <div className="p-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => handleProjectSelect(ALL_PROJECTS_ID, ALL_PROJECTS_NAME)} className="flex justify-between items-center text-right">
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-blue-600" />
+                      <span>{ALL_PROJECTS_NAME}</span>
+                    </div>
+                    {selectedProjectId === ALL_PROJECTS_ID && <CheckCircle2 className="h-4 w-4 text-green-500" />}
                   </DropdownMenuItem>
-                ))}
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                  {projects.map((p) => (
+                    <DropdownMenuItem key={p.id} onClick={() => handleProjectSelect(p.id.toString(), p.name)} className="flex justify-between items-center text-right">
+                      <span className="truncate">{p.name}</span>
+                      {selectedProjectId === p.id.toString() && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="w-px h-5 bg-border mx-0.5 hidden sm:block" />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="h-8 w-8 rounded-lg"
+                aria-label={theme === 'light' ? 'تفعيل الوضع الليلي' : 'تفعيل الوضع النهاري'}
+                data-testid="button-theme-toggle"
+              >
+                {theme === 'light' ? (
+                  <Moon className="h-[18px] w-[18px] text-muted-foreground" />
+                ) : (
+                  <Sun className="h-[18px] w-[18px] text-amber-400" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {theme === 'light' ? 'الوضع الليلي' : 'الوضع النهاري'}
+            </TooltipContent>
+          </Tooltip>
+
+          <NotificationCenter />
+
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

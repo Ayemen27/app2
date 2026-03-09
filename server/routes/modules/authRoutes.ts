@@ -6,7 +6,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { db } from '../../db.js';
-import { sql, eq, and, desc, gte, lte, or, like } from 'drizzle-orm';
+import { sql, eq, and, desc, gte, gt, lte, or, like, isNull } from 'drizzle-orm';
 import { 
   generateAccessToken, 
   generateRefreshToken, 

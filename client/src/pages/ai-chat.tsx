@@ -123,8 +123,8 @@ function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive
   const itemRef = useRef<HTMLDivElement>(null);
 
   const THRESHOLD = 10;
-  const REVEAL_WIDTH = 72;
-  const ACTION_THRESHOLD = 100;
+  const SNAP_WIDTH = 80;
+  const FULL_SWIPE_RATIO = 0.6;
 
   useEffect(() => {
     const el = itemRef.current;
@@ -134,11 +134,13 @@ function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive
     let lpTimer: ReturnType<typeof setTimeout> | null = null;
     let hasMoved = false;
     let currentOff = 0;
+    let elWidth = 0;
 
     const onStart = (e: PointerEvent) => {
       sX = e.clientX; sY = e.clientY;
       locked = 'none'; hasMoved = false; currentOff = 0;
       dirLocked.current = 'none';
+      elWidth = el.offsetWidth;
       el.setPointerCapture(e.pointerId);
       lpTimer = setTimeout(() => {
         if (!hasMoved) { setShowActions(true); }
@@ -158,26 +160,25 @@ function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive
       if (locked === 'vertical') return;
 
       e.preventDefault();
-      const dampened = dx * 0.6;
-      const clamped = Math.max(-140, Math.min(140, dampened));
-      currentOff = clamped;
-      setOffsetX(clamped);
+      currentOff = dx;
+      setOffsetX(dx);
     };
 
     const onEnd = (e: PointerEvent) => {
       if (lpTimer) clearTimeout(lpTimer);
 
       if (locked === 'horizontal') {
-        if (currentOff > ACTION_THRESHOLD) {
-          onDelete();
-          setOffsetX(0); setRevealed('none');
-        } else if (currentOff < -ACTION_THRESHOLD) {
-          onArchive();
-          setOffsetX(0); setRevealed('none');
+        const ratio = Math.abs(currentOff) / elWidth;
+        if (currentOff > 0 && ratio > FULL_SWIPE_RATIO) {
+          setOffsetX(elWidth);
+          setTimeout(() => { onDelete(); setOffsetX(0); setRevealed('none'); }, 250);
+        } else if (currentOff < 0 && ratio > FULL_SWIPE_RATIO) {
+          setOffsetX(-elWidth);
+          setTimeout(() => { onArchive(); setOffsetX(0); setRevealed('none'); }, 250);
         } else if (currentOff > 40) {
-          setOffsetX(REVEAL_WIDTH); setRevealed('delete');
+          setOffsetX(SNAP_WIDTH); setRevealed('delete');
         } else if (currentOff < -40) {
-          setOffsetX(-REVEAL_WIDTH); setRevealed('archive');
+          setOffsetX(-SNAP_WIDTH); setRevealed('archive');
         } else {
           setOffsetX(0); setRevealed('none');
         }

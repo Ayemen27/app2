@@ -75,14 +75,17 @@ projectRouter.get('/', async (req: Request, res: Response) => {
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     
     let projectsList;
-    if (isAdminUser || !accessReq.accessibleProjectIds) {
+    if (isAdminUser) {
       projectsList = await db.select().from(projects).orderBy(projects.created_at);
-    } else if (accessReq.accessibleProjectIds.length === 0) {
-      projectsList = [];
     } else {
-      projectsList = await db.select().from(projects)
-        .where(inArray(projects.id, accessReq.accessibleProjectIds))
-        .orderBy(projects.created_at);
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (ids.length === 0) {
+        projectsList = [];
+      } else {
+        projectsList = await db.select().from(projects)
+          .where(inArray(projects.id, ids))
+          .orderBy(projects.created_at);
+      }
     }
     return sendSuccess(res, projectsList, `تم جلب ${projectsList.length} مشروع بنجاح`);
   } catch (error: any) {
@@ -103,14 +106,17 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     
     let projectsList;
-    if (isAdminUser || !accessReq.accessibleProjectIds) {
+    if (isAdminUser) {
       projectsList = await db.select().from(projects).orderBy(projects.created_at);
-    } else if (accessReq.accessibleProjectIds.length === 0) {
-      projectsList = [];
     } else {
-      projectsList = await db.select().from(projects)
-        .where(inArray(projects.id, accessReq.accessibleProjectIds))
-        .orderBy(projects.created_at);
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (ids.length === 0) {
+        projectsList = [];
+      } else {
+        projectsList = await db.select().from(projects)
+          .where(inArray(projects.id, ids))
+          .orderBy(projects.created_at);
+      }
     }
 
     const projectsWithStats = await Promise.all(projectsList.map(async (project) => {
@@ -249,8 +255,10 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     ]);
 
     const filterByAccess = <T extends { project_id?: string | null }>(data: T[]): T[] => {
-      if (isAdminUser || !accessibleIds) return data;
-      const idSet = new Set(accessibleIds);
+      if (isAdminUser) return data;
+      const ids = accessibleIds ?? [];
+      if (ids.length === 0) return [];
+      const idSet = new Set(ids);
       return data.filter(item => item.project_id && idSet.has(item.project_id));
     };
 
@@ -558,7 +566,7 @@ projectRouter.post('/', async (req: Request, res: Response) => {
  * 📊 جلب الملخص اليومي للمشروع
  * GET /api/projects/:id/daily-summary/:date
  */
-projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response) => {
+projectRouter.get('/:id/daily-summary/:date', requireProjectAccess('view'), async (req: Request, res: Response) => {
   try {
     const { id, date } = req.params;
     console.log(`📊 [API] طلب جلب الملخص اليومي للمشروع: ${id} للتاريخ: ${date}`);
@@ -579,7 +587,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
 /**
  * 📝 إضافة مشترية مواد جديدة
  */
-projectRouter.post('/:id/material-purchases', async (req: Request, res: Response) => {
+projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async (req: Request, res: Response) => {
   try {
     const { id: project_id } = req.params;
     const purchaseData = { ...req.body, project_id };
@@ -623,7 +631,7 @@ projectRouter.post('/:id/material-purchases', async (req: Request, res: Response
  * 🔍 جلب مشروع محدد
  * GET /api/projects/:id
  */
-projectRouter.get('/:id', async (req: Request, res: Response) => {
+projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { id } = req.params;
@@ -893,7 +901,7 @@ projectRouter.patch('/:id', requireProjectAccess('edit'), async (req: Request, r
  * GET /api/projects/:id/deletion-stats
  * يتطلب أن يكون المستخدم مسؤول (admin) أو مالك المشروع
  */
-projectRouter.get('/:id/deletion-stats', async (req: Request, res: Response) => {
+projectRouter.get('/:id/deletion-stats', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const project_id = req.params.id;
@@ -1256,7 +1264,7 @@ projectRouter.get('/all/fund-transfers', async (req: Request, res: Response) => 
  * 📊 جلب تحويلات العهدة لمشروع محدد
  * GET /api/projects/:project_id/fund-transfers
  */
-projectRouter.get('/:project_id/fund-transfers', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/fund-transfers', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1314,7 +1322,7 @@ projectRouter.get('/:project_id/fund-transfers', async (req: Request, res: Respo
  * 📊 جلب حضور العمال لمشروع محدد
  * GET /api/projects/:project_id/worker-attendance
  */
-projectRouter.get('/:project_id/worker-attendance', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/worker-attendance', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1381,7 +1389,7 @@ projectRouter.get('/:project_id/worker-attendance', async (req: Request, res: Re
  * 📊 جلب مشتريات المواد لمشروع محدد
  * GET /api/projects/:project_id/material-purchases
  */
-projectRouter.get('/:project_id/material-purchases', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/material-purchases', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1563,7 +1571,7 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
      * POST /api/projects/:project_id/material-purchases
      * إضافة مشترية مواد لمشروع محدد
      */
-    projectRouter.post('/:project_id/material-purchases', async (req: Request, res: Response) => {
+    projectRouter.post('/:project_id/material-purchases', requireProjectAccess('add'), async (req: Request, res: Response) => {
       const startTime = Date.now();
       try {
         const { project_id } = req.params;
@@ -1608,7 +1616,7 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
      * 📊 جلب مصاريف النقل لمشروع محدد
      * GET /api/projects/:project_id/transportation-expenses
      */
-    projectRouter.get('/:project_id/transportation-expenses', async (req: Request, res: Response) => {
+    projectRouter.get('/:project_id/transportation-expenses', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1654,7 +1662,7 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
  * 📊 جلب المصاريف المتنوعة للعمال لمشروع محدد
  * GET /api/projects/:project_id/worker-misc-expenses
  */
-projectRouter.get('/:project_id/worker-misc-expenses', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/worker-misc-expenses', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1700,7 +1708,7 @@ projectRouter.get('/:project_id/worker-misc-expenses', async (req: Request, res:
  * 🔄 جلب التحويلات الواردة لمشروع محدد (من مشاريع أخرى)
  * GET /api/project-fund-transfers?toProjectId=:project_id
  */
-projectRouter.get('/fund-transfers/incoming/:project_id', async (req: Request, res: Response) => {
+projectRouter.get('/fund-transfers/incoming/:project_id', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1756,7 +1764,7 @@ projectRouter.get('/fund-transfers/incoming/:project_id', async (req: Request, r
  * 🔄 جلب التحويلات الصادرة لمشروع محدد (إلى مشاريع أخرى)
  * GET /api/project-fund-transfers?fromProjectId=:project_id
  */
-projectRouter.get('/fund-transfers/outgoing/:project_id', async (req: Request, res: Response) => {
+projectRouter.get('/fund-transfers/outgoing/:project_id', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1812,7 +1820,7 @@ projectRouter.get('/fund-transfers/outgoing/:project_id', async (req: Request, r
  * 📊 جلب حوالات العمال لمشروع محدد
  * GET /api/projects/:project_id/worker-transfers
  */
-projectRouter.get('/:project_id/worker-transfers', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/worker-transfers', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -1872,7 +1880,7 @@ projectRouter.get('/:project_id/worker-transfers', async (req: Request, res: Res
  * 🔍 جلب التحويلات الحقيقية بين المشاريع (للتشخيص)
  * GET /api/projects/:project_id/actual-transfers
  */
-projectRouter.get('/:project_id/actual-transfers', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/actual-transfers', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -2180,7 +2188,7 @@ projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response
  * 📊 جلب المصاريف اليومية للمشروع
  * GET /api/projects/:project_id/daily-expenses/:date
  */
-projectRouter.get('/:project_id/daily-expenses/:date', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id, date } = req.params;
@@ -2383,7 +2391,7 @@ projectRouter.get('/:project_id/daily-expenses/:date', async (req: Request, res:
  * 📊 جلب جميع المصاريف للمشروع (مجمعة حسب التاريخ)
  * GET /api/projects/:project_id/all-expenses
  */
-projectRouter.get('/:project_id/all-expenses', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
@@ -2643,7 +2651,7 @@ projectRouter.get('/:project_id/all-expenses', async (req: Request, res: Respons
  * 💰 جلب الرصيد المتبقي من اليوم السابق
  * GET /api/projects/:project_id/previous-balance/:date
  */
-projectRouter.get('/:project_id/previous-balance/:date', async (req: Request, res: Response) => {
+projectRouter.get('/:project_id/previous-balance/:date', requireProjectAccess('view'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id, date } = req.params;

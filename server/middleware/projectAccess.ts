@@ -13,11 +13,13 @@ export const attachAccessibleProjects = async (
 ) => {
   try {
     if (!req.user) {
+      req.accessibleProjectIds = [];
       return next();
     }
 
     const userId = req.user.user_id || req.user.id;
     if (!userId) {
+      req.accessibleProjectIds = [];
       return next();
     }
 
@@ -28,6 +30,7 @@ export const attachAccessibleProjects = async (
     next();
   } catch (error) {
     console.error("[ProjectAccess] Error loading accessible projects:", error);
+    req.accessibleProjectIds = [];
     next();
   }
 };
@@ -54,6 +57,7 @@ export const requireProjectAccess = (action: PermissionAction) => {
 
       const projectId =
         req.params.projectId ||
+        req.params.project_id ||
         req.params.id ||
         req.body?.project_id ||
         (req.query?.project_id as string);
@@ -96,7 +100,8 @@ export function filterByAccessibleProjects<T extends { project_id?: string | nul
   accessibleProjectIds: string[] | undefined,
   isAdmin: boolean
 ): T[] {
-  if (isAdmin || !accessibleProjectIds) return data;
+  if (isAdmin) return data;
+  if (!accessibleProjectIds) return [];
   const idSet = new Set(accessibleProjectIds);
   return data.filter((item) => item.project_id && idSet.has(item.project_id));
 }

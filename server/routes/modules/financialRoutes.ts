@@ -48,7 +48,8 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
     console.log('📊 [API] جلب الملخص المالي الموحد', { project_id: cleanProjectId, date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo });
 
     if (cleanProjectId && cleanProjectId !== 'all') {
-      if (!isAdminUser && accessReq.accessibleProjectIds && !accessReq.accessibleProjectIds.includes(cleanProjectId)) {
+      const accessibleIds = accessReq.accessibleProjectIds ?? [];
+      if (!isAdminUser && !accessibleIds.includes(cleanProjectId)) {
         return sendError(res, 'ليس لديك صلاحية عرض بيانات هذا المشروع', 403);
       }
       
@@ -67,8 +68,8 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         cleanDateTo
       );
       
-      if (!isAdminUser && accessReq.accessibleProjectIds) {
-        const idSet = new Set(accessReq.accessibleProjectIds);
+      if (!isAdminUser) {
+        const idSet = new Set(accessReq.accessibleProjectIds ?? []);
         summaries = summaries.filter((s: any) => s.projectId && idSet.has(s.projectId));
       }
       

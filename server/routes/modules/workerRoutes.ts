@@ -60,14 +60,17 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     
     let workersList;
-    if (isAdminUser || !accessReq.accessibleProjectIds) {
+    if (isAdminUser) {
       workersList = await db.select().from(workers).orderBy(workers.name);
-    } else if (accessReq.accessibleProjectIds.length === 0) {
-      workersList = [];
     } else {
-      workersList = await db.select().from(workers)
-        .where(inArray(workers.project_id, accessReq.accessibleProjectIds))
-        .orderBy(workers.name);
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (ids.length === 0) {
+        workersList = [];
+      } else {
+        workersList = await db.select().from(workers)
+          .where(inArray(workers.project_id, ids))
+          .orderBy(workers.name);
+      }
     }
     console.log(`👷 [API] تم جلب ${workersList.length} عامل`);
     res.json({

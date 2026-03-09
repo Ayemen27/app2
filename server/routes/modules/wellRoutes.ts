@@ -26,17 +26,18 @@ wellRouter.get('/', async (req: Request, res: Response) => {
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     
     const filteredProjectId = project_id === 'all' || !project_id ? undefined : (project_id as string);
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
     
-    if (filteredProjectId && !isAdminUser && accessReq.accessibleProjectIds) {
-      if (!accessReq.accessibleProjectIds.includes(filteredProjectId)) {
+    if (!isAdminUser) {
+      if (filteredProjectId && !accessibleIds.includes(filteredProjectId)) {
         return res.json({ success: true, data: [], message: 'لا توجد آبار متاحة' });
       }
     }
     
     let wells = await WellService.getAllWells(filteredProjectId);
     
-    if (!filteredProjectId && !isAdminUser && accessReq.accessibleProjectIds) {
-      const idSet = new Set(accessReq.accessibleProjectIds);
+    if (!isAdminUser) {
+      const idSet = new Set(accessibleIds);
       wells = wells.filter((w: any) => w.project_id && idSet.has(w.project_id));
     }
 
@@ -253,7 +254,20 @@ wellRouter.post('/tasks/:taskId/account', async (req: Request, res: Response) =>
 wellRouter.get('/accounting/pending', async (req: Request, res: Response) => {
   try {
     const { project_id } = req.query;
-    const tasks = await WellService.getPendingAccountingTasks(project_id as string);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (!isAdminUser && project_id && project_id !== 'all' && !accessibleIds.includes(project_id as string)) {
+      return res.json({ success: true, data: [], message: 'لا توجد مهام معلقة متاحة' });
+    }
+
+    let tasks = await WellService.getPendingAccountingTasks(project_id as string);
+
+    if (!isAdminUser) {
+      const idSet = new Set(accessibleIds);
+      tasks = tasks.filter((t: any) => t.project_id && idSet.has(t.project_id));
+    }
 
     res.json({
       success: true,
@@ -297,6 +311,14 @@ wellRouter.get('/:id/progress', async (req: Request, res: Response) => {
 wellRouter.get('/summary/:project_id', async (req: Request, res: Response) => {
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.json({ success: true, data: null, message: 'لا توجد صلاحية للوصول لهذا المشروع' });
+    }
+
     const summary = await WellService.getProjectWellsSummary(project_id);
 
     res.json({

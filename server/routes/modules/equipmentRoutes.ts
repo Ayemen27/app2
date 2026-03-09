@@ -39,16 +39,26 @@ equipmentRouter.get('/', async (req: Request, res: Response) => {
       }
     }
 
-    if (!isAdminUser && accessReq.accessibleProjectIds && !project_id) {
-      if (accessReq.accessibleProjectIds.length === 0) {
-        conditions.push(isNull(equipment.project_id));
-      } else {
-        conditions.push(
-          or(
-            inArray(equipment.project_id, accessReq.accessibleProjectIds),
-            isNull(equipment.project_id)
-          )!
-        );
+    if (!isAdminUser) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+
+      if (project_id && typeof project_id === 'string' && project_id !== '') {
+        if (!ids.includes(project_id)) {
+          return res.json({ success: true, data: [], message: 'تم جلب 0 معدة بنجاح' });
+        }
+      }
+
+      if (!project_id) {
+        if (ids.length === 0) {
+          conditions.push(isNull(equipment.project_id));
+        } else {
+          conditions.push(
+            or(
+              inArray(equipment.project_id, ids),
+              isNull(equipment.project_id)
+            )!
+          );
+        }
       }
     }
 
@@ -79,6 +89,15 @@ equipmentRouter.get('/:id', async (req: Request, res: Response) => {
     const [item] = await db.select().from(equipment).where(eq(equipment.id, id));
     if (!item) {
       return res.status(404).json({ success: false, message: 'المعدة غير موجودة' });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && item.project_id) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (!ids.includes(item.project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية عرض هذه المعدة', code: 'PROJECT_ACCESS_DENIED' });
+      }
     }
 
     res.json({ success: true, data: item });
@@ -147,6 +166,15 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'المعدة غير موجودة' });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && existing.project_id) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (!ids.includes(existing.project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية تعديل هذه المعدة', code: 'PROJECT_ACCESS_DENIED' });
+      }
+    }
+
     const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = req.body;
 
     let qty = existing.quantity;
@@ -200,6 +228,15 @@ equipmentRouter.delete('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'المعدة غير موجودة' });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && existing.project_id) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (!ids.includes(existing.project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية حذف هذه المعدة', code: 'PROJECT_ACCESS_DENIED' });
+      }
+    }
+
     await db.delete(equipmentMovements).where(eq(equipmentMovements.equipmentId, id));
     await db.delete(equipment).where(eq(equipment.id, id));
 
@@ -225,6 +262,15 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
     const [item] = await db.select().from(equipment).where(eq(equipment.id, id));
     if (!item) {
       return res.status(404).json({ success: false, message: 'المعدة غير موجودة' });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (item.project_id && !ids.includes(item.project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية نقل هذه المعدة', code: 'PROJECT_ACCESS_DENIED' });
+      }
     }
 
     const { toProjectId, reason, performedBy, notes, quantity: moveQty } = req.body;
@@ -276,6 +322,17 @@ equipmentRouter.get('/:id/movements', async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ success: false, message: 'معرف غير صالح' });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+
+    const [eqItem] = await db.select().from(equipment).where(eq(equipment.id, id));
+    if (eqItem && !isAdminUser && eqItem.project_id) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (!ids.includes(eqItem.project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية عرض حركات هذه المعدة', code: 'PROJECT_ACCESS_DENIED' });
+      }
     }
 
     const movements = await db.select()

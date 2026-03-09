@@ -207,21 +207,25 @@ function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive
     };
   }, [onSelect, onDelete, onArchive, showActions]);
 
-  const deleteVisible = offsetX > 20;
-  const archiveVisible = offsetX < -20;
+  const swipingRight = offsetX > 5;
+  const swipingLeft = offsetX < -5;
+  const bgColor = swipingRight ? 'bg-red-500' : swipingLeft ? 'bg-blue-500' : 'bg-transparent';
 
   return (
     <div className="relative overflow-hidden rounded-lg mb-1" data-testid={`session-item-${session.id}`}>
-      <div className="absolute inset-0 flex">
-        <div className={`flex items-center justify-center gap-1 px-3 transition-colors ${deleteVisible ? 'bg-red-500' : 'bg-red-500/20'}`} style={{ width: Math.max(0, offsetX) }}>
-          <Trash2 className={`h-4 w-4 ${deleteVisible ? 'text-white' : 'text-red-400'}`} />
-          {offsetX > 50 && <span className={`text-[10px] ${deleteVisible ? 'text-white' : 'text-red-400'}`}>حذف</span>}
-        </div>
-        <div className="flex-1" />
-        <div className={`flex items-center justify-center gap-1 px-3 transition-colors ${archiveVisible ? 'bg-blue-500' : 'bg-blue-500/20'}`} style={{ width: Math.max(0, -offsetX) }}>
-          {offsetX < -50 && <span className={`text-[10px] ${archiveVisible ? 'text-white' : 'text-blue-400'}`}>أرشفة</span>}
-          <Archive className={`h-4 w-4 ${archiveVisible ? 'text-white' : 'text-blue-400'}`} />
-        </div>
+      <div className={`absolute inset-0 ${bgColor} transition-colors duration-150 flex items-center`}>
+        {swipingRight && (
+          <div className="flex items-center gap-1.5 ps-4">
+            <Trash2 className="h-5 w-5 text-white" />
+            <span className="text-white text-xs font-medium">حذف</span>
+          </div>
+        )}
+        {swipingLeft && (
+          <div className="flex items-center gap-1.5 pe-4 ms-auto">
+            <span className="text-white text-xs font-medium">أرشفة</span>
+            <Archive className="h-5 w-5 text-white" />
+          </div>
+        )}
       </div>
       <div
         ref={itemRef}
@@ -240,20 +244,6 @@ function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive
           <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.lastMessageAt || session.updated_at || session.created_at)}</span>
         </div>
       </div>
-      {revealed === 'delete' && (
-        <div className="absolute top-0 left-0 bottom-0 flex items-center" style={{ width: REVEAL_WIDTH }}>
-          <Button size="sm" variant="destructive" className="w-full h-full rounded-none text-xs" onClick={() => { setOffsetX(0); setRevealed('none'); onDelete(); }}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-      {revealed === 'archive' && (
-        <div className="absolute top-0 right-0 bottom-0 flex items-center" style={{ width: REVEAL_WIDTH }}>
-          <Button size="sm" className="w-full h-full rounded-none text-xs bg-blue-500 hover:bg-blue-600 text-white" onClick={() => { setOffsetX(0); setRevealed('none'); onArchive(); }}>
-            <Archive className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
       <AnimatePresence>
         {showActions && (
           <motion.div

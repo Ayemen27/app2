@@ -24,6 +24,13 @@ import {
 import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
+import { reportDataService } from '../../services/reports/ReportDataService';
+import { generateDailyReportExcel } from '../../services/reports/templates/DailyReportExcel';
+import { generateWorkerStatementExcel } from '../../services/reports/templates/WorkerStatementExcel';
+import { generatePeriodFinalExcel } from '../../services/reports/templates/PeriodFinalExcel';
+import { generateDailyReportHTML } from '../../services/reports/templates/DailyReportPDF';
+import { generateWorkerStatementHTML } from '../../services/reports/templates/WorkerStatementPDF';
+import { generatePeriodFinalHTML } from '../../services/reports/templates/PeriodFinalPDF';
 
 export const reportRouter = express.Router();
 
@@ -186,15 +193,38 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalTransfers;
     const balance = totalFundTransfers - totalExpenses;
 
-    // جلب اسم المشروع
     const projectInfo = await db.select().from(projects).where(eq(projects.id, project_id as string)).limit(1);
+
+    const reportData = {
+      project: projectInfo[0] || { id: project_id, name: 'غير محدد' },
+      date: dateStr,
+      attendance: attendanceData,
+      materials: materialsData,
+      transport: transportData,
+      miscExpenses: miscExpensesData,
+      workerTransfers: transfersData,
+      fundTransfers: fundTransfersData,
+      totals: {
+        totalWorkerWages,
+        totalPaidWages,
+        totalWorkDays,
+        totalMaterials,
+        totalTransport,
+        totalMiscExpenses,
+        totalTransfers,
+        totalFundTransfers,
+        totalExpenses,
+        balance,
+        workerCount: attendanceData.length
+      }
+    };
 
     const duration = Date.now() - startTime;
 
     res.json({
       success: true,
       data: reportData,
-      report: reportData, // التوافق مع الهيكل المسطح للأندرويد
+      report: reportData,
       processingTime: duration
     });
 
@@ -1092,5 +1122,162 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
       message: error.message,
       processingTime: Date.now() - startTime
     });
+  }
+});
+
+/**
+ * 📊 V2 APIs - التقارير الاحترافية المحسنة
+ */
+
+reportRouter.get('/reports/v2/daily', async (req: Request, res: Response) => {
+  try {
+    const { project_id, date } = req.query;
+    if (!project_id || !date) {
+      return res.status(400).json({ success: false, error: 'معرف المشروع والتاريخ مطلوبان' });
+    }
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+    const data = await reportDataService.getDailyReport(project_id as string, date as string);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('❌ [Reports V2] خطأ في التقرير اليومي:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+reportRouter.get('/reports/v2/worker-statement', async (req: Request, res: Response) => {
+  try {
+    const { worker_id, dateFrom, dateTo, project_id } = req.query;
+    if (!worker_id) {
+      return res.status(400).json({ success: false, error: 'معرف العامل مطلوب' });
+    }
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (project_id && project_id !== 'all' && !isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+    const data = await reportDataService.getWorkerStatement(worker_id as string, {
+      dateFrom: dateFrom as string,
+      dateTo: dateTo as string,
+      projectId: project_id as string,
+      accessibleProjectIds: accessibleIds,
+      isAdmin: isAdminUser
+    });
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('❌ [Reports V2] خطأ في كشف حساب العامل:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+reportRouter.get('/reports/v2/period-final', async (req: Request, res: Response) => {
+  try {
+    const { project_id, dateFrom, dateTo } = req.query;
+    if (!project_id || !dateFrom || !dateTo) {
+      return res.status(400).json({ success: false, error: 'معرف المشروع وفترة التاريخ مطلوبة' });
+    }
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+    const data = await reportDataService.getPeriodFinalReport(project_id as string, dateFrom as string, dateTo as string);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('❌ [Reports V2] خطأ في التقرير الختامي:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response) => {
+  try {
+    const { type } = req.params;
+    const { format, project_id, date, worker_id, dateFrom, dateTo } = req.query;
+
+    if (!format || !['pdf', 'xlsx'].includes(format as string)) {
+      return res.status(400).json({ success: false, error: 'صيغة التصدير مطلوبة (pdf أو xlsx)' });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (type === 'daily') {
+      if (!project_id || !date) {
+        return res.status(400).json({ success: false, error: 'معرف المشروع والتاريخ مطلوبان' });
+      }
+      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+      }
+      const data = await reportDataService.getDailyReport(project_id as string, date as string);
+      if (format === 'xlsx') {
+        const buffer = await generateDailyReportExcel(data);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="daily-report-${date}.xlsx"`);
+        return res.send(Buffer.from(buffer));
+      } else {
+        const html = generateDailyReportHTML(data);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      }
+    }
+
+    if (type === 'worker-statement') {
+      if (!worker_id) {
+        return res.status(400).json({ success: false, error: 'معرف العامل مطلوب' });
+      }
+      if (project_id && project_id !== 'all' && !isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+      }
+      const data = await reportDataService.getWorkerStatement(worker_id as string, {
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+        projectId: project_id as string,
+        accessibleProjectIds: accessibleIds,
+        isAdmin: isAdminUser
+      });
+      if (format === 'xlsx') {
+        const buffer = await generateWorkerStatementExcel(data);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        const safeWorkerName = encodeURIComponent(data.worker?.name || 'worker');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''worker-statement-${safeWorkerName}.xlsx`);
+        return res.send(Buffer.from(buffer));
+      } else {
+        const html = generateWorkerStatementHTML(data);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      }
+    }
+
+    if (type === 'period-final') {
+      if (!project_id || !dateFrom || !dateTo) {
+        return res.status(400).json({ success: false, error: 'معرف المشروع وفترة التاريخ مطلوبة' });
+      }
+      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+      }
+      const data = await reportDataService.getPeriodFinalReport(project_id as string, dateFrom as string, dateTo as string);
+      if (format === 'xlsx') {
+        const buffer = await generatePeriodFinalExcel(data);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="period-report-${dateFrom}-${dateTo}.xlsx"`);
+        return res.send(Buffer.from(buffer));
+      } else {
+        const html = generatePeriodFinalHTML(data);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      }
+    }
+
+    return res.status(400).json({ success: false, error: 'نوع التقرير غير صالح' });
+  } catch (error: any) {
+    console.error('❌ [Reports V2] خطأ في التصدير:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });

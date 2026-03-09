@@ -144,6 +144,27 @@
 - **Route:** `/admin/permissions` in App.tsx, "إدارة الصلاحيات" in sidebar
 - **AdminRoute Fix:** `AdminRoute.tsx` now accepts both `admin` and `super_admin` roles
 
+## Professional Report System (March 2026)
+- **Report Data Service:** `server/services/reports/ReportDataService.ts` — aggregates data from all financial tables
+  - `getDailyReport()` — attendance, materials, transport, misc expenses, fund transfers for a single day
+  - `getWorkerStatement()` — worker's complete financial statement with daily breakdown, project summaries
+  - `getPeriodFinalReport()` — comprehensive project report for a date range with KPIs, charts, all sections
+- **V2 API Endpoints** (in `server/routes/modules/reportRoutes.ts`):
+  - `GET /api/reports/v2/daily?project_id=X&date=Y` — daily report data
+  - `GET /api/reports/v2/worker-statement?worker_id=X&dateFrom=Y&dateTo=Z` — worker statement
+  - `GET /api/reports/v2/period-final?project_id=X&dateFrom=Y&dateTo=Z` — period final report
+  - `GET /api/reports/v2/export/:type?format=xlsx|pdf&...params` — Excel/PDF export
+- **Excel Templates** (ExcelJS, `server/services/reports/templates/`):
+  - `DailyReportExcel.ts`, `WorkerStatementExcel.ts`, `PeriodFinalExcel.ts`
+  - Professional RTL layout, Al-Fatihi branding, alternating rows, KPI strips, signature sections
+- **PDF/HTML Templates** (`server/services/reports/templates/`):
+  - `DailyReportPDF.ts`, `WorkerStatementPDF.ts`, `PeriodFinalPDF.ts`
+  - HTML string templates served for client-side PDF rendering
+- **Frontend:** `client/src/pages/axion-reports.tsx` — 3-tab report center (Daily, Worker Statement, Period Final)
+- **Type Contracts:** `shared/report-types.ts` — DailyReportData, WorkerStatementData, PeriodFinalReportData
+- **ExcelJS Import:** Use `import ExcelJS from 'exceljs'` (not `import * as`) for server-side compatibility
+- **NaN-safe patterns:** All aggregation queries use COALESCE + CASE for null/NaN handling
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

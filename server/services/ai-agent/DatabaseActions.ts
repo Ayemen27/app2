@@ -104,6 +104,81 @@ export class DatabaseActions {
     }
   }
 
+  async getAllProjectsWithExpenses(): Promise<ActionResult> {
+    try {
+      const allProjects = await db.select().from(projects);
+      const projectSummaries = [];
+
+      for (const project of allProjects) {
+        try {
+          const fundsResult = await db
+            .select({ total: sql<string>`COALESCE(SUM(${fundTransfers.amount}), 0)` })
+            .from(fundTransfers)
+            .where(eq(fundTransfers.projectId, project.id));
+
+          const wagesResult = await db
+            .select({ total: sql<string>`COALESCE(SUM(${workerAttendance.paidAmount}), 0)` })
+            .from(workerAttendance)
+            .where(eq(workerAttendance.projectId, project.id));
+
+          const materialsResult = await db
+            .select({ total: sql<string>`COALESCE(SUM(${materialPurchases.paidAmount}), 0)` })
+            .from(materialPurchases)
+            .where(eq(materialPurchases.projectId, project.id));
+
+          const transportResult = await db
+            .select({ total: sql<string>`COALESCE(SUM(${transportationExpenses.amount}), 0)` })
+            .from(transportationExpenses)
+            .where(eq(transportationExpenses.projectId, project.id));
+
+          const miscResult = await db
+            .select({ total: sql<string>`COALESCE(SUM(${workerMiscExpenses.amount}), 0)` })
+            .from(workerMiscExpenses)
+            .where(eq(workerMiscExpenses.projectId, project.id));
+
+          const totalFunds = parseFloat(fundsResult[0]?.total || "0");
+          const totalWages = parseFloat(wagesResult[0]?.total || "0");
+          const totalMaterials = parseFloat(materialsResult[0]?.total || "0");
+          const totalTransport = parseFloat(transportResult[0]?.total || "0");
+          const totalMisc = parseFloat(miscResult[0]?.total || "0");
+          const totalExpenses = totalWages + totalMaterials + totalTransport + totalMisc;
+
+          projectSummaries.push({
+            المشروع: project.name,
+            الحالة: project.status || "نشط",
+            الميزانية: parseFloat(String(project.budget || "0")),
+            إجمالي_التمويل: totalFunds,
+            الأجور: totalWages,
+            المواد: totalMaterials,
+            النقل: totalTransport,
+            متنوعات: totalMisc,
+            إجمالي_المصروفات: totalExpenses,
+            الرصيد: totalFunds - totalExpenses,
+          });
+        } catch {
+          projectSummaries.push({
+            المشروع: project.name,
+            الحالة: project.status || "نشط",
+            ملاحظة: "تعذر جلب البيانات المالية",
+          });
+        }
+      }
+
+      return {
+        success: true,
+        data: projectSummaries,
+        message: `تقرير شامل لـ ${allProjects.length} مشروع مع التفاصيل المالية`,
+        action: "all_projects_report",
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: `خطأ: ${error.message}`,
+        action: "all_projects_report",
+      };
+    }
+  }
+
   async getAllWorkers(): Promise<ActionResult> {
     try {
       const result = await db.select().from(workers);

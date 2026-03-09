@@ -94,7 +94,7 @@ export function LayoutShell({
             
             <main
               ref={mainRef}
-              className="layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch pb-[calc(72px+env(safe-area-inset-bottom,0px)+16px)] md:pb-0"
+              className={`layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch ${location === '/ai-chat' ? 'pb-0 overscroll-none' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px)+16px)]'} md:pb-0`}
             >
               {pullEnabled && (
                 <PullToRefreshIndicator

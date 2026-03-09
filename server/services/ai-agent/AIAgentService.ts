@@ -43,19 +43,19 @@ const SYSTEM_PROMPT = `أنت وكيل ذكاء اصطناعي احترافي (S
 3. **الواقعية:** قدم الواقع المالي والعملي للمشاريع كما هو، حتى لو كان غير مريح (تجاوز ميزانية، تأخير عمال، إلخ).
 4. **الوصول المباشر:** أنت ملزم باستخدام أوامر [ACTION] للحصول على أي بيانات حقيقية. يمنع قول "لا يمكنني الوصول".
 
-## 🛠️ أدواتك البرمجية للمشاريع والعمال (استخدمها بكثافة):
-- [ACTION:LIST_PROJECTS] -> **يجب استخدامها أولاً دائماً** لجلب أسماء ومعرّفات المشاريع الحقيقية (UUID).
-- [ACTION:GET_PROJECT:اسم_المشروع] -> بحث عن مشروع بالاسم (وليس بمعرّف وهمي).
-- [ACTION:PROJECT_EXPENSES:معرف_UUID_الحقيقي] -> تحليل مالي شامل. **يجب أن يكون المعرّف UUID حقيقي من نتائج LIST_PROJECTS**.
-- [ACTION:DAILY_EXPENSES:معرف_UUID_الحقيقي:التاريخ] -> تدقيق يومي. **يجب أن يكون المعرّف UUID حقيقي**.
+## 🛠️ أدواتك البرمجية للمشاريع والعمال:
+- [ACTION:ALL_PROJECTS_REPORT] -> **استخدم هذا الأمر عند طلب تقرير شامل عن جميع المشاريع**. يُرجع كل المشاريع مع تفاصيلها المالية (الميزانية، الأجور، المواد، النقل، المصروفات، الرصيد) في أمر واحد.
+- [ACTION:LIST_PROJECTS] -> قائمة المشاريع فقط (بدون تفاصيل مالية). يعرض الاسم والمعرّف والحالة.
+- [ACTION:GET_PROJECT:اسم_المشروع] -> بحث عن مشروع بالاسم للحصول على تفاصيله ومعرّفه الحقيقي.
+- [ACTION:PROJECT_EXPENSES:معرف_UUID] -> مصاريف مشروع واحد فقط. **المعرّف يجب أن يكون UUID حقيقي من نتائج LIST_PROJECTS أو GET_PROJECT**.
+- [ACTION:DAILY_EXPENSES:معرف_UUID:التاريخ] -> مصاريف يومية. **المعرّف يجب أن يكون UUID حقيقي**.
 - [ACTION:FIND_WORKER:الاسم] -> بحث ذكي عن العمال.
 - [ACTION:WORKER_STATEMENT:معرف_العامل] -> كشف حساب تفصيلي.
 
-## 🔴 قاعدة إلزامية للمعرّفات:
-- معرّفات المشاريع هي UUID مثل: "7212655c-d8c7-4250-8347-a5768cf75c0d"
-- **ممنوع منعاً باتاً** استخدام معرّفات وهمية مثل "PRJ-001" أو "PRJ-003" أو أي شكل غير UUID.
-- عند طلب تقرير عن المشاريع: استخدم [ACTION:LIST_PROJECTS] أولاً، ثم استخدم المعرّفات الحقيقية (UUID) من النتائج لجلب التفاصيل بـ PROJECT_EXPENSES.
-- إذا لم تكن تعرف المعرّف الحقيقي، استخدم [ACTION:LIST_PROJECTS] أو [ACTION:GET_PROJECT:اسم_المشروع] للحصول عليه أولاً.
+## 🔴 قواعد إلزامية:
+- **ممنوع اختراع أي UUID أو معرّف.** كل معرّف يجب أن يأتي من نتائج أمر ACTION سابق.
+- عند طلب "تقرير شامل عن المشاريع": استخدم **أمر واحد فقط** هو [ACTION:ALL_PROJECTS_REPORT] — لا تستدعِ PROJECT_EXPENSES لكل مشروع.
+- عند طلب معلومات عن مشروع بعينه: استخدم [ACTION:GET_PROJECT:اسم_المشروع] أولاً للحصول على UUID الحقيقي، ثم [ACTION:PROJECT_EXPENSES:UUID].
 
 ## 🗄️ أدوات قاعدة البيانات العامة (للقراءة - تنفذ مباشرة):
 - [ACTION:LIST_TABLES] -> عرض جميع جداول قاعدة البيانات مع عدد السجلات.
@@ -122,8 +122,47 @@ export class AIAgentService {
     return await db
       .select()
       .from(aiChatSessions)
-      .where(eq(aiChatSessions.user_id, userId))
+      .where(and(eq(aiChatSessions.user_id, userId), eq(aiChatSessions.is_active, true)))
       .orderBy(desc(aiChatSessions.updated_at));
+  }
+
+  async getArchivedSessions(userId: string) {
+    return await db
+      .select()
+      .from(aiChatSessions)
+      .where(and(eq(aiChatSessions.user_id, userId), eq(aiChatSessions.is_active, false)))
+      .orderBy(desc(aiChatSessions.updated_at));
+  }
+
+  async archiveSession(sessionId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .update(aiChatSessions)
+      .set({ is_active: false, updated_at: new Date() })
+      .where(and(eq(aiChatSessions.id, sessionId), eq(aiChatSessions.user_id, userId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async restoreSession(sessionId: string, userId: string): Promise<boolean> {
+    const result = await db
+      .update(aiChatSessions)
+      .set({ is_active: true, updated_at: new Date() })
+      .where(and(eq(aiChatSessions.id, sessionId), eq(aiChatSessions.user_id, userId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getChatStats(userId: string) {
+    const allSessions = await db.select().from(aiChatSessions).where(eq(aiChatSessions.user_id, userId));
+    const activeSessions = allSessions.filter(s => s.is_active);
+    const archivedSessions = allSessions.filter(s => !s.is_active);
+    const totalMessages = allSessions.reduce((sum, s) => sum + (s.messagesCount || 0), 0);
+    return {
+      totalSessions: allSessions.length,
+      activeSessions: activeSessions.length,
+      archivedSessions: archivedSessions.length,
+      totalMessages,
+    };
   }
 
   /**
@@ -436,6 +475,10 @@ export class AIAgentService {
               currentResult = await this.dbActions.getAllProjects();
               break;
 
+            case "ALL_PROJECTS_REPORT":
+              currentResult = await this.dbActions.getAllProjectsWithExpenses();
+              break;
+
             case "LIST_WORKERS":
               currentResult = await this.dbActions.getAllWorkers();
               break;
@@ -496,6 +539,11 @@ export class AIAgentService {
         if (currentResult.success) {
           if (actionType === "EXPORT_EXCEL" && (currentResult as ReportResult).filePath) {
             processedResponse += `\n\n📄 **تم إنشاء ملف Excel بنجاح!**\nيمكنك تحميل الملف من الرابط التالي: [تحميل ملف Excel](${(currentResult as ReportResult).filePath})`;
+          } else if (actionType === "ALL_PROJECTS_REPORT") {
+            processedResponse += `\n\n✅ ${currentResult.message}`;
+            if (Array.isArray(currentResult.data) && currentResult.data.length > 0) {
+              processedResponse += "\n\n```json\n" + JSON.stringify(currentResult.data, null, 2) + "\n```";
+            }
           } else if (actionType === "WORKER_STATEMENT" || actionType === "PROJECT_EXPENSES" || actionType === "DAILY_EXPENSES") {
             const formattedReport = this.reportGenerator.formatAsText(currentResult.data, this.getActionTitle(actionType));
             processedResponse += "\n\n" + formattedReport;
@@ -706,7 +754,12 @@ export class AIAgentService {
    * تنسيق قائمة البيانات كفهرس نصي بسيط
    */
   private formatDataList(data: any[]): string {
-    return data.map((item, index) => `${index + 1}. ${item.name || item.id}`).join("\n");
+    return data.map((item, index) => {
+      const name = item.name || "بدون اسم";
+      const id = item.id || "";
+      const status = item.status ? ` (${item.status})` : "";
+      return `${index + 1}. ${name}${status}\n   المعرّف: ${id}`;
+    }).join("\n");
   }
 
   /**

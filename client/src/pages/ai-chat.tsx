@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +8,7 @@ import {
   Send, Bot, Copy, Trash2, Plus, MessageSquare, ArrowUp,
   Sparkles, Loader2, PanelRightOpen, PanelRightClose, X,
   FileText, BarChart3, Users, ShieldCheck, Check, Play, Ban,
-  Table
+  Table, Archive, RotateCcw, Settings, ChevronLeft
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,6 +28,24 @@ interface Message {
   operationHandled?: boolean;
 }
 
+function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return "";
+  const now = new Date();
+  const d = new Date(date);
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return "الآن";
+  if (diffMin < 60) return `منذ ${diffMin} د`;
+  if (diffHours < 24) return `منذ ${diffHours} س`;
+  if (diffDays === 1) return "أمس";
+  if (diffDays < 7) return `منذ ${diffDays} أيام`;
+  if (diffDays < 30) return `منذ ${Math.floor(diffDays / 7)} أسابيع`;
+  return d.toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
+}
+
 function extractOperationId(content: string): string | null {
   const match = content.match(/معرف العملية:\*?\*?\s*(op_[a-zA-Z0-9_]+)/);
   return match ? match[1] : null;
@@ -36,30 +54,44 @@ function extractOperationId(content: string): string | null {
 function DataTable({ data }: { data: any[] }) {
   if (!data || data.length === 0) return null;
   const columns = Object.keys(data[0]);
-  return (
-    <div className="mt-3 border rounded-lg overflow-x-auto" dir="rtl">
-      <table className="w-full text-xs" data-testid="table-data-display">
-        <thead>
-          <tr className="bg-muted/70 border-b">
-            {columns.map((col) => (
-              <th key={col} className="px-3 py-2 text-right font-medium text-muted-foreground whitespace-nowrap">
-                {col}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, ri) => (
-            <tr key={ri} className="border-b last:border-b-0" data-testid={`row-data-${ri}`}>
+
+  if (columns.length <= 3) {
+    return (
+      <div className="mt-3 border rounded-lg overflow-x-auto" dir="rtl">
+        <table className="w-full text-xs" data-testid="table-data-display">
+          <thead>
+            <tr className="bg-muted/70 border-b">
               {columns.map((col) => (
-                <td key={col} className="px-3 py-2 text-right whitespace-nowrap">
-                  {row[col] != null ? String(row[col]) : "-"}
-                </td>
+                <th key={col} className="px-3 py-2 text-right font-medium text-muted-foreground whitespace-nowrap">{col}</th>
               ))}
             </tr>
+          </thead>
+          <tbody>
+            {data.map((row, ri) => (
+              <tr key={ri} className="border-b last:border-b-0" data-testid={`row-data-${ri}`}>
+                {columns.map((col) => (
+                  <td key={col} className="px-3 py-2 text-right">{row[col] != null ? String(row[col]) : "-"}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-2" dir="rtl">
+      {data.map((row, ri) => (
+        <div key={ri} className="border rounded-lg p-3 bg-muted/30 text-xs space-y-1" data-testid={`row-data-${ri}`}>
+          {columns.map((col) => (
+            <div key={col} className="flex justify-between gap-2">
+              <span className="text-muted-foreground font-medium shrink-0">{col}</span>
+              <span className="text-right break-all">{row[col] != null ? String(row[col]) : "-"}</span>
+            </div>
           ))}
-        </tbody>
-      </table>
+        </div>
+      ))}
     </div>
   );
 }
@@ -77,12 +109,103 @@ function tryParseDataFromContent(content: string): any[] | null {
   return null;
 }
 
+function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive }: {
+  session: any; isActive: boolean;
+  onSelect: () => void; onDelete: () => void; onArchive: () => void;
+}) {
+  const [offsetX, setOffsetX] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const moved = useRef(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showActions, setShowActions] = useState(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    moved.current = false;
+    longPressTimer.current = setTimeout(() => {
+      if (!moved.current) setShowActions(true);
+    }, 500);
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - startX.current;
+    const dy = Math.abs(e.touches[0].clientY - startY.current);
+    if (dy > 10 && !swiping) { if (longPressTimer.current) clearTimeout(longPressTimer.current); return; }
+    if (Math.abs(dx) > 10) {
+      moved.current = true;
+      setSwiping(true);
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      setOffsetX(Math.max(-100, Math.min(100, dx)));
+    }
+  };
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    if (offsetX < -60) { onDelete(); }
+    else if (offsetX > 60) { onArchive(); }
+    setOffsetX(0);
+    setSwiping(false);
+    if (!moved.current && !showActions) onSelect();
+  };
+
+  const bgColor = offsetX < -30 ? "bg-red-500" : offsetX > 30 ? "bg-blue-500" : "bg-transparent";
+  const bgIcon = offsetX < -30 ? <Trash2 className="h-4 w-4 text-white" /> : offsetX > 30 ? <Archive className="h-4 w-4 text-white" /> : null;
+  const bgLabel = offsetX < -30 ? "حذف" : offsetX > 30 ? "أرشفة" : "";
+
+  return (
+    <div className="relative overflow-hidden rounded-lg" data-testid={`session-item-${session.id}`}>
+      <div className={`absolute inset-0 ${bgColor} flex items-center ${offsetX < 0 ? 'justify-end pe-3' : 'justify-start ps-3'} transition-colors`}>
+        {bgIcon}
+        <span className="text-white text-[10px] mx-1">{bgLabel}</span>
+      </div>
+      <div
+        className={`relative flex items-start gap-2.5 p-2.5 cursor-pointer transition-all text-sm ${
+          isActive ? "bg-primary/10 text-primary font-medium" : "bg-card hover:bg-muted text-foreground"
+        }`}
+        style={{ transform: `translateX(${offsetX}px)`, transition: swiping ? 'none' : 'transform 0.25s ease-out' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={() => { if (!moved.current) onSelect(); }}
+      >
+        <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <span className="truncate block text-sm">{session.title}</span>
+          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.lastMessageAt || session.updated_at || session.created_at)}</span>
+        </div>
+      </div>
+      <AnimatePresence>
+        {showActions && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex gap-1 p-1.5 bg-muted/80 border-t"
+          >
+            <Button size="sm" variant="destructive" className="flex-1 h-7 text-[11px] gap-1" onClick={() => { setShowActions(false); onDelete(); }}>
+              <Trash2 className="h-3 w-3" /> حذف
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-[11px] gap-1" onClick={() => { setShowActions(false); onArchive(); }}>
+              <Archive className="h-3 w-3" /> أرشفة
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setShowActions(false)}>
+              إلغاء
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function AIChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarView, setSidebarView] = useState<'chats' | 'archived' | 'settings'>('chats');
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -90,6 +213,7 @@ export default function AIChatPage() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: sessions = [] } = useQuery({
@@ -252,16 +376,66 @@ export default function AIChatPage() {
     },
   });
 
+  const { data: archivedSessions = [] } = useQuery({
+    queryKey: ['ai-archived-sessions'],
+    queryFn: async () => {
+      try {
+        const res = await apiRequest("/api/ai/sessions/archived", "GET");
+        return Array.isArray(res) ? res : [];
+      } catch { return []; }
+    },
+    enabled: !!user && sidebarView === 'archived',
+  });
+
+  const { data: chatStats } = useQuery({
+    queryKey: ['ai-chat-stats'],
+    queryFn: async () => {
+      try { return await apiRequest("/api/ai/stats", "GET"); }
+      catch { return null; }
+    },
+    enabled: !!user && sidebarView === 'settings',
+  });
+
   const deleteSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
       return await apiRequest(`/api/ai/sessions/${sessionId}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat-stats'] });
       if (currentSessionId) {
         setCurrentSessionId(null);
         setMessages([]);
       }
+      toast({ title: "تم حذف المحادثة", duration: 2000 });
+    },
+  });
+
+  const archiveSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      return await apiRequest(`/api/ai/sessions/${sessionId}/archive`, "PATCH");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
+      queryClient.invalidateQueries({ queryKey: ['ai-archived-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat-stats'] });
+      if (currentSessionId) {
+        setCurrentSessionId(null);
+        setMessages([]);
+      }
+      toast({ title: "تم أرشفة المحادثة", duration: 2000 });
+    },
+  });
+
+  const restoreSessionMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      return await apiRequest(`/api/ai/sessions/${sessionId}/restore`, "PATCH");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
+      queryClient.invalidateQueries({ queryKey: ['ai-archived-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat-stats'] });
+      toast({ title: "تم استعادة المحادثة", duration: 2000 });
     },
   });
 
@@ -307,9 +481,10 @@ export default function AIChatPage() {
   };
 
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (viewport) setTimeout(() => { viewport.scrollTop = viewport.scrollHeight; }, 100);
+    if (viewportRef.current) {
+      setTimeout(() => { 
+        if (viewportRef.current) viewportRef.current.scrollTop = viewportRef.current.scrollHeight; 
+      }, 100);
     }
   }, [messages, isLoading]);
 
@@ -319,6 +494,29 @@ export default function AIChatPage() {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
     }
   }, [input]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    let startY = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const deltaY = e.touches[0].clientY - startY;
+      if (viewport.scrollTop <= 0 && deltaY > 0) {
+        e.preventDefault();
+      }
+    };
+
+    viewport.addEventListener('touchstart', onTouchStart, { passive: true });
+    viewport.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => {
+      viewport.removeEventListener('touchstart', onTouchStart);
+      viewport.removeEventListener('touchmove', onTouchMove);
+    };
+  }, []);
 
   if (isAccessLoading && !user) {
     return (
@@ -346,7 +544,7 @@ export default function AIChatPage() {
   const isNewChat = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-180px)] sm:h-[calc(100dvh-120px)] relative" dir="rtl" style={{ overscrollBehavior: 'none', touchAction: 'pan-y' }}>
+    <div className="flex flex-col h-full relative overscroll-none" dir="rtl">
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -355,57 +553,122 @@ export default function AIChatPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSidebarOpen(false)}
-              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[110]"
             />
             <motion.div
               initial={{ x: 280 }}
               animate={{ x: 0 }}
               exit={{ x: 280 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed top-0 bottom-0 right-0 w-72 bg-card border-l z-50 flex flex-col shadow-xl"
+              className="fixed top-0 bottom-0 right-0 w-72 bg-card border-l z-[120] flex flex-col shadow-xl"
             >
-              <div className="p-4 border-b flex items-center justify-between">
-                <h3 className="font-semibold text-sm">المحادثات السابقة</h3>
-                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="h-8 w-8" data-testid="button-close-sidebar">
+              <div className="p-3 border-b flex items-center justify-between">
+                {sidebarView !== 'chats' ? (
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarView('chats')} data-testid="button-back-chats">
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                ) : <div className="w-8" />}
+                <h3 className="font-semibold text-sm">
+                  {sidebarView === 'chats' ? 'المحادثات' : sidebarView === 'archived' ? 'الأرشيف' : 'الإعدادات'}
+                </h3>
+                <Button variant="ghost" size="icon" onClick={() => { setSidebarOpen(false); setSidebarView('chats'); }} className="h-8 w-8" data-testid="button-close-sidebar">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="p-3">
-                <Button onClick={() => { startNewChat(); setSidebarOpen(false); }} variant="outline" className="w-full gap-2 h-9 text-sm" data-testid="button-new-chat-sidebar">
-                  <Plus className="h-3.5 w-3.5" />
-                  محادثة جديدة
-                </Button>
-              </div>
-              <ScrollArea className="flex-1 px-3">
-                <div className="space-y-1 pb-4">
-                  {sessions.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-8">لا توجد محادثات سابقة</p>
-                  ) : sessions.map((session: any) => (
-                    <div
-                      key={session.id}
-                      onClick={() => handleSessionClick(session.id)}
-                      className={`group flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors text-sm ${
-                        currentSessionId === session.id 
-                          ? "bg-primary/10 text-primary font-medium" 
-                          : "hover:bg-muted text-foreground"
-                      }`}
-                      data-testid={`session-item-${session.id}`}
-                    >
-                      <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50" />
-                      <span className="truncate flex-1">{session.title}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => { e.stopPropagation(); deleteSessionMutation.mutate(session.id); }}
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100 hover:text-destructive shrink-0"
-                        data-testid={`button-delete-session-${session.id}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+
+              {sidebarView === 'chats' && (
+                <>
+                  <div className="p-3 space-y-2">
+                    <Button onClick={() => { startNewChat(); setSidebarOpen(false); }} variant="outline" className="w-full gap-2 h-9 text-sm" data-testid="button-new-chat-sidebar">
+                      <Plus className="h-3.5 w-3.5" /> محادثة جديدة
+                    </Button>
+                  </div>
+                  <ScrollArea className="flex-1 px-3">
+                    <div className="space-y-1 pb-4">
+                      {sessions.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-8">لا توجد محادثات سابقة</p>
+                      ) : sessions.map((session: any) => (
+                        <SwipeableSessionItem
+                          key={session.id}
+                          session={session}
+                          isActive={currentSessionId === session.id}
+                          onSelect={() => handleSessionClick(session.id)}
+                          onDelete={() => deleteSessionMutation.mutate(session.id)}
+                          onArchive={() => archiveSessionMutation.mutate(session.id)}
+                        />
+                      ))}
                     </div>
-                  ))}
+                  </ScrollArea>
+                  <div className="border-t p-2 flex gap-1">
+                    <Button variant="ghost" size="sm" className="flex-1 h-9 text-xs gap-1.5" onClick={() => setSidebarView('archived')} data-testid="button-view-archived">
+                      <Archive className="h-3.5 w-3.5" /> الأرشيف
+                      {archivedSessions.length > 0 && <span className="bg-muted rounded-full px-1.5 text-[10px]">{archivedSessions.length}</span>}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="flex-1 h-9 text-xs gap-1.5" onClick={() => setSidebarView('settings')} data-testid="button-view-settings">
+                      <Settings className="h-3.5 w-3.5" /> الإعدادات
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {sidebarView === 'archived' && (
+                <ScrollArea className="flex-1 px-3 pt-3">
+                  <div className="space-y-1 pb-4">
+                    {archivedSessions.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Archive className="h-8 w-8 mx-auto text-muted-foreground/30 mb-3" />
+                        <p className="text-xs text-muted-foreground">لا توجد محادثات مؤرشفة</p>
+                      </div>
+                    ) : archivedSessions.map((session: any) => (
+                      <div key={session.id} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-muted/30 text-sm" data-testid={`archived-session-${session.id}`}>
+                        <Archive className="h-3.5 w-3.5 shrink-0 opacity-40 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <span className="truncate block text-sm text-muted-foreground">{session.title}</span>
+                          <span className="text-[10px] text-muted-foreground/60">{formatRelativeTime(session.updated_at || session.created_at)}</span>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => restoreSessionMutation.mutate(session.id)} data-testid={`button-restore-${session.id}`}>
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSessionMutation.mutate(session.id)} data-testid={`button-delete-archived-${session.id}`}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+
+              {sidebarView === 'settings' && (
+                <div className="flex-1 p-4 space-y-4">
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-muted-foreground">إحصائيات الدردشة</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: "إجمالي المحادثات", value: chatStats?.totalSessions || 0, icon: MessageSquare },
+                        { label: "المحادثات النشطة", value: chatStats?.activeSessions || 0, icon: Sparkles },
+                        { label: "المحادثات المؤرشفة", value: chatStats?.archivedSessions || 0, icon: Archive },
+                        { label: "إجمالي الرسائل", value: chatStats?.totalMessages || 0, icon: Send },
+                      ].map((stat) => (
+                        <div key={stat.label} className="bg-muted/50 rounded-lg p-2.5 text-center">
+                          <stat.icon className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                          <div className="text-lg font-bold">{stat.value}</div>
+                          <div className="text-[10px] text-muted-foreground">{stat.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-t pt-3 space-y-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground">تلميحات</h4>
+                    <div className="text-[11px] text-muted-foreground space-y-1.5">
+                      <p>← اسحب يساراً للحذف</p>
+                      <p>→ اسحب يميناً للأرشفة</p>
+                      <p>⏎ اضغط مطولاً لعرض الخيارات</p>
+                    </div>
+                  </div>
                 </div>
-              </ScrollArea>
+              )}
             </motion.div>
           </>
         )}
@@ -426,7 +689,7 @@ export default function AIChatPage() {
         </Button>
       </div>
 
-      <ScrollArea ref={scrollAreaRef} className="flex-1" style={{ overscrollBehavior: 'contain' }}>
+      <ScrollArea ref={scrollAreaRef} className="flex-1" viewportRef={viewportRef} viewportClassName="overscroll-y-contain">
         <div className="max-w-3xl mx-auto px-4 py-6">
           {isNewChat ? (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
@@ -586,9 +849,9 @@ export default function AIChatPage() {
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-card/80 backdrop-blur-sm px-4 py-3" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <div className="border-t bg-card/80 backdrop-blur-sm px-3 pt-2 pb-[calc(72px+env(safe-area-inset-bottom,0px)+8px)] md:pb-3 shrink-0">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-end gap-2 bg-muted/50 border rounded-2xl p-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+          <div className="flex items-end gap-2 bg-muted/50 border rounded-2xl p-1.5 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
             <Textarea
               ref={textareaRef}
               value={input}
@@ -612,7 +875,7 @@ export default function AIChatPage() {
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground text-center mt-2">
+          <p className="text-[10px] text-muted-foreground text-center mt-1">
             المساعد الذكي قد يرتكب أخطاء. تحقق من المعلومات المهمة.
           </p>
         </div>

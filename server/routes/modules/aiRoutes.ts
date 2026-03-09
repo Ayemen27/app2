@@ -171,6 +171,34 @@ router.get("/sessions", requireAdmin, async (req: AuthenticatedRequest, res: Res
 });
 
 /**
+ * جلب الجلسات المؤرشفة
+ * GET /api/ai/sessions/archived
+ */
+router.get("/sessions/archived", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const aiService = getAIAgentService();
+    const sessions = await aiService.getArchivedSessions(req.user!.user_id);
+    res.json(sessions);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * إحصائيات الدردشة
+ * GET /api/ai/stats
+ */
+router.get("/stats", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const aiService = getAIAgentService();
+    const stats = await aiService.getChatStats(req.user!.user_id);
+    res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * الحصول على رسائل جلسة محددة
  * GET /api/ai/sessions/:id/messages
  */
@@ -204,6 +232,38 @@ router.delete("/sessions/:id", requireAdmin, async (req: AuthenticatedRequest, r
     res.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting session:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * أرشفة جلسة
+ * PATCH /api/ai/sessions/:id/archive
+ */
+router.patch("/sessions/:id/archive", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const aiService = getAIAgentService();
+    const archived = await aiService.archiveSession(id, req.user!.user_id);
+    if (!archived) return res.status(404).json({ error: "الجلسة غير موجودة" });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * استعادة جلسة من الأرشيف
+ * PATCH /api/ai/sessions/:id/restore
+ */
+router.patch("/sessions/:id/restore", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const aiService = getAIAgentService();
+    const restored = await aiService.restoreSession(id, req.user!.user_id);
+    if (!restored) return res.status(404).json({ error: "الجلسة غير موجودة" });
+    res.json({ success: true });
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });

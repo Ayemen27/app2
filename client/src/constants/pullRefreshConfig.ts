@@ -100,11 +100,6 @@ export const PULL_REFRESH_CONFIG: Record<string, PageRefreshConfig> = {
       QUERY_KEYS.usersWithRoles,
     ],
   },
-  "/ai-chat": {
-    queryKeys: [
-      QUERY_KEYS.aiSessions,
-    ],
-  },
   "/admin/backups": {
     queryKeys: [
       QUERY_KEYS.backupsStatus,

@@ -90,7 +90,15 @@
 ## WhatsApp Integration (March 2026)
 - **Bot:** `server/services/ai-agent/WhatsAppBot.ts` — Baileys library, multi-auth session
 - **Routes:** `server/routes/modules/whatsappAIRoutes.ts` at `/api/whatsapp-ai` (all require auth)
-- **Page:** `/whatsapp-setup` — 4 tabs: Connection, Protection, Logs, Stats
+- **Page:** `/whatsapp-setup` — 5 tabs: My Link, Bot, Users, Protection, Stats
+- **Multi-User Architecture (March 2026):**
+  - Table `whatsapp_user_links`: maps user_id → phone_number (unique per user)
+  - Each user registers their WhatsApp phone from "ربط رقمي" tab
+  - Bot identifies sender by phone lookup → resolves user_id
+  - Data isolation: user sees only their projects (via `user_project_permissions` + `projects.engineerId`)
+  - Admin sees all projects; regular users only see assigned projects
+  - Unregistered phones get rejection message
+  - Commands: "مشاريعي", "مساعدة", "5000 مصاريف اسم_العامل", "إلغاء"
 - **Anti-Ban Protections:**
   - Random delay 2-5s before each reply
   - Typing presence simulation (composing → paused)
@@ -99,9 +107,8 @@
   - Exponential backoff reconnection with jitter
   - Browser mimicry (Chrome 121)
   - markOnlineOnConnect: false, generateHighQualityLinkPreview: false
-  - Authorized phone filtering via ALLOWED_WHATSAPP_PHONE env var
-- **QR Generation:** Server-side via `qrcode` package at `/api/whatsapp-ai/qr-image`
-- **Endpoints:** GET /status, POST /restart, POST /disconnect, POST /webhook, GET /stats, GET /qr-image
+- **QR Generation:** Server-side via `qrcode` package at `/api/whatsapp-ai/qr-image` (admin only)
+- **Endpoints:** GET /status, POST /restart (admin), POST /disconnect (admin), GET /my-link, POST /link-phone, POST /unlink-phone, GET /all-links (admin), DELETE /admin-unlink/:userId (admin), GET /qr-image (admin)
 
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`

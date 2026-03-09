@@ -13,12 +13,13 @@ import {
   Settings2, Copy, Shield, Clock, WifiOff, Wifi, PhoneCall,
   Lock, Unlock, AlertTriangle, Activity, Timer, Send,
   ChevronDown, ChevronUp, Eye, EyeOff, Power, RotateCcw,
-  CheckCircle, XCircle, Info, Gauge, TrendingUp, Users
+  CheckCircle, XCircle, Info, Gauge, TrendingUp, Users,
+  LinkIcon, Unlink, UserCheck, Trash2
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UnifiedStats } from "@/components/ui/unified-stats";
@@ -50,11 +51,13 @@ export default function WhatsAppSetupPage() {
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "connecting" | "open" | "close">("idle");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [linkPhoneNumber, setLinkPhoneNumber] = useState("");
+  const [linkCountryCode, setLinkCountryCode] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [protectionLevel, setProtectionLevel] = useState<ProtectionLevel>("maximum");
-  const [activeTab, setActiveTab] = useState("connection");
+  const [activeTab, setActiveTab] = useState("mylink");
 
   const { data: botStatus, isLoading: isLoadingStatus } = useQuery({
     queryKey: ["/api/whatsapp-ai/status"],
@@ -63,6 +66,54 @@ export default function WhatsAppSetupPage() {
       if (data?.status === "close" || data?.status === "idle") return 10000;
       if (data?.status === "connecting") return 3000;
       return 5000;
+    },
+  });
+
+  const { data: myLink, isLoading: isLoadingMyLink } = useQuery({
+    queryKey: ["/api/whatsapp-ai/my-link"],
+  });
+
+  const { data: allLinks = [], isLoading: isLoadingAllLinks } = useQuery({
+    queryKey: ["/api/whatsapp-ai/all-links"],
+  });
+
+  const linkPhoneMutation = useMutation({
+    mutationFn: async (phone: string) => {
+      return await apiRequest("/api/whatsapp-ai/link-phone", "POST", { phoneNumber: phone });
+    },
+    onSuccess: () => {
+      toast({ title: "تم الربط", description: "تم ربط رقم الواتساب بحسابك بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/my-link"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/all-links"] });
+      setLinkPhoneNumber("");
+      setLinkCountryCode("");
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في ربط الرقم", variant: "destructive" });
+    }
+  });
+
+  const unlinkPhoneMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/whatsapp-ai/unlink-phone", "POST");
+    },
+    onSuccess: () => {
+      toast({ title: "تم إلغاء الربط", description: "تم إلغاء ربط رقم الواتساب من حسابك" });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/my-link"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/all-links"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في إلغاء الربط", variant: "destructive" });
+    }
+  });
+
+  const adminUnlinkMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest(`/api/whatsapp-ai/admin-unlink/${userId}`, "DELETE");
+    },
+    onSuccess: () => {
+      toast({ title: "تم", description: "تم إلغاء ربط المستخدم" });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/all-links"] });
     },
   });
 
@@ -95,6 +146,17 @@ export default function WhatsAppSetupPage() {
       setCountryCode(phone?.country || "");
     } catch {
       setCountryCode("");
+    }
+  }, []);
+
+  const handleLinkPhoneChange = useCallback((value: string) => {
+    const cleanValue = value.replace(/[^\d+]/g, "");
+    setLinkPhoneNumber(cleanValue);
+    try {
+      const phone = parsePhoneNumberFromString(cleanValue.startsWith('+') ? cleanValue : `+${cleanValue}`);
+      setLinkCountryCode(phone?.country || "");
+    } catch {
+      setLinkCountryCode("");
     }
   }, []);
 
@@ -233,25 +295,317 @@ export default function WhatsAppSetupPage() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:w-[550px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-2xl shadow-sm h-12">
-            <TabsTrigger data-testid="tab-connection" value="connection" className="rounded-xl data-[state=active]:bg-emerald-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
-              <QrCode className="h-3.5 w-3.5" /> الربط
+          <TabsList className="w-full grid grid-cols-5 lg:w-[700px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-2xl shadow-sm h-12">
+            <TabsTrigger data-testid="tab-mylink" value="mylink" className="rounded-xl data-[state=active]:bg-emerald-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
+              <LinkIcon className="h-3.5 w-3.5" /> ربط رقمي
             </TabsTrigger>
-            <TabsTrigger data-testid="tab-protection" value="protection" className="rounded-xl data-[state=active]:bg-blue-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
+            <TabsTrigger data-testid="tab-connection" value="connection" className="rounded-xl data-[state=active]:bg-blue-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
+              <QrCode className="h-3.5 w-3.5" /> البوت
+            </TabsTrigger>
+            <TabsTrigger data-testid="tab-users" value="users" className="rounded-xl data-[state=active]:bg-purple-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
+              <Users className="h-3.5 w-3.5" /> المستخدمون
+            </TabsTrigger>
+            <TabsTrigger data-testid="tab-protection" value="protection" className="rounded-xl data-[state=active]:bg-amber-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
               <Shield className="h-3.5 w-3.5" /> الحماية
             </TabsTrigger>
-            <TabsTrigger data-testid="tab-logs" value="logs" className="rounded-xl data-[state=active]:bg-purple-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
-              <History className="h-3.5 w-3.5" /> السجل
-            </TabsTrigger>
-            <TabsTrigger data-testid="tab-stats" value="stats" className="rounded-xl data-[state=active]:bg-amber-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
+            <TabsTrigger data-testid="tab-stats" value="stats" className="rounded-xl data-[state=active]:bg-teal-500 data-[state=active]:text-white font-bold text-xs gap-1.5 transition-all">
               <BarChart3 className="h-3.5 w-3.5" /> إحصائيات
             </TabsTrigger>
           </TabsList>
 
-          {/* Connection Tab */}
+          {/* My Link Tab - Per User Phone Registration */}
+          <TabsContent value="mylink" className="mt-6 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-7">
+                <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
+                  <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500" />
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2 font-black">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                        <LinkIcon className="h-4 w-4 text-emerald-600" />
+                      </div>
+                      ربط رقم واتساب الخاص بك
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    {isLoadingMyLink ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+                      </div>
+                    ) : (myLink as any)?.linked ? (
+                      <div className="space-y-4">
+                        <div className="p-5 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800">
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                              <UserCheck className="h-7 w-7 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-black text-emerald-700 dark:text-emerald-400 text-lg">رقمك مربوط</p>
+                              <p className="text-sm font-mono text-emerald-600 dark:text-emerald-500 mt-0.5" dir="ltr">
+                                +{(myLink as any).phoneNumber}
+                              </p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[9px] font-black">
+                                  <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> نشط
+                                </Badge>
+                                <span className="text-[10px] text-slate-500">
+                                  {(myLink as any).totalMessages} رسالة
+                                </span>
+                                {(myLink as any).lastMessageAt && (
+                                  <span className="text-[10px] text-slate-400">
+                                    آخر رسالة: {formatDate((myLink as any).lastMessageAt)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs font-black text-blue-700 dark:text-blue-400">كيف تستخدم واتساب مع النظام؟</p>
+                              <p className="text-[11px] text-blue-600 dark:text-blue-500 mt-1 leading-relaxed">
+                                أرسل رسالة لبوت الشركة من هاتفك المربوط. سيتعرف عليك تلقائياً ويعرض مشاريعك فقط.
+                                جرّب: "مشاريعي" أو "مساعدة" أو "5000 مصاريف اسم_العامل"
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          data-testid="btn-unlink-phone"
+                          variant="outline"
+                          className="w-full rounded-xl text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30 font-bold gap-2"
+                          onClick={() => {
+                            if (confirm("هل تريد إلغاء ربط رقم الواتساب؟")) {
+                              unlinkPhoneMutation.mutate();
+                            }
+                          }}
+                          disabled={unlinkPhoneMutation.isPending}
+                        >
+                          {unlinkPhoneMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlink className="h-4 w-4" />}
+                          إلغاء ربط الرقم
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs font-black text-amber-700 dark:text-amber-400">رقمك غير مربوط</p>
+                              <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
+                                اربط رقم واتساب الخاص بك لتتمكن من التفاعل مع بوت الشركة.
+                                عند إرسال رسالة للبوت سيتعرف عليك تلقائياً ويعرض مشاريعك فقط.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            رقم واتساب الخاص بك (مع مفتاح الدولة)
+                          </label>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <Input
+                                data-testid="input-link-phone"
+                                placeholder="967772293228"
+                                value={linkPhoneNumber}
+                                onChange={(e) => handleLinkPhoneChange(e.target.value)}
+                                className="rounded-xl font-mono text-base h-12 pl-16 pr-4 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500/30"
+                                dir="ltr"
+                              />
+                              <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                {linkCountryCode ? (
+                                  <img
+                                    src={`https://flagcdn.com/w40/${linkCountryCode.toLowerCase()}.png`}
+                                    alt={linkCountryCode}
+                                    className="w-6 h-4 rounded-sm shadow-sm object-cover"
+                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                  />
+                                ) : (
+                                  <Smartphone className="h-4 w-4 text-slate-400" />
+                                )}
+                                {linkCountryCode && <span className="text-[10px] font-bold text-slate-400">{linkCountryCode}</span>}
+                              </div>
+                            </div>
+                            <Button
+                              data-testid="btn-link-phone"
+                              onClick={() => linkPhoneMutation.mutate(linkPhoneNumber)}
+                              disabled={!linkPhoneNumber || linkPhoneNumber.length < 8 || linkPhoneMutation.isPending}
+                              className="h-12 px-6 rounded-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-lg shadow-emerald-500/20"
+                            >
+                              {linkPhoneMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <LinkIcon className="h-4 w-4" />
+                                  <span className="hidden sm:inline">ربط الرقم</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            أدخل رقمك كما يظهر في واتساب — مثال: 967772293228
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="lg:col-span-5 space-y-6">
+                <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2 font-black">
+                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <Info className="h-3.5 w-3.5 text-blue-600" />
+                      </div>
+                      كيف يعمل النظام؟
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {[
+                        { num: "1", title: "اربط رقمك", desc: "سجّل رقم واتساب الخاص بك هنا", icon: LinkIcon },
+                        { num: "2", title: "أرسل رسالة للبوت", desc: "راسل رقم بوت الشركة من واتساب", icon: Send },
+                        { num: "3", title: "يتعرف عليك تلقائياً", desc: "البوت يعرف من أنت ويعرض مشاريعك فقط", icon: UserCheck },
+                        { num: "4", title: "بياناتك معزولة", desc: "لا يمكنك رؤية مشاريع المستخدمين الآخرين", icon: Shield },
+                      ].map((step) => (
+                        <div key={step.num} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-black text-blue-600">{step.num}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-slate-700 dark:text-slate-300">{step.title}</p>
+                            <p className="text-[10px] text-slate-500">{step.desc}</p>
+                          </div>
+                          <step.icon className="h-4 w-4 text-slate-400 shrink-0" />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2 font-black">
+                      <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                        <MessageSquare className="h-3.5 w-3.5 text-purple-600" />
+                      </div>
+                      أوامر واتساب المتاحة
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {[
+                        { cmd: "مساعدة", desc: "عرض جميع الأوامر" },
+                        { cmd: "مشاريعي", desc: "عرض المشاريع المرتبطة بك" },
+                        { cmd: "5000 مصاريف أحمد", desc: "تسجيل مصروف لعامل" },
+                        { cmd: "إلغاء", desc: "إلغاء العملية الحالية" },
+                      ].map((item) => (
+                        <div key={item.cmd} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <code className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">{item.cmd}</code>
+                          <span className="text-[10px] text-slate-500">{item.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Users Tab - Admin: all linked users */}
+          <TabsContent value="users" className="mt-6">
+            <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-purple-400 via-violet-500 to-fuchsia-500" />
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2 font-black">
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                    <Users className="h-4 w-4 text-purple-600" />
+                  </div>
+                  المستخدمون المربوطون
+                  <Badge variant="secondary" className="text-[9px] font-black">{Array.isArray(allLinks) ? allLinks.length : 0} مستخدم</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="max-h-[500px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-b-2">
+                        <TableHead className="font-black text-[11px]">المستخدم</TableHead>
+                        <TableHead className="font-black text-[11px]">رقم الواتساب</TableHead>
+                        <TableHead className="font-black text-[11px]">الحالة</TableHead>
+                        <TableHead className="font-black text-[11px]">الرسائل</TableHead>
+                        <TableHead className="font-black text-[11px]">آخر رسالة</TableHead>
+                        <TableHead className="font-black text-[11px]">إجراء</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Array.isArray(allLinks) && allLinks.length > 0 ? allLinks.map((link: any) => (
+                        <TableRow key={link.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <TableCell>
+                            <div>
+                              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{link.userName || '—'}</p>
+                              <p className="text-[10px] text-slate-500">{link.userEmail}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs font-mono" dir="ltr">+{link.phoneNumber}</TableCell>
+                          <TableCell>
+                            <Badge className={cn(
+                              "text-[9px] font-black gap-1",
+                              link.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            )}>
+                              {link.isActive ? <CheckCircle className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
+                              {link.isActive ? 'نشط' : 'معطل'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs font-bold">{link.totalMessages}</TableCell>
+                          <TableCell className="text-xs text-slate-500">{link.lastMessageAt ? formatDate(link.lastMessageAt) : '—'}</TableCell>
+                          <TableCell>
+                            <Button
+                              data-testid={`btn-admin-unlink-${link.user_id}`}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg gap-1"
+                              onClick={() => {
+                                if (confirm(`هل تريد إلغاء ربط ${link.userName || link.userEmail}؟`)) {
+                                  adminUnlinkMutation.mutate(link.user_id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-16">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                <Users className="h-8 w-8 text-slate-300" />
+                              </div>
+                              <p className="text-sm font-bold text-slate-400">لا يوجد مستخدمون مربوطون</p>
+                              <p className="text-xs text-slate-400">يمكن لكل مستخدم ربط رقمه من تبويب "ربط رقمي"</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Bot Connection Tab - Admin only */}
           <TabsContent value="connection" className="mt-6 space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* QR Code Section */}
               <div className="lg:col-span-5">
                 <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
                   <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500" />
@@ -260,7 +614,10 @@ export default function WhatsAppSetupPage() {
                       <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
                         <QrCode className="h-4 w-4 text-emerald-600" />
                       </div>
-                      مسح رمز QR
+                      ربط بوت الشركة
+                      <Badge variant="secondary" className="text-[9px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 rounded-full px-2">
+                        مسؤول فقط
+                      </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-col items-center justify-center py-6">
@@ -275,8 +632,8 @@ export default function WhatsAppSetupPage() {
                           </div>
                         </div>
                         <div>
-                          <p className="font-black text-emerald-600 text-lg">متصل بنجاح</p>
-                          <p className="text-xs text-slate-500 mt-1">جميع الخدمات تعمل بشكل طبيعي</p>
+                          <p className="font-black text-emerald-600 text-lg">بوت الشركة متصل</p>
+                          <p className="text-xs text-slate-500 mt-1">جاهز لاستقبال رسائل المستخدمين</p>
                         </div>
                       </div>
                     ) : qrCode ? (
@@ -296,7 +653,7 @@ export default function WhatsAppSetupPage() {
                           </div>
                         </div>
                         <p className="text-center text-xs text-slate-500 font-medium">
-                          امسح هذا الرمز من تطبيق واتساب
+                          امسح هذا الرمز بهاتف بوت الشركة
                         </p>
                       </div>
                     ) : (
@@ -311,9 +668,7 @@ export default function WhatsAppSetupPage() {
                 </Card>
               </div>
 
-              {/* Phone Linking + Steps */}
               <div className="lg:col-span-7 space-y-6">
-                {/* Phone Linking Card */}
                 <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
                   <div className="h-1.5 bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-500" />
                   <CardHeader className="pb-2">
@@ -321,7 +676,7 @@ export default function WhatsAppSetupPage() {
                       <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                         <PhoneCall className="h-4 w-4 text-blue-600" />
                       </div>
-                      ربط برقم الهاتف
+                      ربط بكود الاقتران
                       <Badge variant="secondary" className="text-[9px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-full px-2">
                         بديل عن QR
                       </Badge>
@@ -330,7 +685,7 @@ export default function WhatsAppSetupPage() {
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        رقم الهاتف الدولي (مع مفتاح الدولة)
+                        رقم هاتف البوت (مع مفتاح الدولة)
                       </label>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
@@ -373,9 +728,6 @@ export default function WhatsAppSetupPage() {
                           )}
                         </Button>
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        مثال: 967772293228 (اليمن) أو 966500000000 (السعودية)
-                      </p>
                     </div>
 
                     {pairingCode && (
@@ -412,14 +764,13 @@ export default function WhatsAppSetupPage() {
                   </CardContent>
                 </Card>
 
-                {/* Steps Guide */}
                 <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2 font-black">
                       <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                         <Info className="h-3.5 w-3.5 text-amber-600" />
                       </div>
-                      خطوات الربط
+                      خطوات ربط بوت الشركة
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -611,68 +962,6 @@ export default function WhatsAppSetupPage() {
                   </div>
                 </CardContent>
               )}
-            </Card>
-          </TabsContent>
-
-          {/* Logs Tab */}
-          <TabsContent value="logs" className="mt-6">
-            <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
-              <div className="h-1.5 bg-gradient-to-r from-purple-400 via-violet-500 to-fuchsia-500" />
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 font-black">
-                  <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                    <History className="h-4 w-4 text-purple-600" />
-                  </div>
-                  سجل العمليات
-                  <Badge variant="secondary" className="text-[9px] font-black">{Array.isArray(syncLogs) ? syncLogs.length : 0} سجل</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="max-h-[500px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent border-b-2">
-                        <TableHead className="font-black text-[11px]">التاريخ</TableHead>
-                        <TableHead className="font-black text-[11px]">العملية</TableHead>
-                        <TableHead className="font-black text-[11px]">الحالة</TableHead>
-                        <TableHead className="font-black text-[11px]">التفاصيل</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Array.isArray(syncLogs) && syncLogs.length > 0 ? syncLogs.map((log: any) => (
-                        <TableRow key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                          <TableCell className="text-xs font-mono">{formatDate(log.createdAt)}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[10px] font-bold">{log.action}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={cn(
-                              "text-[9px] font-black gap-1",
-                              log.status === 'success' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            )}>
-                              {log.status === 'success' ? <CheckCircle className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
-                              {log.status === 'success' ? 'ناجح' : 'فشل'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-500 max-w-[200px] truncate">{log.description}</TableCell>
-                        </TableRow>
-                      )) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-16">
-                            <div className="flex flex-col items-center gap-3">
-                              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                <History className="h-8 w-8 text-slate-300" />
-                              </div>
-                              <p className="text-sm font-bold text-slate-400">لا توجد سجلات حالياً</p>
-                              <p className="text-xs text-slate-400">ستظهر السجلات عند بدء التفاعل مع البوت</p>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </CardContent>
             </Card>
           </TabsContent>
 

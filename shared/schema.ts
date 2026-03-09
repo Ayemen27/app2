@@ -1637,6 +1637,23 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences).o
 export type UserPreferences = typeof userPreferences.$inferSelect;
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 
+export const whatsappUserLinks = pgTable("whatsapp_user_links", {
+  id: serial("id").primaryKey(),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  linkedAt: timestamp("linked_at").defaultNow().notNull(),
+  lastMessageAt: timestamp("last_message_at"),
+  totalMessages: integer("total_messages").default(0).notNull(),
+}, (table) => ({
+  uniquePhone: sql`UNIQUE (phone_number)`,
+  uniqueUser: sql`UNIQUE (user_id)`,
+}));
+
+export const insertWhatsappUserLinkSchema = createInsertSchema(whatsappUserLinks).omit({ id: true, linkedAt: true, lastMessageAt: true, totalMessages: true });
+export type WhatsappUserLink = typeof whatsappUserLinks.$inferSelect;
+export type InsertWhatsappUserLink = z.infer<typeof insertWhatsappUserLinkSchema>;
+
 export const SYNCABLE_TABLES = [
   'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
   'project_types', 'projects', 'workers', 'wells',

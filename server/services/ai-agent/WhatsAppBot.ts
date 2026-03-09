@@ -228,9 +228,8 @@ export class WhatsAppBot {
       try {
         const whatsappAIService = getWhatsAppAIService();
         const cleanPhone = from.split('@')[0];
-        const allowedPhone = process.env.ALLOWED_WHATSAPP_PHONE || "00966500000000";
 
-        const reply = await whatsappAIService.handleIncomingMessage(cleanPhone, text, allowedPhone);
+        const reply = await whatsappAIService.handleIncomingMessage(cleanPhone, text);
 
         if (reply) {
           await this.safeSendMessage(from, { text: reply });

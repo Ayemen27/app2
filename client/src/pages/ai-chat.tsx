@@ -209,33 +209,32 @@ function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive
 
   const swipingRight = offsetX > 5;
   const swipingLeft = offsetX < -5;
-  const bgColor = swipingRight ? 'bg-red-500' : swipingLeft ? 'bg-blue-500' : 'bg-transparent';
 
   return (
     <div className="relative overflow-hidden rounded-lg mb-1" data-testid={`session-item-${session.id}`}>
-      <div className={`absolute inset-0 ${bgColor} transition-colors duration-150 flex items-center`}>
-        {swipingRight && (
-          <div className="flex items-center gap-1.5 ps-4">
-            <Trash2 className="h-5 w-5 text-white" />
-            <span className="text-white text-xs font-medium">حذف</span>
-          </div>
-        )}
-        {swipingLeft && (
-          <div className="flex items-center gap-1.5 pe-4 ms-auto">
-            <span className="text-white text-xs font-medium">أرشفة</span>
-            <Archive className="h-5 w-5 text-white" />
-          </div>
-        )}
-      </div>
+      {swipingRight && (
+        <div className="absolute inset-0 z-0 bg-red-500 flex items-center ps-4 gap-1.5">
+          <Trash2 className="h-5 w-5 text-white" />
+          <span className="text-white text-xs font-medium">حذف</span>
+        </div>
+      )}
+      {swipingLeft && (
+        <div className="absolute inset-0 z-0 bg-blue-500 flex items-center justify-end pe-4 gap-1.5">
+          <span className="text-white text-xs font-medium">أرشفة</span>
+          <Archive className="h-5 w-5 text-white" />
+        </div>
+      )}
       <div
         ref={itemRef}
-        className={`relative flex items-start gap-2.5 p-2.5 text-sm select-none ${
-          isActive ? "bg-primary/10 text-primary font-medium" : "bg-card text-foreground"
+        className={`relative z-10 flex items-start gap-2.5 p-2.5 text-sm select-none bg-card text-foreground ${
+          isActive ? "ring-1 ring-inset ring-primary/30 text-primary font-medium" : ""
         }`}
         style={{ 
-          transform: `translateX(${offsetX}px)`, 
-          transition: dirLocked.current === 'horizontal' ? 'none' : 'transform 0.25s ease-out',
+          transform: `translate3d(${offsetX}px, 0, 0)`, 
+          transition: dirLocked.current === 'horizontal' ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           touchAction: 'pan-y',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
         }}
       >
         <MessageSquare className="h-3.5 w-3.5 shrink-0 opacity-50 mt-0.5" />
@@ -250,7 +249,7 @@ function SwipeableSessionItem({ session, isActive, onSelect, onDelete, onArchive
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex gap-1 p-1.5 bg-muted/80 border-t"
+            className="relative z-10 flex gap-1 p-1.5 bg-muted border-t"
           >
             <Button size="sm" variant="destructive" className="flex-1 h-7 text-[11px] gap-1" onClick={() => { setShowActions(false); onDelete(); }}>
               <Trash2 className="h-3 w-3" /> حذف

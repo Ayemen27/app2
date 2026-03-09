@@ -505,9 +505,15 @@ projectRouter.post('/', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation المشروع');
 
-    // إدراج المشروع الجديد في قاعدة البيانات
+    const projectData = { ...validationResult.data };
+    const currentUser = req.user as any;
+    if (!projectData.engineerId && currentUser?.id) {
+      projectData.engineerId = currentUser.id;
+      console.log('🔧 [API] تعيين engineerId تلقائياً للمستخدم الحالي:', currentUser.id);
+    }
+
     console.log('💾 [API] حفظ المشروع في قاعدة البيانات...');
-    const newProject = await db.insert(projects).values(validationResult.data).returning();
+    const newProject = await db.insert(projects).values(projectData).returning();
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء المشروع بنجاح في ${duration}ms:`, {

@@ -168,7 +168,13 @@ export class AIAgentService {
   /**
    * الحصول على رسائل جلسة
    */
-  async getSessionMessages(sessionId: string) {
+  async getSessionMessages(sessionId: string, userId: string) {
+    const session = await db.select().from(aiChatSessions)
+      .where(and(eq(aiChatSessions.id, sessionId), eq(aiChatSessions.user_id, userId)))
+      .limit(1);
+    if (session.length === 0) {
+      throw new Error("الجلسة غير موجودة أو لا تملك صلاحية الوصول إليها");
+    }
     return await db
       .select()
       .from(aiChatMessages)
@@ -205,14 +211,19 @@ export class AIAgentService {
       { title: "معالجة النتائج وتنسيق الرد", status: "pending" }
     ];
 
-    // حفظ رسالة المستخدم
+    const sessionCheck = await db.select().from(aiChatSessions)
+      .where(and(eq(aiChatSessions.id, sessionId), eq(aiChatSessions.user_id, userId)))
+      .limit(1);
+    if (sessionCheck.length === 0) {
+      throw new Error("الجلسة غير موجودة أو لا تملك صلاحية الوصول إليها");
+    }
+
     await db.insert(aiChatMessages).values({
       sessionId,
       role: "user",
       content: userMessage,
     });
 
-    // تحديث عدد الرسائل
     await db.update(aiChatSessions)
       .set({ 
         messagesCount: sql`${aiChatSessions.messagesCount} + 1`,
@@ -243,7 +254,7 @@ export class AIAgentService {
 - إذا لم تجد بيانات، قل ذلك بصراحة ولا تختلق بدائل.`;
 
       // الحصول على تاريخ المحادثة من قاعدة البيانات
-      const history = await this.getSessionMessages(sessionId);
+      const history = await this.getSessionMessages(sessionId, userId);
       const messages: ChatMessage[] = history.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,

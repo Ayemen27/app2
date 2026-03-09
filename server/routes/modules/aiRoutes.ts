@@ -206,7 +206,7 @@ router.get("/sessions/:id/messages", requireAdmin, async (req: AuthenticatedRequ
   try {
     const { id } = req.params;
     const aiService = getAIAgentService();
-    const messages = await aiService.getSessionMessages(id);
+    const messages = await aiService.getSessionMessages(id, req.user!.user_id);
 
     res.json(messages);
   } catch (error: any) {

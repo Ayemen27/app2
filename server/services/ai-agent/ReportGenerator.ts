@@ -448,7 +448,7 @@ export class ReportGenerator {
       for (const p of data.purchases) {
         const r = ws.addRow([
           p.purchaseDate || '-',
-          p.itemName || 'مواد',
+          p.materialName || 'مواد',
           parseFloat(p.quantity || '0'),
           parseFloat(p.unitPrice || '0'),
           parseFloat(p.totalAmount || '0'),

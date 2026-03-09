@@ -52,13 +52,21 @@
 ## AI Agent (Admin Chat)
 - Route: `/api/ai/chat` calls `AIAgentService.processMessage()` (fixed from broken python subprocess)
 - Backend: `server/services/ai-agent/AIAgentService.ts` — system prompt with ACTION/PROPOSE commands
-- DB actions: `server/services/ai-agent/DatabaseActions.ts` — full CRUD + introspection
+- DB actions: `server/services/ai-agent/DatabaseActions.ts` — full CRUD + introspection + analytics
   - `listAllTables()`, `describeTable()`, `searchInTable()`, `insertIntoTable()`, `updateInTable()`, `deleteFromTable()`, `executeRawSelect()`
+  - `getDashboardSummary()`, `getBudgetAnalysis()`, `getTopWorkers()`, `getWorkersUnpaidBalances()`, `getProjectComparison()`, `getRecentActivities()`, `getMonthlyTrends()`
+  - `getSuppliersList()`, `getSupplierStatement()`, `getWorkerStatement()`, `getEquipmentList()`, `getWellsList()`, `globalSearch()`
   - All table/column names validated against pg_tables whitelist; parameterized queries
   - `executeRawSelect` has 10s timeout, LIMIT 500 cap, forbidden keyword rejection
+  - All SUM queries use NaN-safe CASE expressions to handle corrupt data
 - Write operations use PROPOSE → confirmation flow (operationId `op_xxx`) → executeApprovedOperation
 - Frontend: `client/src/pages/ai-chat.tsx` — inline execute/cancel buttons for pending ops, data table rendering
 - Admin-only access via `requireAdmin` middleware
+- Model Manager: HuggingFace (Llama 3.1 8B) → Gemini 2.0 Flash → OpenAI GPT-4o with automatic fallback
+- Intent Detection: Fallback system detects user intent from Arabic text when LLM doesn't produce ACTION format
+- ACTION Format Normalization: regex auto-fixes `ACTION:X` → `[ACTION:X]` for inconsistent LLM output
+- Report Generator: `server/services/ai-agent/ReportGenerator.ts` — Excel/PDF export with ExcelJS
+- Schema note: `workers.is_active` (snake_case), `materialPurchases.materialName`, `workerAttendance.totalPay` may contain NaN values
 
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`

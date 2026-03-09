@@ -217,8 +217,12 @@ export class ModelManager {
             hfModel.dailyUsage++;
             return response;
           } catch (error: any) {
-            console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error:`, error.message);
-            throw error;
+            console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error, falling back:`, error.message);
+            hfModel.lastError = error.message;
+            hfModel.lastErrorTime = new Date();
+            if (error.status === 429 || error.message?.includes("rate limit") || error.message?.includes("quota")) {
+              hfModel.isAvailable = false;
+            }
           }
         }
       } else {
@@ -229,8 +233,12 @@ export class ModelManager {
             selectedModel.dailyUsage++;
             return response;
           } catch (error: any) {
-            console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error:`, error.message);
-            throw error;
+            console.error(`❌ [ModelManager] Selected model ${this.selectedProvider} error, falling back:`, error.message);
+            selectedModel.lastError = error.message;
+            selectedModel.lastErrorTime = new Date();
+            if (error.status === 429 || error.message?.includes("rate limit") || error.message?.includes("quota")) {
+              selectedModel.isAvailable = false;
+            }
           }
         }
       }

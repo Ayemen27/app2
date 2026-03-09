@@ -290,9 +290,20 @@ export class AIAgentService {
       steps[0].status = "completed";
       steps[1].status = "in_progress";
 
-      // تحليل الرد للبحث عن أوامر
+      let responseContent = aiResponse.content;
+      
+      responseContent = responseContent.replace(/(?<!\[)ACTION:([A-Z_]+(?::[^\]]+)?)\]?(?=\s|$)/g, '[ACTION:$1]');
+      
+      const hasAction = /\[ACTION:[^\]]+\]/.test(responseContent);
+      if (!hasAction) {
+        const detectedAction = this.detectIntentFromUserMessage(userMessage);
+        if (detectedAction) {
+          responseContent = detectedAction + "\n" + responseContent;
+        }
+      }
+
       const { processedResponse, action, actionData } = await this.parseAndExecuteActions(
-        aiResponse.content,
+        responseContent,
         sessionId
       );
       
@@ -909,6 +920,39 @@ export class AIAgentService {
     }
   }
 
+  // ==================== كشف النوايا الذكي (Fallback) ====================
+
+  private detectIntentFromUserMessage(message: string): string | null {
+    const msg = message.toLowerCase().trim();
+    const patterns: [RegExp, string][] = [
+      [/(?:لوح[ةه]\s*(?:المعلومات|التحكم|القياد)|ملخص\s*(?:شامل|عام|النظام)|dashboard|الحال[ةه]\s*العام)/i, "[ACTION:DASHBOARD]"],
+      [/(?:تحلي[لل]\s*(?:ال)?ميزاني|ميزاني[ةه]|budget|مخاطر\s*مالي|تجاوز\s*الميزاني)/i, "[ACTION:BUDGET_ANALYSIS]"],
+      [/(?:مستحق|غير\s*مدفوع|لم\s*[يت]دفع|unpaid|رواتب\s*متأخر|عمال\s*لم|من\s*لم)/i, "[ACTION:UNPAID_BALANCES]"],
+      [/(?:أعلى\s*(?:ال)?عمال|أكثر\s*(?:ال)?عمال|top\s*workers|ترتيب\s*العمال)/i, "[ACTION:TOP_WORKERS]"],
+      [/(?:قائم[ةه]\s*(?:ال)?موردي|عرض\s*(?:ال)?موردي|كل\s*(?:ال)?موردي|suppliers)/i, "[ACTION:LIST_SUPPLIERS]"],
+      [/(?:قائم[ةه]\s*(?:ال)?عمال|عرض\s*(?:ال)?عمال|كل\s*(?:ال)?عمال|جميع\s*(?:ال)?عمال)/i, "[ACTION:LIST_WORKERS]"],
+      [/(?:قائم[ةه]\s*(?:ال)?مشاري|عرض\s*(?:ال)?مشاري|كل\s*(?:ال)?مشاري|جميع\s*(?:ال)?مشاري|تقرير\s*(?:ال)?مشاري)/i, "[ACTION:ALL_PROJECTS_REPORT]"],
+      [/(?:قائم[ةه]\s*(?:ال)?معدا|عرض\s*(?:ال)?معدا|كل\s*(?:ال)?معدا|equipment)/i, "[ACTION:LIST_EQUIPMENT]"],
+      [/(?:قائم[ةه]\s*(?:ال)?آبار|عرض\s*(?:ال)?آبار|كل\s*(?:ال)?آبار|wells)/i, "[ACTION:LIST_WELLS]"],
+      [/(?:مقارن[ةه]\s*(?:ال)?مشاري|comparison|قارن\s*بين)/i, "[ACTION:PROJECT_COMPARISON]"],
+      [/(?:اتجاه|شهري|trends|monthly)/i, "[ACTION:MONTHLY_TRENDS]"],
+      [/(?:آخر\s*(?:ال)?عمليا|أحدث\s*(?:ال)?نشاط|recent|أحدث\s*(?:ال)?عمليا|آخر\s*(?:ال)?أحداث)/i, "[ACTION:RECENT_ACTIVITIES]"],
+      [/(?:كشف\s*حساب\s*(?:ال)?مورد|بيان\s*(?:ال)?مورد|supplier\s*statement)/i, "[ACTION:SUPPLIER_STATEMENT]"],
+    ];
+
+    for (const [pattern, action] of patterns) {
+      if (pattern.test(msg)) return action;
+    }
+
+    const workerStatementMatch = msg.match(/(?:كشف\s*حساب|بيان)\s*(?:ال)?عامل\s*(\S+)/i);
+    if (workerStatementMatch) return `[ACTION:WORKER_STATEMENT:${workerStatementMatch[1]}]`;
+
+    const searchMatch = msg.match(/(?:ابحث|بحث|find|search)\s+(?:عن\s+)?(.+)/i);
+    if (searchMatch) return `[ACTION:GLOBAL_SEARCH:${searchMatch[1].trim()}]`;
+
+    return null;
+  }
+
   // ==================== دوال التنسيق الاحترافي ====================
 
   private n(val: any): string {
@@ -948,9 +992,14 @@ export class AIAgentService {
     if (summary.critical > 0) text += `⚠️ **${summary.critical} مشروع في منطقة الخطر**\n\n`;
 
     for (const p of pList) {
-      const icon = p.riskLevel === 'exceeded' ? '🔴' : p.riskLevel === 'critical' ? '🟠' : p.riskLevel === 'warning' ? '🟡' : '🟢';
-      text += `${icon} **${p.projectName}** — ${p.usagePercent}% من الميزانية\n`;
-      text += `   الميزانية: ${this.n(p.budget)} | المصروف: ${this.n(p.totalExpenses)} | المتبقي: ${this.n(p.remaining)} ريال\n`;
+      const icon = p.riskLevel === 'exceeded' ? '🔴' : p.riskLevel === 'critical' ? '🟠' : p.riskLevel === 'warning' ? '🟡' : p.riskLevel === 'no_budget' ? '⚪' : '🟢';
+      if (p.riskLevel === 'no_budget') {
+        text += `${icon} **${p.projectName}** — بدون ميزانية محددة\n`;
+        text += `   التمويل: ${this.n(p.totalFunds)} | المصروف: ${this.n(p.totalExpenses)} ريال\n`;
+      } else {
+        text += `${icon} **${p.projectName}** — ${p.usagePercent}% من الميزانية\n`;
+        text += `   الميزانية: ${this.n(p.budget)} | المصروف: ${this.n(p.totalExpenses)} | المتبقي: ${this.n(p.remaining)} ريال\n`;
+      }
     }
     return text;
   }
@@ -962,7 +1011,7 @@ export class AIAgentService {
 
     text += `**المشتريات (${purchases.length}):**\n`;
     for (const p of purchases.slice(0, 15)) {
-      text += `   📅 ${p.purchaseDate || '-'} | ${p.itemName || 'مواد'} | ${this.n(p.totalAmount)} ريال\n`;
+      text += `   📅 ${p.purchaseDate || '-'} | ${p.materialName || 'مواد'} | ${this.n(p.totalAmount)} ريال\n`;
     }
 
     text += `\n**المدفوعات (${payments.length}):**\n`;
@@ -1022,10 +1071,14 @@ export class AIAgentService {
 
   private formatSuppliersList(data: any[]): string {
     let text = `📦 **قائمة الموردين** (${data.length})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    for (const s of data) {
+    for (let i = 0; i < data.length; i++) {
+      const s = data[i];
       const debt = parseFloat(s.totalDebt || '0');
-      text += `📋 **${s.name}** ${debt > 0 ? `— دين: ${this.n(debt)} ريال` : '— لا ديون'}\n`;
-      if (s.phone) text += `   📞 ${s.phone}\n`;
+      text += `${i + 1}. 📋 **${s.name}** (ID: ${s.id?.slice(0, 8)})\n`;
+      text += `   ${debt > 0 ? `💰 دين: ${this.n(debt)} ريال` : '✅ لا ديون'}`;
+      if (s.phone) text += ` | 📞 ${s.phone}`;
+      if (s.paymentTerms) text += ` | شروط: ${s.paymentTerms}`;
+      text += '\n';
     }
     return text;
   }

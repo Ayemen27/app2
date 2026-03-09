@@ -667,72 +667,6 @@ export class NotificationService {
   /**
    * جلب إحصائيات الإشعارات
    */
-  /**
-   * جلب إحصائيات الإشعارات
-   */
-  /**
-   * جلب إحصائيات الإشعارات
-   */
-  async getNotificationStats(user_id: string): Promise<{
-    total: number;
-    unread: number;
-    critical: number;
-    userStats: any[];
-    typeStats: Record<string, number>;
-  }> {
-    try {
-      const allNotifications = await db.select().from(notifications);
-      const total = allNotifications.length;
-      
-      const readStates = await db.select().from(notificationReadStates);
-      const userReadStates = readStates.filter(rs => rs.user_id === user_id);
-      const readIds = new Set(userReadStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
-      
-      const unreadCount = allNotifications.filter(n => !readIds.has(n.id)).length;
-      const criticalCount = allNotifications.filter(n => n.priority === NotificationPriority.EMERGENCY || n.priority === NotificationPriority.HIGH || n.priority === 5 || n.priority === 1).length;
-      
-      const typeStats: Record<string, number> = {};
-      allNotifications.forEach(n => {
-        typeStats[n.type] = (typeStats[n.type] || 0) + 1;
-      });
-
-      // جلب إحصائيات المستخدمين بناءً على البيانات الفعلية
-      const allUsers = await db.select().from(users).limit(10);
-
-      const enrichedUserStats = allUsers.map(u => {
-        const userSpecificReadStates = readStates.filter(rs => rs.user_id === u.id);
-        const lastRead = userSpecificReadStates
-          .filter(rs => rs.readAt)
-          .sort((a, b) => {
-             const da = a.readAt ? new Date(a.readAt).getTime() : 0;
-             const db_val = b.readAt ? new Date(b.readAt).getTime() : 0;
-             return db_val - da;
-          })[0];
-
-        return {
-          user_id: u.id,
-          userName: u.name || u.full_name || u.username || "مستخدم",
-          userEmail: u.email,
-          totalNotifications: total,
-          readNotifications: userSpecificReadStates.filter(rs => rs.isRead).length,
-          lastReadAt: lastRead ? lastRead.readAt : null
-        };
-      });
-
-      return {
-        total,
-        unread: unreadCount,
-        critical: criticalCount,
-        userStats: enrichedUserStats,
-        typeStats
-      };
-    } catch (error) {
-      console.error("Error fetching notification stats:", error);
-      return { total: 0, unread: 0, critical: 0, userStats: [], typeStats: {} };
-    }
-  }
-
-
   async deleteNotification(notificationId: string, user_id?: string): Promise<void> {
     console.log(`🗑️ حذف الإشعار: ${notificationId}${user_id ? ` للمستخدم: ${user_id}` : ''}`);
 
@@ -765,78 +699,100 @@ export class NotificationService {
   async getNotificationStats(user_id: string): Promise<{
     total: number;
     unread: number;
+    critical: number;
     byType: Record<string, number>;
     byPriority: Record<number, number>;
+    typeStats: Record<string, number>;
     userType: 'admin' | 'user';
     allowedTypes: string[];
+    userStats: any[];
   }> {
     console.log(`📊 حساب إحصائيات الإشعارات للمستخدم: ${user_id}`);
 
-    const isAdmin = await this.isAdmin(user_id);
-    const allowedTypes = await this.getAllowedNotificationTypes(user_id);
-    
-    // بناء شروط البحث مع فصل الصلاحيات
-    const conditions = [inArray(notifications.type, allowedTypes)];
-    
-    if (isAdmin) {
-      const adminCondition = or(
-        sql`${notifications.recipients} @> ARRAY[${user_id}]`,
-        sql`${notifications.recipients} @> ARRAY['admin']`,
-        sql`${notifications.recipients} @> ARRAY['مسؤول']`,
-        sql`${notifications.recipients} IS NULL`
-      );
-      if (adminCondition) {
-        conditions.push(adminCondition);
+    try {
+      const isAdmin = await this.isAdmin(user_id);
+      const allowedTypes = await this.getAllowedNotificationTypes(user_id);
+      
+      let allNotifications;
+      if (isAdmin) {
+        allNotifications = await db.select().from(notifications).orderBy(desc(notifications.created_at));
+      } else {
+        allNotifications = await db.select().from(notifications)
+          .where(
+            and(
+              inArray(notifications.type, allowedTypes),
+              or(
+                sql`notifications.recipients::text LIKE '%' || ${user_id} || '%'`,
+                eq(notifications.recipients, user_id),
+                isNull(notifications.recipients)
+              )
+            )
+          )
+          .orderBy(desc(notifications.created_at));
       }
-    } else {
-      const userCondition = or(
-        sql`${notifications.recipients} @> ARRAY[${user_id}]`,
-        sql`${notifications.recipients} IS NULL`
-      );
-      if (userCondition) {
-        conditions.push(userCondition);
+
+      const readStates = await db.select().from(notificationReadStates)
+        .where(eq(notificationReadStates.user_id, user_id));
+      const readIds = new Set(readStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
+
+      const unreadCount = allNotifications.filter(n => !readIds.has(n.id)).length;
+      const criticalCount = allNotifications.filter(n => 
+        n.priority === NotificationPriority.EMERGENCY || n.priority === NotificationPriority.HIGH
+      ).length;
+
+      const byType: Record<string, number> = {};
+      const byPriority: Record<number, number> = {};
+      allNotifications.forEach(n => {
+        byType[n.type] = (byType[n.type] || 0) + 1;
+        byPriority[n.priority || 3] = (byPriority[n.priority || 3] || 0) + 1;
+      });
+
+      let userStats: any[] = [];
+      if (isAdmin) {
+        const allUsers = await db.select().from(users).limit(10);
+        const allReadStates = await db.select().from(notificationReadStates);
+        userStats = allUsers.map(u => {
+          const userSpecificReads = allReadStates.filter(rs => rs.user_id === u.id);
+          const lastRead = userSpecificReads
+            .filter(rs => rs.readAt)
+            .sort((a, b) => {
+              const da = a.readAt ? new Date(a.readAt).getTime() : 0;
+              const db_val = b.readAt ? new Date(b.readAt).getTime() : 0;
+              return db_val - da;
+            })[0];
+          return {
+            user_id: u.id,
+            userName: u.name || u.full_name || u.username || "مستخدم",
+            userEmail: u.email,
+            totalNotifications: allNotifications.length,
+            readNotifications: userSpecificReads.filter(rs => rs.isRead).length,
+            lastReadAt: lastRead ? lastRead.readAt : null
+          };
+        });
       }
+
+      const stats = {
+        total: allNotifications.length,
+        unread: unreadCount,
+        critical: criticalCount,
+        byType,
+        byPriority,
+        typeStats: byType,
+        userType: isAdmin ? 'admin' as const : 'user' as const,
+        allowedTypes,
+        userStats
+      };
+
+      console.log(`📊 مستخدم ${user_id} (نوع: ${stats.userType}): ${stats.total} إشعار، ${stats.unread} غير مقروء`);
+      return stats;
+    } catch (error) {
+      console.error("❌ خطأ في حساب إحصائيات الإشعارات:", error);
+      return {
+        total: 0, unread: 0, critical: 0,
+        byType: {}, byPriority: {}, typeStats: {},
+        userType: 'user', allowedTypes: [], userStats: []
+      };
     }
-
-    const userNotifications = await db
-      .select()
-      .from(notifications)
-      .where(and(...conditions));
-
-    const readStates = await db
-      .select()
-      .from(notificationReadStates)
-      .where(eq(notificationReadStates.user_id, user_id));
-
-    const readNotificationIds = readStates
-      .filter((rs: any) => rs.isRead)
-      .map((rs: any) => rs.notificationId);
-
-    const unread = userNotifications.filter((n: any) => !readNotificationIds.includes(n.id));
-
-    // إحصائيات حسب النوع
-    const byType: Record<string, number> = {};
-    userNotifications.forEach((n: any) => {
-      byType[n.type] = (byType[n.type] || 0) + 1;
-    });
-
-    // إحصائيات حسب الأولوية
-    const byPriority: Record<number, number> = {};
-    userNotifications.forEach((n: any) => {
-      byPriority[n.priority] = (byPriority[n.priority] || 0) + 1;
-    });
-
-    const stats = {
-      total: userNotifications.length,
-      unread: unread.length,
-      byType,
-      byPriority,
-      userType: isAdmin ? 'admin' as const : 'user' as const,
-      allowedTypes
-    };
-
-    console.log(`📊 مستخدم ${user_id} (نوع: ${stats.userType}): ${stats.total} إشعار، ${stats.unread} غير مقروء`);
-    return stats;
   }
 
   /**

@@ -135,7 +135,7 @@ export default function AdminNotificationsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/admin/notifications/${id}`, {
+      const response = await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });

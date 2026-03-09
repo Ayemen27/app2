@@ -76,6 +76,17 @@
   - `calculateCumulativeBalance()` all date range comparisons
 - **Pattern:** Always use `CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'` before any `::date` cast
 
+## Notification System (March 2026)
+- **Service:** `server/services/NotificationService.ts` — create, read, delete, stats
+- **Routes:** `server/routes/modules/notificationRoutes.ts` mounted at `/api/notifications`
+- **Pages:** `/notifications` (user view), `/admin-notifications` (admin monitoring dashboard)
+- **Recipients column:** Text type (not array) — use `LIKE` for matching, admin sees all notifications
+- **Security:** Delete restricted to admin role only (403 for non-admin)
+- **Stats endpoint:** `GET /api/notifications/monitoring/stats` returns total, unread, critical, byType, byPriority, userStats
+- **Mark as read:** `POST /api/notifications/:id/read` and `POST /api/notifications/:id/mark-read` (alias)
+- **Test endpoint:** `POST /api/notifications/test/create` (admin only, creates test notifications)
+- **Notification types:** system, security, maintenance, task, announcement, payroll, safety
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

@@ -259,9 +259,9 @@ export default function NotificationsPage() {
                   {isExpanded ? 'طي' : 'عرض المزيد'}
                 </Button>
               )}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                {isUnread && <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" onClick={() => markAsReadMutation.mutate(notification.id)}><Check className="h-3.5 w-3.5" /></Button>}
-                <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full" onClick={() => confirm('حذف هذا الإشعار؟') && deleteNotificationsMutation.mutate([notification.id])}><Trash2 className="h-3.5 w-3.5" /></Button>
+              <div className="flex items-center gap-1">
+                {isUnread && <Button data-testid={`btn-mark-read-${notification.id}`} size="sm" variant="ghost" className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-full" onClick={() => markAsReadMutation.mutate(notification.id)} title="تعليم كمقروء"><Check className="h-3.5 w-3.5" /></Button>}
+                <Button data-testid={`btn-delete-${notification.id}`} size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full opacity-0 group-hover:opacity-100 transition-all" onClick={() => confirm('حذف هذا الإشعار؟') && deleteNotificationsMutation.mutate([notification.id])} title="حذف"><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
           </div>

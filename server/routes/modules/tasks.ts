@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { storage } from "../../storage";
 import { insertTaskSchema } from "@shared/schema";
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, requireAdmin } from '../../middleware/auth';
 
 const router = Router();
 router.use(requireAuth);
+router.use(requireAdmin);
 
 router.get("/", async (_req, res) => {
   const tasks = await storage.getTasks();

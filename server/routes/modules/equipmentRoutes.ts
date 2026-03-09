@@ -120,6 +120,15 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && project_id) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (!ids.includes(project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية إضافة معدات لهذا المشروع', code: 'PROJECT_ACCESS_DENIED' });
+      }
+    }
+
     const [newItem] = await db.insert(equipment).values({
       name,
       sku: sku || null,
@@ -176,6 +185,13 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
     }
 
     const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = req.body;
+
+    if (!isAdminUser && project_id !== undefined && project_id !== null && project_id !== existing.project_id) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (!ids.includes(project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية نقل المعدة لهذا المشروع', code: 'PROJECT_ACCESS_DENIED' });
+      }
+    }
 
     let qty = existing.quantity;
     if (quantity !== undefined) {
@@ -274,6 +290,13 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
     }
 
     const { toProjectId, reason, performedBy, notes, quantity: moveQty } = req.body;
+
+    if (!isAdminUser && toProjectId) {
+      const ids = accessReq.accessibleProjectIds ?? [];
+      if (!ids.includes(toProjectId)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية نقل المعدة لهذا المشروع', code: 'PROJECT_ACCESS_DENIED' });
+      }
+    }
 
     if (!reason) {
       return res.status(400).json({ success: false, message: 'سبب النقل مطلوب' });

@@ -558,20 +558,7 @@ export class AIAgentService {
         }
       }
 
-      processedResponse = processedResponse.replace(/\[ACTION:[^\]]+\]\s*/g, "").trim();
-
-      const hallPatterns = [
-        /نتيجة البحث:[\s\S]*?(?=\n\n|$)/gi,
-        /نتيجة الاستعلام:[\s\S]*?(?=\n\n|$)/gi,
-        /المعرّف:\s*\S+/gi,
-        /WKR-\d+/gi,
-        /PRJ-\d+/gi,
-      ];
-      for (const pat of hallPatterns) {
-        processedResponse = processedResponse.replace(pat, "").trim();
-      }
-
-      if (processedResponse.length < 5 || /^(حسناً|نعم|يمكنني|سأقوم|للحصول|يجب)/.test(processedResponse.trim())) {
+      if (results.length > 0) {
         processedResponse = "";
       }
 
@@ -800,9 +787,9 @@ export class AIAgentService {
   private formatDataList(data: any[]): string {
     return data.map((item, index) => {
       const name = item.name || "بدون اسم";
-      const id = item.id || "";
       const status = item.status ? ` (${item.status})` : "";
-      return `${index + 1}. ${name}${status}\n   المعرّف: ${id}`;
+      const wage = item.dailyWage ? ` — الأجر اليومي: ${item.dailyWage}` : "";
+      return `${index + 1}. **${name}**${status}${wage}`;
     }).join("\n");
   }
 

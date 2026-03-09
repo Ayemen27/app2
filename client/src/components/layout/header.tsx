@@ -52,6 +52,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/admin/monitoring': { title: 'نظام الرصد المركزي', icon: Activity },
   '/admin/system': { title: 'لوحة إدارة النظام المركزية', icon: Settings },
   '/whatsapp-setup': { title: 'ربط الواتساب', icon: MessageSquare },
+  '/admin/permissions': { title: 'إدارة الصلاحيات', icon: Lock },
 };
 
 export default function Header() {

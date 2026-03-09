@@ -1,19 +1,23 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient as qc } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 import {
-  KeyRound, Shield, Eye, Plus, Edit, Trash2, Users, Building2,
-  Clock, UserPlus, UserMinus, History, CheckCircle2, XCircle, AlertTriangle
+  Shield, Eye, Plus, Edit, Trash2, Users, 
+  Clock, UserPlus, UserMinus, History, AlertTriangle,
+  KeyRound, Lock, CheckCircle2
 } from "lucide-react";
 
 interface UserInfo {
@@ -59,22 +63,6 @@ function getPresetFromPermissions(p: { canView: boolean; canAdd: boolean; canEdi
   return "view";
 }
 
-function PermissionBadge({ level }: { level: string }) {
-  const colors: Record<string, string> = {
-    "مالك": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
-    "مسؤول": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-    "كامل": "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-    "تعديل": "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-    "إضافة": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
-    "قراءة فقط": "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-  };
-  return (
-    <Badge className={colors[level] || colors["قراءة فقط"]} data-testid={`badge-permission-${level}`}>
-      {level}
-    </Badge>
-  );
-}
-
 function getPermLevel(u: UserInfo): string {
   if (u.isOwner) return "مالك";
   if (u.canDelete) return "كامل";
@@ -84,21 +72,30 @@ function getPermLevel(u: UserInfo): string {
   return "لا صلاحيات";
 }
 
+function getPermHeaderColor(u: UserInfo): string {
+  if (u.isOwner) return "#10b981";
+  if (u.canDelete) return "#8b5cf6";
+  if (u.canEdit) return "#f59e0b";
+  if (u.canAdd) return "#06b6d4";
+  if (u.canView) return "#6b7280";
+  return "#9ca3af";
+}
+
 export default function PermissionManagementPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const { selectedProjectId: globalProjectId } = useSelectedProject();
   const [grantDialogOpen, setGrantDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserInfo | null>(null);
   const [grantUserId, setGrantUserId] = useState("");
   const [grantPreset, setGrantPreset] = useState("view");
+  const [searchValue, setSearchValue] = useState("");
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+  const [activeTab, setActiveTab] = useState<"users" | "audit">("users");
 
-  const { data: projectsData } = useQuery<any>({
-    queryKey: ["/api/projects"],
-  });
-  const projects = projectsData?.data || projectsData || [];
+  const selectedProjectId = globalProjectId === ALL_PROJECTS_ID ? "" : (globalProjectId || "");
 
   const { data: usersData } = useQuery<any>({
     queryKey: ["/api/users/list"],
@@ -111,8 +108,8 @@ export default function PermissionManagementPage() {
   });
   const projectUsers: UserInfo[] = projectUsersData?.data || [];
 
-  const auditUrl = selectedProjectId 
-    ? `/api/permissions/audit-logs?projectId=${selectedProjectId}` 
+  const auditUrl = selectedProjectId
+    ? `/api/permissions/audit-logs?projectId=${selectedProjectId}`
     : "/api/permissions/audit-logs";
   const { data: auditData } = useQuery<any>({
     queryKey: ["/api/permissions/audit-logs", selectedProjectId || "all"],
@@ -207,6 +204,84 @@ export default function PermissionManagementPage() {
     (u: any) => !projectUsers.find((pu) => pu.userId === u.id)
   );
 
+  const filteredUsers = useMemo(() => {
+    let result = projectUsers;
+    if (searchValue) {
+      const s = searchValue.toLowerCase();
+      result = result.filter(u =>
+        (u.userName || "").toLowerCase().includes(s) ||
+        (u.userEmail || "").toLowerCase().includes(s)
+      );
+    }
+    const permFilter = filterValues.permLevel;
+    if (permFilter && permFilter !== "all") {
+      result = result.filter(u => getPermLevel(u) === permFilter);
+    }
+    return result;
+  }, [projectUsers, searchValue, filterValues]);
+
+  const stats = useMemo(() => {
+    const owners = projectUsers.filter(u => u.isOwner).length;
+    const fullAccess = projectUsers.filter(u => !u.isOwner && u.canDelete).length;
+    const editAccess = projectUsers.filter(u => !u.isOwner && u.canEdit && !u.canDelete).length;
+    const viewOnly = projectUsers.filter(u => !u.isOwner && u.canView && !u.canEdit && !u.canAdd).length;
+    return { total: projectUsers.length, owners, fullAccess, editAccess, viewOnly };
+  }, [projectUsers]);
+
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 4,
+      gap: 'sm',
+      items: [
+        { key: 'total', label: 'إجمالي المستخدمين', value: stats.total, icon: Users, color: 'blue' },
+        { key: 'owners', label: 'مالكون', value: stats.owners, icon: Shield, color: 'green', showDot: true, dotColor: 'bg-emerald-500' },
+        { key: 'fullAccess', label: 'صلاحيات كاملة', value: stats.fullAccess, icon: KeyRound, color: 'purple' },
+        { key: 'auditCount', label: 'سجل التدقيق', value: auditLogs.length, icon: History, color: 'orange' },
+      ]
+    }
+  ], [stats, auditLogs]);
+
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'permLevel',
+      label: 'مستوى الصلاحية',
+      type: 'select',
+      defaultValue: 'all',
+      options: [
+        { value: 'all', label: 'جميع المستويات' },
+        { value: 'مالك', label: 'مالك' },
+        { value: 'كامل', label: 'صلاحيات كاملة' },
+        { value: 'تعديل', label: 'تعديل' },
+        { value: 'إضافة', label: 'إضافة' },
+        { value: 'قراءة فقط', label: 'قراءة فقط' },
+      ],
+    },
+    {
+      key: 'tab',
+      label: 'العرض',
+      type: 'select',
+      defaultValue: 'users',
+      options: [
+        { value: 'users', label: 'المستخدمون' },
+        { value: 'audit', label: 'سجل التدقيق' },
+      ],
+    },
+  ], []);
+
+  const handleFilterChange = (key: string, value: any) => {
+    if (key === 'tab') {
+      setActiveTab(value as "users" | "audit");
+    } else {
+      setFilterValues(prev => ({ ...prev, [key]: value }));
+    }
+  };
+
+  const handleResetFilters = () => {
+    setSearchValue("");
+    setFilterValues({});
+    setActiveTab("users");
+  };
+
   const formatActionLabel = (action: string) => {
     switch (action) {
       case "assign": return "منح صلاحيات";
@@ -216,182 +291,166 @@ export default function PermissionManagementPage() {
     }
   };
 
-  const formatActionIcon = (action: string) => {
+  const getAuditActionColor = (action: string) => {
     switch (action) {
-      case "assign": return <UserPlus className="h-4 w-4 text-emerald-500" />;
-      case "unassign": return <UserMinus className="h-4 w-4 text-red-500" />;
-      case "update_permissions": return <Edit className="h-4 w-4 text-amber-500" />;
-      default: return <History className="h-4 w-4 text-gray-500" />;
+      case "assign": return "#10b981";
+      case "unassign": return "#ef4444";
+      case "update_permissions": return "#f59e0b";
+      default: return "#6b7280";
     }
   };
 
-  return (
-    <div className="p-4 space-y-6 max-w-6xl mx-auto" dir="rtl" data-testid="permission-management-page">
-      <div className="flex items-center gap-3 mb-6">
-        <KeyRound className="h-7 w-7 text-blue-600" />
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">إدارة الصلاحيات</h1>
-          <p className="text-sm text-muted-foreground">إدارة صلاحيات المستخدمين على المشاريع - منح وتعديل وسحب الصلاحيات</p>
-        </div>
+  const getAuditActionIcon = (action: string) => {
+    switch (action) {
+      case "assign": return UserPlus;
+      case "unassign": return UserMinus;
+      case "update_permissions": return Edit;
+      default: return History;
+    }
+  };
+
+  if (!selectedProjectId) {
+    return (
+      <div className="container mx-auto p-4 space-y-4" data-testid="permission-management-page">
+        <UnifiedFilterDashboard
+          hideHeader={true}
+          title=""
+          subtitle=""
+          statsRows={[]}
+        />
+        <Card className="p-12 text-center">
+          <div className="flex flex-col items-center gap-4 text-muted-foreground">
+            <Shield className="h-12 w-12 opacity-20" />
+            <p className="text-lg" data-testid="text-select-project-hint">اختر مشروعاً من الشريط العلوي لإدارة صلاحياته</p>
+          </div>
+        </Card>
       </div>
+    );
+  }
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Building2 className="h-5 w-5" />
-            اختر المشروع
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-            <SelectTrigger data-testid="select-project">
-              <SelectValue placeholder="اختر مشروع لإدارة صلاحياته" />
-            </SelectTrigger>
-            <SelectContent>
-              {projects.map((p: any) => (
-                <SelectItem key={p.id} value={p.id} data-testid={`option-project-${p.id}`}>
-                  {p.name}
-                </SelectItem>
+  return (
+    <div className="container mx-auto p-4 space-y-4" data-testid="permission-management-page">
+      <UnifiedFilterDashboard
+        hideHeader={true}
+        title=""
+        subtitle=""
+        statsRows={statsRowsConfig}
+        filters={filtersConfig}
+        onFilterChange={handleFilterChange}
+        onSearchChange={setSearchValue}
+        searchValue={searchValue}
+        onReset={handleResetFilters}
+        searchPlaceholder="بحث بالاسم أو البريد..."
+        actions={[
+          {
+            key: 'grant',
+            icon: UserPlus,
+            label: 'منح صلاحيات',
+            onClick: () => setGrantDialogOpen(true),
+            variant: 'default',
+          }
+        ]}
+      />
+
+      {activeTab === "users" && (
+        <>
+          {usersLoading ? (
+            <UnifiedCardGrid columns={3}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <UnifiedCard key={i} title="" fields={[]} isLoading={true} compact />
               ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {selectedProjectId && (
-        <Tabs defaultValue="users" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="users" data-testid="tab-users">
-              <Users className="h-4 w-4 ml-2" />
-              المستخدمون ({projectUsers.length})
-            </TabsTrigger>
-            <TabsTrigger value="audit" data-testid="tab-audit">
-              <History className="h-4 w-4 ml-2" />
-              سجل التدقيق
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="users" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">المستخدمون ذوو الصلاحيات</h3>
-              <Button
-                onClick={() => setGrantDialogOpen(true)}
-                className="gap-2"
-                data-testid="button-grant-permission"
-              >
-                <UserPlus className="h-4 w-4" />
-                منح صلاحيات
-              </Button>
-            </div>
-
-            {usersLoading ? (
-              <div className="text-center py-10 text-muted-foreground">جاري التحميل...</div>
-            ) : projectUsers.length === 0 ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  <Shield className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>لا يوجد مستخدمون لديهم صلاحيات على هذا المشروع</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {projectUsers.map((u) => (
-                  <Card key={u.userId} data-testid={`card-user-${u.userId}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="font-semibold" data-testid={`text-username-${u.userId}`}>{u.userName || u.userEmail}</p>
-                            <p className="text-sm text-muted-foreground">{u.userEmail}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <PermissionBadge level={getPermLevel(u)} />
-                          <div className="flex gap-1">
-                            {u.canView && <Eye className="h-4 w-4 text-green-500" />}
-                            {u.canAdd && <Plus className="h-4 w-4 text-blue-500" />}
-                            {u.canEdit && <Edit className="h-4 w-4 text-amber-500" />}
-                            {u.canDelete && <Trash2 className="h-4 w-4 text-red-500" />}
-                          </div>
-                          {!u.isOwner && (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedUser({ ...u });
-                                  setEditDialogOpen(true);
-                                }}
-                                data-testid={`button-edit-${u.userId}`}
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700"
-                                onClick={() => {
-                                  setSelectedUser(u);
-                                  setRevokeDialogOpen(true);
-                                }}
-                                data-testid={`button-revoke-${u.userId}`}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+            </UnifiedCardGrid>
+          ) : filteredUsers.length === 0 ? (
+            <Card className="p-12 text-center">
+              <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                <Users className="h-12 w-12 opacity-20" />
+                <p className="text-lg">لا يوجد مستخدمون يطابقون خيارات البحث</p>
+                <Button variant="outline" onClick={handleResetFilters} data-testid="button-reset-filters">مسح الفلاتر</Button>
               </div>
-            )}
-          </TabsContent>
+            </Card>
+          ) : (
+            <UnifiedCardGrid columns={3}>
+              {filteredUsers.map((u) => (
+                <UnifiedCard
+                  key={u.userId}
+                  title={u.userName || u.userEmail}
+                  subtitle={u.userEmail}
+                  titleIcon={Users}
+                  headerColor={getPermHeaderColor(u)}
+                  badges={[
+                    {
+                      label: getPermLevel(u),
+                      variant: u.isOwner ? "success" : u.canDelete ? "default" : u.canEdit ? "warning" : "secondary",
+                    }
+                  ]}
+                  fields={[
+                    { label: "الدور", value: u.userRole || "مستخدم", icon: Shield, color: "info" },
+                    { label: "عرض", value: u.canView ? "✓" : "✗", icon: Eye, color: u.canView ? "success" : "danger" },
+                    { label: "إضافة", value: u.canAdd ? "✓" : "✗", icon: Plus, color: u.canAdd ? "success" : "danger" },
+                    { label: "تعديل", value: u.canEdit ? "✓" : "✗", icon: Edit, color: u.canEdit ? "success" : "danger" },
+                    { label: "حذف", value: u.canDelete ? "✓" : "✗", icon: Trash2, color: u.canDelete ? "success" : "danger" },
+                    { label: "مُعيّن بواسطة", value: u.assignedBy || "النظام", icon: UserPlus, color: "muted", hidden: u.isOwner },
+                  ]}
+                  actions={u.isOwner ? [] : [
+                    {
+                      icon: Edit,
+                      label: "تعديل الصلاحيات",
+                      onClick: () => {
+                        setSelectedUser({ ...u });
+                        setEditDialogOpen(true);
+                      },
+                      color: "blue",
+                    },
+                    {
+                      icon: Trash2,
+                      label: "سحب الصلاحيات",
+                      onClick: () => {
+                        setSelectedUser(u);
+                        setRevokeDialogOpen(true);
+                      },
+                      color: "red",
+                      variant: "destructive",
+                    },
+                  ]}
+                  compact
+                  data-testid={`card-user-${u.userId}`}
+                />
+              ))}
+            </UnifiedCardGrid>
+          )}
+        </>
+      )}
 
-          <TabsContent value="audit" className="space-y-4">
-            <h3 className="text-lg font-semibold">سجل تغييرات الصلاحيات</h3>
-            {auditLogs.length === 0 ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground">
-                  <History className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>لا توجد سجلات تدقيق</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {auditLogs.map((log) => (
-                  <Card key={log.id} data-testid={`card-audit-${log.id}`}>
-                    <CardContent className="p-3">
-                      <div className="flex items-start gap-3">
-                        {formatActionIcon(log.action)}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm">{formatActionLabel(log.action)}</span>
-                            <Badge variant="outline" className="text-xs">{log.projectName}</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            <span className="font-medium">{log.actorName || "مسؤول"}</span>
-                            {log.action === "assign" && <> منح <span className="font-medium">{log.targetName}</span> صلاحيات</>}
-                            {log.action === "unassign" && <> سحب صلاحيات <span className="font-medium">{log.targetName}</span></>}
-                            {log.action === "update_permissions" && <> حدّث صلاحيات <span className="font-medium">{log.targetName}</span></>}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {new Date(log.createdAt).toLocaleString("ar-SA")}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+      {activeTab === "audit" && (
+        <>
+          {auditLogs.length === 0 ? (
+            <Card className="p-12 text-center">
+              <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                <History className="h-12 w-12 opacity-20" />
+                <p className="text-lg">لا توجد سجلات تدقيق</p>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            </Card>
+          ) : (
+            <UnifiedCardGrid columns={2}>
+              {auditLogs.map((log) => (
+                <UnifiedCard
+                  key={log.id}
+                  title={formatActionLabel(log.action)}
+                  subtitle={log.projectName}
+                  titleIcon={getAuditActionIcon(log.action)}
+                  headerColor={getAuditActionColor(log.action)}
+                  fields={[
+                    { label: "بواسطة", value: log.actorName || "مسؤول", icon: Users, color: "info" },
+                    { label: "المستخدم المستهدف", value: log.targetName, icon: Shield, color: "default" },
+                    { label: "التاريخ", value: new Date(log.createdAt).toLocaleString("ar-SA"), icon: Clock, color: "muted" },
+                  ]}
+                  compact
+                  data-testid={`card-audit-${log.id}`}
+                />
+              ))}
+            </UnifiedCardGrid>
+          )}
+        </>
       )}
 
       <Dialog open={grantDialogOpen} onOpenChange={setGrantDialogOpen}>

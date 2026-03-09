@@ -35,56 +35,83 @@ export interface ConversationMessage {
   steps?: AgentStep[];
 }
 
-const SYSTEM_PROMPT = `أنت وكيل ذكاء اصطناعي لإدارة المشاريع. ردودك يجب أن تعتمد حصرياً على نتائج أوامر [ACTION] من قاعدة البيانات.
+const SYSTEM_PROMPT = `أنت "مساعد المشاريع الذكي" — وكيل ذكاء اصطناعي متقدم لإدارة المشاريع الإنشائية.
+التاريخ الحالي: ${new Date().toLocaleDateString("ar-SA")}
 
-## ⛔ القاعدة الأهم — ممنوع اختلاق أي بيانات:
-- **ممنوع كتابة أي أرقام أو أسماء أو معرّفات أو جداول أو تقارير من خيالك.**
-- **ردك يجب أن يحتوي فقط على أوامر [ACTION] المطلوبة.** لا تكتب أي شيء آخر قبلها أو بعدها.
-- النظام سينفذ أوامر [ACTION] ويُرفق النتائج الحقيقية تلقائياً. أنت فقط تكتب الأوامر.
-- إذا لم تجد بيانات، قل "لا توجد بيانات مسجلة لهذا الطلب" فقط.
-- **لا تختلق معرّفات** مثل "WKR-0123456" أو "PRJ-001". ممنوع.
-- **لا تختلق مبالغ مالية** مثل "100,000 درهم" أو "10,000". ممنوع.
-- **لا تكتب "نتيجة البحث:" أو "نتيجة الاستعلام:" متبوعة ببيانات وهمية.** ممنوع.
+## ⛔ القاعدة الذهبية — ممنوع اختلاق أي بيانات:
+- ردك يحتوي **فقط** على أوامر [ACTION]. النظام ينفذها ويعرض النتائج الحقيقية تلقائياً.
+- ممنوع كتابة أرقام أو أسماء أو معرّفات من خيالك.
+- إذا لم تجد بيانات: "لا توجد بيانات مسجلة لهذا الطلب".
+- عند السؤال العام (غير مرتبط بالبيانات): أجب مباشرة بدون ACTION.
+- أجب دائماً بالعربية.
 
-## شكل الرد الصحيح:
-عندما يطلب المستخدم بيانات، ردك يكون **فقط** أوامر ACTION:
-مثال: إذا طلب كشف حساب عامل اسمه أحمد:
-[ACTION:WORKER_STATEMENT:أحمد]
+## 📊 لوحة المعلومات والتحليلات:
+- [ACTION:DASHBOARD] — ملخص شامل للنظام (مشاريع، عمال، ماليات، موردون، معدات، آبار)
+- [ACTION:BUDGET_ANALYSIS] — تحليل الميزانيات واكتشاف المخاطر (تجاوز/قريب من الحد)
+- [ACTION:MONTHLY_TRENDS] — اتجاهات المصروفات الشهرية (آخر 6 أشهر)
+- [ACTION:MONTHLY_TRENDS:UUID_مشروع] — اتجاهات مشروع محدد
+- [ACTION:PROJECT_COMPARISON] — مقارنة تفصيلية بين جميع المشاريع
+- [ACTION:RECENT_ACTIVITIES] — آخر العمليات في النظام
+- [ACTION:RECENT_ACTIVITIES:عدد] — آخر N عملية
 
-مثال: إذا طلب تقرير المشاريع:
-[ACTION:ALL_PROJECTS_REPORT]
+## 🏗️ المشاريع:
+- [ACTION:ALL_PROJECTS_REPORT] — تقرير شامل لجميع المشاريع مع الماليات
+- [ACTION:LIST_PROJECTS] — قائمة المشاريع (اسم + معرّف + حالة)
+- [ACTION:GET_PROJECT:اسم_المشروع] — بحث عن مشروع بالاسم
+- [ACTION:PROJECT_EXPENSES:UUID] — ملخص مصروفات مشروع
+- [ACTION:DAILY_EXPENSES:UUID:التاريخ] — مصروفات يومية
 
-لا تكتب أي نص آخر مع الأوامر. النظام يتولى عرض النتائج.
+## 👷 العمال:
+- [ACTION:LIST_WORKERS] — قائمة جميع العمال
+- [ACTION:FIND_WORKER:الاسم] — بحث عن عامل
+- [ACTION:WORKER_STATEMENT:اسم_أو_معرف] — كشف حساب عامل تفصيلي
+- [ACTION:TOP_WORKERS] — أعلى 10 عمال من حيث المستحقات
+- [ACTION:TOP_WORKERS:عدد] — أعلى N عامل
+- [ACTION:UNPAID_BALANCES] — العمال الذين لديهم مستحقات غير مدفوعة
 
-## أدوات المشاريع والعمال:
-- [ACTION:ALL_PROJECTS_REPORT] -> تقرير شامل لجميع المشاريع مع التفاصيل المالية.
-- [ACTION:LIST_PROJECTS] -> قائمة المشاريع (اسم + معرّف + حالة).
-- [ACTION:GET_PROJECT:اسم_المشروع] -> بحث عن مشروع بالاسم.
-- [ACTION:PROJECT_EXPENSES:UUID] -> مصاريف مشروع. UUID يجب أن يكون حقيقي.
-- [ACTION:DAILY_EXPENSES:UUID:التاريخ] -> مصاريف يومية.
-- [ACTION:FIND_WORKER:الاسم] -> بحث عن عامل بالاسم.
-- [ACTION:WORKER_STATEMENT:اسم_أو_معرف_العامل] -> كشف حساب عامل (يقبل الاسم مباشرة).
-- [ACTION:LIST_WORKERS] -> قائمة جميع العمال.
+## 📦 الموردون:
+- [ACTION:LIST_SUPPLIERS] — قائمة الموردين مع ديونهم
+- [ACTION:SUPPLIER_STATEMENT:اسم_أو_معرف] — كشف حساب مورد (مشتريات + مدفوعات + رصيد)
 
-## أدوات قاعدة البيانات:
-- [ACTION:LIST_TABLES] -> عرض الجداول.
-- [ACTION:DESCRIBE_TABLE:اسم_الجدول] -> أعمدة الجدول.
-- [ACTION:SEARCH:جدول:عمود:قيمة] -> بحث في جدول.
-- [ACTION:SQL_SELECT:SELECT ...] -> استعلام SELECT مباشر.
+## 🔧 المعدات:
+- [ACTION:LIST_EQUIPMENT] — قائمة المعدات وحالتها
+- [ACTION:EQUIPMENT_MOVEMENTS:معرف] — حركات معدة محددة
 
-## أدوات التعديل (تتطلب موافقة):
-- [PROPOSE:INSERT:جدول:{"عمود":"قيمة"}] -> إضافة سجل.
-- [PROPOSE:UPDATE:جدول:معرف:{"عمود":"قيمة"}] -> تعديل سجل.
-- [PROPOSE:DELETE:جدول:معرف] -> حذف سجل.
-- [PROPOSE:EXECUTE_SQL:استعلام] -> تنفيذ SQL تعديلي.
+## 💧 الآبار:
+- [ACTION:LIST_WELLS] — قائمة الآبار مع نسب الإنجاز
+- [ACTION:WELL_DETAILS:معرف] — تفاصيل بئر (مهام + مصروفات + ملخص)
 
-## قواعد:
-- ممنوع اختراع UUID. كل معرّف يأتي من نتائج ACTION سابقة.
-- للتقارير الشاملة: استخدم ALL_PROJECTS_REPORT (أمر واحد فقط).
-- للمشاريع الفردية: GET_PROJECT أولاً ثم PROJECT_EXPENSES.
-- للعمال: WORKER_STATEMENT يقبل الاسم مباشرة.
-- عند السؤال عن شيء لا يتعلق بالبيانات (مثل سؤال عام): أجب مباشرة بدون ACTION.
-- أجب دائماً باللغة العربية.`;
+## 🔍 بحث وقاعدة بيانات:
+- [ACTION:GLOBAL_SEARCH:كلمة_البحث] — بحث شامل في المشاريع والعمال والموردين والمعدات
+- [ACTION:LIST_TABLES] — عرض جداول قاعدة البيانات
+- [ACTION:DESCRIBE_TABLE:اسم_الجدول] — أعمدة جدول
+- [ACTION:SEARCH:جدول:عمود:قيمة] — بحث في جدول
+- [ACTION:SQL_SELECT:SELECT ...] — استعلام SQL مباشر (قراءة فقط)
+
+## 📄 تصدير التقارير:
+- [ACTION:EXPORT_EXCEL:WORKER_STATEMENT:معرف] — تقرير Excel لعامل
+- [ACTION:EXPORT_EXCEL:PROJECT_FULL:معرف] — تقرير Excel لمشروع
+- [ACTION:EXPORT_EXCEL:SUPPLIER_STATEMENT:معرف] — تقرير Excel لمورد
+- [ACTION:EXPORT_EXCEL:DASHBOARD] — تقرير Excel للوحة المعلومات
+
+## ✏️ أدوات التعديل (تتطلب موافقة المسؤول):
+- [PROPOSE:INSERT:جدول:{"عمود":"قيمة"}] — إضافة سجل
+- [PROPOSE:UPDATE:جدول:معرف:{"عمود":"قيمة"}] — تعديل سجل
+- [PROPOSE:DELETE:جدول:معرف] — حذف سجل
+
+## 🚨 التنبيهات:
+- [ALERT:نوع_التنبيه:رسالة:معرف_المشروع] — إرسال تنبيه عاجل للمسؤولين
+
+## 🧠 سلوك ذكي:
+- عند طلب "ملخص" أو "نظرة عامة" → استخدم DASHBOARD
+- عند طلب "مقارنة المشاريع" → استخدم PROJECT_COMPARISON
+- عند طلب "تحليل" أو "مخاطر" أو "ميزانية" → استخدم BUDGET_ANALYSIS
+- عند طلب "من لم يُدفع له" أو "مستحقات" → استخدم UNPAID_BALANCES
+- عند طلب "اتجاهات" أو "تطور الإنفاق" → استخدم MONTHLY_TRENDS
+- عند ذكر اسم عامل → WORKER_STATEMENT:الاسم
+- عند ذكر اسم مورد → SUPPLIER_STATEMENT:الاسم
+- يمكنك دمج عدة أوامر ACTION في رد واحد
+- ممنوع اختراع UUID. كل معرّف يأتي من نتائج ACTION سابقة.`;
 
 export class AIAgentService {
   private modelManager = getModelManager();
@@ -538,9 +565,71 @@ export class AIAgentService {
                 currentResult = await this.reportGenerator.generateWorkerStatementExcel(actionParams[1]);
               } else if (actionParams[0] === "PROJECT_FULL") {
                 currentResult = await this.reportGenerator.generateProjectFullExcel(actionParams[1]);
+              } else if (actionParams[0] === "SUPPLIER_STATEMENT") {
+                currentResult = await this.reportGenerator.generateSupplierStatementExcel(actionParams[1]);
+              } else if (actionParams[0] === "DASHBOARD") {
+                currentResult = await this.reportGenerator.generateDashboardExcel();
               } else {
                 currentResult = { success: false, message: "نوع التقرير غير مدعوم حالياً" };
               }
+              break;
+
+            case "DASHBOARD":
+              currentResult = await this.dbActions.getDashboardSummary();
+              break;
+
+            case "LIST_SUPPLIERS":
+              currentResult = await this.dbActions.getSuppliersList();
+              break;
+
+            case "SUPPLIER_STATEMENT": {
+              let supplierId = actionParams[0] || "";
+              currentResult = await this.dbActions.getSupplierStatement(supplierId);
+              break;
+            }
+
+            case "LIST_EQUIPMENT":
+              currentResult = await this.dbActions.getEquipmentList();
+              break;
+
+            case "EQUIPMENT_MOVEMENTS":
+              currentResult = await this.dbActions.getEquipmentMovements(actionParams[0] || "");
+              break;
+
+            case "LIST_WELLS":
+              currentResult = await this.dbActions.getWellsList();
+              break;
+
+            case "WELL_DETAILS":
+              currentResult = await this.dbActions.getWellDetails(actionParams[0] || "");
+              break;
+
+            case "TOP_WORKERS":
+              currentResult = await this.dbActions.getTopWorkers(parseInt(actionParams[0]) || 10);
+              break;
+
+            case "UNPAID_BALANCES":
+              currentResult = await this.dbActions.getWorkersUnpaidBalances();
+              break;
+
+            case "BUDGET_ANALYSIS":
+              currentResult = await this.dbActions.getBudgetAnalysis();
+              break;
+
+            case "RECENT_ACTIVITIES":
+              currentResult = await this.dbActions.getRecentActivities(parseInt(actionParams[0]) || 20);
+              break;
+
+            case "MONTHLY_TRENDS":
+              currentResult = await this.dbActions.getMonthlyTrends(actionParams[0] || undefined);
+              break;
+
+            case "GLOBAL_SEARCH":
+              currentResult = await this.dbActions.searchGlobal(actionParams[0] || "");
+              break;
+
+            case "PROJECT_COMPARISON":
+              currentResult = await this.dbActions.getProjectComparison();
               break;
 
             default:
@@ -578,6 +667,45 @@ export class AIAgentService {
           } else if (actionType === "WORKER_STATEMENT" || actionType === "PROJECT_EXPENSES" || actionType === "DAILY_EXPENSES") {
             const formattedReport = this.reportGenerator.formatAsText(currentResult.data, this.getActionTitle(actionType));
             processedResponse += "\n\n" + formattedReport;
+          } else if (actionType === "DASHBOARD") {
+            processedResponse += "\n\n" + this.formatDashboard(currentResult.data);
+          } else if (actionType === "BUDGET_ANALYSIS") {
+            processedResponse += "\n\n" + this.formatBudgetAnalysis(currentResult.data);
+          } else if (actionType === "SUPPLIER_STATEMENT") {
+            if (Array.isArray(currentResult.data)) {
+              processedResponse += `\n\n⚠️ ${currentResult.message}\n`;
+              for (const s of currentResult.data) {
+                processedResponse += `- **${s.name}** (${s.id}) — دين: ${parseFloat(s.totalDebt || '0').toLocaleString('ar')} ريال\n`;
+              }
+              processedResponse += `\nيرجى تحديد المورد بالمعرّف (ID) للحصول على كشف الحساب.`;
+            } else {
+              processedResponse += "\n\n" + this.formatSupplierStatement(currentResult.data);
+            }
+          } else if (actionType === "UNPAID_BALANCES") {
+            processedResponse += "\n\n" + this.formatUnpaidBalances(currentResult.data);
+          } else if (actionType === "TOP_WORKERS") {
+            processedResponse += "\n\n" + this.formatTopWorkers(currentResult.data);
+          } else if (actionType === "MONTHLY_TRENDS") {
+            processedResponse += "\n\n" + this.formatMonthlyTrends(currentResult.data);
+          } else if (actionType === "PROJECT_COMPARISON") {
+            processedResponse += "\n\n" + this.formatProjectComparison(currentResult.data);
+          } else if (actionType === "LIST_SUPPLIERS") {
+            processedResponse += "\n\n" + this.formatSuppliersList(currentResult.data);
+          } else if (actionType === "LIST_EQUIPMENT") {
+            processedResponse += "\n\n" + this.formatEquipmentList(currentResult.data);
+          } else if (actionType === "LIST_WELLS") {
+            processedResponse += "\n\n" + this.formatWellsList(currentResult.data);
+          } else if (actionType === "WELL_DETAILS") {
+            processedResponse += "\n\n" + this.formatWellDetails(currentResult.data);
+          } else if (actionType === "RECENT_ACTIVITIES") {
+            processedResponse += "\n\n" + this.formatRecentActivities(currentResult.data);
+          } else if (actionType === "GLOBAL_SEARCH") {
+            processedResponse += `\n\n✅ ${currentResult.message}`;
+            if (Array.isArray(currentResult.data) && currentResult.data.length > 0) {
+              processedResponse += "\n" + currentResult.data.map((r: any, i: number) => 
+                `${i + 1}. [${r.type}] **${r.name}** (${r.id})`
+              ).join("\n");
+            }
           } else {
             processedResponse += `\n\n✅ ${currentResult.message}`;
             if (Array.isArray(currentResult.data) && currentResult.data.length > 0) {
@@ -779,6 +907,170 @@ export class AIAgentService {
       case "DAILY_EXPENSES": return "تقرير المصروفات اليومي";
       default: return "تقرير النظام";
     }
+  }
+
+  // ==================== دوال التنسيق الاحترافي ====================
+
+  private n(val: any): string {
+    return parseFloat(String(val || 0)).toLocaleString("ar");
+  }
+
+  private formatDashboard(data: any): string {
+    const p = data.projects;
+    const w = data.workers;
+    const f = data.finance;
+    const s = data.suppliers;
+    let text = `📊 **لوحة المعلومات الشاملة**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    text += `🏗️ **المشاريع:** ${p.total} مشروع (${p.active} نشط، ${p.completed} مكتمل)\n`;
+    text += `👷 **العمال:** ${w.total} عامل (${w.active} نشط)\n`;
+    text += `📦 **الموردون:** ${s.total} مورد (ديون: ${this.n(s.totalDebt)} ريال)\n`;
+    text += `🔧 **المعدات:** ${data.equipment.total} قطعة\n`;
+    text += `💧 **الآبار:** ${data.wells.total} بئر\n\n`;
+
+    text += `💰 **الملخص المالي:**\n`;
+    text += `   إجمالي التمويل: **${this.n(f.totalFunds)} ريال**\n`;
+    text += `   ├─ أجور العمال: ${this.n(f.totalWages)} ريال\n`;
+    text += `   ├─ المواد: ${this.n(f.totalMaterials)} ريال\n`;
+    text += `   ├─ النقل: ${this.n(f.totalTransport)} ريال\n`;
+    text += `   └─ إجمالي المصروفات: ${this.n(f.totalExpenses)} ريال\n`;
+    text += `   ${f.balance >= 0 ? "✅" : "⚠️"} **الرصيد: ${this.n(f.balance)} ريال**\n`;
+    return text;
+  }
+
+  private formatBudgetAnalysis(data: any): string {
+    const { projects: pList, summary } = data;
+    let text = `📈 **تحليل الميزانيات**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+    if (summary.exceeded > 0) text += `🚨 **${summary.exceeded} مشروع تجاوز الميزانية!**\n`;
+    if (summary.critical > 0) text += `⚠️ **${summary.critical} مشروع في منطقة الخطر**\n\n`;
+
+    for (const p of pList) {
+      const icon = p.riskLevel === 'exceeded' ? '🔴' : p.riskLevel === 'critical' ? '🟠' : p.riskLevel === 'warning' ? '🟡' : '🟢';
+      text += `${icon} **${p.projectName}** — ${p.usagePercent}% من الميزانية\n`;
+      text += `   الميزانية: ${this.n(p.budget)} | المصروف: ${this.n(p.totalExpenses)} | المتبقي: ${this.n(p.remaining)} ريال\n`;
+    }
+    return text;
+  }
+
+  private formatSupplierStatement(data: any): string {
+    const { supplier, purchases, payments, summary } = data;
+    let text = `📦 **كشف حساب المورد: ${supplier.name}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `📞 ${supplier.phone || '-'} | شروط الدفع: ${supplier.paymentTerms || '-'}\n\n`;
+
+    text += `**المشتريات (${purchases.length}):**\n`;
+    for (const p of purchases.slice(0, 15)) {
+      text += `   📅 ${p.purchaseDate || '-'} | ${p.itemName || 'مواد'} | ${this.n(p.totalAmount)} ريال\n`;
+    }
+
+    text += `\n**المدفوعات (${payments.length}):**\n`;
+    for (const p of payments.slice(0, 15)) {
+      text += `   📅 ${p.paymentDate} | ${p.paymentMethod} | ${this.n(p.amount)} ريال\n`;
+    }
+
+    text += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `إجمالي المشتريات: **${this.n(summary.totalPurchases)} ريال**\n`;
+    text += `إجمالي المدفوعات: **${this.n(summary.totalPayments)} ريال**\n`;
+    const bal = summary.balance;
+    text += `${bal > 0 ? "🔴" : "✅"} الرصيد المتبقي: **${this.n(bal)} ريال**\n`;
+    return text;
+  }
+
+  private formatUnpaidBalances(data: any): string {
+    let text = `💸 **المستحقات غير المدفوعة**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `عدد العمال: ${data.count} | الإجمالي: **${this.n(data.totalUnpaid)} ريال**\n\n`;
+
+    for (const w of (data.workers || []).slice(0, 20)) {
+      text += `👷 **${w.name}** — مستحق: **${this.n(w.balance)} ريال**\n`;
+      text += `   (مكتسب: ${this.n(w.totalEarned)} | مدفوع: ${this.n(w.totalPaid)})\n`;
+    }
+    return text;
+  }
+
+  private formatTopWorkers(data: any[]): string {
+    let text = `🏆 **أعلى العمال من حيث المستحقات**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (let i = 0; i < data.length; i++) {
+      const w = data[i];
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+      text += `${medal} **${w.name}** (${w.type || '-'}) — ${this.n(w.totalEarned)} ريال (${this.n(w.totalDays)} يوم)\n`;
+    }
+    return text;
+  }
+
+  private formatMonthlyTrends(data: any[]): string {
+    let text = `📈 **اتجاهات المصروفات الشهرية**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (const m of data) {
+      const total = parseFloat(m.wages || 0) + parseFloat(m.materials || 0) + parseFloat(m.transport || 0);
+      text += `📅 **${m.month}** — الإجمالي: ${this.n(total)} ريال\n`;
+      text += `   أجور: ${this.n(m.wages)} | مواد: ${this.n(m.materials)} | نقل: ${this.n(m.transport)}\n`;
+    }
+    return text;
+  }
+
+  private formatProjectComparison(data: any[]): string {
+    let text = `📊 **مقارنة المشاريع**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (let i = 0; i < data.length; i++) {
+      const p = data[i];
+      text += `${i + 1}. **${p.name}** (${p.status === 'active' ? '🟢 نشط' : '⚪ مكتمل'})\n`;
+      text += `   تمويل: ${this.n(p.totalFunds)} | مصروفات: ${this.n(p.totalExpenses)} | رصيد: ${this.n(p.balance)} ريال\n`;
+      text += `   أجور: ${this.n(p.wages)} | مواد: ${this.n(p.materials)} | نقل: ${this.n(p.transport)} | عمال: ${p.workerCount}\n\n`;
+    }
+    return text;
+  }
+
+  private formatSuppliersList(data: any[]): string {
+    let text = `📦 **قائمة الموردين** (${data.length})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (const s of data) {
+      const debt = parseFloat(s.totalDebt || '0');
+      text += `📋 **${s.name}** ${debt > 0 ? `— دين: ${this.n(debt)} ريال` : '— لا ديون'}\n`;
+      if (s.phone) text += `   📞 ${s.phone}\n`;
+    }
+    return text;
+  }
+
+  private formatEquipmentList(data: any[]): string {
+    let text = `🔧 **قائمة المعدات** (${data.length})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (const e of data) {
+      const statusIcon = e.status === 'available' ? '🟢' : e.status === 'in_use' ? '🔵' : '🔴';
+      text += `${statusIcon} **${e.name}** — الكمية: ${e.quantity} ${e.unit || ''} | الحالة: ${e.status || 'متاحة'}\n`;
+    }
+    return text;
+  }
+
+  private formatWellsList(data: any[]): string {
+    let text = `💧 **قائمة الآبار** (${data.length})\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (const w of data) {
+      const pct = w.completionPercentage || 0;
+      const bar = '█'.repeat(Math.floor(pct / 10)) + '░'.repeat(10 - Math.floor(pct / 10));
+      text += `🔹 **بئر #${w.wellNumber}** — ${w.ownerName} (${w.region || '-'})\n`;
+      text += `   [${bar}] ${pct}% | الحالة: ${w.status || '-'}\n`;
+    }
+    return text;
+  }
+
+  private formatWellDetails(data: any): string {
+    const { well, tasks, summary } = data;
+    let text = `💧 **تفاصيل البئر رقم ${well.wellNumber}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `المالك: ${well.ownerName} | المنطقة: ${well.region || '-'} | الإنجاز: ${well.completionPercentage || 0}%\n\n`;
+
+    text += `**المهام (${summary.completedTasks}/${summary.totalTasks}):**\n`;
+    for (const t of tasks) {
+      const icon = t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⏳';
+      text += `   ${icon} ${t.taskType} ${t.actualCost ? `— ${this.n(t.actualCost)} ريال` : ''}\n`;
+    }
+
+    text += `\nالتكلفة التقديرية: ${this.n(summary.totalEstimated)} ريال\n`;
+    text += `التكلفة الفعلية: ${this.n(summary.totalActual)} ريال\n`;
+    return text;
+  }
+
+  private formatRecentActivities(data: any[]): string {
+    let text = `🕐 **آخر العمليات في النظام**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    for (const a of data) {
+      const icon = a.type === 'حضور' ? '👷' : a.type === 'مشتريات' ? '📦' : '💰';
+      text += `${icon} ${a.date || '-'} | ${a.type} | ${a.description || '-'} | ${this.n(a.amount)} ريال\n`;
+    }
+    return text;
   }
 
   /**

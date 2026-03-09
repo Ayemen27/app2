@@ -17,6 +17,14 @@ import {
   workerMiscExpenses,
   dailyExpenseSummaries,
   suppliers,
+  supplierPayments,
+  equipment,
+  equipmentMovements,
+  wells,
+  wellTasks,
+  wellExpenses,
+  notifications,
+  auditLogs,
 } from "@shared/schema";
 
 export interface ActionResult {
@@ -1212,6 +1220,502 @@ export class DatabaseActions {
         message: `خطأ في تنفيذ الاستعلام: ${error.message}`,
         action: "execute_sql",
       };
+    }
+  }
+  // ==================== أدوات ذكية متقدمة ====================
+
+  async getDashboardSummary(): Promise<ActionResult> {
+    try {
+      const [projectStats] = await db.select({
+        total: sql<number>`count(*)`,
+        active: sql<number>`count(*) filter (where ${projects.status} = 'active')`,
+        completed: sql<number>`count(*) filter (where ${projects.status} = 'completed')`,
+      }).from(projects);
+
+      const [workerStats] = await db.select({
+        total: sql<number>`count(*)`,
+        active: sql<number>`count(*) filter (where ${workers.isActive} = true)`,
+      }).from(workers);
+
+      const [fundStats] = await db.select({
+        totalFunds: sql<string>`coalesce(sum(${fundTransfers.amount}::numeric), 0)`,
+      }).from(fundTransfers);
+
+      const [attendanceStats] = await db.select({
+        totalWages: sql<string>`coalesce(sum(${workerAttendance.totalPay}::numeric), 0)`,
+        totalPaid: sql<string>`coalesce(sum(${workerAttendance.paidAmount}::numeric), 0)`,
+      }).from(workerAttendance);
+
+      const [materialStats] = await db.select({
+        totalMaterials: sql<string>`coalesce(sum(${materialPurchases.totalAmount}::numeric), 0)`,
+      }).from(materialPurchases);
+
+      const [transportStats] = await db.select({
+        totalTransport: sql<string>`coalesce(sum(${transportationExpenses.amount}::numeric), 0)`,
+      }).from(transportationExpenses);
+
+      const [supplierStats] = await db.select({
+        totalSuppliers: sql<number>`count(*)`,
+        totalDebt: sql<string>`coalesce(sum(${suppliers.totalDebt}::numeric), 0)`,
+      }).from(suppliers);
+
+      const [equipmentStats] = await db.select({
+        totalEquipment: sql<number>`count(*)`,
+      }).from(equipment);
+
+      const [wellStats] = await db.select({
+        totalWells: sql<number>`count(*)`,
+      }).from(wells);
+
+      const totalFunds = parseFloat(fundStats.totalFunds || '0');
+      const totalWages = parseFloat(attendanceStats.totalWages || '0');
+      const totalMaterials = parseFloat(materialStats.totalMaterials || '0');
+      const totalTransport = parseFloat(transportStats.totalTransport || '0');
+      const totalExpenses = totalWages + totalMaterials + totalTransport;
+
+      return {
+        success: true,
+        data: {
+          projects: { total: projectStats.total, active: projectStats.active, completed: projectStats.completed },
+          workers: { total: workerStats.total, active: workerStats.active },
+          finance: {
+            totalFunds,
+            totalExpenses,
+            totalWages,
+            totalMaterials,
+            totalTransport,
+            balance: totalFunds - totalExpenses,
+            wagesPaid: parseFloat(attendanceStats.totalPaid || '0'),
+          },
+          suppliers: { total: supplierStats.totalSuppliers, totalDebt: parseFloat(supplierStats.totalDebt || '0') },
+          equipment: { total: equipmentStats.totalEquipment },
+          wells: { total: wellStats.totalWells },
+        },
+        message: "تم جلب ملخص لوحة المعلومات",
+        action: "dashboard_summary",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "dashboard_summary" };
+    }
+  }
+
+  async getSuppliersList(): Promise<ActionResult> {
+    try {
+      const result = await db.select().from(suppliers).orderBy(desc(suppliers.totalDebt));
+      return {
+        success: true,
+        data: result,
+        message: result.length > 0 ? `تم العثور على ${result.length} مورد` : "لا يوجد موردون مسجلون",
+        action: "list_suppliers",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "list_suppliers" };
+    }
+  }
+
+  async getSupplierStatement(supplierIdOrName: string): Promise<ActionResult> {
+    try {
+      const isUUID = /^[0-9a-f]{8}-/.test(supplierIdOrName);
+      let supplier: any;
+
+      if (isUUID) {
+        const [s] = await db.select().from(suppliers).where(eq(suppliers.id, supplierIdOrName));
+        supplier = s;
+      } else {
+        const results = await db.select().from(suppliers)
+          .where(sql`${suppliers.name} ILIKE ${'%' + supplierIdOrName.trim() + '%'}`);
+        if (results.length === 1) supplier = results[0];
+        else if (results.length > 1) {
+          return {
+            success: true,
+            data: results.map(s => ({ id: s.id, name: s.name, totalDebt: s.totalDebt })),
+            message: `تم العثور على ${results.length} مورد. يرجى التحديد:`,
+            action: "supplier_statement",
+          };
+        }
+      }
+
+      if (!supplier) return { success: false, message: `لم يتم العثور على المورد "${supplierIdOrName}"`, action: "supplier_statement" };
+
+      const purchases = await db.select().from(materialPurchases)
+        .where(eq(materialPurchases.supplier_id, supplier.id))
+        .orderBy(desc(materialPurchases.purchaseDate));
+
+      const payments = await db.select().from(supplierPayments)
+        .where(eq(supplierPayments.supplier_id, supplier.id))
+        .orderBy(desc(supplierPayments.paymentDate));
+
+      const totalPurchases = purchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0);
+      const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+
+      return {
+        success: true,
+        data: {
+          supplier,
+          purchases,
+          payments,
+          summary: { totalPurchases, totalPayments, balance: totalPurchases - totalPayments },
+        },
+        message: `كشف حساب المورد: ${supplier.name}`,
+        action: "supplier_statement",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "supplier_statement" };
+    }
+  }
+
+  async getEquipmentList(): Promise<ActionResult> {
+    try {
+      const result = await db.select().from(equipment).orderBy(equipment.name);
+      return {
+        success: true,
+        data: result,
+        message: result.length > 0 ? `تم العثور على ${result.length} معدة/أداة` : "لا توجد معدات مسجلة",
+        action: "list_equipment",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "list_equipment" };
+    }
+  }
+
+  async getEquipmentMovements(equipmentId: string): Promise<ActionResult> {
+    try {
+      const eqId = parseInt(equipmentId);
+      const [eq_item] = await db.select().from(equipment).where(eq(equipment.id, eqId));
+      if (!eq_item) return { success: false, message: "المعدة غير موجودة", action: "equipment_movements" };
+
+      const movements = await db.select().from(equipmentMovements)
+        .where(eq(equipmentMovements.equipmentId, eqId))
+        .orderBy(desc(equipmentMovements.movementDate));
+
+      return {
+        success: true,
+        data: { equipment: eq_item, movements },
+        message: `حركات المعدة: ${eq_item.name} (${movements.length} حركة)`,
+        action: "equipment_movements",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "equipment_movements" };
+    }
+  }
+
+  async getWellsList(): Promise<ActionResult> {
+    try {
+      const result = await db.select().from(wells).orderBy(wells.id);
+      return {
+        success: true,
+        data: result,
+        message: result.length > 0 ? `تم العثور على ${result.length} بئر` : "لا توجد آبار مسجلة",
+        action: "list_wells",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "list_wells" };
+    }
+  }
+
+  async getWellDetails(wellId: string): Promise<ActionResult> {
+    try {
+      const wId = parseInt(wellId);
+      const [well] = await db.select().from(wells).where(eq(wells.id, wId));
+      if (!well) return { success: false, message: "البئر غير موجود", action: "well_details" };
+
+      const tasks = await db.select().from(wellTasks).where(eq(wellTasks.well_id, wId)).orderBy(wellTasks.taskOrder);
+      const expenses = await db.select().from(wellExpenses).where(eq(wellExpenses.well_id, wId));
+
+      const totalEstimated = tasks.reduce((s, t) => s + parseFloat(t.estimatedCost || '0'), 0);
+      const totalActual = tasks.reduce((s, t) => s + parseFloat(t.actualCost || '0'), 0);
+      const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.totalAmount || '0'), 0);
+      const completedTasks = tasks.filter(t => t.status === 'completed').length;
+
+      return {
+        success: true,
+        data: {
+          well,
+          tasks,
+          expenses,
+          summary: { totalEstimated, totalActual, totalExpenses, completedTasks, totalTasks: tasks.length },
+        },
+        message: `تفاصيل البئر رقم ${well.wellNumber} - ${well.ownerName}`,
+        action: "well_details",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "well_details" };
+    }
+  }
+
+  async getTopWorkers(limit: number = 10): Promise<ActionResult> {
+    try {
+      const result = await db.select({
+        id: workers.id,
+        name: workers.name,
+        type: workers.type,
+        dailyWage: workers.dailyWage,
+        totalEarned: sql<string>`coalesce(sum(${workerAttendance.totalPay}::numeric), 0)`,
+        totalPaid: sql<string>`coalesce(sum(${workerAttendance.paidAmount}::numeric), 0)`,
+        totalDays: sql<string>`coalesce(sum(${workerAttendance.workDays}::numeric), 0)`,
+      })
+      .from(workers)
+      .leftJoin(workerAttendance, eq(workers.id, workerAttendance.worker_id))
+      .groupBy(workers.id, workers.name, workers.type, workers.dailyWage)
+      .orderBy(sql`sum(${workerAttendance.totalPay}::numeric) desc nulls last`)
+      .limit(limit);
+
+      return {
+        success: true,
+        data: result,
+        message: `أعلى ${result.length} عامل من حيث المستحقات`,
+        action: "top_workers",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "top_workers" };
+    }
+  }
+
+  async getBudgetAnalysis(): Promise<ActionResult> {
+    try {
+      const allProjects = await db.select().from(projects).where(eq(projects.status, 'active'));
+      const analysis: any[] = [];
+
+      for (const project of allProjects) {
+        const budget = parseFloat(project.budget || '0');
+        if (budget <= 0) continue;
+
+        const [funds] = await db.select({ total: sql<string>`coalesce(sum(${fundTransfers.amount}::numeric), 0)` })
+          .from(fundTransfers).where(eq(fundTransfers.project_id, project.id));
+        const [wages] = await db.select({ total: sql<string>`coalesce(sum(${workerAttendance.totalPay}::numeric), 0)` })
+          .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
+        const [mats] = await db.select({ total: sql<string>`coalesce(sum(${materialPurchases.totalAmount}::numeric), 0)` })
+          .from(materialPurchases).where(eq(materialPurchases.project_id, project.id));
+        const [trans] = await db.select({ total: sql<string>`coalesce(sum(${transportationExpenses.amount}::numeric), 0)` })
+          .from(transportationExpenses).where(eq(transportationExpenses.project_id, project.id));
+
+        const totalExpenses = parseFloat(wages.total || '0') + parseFloat(mats.total || '0') + parseFloat(trans.total || '0');
+        const usagePercent = Math.round((totalExpenses / budget) * 100);
+        const remaining = budget - totalExpenses;
+
+        let riskLevel = 'safe';
+        if (usagePercent >= 100) riskLevel = 'exceeded';
+        else if (usagePercent >= 85) riskLevel = 'critical';
+        else if (usagePercent >= 70) riskLevel = 'warning';
+
+        analysis.push({
+          projectId: project.id,
+          projectName: project.name,
+          budget,
+          totalExpenses,
+          remaining,
+          usagePercent,
+          riskLevel,
+          totalFunds: parseFloat(funds.total || '0'),
+        });
+      }
+
+      analysis.sort((a, b) => b.usagePercent - a.usagePercent);
+
+      const exceeded = analysis.filter(a => a.riskLevel === 'exceeded').length;
+      const critical = analysis.filter(a => a.riskLevel === 'critical').length;
+
+      return {
+        success: true,
+        data: { projects: analysis, summary: { total: analysis.length, exceeded, critical } },
+        message: exceeded > 0 
+          ? `تحذير: ${exceeded} مشروع تجاوز الميزانية!`
+          : critical > 0 
+            ? `تنبيه: ${critical} مشروع قريب من حد الميزانية`
+            : "جميع المشاريع ضمن الميزانية المحددة",
+        action: "budget_analysis",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "budget_analysis" };
+    }
+  }
+
+  async getRecentActivities(limit: number = 20): Promise<ActionResult> {
+    try {
+      const recentAttendance = await db.select({
+        type: sql<string>`'حضور'`,
+        description: sql<string>`${workers.name} || ' - ' || ${workerAttendance.workDays} || ' يوم'`,
+        date: workerAttendance.attendanceDate,
+        amount: workerAttendance.totalPay,
+      }).from(workerAttendance)
+        .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
+        .orderBy(desc(workerAttendance.attendanceDate))
+        .limit(limit);
+
+      const recentPurchases = await db.select({
+        type: sql<string>`'مشتريات'`,
+        description: materialPurchases.materialName,
+        date: materialPurchases.purchaseDate,
+        amount: materialPurchases.totalAmount,
+      }).from(materialPurchases)
+        .orderBy(desc(materialPurchases.purchaseDate))
+        .limit(limit);
+
+      const recentFunds = await db.select({
+        type: sql<string>`'تمويل'`,
+        description: sql<string>`'تحويل - ' || coalesce(${fundTransfers.senderName}, 'غير محدد')`,
+        date: fundTransfers.transferDate,
+        amount: fundTransfers.amount,
+      }).from(fundTransfers)
+        .orderBy(desc(fundTransfers.transferDate))
+        .limit(limit);
+
+      const all = [...recentAttendance, ...recentPurchases, ...recentFunds]
+        .sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          return dateB - dateA;
+        })
+        .slice(0, limit);
+
+      return {
+        success: true,
+        data: all,
+        message: `آخر ${all.length} عملية في النظام`,
+        action: "recent_activities",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "recent_activities" };
+    }
+  }
+
+  async getMonthlyTrends(projectId?: string): Promise<ActionResult> {
+    try {
+      const projectFilter = projectId ? `AND project_id = $1` : '';
+      const params = projectId ? [projectId] : [];
+
+      const result = await pool.query(`
+        WITH months AS (
+          SELECT generate_series(
+            date_trunc('month', CURRENT_DATE - interval '5 months'),
+            date_trunc('month', CURRENT_DATE),
+            interval '1 month'
+          )::date AS month
+        )
+        SELECT 
+          to_char(m.month, 'YYYY-MM') as month,
+          coalesce((SELECT sum(total_pay::numeric) FROM worker_attendance WHERE date_trunc('month', attendance_date::date) = m.month ${projectFilter}), 0) as wages,
+          coalesce((SELECT sum(total_amount::numeric) FROM material_purchases WHERE date_trunc('month', purchase_date::date) = m.month ${projectFilter}), 0) as materials,
+          coalesce((SELECT sum(amount::numeric) FROM transportation_expenses WHERE date_trunc('month', date::date) = m.month ${projectFilter}), 0) as transport
+        FROM months m
+        ORDER BY m.month
+      `, params);
+
+      return {
+        success: true,
+        data: result.rows,
+        message: `اتجاهات المصروفات الشهرية (آخر 6 أشهر)`,
+        action: "monthly_trends",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "monthly_trends" };
+    }
+  }
+
+  async searchGlobal(query: string): Promise<ActionResult> {
+    try {
+      const searchTerm = '%' + query.trim() + '%';
+
+      const projectResults = await db.select({ id: projects.id, name: projects.name, type: sql<string>`'مشروع'` })
+        .from(projects).where(sql`${projects.name} ILIKE ${searchTerm}`).limit(5);
+
+      const workerResults = await db.select({ id: workers.id, name: workers.name, type: sql<string>`'عامل'` })
+        .from(workers).where(sql`${workers.name} ILIKE ${searchTerm}`).limit(5);
+
+      const supplierResults = await db.select({ id: suppliers.id, name: suppliers.name, type: sql<string>`'مورد'` })
+        .from(suppliers).where(sql`${suppliers.name} ILIKE ${searchTerm}`).limit(5);
+
+      const equipmentResults = await db.select({ id: sql<string>`${equipment.id}::text`, name: equipment.name, type: sql<string>`'معدة'` })
+        .from(equipment).where(sql`${equipment.name} ILIKE ${searchTerm}`).limit(5);
+
+      const all = [...projectResults, ...workerResults, ...supplierResults, ...equipmentResults];
+
+      return {
+        success: true,
+        data: all,
+        message: all.length > 0 ? `تم العثور على ${all.length} نتيجة لـ "${query}"` : `لم يتم العثور على نتائج لـ "${query}"`,
+        action: "global_search",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "global_search" };
+    }
+  }
+
+  async getWorkersUnpaidBalances(): Promise<ActionResult> {
+    try {
+      const result = await db.select({
+        id: workers.id,
+        name: workers.name,
+        type: workers.type,
+        totalEarned: sql<string>`coalesce(sum(${workerAttendance.totalPay}::numeric), 0)`,
+        totalPaid: sql<string>`coalesce(sum(${workerAttendance.paidAmount}::numeric), 0)`,
+        balance: sql<string>`coalesce(sum(${workerAttendance.totalPay}::numeric), 0) - coalesce(sum(${workerAttendance.paidAmount}::numeric), 0)`,
+      })
+      .from(workers)
+      .leftJoin(workerAttendance, eq(workers.id, workerAttendance.worker_id))
+      .where(eq(workers.isActive, true))
+      .groupBy(workers.id, workers.name, workers.type)
+      .having(sql`coalesce(sum(${workerAttendance.totalPay}::numeric), 0) - coalesce(sum(${workerAttendance.paidAmount}::numeric), 0) > 0`)
+      .orderBy(sql`coalesce(sum(${workerAttendance.totalPay}::numeric), 0) - coalesce(sum(${workerAttendance.paidAmount}::numeric), 0) desc`);
+
+      const totalUnpaid = result.reduce((s, r) => s + parseFloat(r.balance || '0'), 0);
+
+      return {
+        success: true,
+        data: { workers: result, totalUnpaid, count: result.length },
+        message: result.length > 0 
+          ? `${result.length} عامل لديهم مستحقات غير مدفوعة (إجمالي: ${totalUnpaid.toLocaleString('ar')} ريال)`
+          : "لا توجد مستحقات غير مدفوعة",
+        action: "unpaid_balances",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "unpaid_balances" };
+    }
+  }
+
+  async getProjectComparison(): Promise<ActionResult> {
+    try {
+      const allProjects = await db.select().from(projects);
+      const comparison: any[] = [];
+
+      for (const project of allProjects) {
+        const [funds] = await db.select({ total: sql<string>`coalesce(sum(${fundTransfers.amount}::numeric), 0)` })
+          .from(fundTransfers).where(eq(fundTransfers.project_id, project.id));
+        const [wages] = await db.select({ total: sql<string>`coalesce(sum(${workerAttendance.totalPay}::numeric), 0)` })
+          .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
+        const [mats] = await db.select({ total: sql<string>`coalesce(sum(${materialPurchases.totalAmount}::numeric), 0)` })
+          .from(materialPurchases).where(eq(materialPurchases.project_id, project.id));
+        const [trans] = await db.select({ total: sql<string>`coalesce(sum(${transportationExpenses.amount}::numeric), 0)` })
+          .from(transportationExpenses).where(eq(transportationExpenses.project_id, project.id));
+        const [workerCount] = await db.select({ count: sql<number>`count(distinct ${workerAttendance.worker_id})` })
+          .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
+
+        const totalExpenses = parseFloat(wages.total) + parseFloat(mats.total) + parseFloat(trans.total);
+
+        comparison.push({
+          name: project.name,
+          status: project.status,
+          budget: parseFloat(project.budget || '0'),
+          totalFunds: parseFloat(funds.total),
+          totalExpenses,
+          wages: parseFloat(wages.total),
+          materials: parseFloat(mats.total),
+          transport: parseFloat(trans.total),
+          balance: parseFloat(funds.total) - totalExpenses,
+          workerCount: workerCount.count,
+        });
+      }
+
+      comparison.sort((a, b) => b.totalExpenses - a.totalExpenses);
+
+      return {
+        success: true,
+        data: comparison,
+        message: `مقارنة ${comparison.length} مشروع`,
+        action: "project_comparison",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "project_comparison" };
     }
   }
 }

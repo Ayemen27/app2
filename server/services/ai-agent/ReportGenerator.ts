@@ -349,6 +349,349 @@ export class ReportGenerator {
   }
 
   /**
+   * تقرير كشف حساب مورد Excel احترافي
+   */
+  async generateSupplierStatementExcel(supplierId: string): Promise<ReportResult> {
+    try {
+      const result = await this.dbActions.getSupplierStatement(supplierId);
+      if (!result.success) return { success: false, message: result.message };
+      if (Array.isArray(result.data)) {
+        return { success: false, message: `تم العثور على ${result.data.length} مورد. يرجى تحديد المورد بالمعرّف (ID).` };
+      }
+
+      const data = result.data;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'نظام إدارة المشاريع';
+      workbook.created = new Date();
+
+      const ws = workbook.addWorksheet('كشف حساب مورد');
+      ws.views = [{ rightToLeft: true }];
+
+      ws.columns = [
+        { key: 'A', width: 14 },
+        { key: 'B', width: 28 },
+        { key: 'C', width: 14 },
+        { key: 'D', width: 14 },
+        { key: 'E', width: 14 },
+        { key: 'F', width: 16 },
+      ];
+
+      const primary = 'FF1E3A5F';
+      const secondary = 'FF2E86AB';
+      const light = 'FFF5F5F5';
+      const green = 'FF1B7E4E';
+      const red = 'FFC0392B';
+      const white = 'FFFFFFFF';
+
+      const border = (row: ExcelJS.Row) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            left: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            bottom: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            right: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+          };
+        });
+      };
+
+      ws.mergeCells('A1:F1');
+      const h1 = ws.getCell('A1');
+      h1.value = 'نظام إدارة المشاريع الإنشائية';
+      h1.font = { size: 13, bold: true, color: { argb: white } };
+      h1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
+      h1.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 28;
+
+      ws.mergeCells('A2:F2');
+      const h2 = ws.getCell('A2');
+      h2.value = `كشف حساب المورد: ${data.supplier.name}`;
+      h2.font = { size: 14, bold: true, color: { argb: white } };
+      h2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondary } };
+      h2.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(2).height = 26;
+
+      ws.addRow([]);
+      const infoRow = ws.addRow(['معلومات المورد', '', '', '', '', '']);
+      ws.mergeCells(`A4:F4`);
+      infoRow.getCell(1).font = { bold: true, size: 11, color: { argb: primary } };
+      infoRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: light } };
+
+      const infos = [
+        ['الاسم', data.supplier.name, '', 'الهاتف', data.supplier.phone || '-', ''],
+        ['شروط الدفع', data.supplier.paymentTerms || '-', '', 'تاريخ التقرير', new Date().toLocaleDateString('ar-SA'), ''],
+      ];
+      for (const info of infos) {
+        const r = ws.addRow(info);
+        r.getCell(1).font = { bold: true };
+        r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: light } };
+        r.getCell(4).font = { bold: true };
+        r.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: light } };
+        border(r);
+      }
+
+      ws.addRow([]);
+      const purchTitle = ws.addRow(['📦 المشتريات', '', '', '', '', '']);
+      ws.mergeCells(`A${purchTitle.number}:F${purchTitle.number}`);
+      purchTitle.getCell(1).font = { bold: true, size: 11, color: { argb: white } };
+      purchTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
+      purchTitle.getCell(1).alignment = { horizontal: 'center' };
+      purchTitle.height = 22;
+
+      const phdr = ws.addRow(['التاريخ', 'الصنف', 'الكمية', 'السعر', 'الإجمالي', 'المدفوع']);
+      phdr.eachCell({ includeEmpty: true }, (c) => {
+        c.font = { bold: true, size: 10, color: { argb: white } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondary } };
+        c.alignment = { horizontal: 'center' };
+      });
+      border(phdr);
+
+      for (const p of data.purchases) {
+        const r = ws.addRow([
+          p.purchaseDate || '-',
+          p.itemName || 'مواد',
+          parseFloat(p.quantity || '0'),
+          parseFloat(p.unitPrice || '0'),
+          parseFloat(p.totalAmount || '0'),
+          parseFloat(p.paidAmount || '0'),
+        ]);
+        r.getCell(3).numFmt = '#,##0';
+        r.getCell(4).numFmt = '#,##0';
+        r.getCell(5).numFmt = '#,##0';
+        r.getCell(6).numFmt = '#,##0';
+        border(r);
+      }
+
+      if (data.purchases.length === 0) {
+        const emptyRow = ws.addRow(['لا توجد مشتريات مسجلة', '', '', '', '', '']);
+        ws.mergeCells(`A${emptyRow.number}:F${emptyRow.number}`);
+        emptyRow.getCell(1).alignment = { horizontal: 'center' };
+        emptyRow.getCell(1).font = { italic: true, color: { argb: 'FF888888' } };
+      }
+
+      ws.addRow([]);
+      const payTitle = ws.addRow(['💰 المدفوعات', '', '', '', '', '']);
+      ws.mergeCells(`A${payTitle.number}:F${payTitle.number}`);
+      payTitle.getCell(1).font = { bold: true, size: 11, color: { argb: white } };
+      payTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
+      payTitle.getCell(1).alignment = { horizontal: 'center' };
+      payTitle.height = 22;
+
+      const payhdr = ws.addRow(['التاريخ', 'طريقة الدفع', 'المبلغ', 'رقم المرجع', 'ملاحظات', '']);
+      payhdr.eachCell({ includeEmpty: true }, (c) => {
+        c.font = { bold: true, size: 10, color: { argb: white } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondary } };
+        c.alignment = { horizontal: 'center' };
+      });
+      border(payhdr);
+
+      for (const p of data.payments) {
+        const r = ws.addRow([
+          p.paymentDate || '-',
+          p.paymentMethod || '-',
+          parseFloat(p.amount || '0'),
+          p.referenceNumber || '-',
+          p.notes || '',
+          '',
+        ]);
+        r.getCell(3).numFmt = '#,##0';
+        border(r);
+      }
+
+      if (data.payments.length === 0) {
+        const emptyRow = ws.addRow(['لا توجد مدفوعات مسجلة', '', '', '', '', '']);
+        ws.mergeCells(`A${emptyRow.number}:F${emptyRow.number}`);
+        emptyRow.getCell(1).alignment = { horizontal: 'center' };
+        emptyRow.getCell(1).font = { italic: true, color: { argb: 'FF888888' } };
+      }
+
+      ws.addRow([]);
+      const sumTitle = ws.addRow(['📊 الملخص النهائي', '', '', '', '', '']);
+      ws.mergeCells(`A${sumTitle.number}:F${sumTitle.number}`);
+      sumTitle.getCell(1).font = { bold: true, size: 12, color: { argb: white } };
+      sumTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
+      sumTitle.getCell(1).alignment = { horizontal: 'center' };
+      sumTitle.height = 24;
+
+      const summaryItems = [
+        ['إجمالي المشتريات', data.summary.totalPurchases],
+        ['إجمالي المدفوعات', data.summary.totalPayments],
+        ['الرصيد المتبقي (دين)', data.summary.balance],
+      ];
+
+      for (let i = 0; i < summaryItems.length; i++) {
+        const r = ws.addRow([summaryItems[i][0], '', summaryItems[i][1], '', '', '']);
+        ws.mergeCells(`A${r.number}:B${r.number}`);
+        ws.mergeCells(`C${r.number}:F${r.number}`);
+        r.getCell(1).font = { bold: true, size: 11 };
+        r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: light } };
+        const val = parseFloat(String(summaryItems[i][1] || '0'));
+        r.getCell(3).value = val;
+        r.getCell(3).numFmt = '#,##0 "ريال"';
+        const isLast = i === summaryItems.length - 1;
+        r.getCell(3).font = {
+          bold: isLast,
+          size: isLast ? 12 : 11,
+          color: { argb: isLast ? (val > 0 ? red : green) : 'FF333333' },
+        };
+        border(r);
+        r.height = isLast ? 24 : 20;
+      }
+
+      ws.addRow([]);
+      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('ar-SA')} - نظام إدارة المشاريع`, '', '', '', '', '']);
+      ws.mergeCells(`A${footer.number}:F${footer.number}`);
+      footer.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
+      footer.getCell(1).alignment = { horizontal: 'center' };
+
+      const fileName = `supplier_statement_${supplierId}_${Date.now()}.xlsx`;
+      const filePath = path.join(this.reportsDir, fileName);
+      await workbook.xlsx.writeFile(filePath);
+
+      return {
+        success: true,
+        filePath: `/reports/${fileName}`,
+        message: `تم إنشاء كشف حساب المورد ${data.supplier.name} بنجاح`,
+      };
+    } catch (error: any) {
+      console.error("Supplier Excel Error:", error);
+      return { success: false, message: `خطأ في إنشاء Excel: ${error.message}` };
+    }
+  }
+
+  /**
+   * تقرير لوحة المعلومات Excel احترافي
+   */
+  async generateDashboardExcel(): Promise<ReportResult> {
+    try {
+      const result = await this.dbActions.getDashboardSummary();
+      if (!result.success) return { success: false, message: result.message };
+
+      const data = result.data;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'نظام إدارة المشاريع';
+      workbook.created = new Date();
+
+      const ws = workbook.addWorksheet('لوحة المعلومات');
+      ws.views = [{ rightToLeft: true }];
+
+      ws.columns = [
+        { key: 'A', width: 22 },
+        { key: 'B', width: 18 },
+        { key: 'C', width: 18 },
+        { key: 'D', width: 18 },
+        { key: 'E', width: 18 },
+      ];
+
+      const primary = 'FF1E3A5F';
+      const secondary = 'FF2E86AB';
+      const light = 'FFF5F5F5';
+      const white = 'FFFFFFFF';
+      const green = 'FF1B7E4E';
+      const red = 'FFC0392B';
+
+      const border = (row: ExcelJS.Row) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            left: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            bottom: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            right: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+          };
+        });
+      };
+
+      ws.mergeCells('A1:E1');
+      const h1 = ws.getCell('A1');
+      h1.value = 'لوحة المعلومات الشاملة — نظام إدارة المشاريع';
+      h1.font = { size: 14, bold: true, color: { argb: white } };
+      h1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
+      h1.alignment = { horizontal: 'center', vertical: 'middle' };
+      ws.getRow(1).height = 30;
+
+      ws.mergeCells('A2:E2');
+      const h2 = ws.getCell('A2');
+      h2.value = `تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}`;
+      h2.font = { size: 11, color: { argb: white } };
+      h2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondary } };
+      h2.alignment = { horizontal: 'center' };
+      ws.getRow(2).height = 22;
+
+      ws.addRow([]);
+      const secTitle = (title: string) => {
+        const r = ws.addRow([title, '', '', '', '']);
+        ws.mergeCells(`A${r.number}:E${r.number}`);
+        r.getCell(1).font = { bold: true, size: 12, color: { argb: white } };
+        r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primary } };
+        r.getCell(1).alignment = { horizontal: 'center' };
+        r.height = 24;
+      };
+
+      const addKV = (label: string, value: any, fmt?: string) => {
+        const r = ws.addRow([label, '', value, '', '']);
+        ws.mergeCells(`A${r.number}:B${r.number}`);
+        ws.mergeCells(`C${r.number}:E${r.number}`);
+        r.getCell(1).font = { bold: true, size: 10 };
+        r.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: light } };
+        if (fmt) r.getCell(3).numFmt = fmt;
+        border(r);
+      };
+
+      secTitle('📊 ملخص النظام');
+      addKV('عدد المشاريع', `${data.projects.total} (${data.projects.active} نشط)`);
+      addKV('عدد العمال', `${data.workers.total} (${data.workers.active} نشط)`);
+      addKV('عدد الموردين', data.suppliers.total);
+      addKV('عدد المعدات', data.equipment.total);
+      addKV('عدد الآبار', data.wells.total);
+
+      ws.addRow([]);
+      secTitle('💰 الملخص المالي');
+      addKV('إجمالي التمويل', data.finance.totalFunds, '#,##0 "ريال"');
+      addKV('أجور العمال', data.finance.totalWages, '#,##0 "ريال"');
+      addKV('المواد والمشتريات', data.finance.totalMaterials, '#,##0 "ريال"');
+      addKV('النقل والشحن', data.finance.totalTransport, '#,##0 "ريال"');
+      addKV('إجمالي المصروفات', data.finance.totalExpenses, '#,##0 "ريال"');
+
+      const balRow = ws.addRow(['الرصيد', '', data.finance.balance, '', '']);
+      ws.mergeCells(`A${balRow.number}:B${balRow.number}`);
+      ws.mergeCells(`C${balRow.number}:E${balRow.number}`);
+      balRow.getCell(1).font = { bold: true, size: 12 };
+      balRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: light } };
+      balRow.getCell(3).numFmt = '#,##0 "ريال"';
+      balRow.getCell(3).font = {
+        bold: true,
+        size: 12,
+        color: { argb: data.finance.balance >= 0 ? green : red },
+      };
+      balRow.getCell(3).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: data.finance.balance >= 0 ? 'FFE8F5E9' : 'FFFCE4EC' },
+      };
+      border(balRow);
+      balRow.height = 26;
+
+      ws.addRow([]);
+      const footer = ws.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('ar-SA')} — نظام إدارة المشاريع`, '', '', '', '']);
+      ws.mergeCells(`A${footer.number}:E${footer.number}`);
+      footer.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
+      footer.getCell(1).alignment = { horizontal: 'center' };
+
+      const fileName = `dashboard_report_${Date.now()}.xlsx`;
+      const filePath = path.join(this.reportsDir, fileName);
+      await workbook.xlsx.writeFile(filePath);
+
+      return {
+        success: true,
+        filePath: `/reports/${fileName}`,
+        message: 'تم إنشاء تقرير لوحة المعلومات بنجاح',
+      };
+    } catch (error: any) {
+      console.error("Dashboard Excel Error:", error);
+      return { success: false, message: `خطأ في إنشاء Excel: ${error.message}` };
+    }
+  }
+
+  /**
    * إنشاء تقرير تصفية حساب عامل
    */
   async generateWorkerStatement(

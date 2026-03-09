@@ -154,6 +154,11 @@
   - `GET /api/reports/v2/worker-statement?worker_id=X&dateFrom=Y&dateTo=Z` — worker statement
   - `GET /api/reports/v2/period-final?project_id=X&dateFrom=Y&dateTo=Z` — period final report
   - `GET /api/reports/v2/export/:type?format=xlsx|pdf&...params` — Excel/PDF export
+- **Shared Design System** (`server/services/reports/templates/shared-styles.ts`):
+  - Unified professional navy/blue palette: navy=#1B2A4A, blue=#2E5090, accentBlue=#4A90D9
+  - English numerals via `formatNum()` (en-US locale), British DD/MM/YYYY dates via `formatDateBR()`
+  - Shared Excel helpers: `xlCompanyHeader`, `xlTitleRow`, `xlSectionHeader`, `xlTableHeader`, `xlDataRow`, `xlTotalsRow`, `xlGrandTotalRow`, `xlSignatures`, `xlFooter`
+  - Shared PDF helpers: `pdfHeader`, `pdfInfoBar`, `pdfKpiStrip`, `pdfSectionTitle`, `pdfTotalRow`, `pdfGrandTotalRow`, `pdfSignatures`, `pdfFooter`, `pdfWrap`
 - **Excel Templates** (ExcelJS, `server/services/reports/templates/`):
   - `DailyReportExcel.ts`, `WorkerStatementExcel.ts`, `PeriodFinalExcel.ts`
   - Professional RTL layout, Al-Fatihi branding, alternating rows, KPI strips, signature sections

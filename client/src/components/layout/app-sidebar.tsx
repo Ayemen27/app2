@@ -48,7 +48,6 @@ const sections = [
     icon: Package,
     items: [
       { title: "شراء المواد", url: "/material-purchase", icon: Package },
-      { title: "سجل المشتريات", url: "/material-purchases", icon: Package },
       { title: "الموردين", url: "/suppliers-pro", icon: Truck },
       { title: "إدارة النقل", url: "/transport-management", icon: Truck },
       { title: "الزبائن", url: "/customers", icon: Users },

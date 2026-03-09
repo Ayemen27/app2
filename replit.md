@@ -127,14 +127,15 @@
   - `workerRoutes.ts` — list filtering + 19 individual CRUD endpoints with project ownership checks
   - `wellRoutes.ts` — list filtering + 9 endpoints (GET/POST/PUT/DELETE/tasks/progress) with project checks
   - `wellExpenseRoutes.ts` — all 6 endpoints with well→project resolution and access checks
-  - `equipmentRoutes.ts` — list filtering + detail/update/delete project checks
+  - `equipmentRoutes.ts` — list filtering + detail/update/delete project checks + destination project validation on create/update/transfer
   - `financialRoutes.ts` — summary filtering + fund-transfers CRUD (GET/POST/PATCH/DELETE) access checks
   - `reportRoutes.ts` — all report endpoints check project_id against accessibleProjectIds
   - `ledgerRoutes.ts` — all :project_id endpoints + /projects-stats filtered for non-admin
   - `activityRoutes.ts` — activities filtered by accessible projects for non-admin
-  - `tasks.ts` — requires authentication (was previously unprotected)
+  - `tasks.ts` — requires authentication + admin role (was previously unprotected, now admin-only)
   - `securityRoutes.ts` — requires authentication + admin role (was previously unprotected)
   - `syncAuditRoutes.ts` — requires admin role (was previously accessible to all authenticated users)
+  - `downloadProxyRoutes.ts` — GET download requires auth + file ownership check (IDOR fixed)
 - **Admin API:** `server/routes/modules/permissionRoutes.ts` mounted at `/api/permissions`
   - GET /my, /project/:id, /user/:id, /audit-logs
   - POST /grant, PATCH /update, DELETE /revoke

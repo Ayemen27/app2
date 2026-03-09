@@ -20,6 +20,15 @@ import { inArray } from 'drizzle-orm';
 
 export const workerRouter = express.Router();
 
+function checkProjectAccess(req: Request, projectId: string | null | undefined): { allowed: boolean; isAdmin: boolean } {
+  const accessReq = req as ProjectAccessRequest;
+  const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+  if (isAdminUser) return { allowed: true, isAdmin: true };
+  const accessibleIds = accessReq.accessibleProjectIds ?? [];
+  if (!projectId || !accessibleIds.includes(projectId)) return { allowed: false, isAdmin: false };
+  return { allowed: true, isAdmin: false };
+}
+
 /**
  * 📋 جلب أنواع العمال - بدون مصادقة (بيانات عامة)
  * GET /worker-types
@@ -97,6 +106,11 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
   try {
     console.log('👷 [API] طلب إضافة عامل جديد من المستخدم:', req.user?.email);
     console.log('📋 [API] بيانات العامل المرسلة:', req.body);
+
+    const { allowed } = checkProjectAccess(req, req.body.project_id);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
 
     // Validation باستخدام enhanced schema
     const validationResult = enhancedInsertWorkerSchema.safeParse(req.body);
@@ -202,9 +216,17 @@ workerRouter.get('/workers/search/:query', async (req: Request, res: Response) =
     console.log(`🔍 [API] البحث عن عامل: "${query}"`);
 
     // البحث في الاسم أو المعرف
-    const searchResults = await db.select().from(workers).where(
+    let searchResults = await db.select().from(workers).where(
       sql`LOWER(${workers.name}) LIKE LOWER('%' || ${query} || '%') OR LOWER(${workers.id}) LIKE LOWER('%' || ${query} || '%')`
     );
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser) {
+      const accessibleIds = accessReq.accessibleProjectIds ?? [];
+      const idSet = new Set(accessibleIds);
+      searchResults = searchResults.filter(w => w.project_id && idSet.has(w.project_id));
+    }
 
     if (searchResults.length === 0) {
       const duration = Date.now() - startTime;
@@ -270,6 +292,11 @@ workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
       });
     }
 
+    const { allowed } = checkProjectAccess(req, worker[0].project_id);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
+    }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب العامل بنجاح في ${duration}ms:`, {
       id: worker[0].id,
@@ -330,6 +357,11 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
         message: `لم يتم العثور على عامل بالمعرف: ${worker_id}`,
         processingTime: duration
       });
+    }
+
+    const { allowed } = checkProjectAccess(req, existingWorker[0].project_id);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا العامل' });
     }
 
     // Validation باستخدام enhanced schema - نسمح بتحديث جزئي
@@ -484,6 +516,12 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     }
 
     const workerToDelete = existingWorker[0];
+
+    const { allowed: deleteAllowed } = checkProjectAccess(req, workerToDelete.project_id);
+    if (!deleteAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا العامل' });
+    }
+
     console.log('🗑️ [API] فحص إمكانية حذف العامل:', {
       id: workerToDelete.id,
       name: workerToDelete.name,
@@ -726,6 +764,11 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       });
     }
 
+    const { allowed: transferPatchAllowed } = checkProjectAccess(req, existingTransfer[0].project_id);
+    if (!transferPatchAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا التحويل' });
+    }
+
     // Map old frontend fields to schema fields if necessary
     const body = { ...req.body };
     if (body.fundAmount !== undefined && body.amount === undefined) {
@@ -827,6 +870,11 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       });
     }
 
+    const { allowed: transferDeleteAllowed } = checkProjectAccess(req, existingTransfer[0].project_id);
+    if (!transferDeleteAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا التحويل' });
+    }
+
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
@@ -901,25 +949,47 @@ workerRouter.get('/worker-misc-expenses', async (req: Request, res: Response) =>
     console.log('📊 [API] جلب مصاريف العمال المتنوعة');
     console.log('🔍 [API] معاملات الفلترة:', {project_id, date});
 
+    if (project_id) {
+      const { allowed } = checkProjectAccess(req, project_id as string);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+      }
+    }
+
     // بناء الاستعلام مع الفلترة
     let query;
 
+    const accessReqMisc = req as ProjectAccessRequest;
+    const isAdminMisc = projectAccessService.isAdmin(accessReqMisc.user?.role || '');
+    const accessibleMiscIds = accessReqMisc.accessibleProjectIds ?? [];
+
     // تطبيق الفلترة حسب المعاملات الموجودة
     if (project_id && date) {
-      // فلترة بكل من المشروع والتاريخ
       query = db.select().from(workerMiscExpenses).where(and(
         eq(workerMiscExpenses.project_id, project_id as string),
         eq(workerMiscExpenses.date, date as string)
       ));
     } else if (project_id) {
-      // فلترة بالمشروع فقط
       query = db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.project_id, project_id as string));
     } else if (date) {
-      // فلترة بالتاريخ فقط
-      query = db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, date as string));
+      if (!isAdminMisc && accessibleMiscIds.length > 0) {
+        query = db.select().from(workerMiscExpenses).where(and(
+          eq(workerMiscExpenses.date, date as string),
+          inArray(workerMiscExpenses.project_id, accessibleMiscIds)
+        ));
+      } else if (!isAdminMisc) {
+        query = db.select().from(workerMiscExpenses).where(sql`1=0`);
+      } else {
+        query = db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.date, date as string));
+      }
     } else {
-      // بدون فلترة
-      query = db.select().from(workerMiscExpenses);
+      if (!isAdminMisc && accessibleMiscIds.length > 0) {
+        query = db.select().from(workerMiscExpenses).where(inArray(workerMiscExpenses.project_id, accessibleMiscIds));
+      } else if (!isAdminMisc) {
+        query = db.select().from(workerMiscExpenses).where(sql`1=0`);
+      } else {
+        query = db.select().from(workerMiscExpenses);
+      }
     }
 
     const expenses = await query.orderBy(workerMiscExpenses.date);
@@ -980,6 +1050,11 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
         message: `لم يتم العثور على مصروف متنوع للعامل بالمعرف: ${expenseId}`,
         processingTime: duration
       });
+    }
+
+    const { allowed: expPatchAllowed } = checkProjectAccess(req, existingExpense[0].project_id);
+    if (!expPatchAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا المصروف' });
     }
 
     // Map old frontend fields to schema fields if necessary
@@ -1165,6 +1240,11 @@ workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
       });
     }
 
+    const { allowed: attGetAllowed } = checkProjectAccess(req, project_id as string);
+    if (!attGetAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     // تنظيف التاريخ إذا وجد
     let cleanDate = date as string;
     if (cleanDate && cleanDate.includes(' ')) {
@@ -1249,6 +1329,11 @@ workerRouter.get('/projects/:project_id/worker-attendance', async (req: Request,
         error: 'معرف المشروع مطلوب',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const { allowed: attLegacyAllowed } = checkProjectAccess(req, project_id);
+    if (!attLegacyAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     // تنظيف التاريخ إذا وجد
@@ -1356,6 +1441,12 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     }
 
     const attendanceToDelete = existingAttendance[0];
+
+    const { allowed: attDelAllowed } = checkProjectAccess(req, attendanceToDelete.project_id);
+    if (!attDelAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا السجل' });
+    }
+
     console.log('🗑️ [API] سيتم حذف سجل الحضور:', {
       id: attendanceToDelete.id,
       worker_id: attendanceToDelete.worker_id,
@@ -1433,6 +1524,11 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
   try {
     console.log('📝 [API] طلب إضافة حضور عامل جديد من المستخدم:', req.user?.email);
     console.log('📋 [API] بيانات حضور العامل المرسلة:', req.body);
+
+    const { allowed: attPostAllowed } = checkProjectAccess(req, req.body.project_id);
+    if (!attPostAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
 
     // Validation باستخدام insert schema مع معالجة خاصة للسحب المقدم
     const recordType = (req.body as any).recordType || 'work';
@@ -1649,6 +1745,11 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       });
     }
 
+    const { allowed: attPatchAllowed } = checkProjectAccess(req, existingAttendance[0].project_id);
+    if (!attPatchAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا السجل' });
+    }
+
     // Validation باستخدام تحقيق يدوي للبيانات - نسمح بتحديث جزئي
     const updateData: any = { ...req.body };
 
@@ -1780,6 +1881,11 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       });
     }
 
+    const { allowed: transferPatch2Allowed } = checkProjectAccess(req, existingTransfer[0].project_id);
+    if (!transferPatch2Allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا التحويل' });
+    }
+
     // Map old frontend fields to schema fields if necessary
     const body = { ...req.body };
     if (body.fundAmount !== undefined && body.amount === undefined) {
@@ -1892,6 +1998,11 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       });
     }
 
+    const { allowed: transferDel2Allowed } = checkProjectAccess(req, existingTransfer[0].project_id);
+    if (!transferDel2Allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا التحويل' });
+    }
+
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
@@ -1970,6 +2081,11 @@ workerRouter.get('/projects/:project_id/worker-misc-expenses', async (req: Reque
       });
     }
 
+    const { allowed: miscProjAllowed } = checkProjectAccess(req, project_id);
+    if (!miscProjAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     const expenses = await db.select()
       .from(workerMiscExpenses)
       .where(eq(workerMiscExpenses.project_id, project_id))
@@ -2030,6 +2146,11 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
         message: `لم يتم العثور على مصروف متنوع للعامل بالمعرف: ${expenseId}`,
         processingTime: duration
       });
+    }
+
+    const { allowed: expPatch2Allowed } = checkProjectAccess(req, existingExpense[0].project_id);
+    if (!expPatch2Allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا المصروف' });
     }
 
     // Map old frontend fields to schema fields if necessary
@@ -2147,6 +2268,18 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
         message: `لم يتم العثور على عامل بالمعرف: ${worker_id}`,
         processingTime: duration
       });
+    }
+
+    const { allowed: statsAllowed } = checkProjectAccess(req, worker[0].project_id);
+    if (!statsAllowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
+    }
+
+    if (!isAllProjects) {
+      const { allowed: statsProjAllowed } = checkProjectAccess(req, project_id!);
+      if (!statsProjAllowed) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+      }
     }
 
     // بناء شرط الفلترة بالمشروع

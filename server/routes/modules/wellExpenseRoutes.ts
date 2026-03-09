@@ -5,12 +5,35 @@
 
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/auth';
+import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 import WellExpenseService from '../../services/WellExpenseService';
+import { WellService } from '../../services/WellService';
+import { db } from '../../db';
+import { wellExpenses } from '../../../shared/schema';
+import { eq } from 'drizzle-orm';
 
 export const wellExpenseRouter = express.Router();
 
-// تطبيق المصادقة على جميع المسارات
 wellExpenseRouter.use(requireAuth);
+wellExpenseRouter.use(attachAccessibleProjects);
+
+async function getWellProjectId(wellId: number): Promise<string | null> {
+  try {
+    const well = await WellService.getWellById(wellId);
+    return well?.project_id || null;
+  } catch {
+    return null;
+  }
+}
+
+function checkAccess(accessReq: ProjectAccessRequest, projectId: string | null): boolean {
+  const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+  if (isAdminUser) return true;
+  if (!projectId) return false;
+  const accessibleIds = accessReq.accessibleProjectIds ?? [];
+  return accessibleIds.includes(projectId);
+}
 
 /**
  * GET /api/well-expenses/:well_id - جلب مصاريف البئر
@@ -18,6 +41,16 @@ wellExpenseRouter.use(requireAuth);
 wellExpenseRouter.get('/:well_id', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.well_id);
+    const accessReq = req as ProjectAccessRequest;
+
+    const projectId = await getWellProjectId(well_id);
+    if (!checkAccess(accessReq, projectId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك صلاحية للوصول لمصاريف هذا البئر'
+      });
+    }
+
     const { type, startDate, endDate } = req.query;
 
     const expenses = await WellExpenseService.getWellExpenses(well_id, {
@@ -54,6 +87,18 @@ wellExpenseRouter.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const wellId = req.body.well_id;
+    if (wellId) {
+      const projectId = await getWellProjectId(parseInt(wellId));
+      if (!checkAccess(accessReq, projectId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'ليس لديك صلاحية لإضافة مصاريف لهذا البئر'
+        });
+      }
+    }
+
     const expense = await WellExpenseService.addExpense(req.body, user.id);
 
     res.status(201).json({
@@ -85,6 +130,15 @@ wellExpenseRouter.post('/link', async (req: Request, res: Response) => {
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const projectId = await getWellProjectId(parseInt(well_id));
+    if (!checkAccess(accessReq, projectId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك صلاحية لربط مصاريف بهذا البئر'
+      });
+    }
+
     const expense = await WellExpenseService.linkExistingExpense(
       well_id,
       referenceType,
@@ -111,6 +165,23 @@ wellExpenseRouter.post('/link', async (req: Request, res: Response) => {
 wellExpenseRouter.delete('/:expenseId', async (req: Request, res: Response) => {
   try {
     const expenseId = parseInt(req.params.expenseId);
+
+    const accessReq = req as ProjectAccessRequest;
+    const expenseRecord = await db.select({ well_id: wellExpenses.well_id })
+      .from(wellExpenses)
+      .where(eq(wellExpenses.id, expenseId))
+      .limit(1);
+
+    if (expenseRecord.length > 0) {
+      const projectId = await getWellProjectId(expenseRecord[0].well_id);
+      if (!checkAccess(accessReq, projectId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'ليس لديك صلاحية لحذف هذا المصروف'
+        });
+      }
+    }
+
     await WellExpenseService.unlinkExpense(expenseId);
 
     res.json({
@@ -132,6 +203,16 @@ wellExpenseRouter.delete('/:expenseId', async (req: Request, res: Response) => {
 wellExpenseRouter.get('/cost-report/:well_id', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.well_id);
+
+    const accessReq = req as ProjectAccessRequest;
+    const projectId = await getWellProjectId(well_id);
+    if (!checkAccess(accessReq, projectId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك صلاحية للوصول لتقرير هذا البئر'
+      });
+    }
+
     const report = await WellExpenseService.getWellCostReport(well_id);
 
     res.json({
@@ -154,6 +235,17 @@ wellExpenseRouter.get('/cost-report/:well_id', async (req: Request, res: Respons
 wellExpenseRouter.get('/project-costs/:project_id', async (req: Request, res: Response) => {
   try {
     const { project_id } = req.params;
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك صلاحية للوصول لتكاليف هذا المشروع'
+      });
+    }
+
     const summary = await WellExpenseService.getProjectCostSummary(project_id);
 
     res.json({

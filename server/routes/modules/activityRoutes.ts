@@ -13,15 +13,24 @@ import {
 } from '../../../shared/schema.js';
 import { desc, eq, sql } from 'drizzle-orm';
 import { authenticate } from '../../middleware/auth.js';
+import { attachAccessibleProjects, ProjectAccessRequest, filterByAccessibleProjects } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 
 const router = express.Router();
 
 // جلب آخر الإجراءات
-router.get('/recent-activities', authenticate, async (req, res) => {
+router.get('/recent-activities', authenticate, attachAccessibleProjects, async (req, res) => {
   console.log('🔍 [API] تم استقبال طلب: GET /api/recent-activities');
   try {
     const { project_id } = req.query;
     const limit = parseInt(req.query.limit as string) || 20;
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && project_id && project_id !== 'all' && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
 
     console.log('📊 [API] جلب آخر الإجراءات:', { project_id, limit });
 
@@ -188,8 +197,10 @@ router.get('/recent-activities', authenticate, async (req, res) => {
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
+    const filtered = filterByAccessibleProjects(activities, accessibleIds, isAdminUser);
+
     // تجهيز النتيجة النهائية
-    const result = activities.slice(0, limit);
+    const result = filtered.slice(0, limit);
 
     console.log(`✅ [API] تم جلب ${result.length} إجراء بنظام Join المباشر`);
 

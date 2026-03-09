@@ -115,13 +115,26 @@
   - `isAdmin()`, `getAccessibleProjectIds()`, `checkProjectAccess()`, `grantPermission()`, `revokePermission()`, `updatePermission()`
   - Bypass: admin/super_admin roles → full access; engineerId match → owner access
 - **Middleware:** `server/middleware/projectAccess.ts`
-  - `attachAccessibleProjects` — loads `req.accessibleProjectIds` for list filtering
+  - `attachAccessibleProjects` — loads `req.accessibleProjectIds` for list filtering (Fail-Closed: defaults to [] on error)
   - `requireProjectAccess(action)` — enforces per-project access on PATCH/DELETE routes
+  - `filterByAccessibleProjects` — helper to filter arrays by accessible project IDs
+- **Middleware:** `server/middleware/auth.ts`
+  - Public path bypass uses strict `req.path` exact matching only (no substring bypass)
 - **DB Table:** `user_project_permissions` — columns: userId, projectId, canView, canAdd, canEdit, canDelete, assignedBy, assignedAt
 - **DB Table:** `permission_audit_logs` — tracks all grant/revoke/update actions with actor, target, old/new permissions
-- **Data Isolation:** All list endpoints filter by `accessibleProjectIds` using `inArray()`:
-  - `projectRoutes.ts` (GET /, /with-stats, /all-projects-expenses, PATCH /:id, DELETE /:id)
-  - `workerRoutes.ts`, `wellRoutes.ts`, `equipmentRoutes.ts`, `financialRoutes.ts`
+- **Data Isolation (Comprehensive - March 2026 Hardening):**
+  - `projectRoutes.ts` — list filtering + per-project CRUD access checks
+  - `workerRoutes.ts` — list filtering + 19 individual CRUD endpoints with project ownership checks
+  - `wellRoutes.ts` — list filtering + 9 endpoints (GET/POST/PUT/DELETE/tasks/progress) with project checks
+  - `wellExpenseRoutes.ts` — all 6 endpoints with well→project resolution and access checks
+  - `equipmentRoutes.ts` — list filtering + detail/update/delete project checks
+  - `financialRoutes.ts` — summary filtering + fund-transfers CRUD (GET/POST/PATCH/DELETE) access checks
+  - `reportRoutes.ts` — all report endpoints check project_id against accessibleProjectIds
+  - `ledgerRoutes.ts` — all :project_id endpoints + /projects-stats filtered for non-admin
+  - `activityRoutes.ts` — activities filtered by accessible projects for non-admin
+  - `tasks.ts` — requires authentication (was previously unprotected)
+  - `securityRoutes.ts` — requires authentication + admin role (was previously unprotected)
+  - `syncAuditRoutes.ts` — requires admin role (was previously accessible to all authenticated users)
 - **Admin API:** `server/routes/modules/permissionRoutes.ts` mounted at `/api/permissions`
   - GET /my, /project/:id, /user/:id, /audit-logs
   - POST /grant, PATCH /update, DELETE /revoke

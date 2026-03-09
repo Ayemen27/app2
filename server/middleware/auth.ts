@@ -264,12 +264,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       '/api/webauthn/login/options',
       '/api/webauthn/login/verify'
     ];
-    if (publicPaths.includes(req.path) || 
-        req.originalUrl.includes('/api/auth/login') || 
-        req.originalUrl.includes('/api/auth/forgot-password') ||
-        req.originalUrl.includes('/api/auth/reset-password') ||
-        req.originalUrl.includes('/api/auth/resend-verification') ||
-        req.originalUrl.includes('/api/webauthn/login/')) {
+    if (publicPaths.includes(req.path)) {
       return next();
     }
   try {

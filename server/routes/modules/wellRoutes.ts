@@ -64,6 +64,13 @@ wellRouter.get('/:id', async (req: Request, res: Response) => {
     const well_id = parseInt(req.params.id);
     const well = await WellService.getWellById(well_id);
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
     res.json({
       success: true,
       data: well,
@@ -91,6 +98,13 @@ wellRouter.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && req.body.project_id && !accessibleIds.includes(req.body.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
     const well = await WellService.createWell({
       ...req.body,
       createdBy: user.id
@@ -116,6 +130,15 @@ wellRouter.post('/', async (req: Request, res: Response) => {
 wellRouter.put('/:id', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.id);
+
+    const existingWell = await WellService.getWellById(well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingWell.project_id && !accessibleIds.includes(existingWell.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
     const well = await WellService.updateWell(well_id, req.body);
 
     res.json({
@@ -138,6 +161,15 @@ wellRouter.put('/:id', async (req: Request, res: Response) => {
 wellRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.id);
+
+    const existingWell = await WellService.getWellById(well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingWell.project_id && !accessibleIds.includes(existingWell.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
     await WellService.deleteWell(well_id);
 
     res.json({
@@ -159,6 +191,15 @@ wellRouter.delete('/:id', async (req: Request, res: Response) => {
 wellRouter.get('/:id/tasks', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.id);
+
+    const well = await WellService.getWellById(well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
     const tasks = await WellService.getWellTasks(well_id);
 
     res.json({
@@ -182,6 +223,14 @@ wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const well_id = parseInt(req.params.id);
+
+    const well = await WellService.getWellById(well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
 
     const task = await WellService.createTask(well_id, req.body, user.id);
 
@@ -208,6 +257,17 @@ wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) =>
     const taskId = parseInt(req.params.taskId);
     const { status } = req.body;
 
+    const taskCheck = await WellService.getTaskById(taskId);
+    if (taskCheck?.well_id) {
+      const well = await WellService.getWellById(taskCheck.well_id);
+      const accessReq = req as ProjectAccessRequest;
+      const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+      const accessibleIds = accessReq.accessibleProjectIds ?? [];
+      if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+      }
+    }
+
     const task = await WellService.updateTaskStatus(taskId, status, user.id);
 
     res.json({
@@ -231,6 +291,17 @@ wellRouter.post('/tasks/:taskId/account', async (req: Request, res: Response) =>
   try {
     const user = (req as any).user;
     const taskId = parseInt(req.params.taskId);
+
+    const taskCheck = await WellService.getTaskById(taskId);
+    if (taskCheck?.well_id) {
+      const well = await WellService.getWellById(taskCheck.well_id);
+      const accessReq = req as ProjectAccessRequest;
+      const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+      const accessibleIds = accessReq.accessibleProjectIds ?? [];
+      if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+      }
+    }
 
     const account = await WellService.accountTask(taskId, req.body, user.id);
 
@@ -289,6 +360,15 @@ wellRouter.get('/accounting/pending', async (req: Request, res: Response) => {
 wellRouter.get('/:id/progress', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.id);
+
+    const well = await WellService.getWellById(well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
     const progress = await WellService.getWellProgress(well_id);
 
     res.json({

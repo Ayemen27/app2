@@ -120,6 +120,13 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
       return sendError(res, 'معرف المشروع والتاريخ مطلوبان', 400);
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return sendError(res, 'ليس لديك صلاحية للوصول لهذا المشروع', 403);
+    }
+
     // تنظيف التاريخ لضمان صيغة YYYY-MM-DD ومطابقته لما هو مخزن
     let cleanDate = date as string;
     if (cleanDate.includes('T')) {
@@ -169,6 +176,13 @@ financialRouter.post('/daily-expense-summaries', async (req: Request, res: Respo
       return sendError(res, 'بيانات الملخص غير صحيحة', 400, result.error.errors);
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && result.data.project_id && !accessibleIds.includes(result.data.project_id)) {
+      return sendError(res, 'ليس لديك صلاحية للوصول لهذا المشروع', 403);
+    }
+
     const summary = await storage.createOrUpdateDailyExpenseSummary(result.data);
     return sendSuccess(res, summary, 'تم حفظ الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
   } catch (error: any) {
@@ -205,14 +219,22 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
       .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
       .orderBy(desc(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END)`));
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const filteredTransfers = isAdminUser
+      ? transfers
+      : transfers.filter(t => t.project_id && accessibleIds.includes(t.project_id));
+
     const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة في ${duration}ms`);
+    console.log(`✅ [API] تم جلب ${filteredTransfers.length} تحويل عهدة في ${duration}ms`);
 
     res.json({
       success: true,
       status: "success",
-      message: `تم جلب ${transfers.length} تحويل عهدة بنجاح`,
-      data: transfers,
+      message: `تم جلب ${filteredTransfers.length} تحويل عهدة بنجاح`,
+      data: filteredTransfers,
       timestamp: new Date().toISOString(),
       processingTime: duration
     });
@@ -271,6 +293,18 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
         processingTime: Date.now() - startTime
       });
     }
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (!isAdminUser && validationResult.data.project_id && !accessibleIds.includes(validationResult.data.project_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'ليس لديك صلاحية للوصول لهذا التحويل',
+        processingTime: Date.now() - startTime
+      });
+    }
+
     console.log('✅ [API] نجح validation تحويل العهدة');
 
     // معالجة التاريخ لضمان أنه نصي بصيغة YYYY-MM-DD
@@ -373,6 +407,13 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingTransfer[0]?.project_id && !accessibleIds.includes(existingTransfer[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا التحويل' });
+    }
+
     // Map old frontend fields to schema fields if necessary
     const body = { ...req.body };
     if (body.fundAmount !== undefined && body.amount === undefined) {
@@ -468,6 +509,13 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingTransfer[0]?.project_id && !accessibleIds.includes(existingTransfer[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا التحويل' });
+    }
+
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'حذف تحويل عهدة', (req as any).user?.id).then(() => ''),
       'fund-transfer/DELETE'
@@ -530,6 +578,13 @@ financialRouter.get('/daily-project-transfers', async (req: Request, res: Respon
         error: 'معرف المشروع والتاريخ مطلوبان',
         processingTime: duration
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     // استعلام مباشر للحصول على التحويلات الخاصة بالمشروع والتاريخ المحدد
@@ -655,13 +710,25 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
       transfers = await baseQuery.orderBy(desc(sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END)`));
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const filteredTransfers = isAdminUser
+      ? transfers
+      : transfers.filter((t: any) => {
+          const from = t.fromProjectId;
+          const to = t.toProjectId;
+          return (from && accessibleIds.includes(from)) || (to && accessibleIds.includes(to));
+        });
+
     const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم جلب ${transfers.length} تحويل مشروع في ${duration}ms`);
+    console.log(`✅ [API] تم جلب ${filteredTransfers.length} تحويل مشروع في ${duration}ms`);
 
     res.json({
       success: true,
-      data: transfers,
-      message: `تم جلب ${transfers.length} تحويل أموال مشاريع بنجاح`,
+      data: filteredTransfers,
+      message: `تم جلب ${filteredTransfers.length} تحويل أموال مشاريع بنجاح`,
       processingTime: duration
     });
   } catch (error: any) {
@@ -719,6 +786,17 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
         message: 'لا يمكن استخدام "جميع المشاريع" في تحويلات المشاريع. يرجى اختيار مشاريع محددة.',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser) {
+      const fromOk = !validationResult.data.fromProjectId || accessibleIds.includes(validationResult.data.fromProjectId);
+      const toOk = !validationResult.data.toProjectId || accessibleIds.includes(validationResult.data.toProjectId);
+      if (!fromOk || !toOk) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لأحد المشاريع في هذا التحويل' });
+      }
     }
 
     console.log('✅ [API] نجح validation تحويل المشروع');
@@ -799,6 +877,17 @@ financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: 
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser) {
+      const fromOk = !transfer[0].fromProjectId || accessibleIds.includes(transfer[0].fromProjectId);
+      const toOk = !transfer[0].toProjectId || accessibleIds.includes(transfer[0].toProjectId);
+      if (!fromOk || !toOk) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا التحويل' });
+      }
+    }
+
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'حذف', (req as any).user?.id).then(() => ''),
       'project-fund-transfers/DELETE'
@@ -844,6 +933,22 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
 
     if (!id) {
       return res.status(400).json({ success: false, error: 'معرف التحويل مطلوب' });
+    }
+
+    const existingTransfer = await db.select().from(projectFundTransfers).where(eq(projectFundTransfers.id, id)).limit(1);
+    if (existingTransfer.length === 0) {
+      return res.status(404).json({ success: false, error: 'التحويل غير موجود' });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser) {
+      const fromOk = !existingTransfer[0].fromProjectId || accessibleIds.includes(existingTransfer[0].fromProjectId);
+      const toOk = !existingTransfer[0].toProjectId || accessibleIds.includes(existingTransfer[0].toProjectId);
+      if (!fromOk || !toOk) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا التحويل' });
+      }
     }
 
     const validationResult = insertProjectFundTransferSchema.partial().safeParse(req.body);
@@ -895,6 +1000,14 @@ financialRouter.get('/worker-transfers', async (req: Request, res: Response) => 
     const project_id = req.query.project_id as string | undefined;
     console.log('👷‍♂️ [API] جلب تحويلات العمال:', project_id ? `للمشروع ${project_id}` : 'جميع المشاريع');
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (!isAdminUser && project_id && project_id !== 'all' && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     let query = db.select().from(workerTransfers);
     
     if (project_id && project_id !== 'all') {
@@ -903,12 +1016,16 @@ financialRouter.get('/worker-transfers', async (req: Request, res: Response) => 
     
     const transfers = await query.orderBy(desc(workerTransfers.transferDate));
 
+    const filteredTransfers = isAdminUser
+      ? transfers
+      : transfers.filter(t => t.project_id && accessibleIds.includes(t.project_id));
+
     const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم جلب ${transfers.length} تحويل عامل في ${duration}ms`);
+    console.log(`✅ [API] تم جلب ${filteredTransfers.length} تحويل عامل في ${duration}ms`);
 
     res.json({
       success: true,
-      data: transfers,
+      data: filteredTransfers,
       message: `تم جلب ${transfers.length} تحويل عامل بنجاح`,
       processingTime: duration
     });
@@ -957,6 +1074,13 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
         details: errorMessages,
         processingTime: duration
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && validationResult.data.project_id && !accessibleIds.includes(validationResult.data.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     console.log('✅ [API] نجح validation تحويل العامل');
@@ -1029,6 +1153,13 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
         message: `لم يتم العثور على تحويل عامل بالمعرف: ${transferId}`,
         processingTime: duration
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingTransfer[0]?.project_id && !accessibleIds.includes(existingTransfer[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا التحويل' });
     }
 
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
@@ -1120,6 +1251,13 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingTransfer[0]?.project_id && !accessibleIds.includes(existingTransfer[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا التحويل' });
+    }
+
     const transferToDelete = existingTransfer[0];
     console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
       id: transferToDelete.id,
@@ -1192,12 +1330,19 @@ financialRouter.get('/worker-misc-expenses', async (req: Request, res: Response)
 
     const expenses = await db.select().from(workerMiscExpenses).orderBy(desc(workerMiscExpenses.date));
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    const filteredExpenses = isAdminUser
+      ? expenses
+      : expenses.filter(e => e.project_id && accessibleIds.includes(e.project_id));
+
     const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم جلب ${expenses.length} مصروف متنوع في ${duration}ms`);
+    console.log(`✅ [API] تم جلب ${filteredExpenses.length} مصروف متنوع في ${duration}ms`);
 
     res.json({
       success: true,
-      data: expenses,
+      data: filteredExpenses,
       message: `تم جلب ${expenses.length} مصروف متنوع للعمال بنجاح`,
       processingTime: duration
     });
@@ -1255,6 +1400,13 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
         message: 'لا يمكن إضافة نثريات لـ "جميع المشاريع". يرجى اختيار مشروع محدد.',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && validationResult.data.project_id && !accessibleIds.includes(validationResult.data.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     console.log('✅ [API] نجح validation مصروف العامل المتنوع');
@@ -1328,6 +1480,13 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
         message: `لم يتم العثور على مصروف متنوع للعامل بالمعرف: ${expenseId}`,
         processingTime: duration
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingExpense[0]?.project_id && !accessibleIds.includes(existingExpense[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     // Validation باستخدام insert schema - نسمح بتحديث جزئي
@@ -1419,6 +1578,13 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingExpense[0]?.project_id && !accessibleIds.includes(existingExpense[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     const expenseToDelete = existingExpense[0];
     console.log('🗑️ [API] سيتم حذف مصروف العامل المتنوع:', {
       id: expenseToDelete.id,
@@ -1489,6 +1655,12 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
   try {
     console.log('📊 [API] جلب ملخص التقارير المالية العامة');
     console.log('👤 [API] المستخدم:', (req as any).user?.email);
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser) {
+      return res.status(403).json({ success: false, message: 'هذا التقرير متاح للمسؤولين فقط' });
+    }
 
     // جلب إحصائيات شاملة من قاعدة البيانات
     const [
@@ -1768,13 +1940,20 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
     }
     
     const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    const filteredPurchases = isAdminUser
+      ? purchases
+      : purchases.filter((p: any) => p.project_id && accessibleIds.includes(p.project_id));
     
     const duration = Date.now() - startTime;
-    console.log(`✅ [MaterialPurchases] تم جلب ${purchases.length} مشترية في ${duration}ms`);
+    console.log(`✅ [MaterialPurchases] تم جلب ${filteredPurchases.length} مشترية في ${duration}ms`);
     
     res.json({
       success: true,
-      data: purchases,
+      data: filteredPurchases,
       message: `تم جلب ${purchases.length} عملية شراء مادية`,
       processingTime: duration
     });
@@ -1809,6 +1988,13 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
 
     const validated = validationResult.data;
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && validated.project_id && !accessibleIds.includes(validated.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     
     // حساب المبالغ تلقائياً بناءً على نوع الشراء
     const totalAmount = (parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString();
@@ -1955,6 +2141,13 @@ financialRouter.get('/material-purchases/:id', async (req: Request, res: Respons
         processingTime: duration
       });
     }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && purchase[0].project_id && !accessibleIds.includes(purchase[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     
     const duration = Date.now() - startTime;
     res.json({
@@ -1983,7 +2176,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
 
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
 
-    const [existing] = await db.select({ equipmentId: materialPurchases.equipmentId, addToInventory: materialPurchases.addToInventory })
+    const [existing] = await db.select({ equipmentId: materialPurchases.equipmentId, addToInventory: materialPurchases.addToInventory, project_id: materialPurchases.project_id })
       .from(materialPurchases).where(eq(materialPurchases.id, req.params.id));
 
     if (!existing) {
@@ -1993,6 +2186,13 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         error: 'المشتراة غير موجودة',
         processingTime: duration
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existing.project_id && !accessibleIds.includes(existing.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     const alreadyHasEquipment = !!existing.equipmentId;
@@ -2086,6 +2286,18 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
 financialRouter.delete('/material-purchases/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    const existingPurchase = await db.select().from(materialPurchases).where(eq(materialPurchases.id, req.params.id)).limit(1);
+    if (!existingPurchase.length) {
+      return res.status(404).json({ success: false, error: 'المشتراة غير موجودة', processingTime: Date.now() - startTime });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingPurchase[0].project_id && !accessibleIds.includes(existingPurchase[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'حذف مشتراة', (req as any).user?.id).then(() => ''),
       'material-purchase/DELETE'
@@ -2136,6 +2348,14 @@ financialRouter.get('/transportation-expenses', async (req: Request, res: Respon
   const startTime = Date.now();
   try {
     const { project_id } = req.query;
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (!isAdminUser && project_id && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     
     let query: any = db.select().from(transportationExpenses);
     if (project_id) {
@@ -2143,11 +2363,15 @@ financialRouter.get('/transportation-expenses', async (req: Request, res: Respon
     }
     
     const expenses = await query.orderBy(desc(transportationExpenses.date));
+
+    const filteredExpenses = isAdminUser
+      ? expenses
+      : expenses.filter((e: any) => e.project_id && accessibleIds.includes(e.project_id));
     
     const duration = Date.now() - startTime;
     res.json({
       success: true,
-      data: expenses,
+      data: filteredExpenses,
       message: `تم جلب ${expenses.length} نفقة مواصلات`,
       processingTime: duration
     });
@@ -2168,6 +2392,13 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
   const startTime = Date.now();
   try {
     const validated = insertTransportationExpenseSchema.parse(req.body);
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && validated.project_id && !accessibleIds.includes(validated.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     
     const newExpense = await db
       .insert(transportationExpenses)
@@ -2220,6 +2451,13 @@ financialRouter.get('/transportation-expenses/:id', async (req: Request, res: Re
         processingTime: duration
       });
     }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && expense[0].project_id && !accessibleIds.includes(expense[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     
     const duration = Date.now() - startTime;
     res.json({
@@ -2243,6 +2481,18 @@ financialRouter.get('/transportation-expenses/:id', async (req: Request, res: Re
 financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    const existingExpense = await db.select().from(transportationExpenses).where(eq(transportationExpenses.id, req.params.id)).limit(1);
+    if (!existingExpense.length) {
+      return res.status(404).json({ success: false, error: 'النفقة غير موجودة', processingTime: Date.now() - startTime });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingExpense[0].project_id && !accessibleIds.includes(existingExpense[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     const validated = insertTransportationExpenseSchema.partial().parse(req.body);
     
     const updated = await db
@@ -2292,6 +2542,18 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
 financialRouter.delete('/transportation-expenses/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    const existingExpense = await db.select().from(transportationExpenses).where(eq(transportationExpenses.id, req.params.id)).limit(1);
+    if (!existingExpense.length) {
+      return res.status(404).json({ success: false, error: 'النفقة غير موجودة', processingTime: Date.now() - startTime });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && existingExpense[0].project_id && !accessibleIds.includes(existingExpense[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'حذف نفقة نقل', (req as any).user?.id).then(() => ''),
       'transport-expense/DELETE'
@@ -2351,6 +2613,13 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
         message: 'project_id و date مطلوبان',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     // جلب ملخص المصاريف اليومية
@@ -2438,6 +2707,13 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     // جلب سجلات الحضور مع بيانات العمال
     const attendanceRecords = await db
       .select({
@@ -2505,6 +2781,13 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
         message: 'project_id و worker_id مطلوبان',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     // جلب جميع الحوالات أولاً (بدون فلترة في قاعدة البيانات)
@@ -2575,6 +2858,13 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
         message: 'project_id و worker_id مطلوبان',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     // جلب بيانات العامل
@@ -2710,6 +3000,12 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
 
 financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
   try {
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser) {
+      return res.status(403).json({ success: false, message: 'هذا التقرير متاح للمسؤولين فقط' });
+    }
+
     res.json({
       success: true,
       data: {
@@ -2817,11 +3113,19 @@ financialRouter.get('/material-purchases/date-range', async (req: Request, res: 
   const startTime = Date.now();
   try {
     const purchases = await db.select().from(materialPurchases).orderBy(desc(materialPurchases.purchaseDate));
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    const filteredPurchases = isAdminUser
+      ? purchases
+      : purchases.filter(p => p.project_id && accessibleIds.includes(p.project_id));
+
     const duration = Date.now() - startTime;
     return res.json({
       success: true,
-      data: purchases || [],
-      message: `تم جلب ${purchases?.length || 0} عملية شراء`,
+      data: filteredPurchases || [],
+      message: `تم جلب ${filteredPurchases?.length || 0} عملية شراء`,
       processingTime: duration
     });
   } catch (error: any) {

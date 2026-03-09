@@ -1,10 +1,13 @@
 import express from 'express';
 import { SyncAuditService } from '../../services/SyncAuditService.js';
-import { authenticate } from '../../middleware/auth.js';
+import { authenticate, requireAdmin } from '../../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/logs', authenticate, async (req, res) => {
+router.use(authenticate);
+router.use(requireAdmin);
+
+router.get('/logs', async (req, res) => {
   try {
     const { page, limit, module, status, action, user_id, project_id, search, dateFrom, dateTo } = req.query;
     const result = await SyncAuditService.getLogs({
@@ -27,7 +30,7 @@ router.get('/logs', authenticate, async (req, res) => {
   }
 });
 
-router.get('/stats', authenticate, async (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     const stats = await SyncAuditService.getStats();
     res.json({ success: true, data: stats });
@@ -37,7 +40,7 @@ router.get('/stats', authenticate, async (req, res) => {
   }
 });
 
-router.get('/modules', authenticate, async (_req, res) => {
+router.get('/modules', async (_req, res) => {
   try {
     const modules = await SyncAuditService.getModules();
     res.json({ success: true, data: modules });

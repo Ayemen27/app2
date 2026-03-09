@@ -6,7 +6,7 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { eq, and, sql, gte, lte, desc, asc, between } from 'drizzle-orm';
+import { eq, and, sql, gte, lte, desc, asc, between, inArray } from 'drizzle-orm';
 import { db } from '../../db';
 import {
   projects,
@@ -22,10 +22,13 @@ import {
   suppliers
 } from '@shared/schema';
 import { requireAuth } from '../../middleware/auth.js';
+import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 
 export const reportRouter = express.Router();
 
 reportRouter.use(requireAuth);
+reportRouter.use(attachAccessibleProjects);
 
 /**
  * 📊 تقرير يومي شامل
@@ -42,6 +45,13 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
         error: 'معرف المشروع والتاريخ مطلوبان',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     const dateStr = date as string;
@@ -214,6 +224,13 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
         error: 'معرف المشروع وفترة التاريخ مطلوبة',
         processingTime: Date.now() - startTime
       });
+    }
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
     const dateFromStr = dateFrom as string;
@@ -430,6 +447,13 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       return res.status(404).json({ success: false, error: 'العامل غير موجود' });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && worker[0].project_id && !accessibleIds.includes(worker[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
+    }
+
     // بناء الفلاتر
     const filters = [eq(workerAttendance.worker_id, worker_id as string)];
     const transferFilters = [eq(workerTransfers.worker_id, worker_id as string)];
@@ -437,6 +461,12 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
     if (project_id && project_id !== 'all') {
       filters.push(eq(workerAttendance.project_id, project_id as string));
       transferFilters.push(eq(workerTransfers.project_id, project_id as string));
+    } else if (!isAdminUser && accessibleIds.length > 0) {
+      filters.push(inArray(workerAttendance.project_id, accessibleIds));
+      transferFilters.push(inArray(workerTransfers.project_id, accessibleIds));
+    } else if (!isAdminUser) {
+      filters.push(sql`1=0`);
+      transferFilters.push(sql`1=0`);
     }
     if (dateFrom) {
       filters.push(gte(workerAttendance.attendanceDate, dateFrom as string));
@@ -548,6 +578,16 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
   const startTime = Date.now();
 
   try {
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && (!project_id || project_id === 'all' || project_id === 'undefined')) {
+      return res.status(400).json({ success: false, message: 'يجب تحديد مشروع معين' });
+    }
+    if (!isAdminUser && project_id && project_id !== 'all' && project_id !== 'undefined' && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
     // تصفية حسب التاريخ إذا تم توفيره
     let dateFilter = sql`1=1`;
     if (range === 'today') {
@@ -644,8 +684,16 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
 
     const project_idArray = (project_ids as string).split(',');
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    const filteredProjectIds = isAdminUser ? project_idArray : project_idArray.filter(id => accessibleIds.includes(id));
+    if (!isAdminUser && filteredProjectIds.length === 0) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذه المشاريع' });
+    }
+
     const comparisonData = await Promise.all(
-      project_idArray.map(async (project_id) => {
+      filteredProjectIds.map(async (project_id) => {
         // جلب معلومات المشروع
         const projectInfo = await db.select().from(projects).where(eq(projects.id, project_id)).limit(1);
 
@@ -786,10 +834,21 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
       });
     }
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && workerInfo[0].project_id && !accessibleIds.includes(workerInfo[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
+    }
+
     // بناء شروط الاستعلام
     let conditions: any[] = [eq(workerAttendance.worker_id, worker_id)];
     if (project_id) {
       conditions.push(eq(workerAttendance.project_id, project_id as string));
+    } else if (!isAdminUser && accessibleIds.length > 0) {
+      conditions.push(inArray(workerAttendance.project_id, accessibleIds));
+    } else if (!isAdminUser) {
+      conditions.push(sql`1=0`);
     }
     if (dateFrom) {
       conditions.push(gte(workerAttendance.attendanceDate, dateFrom as string));
@@ -821,6 +880,10 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
     let transferConditions: any[] = [eq(workerTransfers.worker_id, worker_id)];
     if (project_id) {
       transferConditions.push(eq(workerTransfers.project_id, project_id as string));
+    } else if (!isAdminUser && accessibleIds.length > 0) {
+      transferConditions.push(inArray(workerTransfers.project_id, accessibleIds));
+    } else if (!isAdminUser) {
+      transferConditions.push(sql`1=0`);
     }
     if (dateFrom) {
       transferConditions.push(gte(workerTransfers.transferDate, dateFrom as string));
@@ -906,6 +969,16 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
   const startTime = Date.now();
   try {
     const { project_id } = req.query;
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && (!project_id || project_id === 'all' || project_id === 'undefined')) {
+      return res.status(400).json({ success: false, message: 'يجب تحديد مشروع معين' });
+    }
+    if (!isAdminUser && project_id && project_id !== 'all' && project_id !== 'undefined' && !accessibleIds.includes(project_id as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
 
     // الحصول على التاريخ الحالي وتاريخ بداية الشهر
     const today = new Date();

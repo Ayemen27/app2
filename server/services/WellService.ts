@@ -157,6 +157,20 @@ export class WellService {
    * المهام (Tasks)
    */
 
+  static async getTaskById(taskId: number) {
+    try {
+      const task = await db.select()
+        .from(wellTasks)
+        .where(eq(wellTasks.id, taskId))
+        .limit(1);
+
+      return task.length ? task[0] : null;
+    } catch (error) {
+      console.error('[WellService] Error fetching task by id:', error);
+      return null;
+    }
+  }
+
   static async getWellTasks(well_id: number) {
     try {
       const tasks = await db.select()

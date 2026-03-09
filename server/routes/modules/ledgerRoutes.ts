@@ -6,15 +6,24 @@ import { db } from '../../db';
 import { financialAuditLog, journalEntries, journalLines, reconciliationRecords } from '@shared/schema';
 import { eq, desc } from 'drizzle-orm';
 import { requireAuth } from '../../middleware/auth.js';
+import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 
 export const ledgerRouter = express.Router();
 
 ledgerRouter.use(requireAuth);
+ledgerRouter.use(attachAccessibleProjects);
 
 ledgerRouter.get('/trial-balance/:project_id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     const { date } = req.query;
 
     const trialBalance = await FinancialLedgerService.getTrialBalance(
@@ -41,6 +50,12 @@ ledgerRouter.get('/balance/:project_id', async (req: Request, res: Response) => 
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     const { date } = req.query;
 
     const balance = await FinancialLedgerService.getLedgerBalance(
@@ -61,6 +76,12 @@ ledgerRouter.get('/journal/:project_id', async (req: Request, res: Response) => 
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     const { fromDate, toDate } = req.query;
 
     const entries = await FinancialLedgerService.getProjectJournalEntries(
@@ -82,6 +103,15 @@ ledgerRouter.get('/journal-entry/:entryId/lines', async (req: Request, res: Resp
   const startTime = Date.now();
   try {
     const { entryId } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const entry = await db.select({ project_id: journalEntries.project_id }).from(journalEntries).where(eq(journalEntries.id, entryId)).limit(1);
+    if (entry.length === 0) return res.status(404).json({ success: false, error: 'القيد غير موجود' });
+    if (!isAdminUser && entry[0].project_id && !accessibleIds.includes(entry[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا القيد' });
+    }
 
     const lines = await db.select().from(journalLines)
       .where(eq(journalLines.journalEntryId, entryId));
@@ -100,6 +130,12 @@ ledgerRouter.post('/reconcile/:project_id', async (req: Request, res: Response) 
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     const { date } = req.body;
 
     if (!date) {
@@ -123,6 +159,12 @@ ledgerRouter.get('/audit-log/:project_id', async (req: Request, res: Response) =
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     const { limit: limitStr } = req.query;
     const limit = Math.min(parseInt(String(limitStr || '50'), 10), 200);
 
@@ -146,6 +188,12 @@ ledgerRouter.get('/reconciliation-history/:project_id', async (req: Request, res
   const startTime = Date.now();
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
 
     const records = await db.select().from(reconciliationRecords)
       .where(eq(reconciliationRecords.project_id, project_id))
@@ -170,6 +218,16 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
     const { reason } = req.body;
     const user = req.user as any;
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const entry = await db.select({ project_id: journalEntries.project_id }).from(journalEntries).where(eq(journalEntries.id, entryId)).limit(1);
+    if (entry.length === 0) return res.status(404).json({ success: false, error: 'القيد غير موجود' });
+    if (!isAdminUser && entry[0].project_id && !accessibleIds.includes(entry[0].project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا القيد' });
+    }
+
     if (!reason) {
       return res.status(400).json({ success: false, error: 'سبب العكس مطلوب' });
     }
@@ -190,6 +248,12 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
 ledgerRouter.get('/summary/:project_id', async (req: Request, res: Response) => {
   try {
     const { project_id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
     const { date } = req.query;
 
     const summary = date
@@ -204,7 +268,13 @@ ledgerRouter.get('/summary/:project_id', async (req: Request, res: Response) => 
 
 ledgerRouter.get('/projects-stats', async (_req: Request, res: Response) => {
   try {
-    const summaries = await ExpenseLedgerService.getAllProjectsStats();
+    const accessReq = _req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    let summaries = await ExpenseLedgerService.getAllProjectsStats();
+    if (!isAdminUser) {
+      summaries = summaries.filter((s: any) => s.project_id && accessibleIds.includes(s.project_id));
+    }
 
     res.json({
       success: true,
@@ -219,6 +289,12 @@ ledgerRouter.get('/projects-stats', async (_req: Request, res: Response) => {
 ledgerRouter.get('/daily-summary/:project_id/:date', async (req: Request, res: Response) => {
   try {
     const { project_id, date } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
 
     const summary = await ExpenseLedgerService.getDailyFinancialSummary(project_id, date);
 

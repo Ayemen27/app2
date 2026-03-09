@@ -2,8 +2,11 @@ import { Router } from "express";
 import { db } from "../../db";
 import { securityPolicies, securityPolicySuggestions, securityPolicyViolations } from "../../../shared/schema";
 import { eq, desc } from "drizzle-orm";
+import { requireAuth, requireAdmin } from '../../middleware/auth';
 
 const router = Router();
+router.use(requireAuth);
+router.use(requireAdmin);
 
 router.get("/policies", async (req, res) => {
   try {

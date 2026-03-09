@@ -68,6 +68,14 @@
 - Report Generator: `server/services/ai-agent/ReportGenerator.ts` — Excel/PDF export with ExcelJS
 - Schema note: `workers.is_active` (snake_case), `materialPurchases.materialName`, `workerAttendance.totalPay` may contain NaN values
 
+## Data Integrity Fixes (March 2026)
+- **NaN in total_pay:** Worker attendance `total_pay` contains NaN values — all SUM queries in DatabaseActions.ts use NaN-safe CASE expressions
+- **Empty timestamp strings:** `fund_transfers.transfer_date`, `worker_transfers.transfer_date` contain empty strings `""` that crash PostgreSQL timestamp parsing. Fixed with `CAST(col AS TEXT)` pattern before comparisons in `projectRoutes.ts`:
+  - `safeDateFilter()` for Drizzle ORM queries
+  - `overallSumsQuery` raw SQL aggregation
+  - `calculateCumulativeBalance()` all date range comparisons
+- **Pattern:** Always use `CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'` before any `::date` cast
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

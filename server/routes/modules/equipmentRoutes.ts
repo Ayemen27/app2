@@ -1,11 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db.js';
 import { equipment, equipmentMovements, projects } from '@shared/schema.js';
-import { eq, and, ilike, sql, desc } from 'drizzle-orm';
+import { eq, and, ilike, sql, desc, inArray, or, isNull } from 'drizzle-orm';
 import { requireAuth } from '../../middleware/auth.js';
+import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 
 const equipmentRouter = Router();
 equipmentRouter.use(requireAuth);
+equipmentRouter.use(attachAccessibleProjects);
 
 function buildEquipmentCode(id: number): string {
   return `EQ-${String(id).padStart(5, '0')}`;
@@ -14,6 +17,8 @@ function buildEquipmentCode(id: number): string {
 equipmentRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { searchTerm, status, type, project_id } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
 
     let conditions: any[] = [];
 
@@ -28,9 +33,22 @@ equipmentRouter.get('/', async (req: Request, res: Response) => {
     }
     if (typeof project_id === 'string') {
       if (project_id === '') {
-        conditions.push(sql`${equipment.project_id} IS NULL`);
+        conditions.push(isNull(equipment.project_id));
       } else {
         conditions.push(eq(equipment.project_id, project_id));
+      }
+    }
+
+    if (!isAdminUser && accessReq.accessibleProjectIds && !project_id) {
+      if (accessReq.accessibleProjectIds.length === 0) {
+        conditions.push(isNull(equipment.project_id));
+      } else {
+        conditions.push(
+          or(
+            inArray(equipment.project_id, accessReq.accessibleProjectIds),
+            isNull(equipment.project_id)
+          )!
+        );
       }
     }
 

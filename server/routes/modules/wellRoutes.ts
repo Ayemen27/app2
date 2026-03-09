@@ -6,11 +6,14 @@
 import express, { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/auth';
 import WellService from '../../services/WellService';
+import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 
 export const wellRouter = express.Router();
 
-// تطبيق المصادقة على جميع المسارات
+// تطبيق المصادقة وتحميل المشاريع المتاحة
 wellRouter.use(requireAuth);
+wellRouter.use(attachAccessibleProjects);
 
 /**
  * GET /api/wells - جلب قائمة الآبار
@@ -19,10 +22,23 @@ wellRouter.use(requireAuth);
 wellRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { project_id } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     
-    // إذا كان project_id=all أو undefined، أرجع جميع الآبار
     const filteredProjectId = project_id === 'all' || !project_id ? undefined : (project_id as string);
-    const wells = await WellService.getAllWells(filteredProjectId);
+    
+    if (filteredProjectId && !isAdminUser && accessReq.accessibleProjectIds) {
+      if (!accessReq.accessibleProjectIds.includes(filteredProjectId)) {
+        return res.json({ success: true, data: [], message: 'لا توجد آبار متاحة' });
+      }
+    }
+    
+    let wells = await WellService.getAllWells(filteredProjectId);
+    
+    if (!filteredProjectId && !isAdminUser && accessReq.accessibleProjectIds) {
+      const idSet = new Set(accessReq.accessibleProjectIds);
+      wells = wells.filter((w: any) => w.project_id && idSet.has(w.project_id));
+    }
 
     res.json({
       success: true,

@@ -12,8 +12,11 @@ import {
   transportationExpenses, enhancedInsertWorkerSchema, insertWorkerAttendanceSchema,
   insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, workerTypes
 } from '@shared/schema';
-import { requireAuth, requireRole } from '../../middleware/auth.js';
+import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js';
 import { FinancialLedgerService } from '../../services/FinancialLedgerService.js';
+import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
+import { inArray } from 'drizzle-orm';
 
 export const workerRouter = express.Router();
 
@@ -41,8 +44,9 @@ workerRouter.get('/worker-types', async (req: Request, res: Response) => {
   }
 });
 
-// تطبيق المصادقة على جميع مسارات العمال (بعد الـ public endpoints)
+// تطبيق المصادقة وتحميل المشاريع المتاحة على جميع مسارات العمال (بعد الـ public endpoints)
 workerRouter.use(requireAuth);
+workerRouter.use(attachAccessibleProjects);
 
 /**
  * 👷 جلب قائمة العمال
@@ -52,7 +56,19 @@ import { sendSuccess, sendError } from '../../middleware/api-response.js';
 
 workerRouter.get('/workers', async (req: Request, res: Response) => {
   try {
-    const workersList = await db.select().from(workers).orderBy(workers.name);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    
+    let workersList;
+    if (isAdminUser || !accessReq.accessibleProjectIds) {
+      workersList = await db.select().from(workers).orderBy(workers.name);
+    } else if (accessReq.accessibleProjectIds.length === 0) {
+      workersList = [];
+    } else {
+      workersList = await db.select().from(workers)
+        .where(inArray(workers.project_id, accessReq.accessibleProjectIds))
+        .orderBy(workers.name);
+    }
     console.log(`👷 [API] تم جلب ${workersList.length} عامل`);
     res.json({
       success: true,

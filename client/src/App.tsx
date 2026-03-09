@@ -80,6 +80,7 @@ const UsersManagementPage = lazy(() => import("./pages/users-management"));
 const AIChatPage = lazy(() => import("./pages/ai-chat"));
 const WhatsAppSetupPage = lazy(() => import("./pages/whatsapp/index"));
 const SyncComparisonPage = lazy(() => import("./pages/sync-comparison"));
+const PermissionManagementPage = lazy(() => import("./pages/permission-management"));
 
 
 function PageLoader() {
@@ -335,6 +336,13 @@ function Router() {
       <Route path="/admin/sync">
         <AdminRoute>
           <SyncManagementPage />
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/permissions">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <PermissionManagementPage />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route component={NotFound} />

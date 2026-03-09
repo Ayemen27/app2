@@ -31,8 +31,9 @@ export function AdminRoute({ children, requiredRole = "admin" }: AdminRouteProps
     return <Redirect to="/login" />;
   }
 
-  // التحقق من دور المستخدم
-  if (!user || user.role !== requiredRole) {
+  const adminRoles = ["admin", "super_admin"];
+  const hasRole = requiredRole === "admin" ? adminRoles.includes(user?.role) : user?.role === requiredRole;
+  if (!user || !hasRole) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20">
         <div className="max-w-lg w-full">
@@ -139,7 +140,8 @@ export function AdminRoute({ children, requiredRole = "admin" }: AdminRouteProps
 export function useRequireRole(requiredRole: string = "admin"): { hasAccess: boolean; user: any } {
   const { user, isAuthenticated } = useAuth();
   
-  const hasAccess = !!(isAuthenticated && user && user.role === requiredRole);
+  const adminRoles = ["admin", "super_admin"];
+  const hasAccess = !!(isAuthenticated && user && (requiredRole === "admin" ? adminRoles.includes(user.role) : user.role === requiredRole));
   
   return { hasAccess, user };
 }

@@ -17,8 +17,10 @@ import {
   insertDailyExpenseSummarySchema,
   insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerBalanceSchema
 } from '../../../shared/schema';
-import { requireAuth } from '../../middleware/auth';
+import { requireAuth, AuthenticatedRequest } from '../../middleware/auth';
 import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
+import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 
 export const projectRouter = express.Router();
 
@@ -56,18 +58,32 @@ export function invalidateBalanceCache(project_id?: string) {
   }
 }
 
-// تطبيق المصادقة على جميع مسارات المشاريع
+// تطبيق المصادقة وتحميل المشاريع المتاحة على جميع مسارات المشاريع
 projectRouter.use(requireAuth);
+projectRouter.use(attachAccessibleProjects);
 
 /**
  * 📊 جلب قائمة المشاريع
  * GET /api/projects
  */
 import { sendSuccess, sendError } from '../../middleware/api-response.js';
+import { inArray } from 'drizzle-orm';
 
 projectRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const projectsList = await db.select().from(projects).orderBy(projects.created_at);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    
+    let projectsList;
+    if (isAdminUser || !accessReq.accessibleProjectIds) {
+      projectsList = await db.select().from(projects).orderBy(projects.created_at);
+    } else if (accessReq.accessibleProjectIds.length === 0) {
+      projectsList = [];
+    } else {
+      projectsList = await db.select().from(projects)
+        .where(inArray(projects.id, accessReq.accessibleProjectIds))
+        .orderBy(projects.created_at);
+    }
     return sendSuccess(res, projectsList, `تم جلب ${projectsList.length} مشروع بنجاح`);
   } catch (error: any) {
     return sendError(res, "فشل في جلب قائمة المشاريع", 500, [{ message: error.message }]);
@@ -83,7 +99,19 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
   try {
     console.log('📊 [API] جلب المشاريع مع الإحصائيات باستخدام ExpenseLedgerService');
 
-    const projectsList = await db.select().from(projects).orderBy(projects.created_at);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    
+    let projectsList;
+    if (isAdminUser || !accessReq.accessibleProjectIds) {
+      projectsList = await db.select().from(projects).orderBy(projects.created_at);
+    } else if (accessReq.accessibleProjectIds.length === 0) {
+      projectsList = [];
+    } else {
+      projectsList = await db.select().from(projects)
+        .where(inArray(projects.id, accessReq.accessibleProjectIds))
+        .orderBy(projects.created_at);
+    }
 
     const projectsWithStats = await Promise.all(projectsList.map(async (project) => {
       try {
@@ -157,6 +185,9 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
   const startTime = Date.now();
   try {
     const { date } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds;
 
     const rawDate = date as string || new Date().toISOString().split('T')[0];
     const effectiveDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : new Date().toISOString().split('T')[0];
@@ -217,8 +248,23 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       db.select().from(projects)
     ]);
 
+    const filterByAccess = <T extends { project_id?: string | null }>(data: T[]): T[] => {
+      if (isAdminUser || !accessibleIds) return data;
+      const idSet = new Set(accessibleIds);
+      return data.filter(item => item.project_id && idSet.has(item.project_id));
+    };
+
+    // تصفية المشاريع والبيانات حسب الصلاحيات
+    const filteredProjectsList = filterByAccess(projectsList as any[]);
+    const filteredFundTransfers = filterByAccess(fundTransfersResult as any[]);
+    const filteredWorkerAttendance = filterByAccess(workerAttendanceResult as any[]);
+    const filteredMaterialPurchases = filterByAccess(materialPurchasesResult as any[]);
+    const filteredTransportation = filterByAccess(transportationResult as any[]);
+    const filteredWorkerTransfers = filterByAccess(workerTransfersResult as any[]);
+    const filteredMiscExpenses = filterByAccess(miscExpensesResult as any[]);
+
     // إنشاء خريطة أسماء المشاريع
-    const projectsMap = new Map(projectsList.map(p => [p.id, p.name]));
+    const projectsMap = new Map(filteredProjectsList.map(p => [p.id, p.name]));
 
     // دالة استخراج التاريخ من أي سجل
     const extractDate = (record: any): string => {
@@ -264,42 +310,42 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     };
 
     // تجميع تحويلات العهد حسب (المشروع + التاريخ)
-    fundTransfersResult.forEach((t: any) => {
+    filteredFundTransfers.forEach((t: any) => {
       const dateStr = extractDate(t);
       const group = initProjectDateGroup(t.project_id, dateStr);
       group.fundTransfers.push({ ...t, projectName: group.projectName });
     });
 
     // تجميع حضور العمال حسب (المشروع + التاريخ)
-    workerAttendanceResult.forEach((a: any) => {
+    filteredWorkerAttendance.forEach((a: any) => {
       const dateStr = extractDate(a);
       const group = initProjectDateGroup(a.project_id, dateStr);
       group.workerAttendance.push({ ...a, projectName: group.projectName });
     });
 
     // تجميع مشتريات المواد حسب (المشروع + التاريخ)
-    materialPurchasesResult.forEach((m: any) => {
+    filteredMaterialPurchases.forEach((m: any) => {
       const dateStr = extractDate(m);
       const group = initProjectDateGroup(m.project_id, dateStr);
       group.materialPurchases.push({ ...m, projectName: group.projectName });
     });
 
     // تجميع مصاريف النقل حسب (المشروع + التاريخ)
-    transportationResult.forEach((t: any) => {
+    filteredTransportation.forEach((t: any) => {
       const dateStr = extractDate(t);
       const group = initProjectDateGroup(t.project_id, dateStr);
       group.transportationExpenses.push({ ...t, projectName: group.projectName });
     });
 
     // تجميع تحويلات العمال حسب (المشروع + التاريخ)
-    workerTransfersResult.forEach((w: any) => {
+    filteredWorkerTransfers.forEach((w: any) => {
       const dateStr = extractDate(w);
       const group = initProjectDateGroup(w.project_id, dateStr);
       group.workerTransfers.push({ ...w, projectName: group.projectName });
     });
 
     // تجميع المصاريف المتنوعة حسب (المشروع + التاريخ)
-    miscExpensesResult.forEach((m: any) => {
+    filteredMiscExpenses.forEach((m: any) => {
       const dateStr = extractDate(m);
       const group = initProjectDateGroup(m.project_id, dateStr);
       group.miscExpenses.push({ ...m, projectName: group.projectName });
@@ -369,12 +415,12 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
 
     // إنشاء مصفوفات مسطحة لجميع البيانات (للتوافق مع الكود القديم)
-    const allFundTransfers = fundTransfersResult.map(t => ({ ...t, projectName: t.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(t.project_id) || 'مشروع غير معروف') }));
-    const allWorkerAttendance = workerAttendanceResult.map(a => ({ ...a, projectName: a.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(a.project_id) || 'مشروع غير معروف') }));
-    const allMaterialPurchases = materialPurchasesResult.map(m => ({ ...m, projectName: m.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(m.project_id) || 'مشروع غير معروف') }));
-    const allTransportation = transportationResult.map(t => ({ ...t, projectName: t.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(t.project_id) || 'مشروع غير معروف') }));
-    const allWorkerTransfers = workerTransfersResult.map(w => ({ ...w, projectName: w.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(w.project_id) || 'مشروع غير معروف') }));
-    const allMiscExpenses = miscExpensesResult.map(m => ({ ...m, projectName: m.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(m.project_id) || 'مشروع غير معروف') }));
+    const allFundTransfers = filteredFundTransfers.map((t: any) => ({ ...t, projectName: t.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(t.project_id) || 'مشروع غير معروف') }));
+    const allWorkerAttendance = filteredWorkerAttendance.map((a: any) => ({ ...a, projectName: a.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(a.project_id) || 'مشروع غير معروف') }));
+    const allMaterialPurchases = filteredMaterialPurchases.map((m: any) => ({ ...m, projectName: m.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(m.project_id) || 'مشروع غير معروف') }));
+    const allTransportation = filteredTransportation.map((t: any) => ({ ...t, projectName: t.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(t.project_id) || 'مشروع غير معروف') }));
+    const allWorkerTransfers = filteredWorkerTransfers.map((w: any) => ({ ...w, projectName: w.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(w.project_id) || 'مشروع غير معروف') }));
+    const allMiscExpenses = filteredMiscExpenses.map((m: any) => ({ ...m, projectName: m.project_id === 'all' ? 'مصروفات عامة' : (projectsMap.get(m.project_id) || 'مشروع غير معروف') }));
 
     const responseData = {
       // البيانات المجمعة حسب (المشروع + التاريخ) - الجديدة
@@ -781,7 +827,7 @@ projectRouter.get('/:id', async (req: Request, res: Response) => {
  * 🔄 تعديل مشروع
  * PATCH /api/projects/:id
  */
-projectRouter.patch('/:id', async (req: Request, res: Response) => {
+projectRouter.patch('/:id', requireProjectAccess('edit'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const project_id = req.params.id;
@@ -989,7 +1035,7 @@ projectRouter.get('/:id/deletion-stats', async (req: Request, res: Response) => 
  * DELETE /api/projects/:id
  * يتطلب صلاحية مسؤول (admin) أو مالك المشروع (بدون بيانات مرتبطة)
  */
-projectRouter.delete('/:id', async (req: Request, res: Response) => {
+projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const project_id = req.params.id;

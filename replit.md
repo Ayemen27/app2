@@ -110,6 +110,26 @@
 - **QR Generation:** Server-side via `qrcode` package at `/api/whatsapp-ai/qr-image` (admin only)
 - **Endpoints:** GET /status, POST /restart (admin), POST /disconnect (admin), GET /my-link, POST /link-phone, POST /unlink-phone, GET /all-links (admin), DELETE /admin-unlink/:userId (admin), GET /qr-image (admin)
 
+## Project Permission & Data Isolation System (March 2026)
+- **Service:** `server/services/ProjectAccessService.ts` — core permission engine
+  - `isAdmin()`, `getAccessibleProjectIds()`, `checkProjectAccess()`, `grantPermission()`, `revokePermission()`, `updatePermission()`
+  - Bypass: admin/super_admin roles → full access; engineerId match → owner access
+- **Middleware:** `server/middleware/projectAccess.ts`
+  - `attachAccessibleProjects` — loads `req.accessibleProjectIds` for list filtering
+  - `requireProjectAccess(action)` — enforces per-project access on PATCH/DELETE routes
+- **DB Table:** `user_project_permissions` — columns: userId, projectId, canView, canAdd, canEdit, canDelete, assignedBy, assignedAt
+- **DB Table:** `permission_audit_logs` — tracks all grant/revoke/update actions with actor, target, old/new permissions
+- **Data Isolation:** All list endpoints filter by `accessibleProjectIds` using `inArray()`:
+  - `projectRoutes.ts` (GET /, /with-stats, /all-projects-expenses, PATCH /:id, DELETE /:id)
+  - `workerRoutes.ts`, `wellRoutes.ts`, `equipmentRoutes.ts`, `financialRoutes.ts`
+- **Admin API:** `server/routes/modules/permissionRoutes.ts` mounted at `/api/permissions`
+  - GET /my, /project/:id, /user/:id, /audit-logs
+  - POST /grant, PATCH /update, DELETE /revoke
+- **Frontend Hook:** `client/src/hooks/useProjectPermissions.ts` — canViewProject, canEditProject, canDeleteFromProject, getPermissionLevel
+- **Admin Page:** `client/src/pages/permission-management.tsx` — project selector, user list with badges, grant/revoke/update dialogs, audit log viewer
+- **Route:** `/admin/permissions` in App.tsx, "إدارة الصلاحيات" in sidebar
+- **AdminRoute Fix:** `AdminRoute.tsx` now accepts both `admin` and `super_admin` roles
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

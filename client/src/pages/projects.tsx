@@ -52,6 +52,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useAuth } from "@/components/AuthProvider";
 import { ProjectsPageSkeleton } from "@/components/ui/project-skeleton";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
+import { useProjectPermissions } from "@/hooks/useProjectPermissions";
 import { triggerSync } from "@/offline/sync";
 
 interface ProjectStats {
@@ -159,6 +160,7 @@ export default function ProjectsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const { canEditProject, canDeleteFromProject, getPermissionLevel } = useProjectPermissions();
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -1161,7 +1163,11 @@ export default function ProjectsPage() {
                   {
                     label: getStatusText(project.status),
                     variant: statusBadgeVariant,
-                  }
+                  },
+                  ...(!isAdmin ? [{
+                    label: getPermissionLevel(project.id),
+                    variant: "outline" as const,
+                  }] : []),
                 ]}
                 fields={[
                   {
@@ -1216,25 +1222,25 @@ export default function ProjectsPage() {
                   },
                 ]}
                 actions={[
-                  {
+                  ...(canEditProject(project.id) ? [{
                     icon: Edit,
                     label: "تعديل",
                     onClick: () => openEditDialog(project),
-                    color: "blue",
-                  },
-                  {
+                    color: "blue" as const,
+                  }] : []),
+                  ...(canEditProject(project.id) ? [{
                     icon: Power,
                     label: project.status === 'active' ? "إيقاف" : "تفعيل",
                     onClick: () => handleToggleProjectStatus(project),
                     disabled: togglingProjectId === project.id,
-                    color: project.status === 'active' ? "yellow" : "green",
-                  },
-                  {
+                    color: (project.status === 'active' ? "yellow" : "green") as any,
+                  }] : []),
+                  ...(canDeleteFromProject(project.id) ? [{
                     icon: Trash2,
                     label: "حذف",
                     onClick: () => openDeleteDialog(project),
-                    color: "red",
-                  },
+                    color: "red" as const,
+                  }] : []),
                 ]}
                 footer={
                   <ProjectFinancialStatsFooter 

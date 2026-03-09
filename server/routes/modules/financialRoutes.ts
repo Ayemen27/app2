@@ -12,15 +12,18 @@ import {
   insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertMaterialSchema,
   insertDailyExpenseSummarySchema
 } from '@shared/schema';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
 import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 import { FinancialLedgerService } from '../../services/FinancialLedgerService';
 import { storage } from '../../storage';
+import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
+import { projectAccessService } from '../../services/ProjectAccessService';
 
 export const financialRouter = express.Router();
 
-// تطبيق المصادقة على جميع المسارات المالية
+// تطبيق المصادقة وتحميل المشاريع المتاحة على جميع المسارات المالية
 financialRouter.use(requireAuth);
+financialRouter.use(attachAccessibleProjects);
 
 /**
  * 📊 الملخص المالي الموحد
@@ -33,6 +36,8 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
   const startTime = Date.now();
   try {
     const { project_id, date, dateFrom, dateTo } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     
     // تنظيف المدخلات لمنع أرسال سلاسل نصية فارغة
     const cleanProjectId = project_id && project_id !== "" && project_id !== "all-projects-total" ? project_id as string : "all";
@@ -43,7 +48,10 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
     console.log('📊 [API] جلب الملخص المالي الموحد', { project_id: cleanProjectId, date: cleanDate, dateFrom: cleanDateFrom, dateTo: cleanDateTo });
 
     if (cleanProjectId && cleanProjectId !== 'all') {
-      // تمرير معاملات التاريخ دائماً للخدمة لضمان احترام الفلترة في جميع الحالات
+      if (!isAdminUser && accessReq.accessibleProjectIds && !accessReq.accessibleProjectIds.includes(cleanProjectId)) {
+        return sendError(res, 'ليس لديك صلاحية عرض بيانات هذا المشروع', 403);
+      }
+      
       const summary = await ExpenseLedgerService.getProjectFinancialSummary(
         cleanProjectId, 
         cleanDate, 
@@ -53,11 +61,16 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
 
       return sendSuccess(res, summary, 'تم جلب الملخص المالي بنجاح', { processingTime: Date.now() - startTime });
     } else {
-      const summaries = await ExpenseLedgerService.getAllProjectsStats(
+      let summaries = await ExpenseLedgerService.getAllProjectsStats(
         cleanDate,
         cleanDateFrom,
         cleanDateTo
       );
+      
+      if (!isAdminUser && accessReq.accessibleProjectIds) {
+        const idSet = new Set(accessReq.accessibleProjectIds);
+        summaries = summaries.filter((s: any) => s.projectId && idSet.has(s.projectId));
+      }
       
       const totalSummary = summaries.reduce((acc: any, s: any) => ({
         totalIncome: acc.totalIncome + s.income.totalIncome,

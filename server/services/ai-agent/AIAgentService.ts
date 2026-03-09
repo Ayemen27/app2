@@ -912,7 +912,9 @@ export class AIAgentService {
   // ==================== دوال التنسيق الاحترافي ====================
 
   private n(val: any): string {
-    return parseFloat(String(val || 0)).toLocaleString("ar");
+    const num = parseFloat(String(val ?? 0));
+    if (isNaN(num)) return "0";
+    return num.toLocaleString("ar");
   }
 
   private formatDashboard(data: any): string {

@@ -1234,7 +1234,7 @@ export class DatabaseActions {
 
       const [workerStats] = await db.select({
         total: sql<number>`count(*)`,
-        active: sql<number>`count(*) filter (where ${workers.isActive} = true)`,
+        active: sql<number>`count(*) filter (where ${workers.is_active} = true)`,
       }).from(workers);
 
       const [fundStats] = await db.select({
@@ -1653,7 +1653,7 @@ export class DatabaseActions {
       })
       .from(workers)
       .leftJoin(workerAttendance, eq(workers.id, workerAttendance.worker_id))
-      .where(eq(workers.isActive, true))
+      .where(eq(workers.is_active, true))
       .groupBy(workers.id, workers.name, workers.type)
       .having(sql`coalesce(sum(${workerAttendance.totalPay}::numeric), 0) - coalesce(sum(${workerAttendance.paidAmount}::numeric), 0) > 0`)
       .orderBy(sql`coalesce(sum(${workerAttendance.totalPay}::numeric), 0) - coalesce(sum(${workerAttendance.paidAmount}::numeric), 0) desc`);

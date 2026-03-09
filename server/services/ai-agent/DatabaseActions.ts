@@ -34,15 +34,16 @@ export class DatabaseActions {
 
   async findWorkerByName(name: string): Promise<ActionResult> {
     try {
+      const trimmed = name.trim();
       const result = await db
         .select()
         .from(workers)
-        .where(like(workers.name, `%${name}%`));
+        .where(sql`${workers.name} ILIKE ${'%' + trimmed + '%'}`);
 
       return {
         success: true,
         data: result,
-        message: `تم العثور على ${result.length} عامل`,
+        message: result.length > 0 ? `تم العثور على ${result.length} عامل` : `لم يتم العثور على عامل باسم "${trimmed}"`,
         action: "find_worker",
       };
     } catch (error: any) {

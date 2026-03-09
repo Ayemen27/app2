@@ -56,6 +56,8 @@ const SYSTEM_PROMPT = `أنت وكيل ذكاء اصطناعي احترافي (S
 - **ممنوع اختراع أي UUID أو معرّف.** كل معرّف يجب أن يأتي من نتائج أمر ACTION سابق.
 - عند طلب "تقرير شامل عن المشاريع": استخدم **أمر واحد فقط** هو [ACTION:ALL_PROJECTS_REPORT] — لا تستدعِ PROJECT_EXPENSES لكل مشروع.
 - عند طلب معلومات عن مشروع بعينه: استخدم [ACTION:GET_PROJECT:اسم_المشروع] أولاً للحصول على UUID الحقيقي، ثم [ACTION:PROJECT_EXPENSES:UUID].
+- عند طلب كشف حساب عامل بالاسم: يمكنك استخدام [ACTION:WORKER_STATEMENT:اسم_العامل] مباشرة — النظام سيبحث تلقائياً عن العامل بالاسم.
+- إذا وُجد أكثر من عامل بنفس الاسم، ستحصل على قائمة لاختيار العامل المطلوب.
 
 ## 🗄️ أدوات قاعدة البيانات العامة (للقراءة - تنفذ مباشرة):
 - [ACTION:LIST_TABLES] -> عرض جميع جداول قاعدة البيانات مع عدد السجلات.
@@ -458,9 +460,30 @@ export class AIAgentService {
               currentResult = await this.dbActions.getProjectInfo(actionParams[0] || "");
               break;
 
-            case "WORKER_STATEMENT":
-              currentResult = await this.reportGenerator.generateWorkerStatement(actionParams[0] || "");
+            case "WORKER_STATEMENT": {
+              let workerId = actionParams[0] || "";
+              const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workerId);
+              if (!isUUID && workerId) {
+                console.log(`🔍 [AI] WORKER_STATEMENT received name "${workerId}", auto-resolving to UUID...`);
+                const searchResult = await this.dbActions.findWorkerByName(workerId);
+                if (searchResult.success && searchResult.data?.length === 1) {
+                  workerId = searchResult.data[0].id;
+                  console.log(`✅ [AI] Auto-resolved worker "${actionParams[0]}" -> UUID: ${workerId}`);
+                } else if (searchResult.success && searchResult.data?.length > 1) {
+                  currentResult = {
+                    success: true,
+                    data: searchResult.data.map((w: any) => ({ id: w.id, name: w.name, dailyWage: w.dailyWage, projectId: w.projectId })),
+                    message: `تم العثور على ${searchResult.data.length} عامل بهذا الاسم. يرجى تحديد العامل المطلوب:`,
+                  };
+                  break;
+                } else {
+                  currentResult = { success: false, message: `لم يتم العثور على عامل باسم "${actionParams[0]}"` };
+                  break;
+                }
+              }
+              currentResult = await this.reportGenerator.generateWorkerStatement(workerId);
               break;
+            }
 
             case "PROJECT_EXPENSES":
               currentResult = await this.reportGenerator.generateProjectExpensesSummary(actionParams[0] || "");

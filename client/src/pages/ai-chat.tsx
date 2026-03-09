@@ -8,7 +8,7 @@ import {
   Send, Bot, Copy, Trash2, Plus, MessageSquare, ArrowUp,
   Sparkles, Loader2, PanelRightOpen, PanelRightClose, X,
   FileText, BarChart3, Users, ShieldCheck, Check, Play, Ban,
-  Table, Archive, RotateCcw, Settings, ChevronLeft
+  Table, Archive, RotateCcw, Settings, ChevronLeft, CheckSquare, Square
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -299,6 +299,8 @@ export default function AIChatPage() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<'chats' | 'archived' | 'settings'>('chats');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -535,6 +537,63 @@ export default function AIChatPage() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (sessionIds: string[]) => {
+      return await apiRequest("/api/ai/sessions/bulk-delete", "POST", { sessionIds });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
+      queryClient.invalidateQueries({ queryKey: ['ai-archived-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat-stats'] });
+      setSelectionMode(false); setSelectedIds(new Set());
+      if (currentSessionId && selectedIds.has(currentSessionId)) { setCurrentSessionId(null); setMessages([]); }
+      toast({ title: `تم حذف ${data?.deleted || selectedIds.size} محادثة`, duration: 2000 });
+    },
+  });
+
+  const bulkArchiveMutation = useMutation({
+    mutationFn: async (sessionIds: string[]) => {
+      return await apiRequest("/api/ai/sessions/bulk-archive", "POST", { sessionIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
+      queryClient.invalidateQueries({ queryKey: ['ai-archived-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat-stats'] });
+      setSelectionMode(false); setSelectedIds(new Set());
+      toast({ title: `تم أرشفة ${selectedIds.size} محادثة`, duration: 2000 });
+    },
+  });
+
+  const bulkRestoreMutation = useMutation({
+    mutationFn: async (sessionIds: string[]) => {
+      return await apiRequest("/api/ai/sessions/bulk-restore", "POST", { sessionIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiSessions });
+      queryClient.invalidateQueries({ queryKey: ['ai-archived-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['ai-chat-stats'] });
+      setSelectionMode(false); setSelectedIds(new Set());
+      toast({ title: `تم استعادة ${selectedIds.size} محادثة`, duration: 2000 });
+    },
+  });
+
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback((items: any[]) => {
+    setSelectedIds(new Set(items.map(s => s.id)));
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     const userMessage: Message = { role: "user", content: input, timestamp: new Date() };
@@ -660,7 +719,7 @@ export default function AIChatPage() {
             >
               <div className="p-3 border-b flex items-center justify-between">
                 {sidebarView !== 'chats' ? (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarView('chats')} data-testid="button-back-chats">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSidebarView('chats'); exitSelectionMode(); }} data-testid="button-back-chats">
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                 ) : <div className="w-8" />}
@@ -675,9 +734,25 @@ export default function AIChatPage() {
               {sidebarView === 'chats' && (
                 <>
                   <div className="p-3 space-y-2">
-                    <Button onClick={() => { startNewChat(); setSidebarOpen(false); }} variant="outline" className="w-full gap-2 h-9 text-sm" data-testid="button-new-chat-sidebar">
-                      <Plus className="h-3.5 w-3.5" /> محادثة جديدة
-                    </Button>
+                    {selectionMode ? (
+                      <div className="flex items-center gap-1.5">
+                        <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 flex-1" onClick={() => { const allIds = sessions.map((s: any) => s.id); selectedIds.size === allIds.length ? setSelectedIds(new Set()) : selectAll(sessions); }} data-testid="button-select-all-chats">
+                          <CheckSquare className="h-3 w-3" /> {selectedIds.size === sessions.length ? 'إلغاء الكل' : 'تحديد الكل'}
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-8 text-[11px]" onClick={exitSelectionMode} data-testid="button-exit-selection">إلغاء</Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1.5">
+                        <Button onClick={() => { startNewChat(); setSidebarOpen(false); }} variant="outline" className="flex-1 gap-2 h-9 text-sm" data-testid="button-new-chat-sidebar">
+                          <Plus className="h-3.5 w-3.5" /> محادثة جديدة
+                        </Button>
+                        {sessions.length > 0 && (
+                          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => { setSelectionMode(true); setSelectedIds(new Set()); }} data-testid="button-enter-selection">
+                            <CheckSquare className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <ScrollArea className="flex-1 px-3">
                     <div className="pb-4">
@@ -687,58 +762,114 @@ export default function AIChatPage() {
                         <div key={group.label}>
                           <p className="text-[10px] font-semibold text-muted-foreground px-2 pt-3 pb-1.5">{group.label}</p>
                           {group.items.map((session: any) => (
-                            <SwipeableSessionItem
-                              key={session.id}
-                              session={session}
-                              isActive={currentSessionId === session.id}
-                              onSelect={() => handleSessionClick(session.id)}
-                              onDelete={() => deleteSessionMutation.mutate(session.id)}
-                              onArchive={() => archiveSessionMutation.mutate(session.id)}
-                            />
+                            selectionMode ? (
+                              <div key={session.id} className={`flex items-center gap-2 p-2.5 rounded-lg mb-1 cursor-pointer transition-colors ${selectedIds.has(session.id) ? 'bg-primary/10' : 'bg-card hover:bg-muted'}`} onClick={() => toggleSelection(session.id)} data-testid={`select-session-${session.id}`}>
+                                {selectedIds.has(session.id) ? <CheckSquare className="h-4 w-4 text-primary shrink-0" /> : <Square className="h-4 w-4 text-muted-foreground shrink-0" />}
+                                <div className="flex-1 min-w-0">
+                                  <span className="truncate block text-sm">{session.title}</span>
+                                  <span className="text-[10px] text-muted-foreground">{formatRelativeTime(session.lastMessageAt || session.updated_at || session.created_at)}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <SwipeableSessionItem
+                                key={session.id}
+                                session={session}
+                                isActive={currentSessionId === session.id}
+                                onSelect={() => handleSessionClick(session.id)}
+                                onDelete={() => deleteSessionMutation.mutate(session.id)}
+                                onArchive={() => archiveSessionMutation.mutate(session.id)}
+                              />
+                            )
                           ))}
                         </div>
                       ))}
                     </div>
                   </ScrollArea>
-                  <div className="border-t p-2 flex gap-1">
-                    <Button variant="ghost" size="sm" className="flex-1 h-9 text-xs gap-1.5" onClick={() => setSidebarView('archived')} data-testid="button-view-archived">
-                      <Archive className="h-3.5 w-3.5" /> الأرشيف
-                      {archivedSessions.length > 0 && <span className="bg-muted rounded-full px-1.5 text-[10px]">{archivedSessions.length}</span>}
-                    </Button>
-                    <Button variant="ghost" size="sm" className="flex-1 h-9 text-xs gap-1.5" onClick={() => setSidebarView('settings')} data-testid="button-view-settings">
-                      <Settings className="h-3.5 w-3.5" /> الإعدادات
-                    </Button>
-                  </div>
+                  {selectionMode && selectedIds.size > 0 && (
+                    <div className="border-t p-2 flex gap-1.5">
+                      <Button variant="destructive" size="sm" className="flex-1 h-9 text-xs gap-1" disabled={bulkDeleteMutation.isPending} onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))} data-testid="button-bulk-delete">
+                        <Trash2 className="h-3.5 w-3.5" /> حذف ({selectedIds.size})
+                      </Button>
+                      <Button size="sm" className="flex-1 h-9 text-xs gap-1 bg-blue-500 hover:bg-blue-600 text-white" disabled={bulkArchiveMutation.isPending} onClick={() => bulkArchiveMutation.mutate(Array.from(selectedIds))} data-testid="button-bulk-archive">
+                        <Archive className="h-3.5 w-3.5" /> أرشفة ({selectedIds.size})
+                      </Button>
+                    </div>
+                  )}
+                  {!selectionMode && (
+                    <div className="border-t p-2 flex gap-1">
+                      <Button variant="ghost" size="sm" className="flex-1 h-9 text-xs gap-1.5" onClick={() => { setSidebarView('archived'); exitSelectionMode(); }} data-testid="button-view-archived">
+                        <Archive className="h-3.5 w-3.5" /> الأرشيف
+                        {archivedSessions.length > 0 && <span className="bg-muted rounded-full px-1.5 text-[10px]">{archivedSessions.length}</span>}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="flex-1 h-9 text-xs gap-1.5" onClick={() => setSidebarView('settings')} data-testid="button-view-settings">
+                        <Settings className="h-3.5 w-3.5" /> الإعدادات
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
 
               {sidebarView === 'archived' && (
-                <ScrollArea className="flex-1 px-3 pt-3">
-                  <div className="space-y-1 pb-4">
-                    {archivedSessions.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Archive className="h-8 w-8 mx-auto text-muted-foreground/30 mb-3" />
-                        <p className="text-xs text-muted-foreground">لا توجد محادثات مؤرشفة</p>
-                      </div>
-                    ) : archivedSessions.map((session: any) => (
-                      <div key={session.id} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-muted/30 text-sm" data-testid={`archived-session-${session.id}`}>
-                        <Archive className="h-3.5 w-3.5 shrink-0 opacity-40 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <span className="truncate block text-sm text-muted-foreground">{session.title}</span>
-                          <span className="text-[10px] text-muted-foreground/60">{formatRelativeTime(session.updated_at || session.created_at)}</span>
-                        </div>
-                        <div className="flex gap-1 shrink-0">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => restoreSessionMutation.mutate(session.id)} data-testid={`button-restore-${session.id}`}>
-                            <RotateCcw className="h-3 w-3" />
+                <>
+                  {archivedSessions.length > 0 && (
+                    <div className="px-3 pt-2 pb-1">
+                      {selectionMode ? (
+                        <div className="flex items-center gap-1.5">
+                          <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1 flex-1" onClick={() => { selectedIds.size === archivedSessions.length ? setSelectedIds(new Set()) : selectAll(archivedSessions); }} data-testid="button-select-all-archived">
+                            <CheckSquare className="h-3 w-3" /> {selectedIds.size === archivedSessions.length ? 'إلغاء الكل' : 'تحديد الكل'}
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSessionMutation.mutate(session.id)} data-testid={`button-delete-archived-${session.id}`}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 text-[11px]" onClick={exitSelectionMode}>إلغاء</Button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                      ) : (
+                        <Button variant="ghost" size="sm" className="h-8 text-[11px] gap-1 w-full" onClick={() => { setSelectionMode(true); setSelectedIds(new Set()); }} data-testid="button-enter-archive-selection">
+                          <CheckSquare className="h-3.5 w-3.5" /> تحديد متعدد
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  <ScrollArea className="flex-1 px-3 pt-1">
+                    <div className="space-y-1 pb-4">
+                      {archivedSessions.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Archive className="h-8 w-8 mx-auto text-muted-foreground/30 mb-3" />
+                          <p className="text-xs text-muted-foreground">لا توجد محادثات مؤرشفة</p>
+                        </div>
+                      ) : archivedSessions.map((session: any) => (
+                        <div key={session.id} className={`flex items-center gap-2.5 p-2.5 rounded-lg text-sm cursor-pointer transition-colors ${selectionMode && selectedIds.has(session.id) ? 'bg-primary/10' : 'bg-muted/30'}`} onClick={selectionMode ? () => toggleSelection(session.id) : undefined} data-testid={`archived-session-${session.id}`}>
+                          {selectionMode ? (
+                            selectedIds.has(session.id) ? <CheckSquare className="h-4 w-4 text-primary shrink-0" /> : <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <Archive className="h-3.5 w-3.5 shrink-0 opacity-40 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="truncate block text-sm text-muted-foreground">{session.title}</span>
+                            <span className="text-[10px] text-muted-foreground/60">{formatRelativeTime(session.updated_at || session.created_at)}</span>
+                          </div>
+                          {!selectionMode && (
+                            <div className="flex gap-1 shrink-0">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => restoreSessionMutation.mutate(session.id)} data-testid={`button-restore-${session.id}`}>
+                                <RotateCcw className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSessionMutation.mutate(session.id)} data-testid={`button-delete-archived-${session.id}`}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  {selectionMode && selectedIds.size > 0 && (
+                    <div className="border-t p-2 flex gap-1.5">
+                      <Button variant="destructive" size="sm" className="flex-1 h-9 text-xs gap-1" disabled={bulkDeleteMutation.isPending} onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))} data-testid="button-bulk-delete-archived">
+                        <Trash2 className="h-3.5 w-3.5" /> حذف ({selectedIds.size})
+                      </Button>
+                      <Button size="sm" className="flex-1 h-9 text-xs gap-1 bg-green-500 hover:bg-green-600 text-white" disabled={bulkRestoreMutation.isPending} onClick={() => bulkRestoreMutation.mutate(Array.from(selectedIds))} data-testid="button-bulk-restore">
+                        <RotateCcw className="h-3.5 w-3.5" /> استعادة ({selectedIds.size})
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
 
               {sidebarView === 'settings' && (

@@ -269,6 +269,72 @@ router.patch("/sessions/:id/restore", requireAdmin, async (req: AuthenticatedReq
 });
 
 /**
+ * حذف جماعي لعدة جلسات
+ * POST /api/ai/sessions/bulk-delete
+ */
+router.post("/sessions/bulk-delete", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { sessionIds } = req.body;
+    if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+      return res.status(400).json({ error: "sessionIds مطلوب كمصفوفة" });
+    }
+    const aiService = getAIAgentService();
+    let deleted = 0;
+    for (const sid of sessionIds) {
+      const ok = await aiService.deleteSession(sid, req.user!.user_id);
+      if (ok) deleted++;
+    }
+    res.json({ success: true, deleted });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * أرشفة جماعية لعدة جلسات
+ * POST /api/ai/sessions/bulk-archive
+ */
+router.post("/sessions/bulk-archive", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { sessionIds } = req.body;
+    if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+      return res.status(400).json({ error: "sessionIds مطلوب كمصفوفة" });
+    }
+    const aiService = getAIAgentService();
+    let archived = 0;
+    for (const sid of sessionIds) {
+      const ok = await aiService.archiveSession(sid, req.user!.user_id);
+      if (ok) archived++;
+    }
+    res.json({ success: true, archived });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * استعادة جماعية لعدة جلسات
+ * POST /api/ai/sessions/bulk-restore
+ */
+router.post("/sessions/bulk-restore", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { sessionIds } = req.body;
+    if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+      return res.status(400).json({ error: "sessionIds مطلوب كمصفوفة" });
+    }
+    const aiService = getAIAgentService();
+    let restored = 0;
+    for (const sid of sessionIds) {
+      const ok = await aiService.restoreSession(sid, req.user!.user_id);
+      if (ok) restored++;
+    }
+    res.json({ success: true, restored });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * إرسال رسالة للوكيل الذكي
  * POST /api/ai/chat
  */

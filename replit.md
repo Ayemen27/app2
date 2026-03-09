@@ -87,6 +87,22 @@
 - **Test endpoint:** `POST /api/notifications/test/create` (admin only, creates test notifications)
 - **Notification types:** system, security, maintenance, task, announcement, payroll, safety
 
+## WhatsApp Integration (March 2026)
+- **Bot:** `server/services/ai-agent/WhatsAppBot.ts` — Baileys library, multi-auth session
+- **Routes:** `server/routes/modules/whatsappAIRoutes.ts` at `/api/whatsapp-ai` (all require auth)
+- **Page:** `/whatsapp-setup` — 4 tabs: Connection, Protection, Logs, Stats
+- **Anti-Ban Protections:**
+  - Random delay 2-5s before each reply
+  - Typing presence simulation (composing → paused)
+  - Zero-width character suffix (multiple random chars)
+  - Daily message limit (50 max)
+  - Exponential backoff reconnection with jitter
+  - Browser mimicry (Chrome 121)
+  - markOnlineOnConnect: false, generateHighQualityLinkPreview: false
+  - Authorized phone filtering via ALLOWED_WHATSAPP_PHONE env var
+- **QR Generation:** Server-side via `qrcode` package at `/api/whatsapp-ai/qr-image`
+- **Endpoints:** GET /status, POST /restart, POST /disconnect, POST /webhook, GET /stats, GET /qr-image
+
 ## Deployment
 - SSH: `sshpass -e` with host `93.127.142.144`, user `administrator`
 - App location: `~/app2`, PM2 process: `construction-app`, port 6000

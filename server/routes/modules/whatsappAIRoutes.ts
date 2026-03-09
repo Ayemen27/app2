@@ -5,15 +5,38 @@ import { storage } from "../../storage";
 
 const router = Router();
 
-/**
- * جلب حالة البوت ورمز QR
- */
+const requireAuth = (req: Request, res: Response, next: any) => {
+  if (!req.user || !req.user.email) {
+    return res.status(401).json({ error: "غير مخول", message: "يرجى تسجيل الدخول" });
+  }
+  next();
+};
+
+router.use(requireAuth);
+
+router.get("/qr-image", async (req: Request, res: Response) => {
+  try {
+    const bot = getWhatsAppBot();
+    const qr = bot.getQR();
+    if (!qr) return res.status(404).json({ error: "No QR code available" });
+    
+    const QRCode = require('qrcode');
+    const qrBuffer = await QRCode.toBuffer(qr, { width: 280, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } });
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(qrBuffer);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to generate QR image" });
+  }
+});
+
 router.get("/status", (req: Request, res: Response) => {
   const bot = getWhatsAppBot();
   res.json({
     status: bot.getStatus(),
     qr: bot.getQR(),
-    pairingCode: bot.getPairingCode()
+    pairingCode: bot.getPairingCode(),
+    protection: bot.getProtectionStats()
   });
 });
 
@@ -25,6 +48,20 @@ router.post("/restart", async (req: Request, res: Response) => {
   const bot = getWhatsAppBot();
   await bot.restart(phoneNumber);
   res.json({ success: true });
+});
+
+router.post("/disconnect", async (req: Request, res: Response) => {
+  try {
+    const bot = getWhatsAppBot();
+    if (bot.getStatus() === "open" || bot.getStatus() === "connecting") {
+      await bot.disconnect();
+      res.json({ success: true, message: "تم فصل الاتصال بنجاح" });
+    } else {
+      res.json({ success: true, message: "الاتصال غير نشط بالفعل" });
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 /**

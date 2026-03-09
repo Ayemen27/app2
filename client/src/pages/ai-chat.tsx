@@ -8,7 +8,8 @@ import {
   Send, Bot, Copy, Trash2, Plus, MessageSquare, ArrowUp,
   Sparkles, Loader2, PanelRightOpen, PanelRightClose, X,
   FileText, BarChart3, Users, ShieldCheck, Check, Play, Ban,
-  Table, Archive, RotateCcw, Settings, ChevronLeft, CheckSquare, Square
+  Table, Archive, RotateCcw, Settings, ChevronLeft, CheckSquare, Square,
+  FileDown
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +27,71 @@ interface Message {
   steps?: { title: string; status: 'completed' | 'in_progress' | 'pending'; description?: string }[];
   data?: any;
   operationHandled?: boolean;
+}
+
+function generatePrintPDF(content: string, tableData: any[] | null, title?: string) {
+  const reportTitle = title || "تقرير من الوكيل الذكي";
+  const dateStr = new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+
+  let tableHTML = "";
+  if (tableData && tableData.length > 0) {
+    const cols = Object.keys(tableData[0]);
+    tableHTML = `
+      <table>
+        <thead>
+          <tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr>
+        </thead>
+        <tbody>
+          ${tableData.map(row => `<tr>${cols.map(c => `<td>${row[c] != null ? String(row[c]) : "-"}</td>`).join("")}</tr>`).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  const contentHTML = content
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/━+/g, "<hr/>")
+    .replace(/\n/g, "<br/>");
+
+  const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8"/>
+<title>${reportTitle}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; font-size: 12pt; color: #1a1a2e; background: #fff; padding: 20px; }
+  .header { background: linear-gradient(135deg, #1E3A5F, #2E86AB); color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px; }
+  .header h1 { font-size: 16pt; font-weight: 700; }
+  .header .date { font-size: 10pt; opacity: 0.85; margin-top: 4px; }
+  .content { line-height: 1.8; color: #333; white-space: pre-wrap; padding: 0 4px; }
+  .content strong { color: #1E3A5F; font-weight: 700; }
+  .content hr { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th { background: #1E3A5F; color: white; padding: 8px 10px; font-size: 10pt; text-align: right; }
+  td { padding: 7px 10px; font-size: 10pt; border-bottom: 1px solid #eee; text-align: right; }
+  tr:nth-child(even) td { background: #f8f9fb; }
+  .footer { margin-top: 24px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+  @media print { body { padding: 0; } .no-print { display: none; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>${reportTitle}</h1>
+  <div class="date">${dateStr}</div>
+</div>
+<div class="content">${contentHTML}</div>
+${tableHTML}
+<div class="footer">نظام إدارة المشاريع الإنشائية — تم إنشاء هذا التقرير تلقائياً</div>
+<script>window.onload = function(){ window.print(); window.onafterprint = function(){ window.close(); }; }</script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
 }
 
 function formatRelativeTime(date: string | Date | null | undefined): string {
@@ -1051,6 +1117,18 @@ export default function AIChatPage() {
                           >
                             {copiedIndex === index ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
                           </Button>
+                          {(tableData || (message.content && message.content.length > 100)) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              title="تصدير PDF"
+                              onClick={() => generatePrintPDF(message.content, tableData, "تقرير الوكيل الذكي")}
+                              data-testid={`button-export-pdf-${index}`}
+                            >
+                              <FileDown className="h-3 w-3" />
+                            </Button>
+                          )}
                           <span className="text-[10px] text-muted-foreground">
                             {message.timestamp.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
                           </span>

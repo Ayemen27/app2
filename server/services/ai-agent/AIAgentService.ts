@@ -573,7 +573,7 @@ export class AIAgentService {
           } else if (actionType === "ALL_PROJECTS_REPORT") {
             processedResponse += `\n\n✅ ${currentResult.message}`;
             if (Array.isArray(currentResult.data) && currentResult.data.length > 0) {
-              processedResponse += "\n\n```json\n" + JSON.stringify(currentResult.data, null, 2) + "\n```";
+              processedResponse += "\n\n" + this.formatProjectsReport(currentResult.data);
             }
           } else if (actionType === "WORKER_STATEMENT" || actionType === "PROJECT_EXPENSES" || actionType === "DAILY_EXPENSES") {
             const formattedReport = this.reportGenerator.formatAsText(currentResult.data, this.getActionTitle(actionType));
@@ -779,6 +779,54 @@ export class AIAgentService {
       case "DAILY_EXPENSES": return "تقرير المصروفات اليومي";
       default: return "تقرير النظام";
     }
+  }
+
+  /**
+   * تنسيق تقرير المشاريع الشامل بشكل احترافي
+   */
+  private formatProjectsReport(projects: any[]): string {
+    let text = `📊 **تقرير المشاريع الشامل** — ${new Date().toLocaleDateString("ar-SA")}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    let grandTotalFunds = 0;
+    let grandTotalExpenses = 0;
+
+    projects.forEach((p, i) => {
+      const funds = parseFloat(String(p.إجمالي_التمويل || p.totalFunds || 0));
+      const expenses = parseFloat(String(p.إجمالي_المصروفات || p.totalExpenses || 0));
+      const balance = parseFloat(String(p.الرصيد || p.balance || 0));
+      const wages = parseFloat(String(p.الأجور || p.totalWages || 0));
+      const materials = parseFloat(String(p.المواد || p.totalMaterials || 0));
+      const transport = parseFloat(String(p.النقل || p.totalTransport || 0));
+      const misc = parseFloat(String(p.متنوعات || p.totalMisc || 0));
+      const budget = parseFloat(String(p.الميزانية || p.budget || 0));
+
+      grandTotalFunds += funds;
+      grandTotalExpenses += expenses;
+
+      const balanceSign = balance >= 0 ? "✅" : "⚠️";
+      const statusEmoji = (p.الحالة || p.status) === "completed" ? "✔️" : "🏗️";
+
+      text += `${i + 1}. ${statusEmoji} **${p.المشروع || p.name}**\n`;
+      text += `   الحالة: ${p.الحالة || p.status || "نشط"}\n`;
+      if (budget > 0) text += `   الميزانية: ${budget.toLocaleString("ar")} ريال\n`;
+      text += `   إجمالي التمويل: ${funds.toLocaleString("ar")} ريال\n`;
+      if (wages > 0) text += `   ├─ أجور العمال: ${wages.toLocaleString("ar")} ريال\n`;
+      if (materials > 0) text += `   ├─ المواد: ${materials.toLocaleString("ar")} ريال\n`;
+      if (transport > 0) text += `   ├─ النقل: ${transport.toLocaleString("ar")} ريال\n`;
+      if (misc > 0) text += `   ├─ متنوعات: ${misc.toLocaleString("ar")} ريال\n`;
+      text += `   └─ إجمالي المصروفات: ${expenses.toLocaleString("ar")} ريال\n`;
+      text += `   ${balanceSign} الرصيد: **${balance.toLocaleString("ar")} ريال**\n\n`;
+    });
+
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `💰 **الإجماليات الكلية:**\n`;
+    text += `   إجمالي التمويل: **${grandTotalFunds.toLocaleString("ar")} ريال**\n`;
+    text += `   إجمالي المصروفات: **${grandTotalExpenses.toLocaleString("ar")} ريال**\n`;
+    const grandBalance = grandTotalFunds - grandTotalExpenses;
+    text += `   ${grandBalance >= 0 ? "✅" : "⚠️"} صافي الرصيد: **${grandBalance.toLocaleString("ar")} ريال**\n`;
+
+    return text;
   }
 
   /**

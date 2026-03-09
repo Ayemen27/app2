@@ -115,27 +115,27 @@ export class DatabaseActions {
           const fundsResult = await db
             .select({ total: sql<string>`COALESCE(SUM(${fundTransfers.amount}), 0)` })
             .from(fundTransfers)
-            .where(eq(fundTransfers.projectId, project.id));
+            .where(eq(fundTransfers.project_id, project.id));
 
           const wagesResult = await db
             .select({ total: sql<string>`COALESCE(SUM(${workerAttendance.paidAmount}), 0)` })
             .from(workerAttendance)
-            .where(eq(workerAttendance.projectId, project.id));
+            .where(eq(workerAttendance.project_id, project.id));
 
           const materialsResult = await db
             .select({ total: sql<string>`COALESCE(SUM(${materialPurchases.paidAmount}), 0)` })
             .from(materialPurchases)
-            .where(eq(materialPurchases.projectId, project.id));
+            .where(eq(materialPurchases.project_id, project.id));
 
           const transportResult = await db
             .select({ total: sql<string>`COALESCE(SUM(${transportationExpenses.amount}), 0)` })
             .from(transportationExpenses)
-            .where(eq(transportationExpenses.projectId, project.id));
+            .where(eq(transportationExpenses.project_id, project.id));
 
           const miscResult = await db
             .select({ total: sql<string>`COALESCE(SUM(${workerMiscExpenses.amount}), 0)` })
             .from(workerMiscExpenses)
-            .where(eq(workerMiscExpenses.projectId, project.id));
+            .where(eq(workerMiscExpenses.project_id, project.id));
 
           const totalFunds = parseFloat(fundsResult[0]?.total || "0");
           const totalWages = parseFloat(wagesResult[0]?.total || "0");
@@ -203,27 +203,27 @@ export class DatabaseActions {
       const fundsResult = await db
         .select({ total: sql<string>`COALESCE(SUM(${fundTransfers.amount}), 0)` })
         .from(fundTransfers)
-        .where(eq(fundTransfers.projectId, projectId));
+        .where(eq(fundTransfers.project_id, projectId));
 
       const wagesResult = await db
         .select({ total: sql<string>`COALESCE(SUM(${workerAttendance.paidAmount}), 0)` })
         .from(workerAttendance)
-        .where(eq(workerAttendance.projectId, projectId));
+        .where(eq(workerAttendance.project_id, projectId));
 
       const materialsResult = await db
         .select({ total: sql<string>`COALESCE(SUM(${materialPurchases.paidAmount}), 0)` })
         .from(materialPurchases)
-        .where(eq(materialPurchases.projectId, projectId));
+        .where(eq(materialPurchases.project_id, projectId));
 
       const transportResult = await db
         .select({ total: sql<string>`COALESCE(SUM(${transportationExpenses.amount}), 0)` })
         .from(transportationExpenses)
-        .where(eq(transportationExpenses.projectId, projectId));
+        .where(eq(transportationExpenses.project_id, projectId));
 
       const miscResult = await db
         .select({ total: sql<string>`COALESCE(SUM(${workerMiscExpenses.amount}), 0)` })
         .from(workerMiscExpenses)
-        .where(eq(workerMiscExpenses.projectId, projectId));
+        .where(eq(workerMiscExpenses.project_id, projectId));
 
       const summary = {
         totalFunds: parseFloat(fundsResult[0]?.total || "0"),
@@ -261,11 +261,11 @@ export class DatabaseActions {
       let result = await db
         .select()
         .from(workerAttendance)
-        .where(eq(workerAttendance.workerId, workerId))
+        .where(eq(workerAttendance.worker_id, workerId))
         .orderBy(desc(workerAttendance.attendanceDate));
 
       if (projectId) {
-        result = result.filter((r) => r.projectId === projectId);
+        result = result.filter((r) => r.project_id === projectId);
       }
 
       const totalDays = result.reduce((sum: number, r: any) => sum + parseFloat(r.workDays || "0"), 0);
@@ -295,7 +295,7 @@ export class DatabaseActions {
       const result = await db
         .select()
         .from(workerTransfers)
-        .where(eq(workerTransfers.workerId, workerId))
+        .where(eq(workerTransfers.worker_id, workerId))
         .orderBy(desc(workerTransfers.transferDate));
 
       const total = result.reduce((sum: number, r: any) => sum + parseFloat(r.amount), 0);
@@ -367,7 +367,7 @@ export class DatabaseActions {
         .select()
         .from(workerAttendance)
         .where(and(
-          eq(workerAttendance.projectId, projectId),
+          eq(workerAttendance.project_id, projectId),
           sql`(CASE WHEN attendance_date IS NULL OR attendance_date = '' THEN NULL ELSE attendance_date::date END) = ${date}`
         ));
 
@@ -375,7 +375,7 @@ export class DatabaseActions {
         .select()
         .from(materialPurchases)
         .where(and(
-          eq(materialPurchases.projectId, projectId),
+          eq(materialPurchases.project_id, projectId),
           sql`(CASE WHEN purchase_date IS NULL OR purchase_date = '' THEN NULL ELSE purchase_date::date END) = ${date}`
         ));
 
@@ -383,7 +383,7 @@ export class DatabaseActions {
         .select()
         .from(transportationExpenses)
         .where(and(
-          eq(transportationExpenses.projectId, projectId),
+          eq(transportationExpenses.project_id, projectId),
           sql`(CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) = ${date}`
         ));
 
@@ -391,7 +391,7 @@ export class DatabaseActions {
         .select()
         .from(workerMiscExpenses)
         .where(and(
-          eq(workerMiscExpenses.projectId, projectId),
+          eq(workerMiscExpenses.project_id, projectId),
           sql`(CASE WHEN date IS NULL OR date = '' THEN NULL ELSE date::date END) = ${date}`
         ));
 
@@ -498,8 +498,8 @@ export class DatabaseActions {
       const totalPay = (parseFloat(data.workDays) * parseFloat(data.dailyWage)).toString();
       
       const [result] = await db.insert(workerAttendance).values({
-        projectId: data.projectId,
-        workerId: data.workerId,
+        project_id: data.projectId,
+        worker_id: data.workerId,
         attendanceDate: data.attendanceDate,
         workDays: data.workDays,
         dailyWage: data.dailyWage,
@@ -532,7 +532,7 @@ export class DatabaseActions {
   }): Promise<ActionResult> {
     try {
       const [result] = await db.insert(fundTransfers).values({
-        projectId: data.projectId,
+        project_id: data.projectId,
         amount: data.amount,
         senderName: data.senderName,
         transferType: data.transferType,

@@ -36,7 +36,7 @@ export class ReportGenerator {
   }
 
   /**
-   * إنشاء تقرير تصفية حساب عامل بتنسيق Excel
+   * إنشاء تقرير تصفية حساب عامل بتنسيق Excel - تفصيلي كامل
    */
   async generateWorkerStatementExcel(workerId: string): Promise<ReportResult> {
     try {
@@ -45,35 +45,237 @@ export class ReportGenerator {
 
       const data = result.data;
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('تصفية حساب عامل');
+      workbook.creator = 'نظام إدارة المشاريع';
+      workbook.created = new Date();
 
+      const worksheet = workbook.addWorksheet('تصفية حساب عامل');
       worksheet.views = [{ rightToLeft: true }];
 
-      // تنسيق العناوين
-      worksheet.mergeCells('A1:E1');
-      const titleCell = worksheet.getCell('A1');
-      titleCell.value = `تقرير تصفية حساب: ${data.worker.name}`;
-      titleCell.font = { size: 16, bold: true };
-      titleCell.alignment = { horizontal: 'center' };
+      // تحديد عرض الأعمدة
+      worksheet.columns = [
+        { key: 'A', width: 14 },
+        { key: 'B', width: 30 },
+        { key: 'C', width: 12 },
+        { key: 'D', width: 12 },
+        { key: 'E', width: 12 },
+        { key: 'F', width: 14 },
+      ];
 
-      // معلومات أساسية
-      worksheet.addRow(['اسم العامل', data.worker.name, '', 'التاريخ', new Date().toLocaleDateString('en-GB')]);
-      worksheet.addRow(['الأجر اليومي', data.worker.dailyWage, '', 'الرصيد النهائي', data.statement.finalBalance]);
+      const primaryColor = 'FF1E3A5F';
+      const secondaryColor = 'FF2E86AB';
+      const lightGray = 'FFF5F5F5';
+      const creditColor = 'FF1B7E4E';
+      const debitColor = 'FFC0392B';
+      const white = 'FFFFFFFF';
 
-      worksheet.addRow([]); // سطر فارغ
+      const applyBorder = (row: ExcelJS.Row) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            left: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            bottom: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+            right: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+          };
+        });
+      };
 
-      // جدول العمليات
-      const headerRow = worksheet.addRow(['التاريخ', 'البيان', 'مكتسب (له)', 'مدفوع (عليه)', 'الرصيد']);
-      headerRow.font = { bold: true };
-      headerRow.eachCell(cell => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      // ─── رأس التقرير ───
+      worksheet.mergeCells('A1:F1');
+      const logoCell = worksheet.getCell('A1');
+      logoCell.value = 'نظام إدارة المشاريع الإنشائية';
+      logoCell.font = { size: 13, bold: true, color: { argb: white } };
+      logoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryColor } };
+      logoCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.getRow(1).height = 28;
+
+      worksheet.mergeCells('A2:F2');
+      const titleCell = worksheet.getCell('A2');
+      titleCell.value = `كشف حساب تفصيلي: ${data.worker.name}`;
+      titleCell.font = { size: 14, bold: true, color: { argb: white } };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondaryColor } };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      worksheet.getRow(2).height = 26;
+
+      // ─── معلومات العامل ───
+      worksheet.addRow([]);
+      const infoTitleRow = worksheet.addRow(['معلومات العامل', '', '', '', '', '']);
+      infoTitleRow.getCell(1).font = { bold: true, size: 11, color: { argb: primaryColor } };
+      infoTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+      worksheet.mergeCells(`A4:F4`);
+
+      const workerInfo = [
+        ['الاسم', data.worker.name, '', 'النوع', data.worker.type || '-', ''],
+        ['الأجر اليومي', `${parseFloat(data.worker.dailyWage || '0').toLocaleString('ar')} ريال`, '', 'تاريخ التقرير', new Date().toLocaleDateString('ar-SA'), ''],
+        ['الهاتف', data.worker.phone || '-', '', 'حالة الحساب', data.statement.finalBalance >= 0 ? 'لا توجد مستحقات متأخرة' : 'يوجد رصيد متبقي', ''],
+      ];
+
+      for (const info of workerInfo) {
+        const row = worksheet.addRow(info);
+        row.getCell(1).font = { bold: true, size: 10 };
+        row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+        row.getCell(4).font = { bold: true, size: 10 };
+        row.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+        applyBorder(row);
+        row.height = 20;
+      }
+
+      // ─── قسم الحضور ───
+      worksheet.addRow([]);
+      const attendanceTitleRow = worksheet.addRow(['📋 تفاصيل الحضور والأجور', '', '', '', '', '']);
+      worksheet.mergeCells(`A${attendanceTitleRow.number}:F${attendanceTitleRow.number}`);
+      attendanceTitleRow.getCell(1).font = { bold: true, size: 11, color: { argb: white } };
+      attendanceTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryColor } };
+      attendanceTitleRow.getCell(1).alignment = { horizontal: 'center' };
+      attendanceTitleRow.height = 22;
+
+      const attHeaderRow = worksheet.addRow(['التاريخ', 'المشروع / الوصف', 'أيام العمل', 'الأجر اليومي', 'المستحق', 'المدفوع']);
+      attHeaderRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true, size: 10, color: { argb: white } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondaryColor } };
+        cell.alignment = { horizontal: 'center' };
       });
+      applyBorder(attHeaderRow);
+      attHeaderRow.height = 20;
 
-      // إضافة البيانات
-      // هنا يجب إضافة تفاصيل الحضور والتحويلات... (تبسيط للمثال)
-      worksheet.addRow([new Date().toLocaleDateString('en-GB'), 'إجمالي المستحقات', data.statement.totalEarned, 0, data.statement.totalEarned]);
-      worksheet.addRow([new Date().toLocaleDateString('en-GB'), 'إجمالي المدفوعات والتحويلات', 0, data.statement.totalPaid + data.statement.totalTransferred, data.statement.finalBalance]);
+      const attendanceRecords = data.attendance?.records || [];
+      let runningBalance = 0;
+      for (const rec of attendanceRecords) {
+        const earned = parseFloat(rec.totalPay || '0');
+        const paid = parseFloat(rec.paidAmount || '0');
+        runningBalance += earned - paid;
+        const row = worksheet.addRow([
+          rec.attendanceDate || rec.date || '-',
+          rec.workDescription || 'حضور عمل',
+          parseFloat(rec.workDays || '0'),
+          parseFloat(rec.dailyWage || '0'),
+          earned,
+          paid,
+        ]);
+        row.getCell(3).numFmt = '#,##0.00';
+        row.getCell(4).numFmt = '#,##0.00';
+        row.getCell(5).numFmt = '#,##0.00';
+        row.getCell(6).numFmt = '#,##0.00';
+        row.getCell(5).font = { color: { argb: creditColor } };
+        row.getCell(6).font = { color: { argb: debitColor } };
+        applyBorder(row);
+        row.height = 18;
+      }
+
+      if (attendanceRecords.length === 0) {
+        const emptyRow = worksheet.addRow(['لا توجد سجلات حضور', '', '', '', '', '']);
+        worksheet.mergeCells(`A${emptyRow.number}:F${emptyRow.number}`);
+        emptyRow.getCell(1).alignment = { horizontal: 'center' };
+        emptyRow.getCell(1).font = { italic: true, color: { argb: 'FF888888' } };
+      }
+
+      const attSummaryRow = worksheet.addRow([
+        '', 'إجمالي الحضور',
+        data.attendance?.summary?.totalDays || 0,
+        '',
+        data.attendance?.summary?.totalEarned || 0,
+        data.attendance?.summary?.totalPaid || 0,
+      ]);
+      attSummaryRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true, size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+      });
+      attSummaryRow.getCell(5).font = { bold: true, color: { argb: creditColor } };
+      attSummaryRow.getCell(6).font = { bold: true, color: { argb: debitColor } };
+      applyBorder(attSummaryRow);
+
+      // ─── قسم الحوالات ───
+      worksheet.addRow([]);
+      const transfersTitleRow = worksheet.addRow(['💸 الحوالات والتحويلات', '', '', '', '', '']);
+      worksheet.mergeCells(`A${transfersTitleRow.number}:F${transfersTitleRow.number}`);
+      transfersTitleRow.getCell(1).font = { bold: true, size: 11, color: { argb: white } };
+      transfersTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryColor } };
+      transfersTitleRow.getCell(1).alignment = { horizontal: 'center' };
+      transfersTitleRow.height = 22;
+
+      const trHeaderRow = worksheet.addRow(['التاريخ', 'المستلم', 'طريقة التحويل', 'رقم الحوالة', 'المبلغ', 'ملاحظات']);
+      trHeaderRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true, size: 10, color: { argb: white } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondaryColor } };
+        cell.alignment = { horizontal: 'center' };
+      });
+      applyBorder(trHeaderRow);
+      trHeaderRow.height = 20;
+
+      const transfers = data.transfers?.transfers || [];
+      for (const tr of transfers) {
+        const row = worksheet.addRow([
+          tr.transferDate || '-',
+          tr.recipientName || '-',
+          tr.transferMethod || '-',
+          tr.transferNumber || '-',
+          parseFloat(tr.amount || '0'),
+          tr.notes || '',
+        ]);
+        row.getCell(5).numFmt = '#,##0.00';
+        row.getCell(5).font = { color: { argb: debitColor } };
+        applyBorder(row);
+        row.height = 18;
+      }
+
+      if (transfers.length === 0) {
+        const emptyRow = worksheet.addRow(['لا توجد حوالات مسجلة', '', '', '', '', '']);
+        worksheet.mergeCells(`A${emptyRow.number}:F${emptyRow.number}`);
+        emptyRow.getCell(1).alignment = { horizontal: 'center' };
+        emptyRow.getCell(1).font = { italic: true, color: { argb: 'FF888888' } };
+      }
+
+      const trSummaryRow = worksheet.addRow(['', 'إجمالي الحوالات', '', '', data.transfers?.totalTransferred || 0, '']);
+      trSummaryRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true, size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+      });
+      trSummaryRow.getCell(5).font = { bold: true, color: { argb: debitColor } };
+      applyBorder(trSummaryRow);
+
+      // ─── الملخص النهائي ───
+      worksheet.addRow([]);
+      const finalTitleRow = worksheet.addRow(['📊 الملخص النهائي', '', '', '', '', '']);
+      worksheet.mergeCells(`A${finalTitleRow.number}:F${finalTitleRow.number}`);
+      finalTitleRow.getCell(1).font = { bold: true, size: 12, color: { argb: white } };
+      finalTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryColor } };
+      finalTitleRow.getCell(1).alignment = { horizontal: 'center' };
+      finalTitleRow.height = 24;
+
+      const summaryData = [
+        ['إجمالي المستحقات (له)', data.statement.totalEarned, '', '', '', ''],
+        ['إجمالي المدفوعات النقدية', data.statement.totalPaid, '', '', '', ''],
+        ['إجمالي الحوالات', data.statement.totalTransferred, '', '', '', ''],
+        ['صافي الرصيد المتبقي', data.statement.finalBalance, '', '', '', ''],
+      ];
+
+      for (let i = 0; i < summaryData.length; i++) {
+        const row = worksheet.addRow(summaryData[i]);
+        worksheet.mergeCells(`A${row.number}:A${row.number}`);
+        worksheet.mergeCells(`B${row.number}:F${row.number}`);
+        row.getCell(1).font = { bold: true, size: 11 };
+        row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightGray } };
+        const isLast = i === summaryData.length - 1;
+        const val = parseFloat(String(summaryData[i][1] || '0'));
+        row.getCell(2).value = val;
+        row.getCell(2).numFmt = '#,##0.00 "ريال"';
+        row.getCell(2).font = {
+          bold: isLast,
+          size: isLast ? 12 : 11,
+          color: { argb: isLast ? (val >= 0 ? creditColor : debitColor) : 'FF333333' },
+        };
+        if (isLast) {
+          row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: val >= 0 ? 'FFE8F5E9' : 'FFFCE4EC' } };
+        }
+        applyBorder(row);
+        row.height = isLast ? 24 : 20;
+      }
+
+      // ─── تذييل ───
+      worksheet.addRow([]);
+      const footerRow = worksheet.addRow([`تم إنشاء هذا التقرير بتاريخ: ${new Date().toLocaleDateString('ar-SA')} - نظام إدارة المشاريع`, '', '', '', '', '']);
+      worksheet.mergeCells(`A${footerRow.number}:F${footerRow.number}`);
+      footerRow.getCell(1).font = { size: 9, italic: true, color: { argb: 'FF888888' } };
+      footerRow.getCell(1).alignment = { horizontal: 'center' };
 
       const fileName = `worker_statement_${workerId}_${Date.now()}.xlsx`;
       const filePath = path.join(this.reportsDir, fileName);
@@ -82,7 +284,7 @@ export class ReportGenerator {
       return {
         success: true,
         filePath: `/reports/${fileName}`,
-        message: "تم إنشاء تقرير Excel بنجاح",
+        message: `تم إنشاء تقرير Excel تفصيلي للعامل ${data.worker.name} بنجاح`,
       };
     } catch (error: any) {
       console.error("Excel Generation Error:", error);

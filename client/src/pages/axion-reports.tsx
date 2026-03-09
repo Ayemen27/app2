@@ -21,6 +21,8 @@ import {
   DollarSign,
   CreditCard,
   ArrowUpDown,
+  Search,
+  Filter,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +55,7 @@ import { useSelectedProjectContext, ALL_PROJECTS_ID } from "@/contexts/SelectedP
 import { downloadExcelFile, downloadFile } from "@/utils/webview-download";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import type {
   DailyReportData,
@@ -78,8 +80,8 @@ function getAuthToken(): string {
   return localStorage.getItem("accessToken") || localStorage.getItem("auth_token") || localStorage.getItem("token") || "";
 }
 
-function buildExportUrl(type: string, format: string, params: Record<string, string>): string {
-  const searchParams = new URLSearchParams({ format, ...params, token: getAuthToken() });
+function buildExportUrl(type: string, fmt: string, params: Record<string, string>): string {
+  const searchParams = new URLSearchParams({ format: fmt, ...params, token: getAuthToken() });
   return `/api/reports/v2/export/${type}?${searchParams.toString()}`;
 }
 
@@ -98,41 +100,6 @@ function EmptyState({ message, icon: Icon }: { message: string; icon?: typeof Al
     <div className="flex flex-col items-center justify-center py-16 gap-3" data-testid="empty-state">
       <EmptyIcon className="h-12 w-12 text-muted-foreground/40" />
       <p className="text-sm text-muted-foreground text-center">{message}</p>
-    </div>
-  );
-}
-
-function ExportButtons({
-  onExcel,
-  onPdf,
-  disabled,
-}: {
-  onExcel: () => void;
-  onPdf: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <Button
-        variant="outline"
-        onClick={onExcel}
-        disabled={disabled}
-        data-testid="button-export-excel"
-        className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800"
-      >
-        <FileSpreadsheet className="h-4 w-4 ml-1" />
-        تصدير Excel
-      </Button>
-      <Button
-        variant="outline"
-        onClick={onPdf}
-        disabled={disabled}
-        data-testid="button-export-pdf"
-        className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800"
-      >
-        <FileText className="h-4 w-4 ml-1" />
-        تصدير PDF
-      </Button>
     </div>
   );
 }
@@ -183,19 +150,20 @@ function ReportTable({
 function DailyReportTab() {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
+  const dateStr = format(selectedDate, "yyyy-MM-dd");
 
-  const { data: dailyReport, isLoading } = useQuery<DailyReportData | null>({
-    queryKey: ["reports-v2-daily", projectIdForApi, selectedDate],
+  const { data: dailyReport, isLoading, refetch } = useQuery<DailyReportData | null>({
+    queryKey: ["reports-v2-daily", projectIdForApi, dateStr],
     queryFn: async () => {
       if (!projectIdForApi) return null;
-      const params = new URLSearchParams({ project_id: projectIdForApi, date: selectedDate });
+      const params = new URLSearchParams({ project_id: projectIdForApi, date: dateStr });
       const res = await apiRequest(`/api/reports/v2/daily?${params.toString()}`, "GET");
       return res?.data || res;
     },
-    enabled: !!projectIdForApi && !!selectedDate,
+    enabled: !!projectIdForApi && !!dateStr,
     staleTime: 2 * 60 * 1000,
   });
 
@@ -204,34 +172,68 @@ function DailyReportTab() {
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
       return;
     }
-    const url = buildExportUrl("daily", fmt, { project_id: projectIdForApi, date: selectedDate });
+    const url = buildExportUrl("daily", fmt, { project_id: projectIdForApi, date: dateStr });
     window.open(url, "_blank");
   };
 
+  const filterConfig: FilterConfig[] = [
+    { key: "specificDate", label: "التاريخ", type: "date" },
+  ];
+
+  const filterValues: Record<string, any> = {
+    specificDate: selectedDate,
+  };
+
+  const onFilterChange = (key: string, val: any) => {
+    if (key === "specificDate" && val) {
+      setSelectedDate(val instanceof Date ? val : new Date(val));
+    }
+  };
+
+  const exportActions: ActionButton[] = [
+    {
+      key: "export-excel",
+      icon: FileSpreadsheet,
+      tooltip: "تصدير Excel",
+      onClick: () => handleExport("xlsx"),
+      disabled: !projectIdForApi,
+    },
+    {
+      key: "export-pdf",
+      icon: FileText,
+      tooltip: "تصدير PDF",
+      onClick: () => handleExport("pdf"),
+      disabled: !projectIdForApi,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-44"
-              data-testid="input-daily-date"
-            />
-          </div>
-          <Badge variant="outline" data-testid="badge-project-name">
-            {selectedProjectName || "جميع المشاريع"}
-          </Badge>
-        </div>
-        <ExportButtons
-          onExcel={() => handleExport("xlsx")}
-          onPdf={() => handleExport("pdf")}
-          disabled={!projectIdForApi}
+    <div className="space-y-4">
+      {dailyReport && (
+        <UnifiedStats
+          stats={[
+            { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
+            { title: "إجمالي الأجور", value: dailyReport.totals?.totalWorkerWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
+            { title: "المواد", value: dailyReport.totals?.totalMaterials || 0, icon: Package, color: "orange", formatter: formatCurrency },
+            { title: "النقل", value: dailyReport.totals?.totalTransport || 0, icon: Truck, color: "teal", formatter: formatCurrency },
+            { title: "مصاريف متنوعة", value: dailyReport.totals?.totalMiscExpenses || 0, icon: CreditCard, color: "red", formatter: formatCurrency },
+            { title: "الرصيد", value: dailyReport.totals?.balance || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
+          ]}
+          columns={3}
+          hideHeader={true}
         />
-      </div>
+      )}
+
+      <UnifiedFilterDashboard
+        filters={filterConfig}
+        filterValues={filterValues}
+        onFilterChange={onFilterChange}
+        actions={exportActions}
+        showSearch={false}
+        onRefresh={() => refetch()}
+        isRefreshing={isLoading}
+        onReset={() => setSelectedDate(new Date())}
+      />
 
       {isAllProjects && (
         <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقرير اليومي" icon={ClipboardList} />
@@ -245,19 +247,6 @@ function DailyReportTab() {
 
       {dailyReport && (
         <>
-          <UnifiedStats
-            stats={[
-              { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
-              { title: "إجمالي الأجور", value: dailyReport.totals?.totalWorkerWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
-              { title: "المواد", value: dailyReport.totals?.totalMaterials || 0, icon: Package, color: "orange", formatter: formatCurrency },
-              { title: "النقل", value: dailyReport.totals?.totalTransport || 0, icon: Truck, color: "teal", formatter: formatCurrency },
-              { title: "مصاريف متنوعة", value: dailyReport.totals?.totalMiscExpenses || 0, icon: CreditCard, color: "red", formatter: formatCurrency },
-              { title: "الرصيد", value: dailyReport.totals?.balance || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
-            ]}
-            columns={3}
-            hideHeader={true}
-          />
-
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
               <CardTitle className="text-base">سجل الحضور</CardTitle>
@@ -428,7 +417,7 @@ function WorkerStatementTab() {
     }
   };
 
-  const { data: workerStatement, isLoading: workerLoading } = useQuery<WorkerStatementData | null>({
+  const { data: workerStatement, isLoading: workerLoading, refetch } = useQuery<WorkerStatementData | null>({
     queryKey: ["reports-v2-worker-statement", selectedWorkerId, selectedProjectId, filterValues.dateRange],
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
@@ -469,25 +458,48 @@ function WorkerStatementTab() {
     window.open(url, "_blank");
   };
 
+  const exportActions: ActionButton[] = [
+    {
+      key: "export-excel",
+      icon: FileSpreadsheet,
+      tooltip: "تصدير Excel",
+      onClick: () => handleExport("xlsx"),
+      disabled: !selectedWorkerId,
+    },
+    {
+      key: "export-pdf",
+      icon: FileText,
+      tooltip: "تصدير PDF",
+      onClick: () => handleExport("pdf"),
+      disabled: !selectedWorkerId,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-0" />
-        <ExportButtons
-          onExcel={() => handleExport("xlsx")}
-          onPdf={() => handleExport("pdf")}
-          disabled={!selectedWorkerId}
+    <div className="space-y-4">
+      {selectedWorkerId && !workerLoading && workerStatement && (
+        <UnifiedStats
+          stats={[
+            { title: "إجمالي أيام العمل", value: String(workerStatement.totals?.totalWorkDays || 0), icon: Calendar, color: "blue" },
+            { title: "إجمالي المستحق", value: workerStatement.totals?.totalEarned || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
+            { title: "إجمالي المدفوع", value: workerStatement.totals?.totalPaid || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
+            { title: "الرصيد المتبقي", value: workerStatement.totals?.finalBalance || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
+          ]}
+          columns={4}
+          hideHeader={true}
         />
-      </div>
+      )}
 
       <UnifiedFilterDashboard
         filters={filterConfig}
         filterValues={filterValues}
         onFilterChange={onFilterChange}
+        actions={exportActions}
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         searchPlaceholder="البحث عن عامل..."
         isRefreshing={workerLoading}
+        onRefresh={() => refetch()}
         onReset={() => {
           setSearchValue("");
           setFilterValues({ dateRange: null, worker_id: "all" });
@@ -502,7 +514,7 @@ function WorkerStatementTab() {
       {selectedWorkerId && workerLoading && <LoadingSpinner message="جاري تحميل كشف حساب العامل..." />}
 
       {selectedWorkerId && !workerLoading && workerStatement && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Card>
               <CardContent className="p-4 text-center">
@@ -531,17 +543,6 @@ function WorkerStatementTab() {
               </CardContent>
             </Card>
           </div>
-
-          <UnifiedStats
-            stats={[
-              { title: "إجمالي أيام العمل", value: String(workerStatement.totals?.totalWorkDays || 0), icon: Calendar, color: "blue" },
-              { title: "إجمالي المستحق", value: workerStatement.totals?.totalEarned || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
-              { title: "إجمالي المدفوع", value: workerStatement.totals?.totalPaid || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
-              { title: "الرصيد المتبقي", value: workerStatement.totals?.finalBalance || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
-            ]}
-            columns={4}
-            hideHeader={true}
-          />
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -597,12 +598,18 @@ function WorkerStatementTab() {
 function PeriodFinalTab() {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
-  const [dateFrom, setDateFrom] = useState(format(new Date(new Date().setDate(1)), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>(() => {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setDate(1);
+    return { from: sixMonthsAgo, to: new Date() };
+  });
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
+  const dateFrom = dateRange.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+  const dateTo = dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "";
 
-  const { data: periodReport, isLoading } = useQuery<PeriodFinalReportData | null>({
+  const { data: periodReport, isLoading, refetch } = useQuery<PeriodFinalReportData | null>({
     queryKey: ["reports-v2-period-final", projectIdForApi, dateFrom, dateTo],
     queryFn: async () => {
       if (!projectIdForApi) return null;
@@ -631,6 +638,37 @@ function PeriodFinalTab() {
     window.open(url, "_blank");
   };
 
+  const filterConfig: FilterConfig[] = [
+    { key: "dateRange", label: "الفترة الزمنية", type: "date-range" },
+  ];
+
+  const filterValues: Record<string, any> = {
+    dateRange,
+  };
+
+  const onFilterChange = (key: string, val: any) => {
+    if (key === "dateRange" && val) {
+      setDateRange((prev) => ({ ...prev, ...val }));
+    }
+  };
+
+  const exportActions: ActionButton[] = [
+    {
+      key: "export-excel",
+      icon: FileSpreadsheet,
+      tooltip: "تصدير Excel",
+      onClick: () => handleExport("xlsx"),
+      disabled: !projectIdForApi,
+    },
+    {
+      key: "export-pdf",
+      icon: FileText,
+      tooltip: "تصدير PDF",
+      onClick: () => handleExport("pdf"),
+      disabled: !projectIdForApi,
+    },
+  ];
+
   const pieData = useMemo(() => {
     if (!periodReport?.totals) return [];
     return [
@@ -643,39 +681,42 @@ function PeriodFinalTab() {
   }, [periodReport]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">من:</span>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="w-40"
-              data-testid="input-period-from"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">إلى:</span>
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="w-40"
-              data-testid="input-period-to"
-            />
-          </div>
-          <Badge variant="outline" data-testid="badge-period-project">
-            {selectedProjectName || "جميع المشاريع"}
-          </Badge>
-        </div>
-        <ExportButtons
-          onExcel={() => handleExport("xlsx")}
-          onPdf={() => handleExport("pdf")}
-          disabled={!projectIdForApi}
+    <div className="space-y-4">
+      {periodReport && (
+        <UnifiedStats
+          stats={[
+            { title: "إجمالي الوارد", value: periodReport.totals?.totalIncome || 0, icon: TrendingUp, color: "blue", formatter: formatCurrency },
+            { title: "إجمالي المصروفات", value: periodReport.totals?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
+            { title: "الرصيد", value: periodReport.totals?.balance || 0, icon: Wallet, color: "green", formatter: formatCurrency },
+            {
+              title: "نسبة استخدام الميزانية",
+              value: periodReport.totals?.budgetUtilization != null
+                ? `${Math.round(periodReport.totals.budgetUtilization)}%`
+                : "غير محدد",
+              icon: PieChartIcon,
+              color: "orange",
+            },
+          ]}
+          columns={4}
+          hideHeader={true}
         />
-      </div>
+      )}
+
+      <UnifiedFilterDashboard
+        filters={filterConfig}
+        filterValues={filterValues}
+        onFilterChange={onFilterChange}
+        actions={exportActions}
+        showSearch={false}
+        onRefresh={() => refetch()}
+        isRefreshing={isLoading}
+        onReset={() => {
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          sixMonthsAgo.setDate(1);
+          setDateRange({ from: sixMonthsAgo, to: new Date() });
+        }}
+      />
 
       {isAllProjects && (
         <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقرير الختامي" icon={BarChart3} />
@@ -689,25 +730,7 @@ function PeriodFinalTab() {
 
       {periodReport && (
         <>
-          <UnifiedStats
-            stats={[
-              { title: "إجمالي الوارد", value: periodReport.totals?.totalIncome || 0, icon: TrendingUp, color: "blue", formatter: formatCurrency },
-              { title: "إجمالي المصروفات", value: periodReport.totals?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
-              { title: "الرصيد", value: periodReport.totals?.balance || 0, icon: Wallet, color: "green", formatter: formatCurrency },
-              {
-                title: "نسبة استخدام الميزانية",
-                value: periodReport.totals?.budgetUtilization != null
-                  ? `${Math.round(periodReport.totals.budgetUtilization)}%`
-                  : "غير محدد",
-                icon: PieChartIcon,
-                color: "orange",
-              },
-            ]}
-            columns={4}
-            hideHeader={true}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -887,16 +910,7 @@ export default function AxionReports() {
 
   return (
     <div className="fade-in pb-40" dir="rtl">
-      <div className="p-4 space-y-6 min-h-screen">
-        <div className="text-center space-y-1 mb-6 border-b pb-4">
-          <h1 className="text-xl sm:text-2xl font-black text-foreground" data-testid="text-company-name">
-            شركة الفتيني للمقاولات والاستشارات الهندسية
-          </h1>
-          <h2 className="text-sm sm:text-base font-bold text-muted-foreground" data-testid="text-report-center">
-            مركز التقارير الاحترافي
-          </h2>
-        </div>
-
+      <div className="p-4 space-y-4 min-h-screen">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full grid grid-cols-3" data-testid="tabs-report-center">
             <TabsTrigger value="daily" className="gap-1 text-xs sm:text-sm" data-testid="tab-daily">

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, Edit2, Save, X, DollarSign, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Plus, Trash2, Edit2, Save, X, DollarSign, ChevronDown, ChevronUp, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
@@ -301,11 +301,48 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
           ))}
           
           {Array.isArray(todayMiscExpenses) && todayMiscExpenses.length > 0 && (
-            <div className="text-left mt-2 pt-2 border-t">
-              <span className="text-sm text-muted-foreground">إجمالي النثريات: </span>
-              <span className="font-bold text-purple-600 arabic-numbers">
-                {formatCurrency(totalMiscExpenses.toString())}
-              </span>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t">
+              <div>
+                <span className="text-sm text-muted-foreground">إجمالي النثريات: </span>
+                <span className="font-bold text-purple-600 arabic-numbers">
+                  {formatCurrency(totalMiscExpenses.toString())}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 h-7 text-xs"
+                data-testid="button-export-misc-expenses"
+                onClick={async () => {
+                  const { createProfessionalReport } = await import('@/utils/axion-export');
+                  const data = todayMiscExpenses.map((expense: WorkerMiscExpense, idx: number) => ({
+                    index: idx + 1,
+                    date: expense.date || selectedDate,
+                    description: expense.description || '-',
+                    amount: parseFloat(expense.amount || '0'),
+                    notes: expense.notes || '',
+                  }));
+                  await createProfessionalReport({
+                    sheetName: 'نثريات العمال',
+                    reportTitle: 'تقرير مصاريف العمال المتنوعة (النثريات)',
+                    subtitle: `التاريخ: ${selectedDate}`,
+                    infoLines: [`عدد العمليات: ${data.length}`, `الإجمالي: ${totalMiscExpenses.toLocaleString('en-US')} ريال`],
+                    columns: [
+                      { header: '#', key: 'index', width: 5 },
+                      { header: 'التاريخ', key: 'date', width: 12 },
+                      { header: 'الوصف', key: 'description', width: 30 },
+                      { header: 'المبلغ', key: 'amount', width: 14, numFmt: '#,##0' },
+                      { header: 'ملاحظات', key: 'notes', width: 25 },
+                    ],
+                    data,
+                    totals: { label: 'الإجمالي', values: { amount: totalMiscExpenses } },
+                    fileName: `نثريات_العمال_${selectedDate}.xlsx`,
+                  });
+                }}
+              >
+                <Download className="h-3 w-3" />
+                تصدير
+              </Button>
             </div>
           )}
         </div>

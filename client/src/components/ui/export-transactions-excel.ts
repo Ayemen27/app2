@@ -1,12 +1,8 @@
-/**
- * تصدير سجل العمليات إلى Excel بتنسيق احترافي
- * Export Transactions Log to Professional Excel Format
- */
-
 import { downloadExcelFile } from '@/utils/webview-download';
 import { 
   COMPANY_INFO, 
-  EXCEL_STYLES
+  EXCEL_STYLES,
+  ALFATIHI_COLORS
 } from '@/utils/axion-export';
 
 interface Transaction {
@@ -47,6 +43,19 @@ const getTypeLabel = (type: string): string => {
   return labels[type] || type;
 };
 
+function applyStyle(cell: any, style: any) {
+  if (style.font) cell.font = style.font;
+  if (style.fill) cell.fill = style.fill;
+  if (style.alignment) cell.alignment = style.alignment;
+  if (style.border) cell.border = style.border;
+}
+
+function applyRowStyle(row: any, style: any, startCol: number, endCol: number) {
+  for (let i = startCol; i <= endCol; i++) {
+    applyStyle(row.getCell(i), style);
+  }
+}
+
 export async function exportTransactionsToExcel(
   transactions: Transaction[],
   totals: Totals,
@@ -66,14 +75,8 @@ export async function exportTransactionsToExcel(
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
-      margins: {
-        left: 0.2,
-        right: 0.2,
-        top: 0.4,
-        bottom: 0.4,
-        header: 0.2,
-        footer: 0.2
-      }
+      margins: { left: 0.2, right: 0.2, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+      horizontalCentered: true
     }
   });
 
@@ -83,18 +86,14 @@ export async function exportTransactionsToExcel(
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);
   const titleCell = worksheet.getCell(`A${currentRow}`);
   titleCell.value = COMPANY_INFO.name;
-  titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
-  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  applyStyle(titleCell, EXCEL_STYLES.headerMain);
   worksheet.getRow(currentRow).height = 22;
   currentRow++;
 
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);
   const subtitleCell = worksheet.getCell(`A${currentRow}`);
   subtitleCell.value = COMPANY_INFO.subtitle;
-  subtitleCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-  subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
-  subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  applyStyle(subtitleCell, EXCEL_STYLES.headerSecondary);
   worksheet.getRow(currentRow).height = 20;
   currentRow++;
 
@@ -104,7 +103,7 @@ export async function exportTransactionsToExcel(
     ? `سجل العمليات - ${projectName} - ${new Date().toLocaleDateString('en-GB')}`
     : `سجل العمليات - ${new Date().toLocaleDateString('en-GB')}`;
   reportTitleCell.value = reportTitle;
-  reportTitleCell.font = { bold: true, size: 11, color: { argb: 'FF1B2A4A' } };
+  reportTitleCell.font = { bold: true, size: 11, color: { argb: 'FF' + ALFATIHI_COLORS.headerDarkBlue } };
   reportTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
   worksheet.getRow(currentRow).height = 22;
   currentRow++;
@@ -137,31 +136,16 @@ export async function exportTransactionsToExcel(
   currentRow++;
 
   const headers = [
-    '#',           // 1
-    'التاريخ',      // 2
-    'النوع',        // 3
-    'الفئة',        // 4
-    'المشروع',      // 5
-    'اسم العامل/المادة', // 6
-    'عدد الأيام',    // 7
-    'الأجر اليومي',  // 8
-    'المستحقات',    // 9 - عمود جديد
-    'الكمية',       // 10
-    'سعر الوحدة',   // 11
-    'نوع الدفع',    // 12
-    'المورد/المستلم', // 13
-    'طريقة التحويل', // 14
-    'المبلغ المدفوع' // 15
+    '#', 'التاريخ', 'النوع', 'الفئة', 'المشروع', 'اسم العامل/المادة',
+    'عدد الأيام', 'الأجر اليومي', 'المستحقات', 'الكمية', 'سعر الوحدة',
+    'نوع الدفع', 'المورد/المستلم', 'طريقة التحويل', 'المبلغ المدفوع'
   ];
   
   const headerRow = worksheet.getRow(currentRow);
   headers.forEach((header, idx) => {
     const cell = headerRow.getCell(idx + 1);
     cell.value = header;
-    cell.font = EXCEL_STYLES.tableHeader.font;
-    cell.fill = EXCEL_STYLES.tableHeader.fill;
-    cell.alignment = EXCEL_STYLES.tableHeader.alignment;
-    cell.border = EXCEL_STYLES.tableHeader.border;
+    applyStyle(cell, EXCEL_STYLES.tableHeader);
   });
   headerRow.height = 22;
   currentRow++;
@@ -174,7 +158,7 @@ export async function exportTransactionsToExcel(
   worksheet.getColumn(6).width = 16;
   worksheet.getColumn(7).width = 10;
   worksheet.getColumn(8).width = 11;
-  worksheet.getColumn(9).width = 13;  // المستحقات
+  worksheet.getColumn(9).width = 13;
   worksheet.getColumn(10).width = 8;
   worksheet.getColumn(11).width = 10;
   worksheet.getColumn(12).width = 9;
@@ -192,7 +176,6 @@ export async function exportTransactionsToExcel(
     const getNameField = (): string => {
       if (transaction.workerName) return transaction.workerName;
       if (transaction.materialName) return transaction.materialName;
-      // إضافة الوصف للمواصلات والنثريات وغيرها
       if (transaction.description && transaction.description !== '-') return transaction.description;
       return '-';
     };
@@ -224,10 +207,7 @@ export async function exportTransactionsToExcel(
     rowData.forEach((value, colIdx) => {
       const cell = row.getCell(colIdx + 1);
       cell.value = value;
-      cell.font = style.font;
-      if ((style as any).fill) cell.fill = (style as any).fill;
-      cell.alignment = style.alignment;
-      cell.border = style.border;
+      applyStyle(cell, style);
 
       if (colIdx === 2) {
         if (transaction.type === 'income' || transaction.type === 'transfer_from_project') {
@@ -239,7 +219,6 @@ export async function exportTransactionsToExcel(
         }
       }
 
-      // تلوين عمود المستحقات للعمال غير المدفوعين
       if (colIdx === 8 && transaction.payableAmount && transaction.amount === 0) {
         cell.font = { ...style.font, bold: true, color: { argb: 'FFFF6600' } };
       }
@@ -262,43 +241,40 @@ export async function exportTransactionsToExcel(
   currentRow++;
   const summaryRow = worksheet.getRow(currentRow);
   worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
-  const summaryLabelCell = summaryRow.getCell(1);
-  summaryLabelCell.value = `إجمالي العمليات: ${transactions.length}`;
-  summaryLabelCell.font = EXCEL_STYLES.summaryRow.font;
-  summaryLabelCell.fill = EXCEL_STYLES.summaryRow.fill;
-  summaryLabelCell.alignment = EXCEL_STYLES.summaryRow.alignment;
-  summaryLabelCell.border = EXCEL_STYLES.summaryRow.border;
+  applyStyle(summaryRow.getCell(1), EXCEL_STYLES.summaryRow);
+  summaryRow.getCell(1).value = `إجمالي العمليات: ${transactions.length}`;
 
   worksheet.mergeCells(`H${currentRow}:O${currentRow}`);
   const dateCell = summaryRow.getCell(8);
   dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
   dateCell.font = { size: 10, italic: true };
   dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  summaryRow.height = 20;
+  summaryRow.height = 22;
   currentRow += 2;
 
-  const signatureRow = worksheet.getRow(currentRow);
+  const sigRow = worksheet.getRow(currentRow);
   worksheet.mergeCells(`A${currentRow}:E${currentRow}`);
-  const sig1 = signatureRow.getCell(1);
-  sig1.value = 'توقيع المدير المالي: ________________';
-  sig1.font = EXCEL_STYLES.signatureBox.font;
-  sig1.alignment = EXCEL_STYLES.signatureBox.alignment;
-  sig1.border = EXCEL_STYLES.signatureBox.border;
+  applyStyle(sigRow.getCell(1), EXCEL_STYLES.signatureBox);
+  sigRow.getCell(1).value = 'توقيع المهندس\n.................................';
+  sigRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+
+  worksheet.mergeCells(`F${currentRow}:J${currentRow}`);
+  applyStyle(sigRow.getCell(6), EXCEL_STYLES.signatureBox);
+  sigRow.getCell(6).value = 'توقيع مدير المشروع\n.................................';
+  sigRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
   worksheet.mergeCells(`K${currentRow}:O${currentRow}`);
-  const sig2 = signatureRow.getCell(11);
-  sig2.value = 'توقيع المدير العام: ________________';
-  sig2.font = EXCEL_STYLES.signatureBox.font;
-  sig2.alignment = EXCEL_STYLES.signatureBox.alignment;
-  sig2.border = EXCEL_STYLES.signatureBox.border;
-  signatureRow.height = 24;
+  applyStyle(sigRow.getCell(11), EXCEL_STYLES.signatureBox);
+  sigRow.getCell(11).value = 'توقيع المدير العام\n.................................';
+  sigRow.getCell(11).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  sigRow.height = 40;
   currentRow += 2;
 
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);
   const footerCell = worksheet.getCell(`A${currentRow}`);
-  footerCell.value = `${COMPANY_INFO.name} | ${COMPANY_INFO.address} | تم إنشاء هذا التقرير آلياً`;
-  footerCell.font = EXCEL_STYLES.footer.font;
-  footerCell.alignment = EXCEL_STYLES.footer.alignment;
+  const now = new Date();
+  footerCell.value = `تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - التاريخ والوقت: ${now.toLocaleDateString('en-GB')} - ${now.toLocaleTimeString('en-GB')}`;
+  applyStyle(footerCell, EXCEL_STYLES.footer);
 
   const buffer = await workbook.xlsx.writeBuffer();
   const fileName = `سجل_العمليات_${projectName ? projectName + '_' : ''}${new Date().toISOString().split('T')[0]}.xlsx`;

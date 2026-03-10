@@ -15,7 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { insertFundTransferSchema } from "@shared/schema";
 import type { InsertFundTransfer, FundTransfer, Project } from "@shared/schema";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
-import { DollarSign, Calendar, Edit, Trash2, TrendingUp, FileText, Building2 } from "lucide-react";
+import { DollarSign, Calendar, Edit, Trash2, TrendingUp, FileText, Building2, Download } from "lucide-react";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -324,6 +324,46 @@ export default function ProjectFundCustody() {
     }
   ], [stats, totals]);
 
+  const handleExportFundCustody = async () => {
+    if (filteredTransfers.length === 0) return;
+    const { createProfessionalReport } = await import('@/utils/axion-export');
+    const totalAmount = filteredTransfers.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+    const data = filteredTransfers.map((t: any, idx: number) => ({
+      index: idx + 1,
+      date: new Date(t.transferDate).toLocaleDateString('en-GB'),
+      projectName: t.projectName || projects.find((p: any) => p.id === t.project_id)?.name || 'غير محدد',
+      amount: Number(t.amount),
+      senderName: t.senderName || '-',
+      transferNumber: t.transferNumber || '-',
+      transferType: t.transferType || '-',
+      notes: t.notes || '',
+    }));
+    await createProfessionalReport({
+      sheetName: 'عهدة المشروع',
+      reportTitle: 'تقرير الوارد (عهدة المشروع)',
+      subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+      infoLines: [`عدد العمليات: ${data.length}`, `إجمالي المبالغ: ${totalAmount.toLocaleString('en-US')} ريال`],
+      columns: [
+        { header: '#', key: 'index', width: 5 },
+        { header: 'التاريخ', key: 'date', width: 12 },
+        { header: 'المشروع', key: 'projectName', width: 20 },
+        { header: 'المبلغ', key: 'amount', width: 14, numFmt: '#,##0' },
+        { header: 'اسم المرسل', key: 'senderName', width: 18 },
+        { header: 'رقم التحويل', key: 'transferNumber', width: 14 },
+        { header: 'النوع', key: 'transferType', width: 12 },
+        { header: 'ملاحظات', key: 'notes', width: 25 },
+      ],
+      data,
+      totals: { label: 'الإجماليات', values: { amount: totalAmount } },
+      signatures: [
+        { title: 'توقيع المحاسب' },
+        { title: 'توقيع مدير المشروع' },
+        { title: 'توقيع المدير العام' }
+      ],
+      fileName: `عهدة_المشروع_${new Date().toISOString().split('T')[0]}.xlsx`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       <div className="flex-1 overflow-y-auto">
@@ -340,6 +380,17 @@ export default function ProjectFundCustody() {
             onReset={onReset}
             onRefresh={() => refetch()}
             isRefreshing={transfersLoading}
+            actions={[
+              {
+                key: 'export',
+                icon: Download,
+                label: 'تصدير Excel',
+                onClick: handleExportFundCustody,
+                variant: 'outline' as const,
+                disabled: filteredTransfers.length === 0,
+                tooltip: 'تصدير عهدة المشروع'
+              }
+            ]}
           />
 
           <div className="space-y-4 md:space-y-6">

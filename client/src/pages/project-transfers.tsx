@@ -361,6 +361,46 @@ export default function ProjectTransfers() {
     }
   ], [stats, filteredTransfers, projects]);
 
+  const handleExportTransfers = async () => {
+    if (filteredTransfers.length === 0) return;
+    const { createProfessionalReport } = await import('@/utils/axion-export');
+    const totalAmount = filteredTransfers.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+    const data = filteredTransfers.map((t: any, idx: number) => ({
+      index: idx + 1,
+      date: new Date(t.transferDate).toLocaleDateString('en-GB'),
+      fromProject: projects.find((p: any) => p.id === t.fromProjectId)?.name || 'غير محدد',
+      toProject: projects.find((p: any) => p.id === t.toProjectId)?.name || 'غير محدد',
+      amount: Number(t.amount),
+      reason: t.transferReason || '-',
+      description: t.description || '-',
+      notes: t.notes || '',
+    }));
+    await createProfessionalReport({
+      sheetName: 'تحويلات المشاريع',
+      reportTitle: 'تقرير تحويلات العهدة بين المشاريع',
+      subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+      infoLines: [`عدد التحويلات: ${data.length}`, `إجمالي المبالغ: ${totalAmount.toLocaleString('en-US')} ريال`],
+      columns: [
+        { header: '#', key: 'index', width: 5 },
+        { header: 'التاريخ', key: 'date', width: 12 },
+        { header: 'من مشروع', key: 'fromProject', width: 20 },
+        { header: 'إلى مشروع', key: 'toProject', width: 20 },
+        { header: 'المبلغ', key: 'amount', width: 14, numFmt: '#,##0' },
+        { header: 'السبب', key: 'reason', width: 16 },
+        { header: 'الوصف', key: 'description', width: 25 },
+        { header: 'ملاحظات', key: 'notes', width: 20 },
+      ],
+      data,
+      totals: { label: 'الإجماليات', values: { amount: totalAmount } },
+      signatures: [
+        { title: 'توقيع المحاسب' },
+        { title: 'توقيع مدير المشروع' },
+        { title: 'توقيع المدير العام' }
+      ],
+      fileName: `تحويلات_المشاريع_${new Date().toISOString().split('T')[0]}.xlsx`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden flex flex-col" dir="rtl">
       {/* Main Content */}
@@ -379,6 +419,17 @@ export default function ProjectTransfers() {
             onReset={onReset}
             onRefresh={() => refetch()}
             isRefreshing={transfersLoading}
+            actions={[
+              {
+                key: 'export',
+                icon: Download,
+                label: 'تصدير Excel',
+                onClick: handleExportTransfers,
+                variant: 'outline' as const,
+                disabled: filteredTransfers.length === 0,
+                tooltip: 'تصدير تحويلات المشاريع'
+              }
+            ]}
           />
 
           {/* List Tab Content - Always Displayed */}

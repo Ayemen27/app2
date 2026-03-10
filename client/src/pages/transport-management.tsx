@@ -10,7 +10,6 @@ import {
   MapPin, Info, User, Settings, Droplets, Package, Building2
 } from "lucide-react";
 import { downloadExcelFile } from '@/utils/webview-download';
-import * as ExcelJS from 'exceljs';
 
 const categoryColors: Record<string, string> = {
   worker_transport: "border-l-blue-500",
@@ -268,46 +267,44 @@ export default function TransportManagement() {
 
   const handleExportToExcel = async () => {
     try {
-      const workbook = new ExcelJS.Workbook();
-      workbook.views = [{ activeTab: 0, firstSheet: 0, showGridLines: true }];
-      const worksheet = workbook.addWorksheet('حركة النقل', { views: [{ rightToLeft: true }] });
+      const { createProfessionalReport } = await import('@/utils/axion-export');
+      const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
-      worksheet.columns = [
-        { header: 'التاريخ', key: 'date', width: 15 },
-        { header: 'البيان / الوصف', key: 'description', width: 30 },
-        { header: 'المبلغ (RY)', key: 'amount', width: 15 },
-        { header: 'الفئة', key: 'category', width: 20 },
-        { header: 'العامل', key: 'worker', width: 20 },
-        { header: 'رقم البئر', key: 'well', width: 12 },
-        { header: 'ملاحظات', key: 'notes', width: 30 }
-      ];
+      const data = expenses.map((expense, idx) => ({
+        index: idx + 1,
+        date: formatDate(expense.date),
+        description: expense.description || '',
+        amount: Number(expense.amount),
+        category: categoriesMap[expense.category] || expense.category || "أخرى",
+        worker: workers.find(w => w.id === expense.worker_id)?.name || "مصروف عام",
+        well: expense.well_id || "-",
+        notes: expense.notes || ""
+      }));
 
-      const headerRow = worksheet.getRow(1);
-      headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
-      headerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: '1E293B' }
-      };
-      headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-
-      expenses.forEach(expense => {
-        const row = worksheet.addRow({
-          date: formatDate(expense.date),
-          description: expense.description,
-          amount: Number(expense.amount),
-          category: categoriesMap[expense.category] || expense.category || "أخرى",
-          worker: workers.find(w => w.id === expense.worker_id)?.name || "مصروف عام",
-          well: expense.well_id || "N/A",
-          notes: expense.notes || ""
-        });
-
-        row.alignment = { vertical: 'middle', horizontal: 'right' };
-        row.getCell(3).numFmt = '#,##0';
+      const downloadResult = await createProfessionalReport({
+        sheetName: 'حركة النقل',
+        reportTitle: 'تقرير حركة النقل والمواصلات',
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+        infoLines: [`إجمالي العمليات: ${expenses.length}`, `إجمالي المبالغ: ${totalAmount.toLocaleString('en-US')} ريال`],
+        columns: [
+          { header: '#', key: 'index', width: 5 },
+          { header: 'التاريخ', key: 'date', width: 13 },
+          { header: 'البيان / الوصف', key: 'description', width: 25 },
+          { header: 'المبلغ', key: 'amount', width: 14, numFmt: '#,##0' },
+          { header: 'الفئة', key: 'category', width: 16 },
+          { header: 'العامل', key: 'worker', width: 18 },
+          { header: 'رقم البئر', key: 'well', width: 12 },
+          { header: 'ملاحظات', key: 'notes', width: 25 }
+        ],
+        data,
+        totals: { label: 'الإجماليات', values: { amount: totalAmount } },
+        signatures: [
+          { title: 'توقيع السائق' },
+          { title: 'توقيع المهندس المشرف' },
+          { title: 'توقيع المدير العام' }
+        ],
+        fileName: `تقرير_النقل_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.xlsx`,
       });
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, `تقرير_النقل_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.xlsx`);
       
       if (downloadResult) {
         toast({ title: "تم التصدير بنجاح", description: "تم تحميل ملف إكسل احترافي" });

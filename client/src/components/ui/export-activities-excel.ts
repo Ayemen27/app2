@@ -1,13 +1,9 @@
-/**
- * تصدير سجل العمليات إلى Excel بتنسيق احترافي
- * Export Activities Log to Professional Excel Format
- */
-
 import { downloadExcelFile } from '@/utils/webview-download';
 import { 
   COMPANY_INFO, 
-  EXCEL_STYLES, 
-  addReportHeader 
+  EXCEL_STYLES,
+  ALFATIHI_COLORS,
+  addReportHeader
 } from '@/utils/axion-export';
 
 interface ActivityItem {
@@ -34,6 +30,13 @@ const getActionLabel = (actionType: string): string => {
   return labels[actionType] || actionType;
 };
 
+function applyStyle(cell: any, style: any) {
+  if (style.font) cell.font = style.font;
+  if (style.fill) cell.fill = style.fill;
+  if (style.alignment) cell.alignment = style.alignment;
+  if (style.border) cell.border = style.border;
+}
+
 export async function exportActivitiesToExcel(
   activities: ActivityItem[],
   formatCurrency: (amount: number) => string
@@ -51,61 +54,12 @@ export async function exportActivitiesToExcel(
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
-      margins: {
-        left: 0.3,
-        right: 0.3,
-        top: 0.5,
-        bottom: 0.5,
-        header: 0.3,
-        footer: 0.3
-      }
+      margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+      horizontalCentered: true
     }
   });
 
   const totalColumns = 7;
-
-  let currentRow = 1;
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
-  const titleCell = worksheet.getCell(`A${currentRow}`);
-  titleCell.value = COMPANY_INFO.name;
-  titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
-  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  worksheet.getRow(currentRow).height = 22;
-  currentRow++;
-
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
-  const subtitleCell = worksheet.getCell(`A${currentRow}`);
-  subtitleCell.value = COMPANY_INFO.subtitle;
-  subtitleCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-  subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
-  subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  worksheet.getRow(currentRow).height = 20;
-  currentRow++;
-
-  worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
-  const reportTitleCell = worksheet.getCell(`A${currentRow}`);
-  reportTitleCell.value = `سجل العمليات - ${new Date().toLocaleDateString('en-GB')}`;
-  reportTitleCell.font = { bold: true, size: 11, color: { argb: 'FF1B2A4A' } };
-  reportTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  worksheet.getRow(currentRow).height = 22;
-  currentRow++;
-
-  currentRow++;
-
-  const headers = ['#', 'نوع العملية', 'المستخدم', 'المشروع', 'المبلغ', 'الوصف', 'التاريخ والوقت'];
-  const headerRow = worksheet.getRow(currentRow);
-  headers.forEach((header, idx) => {
-    const cell = headerRow.getCell(idx + 1);
-    cell.value = header;
-    cell.font = EXCEL_STYLES.tableHeader.font;
-    cell.fill = EXCEL_STYLES.tableHeader.fill;
-    cell.alignment = EXCEL_STYLES.tableHeader.alignment;
-    cell.border = EXCEL_STYLES.tableHeader.border;
-  });
-  headerRow.height = 22;
-  currentRow++;
-
   worksheet.getColumn(1).width = 6;
   worksheet.getColumn(2).width = 15;
   worksheet.getColumn(3).width = 18;
@@ -114,13 +68,30 @@ export async function exportActivitiesToExcel(
   worksheet.getColumn(6).width = 30;
   worksheet.getColumn(7).width = 22;
 
+  let currentRow = addReportHeader(
+    worksheet,
+    'سجل العمليات والنشاطات',
+    `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+    [`إجمالي العمليات: ${activities.length}`]
+  );
+
+  const headers = ['#', 'نوع العملية', 'المستخدم', 'المشروع', 'المبلغ', 'الوصف', 'التاريخ والوقت'];
+  const headerRow = worksheet.getRow(currentRow);
+  headers.forEach((header, idx) => {
+    const cell = headerRow.getCell(idx + 1);
+    cell.value = header;
+    applyStyle(cell, EXCEL_STYLES.tableHeader);
+  });
+  headerRow.height = 22;
+  currentRow++;
+
   let totalAmount = 0;
   activities.forEach((activity, idx) => {
     const row = worksheet.getRow(currentRow);
     const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
     
     const dateTime = new Date(activity.createdAt);
-    const formattedDate = dateTime.toLocaleDateString('en-GB'); // DD/MM/YYYY
+    const formattedDate = dateTime.toLocaleDateString('en-GB');
     const formattedTime = dateTime.toLocaleTimeString('en-GB', { 
       hour: '2-digit', 
       minute: '2-digit',
@@ -140,10 +111,7 @@ export async function exportActivitiesToExcel(
     rowData.forEach((value, colIdx) => {
       const cell = row.getCell(colIdx + 1);
       cell.value = value;
-      cell.font = style.font;
-      if ((style as any).fill) cell.fill = (style as any).fill;
-      cell.alignment = style.alignment;
-      cell.border = style.border;
+      applyStyle(cell, style);
     });
     
     row.height = 20;
@@ -154,50 +122,37 @@ export async function exportActivitiesToExcel(
   currentRow++;
   const summaryRow = worksheet.getRow(currentRow);
   worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
-  const summaryLabelCell = summaryRow.getCell(1);
-  summaryLabelCell.value = `إجمالي العمليات: ${activities.length}`;
-  summaryLabelCell.font = EXCEL_STYLES.summaryRow.font;
-  summaryLabelCell.fill = EXCEL_STYLES.summaryRow.fill;
-  summaryLabelCell.alignment = EXCEL_STYLES.summaryRow.alignment;
-  summaryLabelCell.border = EXCEL_STYLES.summaryRow.border;
+  applyStyle(summaryRow.getCell(1), EXCEL_STYLES.summaryRow);
+  summaryRow.getCell(1).value = `إجمالي العمليات: ${activities.length}`;
 
-  const summaryAmountCell = summaryRow.getCell(5);
-  summaryAmountCell.value = formatCurrency(totalAmount);
-  summaryAmountCell.font = EXCEL_STYLES.greenRow.font;
-  summaryAmountCell.fill = EXCEL_STYLES.greenRow.fill;
-  summaryAmountCell.alignment = EXCEL_STYLES.greenRow.alignment;
-  summaryAmountCell.border = EXCEL_STYLES.greenRow.border;
+  applyStyle(summaryRow.getCell(5), EXCEL_STYLES.greenRow);
+  summaryRow.getCell(5).value = formatCurrency(totalAmount);
 
   worksheet.mergeCells(`F${currentRow}:G${currentRow}`);
-  const dateCell = summaryRow.getCell(6);
-  dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
-  dateCell.font = { size: 10, italic: true };
-  dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  summaryRow.height = 20;
+  summaryRow.getCell(6).value = `تاريخ التصدير: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
+  summaryRow.getCell(6).font = { size: 10, italic: true };
+  summaryRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+  summaryRow.height = 22;
   currentRow += 2;
 
-  const signatureRow = worksheet.getRow(currentRow);
+  const sigRow = worksheet.getRow(currentRow);
   worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
-  const sig1 = signatureRow.getCell(1);
-  sig1.value = 'توقيع المدير المالي: ________________';
-  sig1.font = EXCEL_STYLES.signatureBox.font;
-  sig1.alignment = EXCEL_STYLES.signatureBox.alignment;
-  sig1.border = EXCEL_STYLES.signatureBox.border;
+  applyStyle(sigRow.getCell(1), EXCEL_STYLES.signatureBox);
+  sigRow.getCell(1).value = 'توقيع المهندس\n.................................';
+  sigRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
   worksheet.mergeCells(`E${currentRow}:G${currentRow}`);
-  const sig2 = signatureRow.getCell(5);
-  sig2.value = 'توقيع المدير العام: ________________';
-  sig2.font = EXCEL_STYLES.signatureBox.font;
-  sig2.alignment = EXCEL_STYLES.signatureBox.alignment;
-  sig2.border = EXCEL_STYLES.signatureBox.border;
-  signatureRow.height = 24;
+  applyStyle(sigRow.getCell(5), EXCEL_STYLES.signatureBox);
+  sigRow.getCell(5).value = 'توقيع المدير العام\n.................................';
+  sigRow.getCell(5).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  sigRow.height = 40;
   currentRow += 2;
 
   worksheet.mergeCells(`A${currentRow}:G${currentRow}`);
   const footerCell = worksheet.getCell(`A${currentRow}`);
-  footerCell.value = `${COMPANY_INFO.name} | ${COMPANY_INFO.address} | تم إنشاء هذا التقرير آلياً`;
-  footerCell.font = EXCEL_STYLES.footer.font;
-  footerCell.alignment = EXCEL_STYLES.footer.alignment;
+  const now = new Date();
+  footerCell.value = `تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - التاريخ والوقت: ${now.toLocaleDateString('en-GB')} - ${now.toLocaleTimeString('en-GB')}`;
+  applyStyle(footerCell, EXCEL_STYLES.footer);
 
   const buffer = await workbook.xlsx.writeBuffer();
   const fileName = `سجل_العمليات_${new Date().toISOString().split('T')[0]}.xlsx`;

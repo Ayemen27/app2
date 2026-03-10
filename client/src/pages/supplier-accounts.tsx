@@ -266,176 +266,75 @@ export default function SupplierAccountsPage() {
   const exportToExcel = async () => {
     if (purchases.length === 0) return;
 
-    const ExcelJS = (await import('exceljs')).default;
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('كشف حساب المورد');
-    worksheet.views = [{ rightToLeft: true }];
+    const { createProfessionalReport, EXCEL_STYLES, ALFATIHI_COLORS, COMPANY_INFO } = await import('@/utils/axion-export');
 
-    worksheet.pageSetup = {
-      paperSize: 9,
-      orientation: 'portrait',
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 0,
-      margins: { left: 0.2, right: 0.2, top: 0.3, bottom: 0.3, header: 0.1, footer: 0.1 },
-      horizontalCentered: true,
-      scale: 80
-    };
-
-    worksheet.columns = [
-      { width: 3 }, { width: 9 }, { width: 12 }, { width: 16 }, { width: 20 }, { width: 6 }, 
-      { width: 9 }, { width: 11 }, { width: 8 }, { width: 9 }, { width: 9 }, { width: 8 }
-    ];
-
-    let currentRow = 1;
-
-    worksheet.mergeCells(`A${currentRow}:L${currentRow}`);
-    const titleCell = worksheet.getCell(`A${currentRow}`);
-    titleCell.value = 'الفتيني للمقاولات العامة والاستشارات الهندسية';
-    titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFF' } };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1f4e79' } };
-    worksheet.getRow(currentRow).height = 25;
-    currentRow++;
-
-    worksheet.mergeCells(`A${currentRow}:L${currentRow}`);
-    const subtitleCell = worksheet.getCell(`A${currentRow}`);
-    subtitleCell.value = 'كشف حساب المورد - تقرير مفصل';
-    subtitleCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: '1f4e79' } };
-    subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'f2f2f2' } };
-    worksheet.getRow(currentRow).height = 16;
-    currentRow += 2;
-
-    if (selectedSupplier) {
-      worksheet.mergeCells(`A${currentRow}:L${currentRow}`);
-      const supplierHeaderCell = worksheet.getCell(`A${currentRow}`);
-      supplierHeaderCell.value = 'بيانات المورد';
-      supplierHeaderCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFF' } };
-      supplierHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
-      supplierHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2e75b6' } };
-      worksheet.getRow(currentRow).height = 22;
-      currentRow++;
-
-      const supplierData = [
-        ['اسم المورد', selectedSupplier.name, 'رقم الهاتف', selectedSupplier.phone || 'غير محدد'],
-        ['شخص الاتصال', selectedSupplier.contactPerson || 'غير محدد', 'العنوان', selectedSupplier.address || 'غير محدد']
-      ];
-
-      supplierData.forEach((dataRow) => {
-        const row = worksheet.getRow(currentRow);
-        worksheet.mergeCells(`A${currentRow}:B${currentRow}`);
-        row.getCell(1).value = dataRow[0];
-        row.getCell(1).font = { name: 'Arial', size: 9, bold: true };
-        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-        
-        worksheet.mergeCells(`C${currentRow}:F${currentRow}`);
-        row.getCell(3).value = dataRow[1];
-        row.getCell(3).font = { name: 'Arial', size: 9 };
-        row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
-        
-        worksheet.mergeCells(`G${currentRow}:H${currentRow}`);
-        row.getCell(7).value = dataRow[2];
-        row.getCell(7).font = { name: 'Arial', size: 9, bold: true };
-        row.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
-        
-        worksheet.mergeCells(`I${currentRow}:L${currentRow}`);
-        row.getCell(9).value = dataRow[3];
-        row.getCell(9).font = { name: 'Arial', size: 9 };
-        row.getCell(9).alignment = { horizontal: 'center', vertical: 'middle' };
-        
-        worksheet.getRow(currentRow).height = 18;
-        currentRow++;
-      });
-
-      currentRow += 1;
-    }
-
-    const headers = ['#', 'التاريخ', 'رقم الفاتورة', 'اسم المشروع', 'المادة', 'الكمية', 'سعر الوحدة', 'المبلغ الإجمالي', 'نوع الدفع', 'المدفوع', 'المتبقي', 'الحالة'];
-    const headerRow = worksheet.getRow(currentRow);
-    
-    headers.forEach((header, index) => {
-      const cell = headerRow.getCell(index + 1);
-      cell.value = header;
-      cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFF' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1f4e79' } };
-    });
-    headerRow.height = 20;
-    currentRow++;
-
-    purchases.forEach((purchase, index) => {
-      const row = worksheet.getRow(currentRow);
+    const data = purchases.map((purchase, index) => {
       const projectName = projects.find(p => p.id === purchase.project_id)?.name || 'غير محدد';
-      const materialName = purchase.materialName || 'غير محدد';
-      
-      const rowData = [
-        index + 1,
-        formatDate(purchase.invoiceDate || purchase.purchaseDate),
-        purchase.invoiceNumber || '-',
+      return {
+        index: index + 1,
+        date: formatDate(purchase.invoiceDate || purchase.purchaseDate),
+        invoiceNumber: purchase.invoiceNumber || '-',
         projectName,
-        materialName,
-        Number(purchase.quantity),
-        parseFloat(purchase.unitPrice),
-        parseFloat(purchase.totalAmount),
-        purchase.purchaseType,
-        parseFloat(purchase.paidAmount || "0"),
-        parseFloat(purchase.remainingAmount || "0"),
-        parseFloat(purchase.remainingAmount || "0") === 0 ? 'مسدد' : 'مؤجل'
-      ];
+        materialName: purchase.materialName || 'غير محدد',
+        quantity: Number(purchase.quantity),
+        unitPrice: parseFloat(purchase.unitPrice),
+        totalAmount: parseFloat(purchase.totalAmount),
+        purchaseType: purchase.purchaseType,
+        paidAmount: parseFloat(purchase.paidAmount || "0"),
+        remainingAmount: parseFloat(purchase.remainingAmount || "0"),
+        status: parseFloat(purchase.remainingAmount || "0") === 0 ? 'مسدد' : 'مؤجل'
+      };
+    });
 
-      rowData.forEach((value, colIndex) => {
-        const cell = row.getCell(colIndex + 1);
-        cell.value = value;
-        cell.font = { name: 'Arial', size: 8 };
-        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'cccccc' } },
-          bottom: { style: 'thin', color: { argb: 'cccccc' } },
-          left: { style: 'thin', color: { argb: 'cccccc' } },
-          right: { style: 'thin', color: { argb: 'cccccc' } }
-        };
-        
-        // Use English numbering format for numeric columns
-        if ([1, 6, 7, 8, 10, 11].includes(colIndex + 1)) {
-          cell.numFmt = '#,##0.00';
+    const infoLines = [`إجمالي المشتريات: ${purchases.length}`];
+    if (selectedSupplier) {
+      infoLines.unshift(`المورد: ${selectedSupplier.name} | الهاتف: ${selectedSupplier.phone || 'غير محدد'}`);
+    }
+    infoLines.push(
+      `إجمالي المبالغ: ${formatCurrency(totals.totalAmount)}`,
+      `المدفوع: ${formatCurrency(totals.paidAmount)}`,
+      `المتبقي: ${formatCurrency(totals.remainingAmount)}`
+    );
+
+    const downloadResult = await createProfessionalReport({
+      sheetName: 'كشف حساب المورد',
+      reportTitle: 'كشف حساب المورد - تقرير مفصل',
+      subtitle: selectedSupplier ? `المورد: ${selectedSupplier.name}` : 'جميع الموردين',
+      infoLines,
+      columns: [
+        { header: '#', key: 'index', width: 4 },
+        { header: 'التاريخ', key: 'date', width: 11 },
+        { header: 'رقم الفاتورة', key: 'invoiceNumber', width: 12 },
+        { header: 'المشروع', key: 'projectName', width: 16 },
+        { header: 'المادة', key: 'materialName', width: 18 },
+        { header: 'الكمية', key: 'quantity', width: 8, numFmt: '#,##0.00' },
+        { header: 'سعر الوحدة', key: 'unitPrice', width: 10, numFmt: '#,##0.00' },
+        { header: 'الإجمالي', key: 'totalAmount', width: 11, numFmt: '#,##0.00' },
+        { header: 'نوع الدفع', key: 'purchaseType', width: 9 },
+        { header: 'المدفوع', key: 'paidAmount', width: 10, numFmt: '#,##0.00' },
+        { header: 'المتبقي', key: 'remainingAmount', width: 10, numFmt: '#,##0.00' },
+        { header: 'الحالة', key: 'status', width: 8 }
+      ],
+      data,
+      totals: {
+        label: 'الإجماليات',
+        values: {
+          totalAmount: totals.totalAmount,
+          paidAmount: totals.paidAmount,
+          remainingAmount: totals.remainingAmount
         }
-      });
-      
-      worksheet.getRow(currentRow).height = 18;
-      currentRow++;
+      },
+      signatures: [
+        { title: 'توقيع المورد' },
+        { title: 'توقيع المهندس المشرف' },
+        { title: 'توقيع المدير العام' }
+      ],
+      orientation: 'landscape',
+      fileName: selectedSupplier 
+        ? `كشف-حساب-${selectedSupplier.name}-${new Date().toISOString().split('T')[0]}.xlsx`
+        : `كشف-حساب-جميع-الموردين-${new Date().toISOString().split('T')[0]}.xlsx`,
     });
 
-    currentRow += 2;
-
-    const summaryData = [
-      ['إجمالي المشتريات', formatCurrency(totals.totalAmount)],
-      ['إجمالي المدفوع', formatCurrency(totals.paidAmount)],
-      ['إجمالي المتبقي', formatCurrency(totals.remainingAmount)]
-    ];
-
-    summaryData.forEach((data) => {
-      const row = worksheet.getRow(currentRow);
-      worksheet.mergeCells(`H${currentRow}:I${currentRow}`);
-      row.getCell(8).value = data[0];
-      row.getCell(8).font = { name: 'Arial', size: 10, bold: true };
-      row.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
-      
-      worksheet.mergeCells(`J${currentRow}:L${currentRow}`);
-      row.getCell(10).value = data[1];
-      row.getCell(10).font = { name: 'Arial', size: 10, bold: true };
-      row.getCell(10).alignment = { horizontal: 'center', vertical: 'middle' };
-      
-      worksheet.getRow(currentRow).height = 20;
-      currentRow++;
-    });
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    const currentDate = new Date().toISOString().split('T')[0];
-    const fileName = selectedSupplier 
-      ? `كشف-حساب-${selectedSupplier.name}-${currentDate}.xlsx`
-      : `كشف-حساب-جميع-الموردين-${currentDate}.xlsx`;
-    const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, fileName);
     if (!downloadResult) {
       toast({ title: "تعذر التنزيل", description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.", variant: "destructive" });
     }

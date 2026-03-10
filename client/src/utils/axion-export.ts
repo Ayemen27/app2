@@ -248,7 +248,7 @@ function addSignatureSection(
   
   signatures.forEach((sig, idx) => {
     const startCol = idx * colsPerSig + 1;
-    const endCol = startCol + colsPerSig - 1;
+    const endCol = idx === signatures.length - 1 ? columnCount : startCol + colsPerSig - 1;
     
     worksheet.mergeCells(currentRow, startCol, currentRow, endCol);
     const cell = sigRow.getCell(startCol);
@@ -325,6 +325,140 @@ export function addReportHeader(
 
   currentRow++;
   return currentRow;
+}
+
+export interface ProfessionalReportColumn {
+  header: string;
+  key: string;
+  width: number;
+  numFmt?: string;
+}
+
+export interface ProfessionalReportTotals {
+  label: string;
+  values: Record<string, number | string>;
+}
+
+export interface ProfessionalReportOptions {
+  sheetName: string;
+  reportTitle: string;
+  subtitle?: string;
+  infoLines?: string[];
+  columns: ProfessionalReportColumn[];
+  data: Record<string, any>[];
+  totals?: ProfessionalReportTotals;
+  signatures?: Array<{ title: string }>;
+  fileName: string;
+  orientation?: 'landscape' | 'portrait';
+}
+
+export async function createProfessionalReport(options: ProfessionalReportOptions): Promise<boolean> {
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = COMPANY_INFO.name;
+  workbook.created = new Date();
+
+  const worksheet = workbook.addWorksheet(options.sheetName, {
+    views: [{ rightToLeft: true }],
+    pageSetup: {
+      paperSize: 9,
+      orientation: options.orientation || 'landscape',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
+      horizontalCentered: true
+    }
+  });
+
+  const colCount = options.columns.length;
+  options.columns.forEach((col, idx) => {
+    worksheet.getColumn(idx + 1).width = col.width;
+  });
+
+  let currentRow = await addAlFatihiHeader(
+    worksheet,
+    options.reportTitle,
+    options.subtitle || '',
+    colCount
+  );
+
+  if (options.infoLines && options.infoLines.length > 0) {
+    worksheet.mergeCells(currentRow, 1, currentRow, colCount);
+    const infoRow = worksheet.getRow(currentRow);
+    infoRow.getCell(1).value = options.infoLines.join(' | ');
+    applyStyle(infoRow.getCell(1), {
+      font: { size: 9 },
+      alignment: { horizontal: 'center', vertical: 'middle' }
+    });
+    infoRow.height = 18;
+    currentRow++;
+  }
+
+  currentRow++;
+
+  const headerRow = worksheet.getRow(currentRow);
+  options.columns.forEach((col, idx) => {
+    headerRow.getCell(idx + 1).value = col.header;
+    applyStyle(headerRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
+  });
+  headerRow.height = 22;
+  currentRow++;
+
+  options.data.forEach((record, idx) => {
+    const row = worksheet.getRow(currentRow);
+    const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
+
+    options.columns.forEach((col, colIdx) => {
+      const cell = row.getCell(colIdx + 1);
+      cell.value = record[col.key] ?? '';
+      applyStyle(cell, style);
+      if (col.numFmt && typeof record[col.key] === 'number') {
+        cell.numFmt = col.numFmt;
+      }
+    });
+    row.height = 20;
+    currentRow++;
+  });
+
+  if (options.totals) {
+    const totalsRow = worksheet.getRow(currentRow);
+    const totalKeys = Object.keys(options.totals.values);
+    const firstTotalColIdx = options.columns.findIndex(c => totalKeys.includes(c.key));
+    const labelEndCol = firstTotalColIdx > 0 ? firstTotalColIdx : Math.floor(colCount / 2);
+
+    if (labelEndCol > 1) {
+      worksheet.mergeCells(currentRow, 1, currentRow, labelEndCol);
+    }
+    totalsRow.getCell(1).value = options.totals.label;
+
+    options.columns.forEach((col, colIdx) => {
+      if (options.totals!.values[col.key] !== undefined) {
+        const cell = totalsRow.getCell(colIdx + 1);
+        cell.value = options.totals!.values[col.key];
+        if (col.numFmt && typeof options.totals!.values[col.key] === 'number') {
+          cell.numFmt = col.numFmt;
+        }
+      }
+    });
+
+    applyRowStyle(totalsRow, EXCEL_STYLES.greenRow, 1, colCount);
+    totalsRow.height = 22;
+    currentRow++;
+  }
+
+  currentRow++;
+
+  const sigs = options.signatures || [
+    { title: 'توقيع المهندس' },
+    { title: 'توقيع مدير المشروع' },
+    { title: 'توقيع المدير العام' }
+  ];
+  currentRow = addSignatureSection(worksheet, currentRow, sigs, colCount);
+  addReportFooter(worksheet, currentRow, colCount);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return await downloadExcelFile(buffer as ArrayBuffer, options.fileName);
 }
 
 export async function exportDailyExpensesReport(

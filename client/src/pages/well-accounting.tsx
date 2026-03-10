@@ -13,7 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { performLocalOperation, getListLocal } from "@/offline/db";
 import { formatCurrency } from "@/lib/utils";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
-import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign } from "lucide-react";
+import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 
@@ -237,6 +237,79 @@ export default function WellAccounting() {
               showActiveFilters={true}
               compact={false}
             />
+            <div className="flex justify-end mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (filteredWells.length === 0) return;
+                  const { createProfessionalReport } = await import('@/utils/axion-export');
+                  const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
+                  const allData: any[] = [];
+                  let idx = 0;
+                  filteredWells.forEach((well: any) => {
+                    const wellTasks = tasks.filter((t: any) => t.well_id === well.id);
+                    if (wellTasks.length > 0) {
+                      wellTasks.forEach((task: any) => {
+                        idx++;
+                        allData.push({
+                          index: idx,
+                          wellNumber: well.wellNumber,
+                          ownerName: well.ownerName,
+                          region: well.region || '-',
+                          description: task.description || '-',
+                          amount: Number(task.amount || 0),
+                          paidAmount: Number(task.paidAmount || 0),
+                          status: getStatusText(task.status),
+                          balance: Number(task.amount || 0) - Number(task.paidAmount || 0),
+                        });
+                      });
+                    } else {
+                      idx++;
+                      allData.push({
+                        index: idx,
+                        wellNumber: well.wellNumber,
+                        ownerName: well.ownerName,
+                        region: well.region || '-',
+                        description: '-',
+                        amount: 0,
+                        paidAmount: 0,
+                        status: getStatusText(well.status),
+                        balance: 0,
+                      });
+                    }
+                  });
+                  const totalAmount = allData.reduce((s, r) => s + r.amount, 0);
+                  const totalPaid = allData.reduce((s, r) => s + r.paidAmount, 0);
+                  await createProfessionalReport({
+                    sheetName: 'محاسبة الآبار',
+                    reportTitle: 'تقرير محاسبة الآبار',
+                    subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+                    infoLines: [`عدد الآبار: ${filteredWells.length}`, `إجمالي المبالغ: ${totalAmount.toLocaleString('en-US')} ريال`, `المدفوع: ${totalPaid.toLocaleString('en-US')} ريال`],
+                    columns: [
+                      { header: '#', key: 'index', width: 5 },
+                      { header: 'رقم البئر', key: 'wellNumber', width: 10 },
+                      { header: 'المالك', key: 'ownerName', width: 18 },
+                      { header: 'المنطقة', key: 'region', width: 14 },
+                      { header: 'وصف المهمة', key: 'description', width: 22 },
+                      { header: 'المبلغ', key: 'amount', width: 12, numFmt: '#,##0' },
+                      { header: 'المدفوع', key: 'paidAmount', width: 12, numFmt: '#,##0' },
+                      { header: 'الحالة', key: 'status', width: 12 },
+                      { header: 'الرصيد', key: 'balance', width: 12, numFmt: '#,##0' },
+                    ],
+                    data: allData,
+                    totals: { label: 'الإجماليات', values: { amount: totalAmount, paidAmount: totalPaid, balance: totalAmount - totalPaid } },
+                    fileName: `محاسبة_الآبار_${new Date().toISOString().split('T')[0]}.xlsx`,
+                  });
+                }}
+                disabled={filteredWells.length === 0}
+                className="gap-2"
+                data-testid="button-export-well-accounting"
+              >
+                <Download className="h-4 w-4" />
+                تصدير Excel
+              </Button>
+            </div>
           </div>
 
           {/* قائمة الآبار */}

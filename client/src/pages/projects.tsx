@@ -42,7 +42,8 @@ import {
   UserCog,
   ArrowUpCircle,
   ArrowDownCircle,
-  Power
+  Power,
+  Download
 } from "lucide-react";
 import type { Project, InsertProject, ProjectType } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
@@ -713,6 +714,50 @@ export default function ProjectsPage() {
   // استخدام دالة formatCurrency من utils.ts لضمان التوحيد
   const formatCurrencyLocal = formatCurrency;
 
+  const handleExportProjects = async () => {
+    if (filteredProjects.length === 0) return;
+    const { createProfessionalReport } = await import('@/utils/axion-export');
+    const data = filteredProjects.map((project: any, idx: number) => {
+      const pStats = getProjectStats(project.id);
+      const engineer = usersData.find((u: any) => u.id === project.engineerId);
+      return {
+        index: idx + 1,
+        name: project.name,
+        location: project.location || '-',
+        status: project.status === 'active' ? 'نشط' : project.status === 'completed' ? 'مكتمل' : 'متوقف',
+        engineer: engineer?.name || 'بدون مهندس',
+        startDate: project.startDate ? new Date(project.startDate).toLocaleDateString('en-GB') : '-',
+        income: pStats?.totalIncome || 0,
+        expenses: pStats?.totalExpenses || 0,
+        balance: pStats?.currentBalance || 0,
+        workers: pStats?.totalWorkers || 0,
+      };
+    });
+    const totalIncome = data.reduce((s, r) => s + r.income, 0);
+    const totalExpenses = data.reduce((s, r) => s + r.expenses, 0);
+    await createProfessionalReport({
+      sheetName: 'المشاريع',
+      reportTitle: 'تقرير إدارة المشاريع',
+      subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+      infoLines: [`عدد المشاريع: ${data.length}`, `إجمالي الدخل: ${totalIncome.toLocaleString('en-US')} ريال`, `إجمالي المصروفات: ${totalExpenses.toLocaleString('en-US')} ريال`],
+      columns: [
+        { header: '#', key: 'index', width: 5 },
+        { header: 'اسم المشروع', key: 'name', width: 22 },
+        { header: 'الموقع', key: 'location', width: 16 },
+        { header: 'الحالة', key: 'status', width: 10 },
+        { header: 'المهندس', key: 'engineer', width: 16 },
+        { header: 'تاريخ البدء', key: 'startDate', width: 12 },
+        { header: 'الدخل', key: 'income', width: 14, numFmt: '#,##0' },
+        { header: 'المصروفات', key: 'expenses', width: 14, numFmt: '#,##0' },
+        { header: 'الرصيد', key: 'balance', width: 14, numFmt: '#,##0' },
+        { header: 'العمال', key: 'workers', width: 8 },
+      ],
+      data,
+      totals: { label: 'الإجماليات', values: { income: totalIncome, expenses: totalExpenses, balance: totalIncome - totalExpenses } },
+      fileName: `تقرير_المشاريع_${new Date().toISOString().split('T')[0]}.xlsx`,
+    });
+  };
+
   const filteredProjects = useMemo(() => {
     return projectsData.filter(project => {
       if (searchValue && !project.name.toLowerCase().includes(searchValue.toLowerCase())) {
@@ -882,6 +927,17 @@ export default function ProjectsPage() {
             totalValueLabel: 'الإجمالي',
             unit: 'ر.ي',
           } : undefined}
+          actions={[
+            {
+              key: 'export',
+              icon: Download,
+              label: 'تصدير Excel',
+              onClick: handleExportProjects,
+              variant: 'outline' as const,
+              disabled: filteredProjects.length === 0,
+              tooltip: 'تصدير بيانات المشاريع'
+            }
+          ]}
         />
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>

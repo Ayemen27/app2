@@ -475,13 +475,9 @@ export function EquipmentManagement() {
           };
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
           
-          if (colNumber === 6 && item.purchasePrice) {
+          if (colNumber === 8 && item.purchasePrice) {
             cell.numFmt = '#,##0 "ريال"';
             cell.alignment = { horizontal: 'left', vertical: 'middle' };
-          }
-          
-          if (colNumber === 8) {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
           }
           
           if (index % 2 === 0) {

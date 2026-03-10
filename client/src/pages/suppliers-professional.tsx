@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle } from "lucide-react";
+import { Plus, Edit2, Trash2, Building, Phone, MapPin, User, CreditCard, Calendar, TrendingUp, AlertCircle, Download } from "lucide-react";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -276,6 +276,52 @@ export default function SuppliersPage() {
           totalValueLabel: 'إجمالي المديونية',
           unit: 'ر.ي',
         } : undefined}
+        actions={[
+          {
+            key: 'export',
+            icon: Download,
+            label: 'تصدير Excel',
+            onClick: async () => {
+              if (filteredSuppliers.length === 0) return;
+              const { createProfessionalReport } = await import('@/utils/axion-export');
+              const data = filteredSuppliers.map((s: Supplier, idx: number) => ({
+                index: idx + 1,
+                name: s.name,
+                phone: s.phone || '-',
+                contactPerson: s.contactPerson || '-',
+                totalPurchases: parseFloat(s.totalDebt?.toString() || '0') + parseFloat(s.totalPaid?.toString() || '0'),
+                totalPaid: parseFloat(s.totalPaid?.toString() || '0'),
+                totalDebt: parseFloat(s.totalDebt?.toString() || '0'),
+                address: s.address || '-',
+              }));
+              const totalPurchases = data.reduce((sum, r) => sum + r.totalPurchases, 0);
+              const totalPaid = data.reduce((sum, r) => sum + r.totalPaid, 0);
+              const totalDebt = data.reduce((sum, r) => sum + r.totalDebt, 0);
+              await createProfessionalReport({
+                sheetName: 'الموردين',
+                reportTitle: 'تقرير إدارة الموردين',
+                subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+                infoLines: [`عدد الموردين: ${data.length}`, `إجمالي المشتريات: ${totalPurchases.toLocaleString('en-US')} ريال`, `المتبقي: ${totalDebt.toLocaleString('en-US')} ريال`],
+                columns: [
+                  { header: '#', key: 'index', width: 5 },
+                  { header: 'اسم المورد', key: 'name', width: 20 },
+                  { header: 'الهاتف', key: 'phone', width: 14 },
+                  { header: 'جهة الاتصال', key: 'contactPerson', width: 16 },
+                  { header: 'إجمالي المشتريات', key: 'totalPurchases', width: 16, numFmt: '#,##0' },
+                  { header: 'المدفوع', key: 'totalPaid', width: 14, numFmt: '#,##0' },
+                  { header: 'المتبقي', key: 'totalDebt', width: 14, numFmt: '#,##0' },
+                  { header: 'العنوان', key: 'address', width: 18 },
+                ],
+                data,
+                totals: { label: 'الإجماليات', values: { totalPurchases, totalPaid, totalDebt } },
+                fileName: `تقرير_الموردين_${new Date().toISOString().split('T')[0]}.xlsx`,
+              });
+            },
+            variant: 'outline' as const,
+            disabled: filteredSuppliers.length === 0,
+            tooltip: 'تصدير بيانات الموردين'
+          }
+        ]}
       />
 
       {filteredSuppliers.length === 0 ? (

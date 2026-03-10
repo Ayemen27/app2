@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2 } from "lucide-react";
+import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -856,6 +856,55 @@ export default function WorkerAttendance() {
     );
   }, [workers, searchValue]);
 
+  const handleExportAttendance = async () => {
+    if (filteredAttendance.length === 0) return;
+    const { createProfessionalReport } = await import('@/utils/axion-export');
+    const data = filteredAttendance.map((record: any, idx: number) => {
+      const worker = workers.find(w => w.id === record.worker_id);
+      const dailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
+      const workDays = parseFloat(record.workDays || '0');
+      const earned = dailyWage * workDays;
+      const paid = parseFloat(record.paidAmount || '0');
+      return {
+        index: idx + 1,
+        date: record.attendanceDate || record.date || selectedDate || '',
+        workerName: worker?.name || 'غير معروف',
+        workDescription: record.workDescription || '-',
+        workDays: workDays,
+        dailyWage: dailyWage,
+        earned: earned,
+        paid: paid,
+        remaining: earned - paid,
+        paymentType: record.paymentType || 'نقد',
+        notes: record.notes || '',
+      };
+    });
+    const totalEarned = data.reduce((s, r) => s + r.earned, 0);
+    const totalPaid = data.reduce((s, r) => s + r.paid, 0);
+    await createProfessionalReport({
+      sheetName: 'سجل الحضور',
+      reportTitle: 'تقرير حضور العمال',
+      subtitle: selectedDate ? `التاريخ: ${selectedDate}` : `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+      infoLines: [`عدد السجلات: ${data.length}`, `المستحق: ${totalEarned.toLocaleString('en-US')} ريال`, `المدفوع: ${totalPaid.toLocaleString('en-US')} ريال`],
+      columns: [
+        { header: '#', key: 'index', width: 5 },
+        { header: 'التاريخ', key: 'date', width: 12 },
+        { header: 'اسم العامل', key: 'workerName', width: 18 },
+        { header: 'وصف العمل', key: 'workDescription', width: 22 },
+        { header: 'أيام العمل', key: 'workDays', width: 10, numFmt: '#,##0.00' },
+        { header: 'الأجر اليومي', key: 'dailyWage', width: 12, numFmt: '#,##0' },
+        { header: 'المستحق', key: 'earned', width: 12, numFmt: '#,##0' },
+        { header: 'المدفوع', key: 'paid', width: 12, numFmt: '#,##0' },
+        { header: 'المتبقي', key: 'remaining', width: 12, numFmt: '#,##0' },
+        { header: 'نوع الدفع', key: 'paymentType', width: 10 },
+        { header: 'ملاحظات', key: 'notes', width: 20 },
+      ],
+      data,
+      totals: { label: 'الإجماليات', values: { earned: totalEarned, paid: totalPaid, remaining: totalEarned - totalPaid } },
+      fileName: `سجل_الحضور_${selectedDate || new Date().toISOString().split('T')[0]}.xlsx`,
+    });
+  };
+
   // فلترة سجلات الحضور حسب نص البحث ونطاق التاريخ
   const filteredAttendance = useMemo(() => {
     let result = todayRecords;
@@ -1066,6 +1115,17 @@ export default function WorkerAttendance() {
             totalValueLabel: 'إجمالي المستحق',
             unit: 'ر.ي',
           } : undefined}
+          actions={[
+            {
+              key: 'export',
+              icon: Download,
+              label: 'تصدير Excel',
+              onClick: handleExportAttendance,
+              variant: 'outline' as const,
+              disabled: filteredAttendance.length === 0,
+              tooltip: 'تصدير سجل الحضور'
+            }
+          ]}
         />
       )}
 

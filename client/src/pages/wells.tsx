@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, X, CirclePlus, Wrench, TrendingUp } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, X, CirclePlus, Wrench, TrendingUp, Download } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -414,6 +414,59 @@ export default function WellsPage() {
         showActiveFilters={true}
         compact={false}
       />
+
+      {/* زر التصدير */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            if (filteredWells.length === 0) return;
+            const { createProfessionalReport } = await import('@/utils/axion-export');
+            const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
+            const data = filteredWells.map((well: any, idx: number) => ({
+              index: idx + 1,
+              wellNumber: well.wellNumber,
+              ownerName: well.ownerName,
+              region: well.region || '-',
+              wellDepth: well.wellDepth || 0,
+              numberOfPanels: well.numberOfPanels || 0,
+              numberOfBases: well.numberOfBases || 0,
+              numberOfPipes: well.numberOfPipes || 0,
+              pumpPower: well.pumpPower || '-',
+              status: getStatusText(well.status),
+              completion: well.completionPercentage || 0,
+            }));
+            await createProfessionalReport({
+              sheetName: 'إدارة الآبار',
+              reportTitle: 'تقرير إدارة الآبار',
+              subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+              infoLines: [`عدد الآبار: ${data.length}`, `منجزة: ${stats.completed}`, `قيد التنفيذ: ${stats.inProgress}`, `لم تبدأ: ${stats.pending}`],
+              columns: [
+                { header: '#', key: 'index', width: 5 },
+                { header: 'رقم البئر', key: 'wellNumber', width: 10 },
+                { header: 'المالك', key: 'ownerName', width: 18 },
+                { header: 'المنطقة', key: 'region', width: 14 },
+                { header: 'العمق (م)', key: 'wellDepth', width: 10, numFmt: '#,##0' },
+                { header: 'الألواح', key: 'numberOfPanels', width: 8 },
+                { header: 'القواعد', key: 'numberOfBases', width: 8 },
+                { header: 'المواسير', key: 'numberOfPipes', width: 8 },
+                { header: 'قوة المضخة', key: 'pumpPower', width: 10 },
+                { header: 'الحالة', key: 'status', width: 12 },
+                { header: 'الإنجاز %', key: 'completion', width: 10, numFmt: '#,##0' },
+              ],
+              data,
+              fileName: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}.xlsx`,
+            });
+          }}
+          disabled={filteredWells.length === 0}
+          className="gap-2"
+          data-testid="button-export-wells"
+        >
+          <Download className="h-4 w-4" />
+          تصدير Excel
+        </Button>
+      </div>
 
       {/* نموذج إضافة بئر جديد */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>

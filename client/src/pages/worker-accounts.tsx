@@ -606,106 +606,50 @@ export default function WorkerAccountsPage() {
   const exportToExcel = async () => {
     if (filteredTransfers.length === 0) return;
 
-    const ExcelJS = (await import('exceljs')).default;
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('حوالات العمال');
-    worksheet.views = [{ rightToLeft: true }];
+    const { createProfessionalReport } = await import('@/utils/axion-export');
+    const totalAmount = filteredTransfers.reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-    worksheet.pageSetup = {
-      paperSize: 9,
-      orientation: 'landscape',
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 0,
-      margins: { left: 0.2, right: 0.2, top: 0.3, bottom: 0.3, header: 0.1, footer: 0.1 },
-      horizontalCentered: true,
-      scale: 80
-    };
-
-    worksheet.columns = [
-      { width: 5 }, { width: 12 }, { width: 15 }, { width: 15 }, { width: 12 },
-      { width: 12 }, { width: 15 }, { width: 12 }, { width: 20 }
-    ];
-
-    let currentRow = 1;
-
-    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-    const titleCell = worksheet.getCell(`A${currentRow}`);
-    titleCell.value = 'الفتيني للمقاولات العامة والاستشارات الهندسية';
-    titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFF' } };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1f4e79' } };
-    worksheet.getRow(currentRow).height = 25;
-    currentRow++;
-
-    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
-    const subtitleCell = worksheet.getCell(`A${currentRow}`);
-    subtitleCell.value = 'تقرير حوالات العمال';
-    subtitleCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: '1f4e79' } };
-    subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'f2f2f2' } };
-    worksheet.getRow(currentRow).height = 16;
-    currentRow += 2;
-
-    const headers = ['#', 'التاريخ', 'العامل', 'المشروع', 'المبلغ', 'طريقة التحويل', 'المستلم', 'رقم الهاتف', 'ملاحظات'];
-    const headerRow = worksheet.getRow(currentRow);
-    
-    headers.forEach((header, index) => {
-      const cell = headerRow.getCell(index + 1);
-      cell.value = header;
-      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFF' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1f4e79' } };
-    });
-
-    filteredTransfers.forEach((transfer, index) => {
+    const data = filteredTransfers.map((transfer, index) => {
       const worker = workers.find(w => w.id === transfer.worker_id);
       const project = projects.find(p => p.id === transfer.project_id);
-      const row = worksheet.addRow([
-        index + 1,
-        formatDate(transfer.transferDate),
-        worker?.name || 'غير معروف',
-        project?.name || 'غير معروف',
-        Number(transfer.amount),
-        getTransferMethodLabel(transfer.transferMethod),
-        transfer.recipientName,
-        transfer.recipientPhone || '-',
-        transfer.notes || '-'
-      ]);
-      
-      row.eachCell((cell) => {
-        cell.font = { name: 'Arial', size: 9 };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-      });
-      
-      // Format amount column with English numerals
-      row.getCell(5).numFmt = '#,##0';
+      return {
+        index: index + 1,
+        date: formatDate(transfer.transferDate),
+        worker: worker?.name || 'غير معروف',
+        project: project?.name || 'غير معروف',
+        amount: Number(transfer.amount),
+        transferMethod: getTransferMethodLabel(transfer.transferMethod),
+        recipient: transfer.recipientName || '-',
+        phone: transfer.recipientPhone || '-',
+        notes: transfer.notes || '-'
+      };
     });
 
-    currentRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : currentRow + 2;
-    worksheet.mergeCells(`E${currentRow}:F${currentRow}`);
-    const totalLabelCell = worksheet.getCell(`E${currentRow}`);
-    totalLabelCell.value = 'إجمالي المبالغ:';
-    totalLabelCell.font = { name: 'Arial', size: 11, bold: true };
-    totalLabelCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
-    const totalValueCell = worksheet.getCell(`G${currentRow}`);
-    totalValueCell.value = Number(stats.totalAmount);
-    totalValueCell.numFmt = '#,##0 "ريال"';
-    totalValueCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: '006600' } };
-    totalValueCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    const currentDate = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
-    const fileName = `حوالات-العمال-${currentDate}.xlsx`;
-    const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, fileName);
+    const downloadResult = await createProfessionalReport({
+      sheetName: 'حوالات العمال',
+      reportTitle: 'تقرير حوالات العمال',
+      subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+      infoLines: [`إجمالي الحوالات: ${filteredTransfers.length}`, `إجمالي المبالغ: ${totalAmount.toLocaleString('en-US')} ريال`],
+      columns: [
+        { header: '#', key: 'index', width: 5 },
+        { header: 'التاريخ', key: 'date', width: 13 },
+        { header: 'العامل', key: 'worker', width: 16 },
+        { header: 'المشروع', key: 'project', width: 16 },
+        { header: 'المبلغ', key: 'amount', width: 13, numFmt: '#,##0' },
+        { header: 'طريقة التحويل', key: 'transferMethod', width: 14 },
+        { header: 'المستلم', key: 'recipient', width: 16 },
+        { header: 'رقم الهاتف', key: 'phone', width: 13 },
+        { header: 'ملاحظات', key: 'notes', width: 22 }
+      ],
+      data,
+      totals: { label: 'الإجماليات', values: { amount: totalAmount } },
+      signatures: [
+        { title: 'توقيع المحاسب' },
+        { title: 'توقيع المهندس المشرف' },
+        { title: 'توقيع المدير العام' }
+      ],
+      fileName: `حوالات-العمال-${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.xlsx`,
+    });
   };
 
   return (

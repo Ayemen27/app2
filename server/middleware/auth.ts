@@ -251,7 +251,6 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
 
 // Middleware المصادقة الأساسي
 export const authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    // ✅ فحص استثناءات المصادقة (المسارات العامة)
     const publicPaths = [
       '/api/auth/login', 
       '/api/auth/register', 
@@ -264,7 +263,8 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       '/api/webauthn/login/options',
       '/api/webauthn/login/verify'
     ];
-    if (publicPaths.includes(req.path)) {
+    const requestPath = req.originalUrl?.split('?')[0] || req.path;
+    if (publicPaths.includes(requestPath) || publicPaths.includes(req.path)) {
       return next();
     }
   try {

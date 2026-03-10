@@ -49,7 +49,7 @@ This project is a Node.js application (rest-express v1.0.29) designed as a profe
 ## External Dependencies
 - **Monitoring:** OpenTelemetry and Sentry.
 - **WhatsApp:** Baileys library.
-- **Biometrics:** `@simplewebauthn/server` package.
+- **Biometrics:** `@simplewebauthn/server` package. WebAuthn login routes (`/api/webauthn/login/options` and `/api/webauthn/login/verify`) are public (no auth required). The `authenticate` middleware in `server/middleware/auth.ts` checks both `req.originalUrl` and `req.path` against publicPaths to handle routers mounted at sub-paths (e.g., `workerRouter` at `/api` which applies `requireAuth` globally).
 - **Database:** PostgreSQL.
 - **ORM:** Drizzle ORM.
 - **AI Models:** HuggingFace (Llama 3.1 8B), Gemini 2.0 Flash, OpenAI GPT-4o.

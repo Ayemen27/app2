@@ -10,7 +10,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { apiRequest } from "@/lib/queryClient";
-import { performLocalOperation, getListLocal } from "@/offline/db";
+import { performLocalOperation } from "@/offline/db";
 import { formatCurrency } from "@/lib/utils";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign, Download } from "lucide-react";
@@ -66,15 +66,6 @@ export default function WellAccounting() {
     queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      // محاولة الجلب المحلي أولاً لسرعة الاستجابة
-      try {
-        const localWells = await getListLocal('wells');
-        if (localWells && localWells.length > 0) {
-          return localWells.filter((w: any) => w.project_id === selectedProjectId);
-        }
-      } catch (e) {
-        console.warn('Local wells fetch failed', e);
-      }
       const response = await apiRequest(`/wells?project_id=${selectedProjectId}`);
       return response.data || [];
     },
@@ -97,14 +88,6 @@ export default function WellAccounting() {
     queryKey: QUERY_KEYS.wellTasks(selectedWellId),
     queryFn: async () => {
       if (!selectedWellId) return [];
-      try {
-        const localTasks = await getListLocal('wellTasks');
-        if (localTasks && localTasks.length > 0) {
-          return localTasks.filter((t: any) => t.well_id === selectedWellId);
-        }
-      } catch (e) {
-        console.warn('Local tasks fetch failed', e);
-      }
       const response = await apiRequest(`/api/wells/${selectedWellId}/tasks`);
       return response.data || [];
     },

@@ -70,7 +70,10 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
       
       if (!isAdminUser) {
         const idSet = new Set(accessReq.accessibleProjectIds ?? []);
-        summaries = summaries.filter((s: any) => s.projectId && idSet.has(s.projectId));
+        summaries = summaries.filter((s: any) => {
+          const pid = s.project_id || s.projectId;
+          return pid && idSet.has(pid);
+        });
       }
       
       const totalSummary = summaries.reduce((acc: any, s: any) => ({

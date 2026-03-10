@@ -188,24 +188,31 @@ export default function TransportManagement() {
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
 
   const filteredExpenses = useMemo(() => {
-    if (!searchValue) return expenses;
-    const lowerSearch = searchValue.toLowerCase();
-    return expenses.filter(e => 
-      e.description.toLowerCase().includes(lowerSearch) || 
-      (e.workerName && e.workerName.toLowerCase().includes(lowerSearch)) ||
-      (e.projectName && e.projectName.toLowerCase().includes(lowerSearch))
-    );
-  }, [expenses, searchValue]);
+    let result = expenses;
+    if (filterValues.category && filterValues.category !== 'all') {
+      result = result.filter(e => e.category === filterValues.category);
+    }
+    if (searchValue) {
+      const lowerSearch = searchValue.toLowerCase();
+      result = result.filter(e => 
+        e.description.toLowerCase().includes(lowerSearch) || 
+        (e.workerName && e.workerName.toLowerCase().includes(lowerSearch)) ||
+        (e.projectName && e.projectName.toLowerCase().includes(lowerSearch))
+      );
+    }
+    return result;
+  }, [expenses, searchValue, filterValues.category]);
 
   const statsData = useMemo(() => {
-    const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-    const count = expenses.length;
-    const maintenanceCost = expenses.filter(e => e.category === 'maintenance').reduce((sum, e) => sum + Number(e.amount), 0);
-    const fuelCost = expenses.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
-    const materialTransport = expenses.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
-    const concreteTransport = expenses.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
-    const ironPlatformsCost = expenses.filter(e => e.category === 'iron_platforms').reduce((sum, e) => sum + Number(e.amount), 0);
-    const otherCategories = expenses.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'iron_platforms'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
+    const data = filteredExpenses;
+    const totalAmount = data.reduce((sum, e) => sum + Number(e.amount), 0);
+    const count = data.length;
+    const maintenanceCost = data.filter(e => e.category === 'maintenance').reduce((sum, e) => sum + Number(e.amount), 0);
+    const fuelCost = data.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
+    const materialTransport = data.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
+    const concreteTransport = data.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
+    const ironPlatformsCost = data.filter(e => e.category === 'iron_platforms').reduce((sum, e) => sum + Number(e.amount), 0);
+    const otherCategories = data.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'iron_platforms'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
 
     return [
       {
@@ -263,7 +270,7 @@ export default function TransportManagement() {
         color: "gray" as const,
       }
     ] as UnifiedStatItem[];
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const handleExportToExcel = async () => {
     try {
@@ -321,7 +328,8 @@ export default function TransportManagement() {
     setSearchValue("");
     setFilterValues({
       dateRange: undefined,
-      specificDate: getCurrentDate()
+      specificDate: getCurrentDate(),
+      category: undefined
     });
     toast({ title: "تمت إعادة التعيين", description: "تم مسح جميع الفلاتر" });
   };

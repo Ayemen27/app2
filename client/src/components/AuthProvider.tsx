@@ -15,6 +15,8 @@ interface User {
   role: string;
   mfa_enabled: boolean;
   emailVerified: boolean;
+  first_name?: string;
+  last_name?: string;
 }
 
 interface AuthContextType {
@@ -142,8 +144,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
                   !!data.user.email_verified_at ||
                   localStorage.getItem('emailVerified') === 'true';
 
+                const resolvedName = data.user.name || 
+                  [data.user.first_name, data.user.last_name].filter(Boolean).join(' ') || 
+                  parsedUser.name ||
+                  data.user.email;
+
                 const updatedUser = {
                   ...data.user,
+                  name: resolvedName,
                   emailVerified: isEmailVerified
                 };
                 

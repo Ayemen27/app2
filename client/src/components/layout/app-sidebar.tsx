@@ -24,7 +24,21 @@ import {
   CollapsibleTrigger 
 } from "@/components/ui/collapsible";
 
-const sections = [
+interface SidebarItem {
+  title: string;
+  url: string;
+  icon: any;
+  adminOnly?: boolean;
+}
+
+interface SidebarSection {
+  title: string;
+  icon: any;
+  adminOnly?: boolean;
+  items: SidebarItem[];
+}
+
+const sections: SidebarSection[] = [
   {
     title: "الرئيسية",
     icon: Home,
@@ -67,6 +81,7 @@ const sections = [
   {
     title: "الإدارة والأمان",
     icon: ShieldCheck,
+    adminOnly: true,
     items: [
       { title: "لوحة القيادة", icon: BarChart3, url: "/admin/dashboard" },
       { title: "إدارة الصلاحيات", icon: KeyRound, url: "/admin/permissions" },
@@ -88,6 +103,14 @@ export function AppSidebar() {
   const { logout, user } = useAuth();
   const { setOpenMobile, isMobile } = useSidebar();
 
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+
+  const visibleSections = sections.filter(section => !section.adminOnly || isAdmin);
+
+  const displayName = user?.name || 
+    [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 
+    "المستخدم";
+
   const handleNavigation = (url: string) => {
     setLocation(url);
     if (isMobile) {
@@ -103,7 +126,6 @@ export function AppSidebar() {
              <div className="relative flex items-center justify-center w-full h-full translate-y-[1px]">
                <span className="font-black text-2xl leading-none text-white drop-shadow-sm">أ</span>
                <span className="font-black text-xs leading-none text-white/30 ml-[-2px] italic -skew-x-6">A</span>
-               {/* Image Marker Point */}
                <div className="absolute top-2 right-2 w-2 h-2 bg-blue-400 rounded-full border border-white dark:border-[#1a1c1e] shadow-sm"></div>
              </div>
           </div>
@@ -119,7 +141,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="bg-white dark:bg-slate-950 gap-0 pt-2 custom-scrollbar overflow-y-auto overflow-x-hidden flex-1 scrolling-touch">
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <Collapsible key={section.title} defaultOpen className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
@@ -166,10 +188,10 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2 flex-shrink-0">
         <div className="px-4 py-3 flex items-center gap-3 group-data-[collapsible=icon]:hidden border-b border-slate-200/50 dark:border-slate-800 mb-2">
           <div className="h-9 w-9 rounded-full bg-blue-600 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 font-bold text-sm uppercase border border-white/10 shadow-sm transition-colors">
-            {user?.name?.charAt(0) || "U"}
+            {displayName.charAt(0) || "U"}
           </div>
           <div className="flex flex-col overflow-hidden text-right">
-            <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.name || "المستخدم"}</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{displayName}</span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</span>
           </div>
         </div>

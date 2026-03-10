@@ -76,7 +76,10 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         });
       }
       
-      const totalSummary = summaries.reduce((acc: any, s: any) => ({
+      const totalInterProjectTransfers = summaries.reduce((sum: number, s: any) => 
+        sum + (s.income?.incomingProjectTransfers || 0), 0);
+
+      const rawTotals = summaries.reduce((acc: any, s: any) => ({
         totalIncome: acc.totalIncome + s.income.totalIncome,
         totalCashExpenses: acc.totalCashExpenses + s.expenses.totalCashExpenses,
         totalAllExpenses: acc.totalAllExpenses + s.expenses.totalAllExpenses,
@@ -97,6 +100,13 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
         materialExpensesCredit: 0,
         carriedForwardBalance: 0
       });
+
+      const totalSummary = {
+        ...rawTotals,
+        totalIncome: rawTotals.totalIncome - totalInterProjectTransfers,
+        totalCashExpenses: rawTotals.totalCashExpenses - totalInterProjectTransfers,
+        totalAllExpenses: rawTotals.totalAllExpenses - totalInterProjectTransfers,
+      };
 
       return sendSuccess(res, {
         projects: summaries,

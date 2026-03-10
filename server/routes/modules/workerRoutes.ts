@@ -298,8 +298,9 @@ workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
       });
     }
 
-    const { allowed } = checkProjectAccess(req, worker[0].project_id, true);
-    if (!allowed) {
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && worker[0].created_by !== accessReq.user?.id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
     }
 
@@ -351,7 +352,6 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
       });
     }
 
-    // التحقق من وجود العامل أولاً
     const existingWorker = await db.select().from(workers).where(eq(workers.id, worker_id)).limit(1);
 
     if (existingWorker.length === 0) {
@@ -365,8 +365,9 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
       });
     }
 
-    const { allowed } = checkProjectAccess(req, existingWorker[0].project_id, true);
-    if (!allowed) {
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && existingWorker[0].created_by !== accessReq.user?.id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا العامل' });
     }
 
@@ -523,8 +524,9 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
 
     const workerToDelete = existingWorker[0];
 
-    const { allowed: deleteAllowed } = checkProjectAccess(req, workerToDelete.project_id, true);
-    if (!deleteAllowed) {
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && workerToDelete.created_by !== accessReq.user?.id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا العامل' });
     }
 
@@ -2276,8 +2278,9 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       });
     }
 
-    const { allowed: statsAllowed } = checkProjectAccess(req, worker[0].project_id, true);
-    if (!statsAllowed) {
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    if (!isAdminUser && worker[0].created_by !== accessReq.user?.id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
     }
 

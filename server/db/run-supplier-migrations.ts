@@ -120,7 +120,7 @@ async function runSupplierMigrations() {
         await db.execute(sql`
           INSERT INTO suppliers (name, contact_person, phone, address, payment_terms, credit_limit, notes)
           VALUES (${supplier.name}, ${supplier.contactPerson}, ${supplier.phone}, ${supplier.address}, ${supplier.paymentTerms}, ${supplier.creditLimit}, ${supplier.notes})
-          ON CONFLICT (name) DO NOTHING;
+          ON CONFLICT (name, created_by) DO NOTHING;
         `);
         console.log(`➕ تم إضافة المورد: ${supplier.name}`);
       } catch (error) {

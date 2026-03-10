@@ -302,7 +302,7 @@ export const workers = pgTable("workers", {
   created_by: varchar("created_by").references(() => users.id),
   ...syncFields,
 }, (table) => ({
-  uniqueWorkerName: sql`UNIQUE ("name")`,
+  uniqueWorkerPerUser: sql`UNIQUE ("name", "created_by")`,
 }));
 
 // Wells table (جدول الآبار) - يدير بيانات الآبار والملاك والمواقع والخصائص الفنية
@@ -383,7 +383,7 @@ export const workerAttendance = pgTable("worker_attendance", {
 // Suppliers (الموردين)
 export const suppliers = pgTable("suppliers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull().unique(),
+  name: text("name").notNull(),
   contactPerson: text("contact_person"), // الشخص المسؤول
   phone: text("phone"),
   address: text("address"),
@@ -393,7 +393,9 @@ export const suppliers = pgTable("suppliers", {
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   created_by: varchar("created_by").references(() => users.id),
-});
+}, (table) => ({
+  uniqueSupplierPerUser: sql`UNIQUE ("name", "created_by")`,
+}));
 
 // Materials
 export const materials = pgTable("materials", {

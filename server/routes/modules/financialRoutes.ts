@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { eq, and, sql, gte, lt, lte, desc } from 'drizzle-orm';
+import { eq, and, sql, gte, lt, lte, desc, inArray } from 'drizzle-orm';
 import { db } from '../../db';
 import {
   fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries, workers, workerAttendance, materials, equipment,
@@ -3081,6 +3081,15 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
       ));
     }
     
+    if (!isAdminUser) {
+      const accessibleIds = accessReq.accessibleProjectIds ?? [];
+      if (accessibleIds.length > 0) {
+        conditions.push(inArray(materialPurchases.project_id, accessibleIds));
+      } else {
+        conditions.push(eq(materialPurchases.project_id, '__none__'));
+      }
+    }
+
     let purchasesQuery = db.select().from(materialPurchases);
     if (conditions.length > 0) {
       purchasesQuery = purchasesQuery.where(and(...conditions)) as any;

@@ -771,6 +771,7 @@ export default function Dashboard() {
                     type: workerData.type,
                     dailyWage: parsedWage.toString(),
                     is_active: true,
+                    ...(selectedProjectId && selectedProjectId !== 'all' ? { project_id: selectedProjectId } : {}),
                   });
                 }}
                 disabled={addWorkerMutation.isPending}

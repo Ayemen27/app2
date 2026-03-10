@@ -192,8 +192,8 @@ export default function WellAccounting() {
   const filteredWells = useMemo(() => {
     return wells.filter((well: any) => {
       const matchesSearch = 
-        well.ownerName.toLowerCase().includes(searchValue.toLowerCase()) ||
-        well.wellNumber.toString().includes(searchValue);
+        (well.ownerName || '').toLowerCase().includes(searchValue.toLowerCase()) ||
+        (well.wellNumber || '').toString().includes(searchValue);
       const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
       const matchesRegion = filterValues.region === 'all' || well.region === filterValues.region;
       

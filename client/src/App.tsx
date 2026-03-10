@@ -22,32 +22,33 @@ if (typeof window !== 'undefined') {
 import NotFound from "./pages/not-found";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import EmailVerificationPage from "./pages/EmailVerificationPage";
 import { useWebSocketSync } from "./hooks/useWebSocketSync";
 
-import WorkerAttendance from "./pages/worker-attendance";
-import DeploymentConsole from "./pages/deployment-console";
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const EmailVerificationPage = lazy(() => import("./pages/EmailVerificationPage"));
 
-import MaterialPurchase from "./pages/material-purchase";
-import TransportManagement from "./pages/transport-management";
-import ProjectTransfers from "./pages/project-transfers";
-import ProjectTransactionsPage from "./pages/project-transactions-simple";
-import ProjectFundCustody from "./pages/project-fund-custody";
+const WorkerAttendance = lazy(() => import("./pages/worker-attendance"));
+const DeploymentConsole = lazy(() => import("./pages/deployment-console"));
 
-import ProjectsPage from "./pages/projects";
-import DashboardPage from "./pages/dashboard";
-import AnalysisDashboard from "./pages/system/AnalysisDashboard";
-import WorkersPage from "./pages/workers";
-import BackupManager from "./pages/backup-manager";
-import NotificationsPage from "./pages/notifications";
-import DailyExpenses from "./pages/daily-expenses";
-import WellsPage from "./pages/wells";
-import WellCostReport from "./pages/well-cost-report";
-import WellAccounting from "./pages/well-accounting";
-import DataHealthPage from "./pages/DataHealthPage";
-import DatabaseManager from "./pages/DatabaseManager";
+const MaterialPurchase = lazy(() => import("./pages/material-purchase"));
+const TransportManagement = lazy(() => import("./pages/transport-management"));
+const ProjectTransfers = lazy(() => import("./pages/project-transfers"));
+const ProjectTransactionsPage = lazy(() => import("./pages/project-transactions-simple"));
+const ProjectFundCustody = lazy(() => import("./pages/project-fund-custody"));
+
+const ProjectsPage = lazy(() => import("./pages/projects"));
+const DashboardPage = lazy(() => import("./pages/dashboard"));
+const AnalysisDashboard = lazy(() => import("./pages/system/AnalysisDashboard"));
+const WorkersPage = lazy(() => import("./pages/workers"));
+const BackupManager = lazy(() => import("./pages/backup-manager"));
+const NotificationsPage = lazy(() => import("./pages/notifications"));
+const DailyExpenses = lazy(() => import("./pages/daily-expenses"));
+const WellsPage = lazy(() => import("./pages/wells"));
+const WellCostReport = lazy(() => import("./pages/well-cost-report"));
+const WellAccounting = lazy(() => import("./pages/well-accounting"));
+const DataHealthPage = lazy(() => import("./pages/DataHealthPage"));
+const DatabaseManager = lazy(() => import("./pages/DatabaseManager"));
 
 import { LayoutShell } from "./components/layout/layout-shell";
 import { FloatingButtonProvider } from "./components/layout/floating-button-context";
@@ -174,11 +175,31 @@ function Router() {
 
   return (
     <Switch>
-      <Route path="/" component={DashboardPage} />
-      <Route path="/analysis" component={AnalysisDashboard} />
-      <Route path="/deployment" component={DeploymentConsole} />
-      <Route path="/projects" component={ProjectsPage} />
-      <Route path="/workers" component={WorkersPage} />
+      <Route path="/">
+        <Suspense fallback={<PageLoader />}>
+          <DashboardPage />
+        </Suspense>
+      </Route>
+      <Route path="/analysis">
+        <Suspense fallback={<PageLoader />}>
+          <AnalysisDashboard />
+        </Suspense>
+      </Route>
+      <Route path="/deployment">
+        <Suspense fallback={<PageLoader />}>
+          <DeploymentConsole />
+        </Suspense>
+      </Route>
+      <Route path="/projects">
+        <Suspense fallback={<PageLoader />}>
+          <ProjectsPage />
+        </Suspense>
+      </Route>
+      <Route path="/workers">
+        <Suspense fallback={<PageLoader />}>
+          <WorkersPage />
+        </Suspense>
+      </Route>
       <Route path="/worker-accounts">
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
@@ -203,22 +224,40 @@ function Router() {
           </Suspense>
         </AdminRoute>
       </Route>
-      <Route path="/worker-attendance" component={WorkerAttendance} />
-      <Route path="/material-purchase" component={MaterialPurchase} />
-      <Route path="/transport-management" component={TransportManagement} />
+      <Route path="/worker-attendance">
+        <Suspense fallback={<PageLoader />}>
+          <WorkerAttendance />
+        </Suspense>
+      </Route>
+      <Route path="/material-purchase">
+        <Suspense fallback={<PageLoader />}>
+          <MaterialPurchase />
+        </Suspense>
+      </Route>
+      <Route path="/transport-management">
+        <Suspense fallback={<PageLoader />}>
+          <TransportManagement />
+        </Suspense>
+      </Route>
       <Route path="/project-transfers">
         <AdminRoute>
-          <ProjectTransfers />
+          <Suspense fallback={<PageLoader />}>
+            <ProjectTransfers />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/project-transactions">
         <AdminRoute>
-          <ProjectTransactionsPage />
+          <Suspense fallback={<PageLoader />}>
+            <ProjectTransactionsPage />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/project-fund-custody">
         <AdminRoute>
-          <ProjectFundCustody />
+          <Suspense fallback={<PageLoader />}>
+            <ProjectFundCustody />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/autocomplete-admin">
@@ -235,7 +274,11 @@ function Router() {
           </Suspense>
         </AdminRoute>
       </Route>
-      <Route path="/notifications" component={NotificationsPage} />
+      <Route path="/notifications">
+        <Suspense fallback={<PageLoader />}>
+          <NotificationsPage />
+        </Suspense>
+      </Route>
       <Route path="/admin-notifications">
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
@@ -255,11 +298,21 @@ function Router() {
           </Suspense>
         </AdminRoute>
       </Route>
-      <Route path="/daily-expenses" component={DailyExpenses} />
-      <Route path="/wells" component={WellsPage} />
+      <Route path="/daily-expenses">
+        <Suspense fallback={<PageLoader />}>
+          <DailyExpenses />
+        </Suspense>
+      </Route>
+      <Route path="/wells">
+        <Suspense fallback={<PageLoader />}>
+          <WellsPage />
+        </Suspense>
+      </Route>
       <Route path="/admin/backups">
         <AdminRoute>
-          <BackupManager />
+          <Suspense fallback={<PageLoader />}>
+            <BackupManager />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/settings">
@@ -267,8 +320,16 @@ function Router() {
           <SettingsPage />
         </Suspense>
       </Route>
-      <Route path="/well-cost-report" component={WellCostReport} />
-      <Route path="/well-accounting" component={WellAccounting} />
+      <Route path="/well-cost-report">
+        <Suspense fallback={<PageLoader />}>
+          <WellCostReport />
+        </Suspense>
+      </Route>
+      <Route path="/well-accounting">
+        <Suspense fallback={<PageLoader />}>
+          <WellAccounting />
+        </Suspense>
+      </Route>
       <Route path="/reports">
         <Suspense fallback={<PageLoader />}>
           <Reports />
@@ -325,17 +386,23 @@ function Router() {
       </Route>
       <Route path="/admin/data-health">
         <AdminRoute>
-          <DataHealthPage />
+          <Suspense fallback={<PageLoader />}>
+            <DataHealthPage />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/local-db">
         <AdminRoute>
-          <DatabaseManager />
+          <Suspense fallback={<PageLoader />}>
+            <DatabaseManager />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/admin/sync">
         <AdminRoute>
-          <SyncManagementPage />
+          <Suspense fallback={<PageLoader />}>
+            <SyncManagementPage />
+          </Suspense>
         </AdminRoute>
       </Route>
       <Route path="/admin/permissions">
@@ -354,8 +421,8 @@ import { initializeNativePush, requestAllPermissions } from "./services/capacito
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 
-import SystemCheckPage from "./pages/SystemCheckPage";
-import SyncManagementPage from "./pages/system/SyncManagementPage";
+const SystemCheckPage = lazy(() => import("./pages/SystemCheckPage"));
+const SyncManagementPage = lazy(() => import("./pages/system/SyncManagementPage"));
 
 function App() {
   return (
@@ -367,14 +434,38 @@ function App() {
               <div dir="rtl">
                 <ErrorBoundary>
                   <Switch>
-                    <Route path="/check" component={SystemCheckPage} />
-                    <Route path="/setup" component={SystemCheckPage} />
-                    <Route path="/permissions" component={SystemCheckPage} />
+                    <Route path="/check">
+                      <Suspense fallback={<PageLoader />}>
+                        <SystemCheckPage />
+                      </Suspense>
+                    </Route>
+                    <Route path="/setup">
+                      <Suspense fallback={<PageLoader />}>
+                        <SystemCheckPage />
+                      </Suspense>
+                    </Route>
+                    <Route path="/permissions">
+                      <Suspense fallback={<PageLoader />}>
+                        <SystemCheckPage />
+                      </Suspense>
+                    </Route>
                     <Route path="/login" component={LoginPage} />
                     <Route path="/register" component={RegisterPage} />
-                    <Route path="/verify-email" component={EmailVerificationPage} />
-                    <Route path="/forgot-password" component={ForgotPasswordPage} />
-                    <Route path="/reset-password" component={ResetPasswordPage} />
+                    <Route path="/verify-email">
+                      <Suspense fallback={<PageLoader />}>
+                        <EmailVerificationPage />
+                      </Suspense>
+                    </Route>
+                    <Route path="/forgot-password">
+                      <Suspense fallback={<PageLoader />}>
+                        <ForgotPasswordPage />
+                      </Suspense>
+                    </Route>
+                    <Route path="/reset-password">
+                      <Suspense fallback={<PageLoader />}>
+                        <ResetPasswordPage />
+                      </Suspense>
+                    </Route>
                     <Route path="*" component={() => (
                       <ProtectedRoute>
                         <EmailVerificationGuard>

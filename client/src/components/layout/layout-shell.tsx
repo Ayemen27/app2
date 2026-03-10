@@ -81,9 +81,9 @@ export function LayoutShell({
         <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden relative">
           <div className="layout-shell flex flex-col h-full overflow-hidden relative">
             {showHeader && !isCustomHeaderPage && (
-              <header className="layout-header flex-shrink-0 w-full border-b bg-white dark:bg-slate-900 shadow-sm relative z-30">
+              <header className="layout-header flex-shrink-0 w-full border-b bg-white dark:bg-slate-900 shadow-sm relative z-30" role="banner">
                 <div className="flex h-[60px] items-center px-4 gap-4">
-                  <SidebarTrigger className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" />
+                  <SidebarTrigger className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="فتح/إغلاق القائمة الجانبية" data-testid="button-sidebar-trigger" />
                   <div className="flex-1 overflow-hidden text-slate-900 dark:text-white flex items-center justify-between">
                     <Header />
                     {/* EnvironmentBadge removed */}
@@ -94,6 +94,8 @@ export function LayoutShell({
             
             <main
               ref={mainRef}
+              role="main"
+              aria-label="المحتوى الرئيسي"
               className={`layout-main flex-1 overflow-y-auto overflow-x-hidden relative scrolling-touch ${location === '/ai-chat' ? 'pb-0 overscroll-none' : 'pb-[calc(72px+env(safe-area-inset-bottom,0px)+16px)]'} md:pb-0`}
             >
               {pullEnabled && (

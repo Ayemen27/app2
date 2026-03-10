@@ -49,6 +49,7 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/admin', healthRouter);
 
   // تسجيل مسارات المصادقة والمستخدمين
+  app.use('/api/auth', authRouter);
   app.use('/api', authRouter);
   app.use('/api/users', authRouter);
 

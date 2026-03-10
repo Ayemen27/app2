@@ -119,11 +119,11 @@ export default function Header() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex items-center justify-between h-full w-full px-2 sm:px-4" dir="rtl">
+      <div className="flex items-center justify-between h-full w-full px-2 sm:px-4" dir="rtl" role="banner" aria-label="شريط الأدوات الرئيسي">
 
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary flex-shrink-0">
-            <PageIcon className="h-[18px] w-[18px]" />
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary flex-shrink-0" aria-hidden="true">
+            <PageIcon className="h-[18px] w-[18px]" aria-hidden="true" />
           </div>
           <div className="flex flex-col justify-center min-w-0">
             <h1 className="text-sm font-semibold leading-tight text-foreground truncate">{currentPage.title}</h1>
@@ -151,9 +151,9 @@ export default function Header() {
                 data-testid="status-sync"
               >
                 {isOnline ? (
-                  <Wifi className="h-3.5 w-3.5" />
+                  <Wifi className="h-3.5 w-3.5" aria-hidden="true" />
                 ) : (
-                  <WifiOff className="h-3.5 w-3.5" />
+                  <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
                 {pendingCount > 0 && (
                   <span className="tabular-nums">{pendingCount}</span>
@@ -177,9 +177,9 @@ export default function Header() {
                 aria-label={`اختيار المشروع: ${displayProjectName}`}
                 data-testid="button-project-selector"
               >
-                <FolderOpen className="h-4 w-4 text-primary flex-shrink-0" />
+                <FolderOpen className="h-4 w-4 text-primary flex-shrink-0" aria-hidden="true" />
                 <span className="truncate hidden sm:inline">{displayProjectName}</span>
-                <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64 max-h-80" dir="rtl">
@@ -189,17 +189,17 @@ export default function Header() {
                 <div className="p-4 text-center text-xs text-muted-foreground">جاري التحميل...</div>
               ) : (
                 <>
-                  <DropdownMenuItem onClick={() => handleProjectSelect(ALL_PROJECTS_ID, ALL_PROJECTS_NAME)} className="flex justify-between items-center text-right">
+                  <DropdownMenuItem onClick={() => handleProjectSelect(ALL_PROJECTS_ID, ALL_PROJECTS_NAME)} className="flex justify-between items-center text-right" aria-label={ALL_PROJECTS_NAME}>
                     <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-blue-600" />
+                      <Layers className="h-4 w-4 text-blue-600" aria-hidden="true" />
                       <span>{ALL_PROJECTS_NAME}</span>
                     </div>
-                    {selectedProjectId === ALL_PROJECTS_ID && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    {selectedProjectId === ALL_PROJECTS_ID && <CheckCircle2 className="h-4 w-4 text-green-500" aria-hidden="true" />}
                   </DropdownMenuItem>
                   {projects.map((p) => (
-                    <DropdownMenuItem key={p.id} onClick={() => handleProjectSelect(p.id.toString(), p.name)} className="flex justify-between items-center text-right">
+                    <DropdownMenuItem key={p.id} onClick={() => handleProjectSelect(p.id.toString(), p.name)} className="flex justify-between items-center text-right" aria-label={p.name}>
                       <span className="truncate">{p.name}</span>
-                      {selectedProjectId === p.id.toString() && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                      {selectedProjectId === p.id.toString() && <CheckCircle2 className="h-4 w-4 text-green-500" aria-hidden="true" />}
                     </DropdownMenuItem>
                   ))}
                 </>
@@ -220,9 +220,9 @@ export default function Header() {
                 data-testid="button-theme-toggle"
               >
                 {theme === 'light' ? (
-                  <Moon className="h-[18px] w-[18px] text-muted-foreground" />
+                  <Moon className="h-[18px] w-[18px] text-muted-foreground" aria-hidden="true" />
                 ) : (
-                  <Sun className="h-[18px] w-[18px] text-amber-400" />
+                  <Sun className="h-[18px] w-[18px] text-amber-400" aria-hidden="true" />
                 )}
               </Button>
             </TooltipTrigger>

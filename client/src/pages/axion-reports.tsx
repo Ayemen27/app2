@@ -54,7 +54,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { useSelectedProjectContext, ALL_PROJECTS_ID } from "@/contexts/SelectedProjectContext";
-import { downloadExcelFile, downloadFile } from "@/utils/webview-download";
+
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
@@ -83,8 +83,45 @@ function getAuthToken(): string {
 }
 
 function buildExportUrl(type: string, fmt: string, params: Record<string, string>): string {
-  const searchParams = new URLSearchParams({ format: fmt, ...params, token: getAuthToken() });
+  const searchParams = new URLSearchParams({ format: fmt, ...params });
   return `/api/reports/v2/export/${type}?${searchParams.toString()}`;
+}
+
+async function secureDownloadExport(type: string, fmt: string, params: Record<string, string>, toast: any) {
+  const url = buildExportUrl(type, fmt, params);
+  try {
+    const token = getAuthToken();
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(errorText || `HTTP ${response.status}`);
+    }
+
+    const contentDisposition = response.headers.get('content-disposition');
+    let fileName = `report-${type}.${fmt}`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (match && match[1]) {
+        fileName = match[1].replace(/['"]/g, '');
+      }
+    }
+
+    const blob = await response.blob();
+    const { downloadFile } = await import('@/utils/webview-download');
+    await downloadFile(blob, fileName);
+  } catch (error: any) {
+    console.error('[Export] Download failed:', error);
+    toast({
+      title: 'خطأ في التصدير',
+      description: error.message || 'فشل تحميل الملف',
+      variant: 'destructive',
+    });
+  }
 }
 
 function LoadingSpinner({ message }: { message?: string }) {
@@ -175,8 +212,7 @@ function DailyReportTab() {
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
       return;
     }
-    const url = buildExportUrl("daily", fmt, { project_id: projectIdForApi, date: dateStr });
-    window.open(url, "_blank");
+    secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
   };
 
   const filterConfig: FilterConfig[] = [
@@ -537,8 +573,7 @@ function WorkerStatementTab() {
     if (filterValues.dateRange?.to) {
       exportParams.dateTo = format(new Date(filterValues.dateRange.to), "yyyy-MM-dd");
     }
-    const url = buildExportUrl("worker-statement", fmt, exportParams);
-    window.open(url, "_blank");
+    secureDownloadExport("worker-statement", fmt, exportParams, toast);
   };
 
   const exportActions: ActionButton[] = [
@@ -735,12 +770,11 @@ function PeriodFinalTab() {
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
       return;
     }
-    const url = buildExportUrl("period-final", fmt, {
+    secureDownloadExport("period-final", fmt, {
       project_id: projectIdForApi,
       dateFrom,
       dateTo,
-    });
-    window.open(url, "_blank");
+    }, toast);
   };
 
   const filterConfig: FilterConfig[] = [

@@ -1085,7 +1085,13 @@ authRouter.post('/emergency/create-user', requireAuth, async (req: any, res: Res
   }
 });
 
-// ملاحظة: تم حذف endpoint /me من هنا لتجنب التضارب مع النسخة المحمية في routes/auth.ts
+authRouter.get('/me', requireAuth, (req: any, res: Response) => {
+  if (req.user) {
+    res.json({ success: true, user: req.user });
+  } else {
+    res.status(401).json({ success: false, message: "غير مصرح" });
+  }
+});
 
 /**
  * 🔑 نسيت كلمة المرور

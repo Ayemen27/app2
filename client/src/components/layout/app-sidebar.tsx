@@ -96,7 +96,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500">
+    <Sidebar side="right" variant="sidebar" collapsible="icon" className="border-l-0 bg-white dark:bg-slate-950 text-slate-900 dark:text-white transition-colors duration-500" aria-label="القائمة الجانبية الرئيسية">
       <SidebarHeader className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-5 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] dark:bg-[#1a1c1e] shadow-xl shadow-blue-600/20 dark:shadow-black/40 transition-all border border-white/10 dark:border-slate-800 overflow-hidden relative group/logo">
@@ -123,7 +123,7 @@ export function AppSidebar() {
           <Collapsible key={section.title} defaultOpen className="group/collapsible">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors group-data-[collapsible=icon]:hidden">
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-2 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors group-data-[collapsible=icon]:hidden" aria-label={`قسم ${section.title} - اضغط للطي أو التوسيع`}>
                   <span className="text-[11px] font-bold uppercase tracking-wider">{section.title}</span>
                   <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
                 </CollapsibleTrigger>
@@ -144,8 +144,10 @@ export function AppSidebar() {
                               e.preventDefault(); 
                               handleNavigation(item.url);
                             }}
+                            aria-label={item.title}
+                            aria-current={location === item.url ? "page" : undefined}
                           >
-                            <item.icon className="h-5 w-5" />
+                            <item.icon className="h-5 w-5" aria-hidden="true" />
                             <span className="font-medium text-sm">{item.title}</span>
                           </a>
                         </SidebarMenuButton>
@@ -176,8 +178,10 @@ export function AppSidebar() {
             <SidebarMenuButton 
               className="h-10 px-4 mx-2 w-[calc(100%-16px)] rounded-lg hover:bg-slate-200 dark:hover:bg-slate-900 transition-colors text-slate-700 dark:text-slate-300"
               onClick={() => handleNavigation("/settings")}
+              aria-label="الإعدادات"
+              data-testid="button-settings"
             >
-              <Settings className="h-5 w-5 opacity-60" />
+              <Settings className="h-5 w-5 opacity-60" aria-hidden="true" />
               <span className="text-sm font-medium">الإعدادات</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -188,8 +192,10 @@ export function AppSidebar() {
                 logout();
                 if (isMobile) setOpenMobile(false);
               }}
+              aria-label="تسجيل الخروج"
+              data-testid="button-logout"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-5 w-5" aria-hidden="true" />
               <span className="text-sm font-medium">تسجيل الخروج</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

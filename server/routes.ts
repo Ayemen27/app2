@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { registerOrganizedRoutes, checkForUnregisteredRouters } from "./routes/modules/index.js";
 import { TelegramService } from "./services/TelegramService";
 import { GoogleDriveService } from "./services/GoogleDriveService";
 import { insertCrashSchema, insertMetricSchema, insertDeviceSchema } from "@shared/schema";
@@ -10,15 +9,10 @@ import { FcmService } from "./services/FcmService";
 import { monitoringRouter } from "./monitoring/routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // FCM Initialization
-  await FcmService.initialize();
-
-  // Initialize Monitoring Routes
   await monitoringRouter(app).catch(err => {
     console.error("Failed to initialize monitoring router:", err);
   });
 
-  // Monitoring Routes
   app.post("/api/devices", async (req, res) => {
     try {
       const data = insertDeviceSchema.parse(req.body);
@@ -54,7 +48,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const devices = await storage.getDevices ? await storage.getDevices() : [];
       const recentCrashes = await storage.getRecentCrashes ? await storage.getRecentCrashes(10) : [];
       
-      // جلب إحصائيات الإشعارات الفعلية
       const notifications = await storage.getAdminNotifications ? await storage.getAdminNotifications() : [];
       
       res.json({
@@ -118,9 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Proxy for OpenTelemetry traces from mobile/frontend
   app.post("/api/v1/traces", async (req, res) => {
-    // تم تعطيل الوكيل مؤقتاً لتجنب أخطاء الاتصال بـ localhost غير الموجود
     res.status(202).json({ status: "disabled", message: "OTLP proxy is currently disabled" });
   });
 
@@ -141,15 +132,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  registerOrganizedRoutes(app);
-
-  checkForUnregisteredRouters().catch(() => {});
-
   TelegramService.initialize();
   GoogleDriveService.initialize();
-
-  const { BackupService } = await import('./services/BackupService');
-  BackupService.startAutoBackupScheduler();
 
   const httpServer = createServer(app);
   return httpServer;

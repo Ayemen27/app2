@@ -8,8 +8,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/queryClient";
 import { isValidJwt, clearInvalidTokens, setAuthMode, getAuthMode, isOfflineMode, getValidToken } from "../lib/token-utils";
 
-import { smartGetAll } from "../offline/storage-factory";
-
 interface User {
   id: string;
   email: string;
@@ -97,29 +95,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const API_BASE_URL = getApiBaseUrl();
 
-  // تهيئة مستخدم الطوارئ الافتراضي
-  useEffect(() => {
-    const initEmergencyAdmin = async () => {
-      try {
-        const { smartGetAll, smartSave } = await import('../offline/storage-factory');
-        const existing = await smartGetAll('emergencyUsers');
-        if (existing.length === 0) {
-          console.log('🛡️ [AuthProvider] إنشاء مستخدم الطوارئ الافتراضي...');
-          await smartSave('emergencyUsers', [{
-            id: 'emergency-admin',
-            email: 'admin@binarjoin.com',
-            password: 'admin',
-            name: 'مسؤول الطوارئ',
-            role: 'admin',
-            created_at: new Date().toISOString()
-          }]);
-        }
-      } catch (err) {
-        // تم كتم التحذير لتقليل الضوضاء في السجلات
-      }
-    };
-    initEmergencyAdmin();
-  }, []);
 
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
@@ -239,40 +214,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر، محاولة تسجيل الدخول أوفلاين...', networkError);
     }
 
-    // ✅ منطق تسجيل الدخول أوفلاين إذا فشل السيرفر أو لم يجد المستخدم
-    if (!result || (response && !response.ok)) {
-      console.log('🔍 [AuthProvider] محاولة تسجيل الدخول أوفلاين/طوارئ...');
+    if (!result && (!response || response.status === 503 || response.status === 500)) {
+      console.log('🔍 [AuthProvider] السيرفر غير متاح، محاولة تسجيل الدخول أوفلاين...');
       
       try {
         const { smartGetAll } = await import('../offline/storage-factory');
         
-        // 1. البحث في جدول الطوارئ أولاً (مستخدمين مثبتين مسبقاً)
-        const emergencyUsers = await smartGetAll('emergencyUsers');
-        console.log(`🛡️ [AuthProvider] فحص ${emergencyUsers.length} مستخدم طوارئ`);
+        const localUsers = await smartGetAll('users');
+        console.log(`📱 [AuthProvider] فحص ${localUsers.length} مستخدم محلي`);
         
-        const emergencyUser = emergencyUsers.find((u: any) => 
-          u.email.toLowerCase() === email.toLowerCase() && u.password === password
-        );
+        const localUser = localUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
         
-        if (emergencyUser) {
-          console.log('🚨 [AuthProvider] تم الدخول بواسطة مستخدم الطوارئ (بدون توكنات)');
-          setAuthMode('emergency');
-          result = {
-            success: true,
-            data: {
-              user: { ...emergencyUser, emailVerified: true },
-              tokens: null
-            }
-          };
-        } else {
-          // 2. البحث في جداول المستخدمين المحليين
-          const localUsers = await smartGetAll('users');
-          console.log(`📱 [AuthProvider] فحص ${localUsers.length} مستخدم محلي`);
-          
-          const localUser = localUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
-          
-          if (localUser) {
-            console.log('✅ [AuthProvider] تم العثور على المستخدم محلياً (أوفلاين - بدون توكنات)');
+        if (localUser && localUser.passwordHash) {
+          const { verifyOfflinePassword } = await import('../offline/crypto-utils');
+          const passwordValid = await verifyOfflinePassword(password, localUser.passwordHash);
+          if (passwordValid) {
+            console.log('✅ [AuthProvider] تسجيل دخول أوفلاين ناجح بعد التحقق من كلمة المرور');
             setAuthMode('offline');
             result = {
               success: true,
@@ -281,7 +238,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 tokens: null
               }
             };
+          } else {
+            console.log('❌ [AuthProvider] كلمة المرور غير صحيحة (أوفلاين)');
           }
+        } else if (localUser) {
+          console.warn('⚠️ [AuthProvider] المستخدم المحلي لا يحتوي على hash لكلمة المرور - لا يمكن التحقق أوفلاين');
         }
       } catch (offlineError) {
         console.error('❌ [AuthProvider] خطأ في منطق الأوفلاين:', offlineError);
@@ -360,28 +321,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
       tokenType: typeof tokenData
     });
 
-    if (!tokenData && !isOfflineMode()) {
-      console.error('❌ [AuthProvider.login] التوكن مفقود من الاستجابة:', result);
+    if (!result) {
+      throw new Error('فشل تسجيل الدخول. لا يمكن الوصول للخادم ولا يوجد بيانات أوفلاين صالحة.');
+    }
+
+    if (!tokenData && authMode !== 'offline') {
+      console.error('❌ [AuthProvider.login] التوكن مفقود من الاستجابة');
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 
-    // حفظ بيانات المستخدم
+    if (!userData && authMode !== 'offline') {
+      throw new Error('بيانات المستخدم مفقودة من الاستجابة.');
+    }
+
     const isEmailVerified = 
       userData?.emailVerified === true || 
-      userData?.emailVerified === true ||
       !!userData?.email_verified_at || 
-      !!userData?.email_verified_at ||
       !!userData?.emailVerified ||
       localStorage.getItem('emailVerified') === 'true';
 
     const userToSave = {
-      id: userData?.id || userData?.user_id || 'unknown',
+      id: userData?.id || userData?.user_id,
       email: userData?.email || email,
       name: userData?.name || userData?.full_name || `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim() || email,
-      role: userData?.role || 'admin',
+      role: userData?.role || 'user',
       mfa_enabled: !!userData?.mfa_enabled,
       emailVerified: isEmailVerified,
     };
+
+    if (!userToSave.id) {
+      throw new Error('معرف المستخدم مفقود. لا يمكن إتمام تسجيل الدخول.');
+    }
 
     if (isEmailVerified) {
       localStorage.setItem('emailVerified', 'true');
@@ -495,12 +465,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       // تجاهل الأخطاء
     } finally {
-      // تنظيف الحالة والتخزين المحلي
       setUser(null);
       localStorage.removeItem('user');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
-      // ⚡ مسح جميع البيانات المخزنة
+      setAuthMode('online');
       clearAllCache();
     }
   };

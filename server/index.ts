@@ -16,10 +16,9 @@ import fs from "fs";
 import { serveStatic, log } from "./static";
 import { envConfig } from "./utils/unified-env";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات
-import { registerRoutes } from "./routes.js";
 // sshRoutes removed - not needed
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
-import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth, authenticate } from "./middleware/auth";
+import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";
 import { runSchemaCheck, getAutoPushStatus } from './auto-schema-push';
 import { db, checkDBConnection, getConnectionHealthStatus, smartReconnect } from './db.js';
 import { runStartupValidation, getSchemaStatus } from "./services/schema-guard";
@@ -29,14 +28,27 @@ import { Server } from 'socket.io';
 import compression from "compression"; 
 import { smartConnectionManager } from './services/smart-connection-manager';
 import { healthMonitor } from './services/HealthMonitor';
-import { authRouter } from './routes/modules/authRoutes.js';
 import { FcmService } from "./services/FcmService";
-
-import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
 
 // تهيئة الخدمات الخارجية
 FcmService.initialize();
-getWhatsAppBot().start().catch(console.error);
+
+const SENSITIVE_FIELDS = ['password', 'token', 'secret', 'accessToken', 'refreshToken', 'jwt', 'auth_token', 'api_key', 'apiKey', 'authorization', 'currentPassword', 'newPassword', 'confirmPassword'];
+
+function sanitizeLogData(data: any): any {
+  if (!data || typeof data !== 'object') return data;
+  const sanitized: any = Array.isArray(data) ? [] : {};
+  for (const key of Object.keys(data)) {
+    if (SENSITIVE_FIELDS.some(f => key.toLowerCase().includes(f.toLowerCase()))) {
+      sanitized[key] = '[REDACTED]';
+    } else if (typeof data[key] === 'object' && data[key] !== null) {
+      sanitized[key] = sanitizeLogData(data[key]);
+    } else {
+      sanitized[key] = data[key];
+    }
+  }
+  return sanitized;
+}
 
 const app = express();
 
@@ -474,8 +486,8 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
         let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
         if (res.statusCode >= 400) {
           console.log(`🚨 [API Error] ${logLine}`);
-          console.log(`📦 Request Body: ${JSON.stringify(req.body)}`);
-          // تجنب تسجيل ردود HTML الضخمة في سجلات API
+          const sanitizedBody = sanitizeLogData(req.body);
+          console.log(`📦 Request Body: ${JSON.stringify(sanitizedBody)}`);
           const responsePreview = typeof resBody === 'string' && resBody.startsWith('<!DOCTYPE') ? '[HTML Content]' : JSON.stringify(resBody);
           console.log(`📦 Response Body: ${responsePreview}`);
         } else {
@@ -487,27 +499,13 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
     next();
   });
 
-  // Use auth routes
-  console.log('🔗 [Server] تسجيل مسارات المصادقة على /api/auth');
-  
-  // ✅ تسجيل authRouter من authRoutes.ts (يحتوي على forgot-password, reset-password)
-  app.use('/api/auth', authRouter);
-
-  // ✅ إضافة مسار /api/auth/me المتوافق مع طلبات الواجهة الأمامية
-  app.get("/api/auth/me", authenticate, (req, res) => {
-    // @ts-ignore
-    if (req.user) {
-      // @ts-ignore
-      res.json({ success: true, user: req.user });
-    } else {
-      res.status(401).json({ success: false, message: "غير مصرح" });
-    }
-  });
-
-// Use permissions routes
-// Register organized routes
+// Register organized routes (includes auth, permissions, and all other routes)
 import { registerOrganizedRoutes } from "./routes/modules/index.js";
 registerOrganizedRoutes(app);
+
+// Register telemetry/monitoring routes from routes.ts
+import { registerRoutes } from "./routes.js";
+registerRoutes(app).catch(err => console.error("Failed to register telemetry routes:", err));
 
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
 app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
@@ -616,14 +614,11 @@ console.log('🔧 بيئة التشغيل:', NODE_ENV);
 import { BackupService } from "./services/BackupService";
 import { FinancialLedgerService } from "./services/FinancialLedgerService";
 
-import { WhatsAppBot, getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
+import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
 
-// ... داخل الدالة الرئيسية أو عند بدء التشغيل
 (async () => {
   try {
-    // تشغيل بوت الواتساب
-    const whatsappBot = getWhatsAppBot();
-    whatsappBot.start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
+    getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
 
     // await BackupService.initialize();
     

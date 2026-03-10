@@ -20,12 +20,13 @@ import { inArray } from 'drizzle-orm';
 
 export const workerRouter = express.Router();
 
-function checkProjectAccess(req: Request, projectId: string | null | undefined): { allowed: boolean; isAdmin: boolean } {
+function checkProjectAccess(req: Request, projectId: string | null | undefined, allowNullProject: boolean = false): { allowed: boolean; isAdmin: boolean } {
   const accessReq = req as ProjectAccessRequest;
   const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
   if (isAdminUser) return { allowed: true, isAdmin: true };
+  if (!projectId) return { allowed: allowNullProject, isAdmin: false };
   const accessibleIds = accessReq.accessibleProjectIds ?? [];
-  if (!projectId || !accessibleIds.includes(projectId)) return { allowed: false, isAdmin: false };
+  if (!accessibleIds.includes(projectId)) return { allowed: false, isAdmin: false };
   return { allowed: true, isAdmin: false };
 }
 
@@ -107,9 +108,11 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
     console.log('👷 [API] طلب إضافة عامل جديد من المستخدم:', req.user?.email);
     console.log('📋 [API] بيانات العامل المرسلة:', req.body);
 
-    const { allowed } = checkProjectAccess(req, req.body.project_id);
-    if (!allowed) {
-      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    if (req.body.project_id) {
+      const { allowed } = checkProjectAccess(req, req.body.project_id);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+      }
     }
 
     // Validation باستخدام enhanced schema
@@ -292,7 +295,7 @@ workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
       });
     }
 
-    const { allowed } = checkProjectAccess(req, worker[0].project_id);
+    const { allowed } = checkProjectAccess(req, worker[0].project_id, true);
     if (!allowed) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
     }
@@ -359,7 +362,7 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
       });
     }
 
-    const { allowed } = checkProjectAccess(req, existingWorker[0].project_id);
+    const { allowed } = checkProjectAccess(req, existingWorker[0].project_id, true);
     if (!allowed) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا العامل' });
     }
@@ -517,7 +520,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
 
     const workerToDelete = existingWorker[0];
 
-    const { allowed: deleteAllowed } = checkProjectAccess(req, workerToDelete.project_id);
+    const { allowed: deleteAllowed } = checkProjectAccess(req, workerToDelete.project_id, true);
     if (!deleteAllowed) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا العامل' });
     }
@@ -2270,7 +2273,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       });
     }
 
-    const { allowed: statsAllowed } = checkProjectAccess(req, worker[0].project_id);
+    const { allowed: statsAllowed } = checkProjectAccess(req, worker[0].project_id, true);
     if (!statsAllowed) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
     }

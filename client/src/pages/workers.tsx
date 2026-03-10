@@ -45,10 +45,11 @@ interface WorkerStats {
   monthlyAttendanceRate: number;
 }
 
-const WorkerDialog = ({ worker, onClose, isOpen }: {
+const WorkerDialog = ({ worker, onClose, isOpen, projectId }: {
   worker?: Worker;
   onClose: () => void;
   isOpen: boolean;
+  projectId?: string | null;
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -62,6 +63,7 @@ const WorkerDialog = ({ worker, onClose, isOpen }: {
         <div className="mt-4">
           <AddWorkerForm
             worker={worker}
+            projectId={projectId}
             onSuccess={onClose}
             onCancel={onClose}
             submitLabel={worker ? 'حفظ التعديلات' : 'إضافة العامل'}
@@ -663,6 +665,7 @@ export default function WorkersPage() {
         worker={editingWorker}
         isOpen={showDialog}
         onClose={() => setShowDialog(false)}
+        projectId={selectedProjectId}
       />
     </div>
   );

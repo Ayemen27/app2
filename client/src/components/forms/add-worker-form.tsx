@@ -28,6 +28,7 @@ interface Worker {
 
 interface AddWorkerFormProps {
   worker?: Worker;
+  projectId?: string | null;
   onSuccess?: () => void;
   onCancel?: () => void;
   submitLabel?: string;
@@ -41,7 +42,7 @@ interface WorkerType {
   createdAt: string;
 }
 
-export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel = "إضافة العامل" }: AddWorkerFormProps) {
+export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, submitLabel = "إضافة العامل" }: AddWorkerFormProps) {
   const [name, setName] = useState(worker?.name || "");
   const [type, setType] = useState(worker?.type || "");
   const [dailyWage, setDailyWage] = useState(worker ? worker.dailyWage : "");
@@ -192,6 +193,7 @@ export default function AddWorkerForm({ worker, onSuccess, onCancel, submitLabel
       phone: phone.trim() || undefined,
       hireDate: hireDate || undefined,
       isActive: worker?.isActive ?? true,
+      ...(!worker && projectId && projectId !== 'all' ? { project_id: projectId } : {}),
     });
   };
 

@@ -55,6 +55,7 @@ import { ProjectsPageSkeleton } from "@/components/ui/project-skeleton";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 import { useProjectPermissions } from "@/hooks/useProjectPermissions";
 import { triggerSync } from "@/offline/sync";
+import { useSelectedProject } from "@/hooks/use-selected-project";
 
 interface ProjectStats {
   totalWorkers: number;
@@ -162,6 +163,7 @@ export default function ProjectsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const { canEditProject, canDeleteFromProject, getPermissionLevel } = useProjectPermissions();
+  const { selectedProjectId } = useSelectedProject();
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -247,13 +249,14 @@ export default function ProjectsPage() {
   const projects = Array.isArray(fetchedProjectsRaw) ? fetchedProjectsRaw : [];
   const projectsData = projects;
 
-  // استخدام الملخص المالي الموحد من ExpenseLedgerService للإجماليات والمشاريع الفردية
-  const { totals: financialTotals, allProjects: financialData, isLoading: financialLoading, refetch: refetchFinancial } = useFinancialSummary({
-    project_id: 'all',
+  const effectiveProjectId = selectedProjectId && selectedProjectId !== 'all' ? selectedProjectId : 'all';
+  const isSpecificProject = effectiveProjectId !== 'all';
+
+  const { totals: financialTotals, allProjects: financialData, summary: singleProjectSummary, isLoading: financialLoading, refetch: refetchFinancial } = useFinancialSummary({
+    project_id: effectiveProjectId,
     enabled: true
   });
 
-  // إنشاء map للوصول السريع لبيانات المشاريع المالية من ExpenseLedgerService
   const financialProjectsMap = useMemo(() => {
     const map = new Map<string, any>();
     if (financialData?.projects) {
@@ -261,8 +264,11 @@ export default function ProjectsPage() {
         map.set(p.project_id, p);
       });
     }
+    if (isSpecificProject && singleProjectSummary) {
+      map.set(singleProjectSummary.project_id, singleProjectSummary);
+    }
     return map;
-  }, [financialData?.projects]);
+  }, [financialData?.projects, isSpecificProject, singleProjectSummary]);
 
   // دالة للحصول على إحصائيات المشروع من ExpenseLedgerService (مصدر موحد للحقيقة)
   const getProjectStats = useCallback((project_id: string) => {
@@ -681,24 +687,22 @@ export default function ProjectsPage() {
     return defaultValue;
   };
 
-  // الإحصائيات العامة من ExpenseLedgerService الموحد (Single Source of Truth)
   const overallStats = useMemo(() => {
-    console.log('📊 [Projects] استخدام الإحصائيات من ExpenseLedgerService الموحد');
-    
-    // استخدام البيانات من الـ Hook الموحد
     if (financialTotals) {
-      const activeProjectsCount = projectsData.filter(p => p.status === 'active').length;
+      const relevantProjects = isSpecificProject
+        ? projectsData.filter(p => p.id === effectiveProjectId)
+        : projectsData;
+      const activeProjectsCount = relevantProjects.filter(p => p.status === 'active').length;
       return {
-        totalProjects: projectsData.length,
+        totalProjects: relevantProjects.length,
         activeProjects: activeProjectsCount,
         totalIncome: financialTotals.totalIncome || 0,
         totalExpenses: financialTotals.totalAllExpenses || financialTotals.totalExpenses || 0,
         totalWorkers: financialTotals.totalWorkers || 0,
-        materialPurchases: 0, // سيتم حسابه من counts إذا لزم
+        materialPurchases: 0,
       };
     }
     
-    // قيم افتراضية إذا لم تتوفر البيانات
     return {
       totalProjects: projectsData.length,
       activeProjects: projectsData.filter(p => p.status === 'active').length,
@@ -707,7 +711,7 @@ export default function ProjectsPage() {
       totalWorkers: 0,
       materialPurchases: 0,
     };
-  }, [financialTotals, projectsData]);
+  }, [financialTotals, projectsData, effectiveProjectId, isSpecificProject]);
 
   const currentBalance = financialTotals?.totalBalance ?? (overallStats.totalIncome - overallStats.totalExpenses);
 
@@ -757,6 +761,9 @@ export default function ProjectsPage() {
 
   const filteredProjects = useMemo(() => {
     return projectsData.filter(project => {
+      if (isSpecificProject && project.id !== effectiveProjectId) {
+        return false;
+      }
       if (searchValue && !project.name.toLowerCase().includes(searchValue.toLowerCase())) {
         return false;
       }
@@ -772,7 +779,7 @@ export default function ProjectsPage() {
       }
       return true;
     });
-  }, [projectsData, searchValue, filterValues]);
+  }, [projectsData, searchValue, filterValues, isSpecificProject, effectiveProjectId]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {

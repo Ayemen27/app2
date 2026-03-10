@@ -513,15 +513,15 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
     console.log('📊 [API] جلب قائمة المستخدمين');
     const usersList = await db.select({
       id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
+      first_name: users.first_name,
+      last_name: users.last_name,
       email: users.email,
       role: users.role,
-    }).from(users).orderBy(users.firstName);
+    }).from(users).orderBy(users.first_name);
     
     const usersWithName = usersList.map(user => ({
       id: user.id,
-      name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
       email: user.email,
       role: user.role,
     }));

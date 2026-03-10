@@ -333,7 +333,7 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
       .where(eq(users.id, payload.userId))
       .limit(1);
 
-    if (userWithSession.length === 0 || !userWithSession[0].user || !userWithSession[0].user.isActive) {
+    if (userWithSession.length === 0 || !userWithSession[0].user || userWithSession[0].user.is_active === false) {
       console.log('❌ [JWT-DEV] مستخدم غير موجود أو غير نشط');
       return null;
     }

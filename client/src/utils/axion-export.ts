@@ -350,6 +350,8 @@ export interface ProfessionalReportOptions {
   signatures?: Array<{ title: string }>;
   fileName: string;
   orientation?: 'landscape' | 'portrait';
+  cellStyleFn?: (record: Record<string, any>, colKey: string, colIdx: number) => { fontColor?: string; bold?: boolean } | null;
+  summaryRows?: Array<{ label: string; value: string; valueColor?: string }>;
 }
 
 export async function createProfessionalReport(options: ProfessionalReportOptions): Promise<boolean> {
@@ -395,6 +397,25 @@ export async function createProfessionalReport(options: ProfessionalReportOption
     currentRow++;
   }
 
+  if (options.summaryRows && options.summaryRows.length > 0) {
+    const halfCol = Math.ceil(colCount / 2);
+    options.summaryRows.forEach(sr => {
+      worksheet.mergeCells(currentRow, 1, currentRow, halfCol);
+      const labelCell = worksheet.getRow(currentRow).getCell(1);
+      labelCell.value = sr.label;
+      labelCell.font = { bold: true, size: 11 };
+      labelCell.alignment = { horizontal: 'right', vertical: 'middle' };
+
+      worksheet.mergeCells(currentRow, halfCol + 1, currentRow, colCount);
+      const valueCell = worksheet.getRow(currentRow).getCell(halfCol + 1);
+      valueCell.value = sr.value;
+      valueCell.font = { bold: true, size: 11, color: sr.valueColor ? { argb: sr.valueColor } : undefined };
+      valueCell.alignment = { horizontal: 'left', vertical: 'middle' };
+      worksheet.getRow(currentRow).height = 22;
+      currentRow++;
+    });
+  }
+
   currentRow++;
 
   const headerRow = worksheet.getRow(currentRow);
@@ -415,6 +436,16 @@ export async function createProfessionalReport(options: ProfessionalReportOption
       applyStyle(cell, style);
       if (col.numFmt && typeof record[col.key] === 'number') {
         cell.numFmt = col.numFmt;
+      }
+      if (options.cellStyleFn) {
+        const customStyle = options.cellStyleFn(record, col.key, colIdx);
+        if (customStyle) {
+          cell.font = {
+            ...cell.font,
+            ...(customStyle.fontColor ? { color: { argb: customStyle.fontColor } } : {}),
+            ...(customStyle.bold !== undefined ? { bold: customStyle.bold } : {})
+          };
+        }
       }
     });
     row.height = 20;

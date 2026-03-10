@@ -16,8 +16,7 @@ import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { EXCEL_STYLES, COMPANY_INFO, addReportHeader } from "@/components/excel-export-utils";
-import { downloadExcelFile } from "@/utils/webview-download";
+import { createProfessionalReport } from "@/utils/axion-export";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
 interface Equipment {
@@ -390,116 +389,74 @@ export function EquipmentManagement() {
     try {
       setIsExporting(true);
       
-      const ExcelJS = await import('exceljs');
-      const workbook = new ExcelJS.Workbook();
-      
-      workbook.creator = COMPANY_INFO.name;
-      workbook.lastModifiedBy = 'نظام إدارة المعدات';
-      workbook.created = new Date();
-      workbook.modified = new Date();
-      
-      const worksheet = workbook.addWorksheet('كشف المعدات');
-      worksheet.views = [{ rightToLeft: true }];
-      
       const reportProjectName = filterValues.project === "all" ? "جميع المشاريع" : 
                                 filterValues.project === "warehouse" ? "المستودع" :
                                 (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined) || "مشروع محدد";
-      
-      let currentRow = addReportHeader(
-        worksheet,
-        'كشف المعدات التفصيلي',
-        `المشروع: ${reportProjectName}`,
-        [
-          `تاريخ الإصدار: ${formatDate(new Date().toISOString().split('T')[0])}`,
-          `إجمالي المعدات: ${filteredEquipment.length}`,
-          `المعدات النشطة: ${filteredEquipment.filter((e: Equipment) => e.status === 'active').length}`,
-          `في الصيانة: ${filteredEquipment.filter((e: Equipment) => e.status === 'maintenance').length}`
-        ]
-      );
-      
-      const headers = ['الكود', 'اسم المعدة', 'العدد', 'الوحدة', 'الفئة', 'الحالة', 'الموقع', 'سعر الشراء', 'تاريخ الشراء', 'الوصف'];
-      const headerRow = worksheet.addRow(headers);
-      
-      headers.forEach((_, index) => {
-        const cell = headerRow.getCell(index + 1);
-        cell.font = EXCEL_STYLES.fonts.header;
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXCEL_STYLES.colors.headerBg } };
-        cell.border = {
-          top: EXCEL_STYLES.borders.medium,
-          bottom: EXCEL_STYLES.borders.medium,
-          left: EXCEL_STYLES.borders.thin,
-          right: EXCEL_STYLES.borders.thin
-        };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      });
-      
-      worksheet.getColumn(1).width = 15;
-      worksheet.getColumn(2).width = 25;
-      worksheet.getColumn(3).width = 10;
-      worksheet.getColumn(4).width = 12;
-      worksheet.getColumn(5).width = 15;
-      worksheet.getColumn(6).width = 15;
-      worksheet.getColumn(7).width = 25;
-      worksheet.getColumn(8).width = 18;
-      worksheet.getColumn(9).width = 15;
-      worksheet.getColumn(10).width = 30;
-      
-      currentRow++;
 
-      filteredEquipment.forEach((item: Equipment, index: number) => {
+      const totalValue = filteredEquipment.reduce((sum: number, e: Equipment) => sum + (Number(e.purchasePrice) || 0), 0);
+
+      const data = filteredEquipment.map((item: Equipment) => {
         const eqProjectId = item.currentProjectId || item.project_id;
-        const projectName = eqProjectId 
+        const projName = eqProjectId 
           ? (Array.isArray(projects) ? projects.find((p: any) => p.id === eqProjectId)?.name : undefined) || 'مشروع غير معروف'
           : 'المستودع';
-        
-        const row = worksheet.addRow([
-          item.code,
-          item.name,
-          item.quantity || 1,
-          item.unit || 'قطعة',
-          item.type || 'غير محدد',
-          getStatusText(item.status),
-          projectName,
-          item.purchasePrice ? formatCurrency(Number(item.purchasePrice)) : 'غير محدد',
-          item.purchaseDate ? formatDate(item.purchaseDate) : 'غير محدد',
-          item.description || 'غير محدد'
-        ]);
-        
-        row.eachCell((cell, colNumber) => {
-          cell.font = EXCEL_STYLES.fonts.data;
-          cell.border = {
-            top: EXCEL_STYLES.borders.thin,
-            bottom: EXCEL_STYLES.borders.thin,
-            left: EXCEL_STYLES.borders.thin,
-            right: EXCEL_STYLES.borders.thin
-          };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          
-          if (colNumber === 8 && item.purchasePrice) {
-            cell.numFmt = '#,##0 "ريال"';
-            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-          }
-          
-          if (index % 2 === 0) {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
-          }
-        });
-        currentRow++;
+        return {
+          code: item.code || '-',
+          name: item.name,
+          quantity: item.quantity || 1,
+          unit: item.unit || 'قطعة',
+          type: item.type || 'غير محدد',
+          status: getStatusText(item.status),
+          location: projName,
+          purchasePrice: Number(item.purchasePrice) || 0,
+          purchaseDate: item.purchaseDate ? formatDate(item.purchaseDate) : 'غير محدد',
+          description: item.description || 'غير محدد',
+        };
       });
 
       const filenameProjectName = filterValues.project === "all" ? "جميع_المشاريع" : 
                                   filterValues.project === "warehouse" ? "المستودع" :
                                   (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined)?.replace(/\s/g, '_') || "مشروع_محدد";
+
+      const result = await createProfessionalReport({
+        sheetName: 'كشف المعدات',
+        reportTitle: 'كشف المعدات التفصيلي',
+        subtitle: `المشروع: ${reportProjectName}`,
+        infoLines: [
+          `تاريخ الإصدار: ${formatDate(new Date().toISOString().split('T')[0])}`,
+          `إجمالي المعدات: ${filteredEquipment.length}`,
+          `المعدات النشطة: ${filteredEquipment.filter((e: Equipment) => e.status === 'active').length}`,
+          `في الصيانة: ${filteredEquipment.filter((e: Equipment) => e.status === 'maintenance').length}`
+        ],
+        columns: [
+          { header: 'الكود', key: 'code', width: 15 },
+          { header: 'اسم المعدة', key: 'name', width: 25 },
+          { header: 'العدد', key: 'quantity', width: 10, numFmt: '#,##0' },
+          { header: 'الوحدة', key: 'unit', width: 12 },
+          { header: 'الفئة', key: 'type', width: 15 },
+          { header: 'الحالة', key: 'status', width: 15 },
+          { header: 'الموقع', key: 'location', width: 25 },
+          { header: 'سعر الشراء', key: 'purchasePrice', width: 18, numFmt: '#,##0' },
+          { header: 'تاريخ الشراء', key: 'purchaseDate', width: 15 },
+          { header: 'الوصف', key: 'description', width: 30 },
+        ],
+        data,
+        totals: {
+          label: `إجمالي المعدات: ${filteredEquipment.length}`,
+          values: { purchasePrice: totalValue }
+        },
+        signatures: [
+          { title: 'توقيع المهندس' },
+          { title: 'توقيع مدير المشروع' },
+          { title: 'توقيع المدير العام' }
+        ],
+        fileName: `كشف_المعدات_${filenameProjectName}_${new Date().toISOString().split('T')[0]}.xlsx`,
+      });
       
-      const filename = `كشف_المعدات_${filenameProjectName}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
-      const buffer = await workbook.xlsx.writeBuffer();
-      const downloadResult = await downloadExcelFile(buffer as ArrayBuffer, filename);
-      
-      if (downloadResult) {
+      if (result) {
         toast({
           title: "تم تصدير كشف المعدات بنجاح",
-          description: `تم حفظ الملف: ${filename}`
+          description: `تم حفظ الملف بنجاح`
         });
       } else {
         toast({

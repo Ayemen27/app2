@@ -83,19 +83,19 @@ export async function exportTransactionsToExcel(
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);
   const titleCell = worksheet.getCell(`A${currentRow}`);
   titleCell.value = COMPANY_INFO.name;
-  titleCell.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
-  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F5A96' } };
+  titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  worksheet.getRow(currentRow).height = 30;
+  worksheet.getRow(currentRow).height = 22;
   currentRow++;
 
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);
   const subtitleCell = worksheet.getCell(`A${currentRow}`);
   subtitleCell.value = COMPANY_INFO.subtitle;
-  subtitleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
-  subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E75B6' } };
+  subtitleCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+  subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
   subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  worksheet.getRow(currentRow).height = 25;
+  worksheet.getRow(currentRow).height = 20;
   currentRow++;
 
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);
@@ -104,9 +104,9 @@ export async function exportTransactionsToExcel(
     ? `سجل العمليات - ${projectName} - ${new Date().toLocaleDateString('en-GB')}`
     : `سجل العمليات - ${new Date().toLocaleDateString('en-GB')}`;
   reportTitleCell.value = reportTitle;
-  reportTitleCell.font = { bold: true, size: 14, color: { argb: 'FF1F5A96' } };
+  reportTitleCell.font = { bold: true, size: 11, color: { argb: 'FF1B2A4A' } };
   reportTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  worksheet.getRow(currentRow).height = 28;
+  worksheet.getRow(currentRow).height = 22;
   currentRow++;
 
   currentRow++;
@@ -163,7 +163,7 @@ export async function exportTransactionsToExcel(
     cell.alignment = EXCEL_STYLES.tableHeader.alignment;
     cell.border = EXCEL_STYLES.tableHeader.border;
   });
-  headerRow.height = 28;
+  headerRow.height = 22;
   currentRow++;
 
   worksheet.getColumn(1).width = 5;
@@ -255,7 +255,7 @@ export async function exportTransactionsToExcel(
       }
     });
     
-    row.height = 24;
+    row.height = 20;
     currentRow++;
   });
 
@@ -274,7 +274,7 @@ export async function exportTransactionsToExcel(
   dateCell.value = `تاريخ التصدير: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`;
   dateCell.font = { size: 10, italic: true };
   dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  summaryRow.height = 26;
+  summaryRow.height = 20;
   currentRow += 2;
 
   const signatureRow = worksheet.getRow(currentRow);
@@ -291,7 +291,7 @@ export async function exportTransactionsToExcel(
   sig2.font = EXCEL_STYLES.signatureBox.font;
   sig2.alignment = EXCEL_STYLES.signatureBox.alignment;
   sig2.border = EXCEL_STYLES.signatureBox.border;
-  signatureRow.height = 35;
+  signatureRow.height = 24;
   currentRow += 2;
 
   worksheet.mergeCells(`A${currentRow}:O${currentRow}`);

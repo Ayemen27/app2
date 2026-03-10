@@ -1,4 +1,3 @@
-/* أنماط تقارير Excel المحسنة */
 .excel-style-report {
   font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
   direction: rtl;
@@ -8,28 +7,27 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* جدول Excel */
 .excel-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
   direction: rtl;
 }
 
 .excel-cell {
   border: 1px solid #c0c0c0;
-  padding: 8px 12px;
+  padding: 4px 6px;
   text-align: right;
   vertical-align: middle;
   background: white;
 }
 
 .header-cell {
-  background: #4f81bd;
+  background: #2E5090;
   color: white;
   font-weight: 600;
   text-align: center;
-  border: 1px solid #2e5984;
+  border: 1px solid #1B2A4A;
 }
 
 .number-cell {
@@ -39,17 +37,16 @@
 }
 
 .total-row {
-  background: #d9e1f2;
+  background: #E8EDF4;
 }
 
 .total-cell {
   font-weight: bold;
-  background: #4f81bd;
+  background: #2E5090;
   color: white;
-  border: 1px solid #2e5984;
+  border: 1px solid #1B2A4A;
 }
 
-/* تحسينات لطباعة Excel */
 @media print {
   .no-print {
     display: none !important;
@@ -57,57 +54,55 @@
 
   @page {
     size: A4;
-    margin: 1.5cm;
+    margin: 8mm;
     direction: rtl;
   }
 
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    font-size: 12pt;
+    font-size: 9pt;
     line-height: 1.3;
   }
 
   .excel-style-report {
     box-shadow: none;
-    border: 1px solid #000;
+    border: 1px solid #1B2A4A;
   }
 
   .excel-table {
-    font-size: 11pt;
+    font-size: 9pt;
   }
 
   .excel-cell {
-    border: 1px solid #000;
-    padding: 6px 10px;
+    border: 1px solid #CBD5E1;
+    padding: 3px 4px;
   }
 
   .header-cell {
-    background: #e6e6e6 !important;
-    color: #000 !important;
-    border: 1px solid #000;
+    background: #1B2A4A !important;
+    color: #fff !important;
+    border: 1px solid #1B2A4A;
     font-weight: bold;
   }
 
   .total-cell {
-    background: #f0f0f0 !important;
-    color: #000 !important;
-    border: 2px solid #000;
+    background: #2E5090 !important;
+    color: #fff !important;
+    border: 1px solid #1B2A4A;
     font-weight: bold;
   }
 
   .total-row {
-    background: #f8f8f8 !important;
+    background: #F0F4F8 !important;
   }
 
-  /* تحسين الأرقام للطباعة */
   .number-cell {
     font-family: 'Arial', sans-serif;
     font-weight: 500;
   }
 }
 
-/* تحسينات للشاشة */
 @media screen {
   .excel-table tr:hover {
     background-color: #f8f9fa;
@@ -123,7 +118,6 @@
   }
 }
 
-/* أنماط مخصصة للبيانات المختلفة */
 .positive-amount {
   color: #2e7d32;
   font-weight: 600;
@@ -138,7 +132,6 @@
   color: #757575;
 }
 
-/* تنسيق العملة */
 .currency-cell {
   position: relative;
 }
@@ -150,16 +143,14 @@
   margin-right: 4px;
 }
 
-/* تحسينات للجداول الكبيرة */
 .excel-table tbody tr:nth-child(even) {
-  background-color: #f9f9f9;
+  background-color: #F0F4F8;
 }
 
 .excel-table tbody tr:nth-child(odd) {
   background-color: white;
 }
 
-/* أنماط للخلايا المهمة */
 .highlight-cell {
   background-color: #fff3cd !important;
   border: 2px solid #ffc107 !important;
@@ -175,23 +166,20 @@
   color: #155724 !important;
 }
 
-/* رؤوس الأقسام */
 .section-header {
-  background: #2c5aa0;
+  background: #1B2A4A;
   color: white;
   font-weight: bold;
-  font-size: 16px;
+  font-size: 13px;
   text-align: center;
-  padding: 12px;
+  padding: 6px;
 }
 
-/* تحسينات للنصوص الطويلة */
 .text-wrap {
   word-wrap: break-word;
   max-width: 200px;
 }
 
-/* أنماط للحالات المختلفة */
 .status-active {
   color: #28a745;
   font-weight: 600;
@@ -207,7 +195,6 @@
   font-weight: 600;
 }
 
-/* تحسينات الطباعة للمتصفحات المختلفة */
 @media print and (-webkit-min-device-pixel-ratio: 0) {
   .excel-table {
     -webkit-print-color-adjust: exact;
@@ -219,14 +206,13 @@
   }
 }
 
-/* تحسينات للموبايل */
 @media (max-width: 768px) {
   .excel-table {
-    font-size: 12px;
+    font-size: 11px;
   }
   
   .excel-cell {
-    padding: 6px 8px;
+    padding: 4px 6px;
   }
   
   .text-wrap {

@@ -16,20 +16,19 @@ function buildWorkerHTML(data: any, worker: any): string {
     const paid = parseFloat(item.paid || 0);
     const balance = amount - paid;
     return `<tr>
-      <td style="width:30px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${idx + 1}</td>
-      <td style="width:75px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.date ? format(new Date(item.date), 'dd/MM/yyyy') : '-'}</td>
-      <td style="width:55px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
-      <td style="width:100px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:9px;">${item.projectName || item.project_name || '-'}</td>
-      <td style="text-align:right;padding:5px 6px;border:1px solid #BFBFBF;font-size:9px;line-height:1.3;">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل')}</td>
-      <td style="width:40px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
-      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
-      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;background:#E2F0D9;font-weight:700;">${amount.toLocaleString()}</td>
-      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;background:#FBE2D5;font-weight:700;">${paid.toLocaleString()}</td>
-      <td style="width:65px;text-align:center;padding:5px 3px;border:1px solid #BFBFBF;font-size:10px;background:#DEEAF6;font-weight:700;">${balance.toLocaleString()}</td>
+      <td style="width:28px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;">${idx + 1}</td>
+      <td style="width:70px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;">${item.date ? format(new Date(item.date), 'dd/MM/yyyy') : '-'}</td>
+      <td style="width:50px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;">${item.date ? format(new Date(item.date), 'EEEE', { locale: arSA }) : '-'}</td>
+      <td style="width:95px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:8px;">${item.projectName || item.project_name || '-'}</td>
+      <td style="text-align:right;padding:3px 4px;border:1px solid #CBD5E1;font-size:8px;line-height:1.2;">${item.description || (item.type === 'حوالة' ? `حوالة لـ ${item.recipientName || '-'}` : 'تنفيذ مهام العمل')}</td>
+      <td style="width:36px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;">${item.type === 'عمل' ? (item.workDays !== undefined ? parseFloat(item.workDays).toFixed(2) : '1.00') : '-'}</td>
+      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;">${item.type === 'عمل' ? (item.hours || '07:00-15:00') : '-'}</td>
+      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#E8EDF4;font-weight:700;">${amount.toLocaleString()}</td>
+      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#FBE2D5;font-weight:700;">${paid.toLocaleString()}</td>
+      <td style="width:60px;text-align:center;padding:3px 2px;border:1px solid #CBD5E1;font-size:9px;background:#F0F4F8;font-weight:700;">${balance.toLocaleString()}</td>
     </tr>`;
   }).join('');
 
-  // تحضير ملخص المشاريع
   const projectSummaryMap = (data?.statement || []).reduce((acc: any, item: any) => {
     const pName = item.projectName || item.project_name || 'غير محدد';
     if (!acc[pName]) {
@@ -47,25 +46,25 @@ function buildWorkerHTML(data: any, worker: any): string {
 
   const projectSummaryRows = Object.entries(projectSummaryMap).map(([name, stats]: [string, any]) => `
     <tr>
-      <td style="padding:5px;border:1px solid #BFBFBF;font-size:10px;">${name}</td>
-      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;">${stats.days.toFixed(2)}</td>
-      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;">${stats.earned.toLocaleString()}</td>
-      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;">${stats.paid.toLocaleString()}</td>
-      <td style="text-align:center;padding:5px;border:1px solid #BFBFBF;font-size:10px;font-weight:700;">${(stats.earned - stats.paid).toLocaleString()}</td>
+      <td style="padding:3px 4px;border:1px solid #CBD5E1;font-size:9px;">${name}</td>
+      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.days.toFixed(2)}</td>
+      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.earned.toLocaleString()}</td>
+      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;">${stats.paid.toLocaleString()}</td>
+      <td style="text-align:center;padding:3px;border:1px solid #CBD5E1;font-size:9px;font-weight:700;">${(stats.earned - stats.paid).toLocaleString()}</td>
     </tr>
   `).join('');
 
   const projectSummaryTable = (data?.statement || []).length > 0 && Object.keys(projectSummaryMap).length > 1 ? `
-    <div style="margin-top:20px;">
-      <div style="background:#1F4E79;color:#fff;padding:5px 10px;font-size:12px;font-weight:800;border:1px solid #16365C;">ملخص المشاريع التفصيلي</div>
-      <table style="width:100%;border-collapse:collapse;margin-top:2px;">
+    <div style="margin-top:10px;">
+      <div style="background:#1B2A4A;color:#fff;padding:4px 8px;font-size:10px;font-weight:800;border:1px solid #1B2A4A;">ملخص المشاريع التفصيلي</div>
+      <table style="width:100%;border-collapse:collapse;margin-top:1px;">
         <thead>
-          <tr style="background:#F2F2F2;">
-            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:right;">المشروع</th>
-            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">إجمالي الأيام</th>
-            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">إجمالي المستحق</th>
-            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">إجمالي المدفوع</th>
-            <th style="padding:5px;border:1px solid #BFBFBF;font-size:10px;text-align:center;">المتبقي</th>
+          <tr style="background:#F0F4F8;">
+            <th style="padding:3px 4px;border:1px solid #CBD5E1;font-size:9px;text-align:right;">المشروع</th>
+            <th style="padding:3px;border:1px solid #CBD5E1;font-size:9px;text-align:center;">إجمالي الأيام</th>
+            <th style="padding:3px;border:1px solid #CBD5E1;font-size:9px;text-align:center;">إجمالي المستحق</th>
+            <th style="padding:3px;border:1px solid #CBD5E1;font-size:9px;text-align:center;">إجمالي المدفوع</th>
+            <th style="padding:3px;border:1px solid #CBD5E1;font-size:9px;text-align:center;">المتبقي</th>
           </tr>
         </thead>
         <tbody>
@@ -76,55 +75,55 @@ function buildWorkerHTML(data: any, worker: any): string {
   ` : '';
 
   return `<div style="direction:rtl;font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
-    <div style="background:#1F4E79;color:#fff;text-align:center;padding:10px 0;font-size:18px;font-weight:800;margin-bottom:12px;">كشف حساب العامل التفصيلي والشامل</div>
-    <div style="display:flex;justify-content:space-between;margin:0 10px 12px 10px;font-size:12px;">
+    <div style="background:#1B2A4A;color:#fff;text-align:center;padding:6px 0;font-size:14px;font-weight:800;margin-bottom:8px;">كشف حساب العامل التفصيلي والشامل</div>
+    <div style="display:flex;justify-content:space-between;margin:0 8px 8px 8px;font-size:10px;">
       <div>
-        <div style="margin-bottom:4px;"><b style="display:inline-block;width:90px;">اسم العامل:</b> ${workerName}</div>
-        <div style="margin-bottom:4px;"><b style="display:inline-block;width:90px;">نوع العامل:</b> ${workerType}</div>
-        <div><b style="display:inline-block;width:90px;">الأجر اليومي:</b> ${dailyWage}</div>
+        <div style="margin-bottom:2px;"><b style="display:inline-block;width:80px;">اسم العامل:</b> ${workerName}</div>
+        <div style="margin-bottom:2px;"><b style="display:inline-block;width:80px;">نوع العامل:</b> ${workerType}</div>
+        <div><b style="display:inline-block;width:80px;">الأجر اليومي:</b> ${dailyWage}</div>
       </div>
       <div>
-        <div style="margin-bottom:4px;"><b style="display:inline-block;width:90px;">المشروع:</b> ${data?.projectName || 'تعدد مشاريع'}</div>
-        <div><b style="display:inline-block;width:90px;">تاريخ الإصدار:</b> ${reportDate}</div>
+        <div style="margin-bottom:2px;"><b style="display:inline-block;width:80px;">المشروع:</b> ${data?.projectName || 'تعدد مشاريع'}</div>
+        <div><b style="display:inline-block;width:80px;">تاريخ الإصدار:</b> ${reportDate}</div>
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
       <thead>
         <tr>
-          <th style="width:30px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">م</th>
-          <th style="width:75px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">التاريخ</th>
-          <th style="width:55px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">اليوم</th>
-          <th style="width:100px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المشروع</th>
-          <th style="background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">وصف العمل</th>
-          <th style="width:40px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">الأيام</th>
-          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">الساعات</th>
-          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المستحق</th>
-          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المدفوع</th>
-          <th style="width:65px;background:#1F4E79;color:#fff;border:1px solid #16365C;padding:7px 3px;font-size:10px;font-weight:800;text-align:center;">المتبقي</th>
+          <th style="width:28px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">م</th>
+          <th style="width:70px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">التاريخ</th>
+          <th style="width:50px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">اليوم</th>
+          <th style="width:95px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">المشروع</th>
+          <th style="background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">وصف العمل</th>
+          <th style="width:36px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">الأيام</th>
+          <th style="width:60px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">الساعات</th>
+          <th style="width:60px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">المستحق</th>
+          <th style="width:60px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">المدفوع</th>
+          <th style="width:60px;background:#1B2A4A;color:#fff;border:1px solid #2E5090;padding:4px 2px;font-size:9px;font-weight:800;text-align:center;">المتبقي</th>
         </tr>
       </thead>
       <tbody>
         ${rows}
         <tr>
-          <td colspan="5" style="background:#00B050;color:#fff;font-weight:800;font-size:12px;text-align:center;padding:7px;border:1px solid #00803A;">الإجماليــــــات</td>
-          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString()}</td>
-          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">-</td>
-          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${totalEarned.toLocaleString()}</td>
-          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${totalPaid.toLocaleString()}</td>
-          <td style="background:#00B050;color:#fff;font-weight:800;font-size:11px;text-align:center;padding:7px;border:1px solid #00803A;">${finalBalance.toLocaleString()}</td>
+          <td colspan="5" style="background:#2E5090;color:#fff;font-weight:800;font-size:10px;text-align:center;padding:4px;border:1px solid #1B2A4A;">الإجماليــــــات</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${parseFloat(data?.summary?.totalWorkDays || 0).toLocaleString()}</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">-</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${totalEarned.toLocaleString()}</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${totalPaid.toLocaleString()}</td>
+          <td style="background:#2E5090;color:#fff;font-weight:800;font-size:9px;text-align:center;padding:4px;border:1px solid #1B2A4A;">${finalBalance.toLocaleString()}</td>
         </tr>
       </tbody>
     </table>
     ${projectSummaryTable}
-    <div style="margin-top:20px;">
-      <table style="width:300px;border:2px solid #1F4E79;border-collapse:collapse;">
-        <tr><td colspan="2" style="background:#00B050;color:#fff;text-align:center;font-weight:800;padding:6px;font-size:13px;border:1px solid #00803A;">الملخص المالي</td></tr>
-        <tr><td style="padding:6px 10px;font-weight:700;border:1px solid #BFBFBF;font-size:12px;">إجمالي المكتسب:</td><td style="padding:6px 10px;text-align:left;border:1px solid #BFBFBF;font-size:12px;">${totalEarned.toLocaleString()}</td></tr>
-        <tr><td style="padding:6px 10px;font-weight:700;border:1px solid #BFBFBF;font-size:12px;">إجمالي المدفوع:</td><td style="padding:6px 10px;text-align:left;border:1px solid #BFBFBF;font-size:12px;">${totalPaid.toLocaleString()}</td></tr>
-        <tr><td style="padding:6px 10px;font-weight:700;border:1px solid #BFBFBF;font-size:12px;background:#F2F2F2;">الرصيد النهائي:</td><td style="padding:6px 10px;text-align:left;border:1px solid #BFBFBF;font-size:12px;font-weight:800;background:#F2F2F2;">${finalBalance.toLocaleString()}</td></tr>
+    <div style="margin-top:10px;">
+      <table style="width:280px;border:1px solid #1B2A4A;border-collapse:collapse;">
+        <tr><td colspan="2" style="background:#1B2A4A;color:#fff;text-align:center;font-weight:800;padding:4px;font-size:11px;border:1px solid #1B2A4A;">الملخص المالي</td></tr>
+        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;">إجمالي المكتسب:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;">${totalEarned.toLocaleString()}</td></tr>
+        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;">إجمالي المدفوع:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;">${totalPaid.toLocaleString()}</td></tr>
+        <tr><td style="padding:3px 6px;font-weight:700;border:1px solid #CBD5E1;font-size:10px;background:#F0F4F8;">الرصيد النهائي:</td><td style="padding:3px 6px;text-align:left;border:1px solid #CBD5E1;font-size:10px;font-weight:800;background:#F0F4F8;">${finalBalance.toLocaleString()}</td></tr>
       </table>
     </div>
-    <div style="text-align:center;font-size:9px;color:#7F7F7F;margin-top:20px;padding:5px;border-top:1px solid #EEE;">
+    <div style="text-align:center;font-size:8px;color:#7F7F7F;margin-top:12px;padding:4px;border-top:1px solid #EEE;">
       تم إنشاء هذا التقرير بواسطة نظام إدارة مشاريع البناء | ${format(new Date(), 'dd/MM/yyyy HH:mm')}
     </div>
   </div>`;

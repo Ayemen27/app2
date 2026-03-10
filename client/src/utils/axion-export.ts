@@ -17,13 +17,13 @@ export const COMPANY_INFO = {
 };
 
 export const ALFATIHI_COLORS = {
-  headerBlue: '2E75B6',
-  headerDarkBlue: '1F5A96',
-  lightBlue: 'E7F3FF',
-  altRowBlue: 'DBE9F9',
-  yellowTotal: 'FFFF00',
-  greenTotal: '00B050',
-  greenLight: 'C6EFCE',
+  headerBlue: '2E5090',
+  headerDarkBlue: '1B2A4A',
+  accentBlue: '4A90D9',
+  lightBlue: 'F0F4F8',
+  altRowBlue: 'F0F4F8',
+  greenTotal: '1B2A4A',
+  greenLight: 'E8EDF4',
   orangeLight: 'FCE4D6',
   white: 'FFFFFF',
   black: '000000',
@@ -40,7 +40,7 @@ export const EXCEL_STYLES = {
     headerBg: 'FF' + ALFATIHI_COLORS.headerBlue,
     altRow: 'FF' + ALFATIHI_COLORS.lightBlue,
     green: 'FF' + ALFATIHI_COLORS.greenTotal,
-    yellow: 'FF' + ALFATIHI_COLORS.yellowTotal,
+    navy: 'FF' + ALFATIHI_COLORS.headerDarkBlue,
     orange: 'FF' + ALFATIHI_COLORS.orangeLight
   },
   borders: {
@@ -48,7 +48,7 @@ export const EXCEL_STYLES = {
     medium: { style: 'medium' as const }
   },
   headerMain: {
-    font: { bold: true, size: 14, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
+    font: { bold: true, size: 12, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
     fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF' + ALFATIHI_COLORS.headerDarkBlue } },
     alignment: { horizontal: 'center' as const, vertical: 'middle' as const },
     border: {
@@ -59,7 +59,7 @@ export const EXCEL_STYLES = {
     }
   },
   headerSecondary: {
-    font: { bold: true, size: 12, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
+    font: { bold: true, size: 11, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
     fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF' + ALFATIHI_COLORS.headerBlue } },
     alignment: { horizontal: 'center' as const, vertical: 'middle' as const },
     border: {
@@ -70,7 +70,7 @@ export const EXCEL_STYLES = {
     }
   },
   tableHeader: {
-    font: { bold: true, size: 11, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
+    font: { bold: true, size: 10, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
     fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF' + ALFATIHI_COLORS.headerBlue } },
     alignment: { horizontal: 'center' as const, vertical: 'middle' as const, wrapText: true },
     border: {
@@ -124,8 +124,8 @@ export const EXCEL_STYLES = {
     }
   },
   yellowRow: {
-    font: { bold: true, size: 10, color: { argb: 'FF' + ALFATIHI_COLORS.black } },
-    fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF' + ALFATIHI_COLORS.yellowTotal } },
+    font: { bold: true, size: 10, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
+    fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF' + ALFATIHI_COLORS.headerDarkBlue } },
     alignment: { horizontal: 'center' as const, vertical: 'middle' as const },
     border: {
       top: { style: 'thin' as const },
@@ -146,7 +146,7 @@ export const EXCEL_STYLES = {
     }
   },
   summaryRow: {
-    font: { bold: true, size: 11, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
+    font: { bold: true, size: 10, color: { argb: 'FF' + ALFATIHI_COLORS.white } },
     fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF' + ALFATIHI_COLORS.headerBlue } },
     alignment: { horizontal: 'center' as const, vertical: 'middle' as const },
     border: {
@@ -208,14 +208,14 @@ async function addAlFatihiHeader(
   const companyRow = worksheet.getRow(currentRow);
   companyRow.getCell(1).value = COMPANY_INFO.name;
   applyStyle(companyRow.getCell(1), EXCEL_STYLES.headerMain);
-  companyRow.height = 30;
+  companyRow.height = 20;
   currentRow++;
 
   worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
   const titleRow = worksheet.getRow(currentRow);
   titleRow.getCell(1).value = title;
   applyStyle(titleRow.getCell(1), EXCEL_STYLES.headerSecondary);
-  titleRow.height = 25;
+  titleRow.height = 20;
   currentRow++;
 
   if (subtitle) {
@@ -223,10 +223,10 @@ async function addAlFatihiHeader(
     const subtitleRow = worksheet.getRow(currentRow);
     subtitleRow.getCell(1).value = subtitle;
     applyStyle(subtitleRow.getCell(1), {
-      font: { size: 10 },
+      font: { size: 9 },
       alignment: { horizontal: 'center', vertical: 'middle' }
     });
-    subtitleRow.height = 20;
+    subtitleRow.height = 18;
     currentRow++;
   }
 
@@ -239,12 +239,12 @@ function addSignatureSection(
   signatures: Array<{ title: string; name?: string }>,
   columnCount: number
 ): number {
-  let currentRow = startRow + 2;
+  let currentRow = startRow + 1;
   
   const colsPerSig = Math.floor(columnCount / signatures.length);
   
   const sigRow = worksheet.getRow(currentRow);
-  sigRow.height = 60;
+  sigRow.height = 40;
   
   signatures.forEach((sig, idx) => {
     const startCol = idx * colsPerSig + 1;
@@ -289,14 +289,14 @@ export function addReportHeader(
   const companyRow = worksheet.getRow(currentRow);
   companyRow.getCell(1).value = COMPANY_INFO.name;
   applyStyle(companyRow.getCell(1), EXCEL_STYLES.headerMain);
-  companyRow.height = 30;
+  companyRow.height = 20;
   currentRow++;
 
   worksheet.mergeCells(currentRow, 1, currentRow, columnCount);
   const titleRow = worksheet.getRow(currentRow);
   titleRow.getCell(1).value = title;
   applyStyle(titleRow.getCell(1), EXCEL_STYLES.headerSecondary);
-  titleRow.height = 25;
+  titleRow.height = 20;
   currentRow++;
 
   if (subtitle) {
@@ -304,10 +304,10 @@ export function addReportHeader(
     const subtitleRow = worksheet.getRow(currentRow);
     subtitleRow.getCell(1).value = subtitle;
     applyStyle(subtitleRow.getCell(1), {
-      font: { size: 10 },
+      font: { size: 9 },
       alignment: { horizontal: 'center', vertical: 'middle' }
     });
-    subtitleRow.height = 20;
+    subtitleRow.height = 18;
     currentRow++;
   }
 
@@ -319,7 +319,7 @@ export function addReportHeader(
       font: { size: 9 },
       alignment: { horizontal: 'center', vertical: 'middle' }
     });
-    infoRow.height = 18;
+    infoRow.height = 16;
     currentRow++;
   }
 
@@ -382,7 +382,7 @@ export async function exportDailyExpensesReport(
     headerRow.getCell(idx + 1).value = header;
     applyStyle(headerRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
   });
-  headerRow.height = 25;
+  headerRow.height = 20;
   currentRow++;
 
   if (data.carriedForward) {
@@ -400,7 +400,7 @@ export async function exportDailyExpensesReport(
     applyRowStyle(cfRow, EXCEL_STYLES.greenLightRow, 1, 5);
     cfRow.getCell(1).numFmt = '#,##0.00';
     cfRow.getCell(4).numFmt = '#,##0.00';
-    cfRow.height = 22;
+    cfRow.height = 18;
     currentRow++;
   }
 
@@ -416,7 +416,7 @@ export async function exportDailyExpensesReport(
     applyRowStyle(row, style, 1, 5);
     row.getCell(1).numFmt = '#,##0.00';
     row.getCell(4).numFmt = '#,##0.00';
-    row.height = 22;
+    row.height = 18;
     currentRow++;
   });
 
@@ -427,7 +427,7 @@ export async function exportDailyExpensesReport(
   totalRow.getCell(5).value = '';
   applyRowStyle(totalRow, EXCEL_STYLES.yellowRow, 1, 5);
   totalRow.getCell(4).numFmt = '#,##0.00';
-  totalRow.height = 25;
+  totalRow.height = 20;
   currentRow++;
 
   if (data.materials && data.materials.length > 0) {
@@ -439,7 +439,7 @@ export async function exportDailyExpensesReport(
       matHeaderRow.getCell(idx + 1).value = header;
       applyStyle(matHeaderRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
     });
-    matHeaderRow.height = 25;
+    matHeaderRow.height = 20;
     currentRow++;
 
     data.materials.forEach((mat, idx) => {
@@ -537,7 +537,7 @@ export async function exportWorkerSettlementReport(
   worksheet.mergeCells(currentRow, 1, currentRow, 11);
   sectionHeader.getCell(1).value = 'كشف التصفية للعمال';
   applyStyle(sectionHeader.getCell(1), EXCEL_STYLES.headerSecondary);
-  sectionHeader.height = 25;
+  sectionHeader.height = 20;
   currentRow++;
 
   const headers = ['م', 'الاسم', 'المهنة', 'اسم المشروع', 'الأجر اليومي', 'أيام العمل', 'إجمالي الساعات', 'المبلغ المستحق', 'المبلغ المستلم', 'المتبقي', 'ملاحظات'];
@@ -546,7 +546,7 @@ export async function exportWorkerSettlementReport(
     headerRow.getCell(idx + 1).value = header;
     applyStyle(headerRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
   });
-  headerRow.height = 28;
+  headerRow.height = 22;
   currentRow++;
 
   data.workers.forEach((worker, idx) => {
@@ -570,7 +570,7 @@ export async function exportWorkerSettlementReport(
     row.getCell(8).numFmt = '#,##0.00" ر.ي."';
     row.getCell(9).numFmt = '#,##0.00" ر.ي."';
     row.getCell(10).numFmt = '#,##0.00" ر.ي."';
-    row.height = 24;
+    row.height = 20;
     currentRow++;
   });
 
@@ -588,7 +588,7 @@ export async function exportWorkerSettlementReport(
   totalsRow.getCell(8).numFmt = '#,##0.00" ر.ي."';
   totalsRow.getCell(9).numFmt = '#,##0.00" ر.ي."';
   totalsRow.getCell(10).numFmt = '#,##0.00" ر.ي."';
-  totalsRow.height = 28;
+  totalsRow.height = 22;
   currentRow++;
 
   currentRow += 2;
@@ -597,7 +597,7 @@ export async function exportWorkerSettlementReport(
   worksheet.mergeCells(currentRow, 1, currentRow, 11);
   summaryHeader.getCell(1).value = 'الملخص النهائي';
   applyStyle(summaryHeader.getCell(1), EXCEL_STYLES.headerSecondary);
-  summaryHeader.height = 25;
+  summaryHeader.height = 20;
   currentRow++;
 
   const summaryRow = worksheet.getRow(currentRow);
@@ -616,7 +616,7 @@ export async function exportWorkerSettlementReport(
     alignment: { horizontal: 'center', vertical: 'middle' },
     border: EXCEL_STYLES.tableCell.border
   }, 1, 11);
-  summaryRow.height = 28;
+  summaryRow.height = 22;
   currentRow++;
 
   currentRow = addSignatureSection(worksheet, currentRow, [
@@ -706,7 +706,7 @@ export async function exportDetailedWorkerStatement(
   worksheet.mergeCells(currentRow, 1, currentRow, 11);
   sectionHeader.getCell(1).value = 'كشف حساب تفصيلي للعامل';
   applyStyle(sectionHeader.getCell(1), EXCEL_STYLES.headerSecondary);
-  sectionHeader.height = 25;
+  sectionHeader.height = 20;
   currentRow++;
 
   const headers = ['م', 'التاريخ', 'اليوم', 'اسم المشروع', 'الأجر اليومي', 'أيام العمل', 'عدد الساعات', 'المبلغ المستحق', 'المبلغ المستلم', 'المتبقي', 'ملاحظات'];
@@ -715,7 +715,7 @@ export async function exportDetailedWorkerStatement(
     headerRow.getCell(idx + 1).value = header;
     applyStyle(headerRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
   });
-  headerRow.height = 28;
+  headerRow.height = 22;
   currentRow++;
 
   data.records.forEach((record, idx) => {
@@ -739,7 +739,7 @@ export async function exportDetailedWorkerStatement(
     row.getCell(8).numFmt = '#,##0.00" ر.ي."';
     row.getCell(9).numFmt = '#,##0.00" ر.ي."';
     row.getCell(10).numFmt = '#,##0.00" ر.ي."';
-    row.height = 24;
+    row.height = 20;
     currentRow++;
   });
 
@@ -757,7 +757,7 @@ export async function exportDetailedWorkerStatement(
   totalsRow.getCell(8).numFmt = '#,##0.00" ر.ي."';
   totalsRow.getCell(9).numFmt = '#,##0.00" ر.ي."';
   totalsRow.getCell(10).numFmt = '#,##0.00" ر.ي."';
-  totalsRow.height = 28;
+  totalsRow.height = 22;
   currentRow++;
 
   currentRow += 2;
@@ -766,7 +766,7 @@ export async function exportDetailedWorkerStatement(
   worksheet.mergeCells(currentRow, 1, currentRow, 11);
   summaryHeader.getCell(1).value = 'الملخص النهائي';
   applyStyle(summaryHeader.getCell(1), EXCEL_STYLES.headerSecondary);
-  summaryHeader.height = 25;
+  summaryHeader.height = 20;
   currentRow++;
 
   const summaryRow = worksheet.getRow(currentRow);
@@ -785,7 +785,7 @@ export async function exportDetailedWorkerStatement(
     alignment: { horizontal: 'center', vertical: 'middle' },
     border: EXCEL_STYLES.tableCell.border
   }, 1, 11);
-  summaryRow.height = 28;
+  summaryRow.height = 22;
   currentRow++;
 
   // حساب ملخص المشاريع التفصيلي عند اختيار "تعدد مشاريع"
@@ -887,7 +887,7 @@ export async function exportDailyReportToExcel(
     headerRow.getCell(idx + 1).value = header;
     applyStyle(headerRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
   });
-  headerRow.height = 25;
+  headerRow.height = 20;
   currentRow++;
 
   const expenses = data.details?.expenses || [];
@@ -932,7 +932,7 @@ export async function exportDailyReportToExcel(
   totalRow.getCell(5).value = '';
   applyRowStyle(totalRow, EXCEL_STYLES.yellowRow, 1, 5);
   totalRow.getCell(4).numFmt = '#,##0.00';
-  totalRow.height = 25;
+  totalRow.height = 20;
   currentRow++;
 
   if (data.details?.materials?.length > 0) {
@@ -944,7 +944,7 @@ export async function exportDailyReportToExcel(
       matHeaderRow.getCell(idx + 1).value = header;
       applyStyle(matHeaderRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
     });
-    matHeaderRow.height = 25;
+    matHeaderRow.height = 20;
     currentRow++;
 
     data.details.materials.forEach((mat: any, idx: number) => {
@@ -1017,7 +1017,7 @@ export async function exportPeriodicReportToExcel(
   worksheet.mergeCells(currentRow, 1, currentRow, 7);
   summaryHeaderRow.getCell(1).value = 'ملخص الفترة';
   applyStyle(summaryHeaderRow.getCell(1), EXCEL_STYLES.headerSecondary);
-  summaryHeaderRow.height = 25;
+  summaryHeaderRow.height = 20;
   currentRow++;
 
   const kpiData = [
@@ -1058,7 +1058,7 @@ export async function exportPeriodicReportToExcel(
     const detailsHeader = worksheet.getRow(currentRow);
     detailsHeader.getCell(1).value = 'تفاصيل المصروفات اليومية';
     applyStyle(detailsHeader.getCell(1), EXCEL_STYLES.headerSecondary);
-    detailsHeader.height = 25;
+    detailsHeader.height = 20;
     currentRow++;
 
     const headers = ['التاريخ', 'الأجور', 'المواد', 'النقل', 'النثريات', 'الدخل', 'الإجمالي'];
@@ -1169,7 +1169,7 @@ export async function exportComparisonReportToExcel(
     headerRow.getCell(idx + 2).value = project.name;
     applyStyle(headerRow.getCell(idx + 2), EXCEL_STYLES.tableHeader);
   });
-  headerRow.height = 28;
+  headerRow.height = 22;
   currentRow++;
 
   const metrics = [
@@ -1192,7 +1192,7 @@ export async function exportComparisonReportToExcel(
     
     const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.tableCellAlt;
     applyRowStyle(row, style, 1, colCount);
-    row.height = 24;
+    row.height = 20;
     currentRow++;
   });
 

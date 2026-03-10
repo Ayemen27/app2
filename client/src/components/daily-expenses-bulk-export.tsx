@@ -166,14 +166,14 @@ export default function DailyExpensesBulkExport() {
     worksheet.mergeCells('A1:E1');
     const companyHeaderCell = worksheet.getCell('A1');
     companyHeaderCell.value = 'شركة الفتيني للمقاولات والاستشارات الهندسية';
-    companyHeaderCell.font = { name: 'Arial Unicode MS', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    companyHeaderCell.font = { name: 'Arial Unicode MS', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
     companyHeaderCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    companyHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } }; // أزرق
+    companyHeaderCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
     companyHeaderCell.border = {
       top: { style: 'medium' }, bottom: { style: 'medium' },
       left: { style: 'medium' }, right: { style: 'medium' }
     };
-    worksheet.getRow(1).height = 30;
+    worksheet.getRow(1).height = 24;
 
 
 
@@ -183,29 +183,29 @@ export default function DailyExpensesBulkExport() {
     const dayName = getDayName(dayData.date);
     const formattedDate = formatDate(dayData.date);
     headerCell.value = `كشف مصروفات ${dayData.projectName} يوم ${dayName} تاريخ ${formattedDate}`;
-    headerCell.font = { name: 'Arial Unicode MS', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerCell.font = { name: 'Arial Unicode MS', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     headerCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } }; // أزرق مطابق للمرجع
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
     headerCell.border = {
       top: { style: 'medium' }, bottom: { style: 'medium' },
       left: { style: 'medium' }, right: { style: 'medium' }
     };
-    worksheet.getRow(2).height = 30;
+    worksheet.getRow(2).height = 22;
 
     // رؤوس الجدول الرئيسي مطابقة للصور المرجعية (5 أعمدة فقط)
     const headers = ['المبلغ', 'نوع الحساب', 'نوع', 'المتبقي', 'ملاحظات'];
     const headerRow = worksheet.addRow(headers);
     
     headerRow.eachCell((cell, index) => {
-      cell.font = { name: 'Arial Unicode MS', size: 11, bold: true, color: { argb: 'FFFFFFFF' } }; // نص أبيض
+      cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } }; // أزرق مطابق للصورة
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
       cell.border = {
         top: { style: 'thin' }, bottom: { style: 'thin' },
         left: { style: 'thin' }, right: { style: 'thin' }
       };
     });
-    worksheet.getRow(4).height = 25;
+    worksheet.getRow(4).height = 20;
 
     // حساب الرصيد الجاري - البداية بصفر أو بالرصيد المرحل
     let currentBalance = 0;
@@ -317,7 +317,7 @@ export default function DailyExpensesBulkExport() {
             notes
           ]);
           
-          transferRow.height = 25; // زيادة ارتفاع الصف لاحتواء النص الملتف
+          transferRow.height = 20; // زيادة ارتفاع الصف لاحتواء النص الملتف
           transferRow.eachCell((cell) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -388,7 +388,7 @@ export default function DailyExpensesBulkExport() {
             notes + workDaysText // دمج الملاحظات مع أيام العمل
           ]);
           
-          workerRow.height = 25; // زيادة ارتفاع الصف لاحتواء النص الملتف
+          workerRow.height = 20; // زيادة ارتفاع الصف لاحتواء النص الملتف
           workerRow.eachCell((cell, index) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; // إضافة التفاف النص
@@ -624,20 +624,19 @@ export default function DailyExpensesBulkExport() {
     worksheet.mergeCells(`A${finalBalanceRow.number}:C${finalBalanceRow.number}`);
     
     finalBalanceRow.eachCell((cell, index) => {
-      cell.font = { name: 'Arial Unicode MS', size: 12, bold: true };
+      cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC000' } }; // برتقالي مطابق للمرجع
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
       cell.border = {
         top: { style: 'medium' }, bottom: { style: 'medium' },
         left: { style: 'thin' }, right: { style: 'thin' }
       };
       
-      // تلوين الرصيد السالب بالأحمر
       if (index === 4 && currentBalance < 0) {
-        cell.font = { ...cell.font, color: { argb: 'FFFF0000' } };
+        cell.font = { ...cell.font, color: { argb: 'FFFF6B6B' } };
       }
     });
-    finalBalanceRow.height = 25;
+    finalBalanceRow.height = 22;
 
     // فراغ قبل الجدول الإضافي
     worksheet.addRow(['']);
@@ -651,9 +650,9 @@ export default function DailyExpensesBulkExport() {
       const purchasesHeaderRow = worksheet.addRow(purchasesHeaders);
       
       purchasesHeaderRow.eachCell((cell) => {
-        cell.font = { name: 'Arial Unicode MS', size: 11, bold: true };
+        cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } }; // أزرق مطابق للمرجع
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
         cell.border = {
           top: { style: 'thin' }, bottom: { style: 'thin' },
           left: { style: 'thin' }, right: { style: 'thin' }

@@ -92,7 +92,6 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
   }
 
   if (data.sections.attendance.byWorker.length > 0) {
-    body += `<div class="page-break"></div>`;
     body += pdfSectionTitle('ملخص العمالة حسب العامل');
     body += `<table><thead><tr>
       <th style="width:25px;">م</th><th>اسم العامل</th><th style="width:50px;">النوع</th>
@@ -113,7 +112,6 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
   }
 
   if (data.sections.materials.items.length > 0) {
-    body += `<div class="page-break"></div>`;
     body += pdfSectionTitle('ملخص المواد والمشتريات');
     body += `<table><thead><tr>
       <th style="width:30px;">م</th><th>المادة</th><th style="width:80px;">الكمية الإجمالية</th>
@@ -156,7 +154,6 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     </tbody></table>`;
   }
 
-  body += `<div class="page-break"></div>`;
   body += pdfSectionTitle('الملخص المالي الشامل');
   const summaryData = [
     ['إجمالي الدخل (التحويلات الواردة)', `${formatNum(data.totals.totalIncome)} YER`],

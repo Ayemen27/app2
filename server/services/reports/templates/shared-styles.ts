@@ -230,55 +230,56 @@ body {
   direction: rtl;
   background: #fff;
   color: ${PDF_COLORS.text};
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 9px;
+  line-height: 1.3;
 }
 @media print {
-  .page-break { page-break-before: always; }
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .section-title { break-after: avoid; }
+  table, tr { break-inside: avoid; }
 }
-.report-container { padding: 20px; max-width: 794px; margin: 0 auto; }
+.report-container { padding: 10px; max-width: 794px; margin: 0 auto; }
 .header-band {
   background: linear-gradient(135deg, ${PDF_COLORS.navy} 0%, ${PDF_COLORS.blue} 100%);
-  color: #fff; text-align: center; padding: 16px 20px; margin-bottom: 0;
+  color: #fff; text-align: center; padding: 10px 12px; margin-bottom: 0;
   border-radius: 6px 6px 0 0;
 }
-.header-band h1 { font-size: 18px; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 2px; }
-.header-band .subtitle { font-size: 12px; opacity: 0.85; font-weight: 400; }
+.header-band h1 { font-size: 14px; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 2px; }
+.header-band .subtitle { font-size: 10px; opacity: 0.85; font-weight: 400; }
 .info-bar {
   display: flex; justify-content: space-between; align-items: flex-start;
-  padding: 10px 16px; background: ${PDF_COLORS.lightBg};
+  padding: 6px 10px; background: ${PDF_COLORS.lightBg};
   border: 1px solid ${PDF_COLORS.border}; border-top: none;
-  margin-bottom: 14px; border-radius: 0 0 6px 6px; font-size: 10px;
+  margin-bottom: 8px; border-radius: 0 0 6px 6px; font-size: 9px;
 }
 .info-bar b { color: ${PDF_COLORS.navy}; }
 .kpi-strip {
-  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;
 }
 .kpi-card {
-  flex: 1; min-width: 100px; background: #fff;
+  flex: 1; min-width: 86px; background: #fff;
   border: 1px solid ${PDF_COLORS.border}; border-radius: 6px;
-  padding: 10px 8px; text-align: center;
-  border-top: 3px solid ${PDF_COLORS.accentBlue};
+  padding: 6px 6px; text-align: center;
+  border-top: 2px solid ${PDF_COLORS.accentBlue};
 }
-.kpi-card .kpi-label { font-size: 9px; color: ${PDF_COLORS.textMuted}; margin-bottom: 4px; }
-.kpi-card .kpi-value { font-size: 15px; font-weight: 800; color: ${PDF_COLORS.navy}; }
+.kpi-card .kpi-label { font-size: 8px; color: ${PDF_COLORS.textMuted}; margin-bottom: 2px; }
+.kpi-card .kpi-value { font-size: 12px; font-weight: 800; color: ${PDF_COLORS.navy}; }
 .section-title {
   background: ${PDF_COLORS.navy}; color: #fff;
-  padding: 7px 14px; font-size: 11px; font-weight: 700;
-  border-radius: 4px 4px 0 0; margin-top: 16px;
+  padding: 5px 10px; font-size: 10px; font-weight: 700;
+  border-radius: 4px 4px 0 0; margin-top: 8px;
   letter-spacing: 0.3px;
 }
-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
 table th {
   background: ${PDF_COLORS.blue}; color: #fff;
   border: 1px solid ${PDF_COLORS.borderDark};
-  padding: 7px 4px; font-size: 9px; font-weight: 700;
+  padding: 4px 3px; font-size: 9px; font-weight: 700;
   text-align: center; white-space: nowrap;
 }
 table td {
   border: 1px solid ${PDF_COLORS.border};
-  padding: 5px 6px; font-size: 10px; text-align: center;
+  padding: 3px 4px; font-size: 9px; text-align: center;
 }
 table tbody tr:nth-child(even) { background: ${PDF_COLORS.altRow}; }
 table tbody tr:hover { background: #E3EBF3; }
@@ -286,31 +287,31 @@ table tbody tr:hover { background: #E3EBF3; }
   background: ${PDF_COLORS.totalBg} !important;
   font-weight: 700; color: ${PDF_COLORS.navy};
   border: 1px solid ${PDF_COLORS.borderDark};
-  font-size: 10px; padding: 7px 4px;
+  font-size: 9px; padding: 4px 3px;
 }
 .grand-total-row td {
   background: ${PDF_COLORS.navy} !important;
   font-weight: 800; color: #fff;
   border: 1px solid ${PDF_COLORS.navy};
-  font-size: 11px; padding: 8px 4px;
+  font-size: 10px; padding: 5px 3px;
 }
 .debit-cell { color: ${PDF_COLORS.green}; background: ${PDF_COLORS.greenBg} !important; font-weight: 700; }
 .credit-cell { color: ${PDF_COLORS.red}; background: ${PDF_COLORS.redBg} !important; font-weight: 700; }
 .balance-cell { color: ${PDF_COLORS.navy}; background: #E3EBF3 !important; font-weight: 700; }
-.summary-table { width: 380px; margin-top: 6px; }
-.summary-table td { padding: 8px 14px; font-size: 11px; }
+.summary-table { width: 320px; margin-top: 4px; }
+.summary-table td { padding: 5px 8px; font-size: 9px; }
 .summary-table tr:nth-child(even) td { background: ${PDF_COLORS.altRow}; }
 .summary-table .label-cell { font-weight: 700; text-align: right; }
 .summary-table .value-cell { text-align: left; font-weight: 600; }
 .signatures {
-  margin-top: 50px; display: flex; justify-content: space-around; padding: 0 10px;
+  margin-top: 16px; display: flex; justify-content: space-around; padding: 0 6px;
 }
 .sig-block { text-align: center; min-width: 140px; }
-.sig-block .sig-title { font-size: 11px; font-weight: 700; margin-bottom: 45px; color: ${PDF_COLORS.navy}; }
+.sig-block .sig-title { font-size: 10px; font-weight: 700; margin-bottom: 24px; color: ${PDF_COLORS.navy}; }
 .sig-block .sig-line { border-top: 2px solid ${PDF_COLORS.navy}; padding-top: 4px; font-size: 9px; color: ${PDF_COLORS.textMuted}; }
 .report-footer {
   text-align: center; font-size: 8px; color: ${PDF_COLORS.textMuted};
-  margin-top: 30px; padding: 8px; border-top: 1px solid ${PDF_COLORS.border};
+  margin-top: 12px; padding: 5px; border-top: 1px solid ${PDF_COLORS.border};
 }
 `;
 
@@ -322,8 +323,8 @@ export function pdfHeader(title: string, subtitle: string): string {
 }
 
 export function pdfInfoBar(leftItems: string[], rightItems: string[]): string {
-  const left = leftItems.map(i => `<div style="margin-bottom:3px;">${i}</div>`).join('');
-  const right = rightItems.map(i => `<div style="margin-bottom:3px;">${i}</div>`).join('');
+  const left = leftItems.map(i => `<div style="margin-bottom:1px;">${i}</div>`).join('');
+  const right = rightItems.map(i => `<div style="margin-bottom:1px;">${i}</div>`).join('');
   return `<div class="info-bar">
   <div>${left}</div>
   <div style="text-align:left;">${right}</div>

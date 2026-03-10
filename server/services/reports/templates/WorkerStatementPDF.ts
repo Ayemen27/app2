@@ -72,7 +72,6 @@ export function generateWorkerStatementHTML(data: WorkerStatementData): string {
   </tbody></table>`;
 
   if (data.projectSummary.length > 1) {
-    body += `<div class="page-break"></div>`;
     body += pdfSectionTitle('ملخص المشاريع التفصيلي');
     body += `<table><thead><tr>
       <th>المشروع</th><th style="width:70px;">إجمالي الأيام</th>

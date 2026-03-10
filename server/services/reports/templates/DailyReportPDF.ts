@@ -113,7 +113,6 @@ export function generateDailyReportHTML(data: DailyReportData): string {
   }
 
   if (data.materials.length > 0) {
-    body += `<div class="page-break"></div>`;
     body += pdfSectionTitle('المواد والمشتريات');
     body += `<table><thead><tr>
       <th style="width:30px;">م</th><th>المادة</th><th style="width:70px;">الفئة</th>
@@ -160,7 +159,6 @@ export function generateDailyReportHTML(data: DailyReportData): string {
     </tbody></table>`;
   }
 
-  body += `<div class="page-break"></div>`;
   body += pdfSectionTitle('ملخص اليوم المالي');
   const summaryRows = [
     ['إجمالي أجور العمال', `${formatNum(data.totals.totalWorkerWages)} YER`],

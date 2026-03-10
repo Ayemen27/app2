@@ -23,6 +23,8 @@ import {
   ArrowUpDown,
   Search,
   Filter,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -208,6 +210,18 @@ function DailyReportTab() {
     },
   ];
 
+  const prevDate = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(d);
+  };
+
+  const nextDate = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(d);
+  };
+
   return (
     <div className="space-y-4">
       {dailyReport && (
@@ -240,6 +254,40 @@ function DailyReportTab() {
           setSelectedDate(new Date());
         }}
       />
+
+      {!isAllProjects && selectedDate && (
+        <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md" data-testid="date-navigator">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={prevDate}
+            title="اليوم السابق"
+            data-testid="btn-prev-date"
+          >
+            <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          </Button>
+
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">التقرير اليومي</span>
+            <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              {format(selectedDate, "EEEE, d MMMM yyyy", { locale: arSA })}
+            </span>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={nextDate}
+            title="اليوم التالي"
+            data-testid="btn-next-date"
+          >
+            <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          </Button>
+        </div>
+      )}
 
       {isAllProjects && (
         <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقرير اليومي" icon={ClipboardList} />

@@ -27,7 +27,10 @@ export const ALFATIHI_COLORS = {
   orangeLight: 'FCE4D6',
   white: 'FFFFFF',
   black: '000000',
-  gray: '6B7280'
+  gray: '6B7280',
+  incomeGreen: '008000',
+  expenseRed: 'FF0000',
+  deferredOrange: 'FF8C00',
 };
 
 export const EXCEL_STYLES = {

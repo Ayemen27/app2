@@ -425,22 +425,20 @@ export function EquipmentManagement() {
         infoLines: [
           `تاريخ الإصدار: ${formatDate(new Date().toISOString().split('T')[0])}`,
           `إجمالي المعدات: ${filteredEquipment.length}`,
-          `المعدات النشطة: ${filteredEquipment.filter((e: Equipment) => e.status === 'active').length}`,
-          `في الصيانة: ${filteredEquipment.filter((e: Equipment) => e.status === 'maintenance').length}`
+          `النشطة: ${filteredEquipment.filter((e: Equipment) => e.status === 'active').length}`,
+          `في الصيانة: ${filteredEquipment.filter((e: Equipment) => e.status === 'maintenance').length}`,
+          `القيمة الإجمالية: ${formatCurrency(totalValue)}`
         ],
         columns: [
-          { header: 'الكود', key: 'code', width: 15 },
-          { header: 'اسم المعدة', key: 'name', width: 25 },
-          { header: 'العدد', key: 'quantity', width: 10, numFmt: '#,##0' },
-          { header: 'الوحدة', key: 'unit', width: 12 },
-          { header: 'الفئة', key: 'type', width: 15 },
-          { header: 'الحالة', key: 'status', width: 15 },
-          { header: 'الموقع', key: 'location', width: 25 },
-          { header: 'سعر الشراء', key: 'purchasePrice', width: 18, numFmt: '#,##0' },
-          { header: 'تاريخ الشراء', key: 'purchaseDate', width: 15 },
-          { header: 'الوصف', key: 'description', width: 30 },
+          { header: '#', key: 'index', width: 5 },
+          { header: 'الكود', key: 'code', width: 14 },
+          { header: 'اسم المعدة', key: 'name', width: 22 },
+          { header: 'العدد', key: 'quantity', width: 8, numFmt: '#,##0' },
+          { header: 'الحالة', key: 'status', width: 14 },
+          { header: 'الموقع', key: 'location', width: 22 },
+          { header: 'سعر الشراء', key: 'purchasePrice', width: 16, numFmt: '#,##0' },
         ],
-        data,
+        data: data.map((d, i) => ({ ...d, index: i + 1 })),
         totals: {
           label: `إجمالي المعدات: ${filteredEquipment.length}`,
           values: { purchasePrice: totalValue }

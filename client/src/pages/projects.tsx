@@ -699,7 +699,7 @@ export default function ProjectsPage() {
         totalIncome: financialTotals.totalIncome || 0,
         totalExpenses: financialTotals.totalAllExpenses || financialTotals.totalExpenses || 0,
         totalWorkers: financialTotals.totalWorkers || 0,
-        materialPurchases: 0,
+        materialPurchases: financialTotals.totalMaterialCosts || 0,
       };
     }
     

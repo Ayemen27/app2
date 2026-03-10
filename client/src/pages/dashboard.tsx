@@ -395,9 +395,9 @@ export default function Dashboard() {
       totalExpenses: rawExpenses,
       currentBalance: currentTotals.totalBalance || (rawIncome - rawExpenses),
       activeWorkers: String(currentTotals.totalWorkers || 0),
-      completedDays: String((currentTotals as any).completedDays || 0), 
-      materialPurchases: formatCurrency(currentTotals.totalAllExpenses || 0),
-      transportExpenses: (currentTotals as any).transportExpenses || 0
+      completedDays: String(currentTotals.completedDays || 0), 
+      materialPurchases: formatCurrency(currentTotals.totalMaterialCosts || 0),
+      transportExpenses: currentTotals.totalTransportation || 0
     };
   }, [currentTotals]);
 

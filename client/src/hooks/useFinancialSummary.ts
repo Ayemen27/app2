@@ -152,6 +152,7 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       totalFundTransfers: acc.totalFundTransfers + (p.income?.fundTransfers || 0),
       incomingProjectTransfers: acc.incomingProjectTransfers + (p.income?.incomingProjectTransfers || 0),
       outgoingProjectTransfers: acc.outgoingProjectTransfers + (p.expenses?.outgoingProjectTransfers || 0),
+      completedDays: acc.completedDays + (p.workers?.completedDays || 0),
     }), {
       totalWorkerWages: 0,
       totalTransportation: 0,
@@ -161,6 +162,7 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       totalFundTransfers: 0,
       incomingProjectTransfers: 0,
       outgoingProjectTransfers: 0,
+      completedDays: 0,
     }) || {
       totalWorkerWages: 0,
       totalTransportation: 0,
@@ -170,6 +172,7 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       totalFundTransfers: 0,
       incomingProjectTransfers: 0,
       outgoingProjectTransfers: 0,
+      completedDays: 0,
     };
 
     return {
@@ -204,6 +207,7 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       currentBalance: projectData!.totalBalance ?? 0,
       totalWorkers: projectData!.workers?.totalWorkers ?? 0,
       activeWorkers: projectData!.workers?.activeWorkers ?? 0,
+      completedDays: projectData!.workers?.completedDays ?? 0,
       materialExpensesCredit: projectData!.expenses?.materialExpensesCredit ?? 0,
       carriedForwardBalance: projectData!.income?.carriedForwardBalance ?? 0,
       totalWorkerWages: projectData!.expenses?.workerWages ?? 0,
@@ -225,6 +229,7 @@ export function useFinancialSummary(options: UseFinancialSummaryOptions = {}) {
       currentBalance: 0,
       totalWorkers: 0,
       activeWorkers: 0,
+      completedDays: 0,
       materialExpensesCredit: 0,
       carriedForwardBalance: 0,
       totalWorkerWages: 0,

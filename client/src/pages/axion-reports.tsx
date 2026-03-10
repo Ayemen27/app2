@@ -151,6 +151,7 @@ function DailyReportTab() {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [searchValue, setSearchValue] = useState("");
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
   const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -229,10 +230,15 @@ function DailyReportTab() {
         filterValues={filterValues}
         onFilterChange={onFilterChange}
         actions={exportActions}
-        showSearch={false}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="البحث في التقرير..."
         onRefresh={() => refetch()}
         isRefreshing={isLoading}
-        onReset={() => setSelectedDate(new Date())}
+        onReset={() => {
+          setSearchValue("");
+          setSelectedDate(new Date());
+        }}
       />
 
       {isAllProjects && (
@@ -245,18 +251,35 @@ function DailyReportTab() {
         <EmptyState message="لا توجد بيانات لهذا اليوم" />
       )}
 
-      {dailyReport && (
+      {dailyReport && (() => {
+        const q = searchValue.trim().toLowerCase();
+        const filteredAttendance = (dailyReport.attendance || []).filter((r: any) =>
+          !q || [r.workerName, r.workerType, r.workDescription].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        const filteredMaterials = (dailyReport.materials || []).filter((r: any) =>
+          !q || [r.materialName, r.category, r.supplierName].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        const filteredTransport = (dailyReport.transport || []).filter((r: any) =>
+          !q || [r.description, r.workerName].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        const filteredMisc = (dailyReport.miscExpenses || []).filter((r: any) =>
+          !q || [r.description, r.notes].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        const filteredFundTransfers = (dailyReport.fundTransfers || []).filter((r: any) =>
+          !q || [r.senderName, r.transferType, r.transferNumber].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        return (
         <>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
               <CardTitle className="text-base">سجل الحضور</CardTitle>
-              <Badge variant="secondary">{dailyReport.attendance?.length || 0}</Badge>
+              <Badge variant="secondary">{filteredAttendance.length}</Badge>
             </CardHeader>
             <CardContent>
               <ReportTable
                 testId="table-daily-attendance"
                 headers={["#", "اسم العامل", "نوع العامل", "أيام العمل", "الأجر اليومي", "إجمالي الأجر", "المدفوع", "المتبقي", "وصف العمل"]}
-                rows={(dailyReport.attendance || []).map((r, i) => [
+                rows={filteredAttendance.map((r: any, i: number) => [
                   i + 1,
                   r.workerName,
                   r.workerType,
@@ -274,13 +297,13 @@ function DailyReportTab() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
               <CardTitle className="text-base">المواد والمشتريات</CardTitle>
-              <Badge variant="secondary">{dailyReport.materials?.length || 0}</Badge>
+              <Badge variant="secondary">{filteredMaterials.length}</Badge>
             </CardHeader>
             <CardContent>
               <ReportTable
                 testId="table-daily-materials"
                 headers={["#", "اسم المادة", "الصنف", "الكمية", "الوحدة", "سعر الوحدة", "الإجمالي", "المورد"]}
-                rows={(dailyReport.materials || []).map((r, i) => [
+                rows={filteredMaterials.map((r: any, i: number) => [
                   i + 1,
                   r.materialName,
                   r.category || "-",
@@ -297,13 +320,13 @@ function DailyReportTab() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
               <CardTitle className="text-base">مصاريف النقل</CardTitle>
-              <Badge variant="secondary">{dailyReport.transport?.length || 0}</Badge>
+              <Badge variant="secondary">{filteredTransport.length}</Badge>
             </CardHeader>
             <CardContent>
               <ReportTable
                 testId="table-daily-transport"
                 headers={["#", "المبلغ", "الوصف", "اسم العامل"]}
-                rows={(dailyReport.transport || []).map((r, i) => [
+                rows={filteredTransport.map((r: any, i: number) => [
                   i + 1,
                   formatCurrency(r.amount),
                   r.description || "-",
@@ -316,13 +339,13 @@ function DailyReportTab() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
               <CardTitle className="text-base">مصاريف متنوعة</CardTitle>
-              <Badge variant="secondary">{dailyReport.miscExpenses?.length || 0}</Badge>
+              <Badge variant="secondary">{filteredMisc.length}</Badge>
             </CardHeader>
             <CardContent>
               <ReportTable
                 testId="table-daily-misc"
                 headers={["#", "المبلغ", "الوصف", "ملاحظات"]}
-                rows={(dailyReport.miscExpenses || []).map((r, i) => [
+                rows={filteredMisc.map((r: any, i: number) => [
                   i + 1,
                   formatCurrency(r.amount),
                   r.description || "-",
@@ -332,17 +355,17 @@ function DailyReportTab() {
             </CardContent>
           </Card>
 
-          {(dailyReport.fundTransfers?.length || 0) > 0 && (
+          {filteredFundTransfers.length > 0 && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                 <CardTitle className="text-base">تحويلات الصناديق</CardTitle>
-                <Badge variant="secondary">{dailyReport.fundTransfers?.length || 0}</Badge>
+                <Badge variant="secondary">{filteredFundTransfers.length}</Badge>
               </CardHeader>
               <CardContent>
                 <ReportTable
                   testId="table-daily-fund-transfers"
                   headers={["#", "المبلغ", "المرسل", "نوع التحويل", "رقم التحويل"]}
-                  rows={(dailyReport.fundTransfers || []).map((r, i) => [
+                  rows={filteredFundTransfers.map((r: any, i: number) => [
                     i + 1,
                     formatCurrency(r.amount),
                     r.senderName || "-",
@@ -354,7 +377,8 @@ function DailyReportTab() {
             </Card>
           )}
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -630,6 +654,7 @@ function WorkerStatementTab() {
 function PeriodFinalTab() {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
+  const [searchValue, setSearchValue] = useState("");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>(() => {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -739,10 +764,13 @@ function PeriodFinalTab() {
         filterValues={filterValues}
         onFilterChange={onFilterChange}
         actions={exportActions}
-        showSearch={false}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="البحث في التقرير..."
         onRefresh={() => refetch()}
         isRefreshing={isLoading}
         onReset={() => {
+          setSearchValue("");
           const sixMonthsAgo = new Date();
           sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
           sixMonthsAgo.setDate(1);
@@ -760,7 +788,21 @@ function PeriodFinalTab() {
         <EmptyState message="لا توجد بيانات للفترة المحددة" />
       )}
 
-      {periodReport && (
+      {periodReport && (() => {
+        const q = searchValue.trim().toLowerCase();
+        const filteredWorkers = (periodReport.sections?.attendance?.byWorker || []).filter((w: any) =>
+          !q || [w.workerName, w.workerType].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        const filteredMaterials = (periodReport.sections?.materials?.items || []).filter((m: any) =>
+          !q || [m.materialName, m.supplierName].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        const filteredFundTransfers = (periodReport.sections?.fundTransfers?.items || []).filter((f: any) =>
+          !q || [f.senderName, f.transferType].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        const filteredProjectTransfers = (periodReport.sections?.projectTransfers?.items || []).filter((pt: any) =>
+          !q || [pt.toProjectName, pt.fromProjectName, pt.reason].some((v: string) => v?.toLowerCase().includes(q))
+        );
+        return (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
@@ -837,17 +879,17 @@ function PeriodFinalTab() {
             </Card>
           </div>
 
-          {(periodReport.sections?.attendance?.byWorker?.length || 0) > 0 && (
+          {filteredWorkers.length > 0 && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                 <CardTitle className="text-base">ملخص الحضور</CardTitle>
-                <Badge variant="secondary">{periodReport.sections.attendance.byWorker.length} عامل</Badge>
+                <Badge variant="secondary">{filteredWorkers.length} عامل</Badge>
               </CardHeader>
               <CardContent>
                 <ReportTable
                   testId="table-period-attendance"
                   headers={["اسم العامل", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي"]}
-                  rows={periodReport.sections.attendance.byWorker.map((w: any) => [
+                  rows={filteredWorkers.map((w: any) => [
                     w.workerName,
                     w.workerType,
                     w.totalDays,
@@ -862,17 +904,17 @@ function PeriodFinalTab() {
             </Card>
           )}
 
-          {(periodReport.sections?.materials?.items?.length || 0) > 0 && (
+          {filteredMaterials.length > 0 && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                 <CardTitle className="text-base">ملخص المواد</CardTitle>
-                <Badge variant="secondary">{periodReport.sections.materials.items.length} مادة</Badge>
+                <Badge variant="secondary">{filteredMaterials.length} مادة</Badge>
               </CardHeader>
               <CardContent>
                 <ReportTable
                   testId="table-period-materials"
                   headers={["اسم المادة", "الكمية", "الإجمالي", "المورد"]}
-                  rows={periodReport.sections.materials.items.map((m) => [
+                  rows={filteredMaterials.map((m: any) => [
                     m.materialName,
                     m.totalQuantity,
                     formatCurrency(m.totalAmount),
@@ -883,17 +925,17 @@ function PeriodFinalTab() {
             </Card>
           )}
 
-          {(periodReport.sections?.fundTransfers?.items?.length || 0) > 0 && (
+          {filteredFundTransfers.length > 0 && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                 <CardTitle className="text-base">تحويلات الصناديق</CardTitle>
-                <Badge variant="secondary">{periodReport.sections.fundTransfers.items.length}</Badge>
+                <Badge variant="secondary">{filteredFundTransfers.length}</Badge>
               </CardHeader>
               <CardContent>
                 <ReportTable
                   testId="table-period-fund-transfers"
                   headers={["التاريخ", "المبلغ", "المرسل", "نوع التحويل"]}
-                  rows={periodReport.sections.fundTransfers.items.map((f) => [
+                  rows={filteredFundTransfers.map((f: any) => [
                     safeFormatDate(f.date, "dd/MM/yyyy"),
                     formatCurrency(f.amount),
                     f.senderName || "-",
@@ -904,17 +946,17 @@ function PeriodFinalTab() {
             </Card>
           )}
 
-          {(periodReport.sections?.projectTransfers?.items?.length || 0) > 0 && (
+          {filteredProjectTransfers.length > 0 && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                 <CardTitle className="text-base">ترحيل الأموال بين المشاريع</CardTitle>
-                <Badge variant="secondary">{periodReport.sections.projectTransfers.items.length}</Badge>
+                <Badge variant="secondary">{filteredProjectTransfers.length}</Badge>
               </CardHeader>
               <CardContent>
                 <ReportTable
                   testId="table-period-project-transfers"
                   headers={["التاريخ", "المشروع", "الاتجاه", "السبب", "المبلغ"]}
-                  rows={periodReport.sections.projectTransfers.items.map((pt) => [
+                  rows={filteredProjectTransfers.map((pt: any) => [
                     safeFormatDate(pt.date, "dd/MM/yyyy"),
                     pt.direction === 'outgoing' ? (pt.toProjectName || '-') : (pt.fromProjectName || '-'),
                     pt.direction === 'outgoing' ? 'صادر' : 'وارد',
@@ -970,7 +1012,8 @@ function PeriodFinalTab() {
             </CardContent>
           </Card>
         </>
-      )}
+        );
+      })()}
     </div>
   );
 }

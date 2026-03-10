@@ -49,8 +49,10 @@ export async function generateWorkerStatementExcel(data: WorkerStatementData): P
   ];
   infoData.forEach((info) => {
     const r = ws.getRow(row);
-    ws.mergeCells(row, 2, row, 5);
-    ws.mergeCells(row, 7, row, 10);
+    ws.mergeCells(row, 1, row, 2);
+    ws.mergeCells(row, 3, row, 5);
+    ws.mergeCells(row, 6, row, 7);
+    ws.mergeCells(row, 8, row, 10);
 
     r.getCell(1).value = info[0];
     r.getCell(1).font = { bold: true, size: 10, name: 'Calibri' };
@@ -58,10 +60,10 @@ export async function generateWorkerStatementExcel(data: WorkerStatementData): P
     r.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     r.getCell(1).border = BORDER;
 
-    r.getCell(2).value = info[1];
-    r.getCell(2).font = { size: 10, name: 'Calibri' };
-    r.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
-    r.getCell(2).border = BORDER;
+    r.getCell(3).value = info[1];
+    r.getCell(3).font = { size: 10, name: 'Calibri' };
+    r.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(3).border = BORDER;
 
     r.getCell(6).value = info[2];
     r.getCell(6).font = { bold: true, size: 10, name: 'Calibri' };
@@ -69,10 +71,10 @@ export async function generateWorkerStatementExcel(data: WorkerStatementData): P
     r.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
     r.getCell(6).border = BORDER;
 
-    r.getCell(7).value = info[3];
-    r.getCell(7).font = { size: 10, name: 'Calibri' };
-    r.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
-    r.getCell(7).border = BORDER;
+    r.getCell(8).value = info[3];
+    r.getCell(8).font = { size: 10, name: 'Calibri' };
+    r.getCell(8).alignment = { horizontal: 'center', vertical: 'middle' };
+    r.getCell(8).border = BORDER;
 
     for (let c = 1; c <= COL_COUNT; c++) {
       if (!r.getCell(c).border) r.getCell(c).border = BORDER;
@@ -204,13 +206,14 @@ export async function generateWorkerStatementExcel(data: WorkerStatementData): P
 
     {
       const hdrRow = ws.getRow(row);
-      ws.mergeCells(row, 2, row, 5);
+      ws.mergeCells(row, 2, row, 4);
+      ws.mergeCells(row, 6, row, 7);
       ws.mergeCells(row, 8, row, 9);
       const summaryHeaders = [
         { col: 1, text: '#' },
         { col: 2, text: 'المشروع' },
-        { col: 6, text: 'إجمالي الأيام' },
-        { col: 7, text: 'إجمالي المستحق' },
+        { col: 5, text: 'إجمالي الأيام' },
+        { col: 6, text: 'إجمالي المستحق' },
         { col: 8, text: 'إجمالي المدفوع' },
         { col: 10, text: 'الرصيد' },
       ];
@@ -234,12 +237,13 @@ export async function generateWorkerStatementExcel(data: WorkerStatementData): P
 
     data.projectSummary.forEach((proj, idx) => {
       const r = ws.getRow(row);
-      ws.mergeCells(row, 2, row, 5);
+      ws.mergeCells(row, 2, row, 4);
+      ws.mergeCells(row, 6, row, 7);
       ws.mergeCells(row, 8, row, 9);
       r.getCell(1).value = idx + 1;
       r.getCell(2).value = proj.projectName;
-      r.getCell(6).value = proj.totalDays;
-      r.getCell(7).value = formatNum(proj.totalEarned);
+      r.getCell(5).value = proj.totalDays;
+      r.getCell(6).value = formatNum(proj.totalEarned);
       r.getCell(8).value = formatNum(proj.totalPaid);
       r.getCell(10).value = formatNum(proj.balance);
 

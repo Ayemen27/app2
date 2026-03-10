@@ -374,9 +374,22 @@ export function pdfWrap(title: string, body: string): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
-<style>${PDF_BASE_STYLES}</style>
+<style>${PDF_BASE_STYLES}
+@media print {
+  .no-print { display: none !important; }
+}
+.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #1B2A4A; color: #fff; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; font-family: 'Segoe UI', Tahoma, sans-serif; direction: rtl; }
+.print-bar button { background: #4A90D9; color: #fff; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+.print-bar button:hover { background: #2E5090; }
+.print-bar-spacer { height: 48px; }
+</style>
 </head>
 <body>
+<div class="print-bar no-print">
+  <span>${escapeHtml(title)}</span>
+  <button onclick="window.print()">طباعة / حفظ PDF</button>
+</div>
+<div class="print-bar-spacer no-print"></div>
 <div class="report-container">
 ${body}
 </div>

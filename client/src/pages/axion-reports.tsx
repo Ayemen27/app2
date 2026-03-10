@@ -367,6 +367,7 @@ function WorkerStatementTab() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     dateRange: null,
     worker_id: "all",
+    project_scope: "all",
   });
 
   const { data: workersList = [] } = useQuery({
@@ -381,9 +382,6 @@ function WorkerStatementTab() {
         } else if (Array.isArray(res)) {
           workersData = res;
         }
-      }
-      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-        return workersData.filter((w: any) => w.project_id === selectedProjectId);
       }
       return workersData;
     },
@@ -408,6 +406,17 @@ function WorkerStatementTab() {
         })),
       ],
     },
+    {
+      key: "project_scope",
+      label: "نطاق المشاريع",
+      type: "select",
+      options: [
+        { label: "جميع المشاريع", value: "all" },
+        ...(selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID
+          ? [{ label: selectedProjectName || "المشروع الحالي", value: selectedProjectId }]
+          : []),
+      ],
+    },
   ];
 
   const onFilterChange = (key: string, val: any) => {
@@ -417,15 +426,17 @@ function WorkerStatementTab() {
     }
   };
 
+  const workerProjectScope = filterValues.project_scope !== "all" ? filterValues.project_scope : undefined;
+
   const { data: workerStatement, isLoading: workerLoading, refetch } = useQuery<WorkerStatementData | null>({
-    queryKey: ["reports-v2-worker-statement", selectedWorkerId, selectedProjectId, filterValues.dateRange],
+    queryKey: ["reports-v2-worker-statement", selectedWorkerId, workerProjectScope, filterValues.dateRange],
     staleTime: 2 * 60 * 1000,
     queryFn: async () => {
       if (!selectedWorkerId) return null;
       const params = new URLSearchParams();
       params.append("worker_id", selectedWorkerId);
-      if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-        params.append("project_id", selectedProjectId);
+      if (workerProjectScope) {
+        params.append("project_id", workerProjectScope);
       }
       if (filterValues.dateRange?.from) {
         params.append("dateFrom", format(new Date(filterValues.dateRange.from), "yyyy-MM-dd"));
@@ -445,8 +456,8 @@ function WorkerStatementTab() {
       return;
     }
     const exportParams: Record<string, string> = { worker_id: selectedWorkerId };
-    if (selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID) {
-      exportParams.project_id = selectedProjectId;
+    if (workerProjectScope) {
+      exportParams.project_id = workerProjectScope;
     }
     if (filterValues.dateRange?.from) {
       exportParams.dateFrom = format(new Date(filterValues.dateRange.from), "yyyy-MM-dd");
@@ -571,21 +582,42 @@ function WorkerStatementTab() {
 
           {(workerStatement.projectSummary?.length || 0) > 0 && (
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
                 <CardTitle className="text-base">ملخص المشاريع</CardTitle>
+                <Badge variant="secondary" data-testid="badge-project-count">{workerStatement.projectSummary.length} مشروع</Badge>
               </CardHeader>
               <CardContent>
                 <ReportTable
                   testId="table-worker-project-summary"
-                  headers={["المشروع", "أيام العمل", "المستحق", "المدفوع", "الرصيد"]}
-                  rows={(workerStatement.projectSummary || []).map((p) => [
-                    p.projectName,
-                    p.totalDays,
-                    formatCurrency(p.totalEarned),
-                    formatCurrency(p.totalPaid),
-                    formatCurrency(p.balance),
-                  ])}
+                  headers={["المشروع", "أيام العمل", "المستحق", "المدفوع", "المتبقي"]}
+                  rows={[
+                    ...(workerStatement.projectSummary || []).map((p) => [
+                      p.projectName,
+                      p.totalDays,
+                      formatCurrency(p.totalEarned),
+                      formatCurrency(p.totalPaid),
+                      formatCurrency(p.balance),
+                    ]),
+                  ]}
                 />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-3 border-t">
+                  <div className="text-center p-2 rounded-md bg-blue-50 dark:bg-blue-950/30" data-testid="stat-total-projects-days">
+                    <p className="text-xs text-muted-foreground">إجمالي الأيام</p>
+                    <p className="font-bold text-sm mt-1">{workerStatement.projectSummary.reduce((s, p) => s + p.totalDays, 0).toFixed(1)}</p>
+                  </div>
+                  <div className="text-center p-2 rounded-md bg-green-50 dark:bg-green-950/30" data-testid="stat-total-projects-earned">
+                    <p className="text-xs text-muted-foreground">إجمالي المستحق</p>
+                    <p className="font-bold text-sm mt-1 text-green-700 dark:text-green-400">{formatCurrency(workerStatement.projectSummary.reduce((s, p) => s + p.totalEarned, 0))}</p>
+                  </div>
+                  <div className="text-center p-2 rounded-md bg-red-50 dark:bg-red-950/30" data-testid="stat-total-projects-paid">
+                    <p className="text-xs text-muted-foreground">إجمالي المدفوع</p>
+                    <p className="font-bold text-sm mt-1 text-red-700 dark:text-red-400">{formatCurrency(workerStatement.projectSummary.reduce((s, p) => s + p.totalPaid, 0))}</p>
+                  </div>
+                  <div className="text-center p-2 rounded-md bg-amber-50 dark:bg-amber-950/30" data-testid="stat-total-projects-balance">
+                    <p className="text-xs text-muted-foreground">المتبقي</p>
+                    <p className="font-bold text-sm mt-1 text-amber-700 dark:text-amber-400">{formatCurrency(workerStatement.projectSummary.reduce((s, p) => s + p.balance, 0))}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}

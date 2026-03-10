@@ -189,8 +189,6 @@ export interface PeriodFinalReportData {
         totalTransfers: number;
         totalPaid: number;
         balance: number;
-        carriedForwardBalance: number;
-        closingBalance: number;
       }>;
     };
     materials: {
@@ -225,6 +223,19 @@ export interface PeriodFinalReportData {
       total: number;
       count: number;
     };
+    projectTransfers: {
+      totalOutgoing: number;
+      totalIncoming: number;
+      net: number;
+      items: Array<{
+        date: string;
+        amount: number;
+        fromProjectName: string;
+        toProjectName: string;
+        reason: string;
+        direction: 'incoming' | 'outgoing';
+      }>;
+    };
   };
   totals: {
     totalIncome: number;
@@ -234,6 +245,8 @@ export interface PeriodFinalReportData {
     totalTransport: number;
     totalMisc: number;
     totalWorkerTransfers: number;
+    totalProjectTransfersOut: number;
+    totalProjectTransfersIn: number;
     balance: number;
     budgetUtilization?: number;
   };

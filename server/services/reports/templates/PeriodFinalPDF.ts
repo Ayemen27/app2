@@ -30,8 +30,7 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
       <td class="credit-cell">${formatNum(w.totalDirectPaid)}</td>
       <td style="color:#4A90D9;font-weight:600;">${formatNum(w.totalTransfers)}</td>
       <td class="credit-cell" style="font-weight:700;">${formatNum(w.totalPaid)}</td>
-      <td style="color:${w.carriedForwardBalance >= 0 ? '#2E5090' : '#C0392B'};font-weight:600;">${formatNum(w.carriedForwardBalance)}</td>
-      <td class="balance-cell" style="font-weight:700;">${formatNum(w.closingBalance)}</td>
+      <td class="balance-cell">${formatNum(w.balance)}</td>
     </tr>`
   ).join('');
 
@@ -99,8 +98,7 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
       <th style="width:25px;">م</th><th>اسم العامل</th><th style="width:50px;">النوع</th>
       <th style="width:55px;">الأيام</th><th style="width:75px;">المستحق</th>
       <th style="width:75px;">المدفوع</th><th style="width:70px;">الحوالات</th>
-      <th style="width:80px;">إجمالي المدفوع</th><th style="width:70px;">المرحل</th>
-      <th style="width:80px;">الرصيد الختامي</th>
+      <th style="width:80px;">إجمالي المدفوع</th><th style="width:80px;">المتبقي</th>
     </tr></thead><tbody>${attendanceByWorkerRows}
     ${pdfTotalRow([
       'الإجمالي',
@@ -109,8 +107,7 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
       formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.totalDirectPaid, 0)),
       formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.totalTransfers, 0)),
       formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.totalPaid, 0)),
-      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.carriedForwardBalance, 0)),
-      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.closingBalance, 0)),
+      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.balance, 0)),
     ], 3)}
     </tbody></table>`;
   }
@@ -136,15 +133,40 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     </tbody></table>`;
   }
 
+  if (data.sections.projectTransfers?.items?.length > 0) {
+    body += pdfSectionTitle('ترحيل الأموال بين المشاريع');
+    const ptRows = data.sections.projectTransfers.items.map((pt, idx) =>
+      `<tr>
+        <td>${idx + 1}</td>
+        <td>${formatDateBR(pt.date)}</td>
+        <td style="text-align:right;">${pt.direction === 'outgoing' ? escapeHtml(pt.toProjectName) : escapeHtml(pt.fromProjectName)}</td>
+        <td style="color:${pt.direction === 'outgoing' ? '#C0392B' : '#27AE60'};font-weight:700;">${pt.direction === 'outgoing' ? 'صادر' : 'وارد'}</td>
+        <td style="text-align:right;font-size:11px;">${escapeHtml(pt.reason)}</td>
+        <td style="font-weight:700;color:${pt.direction === 'outgoing' ? '#C0392B' : '#27AE60'};">${formatNum(pt.amount)}</td>
+      </tr>`
+    ).join('');
+    body += `<table><thead><tr>
+      <th style="width:30px;">م</th><th style="width:80px;">التاريخ</th>
+      <th>المشروع</th><th style="width:60px;">الاتجاه</th>
+      <th>السبب</th><th style="width:90px;">المبلغ</th>
+    </tr></thead><tbody>${ptRows}
+    <tr class="total-row"><td colspan="5" style="text-align:right;">إجمالي الصادر</td><td style="color:#C0392B;font-weight:700;">${formatNum(data.sections.projectTransfers.totalOutgoing)} YER</td></tr>
+    <tr class="total-row"><td colspan="5" style="text-align:right;">إجمالي الوارد</td><td style="color:#27AE60;font-weight:700;">${formatNum(data.sections.projectTransfers.totalIncoming)} YER</td></tr>
+    ${pdfGrandTotalRow(['الصافي', `${formatNum(data.sections.projectTransfers.net)} YER`], 5)}
+    </tbody></table>`;
+  }
+
   body += `<div class="page-break"></div>`;
   body += pdfSectionTitle('الملخص المالي الشامل');
   const summaryData = [
     ['إجمالي الدخل (التحويلات الواردة)', `${formatNum(data.totals.totalIncome)} YER`],
+    ['ترحيل وارد من مشاريع أخرى', `${formatNum(data.totals.totalProjectTransfersIn)} YER`],
     ['إجمالي الأجور', `${formatNum(data.totals.totalWages)} YER`],
     ['إجمالي المواد', `${formatNum(data.totals.totalMaterials)} YER`],
     ['إجمالي النقل', `${formatNum(data.totals.totalTransport)} YER`],
     ['المصروفات المتنوعة', `${formatNum(data.totals.totalMisc)} YER`],
     ['حوالات العمال', `${formatNum(data.totals.totalWorkerTransfers)} YER`],
+    ['ترحيل صادر لمشاريع أخرى', `${formatNum(data.totals.totalProjectTransfersOut)} YER`],
   ];
   body += `<table class="summary-table">
     ${summaryData.map(([l, v]) => `<tr><td class="label-cell">${l}</td><td class="value-cell">${v}</td></tr>`).join('')}

@@ -9,6 +9,7 @@ import {
   workerTransfers,
   workerMiscExpenses,
   fundTransfers,
+  projectFundTransfers,
 } from '@shared/schema';
 import type {
   DailyReportData,
@@ -618,37 +619,45 @@ export class ReportDataService {
       )
       .groupBy(workerTransfers.worker_id, workers.name, workers.type);
 
-    const preAttendanceRows = await db
+    const projectTransferOutRows = await db
       .select({
-        workerId: workerAttendance.worker_id,
-        workerName: workers.name,
-        workerType: workers.type,
-        totalEarned: sql<number>`COALESCE(SUM(CAST(${workerAttendance.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+        id: projectFundTransfers.id,
+        toProjectId: projectFundTransfers.toProjectId,
+        toProjectName: projects.name,
+        amount: projectFundTransfers.amount,
+        transferReason: projectFundTransfers.transferReason,
+        transferDate: projectFundTransfers.transferDate,
       })
-      .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
+      .from(projectFundTransfers)
+      .leftJoin(projects, eq(projectFundTransfers.toProjectId, projects.id))
       .where(
         and(
-          eq(workerAttendance.project_id, projectId),
-          sql`${workerAttendance.attendanceDate} < ${dateFrom}`
+          eq(projectFundTransfers.fromProjectId, projectId),
+          gte(projectFundTransfers.transferDate, dateFrom),
+          lte(projectFundTransfers.transferDate, dateTo)
         )
       )
-      .groupBy(workerAttendance.worker_id, workers.name, workers.type);
+      .orderBy(asc(projectFundTransfers.transferDate));
 
-    const preTransferRows = await db
+    const projectTransferInRows = await db
       .select({
-        workerId: workerTransfers.worker_id,
-        totalTransferred: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+        id: projectFundTransfers.id,
+        fromProjectId: projectFundTransfers.fromProjectId,
+        fromProjectName: projects.name,
+        amount: projectFundTransfers.amount,
+        transferReason: projectFundTransfers.transferReason,
+        transferDate: projectFundTransfers.transferDate,
       })
-      .from(workerTransfers)
+      .from(projectFundTransfers)
+      .leftJoin(projects, eq(projectFundTransfers.fromProjectId, projects.id))
       .where(
         and(
-          eq(workerTransfers.project_id, projectId),
-          sql`${workerTransfers.transferDate} < ${dateFrom}`
+          eq(projectFundTransfers.toProjectId, projectId),
+          gte(projectFundTransfers.transferDate, dateFrom),
+          lte(projectFundTransfers.transferDate, dateTo)
         )
       )
-      .groupBy(workerTransfers.worker_id);
+      .orderBy(asc(projectFundTransfers.transferDate));
 
     const proj = projectInfo[0];
 
@@ -665,17 +674,6 @@ export class ReportDataService {
       transfersByWorkerMap.set(t.workerId, safeNum(t.totalTransferred));
     }
 
-    const preBalanceMap = new Map<string, number>();
-    for (const r of preAttendanceRows) {
-      const earned = safeNum(r.totalEarned);
-      const paid = safeNum(r.totalPaid);
-      preBalanceMap.set(r.workerId, earned - paid);
-    }
-    for (const r of preTransferRows) {
-      const existing = preBalanceMap.get(r.workerId) || 0;
-      preBalanceMap.set(r.workerId, existing - safeNum(r.totalTransferred));
-    }
-
     const allWorkerIds = new Set<string>();
     attendanceByWorkerRows.forEach((r) => allWorkerIds.add(r.workerId));
     transfersByWorkerRows.forEach((r) => allWorkerIds.add(r.workerId));
@@ -685,13 +683,11 @@ export class ReportDataService {
     const attendanceByWorker = Array.from(allWorkerIds).map((wId) => {
       const att = attendanceMap.get(wId);
       const transfer = transfersByWorkerMap.get(wId) || 0;
-      const carriedForward = preBalanceMap.get(wId) || 0;
 
       if (att) {
         const earned = safeNum(att.totalEarned);
         const directPaid = safeNum(att.totalPaid);
         const totalPaid = directPaid + transfer;
-        const periodBalance = earned - totalPaid;
         return {
           workerId: wId,
           workerName: att.workerName || '-',
@@ -701,9 +697,7 @@ export class ReportDataService {
           totalDirectPaid: directPaid,
           totalTransfers: transfer,
           totalPaid,
-          balance: periodBalance,
-          carriedForwardBalance: carriedForward,
-          closingBalance: carriedForward + periodBalance,
+          balance: earned - totalPaid,
         };
       } else {
         const tw = transfersByWorkerRows.find((t) => t.workerId === wId);
@@ -717,8 +711,6 @@ export class ReportDataService {
           totalTransfers: transfer,
           totalPaid: transfer,
           balance: -transfer,
-          carriedForwardBalance: carriedForward,
-          closingBalance: carriedForward - transfer,
         };
       }
     });
@@ -750,10 +742,33 @@ export class ReportDataService {
     const workerTransfersTotal = safeNum(workerTransfersRows[0]?.totalAmount);
     const workerTransfersCount = safeNum(workerTransfersRows[0]?.count);
 
+    const projectTransferItems = [
+      ...projectTransferOutRows.map((r) => ({
+        date: r.transferDate || '-',
+        amount: safeNum(r.amount),
+        fromProjectName: proj?.name || '-',
+        toProjectName: r.toProjectName || '-',
+        reason: r.transferReason || '-',
+        direction: 'outgoing' as const,
+      })),
+      ...projectTransferInRows.map((r) => ({
+        date: r.transferDate || '-',
+        amount: safeNum(r.amount),
+        fromProjectName: r.fromProjectName || '-',
+        toProjectName: proj?.name || '-',
+        reason: r.transferReason || '-',
+        direction: 'incoming' as const,
+      })),
+    ].sort((a, b) => a.date.localeCompare(b.date));
+
+    const totalProjectTransfersOut = projectTransferOutRows.reduce((s, r) => s + safeNum(r.amount), 0);
+    const totalProjectTransfersIn = projectTransferInRows.reduce((s, r) => s + safeNum(r.amount), 0);
+    const projectTransfersNet = totalProjectTransfersIn - totalProjectTransfersOut;
+
     const totalWages = attendanceSummary.reduce((s, a) => s + a.totalWages, 0);
     const totalPaidWages = attendanceSummary.reduce((s, a) => s + a.totalPaid, 0);
-    const totalExpenses = totalPaidWages + totalMaterialsAmount + transportTotal + miscTotal + workerTransfersTotal;
-    const balance = totalFundTransfersAmount - totalExpenses;
+    const totalExpenses = totalPaidWages + totalMaterialsAmount + transportTotal + miscTotal + workerTransfersTotal + totalProjectTransfersOut;
+    const balance = (totalFundTransfersAmount + totalProjectTransfersIn) - totalExpenses;
 
     const budgetVal = safeNum(proj?.budget);
     const budgetUtilization = budgetVal > 0 ? (totalExpenses / budgetVal) * 100 : undefined;
@@ -865,6 +880,8 @@ export class ReportDataService {
       { label: 'إجمالي النقل', value: transportTotal, format: 'currency' },
       { label: 'إجمالي النثريات', value: miscTotal, format: 'currency' },
       { label: 'إجمالي حوالات العمال', value: workerTransfersTotal, format: 'currency' },
+      { label: 'ترحيل صادر', value: totalProjectTransfersOut, format: 'currency' },
+      { label: 'ترحيل وارد', value: totalProjectTransfersIn, format: 'currency' },
       { label: 'الرصيد', value: balance, format: 'currency' },
       { label: 'عدد أيام العمل', value: attendanceSummary.reduce((s, a) => s + a.totalWorkDays, 0), format: 'number' },
       { label: 'أيام النشاط', value: attendanceSummary.length, format: 'days' },
@@ -920,6 +937,12 @@ export class ReportDataService {
           total: workerTransfersTotal,
           count: workerTransfersCount,
         },
+        projectTransfers: {
+          totalOutgoing: totalProjectTransfersOut,
+          totalIncoming: totalProjectTransfersIn,
+          net: projectTransfersNet,
+          items: projectTransferItems,
+        },
       },
       totals: {
         totalIncome: totalFundTransfersAmount,
@@ -929,6 +952,8 @@ export class ReportDataService {
         totalTransport: transportTotal,
         totalMisc: miscTotal,
         totalWorkerTransfers: workerTransfersTotal,
+        totalProjectTransfersOut,
+        totalProjectTransfersIn,
         balance,
         budgetUtilization,
       },

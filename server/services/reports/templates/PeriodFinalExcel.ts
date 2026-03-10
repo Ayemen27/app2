@@ -12,7 +12,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   workbook.creator = 'Al-Fatihi Construction System';
   workbook.created = new Date();
 
-  const COL_COUNT = 10;
+  const COL_COUNT = 9;
   const ws = workbook.addWorksheet('التقرير الختامي', {
     views: [{ rightToLeft: true }],
     pageSetup: {
@@ -25,7 +25,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   ws.columns = [
     { width: 5 }, { width: 18 }, { width: 10 }, { width: 10 },
     { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
-    { width: 12 }, { width: 14 },
+    { width: 14 },
   ];
 
   let row = 1;
@@ -34,15 +34,14 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   row = xlInfoRow(ws, row, `المشروع: ${data.project.name}  |  الفترة: ${formatDateBR(data.period.from)} - ${formatDateBR(data.period.to)}  |  المهندس: ${data.project.engineerName || '-'}`, COL_COUNT);
 
   row++;
-  const kpiLabels = ['الإيرادات', 'المصروفات', 'الرصيد', 'حوالات العمال', 'نسبة الاستخدام'];
+  const kpiLabels = ['الإيرادات', 'المصروفات', 'الرصيد', 'نسبة الاستخدام'];
   const kpiValues = [
     formatNum(data.totals.totalIncome),
     formatNum(data.totals.totalExpenses),
     formatNum(data.totals.balance),
-    formatNum(data.totals.totalWorkerTransfers),
     data.totals.budgetUtilization != null ? `${data.totals.budgetUtilization.toFixed(1)}%` : '-',
   ];
-  const kpiPairs: [number, number][] = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]];
+  const kpiPairs: [number, number][] = [[1, 2], [3, 4], [5, 7], [8, 9]];
   const kpiRow = ws.getRow(row);
   const kpiLabelRow = ws.getRow(row + 1);
   kpiPairs.forEach(([s, e], i) => {
@@ -65,45 +64,66 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   row += 3;
 
   row = xlSectionHeader(ws, row, 'ملخص الحضور حسب العامل', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المرحل', 'الرصيد الختامي']);
-  let totalAttDays = 0, totalAttEarned = 0, totalAttDirectPaid = 0, totalAttTransfers = 0, totalAttPaid = 0, totalAttCarried = 0, totalAttClosing = 0;
+  row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي']);
+  let totalAttDays = 0, totalAttEarned = 0, totalAttDirectPaid = 0, totalAttTransfers = 0, totalAttPaid = 0, totalAttBalance = 0;
   data.sections.attendance.byWorker.forEach((w, idx) => {
-    row = xlDataRow(ws, row, [idx + 1, w.workerName, w.workerType, w.totalDays, formatNum(w.totalEarned), formatNum(w.totalDirectPaid), formatNum(w.totalTransfers), formatNum(w.totalPaid), formatNum(w.carriedForwardBalance), formatNum(w.closingBalance)], idx % 2 === 1);
+    row = xlDataRow(ws, row, [idx + 1, w.workerName, w.workerType, w.totalDays, formatNum(w.totalEarned), formatNum(w.totalDirectPaid), formatNum(w.totalTransfers), formatNum(w.totalPaid), formatNum(w.balance)], idx % 2 === 1);
     totalAttDays += w.totalDays;
     totalAttEarned += w.totalEarned;
     totalAttDirectPaid += w.totalDirectPaid;
     totalAttTransfers += w.totalTransfers;
     totalAttPaid += w.totalPaid;
-    totalAttCarried += w.carriedForwardBalance;
-    totalAttClosing += w.closingBalance;
+    totalAttBalance += w.balance;
   });
-  row = xlTotalsRow(ws, row, ['', 'الإجمالي', '', totalAttDays, formatNum(totalAttEarned), formatNum(totalAttDirectPaid), formatNum(totalAttTransfers), formatNum(totalAttPaid), formatNum(totalAttCarried), formatNum(totalAttClosing)]);
+  row = xlTotalsRow(ws, row, ['', 'الإجمالي', '', totalAttDays, formatNum(totalAttEarned), formatNum(totalAttDirectPaid), formatNum(totalAttTransfers), formatNum(totalAttPaid), formatNum(totalAttBalance)]);
   row++;
 
   row = xlSectionHeader(ws, row, 'ملخص المواد', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الكمية', 'الإجمالي', 'المورد', '', '', '', '', '']);
+  row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الكمية', 'الإجمالي', 'المورد', '', '', '', '']);
   data.sections.materials.items.forEach((m, idx) => {
-    row = xlDataRow(ws, row, [idx + 1, m.materialName, m.totalQuantity, formatNum(m.totalAmount), m.supplierName, '', '', '', '', ''], idx % 2 === 1);
+    row = xlDataRow(ws, row, [idx + 1, m.materialName, m.totalQuantity, formatNum(m.totalAmount), m.supplierName, '', '', '', ''], idx % 2 === 1);
   });
-  row = xlTotalsRow(ws, row, ['', 'الإجمالي', '', formatNum(data.sections.materials.total), '', '', '', '', '', '']);
+  row = xlTotalsRow(ws, row, ['', 'الإجمالي', '', formatNum(data.sections.materials.total), '', '', '', '', '']);
   row++;
 
   row = xlSectionHeader(ws, row, 'تحويلات العهدة', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'التاريخ', 'المبلغ', 'المرسل', 'نوع التحويل', '', '', '', '', '']);
+  row = xlTableHeader(ws, row, ['#', 'التاريخ', 'المبلغ', 'المرسل', 'نوع التحويل', '', '', '', '']);
   data.sections.fundTransfers.items.forEach((ft, idx) => {
-    row = xlDataRow(ws, row, [idx + 1, formatDateBR(ft.date), formatNum(ft.amount), ft.senderName, ft.transferType, '', '', '', '', ''], idx % 2 === 1);
+    row = xlDataRow(ws, row, [idx + 1, formatDateBR(ft.date), formatNum(ft.amount), ft.senderName, ft.transferType, '', '', '', ''], idx % 2 === 1);
   });
-  row = xlTotalsRow(ws, row, ['', 'الإجمالي', formatNum(data.sections.fundTransfers.total), '', '', '', '', '', '', '']);
+  row = xlTotalsRow(ws, row, ['', 'الإجمالي', formatNum(data.sections.fundTransfers.total), '', '', '', '', '', '']);
   row++;
+
+  if (data.sections.projectTransfers?.items?.length > 0) {
+    row = xlSectionHeader(ws, row, 'ترحيل الأموال بين المشاريع', COL_COUNT);
+    row = xlTableHeader(ws, row, ['#', 'التاريخ', 'المشروع', 'الاتجاه', 'السبب', 'المبلغ', '', '', '']);
+    data.sections.projectTransfers.items.forEach((pt, idx) => {
+      row = xlDataRow(ws, row, [
+        idx + 1,
+        formatDateBR(pt.date),
+        pt.direction === 'outgoing' ? pt.toProjectName : pt.fromProjectName,
+        pt.direction === 'outgoing' ? 'صادر' : 'وارد',
+        pt.reason,
+        formatNum(pt.amount),
+        '', '', '',
+      ], idx % 2 === 1);
+    });
+    row = xlTotalsRow(ws, row, ['', 'إجمالي الصادر', '', '', '', formatNum(data.sections.projectTransfers.totalOutgoing), '', '', '']);
+    row = xlTotalsRow(ws, row, ['', 'إجمالي الوارد', '', '', '', formatNum(data.sections.projectTransfers.totalIncoming), '', '', '']);
+    row = xlTotalsRow(ws, row, ['', 'الصافي', '', '', '', formatNum(data.sections.projectTransfers.net), '', '', '']);
+    row++;
+  }
 
   row = xlSectionHeader(ws, row, 'الملخص الشامل', COL_COUNT);
   const summaryItems = [
     ['إجمالي الإيرادات', formatNum(data.totals.totalIncome)],
+    ['ترحيل وارد من مشاريع أخرى', formatNum(data.totals.totalProjectTransfersIn)],
     ['إجمالي الأجور', formatNum(data.totals.totalWages)],
     ['إجمالي المواد', formatNum(data.totals.totalMaterials)],
     ['إجمالي النقل', formatNum(data.totals.totalTransport)],
     ['إجمالي النثريات', formatNum(data.totals.totalMisc)],
     ['إجمالي حوالات العمال', formatNum(data.totals.totalWorkerTransfers)],
+    ['ترحيل صادر لمشاريع أخرى', formatNum(data.totals.totalProjectTransfersOut)],
     ['إجمالي المصروفات', formatNum(data.totals.totalExpenses)],
     ['الرصيد النهائي', formatNum(data.totals.balance)],
   ];
@@ -116,7 +136,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     r.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
     r.getCell(1).border = BORDER;
     r.getCell(5).value = value;
-    r.getCell(5).font = { bold: idx >= 6, size: 10, name: 'Calibri' };
+    r.getCell(5).font = { bold: idx >= 8, size: 10, name: 'Calibri' };
     r.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
     r.getCell(5).border = BORDER;
     if (idx % 2 === 1) {
@@ -150,7 +170,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
   }
 
   row += 2;
-  row = xlSignatures(ws, row, ['المهندس', 'المدير', 'المدير المالي'], [[1, 3], [4, 7], [8, 10]]);
+  row = xlSignatures(ws, row, ['المهندس', 'المدير', 'المدير المالي'], [[1, 3], [4, 6], [7, 9]]);
 
   row += 2;
   row = xlFooter(ws, row, COL_COUNT);

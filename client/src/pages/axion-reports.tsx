@@ -814,7 +814,7 @@ function PeriodFinalTab() {
               <CardContent>
                 <ReportTable
                   testId="table-period-attendance"
-                  headers={["اسم العامل", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المرحل", "الرصيد الختامي"]}
+                  headers={["اسم العامل", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المتبقي"]}
                   rows={periodReport.sections.attendance.byWorker.map((w: any) => [
                     w.workerName,
                     w.workerType,
@@ -823,8 +823,7 @@ function PeriodFinalTab() {
                     formatCurrency(w.totalDirectPaid ?? w.totalPaid),
                     formatCurrency(w.totalTransfers ?? 0),
                     formatCurrency(w.totalPaid),
-                    formatCurrency(w.carriedForwardBalance ?? 0),
-                    formatCurrency(w.closingBalance ?? w.balance),
+                    formatCurrency(w.balance ?? 0),
                   ])}
                 />
               </CardContent>
@@ -869,6 +868,42 @@ function PeriodFinalTab() {
                     f.transferType || "-",
                   ])}
                 />
+              </CardContent>
+            </Card>
+          )}
+
+          {(periodReport.sections?.projectTransfers?.items?.length || 0) > 0 && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                <CardTitle className="text-base">ترحيل الأموال بين المشاريع</CardTitle>
+                <Badge variant="secondary">{periodReport.sections.projectTransfers.items.length}</Badge>
+              </CardHeader>
+              <CardContent>
+                <ReportTable
+                  testId="table-period-project-transfers"
+                  headers={["التاريخ", "المشروع", "الاتجاه", "السبب", "المبلغ"]}
+                  rows={periodReport.sections.projectTransfers.items.map((pt) => [
+                    safeFormatDate(pt.date, "dd/MM/yyyy"),
+                    pt.direction === 'outgoing' ? (pt.toProjectName || '-') : (pt.fromProjectName || '-'),
+                    pt.direction === 'outgoing' ? 'صادر' : 'وارد',
+                    pt.reason || '-',
+                    formatCurrency(pt.amount),
+                  ])}
+                />
+                <div className="grid grid-cols-3 gap-2 mt-3 text-center text-sm">
+                  <div className="p-2 rounded bg-red-50 dark:bg-red-950/30">
+                    <p className="text-xs text-muted-foreground">إجمالي الصادر</p>
+                    <p className="font-bold text-red-600">{formatCurrency(periodReport.sections.projectTransfers.totalOutgoing)}</p>
+                  </div>
+                  <div className="p-2 rounded bg-green-50 dark:bg-green-950/30">
+                    <p className="text-xs text-muted-foreground">إجمالي الوارد</p>
+                    <p className="font-bold text-green-600">{formatCurrency(periodReport.sections.projectTransfers.totalIncoming)}</p>
+                  </div>
+                  <div className="p-2 rounded bg-blue-50 dark:bg-blue-950/30">
+                    <p className="text-xs text-muted-foreground">الصافي</p>
+                    <p className="font-bold text-blue-600">{formatCurrency(periodReport.sections.projectTransfers.net)}</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}

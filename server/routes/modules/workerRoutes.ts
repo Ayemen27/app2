@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { eq, sql, and } from 'drizzle-orm';
+import { eq, sql, and, or } from 'drizzle-orm';
 import { db } from '../../db.js';
 import {
   workers, workerAttendance, workerTransfers, workerMiscExpenses, workerBalances,
@@ -73,15 +73,16 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
     if (isAdminUser) {
       workersList = await db.select().from(workers).orderBy(workers.name);
     } else {
-      const ids = accessReq.accessibleProjectIds ?? [];
-      if (ids.length === 0) {
+      const userId = accessReq.user?.id;
+      if (!userId) {
         workersList = [];
       } else {
         workersList = await db.select().from(workers)
-          .where(inArray(workers.project_id, ids))
+          .where(eq(workers.created_by, userId))
           .orderBy(workers.name);
       }
     }
+    console.log(`👷 [API] isAdmin: ${isAdminUser}, userId: ${accessReq.user?.id}, total: ${workersList.length}`);
     console.log(`👷 [API] تم جلب ${workersList.length} عامل`);
     res.json({
       success: true,
@@ -136,9 +137,11 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation العامل');
 
-    // إدراج العامل الجديد في قاعدة البيانات
+    const userId = (req as any).user?.id;
+    const workerData = { ...validationResult.data, created_by: userId || null };
+
     console.log('💾 [API] حفظ العامل في قاعدة البيانات...');
-    const newWorker = await db.insert(workers).values(validationResult.data).returning();
+    const newWorker = await db.insert(workers).values(workerData).returning();
 
     // إضافة رصيد مبدئي للعامل في جميع المشاريع النشطة لتجنب جلب الإحصائيات المكثف لاحقاً
     try {

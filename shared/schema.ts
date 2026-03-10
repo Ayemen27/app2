@@ -299,6 +299,7 @@ export const workers = pgTable("workers", {
   hireDate: text("hire_date"), // تاريخ التوظيف (YYYY-MM-DD)
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  created_by: varchar("created_by").references(() => users.id),
   ...syncFields,
 }, (table) => ({
   uniqueWorkerName: sql`UNIQUE ("name")`,
@@ -391,6 +392,7 @@ export const suppliers = pgTable("suppliers", {
   is_active: boolean("is_active").default(true).notNull(),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
+  created_by: varchar("created_by").references(() => users.id),
 });
 
 // Materials

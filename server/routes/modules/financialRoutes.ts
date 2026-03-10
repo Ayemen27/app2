@@ -1797,9 +1797,23 @@ financialRouter.get('/suppliers', async (req: Request, res: Response) => {
   try {
     console.log('🏪 [API] جلب جميع الموردين من قاعدة البيانات');
 
-    const suppliersList = await db.select().from(suppliers)
-      .where(eq(suppliers.is_active, true))
-      .orderBy(suppliers.name);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const userId = accessReq.user?.id;
+
+    let suppliersList;
+    if (isAdminUser) {
+      suppliersList = await db.select().from(suppliers)
+        .where(eq(suppliers.is_active, true))
+        .orderBy(suppliers.name);
+    } else {
+      suppliersList = await db.select().from(suppliers)
+        .where(and(
+          eq(suppliers.is_active, true),
+          eq(suppliers.created_by, userId!)
+        ))
+        .orderBy(suppliers.name);
+    }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${suppliersList.length} مورد في ${duration}ms`);
@@ -1850,8 +1864,10 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation المورد');
 
-    // إدراج المورد الجديد في قاعدة البيانات
-    const newSupplier = await db.insert(suppliers).values(validationResult.data).returning();
+    const userId = (req as any).user?.id;
+    const supplierData = { ...validationResult.data, created_by: userId || null };
+
+    const newSupplier = await db.insert(suppliers).values(supplierData).returning();
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء المورد بنجاح في ${duration}ms`);
@@ -3051,10 +3067,20 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
       conditions.push(lte(materialPurchases.purchaseDate, dateTo as string));
     }
 
-    // جلب الموردين
-    const suppliersList = await db.select().from(suppliers).where(eq(suppliers.is_active, true));
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const userId = accessReq.user?.id;
+
+    let suppliersList;
+    if (isAdminUser) {
+      suppliersList = await db.select().from(suppliers).where(eq(suppliers.is_active, true));
+    } else {
+      suppliersList = await db.select().from(suppliers).where(and(
+        eq(suppliers.is_active, true),
+        eq(suppliers.created_by, userId!)
+      ));
+    }
     
-    // جلب المشتريات مع الفلترة
     let purchasesQuery = db.select().from(materialPurchases);
     if (conditions.length > 0) {
       purchasesQuery = purchasesQuery.where(and(...conditions)) as any;

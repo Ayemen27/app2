@@ -626,6 +626,7 @@ function DailyExpensesContent() {
   // تحديث البيانات عند الحفظ أو الحذف
   const refreshAllData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
     refetchDailyExpenses();
     refetchProjectTransfers();
     refetchFinancial();

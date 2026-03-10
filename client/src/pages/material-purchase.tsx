@@ -468,6 +468,7 @@ export default function MaterialPurchase() {
       });
       resetForm();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
       
       if (wasAddedToInventory) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.equipment });
@@ -578,6 +579,7 @@ export default function MaterialPurchase() {
       });
       resetForm();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
     },
     onError: async (error: any) => {
       await Promise.all([
@@ -648,6 +650,7 @@ export default function MaterialPurchase() {
         description: "تم حذف شراء المواد بنجاح",
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId, selectedDate) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
     },
     onError: (error: any) => {
       console.error("Material purchase delete error:", error);

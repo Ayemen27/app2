@@ -1390,7 +1390,7 @@ export default function WorkerAttendance() {
                 return (
                   <UnifiedCard
                     key={record.id}
-                    title={worker?.name || record.worker_id}
+                    title={worker?.name || record.workerName || record.worker_id}
                     subtitle={isAllProjects && projectName ? `${projectName} - ${record.date || record.attendanceDate}` : (record.date || record.attendanceDate)}
                     titleIcon={User}
                     headerColor="#22c55e"

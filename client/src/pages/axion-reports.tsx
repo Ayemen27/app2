@@ -814,14 +814,17 @@ function PeriodFinalTab() {
               <CardContent>
                 <ReportTable
                   testId="table-period-attendance"
-                  headers={["اسم العامل", "نوع العامل", "أيام العمل", "المستحق", "المدفوع", "الرصيد"]}
-                  rows={periodReport.sections.attendance.byWorker.map((w) => [
+                  headers={["اسم العامل", "النوع", "الأيام", "المستحق", "المدفوع", "الحوالات", "إجمالي المدفوع", "المرحل", "الرصيد الختامي"]}
+                  rows={periodReport.sections.attendance.byWorker.map((w: any) => [
                     w.workerName,
                     w.workerType,
                     w.totalDays,
                     formatCurrency(w.totalEarned),
+                    formatCurrency(w.totalDirectPaid ?? w.totalPaid),
+                    formatCurrency(w.totalTransfers ?? 0),
                     formatCurrency(w.totalPaid),
-                    formatCurrency(w.balance),
+                    formatCurrency(w.carriedForwardBalance ?? 0),
+                    formatCurrency(w.closingBalance ?? w.balance),
                   ])}
                 />
               </CardContent>

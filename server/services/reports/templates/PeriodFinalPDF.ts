@@ -27,8 +27,11 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
       <td>${escapeHtml(w.workerType)}</td>
       <td>${w.totalDays.toFixed(2)}</td>
       <td class="debit-cell">${formatNum(w.totalEarned)}</td>
-      <td class="credit-cell">${formatNum(w.totalPaid)}</td>
-      <td class="balance-cell">${formatNum(w.balance)}</td>
+      <td class="credit-cell">${formatNum(w.totalDirectPaid)}</td>
+      <td style="color:#4A90D9;font-weight:600;">${formatNum(w.totalTransfers)}</td>
+      <td class="credit-cell" style="font-weight:700;">${formatNum(w.totalPaid)}</td>
+      <td style="color:${w.carriedForwardBalance >= 0 ? '#2E5090' : '#C0392B'};font-weight:600;">${formatNum(w.carriedForwardBalance)}</td>
+      <td class="balance-cell" style="font-weight:700;">${formatNum(w.closingBalance)}</td>
     </tr>`
   ).join('');
 
@@ -93,16 +96,21 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     body += `<div class="page-break"></div>`;
     body += pdfSectionTitle('ملخص العمالة حسب العامل');
     body += `<table><thead><tr>
-      <th style="width:30px;">م</th><th>اسم العامل</th><th style="width:60px;">النوع</th>
-      <th style="width:60px;">إجمالي الأيام</th><th style="width:80px;">المستحق</th>
-      <th style="width:80px;">المدفوع</th><th style="width:80px;">المتبقي</th>
+      <th style="width:25px;">م</th><th>اسم العامل</th><th style="width:50px;">النوع</th>
+      <th style="width:55px;">الأيام</th><th style="width:75px;">المستحق</th>
+      <th style="width:75px;">المدفوع</th><th style="width:70px;">الحوالات</th>
+      <th style="width:80px;">إجمالي المدفوع</th><th style="width:70px;">المرحل</th>
+      <th style="width:80px;">الرصيد الختامي</th>
     </tr></thead><tbody>${attendanceByWorkerRows}
     ${pdfTotalRow([
       'الإجمالي',
       data.sections.attendance.byWorker.reduce((s, w) => s + w.totalDays, 0).toFixed(2),
-      formatNum(data.totals.totalWages),
+      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.totalEarned, 0)),
+      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.totalDirectPaid, 0)),
+      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.totalTransfers, 0)),
       formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.totalPaid, 0)),
-      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.balance, 0)),
+      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.carriedForwardBalance, 0)),
+      formatNum(data.sections.attendance.byWorker.reduce((s, w) => s + w.closingBalance, 0)),
     ], 3)}
     </tbody></table>`;
   }

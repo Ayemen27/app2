@@ -185,8 +185,12 @@ export interface PeriodFinalReportData {
         workerType: string;
         totalDays: number;
         totalEarned: number;
+        totalDirectPaid: number;
+        totalTransfers: number;
         totalPaid: number;
         balance: number;
+        carriedForwardBalance: number;
+        closingBalance: number;
       }>;
     };
     materials: {

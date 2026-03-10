@@ -600,6 +600,56 @@ export class ReportDataService {
         ),
     ]);
 
+    const transfersByWorkerRows = await db
+      .select({
+        workerId: workerTransfers.worker_id,
+        workerName: workers.name,
+        workerType: workers.type,
+        totalTransferred: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      })
+      .from(workerTransfers)
+      .leftJoin(workers, eq(workerTransfers.worker_id, workers.id))
+      .where(
+        and(
+          eq(workerTransfers.project_id, projectId),
+          gte(workerTransfers.transferDate, dateFrom),
+          lte(workerTransfers.transferDate, dateTo)
+        )
+      )
+      .groupBy(workerTransfers.worker_id, workers.name, workers.type);
+
+    const preAttendanceRows = await db
+      .select({
+        workerId: workerAttendance.worker_id,
+        workerName: workers.name,
+        workerType: workers.type,
+        totalEarned: sql<number>`COALESCE(SUM(CAST(${workerAttendance.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+        totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+      })
+      .from(workerAttendance)
+      .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
+      .where(
+        and(
+          eq(workerAttendance.project_id, projectId),
+          sql`${workerAttendance.attendanceDate} < ${dateFrom}`
+        )
+      )
+      .groupBy(workerAttendance.worker_id, workers.name, workers.type);
+
+    const preTransferRows = await db
+      .select({
+        workerId: workerTransfers.worker_id,
+        totalTransferred: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      })
+      .from(workerTransfers)
+      .where(
+        and(
+          eq(workerTransfers.project_id, projectId),
+          sql`${workerTransfers.transferDate} < ${dateFrom}`
+        )
+      )
+      .groupBy(workerTransfers.worker_id);
+
     const proj = projectInfo[0];
 
     const attendanceSummary = attendanceSummaryRows.map((r) => ({
@@ -610,18 +660,67 @@ export class ReportDataService {
       totalPaid: safeNum(r.totalPaid),
     }));
 
-    const attendanceByWorker = attendanceByWorkerRows.map((r) => {
+    const transfersByWorkerMap = new Map<string, number>();
+    for (const t of transfersByWorkerRows) {
+      transfersByWorkerMap.set(t.workerId, safeNum(t.totalTransferred));
+    }
+
+    const preBalanceMap = new Map<string, number>();
+    for (const r of preAttendanceRows) {
       const earned = safeNum(r.totalEarned);
       const paid = safeNum(r.totalPaid);
-      return {
-        workerId: r.workerId,
-        workerName: r.workerName || '-',
-        workerType: r.workerType || '-',
-        totalDays: safeNum(r.totalDays),
-        totalEarned: earned,
-        totalPaid: paid,
-        balance: earned - paid,
-      };
+      preBalanceMap.set(r.workerId, earned - paid);
+    }
+    for (const r of preTransferRows) {
+      const existing = preBalanceMap.get(r.workerId) || 0;
+      preBalanceMap.set(r.workerId, existing - safeNum(r.totalTransferred));
+    }
+
+    const allWorkerIds = new Set<string>();
+    attendanceByWorkerRows.forEach((r) => allWorkerIds.add(r.workerId));
+    transfersByWorkerRows.forEach((r) => allWorkerIds.add(r.workerId));
+
+    const attendanceMap = new Map(attendanceByWorkerRows.map((r) => [r.workerId, r]));
+
+    const attendanceByWorker = Array.from(allWorkerIds).map((wId) => {
+      const att = attendanceMap.get(wId);
+      const transfer = transfersByWorkerMap.get(wId) || 0;
+      const carriedForward = preBalanceMap.get(wId) || 0;
+
+      if (att) {
+        const earned = safeNum(att.totalEarned);
+        const directPaid = safeNum(att.totalPaid);
+        const totalPaid = directPaid + transfer;
+        const periodBalance = earned - totalPaid;
+        return {
+          workerId: wId,
+          workerName: att.workerName || '-',
+          workerType: att.workerType || '-',
+          totalDays: safeNum(att.totalDays),
+          totalEarned: earned,
+          totalDirectPaid: directPaid,
+          totalTransfers: transfer,
+          totalPaid,
+          balance: periodBalance,
+          carriedForwardBalance: carriedForward,
+          closingBalance: carriedForward + periodBalance,
+        };
+      } else {
+        const tw = transfersByWorkerRows.find((t) => t.workerId === wId);
+        return {
+          workerId: wId,
+          workerName: tw?.workerName || '-',
+          workerType: tw?.workerType || '-',
+          totalDays: 0,
+          totalEarned: 0,
+          totalDirectPaid: 0,
+          totalTransfers: transfer,
+          totalPaid: transfer,
+          balance: -transfer,
+          carriedForwardBalance: carriedForward,
+          closingBalance: carriedForward - transfer,
+        };
+      }
     });
 
     const materialItems = materialsRows.map((r) => ({

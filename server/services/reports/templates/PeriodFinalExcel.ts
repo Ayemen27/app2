@@ -18,14 +18,20 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     pageSetup: {
       paperSize: 9, orientation: 'landscape', fitToPage: true,
       fitToWidth: 1, fitToHeight: 0,
-      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
+      margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
     },
   });
 
   ws.columns = [
-    { width: 5 }, { width: 18 }, { width: 10 }, { width: 10 },
-    { width: 14 }, { width: 14 }, { width: 12 }, { width: 14 },
+    { width: 5 },
+    { width: 22 },
+    { width: 12 },
+    { width: 12 },
+    { width: 15 },
+    { width: 15 },
     { width: 14 },
+    { width: 15 },
+    { width: 15 },
   ];
 
   let row = 1;
@@ -59,15 +65,28 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     lblCell.alignment = { horizontal: 'center', vertical: 'middle' };
     lblCell.border = BORDER;
   });
-  kpiRow.height = 24;
-  kpiLabelRow.height = 18;
+  kpiRow.height = 26;
+  kpiLabelRow.height = 20;
   row += 3;
 
   row = xlSectionHeader(ws, row, 'ملخص الحضور حسب العامل', COL_COUNT);
   row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'الأيام', 'المستحق', 'المدفوع', 'الحوالات', 'إجمالي المدفوع', 'المتبقي']);
   let totalAttDays = 0, totalAttEarned = 0, totalAttDirectPaid = 0, totalAttTransfers = 0, totalAttPaid = 0, totalAttBalance = 0;
   data.sections.attendance.byWorker.forEach((w, idx) => {
-    row = xlDataRow(ws, row, [idx + 1, w.workerName, w.workerType, w.totalDays, formatNum(w.totalEarned), formatNum(w.totalDirectPaid), formatNum(w.totalTransfers), formatNum(w.totalPaid), formatNum(w.balance)], idx % 2 === 1);
+    const r = ws.getRow(row);
+    const vals = [idx + 1, w.workerName, w.workerType, w.totalDays, formatNum(w.totalEarned), formatNum(w.totalDirectPaid), formatNum(w.totalTransfers), formatNum(w.totalPaid), formatNum(w.balance)];
+    vals.forEach((v, i) => {
+      r.getCell(i + 1).value = v;
+      const isTextCol = i === 1 || i === 2;
+      r.getCell(i + 1).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
+      r.getCell(i + 1).font = { size: 10, name: 'Calibri' };
+      r.getCell(i + 1).border = BORDER;
+      if (idx % 2 === 1) {
+        r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+      }
+    });
+    r.height = 24;
+    row++;
     totalAttDays += w.totalDays;
     totalAttEarned += w.totalEarned;
     totalAttDirectPaid += w.totalDirectPaid;
@@ -75,42 +94,219 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     totalAttPaid += w.totalPaid;
     totalAttBalance += w.balance;
   });
-  row = xlTotalsRow(ws, row, ['', 'الإجمالي', '', totalAttDays, formatNum(totalAttEarned), formatNum(totalAttDirectPaid), formatNum(totalAttTransfers), formatNum(totalAttPaid), formatNum(totalAttBalance)]);
+  {
+    const r = ws.getRow(row);
+    ws.mergeCells(row, 1, row, 3);
+    r.getCell(1).value = 'الإجمالي';
+    const totVals = [totalAttDays, formatNum(totalAttEarned), formatNum(totalAttDirectPaid), formatNum(totalAttTransfers), formatNum(totalAttPaid), formatNum(totalAttBalance)];
+    [4, 5, 6, 7, 8, 9].forEach((c, i) => {
+      r.getCell(c).value = totVals[i];
+    });
+    for (let c = 1; c <= COL_COUNT; c++) {
+      r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+      r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+      r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(c).border = BORDER;
+    }
+    r.height = 28;
+    row++;
+  }
   row++;
 
   row = xlSectionHeader(ws, row, 'ملخص المواد', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الكمية', 'الإجمالي', 'المورد', '', '', '', '']);
+  {
+    const hdr = ws.getRow(row);
+    ws.mergeCells(row, 5, row, 9);
+    ['#', 'اسم المادة', 'الكمية', 'الإجمالي', 'المورد'].forEach((text, i) => {
+      const col = i < 4 ? i + 1 : 5;
+      hdr.getCell(col).value = text;
+      hdr.getCell(col).font = { bold: true, size: 10, color: { argb: COLORS.white }, name: 'Calibri' };
+      hdr.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+      hdr.getCell(col).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      hdr.getCell(col).border = BORDER;
+    });
+    for (let c = 1; c <= COL_COUNT; c++) {
+      if (!hdr.getCell(c).border) hdr.getCell(c).border = BORDER;
+      if (!hdr.getCell(c).font?.bold) {
+        hdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+      }
+    }
+    hdr.height = 26;
+    row++;
+  }
   data.sections.materials.items.forEach((m, idx) => {
-    row = xlDataRow(ws, row, [idx + 1, m.materialName, m.totalQuantity, formatNum(m.totalAmount), m.supplierName, '', '', '', ''], idx % 2 === 1);
+    const r = ws.getRow(row);
+    ws.mergeCells(row, 5, row, 9);
+    r.getCell(1).value = idx + 1;
+    r.getCell(2).value = m.materialName;
+    r.getCell(3).value = m.totalQuantity;
+    r.getCell(4).value = formatNum(m.totalAmount);
+    r.getCell(5).value = m.supplierName;
+    for (let c = 1; c <= COL_COUNT; c++) {
+      const isTextCol = c === 2 || c === 5;
+      r.getCell(c).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
+      r.getCell(c).font = { size: 10, name: 'Calibri' };
+      r.getCell(c).border = BORDER;
+      if (idx % 2 === 1) {
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+      }
+    }
+    r.height = 24;
+    row++;
   });
-  row = xlTotalsRow(ws, row, ['', 'الإجمالي', '', formatNum(data.sections.materials.total), '', '', '', '', '']);
+  {
+    const r = ws.getRow(row);
+    ws.mergeCells(row, 1, row, 3);
+    ws.mergeCells(row, 5, row, 9);
+    r.getCell(1).value = 'الإجمالي';
+    r.getCell(4).value = formatNum(data.sections.materials.total);
+    for (let c = 1; c <= COL_COUNT; c++) {
+      r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+      r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+      r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(c).border = BORDER;
+    }
+    r.height = 28;
+    row++;
+  }
   row++;
 
   row = xlSectionHeader(ws, row, 'تحويلات العهدة', COL_COUNT);
-  row = xlTableHeader(ws, row, ['#', 'التاريخ', 'المبلغ', 'المرسل', 'نوع التحويل', '', '', '', '']);
+  {
+    const hdr = ws.getRow(row);
+    ws.mergeCells(row, 4, row, 5);
+    ws.mergeCells(row, 6, row, 9);
+    const headers = [
+      { col: 1, text: '#' },
+      { col: 2, text: 'التاريخ' },
+      { col: 3, text: 'المبلغ' },
+      { col: 4, text: 'المرسل' },
+      { col: 6, text: 'نوع التحويل' },
+    ];
+    headers.forEach(({ col, text }) => {
+      hdr.getCell(col).value = text;
+      hdr.getCell(col).font = { bold: true, size: 10, color: { argb: COLORS.white }, name: 'Calibri' };
+      hdr.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+      hdr.getCell(col).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      hdr.getCell(col).border = BORDER;
+    });
+    for (let c = 1; c <= COL_COUNT; c++) {
+      if (!hdr.getCell(c).border) hdr.getCell(c).border = BORDER;
+      if (!hdr.getCell(c).font?.bold) {
+        hdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+      }
+    }
+    hdr.height = 26;
+    row++;
+  }
   data.sections.fundTransfers.items.forEach((ft, idx) => {
-    row = xlDataRow(ws, row, [idx + 1, formatDateBR(ft.date), formatNum(ft.amount), ft.senderName, ft.transferType, '', '', '', ''], idx % 2 === 1);
+    const r = ws.getRow(row);
+    ws.mergeCells(row, 4, row, 5);
+    ws.mergeCells(row, 6, row, 9);
+    r.getCell(1).value = idx + 1;
+    r.getCell(2).value = formatDateBR(ft.date);
+    r.getCell(3).value = formatNum(ft.amount);
+    r.getCell(4).value = ft.senderName;
+    r.getCell(6).value = ft.transferType;
+    const textCols = [4, 6];
+    for (let c = 1; c <= COL_COUNT; c++) {
+      r.getCell(c).alignment = { horizontal: textCols.includes(c) ? 'right' : 'center', vertical: 'middle', wrapText: true };
+      r.getCell(c).font = { size: 10, name: 'Calibri' };
+      r.getCell(c).border = BORDER;
+      if (idx % 2 === 1) {
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+      }
+    }
+    r.height = 24;
+    row++;
   });
-  row = xlTotalsRow(ws, row, ['', 'الإجمالي', formatNum(data.sections.fundTransfers.total), '', '', '', '', '', '']);
+  {
+    const r = ws.getRow(row);
+    ws.mergeCells(row, 1, row, 2);
+    ws.mergeCells(row, 4, row, 9);
+    r.getCell(1).value = 'الإجمالي';
+    r.getCell(3).value = formatNum(data.sections.fundTransfers.total);
+    for (let c = 1; c <= COL_COUNT; c++) {
+      r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+      r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+      r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+      r.getCell(c).border = BORDER;
+    }
+    r.height = 28;
+    row++;
+  }
   row++;
 
   if (data.sections.projectTransfers?.items?.length > 0) {
     row = xlSectionHeader(ws, row, 'ترحيل الأموال بين المشاريع', COL_COUNT);
-    row = xlTableHeader(ws, row, ['#', 'التاريخ', 'المشروع', 'الاتجاه', 'السبب', 'المبلغ', '', '', '']);
+    {
+      const hdr = ws.getRow(row);
+      ws.mergeCells(row, 3, row, 4);
+      ws.mergeCells(row, 7, row, 9);
+      const headers = [
+        { col: 1, text: '#' },
+        { col: 2, text: 'التاريخ' },
+        { col: 3, text: 'المشروع' },
+        { col: 5, text: 'الاتجاه' },
+        { col: 6, text: 'المبلغ' },
+        { col: 7, text: 'السبب' },
+      ];
+      headers.forEach(({ col, text }) => {
+        hdr.getCell(col).value = text;
+        hdr.getCell(col).font = { bold: true, size: 10, color: { argb: COLORS.white }, name: 'Calibri' };
+        hdr.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        hdr.getCell(col).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        hdr.getCell(col).border = BORDER;
+      });
+      for (let c = 1; c <= COL_COUNT; c++) {
+        if (!hdr.getCell(c).border) hdr.getCell(c).border = BORDER;
+        if (!hdr.getCell(c).font?.bold) {
+          hdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        }
+      }
+      hdr.height = 26;
+      row++;
+    }
     data.sections.projectTransfers.items.forEach((pt, idx) => {
-      row = xlDataRow(ws, row, [
-        idx + 1,
-        formatDateBR(pt.date),
-        pt.direction === 'outgoing' ? pt.toProjectName : pt.fromProjectName,
-        pt.direction === 'outgoing' ? 'صادر' : 'وارد',
-        pt.reason,
-        formatNum(pt.amount),
-        '', '', '',
-      ], idx % 2 === 1);
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 3, row, 4);
+      ws.mergeCells(row, 7, row, 9);
+      r.getCell(1).value = idx + 1;
+      r.getCell(2).value = formatDateBR(pt.date);
+      r.getCell(3).value = pt.direction === 'outgoing' ? pt.toProjectName : pt.fromProjectName;
+      r.getCell(5).value = pt.direction === 'outgoing' ? 'صادر' : 'وارد';
+      r.getCell(6).value = formatNum(pt.amount);
+      r.getCell(7).value = pt.reason;
+      for (let c = 1; c <= COL_COUNT; c++) {
+        const isTextCol = c === 3 || c === 7;
+        r.getCell(c).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
+        r.getCell(c).font = { size: 10, name: 'Calibri' };
+        r.getCell(c).border = BORDER;
+        if (idx % 2 === 1) {
+          r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+        }
+      }
+      r.height = 24;
+      row++;
     });
-    row = xlTotalsRow(ws, row, ['', 'إجمالي الصادر', '', '', '', formatNum(data.sections.projectTransfers.totalOutgoing), '', '', '']);
-    row = xlTotalsRow(ws, row, ['', 'إجمالي الوارد', '', '', '', formatNum(data.sections.projectTransfers.totalIncoming), '', '', '']);
-    row = xlTotalsRow(ws, row, ['', 'الصافي', '', '', '', formatNum(data.sections.projectTransfers.net), '', '', '']);
+
+    const totLabels = ['إجمالي الصادر', 'إجمالي الوارد', 'الصافي'];
+    const totAmounts = [data.sections.projectTransfers.totalOutgoing, data.sections.projectTransfers.totalIncoming, data.sections.projectTransfers.net];
+    totLabels.forEach((label, i) => {
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 5);
+      ws.mergeCells(row, 7, row, 9);
+      r.getCell(1).value = label;
+      r.getCell(6).value = formatNum(totAmounts[i]);
+      for (let c = 1; c <= COL_COUNT; c++) {
+        r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        r.getCell(c).border = BORDER;
+      }
+      r.height = 26;
+      row++;
+    });
     row++;
   }
 
@@ -149,7 +345,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
       r.getCell(1).font = { bold: true, size: 11, color: { argb: COLORS.white }, name: 'Calibri' };
       r.getCell(5).font = { bold: true, size: 11, color: { argb: COLORS.white }, name: 'Calibri' };
     }
-    r.height = 22;
+    r.height = 24;
     row++;
   });
 
@@ -165,7 +361,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     r.getCell(5).font = { bold: true, size: 11, color: { argb: COLORS.amber }, name: 'Calibri' };
     r.getCell(5).alignment = { horizontal: 'center', vertical: 'middle' };
     r.getCell(5).border = BORDER;
-    r.height = 22;
+    r.height = 24;
     row++;
   }
 

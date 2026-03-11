@@ -26,7 +26,7 @@ function decodeJwtPayload(token: string): Record<string, any> | null {
 
 export function isTokenExpired(token: string, bufferSeconds: number = TOKEN_EXPIRY_BUFFER_SECONDS): boolean {
   const payload = decodeJwtPayload(token);
-  if (!payload || typeof payload.exp !== 'number') return false;
+  if (!payload || typeof payload.exp !== 'number') return true;
   const nowSeconds = Math.floor(Date.now() / 1000);
   return nowSeconds >= (payload.exp - bufferSeconds);
 }

@@ -53,6 +53,9 @@ export interface SyncLogEntry {
 
 function generateIdempotencyKey(action: string, endpoint: string, payload: Record<string, any>): string {
   const recordId = payload.id || payload.transferNumber || '';
+  if (action === 'create') {
+    return `${action}:${endpoint}:${recordId}:${Date.now()}:${Math.random().toString(36).substring(2, 8)}`;
+  }
   return `${action}:${endpoint}:${recordId}`;
 }
 
@@ -131,7 +134,28 @@ export async function queueForSync(
   return id;
 }
 
+const IN_FLIGHT_TIMEOUT = 120000;
+
+export async function recoverStaleInFlightItems(): Promise<number> {
+  const allItems = await smartGetAll('syncQueue');
+  const now = Date.now();
+  let recovered = 0;
+  for (const item of allItems) {
+    if (item.status === 'in-flight' && item.lastAttemptAt && (now - item.lastAttemptAt) > IN_FLIGHT_TIMEOUT) {
+      item.status = 'failed';
+      item.lastError = 'تعافي: عملية عالقة بعد انقطاع';
+      await smartPut('syncQueue', item);
+      recovered++;
+    }
+  }
+  if (recovered > 0) {
+    console.log(`🔧 [Queue] تم استعادة ${recovered} عمليات عالقة (in-flight)`);
+  }
+  return recovered;
+}
+
 export async function getPendingSyncQueue(): Promise<SyncQueueItem[]> {
+  await recoverStaleInFlightItems();
   const allItems = await smartGetAll('syncQueue');
   return allItems
     .filter((item: SyncQueueItem) => item.status === 'pending' || item.status === 'failed' || !item.status)

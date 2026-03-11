@@ -182,8 +182,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 setUser(updatedUser);
                 localStorage.setItem('user', JSON.stringify(updatedUser));
               }
-            } else {
-              console.warn('⚠️ [AuthProvider] فشل التحقق الصامت (401)، لكن سيتم الحفاظ على الجلسة المحلية.');
+            } else if (res.status === 401) {
+              console.warn('⚠️ [AuthProvider] فشل التحقق الصامت (401) - مسح الجلسة');
+              setUser(null);
+              localStorage.removeItem('user');
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
+              setAuthMode('online');
             }
           }).catch(() => {});
 
@@ -588,6 +593,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem('refreshToken');
       setAuthMode('online');
       clearAllCache();
+      
+      try {
+        const { smartClear } = await import('../offline/storage-factory');
+        const userDataStores = [
+          'userData', 'syncQueue', 'syncHistory', 'syncMetadata', 'deadLetterQueue'
+        ];
+        for (const store of userDataStores) {
+          try { await smartClear(store); } catch {}
+        }
+        if ('caches' in window) {
+          try { await caches.delete('api-data-v2'); } catch {}
+        }
+        console.log('🧹 [AuthProvider] تم تنظيف بيانات الأوفلاين عند الخروج');
+      } catch {}
     }
   };
 

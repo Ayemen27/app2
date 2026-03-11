@@ -126,7 +126,11 @@ export async function performInitialDataPull(): Promise<boolean> {
     return false;
   }
 
-  // منع المزامنة المتكررة إذا كانت جارية بالفعل
+  if (!isCurrentTabLeader()) {
+    console.log('🔄 [Sync] هذا التبويب ليس القائد، تخطي السحب الأولي');
+    return false;
+  }
+
   if (isSyncing) {
     console.log('🔄 [Sync] المزامنة جارية بالفعل، تخطي الطلب الجديد');
     return false;
@@ -544,6 +548,7 @@ export function stopSyncListener(): void {
 }
 
 export function triggerSync() {
+  if (!isCurrentTabLeader()) return;
   syncOfflineData().catch(err => console.error('❌ [Sync] خطأ في المزامنة الفورية:', err));
 }
 
@@ -584,6 +589,7 @@ export async function loadFullBackup(): Promise<{ recordCount: number }> {
 
 export function startBackgroundSync(): void {
   if (isSyncing) return;
+  if (!isCurrentTabLeader()) return;
   syncOfflineData().catch(err => {
     console.error('❌ [Sync] فشل المزامنة الخلفية:', err);
   });
@@ -598,6 +604,9 @@ export async function performInstantSync(tables?: string[], lastSyncTime?: numbe
   totalRecords: number;
   duration: number;
 }> {
+  if (!isCurrentTabLeader()) {
+    return { success: false, totalRecords: 0, duration: 0 };
+  }
   try {
     console.log('⚡ [Sync] بدء المزامنة الفورية...');
     const startTime = Date.now();

@@ -535,6 +535,8 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
         reports.push(...batchResults);
       }
       setRangeReports(reports);
+      const firstDataIndex = reports.findIndex(r => (r.totals?.totalExpenses || 0) > 0 || (r.attendance?.length || 0) > 0 || (r.materials?.length || 0) > 0 || (r.fundTransfers?.length || 0) > 0);
+      if (firstDataIndex > 0) setRangePageIndex(firstDataIndex);
     } catch (error: any) {
       toast({ title: "خطأ", description: error.message || "فشل تحميل التقارير", variant: "destructive" });
     } finally {
@@ -620,13 +622,29 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
   const currentRangeReport = rangeReports[rangePageIndex];
   const currentRangeDate = rangeDates[rangePageIndex];
 
+  const hasData = (r: DailyReportData) => (r.totals?.totalExpenses || 0) > 0 || (r.attendance?.length || 0) > 0 || (r.materials?.length || 0) > 0 || (r.fundTransfers?.length || 0) > 0;
+
+  const goToPrevWithData = () => {
+    for (let i = rangePageIndex - 1; i >= 0; i--) {
+      if (hasData(rangeReports[i])) { setRangePageIndex(i); return; }
+    }
+    setRangePageIndex(Math.max(0, rangePageIndex - 1));
+  };
+
+  const goToNextWithData = () => {
+    for (let i = rangePageIndex + 1; i < rangeReports.length; i++) {
+      if (hasData(rangeReports[i])) { setRangePageIndex(i); return; }
+    }
+    setRangePageIndex(Math.min(rangeDates.length - 1, rangePageIndex + 1));
+  };
+
   return (
     <div className="space-y-4">
       <UnifiedFilterDashboard
         filters={filterConfig}
         filterValues={filterValues}
         onFilterChange={onFilterChange}
-        actions={isRangeMode ? [] : exportActions}
+        actions={exportActions}
         searchValue={searchValue}
         onSearchChange={setSearchValue}
         searchPlaceholder="البحث في التقرير..."
@@ -670,22 +688,27 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
           {!isLoadingRange && rangeReports.length > 0 && currentRangeReport && (
             <>
               <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" data-testid="range-page-nav">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-9 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-                  onClick={() => setRangePageIndex(Math.max(0, rangePageIndex - 1))}
-                  disabled={rangePageIndex === 0}
-                  data-testid="btn-range-prev"
-                >
-                  <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                </Button>
+                <div className="flex flex-col items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={goToPrevWithData}
+                    disabled={rangePageIndex === 0}
+                    data-testid="btn-range-prev"
+                  >
+                    <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                  </Button>
+                </div>
 
                 <div className="flex flex-col items-center flex-1">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 font-bold">
                       {rangePageIndex + 1} / {rangeDates.length}
                     </Badge>
+                    {currentRangeReport && !hasData(currentRangeReport) && (
+                      <Badge variant="secondary" className="text-[10px] px-2 py-0 h-5 text-muted-foreground">بدون بيانات</Badge>
+                    )}
                   </div>
                   <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 mt-0.5">
                     <Calendar className="h-3.5 w-3.5 text-primary" />
@@ -698,16 +721,18 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
                   )}
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 w-9 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-                  onClick={() => setRangePageIndex(Math.min(rangeDates.length - 1, rangePageIndex + 1))}
-                  disabled={rangePageIndex >= rangeDates.length - 1}
-                  data-testid="btn-range-next"
-                >
-                  <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                </Button>
+                <div className="flex flex-col items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={goToNextWithData}
+                    disabled={rangePageIndex >= rangeDates.length - 1}
+                    data-testid="btn-range-next"
+                  >
+                    <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                  </Button>
+                </div>
               </div>
 
               <RangeDayPage report={currentRangeReport} searchValue={searchValue} />

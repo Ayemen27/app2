@@ -91,12 +91,12 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request).then((cached) => {
           if (cached) return cached;
           if (url.pathname.endsWith('.css')) {
-            return new Response('', { headers: { 'Content-Type': 'text/css' } });
+            return new Response('/* offline */', { headers: { 'Content-Type': 'text/css' } });
           }
           if (url.pathname.endsWith('.js') || url.pathname.endsWith('.ts') || url.pathname.endsWith('.tsx') || url.pathname.endsWith('.jsx')) {
-            return new Response('', { headers: { 'Content-Type': 'application/javascript' } });
+            return new Response('/* offline */', { headers: { 'Content-Type': 'application/javascript' } });
           }
-          return new Response('', { status: 204 });
+          return new Response(null, { status: 204 });
         });
       })
     );
@@ -127,12 +127,12 @@ self.addEventListener('fetch', (event) => {
           return response;
         }).catch(() => {
           if (url.pathname.endsWith('.js')) {
-            return new Response('', { headers: { 'Content-Type': 'application/javascript' } });
+            return new Response('/* offline */', { headers: { 'Content-Type': 'application/javascript' } });
           }
           if (url.pathname.endsWith('.css')) {
-            return new Response('', { headers: { 'Content-Type': 'text/css' } });
+            return new Response('/* offline */', { headers: { 'Content-Type': 'text/css' } });
           }
-          return new Response('', { status: 204 });
+          return new Response(null, { status: 204 });
         });
       })
     );

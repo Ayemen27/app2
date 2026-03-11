@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Check, ChevronDown, Search, X, Plus } from 'lucide-react';
+import { Check, ChevronDown, Search, X, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,7 @@ interface SearchableSelectProps {
   maxHeight?: number;
   allowCustom?: boolean;
   onCustomAdd?: (value: string) => void;
+  onDeleteOption?: (value: string) => void;
 }
 
 export function SearchableSelect({
@@ -45,6 +46,7 @@ export function SearchableSelect({
   maxHeight = 300,
   allowCustom = false,
   onCustomAdd,
+  onDeleteOption,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -174,10 +176,8 @@ export function SearchableSelect({
               ) : (
                 <>
                   {filteredOptions.map((option) => (
-                    <button
+                    <div
                       key={option.value}
-                      onClick={() => !option.disabled && handleSelect(option.value)}
-                      disabled={option.disabled}
                       className={cn(
                         'w-full flex items-center gap-2 px-3 py-2 text-sm rounded-sm text-right',
                         'hover:bg-accent hover:text-accent-foreground cursor-pointer',
@@ -186,21 +186,40 @@ export function SearchableSelect({
                         option.disabled && 'opacity-50 cursor-not-allowed'
                       )}
                     >
-                      <Check
-                        className={cn(
-                          'h-4 w-4 shrink-0',
-                          value === option.value ? 'opacity-100' : 'opacity-0'
-                        )}
-                      />
-                      <div className="flex-1 text-right">
-                        <div>{option.label}</div>
-                        {option.description && (
-                          <div className="text-xs text-muted-foreground">
+                      <button
+                        className="flex items-center gap-2 flex-1 text-right"
+                        onClick={() => !option.disabled && handleSelect(option.value)}
+                        disabled={option.disabled}
+                      >
+                        <Check
+                          className={cn(
+                            'h-4 w-4 shrink-0',
+                            value === option.value ? 'opacity-100' : 'opacity-0'
+                          )}
+                        />
+                        <div className="flex-1 text-right">
+                          <div>{option.label}</div>
+                          {option.description && (
+                            <div className="text-xs text-muted-foreground">
                             {option.description}
                           </div>
                         )}
                       </div>
                     </button>
+                      {onDeleteOption && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteOption(option.value);
+                          }}
+                          className="shrink-0 p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          title="حذف"
+                          data-testid={`delete-option-${option.value}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   ))}
                   {allowCustom && searchTerm.trim() && !filteredOptions.some(o => o.value === searchTerm.trim()) && (
                     <button

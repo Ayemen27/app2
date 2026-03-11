@@ -369,6 +369,44 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
 });
 
 /**
+ * DELETE /api/autocomplete/transport-categories/:value - حذف فئة نقل
+ */
+autocompleteRouter.delete('/transport-categories/:value', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const categoryValue = decodeURIComponent(req.params.value);
+    
+    const deleted = await db
+      .delete(autocompleteData)
+      .where(and(
+        eq(autocompleteData.category, 'transport-categories'),
+        eq(autocompleteData.value, categoryValue)
+      ))
+      .returning();
+    
+    if (deleted.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'الفئة غير موجودة'
+      });
+    }
+    
+    console.log('🗑️ [API] تم حذف فئة النقل:', categoryValue);
+    
+    res.json({
+      success: true,
+      message: 'تم حذف الفئة بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في حذف الفئة:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في حذف الفئة'
+    });
+  }
+});
+
+/**
  * تصدير دالة لتسجيل مسارات الإدارة على مستوى التطبيق الرئيسي
  * يتم استدعاؤها من modules/index.ts
  */

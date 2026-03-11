@@ -148,20 +148,32 @@ export default function TransportManagement() {
     mutationFn: async (name: string) => {
       return apiRequest("/api/autocomplete", "POST", {
         category: "transport-categories",
-        value: name.replace(/\s+/g, '_').toLowerCase(),
-        label: name,
+        value: name,
       });
     },
     onSuccess: (_data, name) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteTransportCategories });
-      const newValue = name.replace(/\s+/g, '_').toLowerCase();
-      setCategory(newValue);
+      setCategory(name);
       setNewCategoryName("");
       setIsAddingCategory(false);
       toast({ title: "تم إضافة الفئة بنجاح", description: `تمت إضافة "${name}"` });
     },
     onError: (error: any) => {
       toast({ title: "خطأ في إضافة الفئة", description: error?.message || "حدث خطأ", variant: "destructive" });
+    }
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return apiRequest(`/api/autocomplete/transport-categories/${encodeURIComponent(value)}`, "DELETE");
+    },
+    onSuccess: (_data, value) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteTransportCategories });
+      if (category === value) setCategory("");
+      toast({ title: "تم حذف الفئة", description: `تم حذف الفئة بنجاح` });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ في حذف الفئة", description: error?.message || "حدث خطأ", variant: "destructive" });
     }
   });
 
@@ -238,15 +250,19 @@ export default function TransportManagement() {
       }
     ];
 
-    const categoryStats: UnifiedStatItem[] = dynamicCategories.map((cat, idx) => {
-      const catTotal = data.filter(e => e.category === cat.value).reduce((sum, e) => sum + Number(e.amount), 0);
-      return {
-        title: cat.label,
-        value: formatCurrency(catTotal),
-        icon: STAT_ICONS[idx % STAT_ICONS.length],
-        color: STAT_COLORS[idx % STAT_COLORS.length],
-      };
-    });
+    const categoryStats: UnifiedStatItem[] = dynamicCategories
+      .map((cat, idx) => {
+        const catTotal = data.filter(e => e.category === cat.value).reduce((sum, e) => sum + Number(e.amount), 0);
+        return {
+          title: cat.label,
+          value: formatCurrency(catTotal),
+          icon: STAT_ICONS[idx % STAT_ICONS.length],
+          color: STAT_COLORS[idx % STAT_COLORS.length],
+          _amount: catTotal,
+        };
+      })
+      .filter(stat => stat._amount > 0)
+      .map(({ _amount, ...stat }) => stat);
 
     return [...summaryStats, ...categoryStats];
   }, [filteredExpenses, dynamicCategories]);
@@ -468,6 +484,11 @@ export default function TransportManagement() {
                           placeholder="اختر الفئة..."
                           triggerClassName="text-xs"
                           data-testid="select-category"
+                          onDeleteOption={(val) => {
+                            if (confirm(`هل تريد حذف الفئة "${val}"؟`)) {
+                              deleteCategoryMutation.mutate(val);
+                            }
+                          }}
                         />
                       </div>
                       <Button

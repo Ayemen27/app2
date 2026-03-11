@@ -53,6 +53,46 @@ function sanitizeLogData(data: any): any {
 const app = express();
 
 
+app.get('/favicon.ico', (req, res) => {
+  const faviconPath = path.resolve(process.cwd(), 'client', 'public', 'favicon.ico');
+  if (fs.existsSync(faviconPath)) {
+    res.setHeader('Content-Type', 'image/x-icon');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(faviconPath);
+  }
+  res.status(204).end();
+});
+
+app.get('/favicon.svg', (req, res) => {
+  const svgPath = path.resolve(process.cwd(), 'client', 'public', 'favicon.svg');
+  if (fs.existsSync(svgPath)) {
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(svgPath);
+  }
+  res.status(204).end();
+});
+
+app.get(['/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'], (req, res) => {
+  const iconPath = path.resolve(process.cwd(), 'client', 'public', req.path.slice(1));
+  if (fs.existsSync(iconPath)) {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(iconPath);
+  }
+  res.status(204).end();
+});
+
+app.get('/manifest.json', (req, res) => {
+  const manifestPath = path.resolve(process.cwd(), 'client', 'public', 'manifest.json');
+  if (fs.existsSync(manifestPath)) {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.sendFile(manifestPath);
+  }
+  res.status(204).end();
+});
+
 // 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
 app.use((req, res, next) => {
   res.removeHeader('X-Frame-Options');

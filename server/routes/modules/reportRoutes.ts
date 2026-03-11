@@ -1255,6 +1255,166 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       }
     }
 
+    if (type === 'daily-range') {
+      if (!project_id || !dateFrom || !dateTo) {
+        return res.status(400).json({ success: false, error: 'معرف المشروع وفترة التاريخ مطلوبة' });
+      }
+      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+      }
+      const from = new Date(dateFrom as string);
+      const to = new Date(dateTo as string);
+      const dates: string[] = [];
+      const current = new Date(from);
+      while (current <= to) {
+        dates.push(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+      }
+      const allReports: any[] = [];
+      for (const d of dates) {
+        try {
+          const data = await reportDataService.getDailyReport(project_id as string, d);
+          if (data) allReports.push(data);
+        } catch { /* skip */ }
+      }
+
+      if (format === 'xlsx') {
+        const ExcelJS = (await import('exceljs')).default;
+        const workbook = new ExcelJS.Workbook();
+        for (const report of allReports) {
+          const hasData = (report.totals?.totalExpenses || 0) > 0 || (report.attendance?.length || 0) > 0 || (report.materials?.length || 0) > 0;
+          if (!hasData) continue;
+          const dateLabel = report.date || '-';
+          const sheetName = dateLabel.replace(/[\\/*?:\[\]]/g, '').slice(0, 31);
+          const ws = workbook.addWorksheet(sheetName);
+          ws.views = [{ rightToLeft: true }];
+          const COL = 9;
+          ws.columns = Array.from({ length: COL }, () => ({ width: 16 }));
+          let row = 1;
+          const titleR = ws.getRow(row);
+          ws.mergeCells(row, 1, row, COL);
+          titleR.getCell(1).value = `التقرير اليومي - ${report.project?.name || ''} - ${dateLabel}`;
+          titleR.getCell(1).font = { bold: true, size: 14, name: 'Calibri' };
+          titleR.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+          titleR.height = 30;
+          row += 2;
+
+          if (report.attendance?.length > 0) {
+            const hdr = ws.getRow(row);
+            ws.mergeCells(row, 1, row, COL);
+            hdr.getCell(1).value = 'سجل الحضور';
+            hdr.getCell(1).font = { bold: true, size: 12, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
+            hdr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A5C' } };
+            hdr.getCell(1).alignment = { horizontal: 'center' };
+            row++;
+            const cols = ['#', 'اسم العامل', 'نوع العامل', 'أيام العمل', 'الأجر اليومي', 'إجمالي الأجر', 'المدفوع', 'المتبقي', 'وصف العمل'];
+            const hr = ws.getRow(row);
+            cols.forEach((c, i) => { hr.getCell(i + 1).value = c; hr.getCell(i + 1).font = { bold: true, size: 10, name: 'Calibri' }; });
+            row++;
+            report.attendance.forEach((r: any, idx: number) => {
+              const dr = ws.getRow(row);
+              [idx + 1, r.workerName, r.workerType, r.workDays, r.dailyWage, r.totalWage, r.paidAmount, r.remainingAmount, r.workDescription || '-'].forEach((v: any, i: number) => { dr.getCell(i + 1).value = v; });
+              row++;
+            });
+            row++;
+          }
+
+          if (report.materials?.length > 0) {
+            const hdr = ws.getRow(row);
+            ws.mergeCells(row, 1, row, COL);
+            hdr.getCell(1).value = 'المواد والمشتريات';
+            hdr.getCell(1).font = { bold: true, size: 12, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
+            hdr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A5C' } };
+            hdr.getCell(1).alignment = { horizontal: 'center' };
+            row++;
+            const cols = ['#', 'اسم المادة', 'الصنف', 'الكمية', 'الوحدة', 'سعر الوحدة', 'الإجمالي', 'المورد'];
+            const hr = ws.getRow(row);
+            cols.forEach((c, i) => { hr.getCell(i + 1).value = c; hr.getCell(i + 1).font = { bold: true, size: 10, name: 'Calibri' }; });
+            row++;
+            report.materials.forEach((r: any, idx: number) => {
+              const dr = ws.getRow(row);
+              [idx + 1, r.materialName, r.category || '-', r.quantity, r.unit || '-', r.unitPrice, r.totalAmount, r.supplierName || '-'].forEach((v: any, i: number) => { dr.getCell(i + 1).value = v; });
+              row++;
+            });
+            row++;
+          }
+
+          if (report.transport?.length > 0 || report.miscExpenses?.length > 0) {
+            const hdr = ws.getRow(row);
+            ws.mergeCells(row, 1, row, COL);
+            hdr.getCell(1).value = 'مصاريف أخرى (نقل + متنوعة)';
+            hdr.getCell(1).font = { bold: true, size: 12, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
+            hdr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A5C' } };
+            hdr.getCell(1).alignment = { horizontal: 'center' };
+            row++;
+            const cols = ['#', 'القسم', 'البيان', 'المبلغ', 'ملاحظات'];
+            const hr = ws.getRow(row);
+            cols.forEach((c, i) => { hr.getCell(i + 1).value = c; hr.getCell(i + 1).font = { bold: true, size: 10, name: 'Calibri' }; });
+            row++;
+            let num = 1;
+            (report.transport || []).forEach((r: any) => {
+              const dr = ws.getRow(row);
+              [num++, 'نقل', r.description || '-', r.amount, r.workerName || '-'].forEach((v: any, i: number) => { dr.getCell(i + 1).value = v; });
+              row++;
+            });
+            (report.miscExpenses || []).forEach((r: any) => {
+              const dr = ws.getRow(row);
+              [num++, 'مصاريف متنوعة', r.description || '-', r.amount, r.notes || '-'].forEach((v: any, i: number) => { dr.getCell(i + 1).value = v; });
+              row++;
+            });
+            row++;
+          }
+
+          if (report.fundTransfers?.length > 0) {
+            const hdr = ws.getRow(row);
+            ws.mergeCells(row, 1, row, COL);
+            hdr.getCell(1).value = 'العهدة (الوارد للصندوق)';
+            hdr.getCell(1).font = { bold: true, size: 12, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
+            hdr.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0E7A3A' } };
+            hdr.getCell(1).alignment = { horizontal: 'center' };
+            row++;
+            const cols = ['#', 'المبلغ', 'المرسل', 'نوع التحويل', 'رقم التحويل'];
+            const hr = ws.getRow(row);
+            cols.forEach((c, i) => { hr.getCell(i + 1).value = c; hr.getCell(i + 1).font = { bold: true, size: 10, name: 'Calibri' }; });
+            row++;
+            report.fundTransfers.forEach((r: any, idx: number) => {
+              const dr = ws.getRow(row);
+              [idx + 1, r.amount, r.senderName || '-', r.transferType || '-', r.transferNumber || '-'].forEach((v: any, i: number) => { dr.getCell(i + 1).value = v; });
+              row++;
+            });
+            row++;
+          }
+
+          const sumR = ws.getRow(row);
+          ws.mergeCells(row, 1, row, 5);
+          sumR.getCell(1).value = 'إجمالي المصروفات';
+          sumR.getCell(1).font = { bold: true, size: 11, name: 'Calibri' };
+          sumR.getCell(6).value = report.totals?.totalExpenses || 0;
+          sumR.getCell(6).font = { bold: true, size: 11, name: 'Calibri' };
+          sumR.getCell(6).numFmt = '#,##0.00';
+          row += 2;
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="daily-range-${dateFrom}-${dateTo}.xlsx"`);
+        return res.send(Buffer.from(buffer));
+      } else {
+        let allHtml = '';
+        for (const report of allReports) {
+          const hasData = (report.totals?.totalExpenses || 0) > 0 || (report.attendance?.length || 0) > 0 || (report.materials?.length || 0) > 0;
+          if (!hasData) continue;
+          allHtml += generateDailyReportHTML(report);
+          allHtml += '<div style="page-break-after: always;"></div>';
+        }
+        if (!allHtml) {
+          allHtml = '<h2 style="text-align:center;padding:40px;">لا توجد بيانات في هذه الفترة</h2>';
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(allHtml);
+      }
+    }
+
     if (type === 'period-final') {
       if (!project_id || !dateFrom || !dateTo) {
         return res.status(400).json({ success: false, error: 'معرف المشروع وفترة التاريخ مطلوبة' });

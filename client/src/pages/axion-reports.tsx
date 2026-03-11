@@ -555,7 +555,15 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
       toast({ title: "تنبيه", description: "الرجاء اختيار مشروع أولاً", variant: "destructive" });
       return;
     }
-    secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
+    if (isRangeMode && dateRange.from && dateRange.to) {
+      secureDownloadExport("daily-range", fmt, {
+        project_id: projectIdForApi,
+        dateFrom: format(dateRange.from, "yyyy-MM-dd"),
+        dateTo: format(dateRange.to, "yyyy-MM-dd"),
+      }, toast);
+    } else {
+      secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
+    }
   };
 
   const filterConfig: FilterConfig[] = [

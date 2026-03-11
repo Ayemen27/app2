@@ -117,6 +117,23 @@ function DailyExpensesContent() {
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
   const [isMiscExpanded, setIsMiscExpanded] = useState(false);
 
+  const { data: dynamicTransportCategories = [] } = useQuery<{ value: string; label: string }[]>({
+    queryKey: QUERY_KEYS.autocompleteTransportCategories,
+    queryFn: async () => {
+      const res = await apiRequest("/api/autocomplete/transport-categories", "GET");
+      if (Array.isArray(res)) {
+        return res.map((item: any) => ({ value: item.value || item, label: item.value || item }));
+      }
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (dynamicTransportCategories.length > 0 && !transportCategory) {
+      setTransportCategory(dynamicTransportCategories[0].value);
+    }
+  }, [dynamicTransportCategories]);
+
   const { 
     data: workerMiscExpenses = [], 
     isLoading: miscLoading 
@@ -150,7 +167,7 @@ function DailyExpensesContent() {
   const [transportAmount, setTransportAmount] = useState<string>("");
   const [transportNotes, setTransportNotes] = useState<string>("");
   const [editingTransportationId, setEditingTransportationId] = useState<string | null>(null);
-  const [transportCategory, setTransportCategory] = useState<string>("worker_transport");
+  const [transportCategory, setTransportCategory] = useState<string>("");
 
   // Worker attendance form
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>("");
@@ -1415,7 +1432,7 @@ function DailyExpensesContent() {
     setTransportDescription("");
     setTransportAmount("");
     setTransportNotes("");
-    setTransportCategory("worker_transport");
+    setTransportCategory(dynamicTransportCategories.length > 0 ? dynamicTransportCategories[0].value : "");
     setEditingTransportationId(null);
   };
 
@@ -1423,7 +1440,7 @@ function DailyExpensesContent() {
     setTransportDescription(expense.description);
     setTransportAmount(expense.amount);
     setTransportNotes(expense.notes || "");
-    setTransportCategory(expense.category || "worker_transport");
+    setTransportCategory(expense.category || "");
     setEditingTransportationId(expense.id);
   };
 
@@ -1583,8 +1600,6 @@ function DailyExpensesContent() {
     }
   ], [totalsValue]);
 
-  // فئات المواصلات (يمكن جعلها من قاعدة البيانات لاحقاً)
-  const transportCategories = ["عام", "خاص", "بترول", "ديزل", "صيانة", "إيجار"];
   
   // فئات النثريات (يمكن جعلها من قاعدة البيانات لاحقاً)
   const miscCategories = ["قرطاسية", "ضيافة", "اتصالات", "صيانة مكتب", "أخرى"];
@@ -1624,16 +1639,7 @@ function DailyExpensesContent() {
       placeholder: 'جميع الفئات',
       options: [
         { value: 'all', label: 'جميع الفئات' },
-        { value: "worker_transport", label: "نقل عمال" },
-        { value: "material_delivery", label: "توريد مواد" },
-        { value: "concrete_transport", label: "نقل خرسانة" },
-        { value: "iron_platforms", label: "نقل حديد ومنصات" },
-        { value: "fuel_shas", label: "بترول شاص" },
-        { value: "fuel_hilux", label: "بترول هيلكس" },
-        { value: "loading_unloading", label: "تحميل وتنزيل" },
-        { value: "maintenance", label: "صيانة وإصلاح" },
-        { value: "water_supply", label: "توريد مياه" },
-        { value: "other", label: "أخرى" }
+        ...dynamicTransportCategories
       ]
     },
     {
@@ -1646,7 +1652,7 @@ function DailyExpensesContent() {
         ...miscCategories.map(cat => ({ value: cat, label: cat }))
       ]
     }
-  ], []);
+  ], [dynamicTransportCategories]);
 
   // دوال معالجة الفلاتر
   const handleRefresh = async () => {
@@ -2357,16 +2363,13 @@ function DailyExpensesContent() {
                       <SelectValue placeholder="اختر الفئة" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="worker_transport">نقل عمال</SelectItem>
-                      <SelectItem value="material_delivery">توريد مواد</SelectItem>
-                      <SelectItem value="concrete_transport">نقل خرسانة</SelectItem>
-                      <SelectItem value="iron_platforms">نقل حديد ومنصات</SelectItem>
-                      <SelectItem value="fuel_shas">بترول شاص</SelectItem>
-                      <SelectItem value="fuel_hilux">بترول هيلكس</SelectItem>
-                      <SelectItem value="loading_unloading">تحميل وتنزيل</SelectItem>
-                      <SelectItem value="maintenance">صيانة وإصلاح</SelectItem>
-                      <SelectItem value="water_supply">توريد مياه</SelectItem>
-                      <SelectItem value="other">أخرى</SelectItem>
+                      {dynamicTransportCategories.length > 0 ? (
+                        dynamicTransportCategories.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="other">أخرى</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2441,18 +2444,7 @@ function DailyExpensesContent() {
                                   </div>
                                   <div className="flex flex-wrap gap-2">
                                     <Badge variant="outline" className="text-[10px] bg-orange-100/50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
-                            {[
-                              { value: "worker_transport", label: "نقل عمال" },
-                              { value: "material_delivery", label: "توريد مواد" },
-                              { value: "concrete_transport", label: "نقل خرسانة" },
-                              { value: "iron_platforms", label: "نقل حديد ومنصات" },
-                              { value: "fuel_shas", label: "بترول شاص" },
-                              { value: "fuel_hilux", label: "بترول هيلكس" },
-                              { value: "loading_unloading", label: "تحميل وتنزيل" },
-                              { value: "maintenance", label: "صيانة وإصلاح" },
-                              { value: "water_supply", label: "توريد مياه" },
-                              { value: "other", label: "أخرى" }
-                            ].find(opt => opt.value === expense.category)?.label || "أخرى"}
+                            {dynamicTransportCategories.find(opt => opt.value === expense.category)?.label || expense.category || "أخرى"}
                           </Badge>
                           {expense.notes && (
                             <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>

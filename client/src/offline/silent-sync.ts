@@ -7,6 +7,8 @@ import { smartGet, smartPut } from './storage-factory';
 import { apiRequest } from '../lib/queryClient';
 import { resolveConflictLWW, logConflict } from './conflict-resolver';
 import type { ConflictData } from './conflict-resolver';
+import { endpointToStore } from './store-registry';
+import { isCurrentTabLeader } from './sync-leader';
 
 let _isSyncing = false;
 
@@ -31,6 +33,7 @@ function isRetryableError(statusCode: number): boolean {
 
 export async function runSilentSync() {
   if (_isSyncing) return;
+  if (!isCurrentTabLeader()) return;
   _isSyncing = true;
   try {
     await _executeSilentSync();
@@ -422,7 +425,7 @@ async function _executeSilentSync() {
 
 async function updateLocalItemSyncStatus(item: SyncQueueItem, synced: boolean): Promise<void> {
   try {
-    const storeName = item.endpoint.split('/')[2];
+    const storeName = endpointToStore(item.endpoint);
     const recordId = item.payload?.id;
     if (!storeName || !recordId) return;
 
@@ -444,16 +447,20 @@ export function initSilentSyncObserver(intervalMs = 30000) {
     return;
   }
 
-  runSilentSync();
+  if (isCurrentTabLeader()) {
+    runSilentSync();
+  }
 
   _intervalId = setInterval(() => {
-    if (navigator.onLine) {
+    if (navigator.onLine && isCurrentTabLeader()) {
       runSilentSync();
     }
   }, intervalMs);
 
   _onlineHandler = () => {
-    runSilentSync();
+    if (isCurrentTabLeader()) {
+      runSilentSync();
+    }
   };
   window.addEventListener('online', _onlineHandler);
 }

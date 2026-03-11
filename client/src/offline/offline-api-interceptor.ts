@@ -3,57 +3,10 @@ import { smartPut, smartGet, smartGetAll, smartDelete } from './storage-factory'
 import { queueForSync } from './offline';
 import { runSilentSync } from './silent-sync';
 import { recordAuditEntry } from './local-audit';
-
-const ENDPOINT_TO_STORE: Record<string, string> = {
-  '/api/fund-transfers': 'fundTransfers',
-  '/api/worker-attendance': 'workerAttendance',
-  '/api/transportation-expenses': 'transportationExpenses',
-  '/api/material-purchases': 'materialPurchases',
-  '/api/worker-transfers': 'workerTransfers',
-  '/api/worker-misc-expenses': 'workerMiscExpenses',
-  '/api/workers': 'workers',
-  '/api/projects': 'projects',
-  '/api/suppliers': 'suppliers',
-  '/api/materials': 'materials',
-  '/api/wells': 'wells',
-  '/api/project-types': 'projectTypes',
-  '/api/autocomplete': 'autocompleteData',
-  '/api/autocomplete/worker-types': 'workerTypes',
-  '/api/autocomplete/material-names': 'autocompleteData',
-  '/api/autocomplete/supplier-names': 'autocompleteData',
-  '/api/supplier-payments': 'supplierPayments',
-  '/api/daily-expense-summaries': 'dailyExpenseSummaries',
-  '/api/worker-balances': 'workerBalances',
-  '/api/notifications': 'notifications',
-};
+import { endpointToStore, ENDPOINT_TO_STORE_MAP as ENDPOINT_TO_STORE } from './store-registry';
 
 function resolveStoreName(endpoint: string): string | null {
-  const clean = endpoint.split('?')[0];
-  
-  if (clean === '/api/autocomplete/worker-types' || clean.startsWith('/api/autocomplete/worker-types/')) {
-    return 'workerTypes';
-  }
-  
-  if (clean.startsWith('/api/projects/') && clean.includes('/')) {
-    const subResource = clean.replace(/^\/api\/projects\/\d+\//, '');
-    if (subResource.startsWith('fund-transfers')) return 'fundTransfers';
-    if (subResource.startsWith('worker-attendance')) return 'workerAttendance';
-    if (subResource.startsWith('material-purchases')) return 'materialPurchases';
-    if (subResource.startsWith('transportation')) return 'transportationExpenses';
-    if (subResource.startsWith('worker-transfers')) return 'workerTransfers';
-    if (subResource.startsWith('worker-misc')) return 'workerMiscExpenses';
-    if (subResource.startsWith('supplier-payments')) return 'supplierPayments';
-    if (subResource.startsWith('daily-expenses') || subResource.startsWith('daily-expense-summaries')) return 'dailyExpenseSummaries';
-    if (subResource.startsWith('workers')) return 'workers';
-  }
-  
-  for (const [pattern, store] of Object.entries(ENDPOINT_TO_STORE)) {
-    if (clean === pattern || clean.startsWith(pattern + '/')) {
-      return store;
-    }
-  }
-  
-  return null;
+  return endpointToStore(endpoint);
 }
 
 function extractIdFromEndpoint(endpoint: string): string | null {

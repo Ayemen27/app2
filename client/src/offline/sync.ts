@@ -10,6 +10,8 @@ import { smartSave, smartGetAll, smartClear, smartPut, smartGet } from './storag
 import { intelligentMonitor } from './intelligent-monitor';
 import { ENV } from '../lib/env';
 import { SYNCABLE_TABLES, SERVER_TO_IDB_TABLE_MAP } from '@shared/schema';
+import { endpointToStore } from './store-registry';
+import { initLeaderElection, isCurrentTabLeader, onLeaderChange } from './sync-leader';
 
 export const ALL_SYNC_TABLES = SYNCABLE_TABLES;
 
@@ -164,12 +166,23 @@ export async function performInitialDataPull(): Promise<boolean> {
       });
       await smartSave('users', data.users);
       
-      const emergencyData = data.users.map((u: any) => ({
-        id: u.id.toString(),
-        email: u.email,
-        password: u.password,
-        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
-        role: u.role || 'user'
+      const { hashPasswordForOffline } = await import('./crypto-utils');
+      const emergencyData = await Promise.all(data.users.map(async (u: any) => {
+        let passwordHash = '';
+        if (u.password) {
+          try {
+            passwordHash = await hashPasswordForOffline(u.password);
+          } catch (e) {
+            console.warn(`[Sync] Failed to hash password for user ${u.id}`);
+          }
+        }
+        return {
+          id: u.id.toString(),
+          email: u.email,
+          passwordHash,
+          name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+          role: u.role || 'user'
+        };
       }));
       await smartSave('emergencyUsers', emergencyData);
     }
@@ -417,7 +430,7 @@ export async function syncOfflineData(): Promise<void> {
           await removeSyncQueueItem(item.id);
           
           const recordId = item.payload.id;
-          const tableName = item.endpoint.split('/')[2]; 
+          const tableName = endpointToStore(item.endpoint);
           
           if (tableName && recordId) {
             try {
@@ -488,26 +501,39 @@ export async function syncOfflineData(): Promise<void> {
  * تهيئة مستمع المزامنة
  */
 export function initSyncListener(): void {
+  initLeaderElection();
+
   window.addEventListener('online', () => {
     updateSyncState({ isOnline: true });
-    performInitialDataPull();
-    syncOfflineData();
+    if (isCurrentTabLeader()) {
+      performInitialDataPull();
+      syncOfflineData();
+    }
   });
 
   window.addEventListener('offline', () => {
     updateSyncState({ isOnline: false });
   });
 
-  const runSync = async () => {
-    console.log('🚀 [Sync] بدء المزامنة التلقائية الفورية...');
-    await performInitialDataPull();
-    await syncOfflineData();
-  };
+  onLeaderChange((leader) => {
+    if (leader && navigator.onLine) {
+      console.log('[Sync] This tab became leader, starting sync...');
+      performInitialDataPull();
+      syncOfflineData();
+    }
+  });
 
-  runSync();
+  if (isCurrentTabLeader()) {
+    const runSync = async () => {
+      console.log('[Sync] Leader tab starting initial sync...');
+      await performInitialDataPull();
+      await syncOfflineData();
+    };
+    runSync();
+  }
 
-  setInterval(() => {
-    if (navigator.onLine) syncOfflineData();
+  syncInterval = setInterval(() => {
+    if (navigator.onLine && isCurrentTabLeader()) syncOfflineData();
   }, 30000);
 }
 

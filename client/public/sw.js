@@ -1,60 +1,53 @@
-const CACHE_NAME = 'binarjoin-v4';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'binarjoin-v5';
+const API_CACHE = 'api-data-v2';
+
+const APP_SHELL = [
   '/',
-  '/index.html',
+  '/offline.html',
   '/manifest.json',
   '/favicon.ico',
   '/icon-192.png',
-  '/icon-512.png',
-  '/index.css',
-  '/main.tsx'
+  '/icon-512.png'
 ];
 
-// Install Event
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Caching essential assets');
-      return cache.addAll(ASSETS_TO_CACHE);
+      return cache.addAll(APP_SHELL);
     })
   );
   self.skipWaiting();
 });
 
-// Activate Event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME && !cache.startsWith('api-')) {
-            return caches.delete(cache);
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME && name !== API_CACHE) {
+            return caches.delete(name);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clientsClaim();
 });
 
-// Fetch Event
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip cross-origin requests and non-GET requests
   if (!event.request.url.startsWith(self.location.origin) || event.request.method !== 'GET') {
     return;
   }
 
-  // API Requests: Network First, falling back to cache
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.status === 200) {
-            const clonedResponse = response.clone();
-            caches.open('api-data-v1').then((cache) => {
-              cache.put(event.request, clonedResponse);
+            const cloned = response.clone();
+            caches.open(API_CACHE).then((cache) => {
+              cache.put(event.request, cloned);
             });
           }
           return response;
@@ -66,22 +59,65 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static Assets and Pages: Network First, falling back to cache
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, cloned);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request.url)
+            .then((cached) => cached || caches.match('/offline.html'));
+        })
+    );
+    return;
+  }
+
+  const assetExtensions = /\.(js|css|png|jpg|jpeg|svg|gif|ico|woff2?|ttf|eot)(\?.*)?$/;
+  if (assetExtensions.test(url.pathname) || url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) {
+          fetch(event.request).then((response) => {
+            if (response && response.status === 200 && response.type === 'basic') {
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, response);
+              });
+            }
+          }).catch(() => {});
+          return cached;
+        }
+        return fetch(event.request).then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, cloned);
+            });
+          }
+          return response;
+        }).catch(() => caches.match('/offline.html'));
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful responses
         if (response && response.status === 200 && response.type === 'basic') {
-          const responseToCache = response.clone();
+          const cloned = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put(event.request, cloned);
           });
         }
         return response;
       })
-      .catch(() => {
-        // Fallback to cache only when network fails (offline mode)
-        return caches.match(event.request);
-      })
+      .catch(() => caches.match(event.request))
   );
 });

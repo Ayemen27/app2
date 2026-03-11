@@ -4,52 +4,7 @@ import { smartGetAll, smartSave } from "@/offline/storage-factory";
 import { ENV } from './env';
 import { offlineApiInterceptor, isOfflineSupportedEndpoint, triggerBackgroundSync } from "@/offline/offline-api-interceptor";
 import { isValidJwt, getValidToken, isTokenExpired } from './token-utils';
-
-const QUERY_KEY_TO_STORE: Record<string, string> = {
-  '/api/workers': 'workers',
-  '/api/projects': 'projects',
-  '/api/projects/with-stats': 'projects',
-  '/api/suppliers': 'suppliers',
-  '/api/materials': 'materials',
-  '/api/fund-transfers': 'fundTransfers',
-  '/api/worker-attendance': 'workerAttendance',
-  '/api/material-purchases': 'materialPurchases',
-  '/api/transportation-expenses': 'transportationExpenses',
-  '/api/worker-transfers': 'workerTransfers',
-  '/api/worker-misc-expenses': 'workerMiscExpenses',
-  '/api/supplier-payments': 'supplierPayments',
-  '/api/autocomplete': 'autocompleteData',
-  '/api/autocomplete/worker-types': 'workerTypes',
-  '/api/project-types': 'projectTypes',
-  '/api/wells': 'wells',
-  '/api/daily-expense-summaries': 'dailyExpenseSummaries',
-  '/api/worker-balances': 'workerBalances',
-  '/api/notifications': 'notifications',
-};
-
-function resolveStoreForQueryKey(queryKey: readonly unknown[]): string | null {
-  const fullPath = (queryKey as string[]).join('/');
-  const cleanPath = fullPath.split('?')[0];
-  
-  if (cleanPath.includes('/autocomplete/worker-types')) return 'workerTypes';
-  
-  if (cleanPath.includes('/fund-transfers')) return 'fundTransfers';
-  if (cleanPath.includes('/worker-attendance')) return 'workerAttendance';
-  if (cleanPath.includes('/material-purchases')) return 'materialPurchases';
-  if (cleanPath.includes('/transportation')) return 'transportationExpenses';
-  if (cleanPath.includes('/worker-transfers')) return 'workerTransfers';
-  if (cleanPath.includes('/worker-misc')) return 'workerMiscExpenses';
-  if (cleanPath.includes('/supplier-payments')) return 'supplierPayments';
-  if (cleanPath.includes('/daily-expenses') || cleanPath.includes('/daily-expense-summaries')) return 'dailyExpenseSummaries';
-  
-  for (const [pattern, store] of Object.entries(QUERY_KEY_TO_STORE)) {
-    if (cleanPath === pattern || cleanPath.startsWith(pattern + '/')) {
-      return store;
-    }
-  }
-  
-  return null;
-}
+import { queryKeyToStore as resolveStoreForQueryKey } from "@/offline/store-registry";
 
 function cacheResponseToLocal(storeName: string, data: any) {
   try {

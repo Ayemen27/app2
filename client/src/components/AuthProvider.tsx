@@ -181,17 +181,70 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initAuth();
   }, []);
 
-  // ✅ تأثير لمراقبة التغييرات في localStorage من تبويبات أخرى
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'accessToken' && !e.newValue) {
-        console.log('🚫 [AuthProvider] تم اكتشاف مسح التوكن من مصدر خارجي');
+        console.log('[AuthProvider] Token cleared externally');
         setUser(null);
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const revalidateSession = async () => {
+      const accessToken = getValidToken('accessToken');
+      if (!accessToken) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            const resolvedName = data.user.name ||
+              [data.user.first_name, data.user.last_name].filter(Boolean).join(' ') ||
+              user.name ||
+              data.user.email;
+
+            const isEmailVerified =
+              data.user.emailVerified === true ||
+              !!data.user.email_verified_at ||
+              localStorage.getItem('emailVerified') === 'true';
+
+            const updatedUser = {
+              ...data.user,
+              name: resolvedName,
+              emailVerified: isEmailVerified
+            };
+
+            if (isEmailVerified) {
+              localStorage.setItem('emailVerified', 'true');
+            }
+
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setAuthMode('online');
+          }
+        } else if (res.status === 401) {
+          console.warn('[AuthProvider] Session invalid on revalidation, logging out');
+          await logout();
+        }
+      } catch {
+      }
+    };
+
+    const handleOnline = () => {
+      revalidateSession();
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [user]);
 
   // تسجيل الدخول
   const login = async (email: string, password: string) => {

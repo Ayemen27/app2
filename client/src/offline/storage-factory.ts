@@ -69,7 +69,20 @@ export async function smartPut(tableName: string, record: any): Promise<void> {
     await nativeStorage.set(tableName, id, record);
   } else {
     const db = await getIDB();
-    await db.put(tableName as any, record);
+    try {
+      await db.put(tableName as any, record);
+    } catch (error) {
+      const { isQuotaExceededError, isCorruptionError, handleStorageError } = await import('./storage-recovery');
+      if (isQuotaExceededError(error) || isCorruptionError(error)) {
+        const recovered = await handleStorageError(error);
+        if (recovered) {
+          const retryDb = await getIDB();
+          await retryDb.put(tableName as any, record);
+          return;
+        }
+      }
+      throw error;
+    }
   }
 }
 
@@ -154,6 +167,27 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
       }
       await tx.done;
     } catch (e) {
+      const { isQuotaExceededError, isCorruptionError, handleStorageError } = await import('./storage-recovery');
+      if (isQuotaExceededError(e) || isCorruptionError(e)) {
+        const recovered = await handleStorageError(e);
+        if (recovered) {
+          const retryDb = await getIDB();
+          let retryCount = 0;
+          const retryTx = retryDb.transaction(tableName as any, 'readwrite');
+          const retryStore = retryTx.objectStore(tableName as any);
+          for (const record of records) {
+            if (record && (record.id || record.key)) {
+              try {
+                retryStore.put(record);
+                retryCount++;
+              } catch {
+              }
+            }
+          }
+          await retryTx.done;
+          return retryCount;
+        }
+      }
       console.warn(`[smartSave] Transaction failed for ${tableName}, falling back to individual puts:`, e);
       for (const record of records) {
         if (record && (record.id || record.key)) {

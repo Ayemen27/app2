@@ -5,53 +5,52 @@ import App from "./App";
 import "./index.css";
 import "./nav-fix.css";
 
-// 🚀 تنظيف الكود وتبسيط عملية الإقلاع للإنتاج
+const registerServiceWorker = async () => {
+  if (!('serviceWorker' in navigator)) return;
+
+  try {
+    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (newWorker) {
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('[SW] New version available, reloading...');
+            window.location.reload();
+          }
+        });
+      }
+    });
+
+    registration.update().catch(() => {});
+  } catch (err) {
+    console.error('[SW] Registration failed:', err);
+  }
+
+  if ('caches' in window) {
+    try {
+      const cacheNames = await caches.keys();
+      for (const name of cacheNames) {
+        if (name.includes('binarjoin-v') && name !== 'binarjoin-v5') {
+          await caches.delete(name);
+        }
+      }
+    } catch (_) {}
+  }
+};
+
 const startApp = async () => {
   const rootElement = document.getElementById("root");
   if (!rootElement) return;
 
   try {
-    // تنظيف الكاش وإجبار التحديث عند وجود نسخة جديدة
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) {
-          registration.update();
-          // الاستماع لتحديثات Service Worker الجديدة
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // يوجد تحديث جديد، إعادة تحميل الصفحة
-                  console.log('🔄 تم اكتشاف تحديث جديد، جاري التحديث...');
-                  window.location.reload();
-                }
-              });
-            }
-          });
-        }
-      });
-      
-      // مسح الكاش القديم عند بدء التطبيق
-      if ('caches' in window) {
-        caches.keys().then(cacheNames => {
-          cacheNames.forEach(cacheName => {
-            if (cacheName.includes('binarjoin-v') && !cacheName.includes('binarjoin-v3')) {
-              caches.delete(cacheName);
-              console.log('🗑️ تم حذف كاش قديم:', cacheName);
-            }
-          });
-        });
-      }
-    }
+    registerServiceWorker();
 
-    // تهيئة قاعدة البيانات في الخلفية لتجنب حجب الواجهة
     initializeDB().catch(console.error);
-    
-    // تسجيل معالج الأخطاء العالمي لالتقاط الانهيارات المبكرة
+
     window.onerror = (message, source, lineno, colno, error) => {
       console.error("Global error caught:", { message, source, lineno, colno, error });
-      // محاولة إرسال التقرير للسيرفر إذا كان ذلك ممكناً
       fetch('/api/crashes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

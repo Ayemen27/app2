@@ -2,6 +2,7 @@ import {
   smartGet, smartGetAll, smartPut, smartDelete,
   smartCount, smartClear, smartQuery
 } from './storage-factory';
+import { ENTITY_STORES } from './store-registry';
 
 export function isOnline(): boolean {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -74,22 +75,6 @@ export async function getLastSyncTime(): Promise<number | null> {
     return null;
   }
 }
-
-const ENTITY_STORES = {
-  projects: 'projects',
-  workers: 'workers',
-  materials: 'materials',
-  suppliers: 'suppliers',
-  workerAttendance: 'workerAttendance',
-  materialPurchases: 'materialPurchases',
-  transportationExpenses: 'transportationExpenses',
-  fundTransfers: 'fundTransfers',
-  workerTransfers: 'workerTransfers',
-  workerMiscExpenses: 'workerMiscExpenses',
-  wells: 'wells',
-  projectTypes: 'projectTypes',
-  users: 'users',
-} as const;
 
 export type EntityName = keyof typeof ENTITY_STORES;
 

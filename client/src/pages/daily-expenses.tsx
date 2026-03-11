@@ -9,7 +9,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -30,6 +29,7 @@ import ExpenseSummary from "@/components/expense-summary";
 import WorkerMiscExpenses from "./worker-misc-expenses";
 import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
@@ -48,6 +48,7 @@ import type {
   WorkerTransfer,
   Worker,
   Project,
+  Supplier,
   InsertFundTransfer,
   InsertTransportationExpense,
   InsertDailyExpenseSummary,
@@ -58,7 +59,6 @@ import type {
 
 function DailyExpensesContent() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects } = useSelectedProject();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [carriedForward, setCarriedForward] = useState<string>("0");
@@ -168,6 +168,29 @@ function DailyExpensesContent() {
   const [transportNotes, setTransportNotes] = useState<string>("");
   const [editingTransportationId, setEditingTransportationId] = useState<string | null>(null);
   const [transportCategory, setTransportCategory] = useState<string>("");
+
+  // Material purchase form
+  const [purchaseMaterialName, setPurchaseMaterialName] = useState<string>("");
+  const [purchaseQuantity, setPurchaseQuantity] = useState<string>("");
+  const [purchaseUnit, setPurchaseUnit] = useState<string>("");
+  const [purchaseUnitPrice, setPurchaseUnitPrice] = useState<string>("");
+  const [purchaseTotalAmount, setPurchaseTotalAmount] = useState<string>("");
+  const [purchaseType, setPurchaseType] = useState<string>("نقد");
+  const [purchaseSupplierName, setPurchaseSupplierName] = useState<string>("");
+  const [purchaseNotes, setPurchaseNotes] = useState<string>("");
+  const [purchaseWellId, setPurchaseWellId] = useState<number | undefined>();
+  const [editingMaterialPurchaseId, setEditingMaterialPurchaseId] = useState<string | null>(null);
+
+  // Worker transfer form
+  const [workerTransferWorkerId, setWorkerTransferWorkerId] = useState<string>("");
+  const [workerTransferAmount, setWorkerTransferAmount] = useState<string>("");
+  const [workerTransferRecipientName, setWorkerTransferRecipientName] = useState<string>("");
+  const [workerTransferRecipientPhone, setWorkerTransferRecipientPhone] = useState<string>("");
+  const [workerTransferMethod, setWorkerTransferMethod] = useState<string>("hawaleh");
+  const [workerTransferNumber, setWorkerTransferNumber] = useState<string>("");
+  const [workerTransferSenderName, setWorkerTransferSenderName] = useState<string>("");
+  const [workerTransferNotes, setWorkerTransferNotes] = useState<string>("");
+  const [editingWorkerTransferId, setEditingWorkerTransferId] = useState<string | null>(null);
 
   // Worker attendance form
   const [selectedWorkerId, setSelectedWorkerId] = useState<string>("");
@@ -437,7 +460,27 @@ function DailyExpensesContent() {
     refetchInterval: false,
   });
 
-  // سيتم تعريف المتغيرات الآمنة بعد جلب البيانات من dailyExpensesData
+  const { data: suppliers = [] } = useQuery<Supplier[]>({
+    queryKey: QUERY_KEYS.suppliers,
+    queryFn: async () => {
+      try {
+        const response = await apiRequest("/api/suppliers", "GET");
+        if (response && Array.isArray(response)) return response;
+        if (response && response.data && Array.isArray(response.data)) return response.data;
+        return [];
+      } catch (error) {
+        console.warn('⚠️ لم يتمكن من جلب الموردين:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+  });
+
+  const activeSuppliers = Array.isArray(suppliers) ? suppliers.filter((s: any) => s.is_active !== false) : [];
 
   // جلب عمليات ترحيل الأموال بين المشاريع مع أسماء المشاريع - استعلام منفصل للصفحة اليومية
   const { data: projectTransfers = [], refetch: refetchProjectTransfers } = useQuery<(ProjectFundTransfer & { fromProjectName?: string; toProjectName?: string })[]>({
@@ -696,6 +739,7 @@ function DailyExpensesContent() {
   useEffect(() => {
     setSelectedWellId(undefined);
     setFundTransferWellId(undefined);
+    setPurchaseWellId(undefined);
   }, [selectedProjectId]);
 
   // تحديث حالة توسع الفئات عند تغير البيانات
@@ -1140,6 +1184,189 @@ function DailyExpensesContent() {
     }
   });
 
+  // Material Purchase Add Mutation
+  const addMaterialPurchaseMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (purchaseMaterialName && purchaseMaterialName.trim().length >= 2) {
+        await saveAutocompleteValue('materialNames', purchaseMaterialName);
+      }
+      if (purchaseSupplierName && purchaseSupplierName.trim().length >= 2) {
+        await saveAutocompleteValue('supplierNames', purchaseSupplierName);
+      }
+      if (purchaseUnit && purchaseUnit.trim().length >= 1) {
+        await saveAutocompleteValue('materialUnits', purchaseUnit);
+      }
+      return apiRequest("/api/material-purchases", "POST", data);
+    },
+    onSuccess: () => {
+      refreshAllData();
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId) });
+      resetMaterialPurchaseForm();
+      toast({
+        title: "تم إضافة الشراء",
+        description: "تم إضافة شراء المواد بنجاح",
+      });
+    },
+    onError: async (error: any) => {
+      if (purchaseMaterialName) saveAutocompleteValue('materialNames', purchaseMaterialName).catch(() => {});
+      if (purchaseSupplierName) saveAutocompleteValue('supplierNames', purchaseSupplierName).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+
+      try {
+        const purchaseData = {
+          project_id: selectedProjectId,
+          materialName: purchaseMaterialName,
+          quantity: purchaseQuantity ? parseFloat(purchaseQuantity) : 0,
+          unit: purchaseUnit,
+          unitPrice: purchaseUnitPrice ? parseFloat(purchaseUnitPrice) : 0,
+          totalAmount: purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0,
+          purchaseType: purchaseType,
+          supplierName: purchaseSupplierName || null,
+          purchaseDate: selectedDate,
+          notes: purchaseNotes || null,
+          well_id: purchaseWellId || null,
+          paidAmount: purchaseType === 'نقد' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
+          remainingAmount: purchaseType === 'آجل' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
+        };
+        await queueForSync('create', '/api/material-purchases', purchaseData);
+        toast({
+          title: "تم الحفظ محليًا",
+          description: "خطأ في الاتصال - سيتم المزامنة عند الاتصال",
+          variant: "default",
+        });
+      } catch (queueError) {
+        toast({
+          title: "فشل في إضافة الشراء",
+          description: error?.message || "حدث خطأ أثناء إضافة شراء المواد",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  // Material Purchase Update Mutation
+  const updateMaterialPurchaseMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest(`/api/material-purchases/${id}`, "PATCH", data),
+    onSuccess: async () => {
+      refreshAllData();
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.materialPurchases(selectedProjectId) });
+
+      if (purchaseMaterialName) await saveAutocompleteValue('materialNames', purchaseMaterialName);
+      if (purchaseSupplierName) await saveAutocompleteValue('supplierNames', purchaseSupplierName);
+      if (purchaseUnit) await saveAutocompleteValue('materialUnits', purchaseUnit);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+
+      resetMaterialPurchaseForm();
+      toast({
+        title: "تم التحديث",
+        description: "تم تحديث شراء المواد بنجاح",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "فشل في تحديث الشراء",
+        description: error?.message || "حدث خطأ أثناء تحديث شراء المواد",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const resetMaterialPurchaseForm = () => {
+    setPurchaseMaterialName("");
+    setPurchaseQuantity("");
+    setPurchaseUnit("");
+    setPurchaseUnitPrice("");
+    setPurchaseTotalAmount("");
+    setPurchaseType("نقد");
+    setPurchaseSupplierName("");
+    setPurchaseNotes("");
+    setPurchaseWellId(undefined);
+    setEditingMaterialPurchaseId(null);
+  };
+
+  const handleEditMaterialPurchase = (purchase: any) => {
+    setPurchaseMaterialName(purchase.materialName || "");
+    setPurchaseQuantity(purchase.quantity?.toString() || "");
+    setPurchaseUnit(purchase.unit || purchase.materialUnit || "");
+    setPurchaseUnitPrice(purchase.unitPrice?.toString() || "");
+    setPurchaseTotalAmount(purchase.totalAmount?.toString() || "");
+    setPurchaseType(purchase.purchaseType || "نقد");
+    setPurchaseSupplierName(purchase.supplierName || "");
+    setPurchaseNotes(purchase.notes || "");
+    setPurchaseWellId(purchase.well_id || undefined);
+    setEditingMaterialPurchaseId(purchase.id);
+    setIsMaterialsExpanded(true);
+  };
+
+  const handleAddMaterialPurchase = () => {
+    if (!selectedProjectId || isAllProjects) {
+      toast({
+        title: "يرجى تحديد مشروع",
+        description: "لا يمكن إضافة شراء مواد على جميع المشاريع. يرجى اختيار مشروع محدد أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!purchaseMaterialName || purchaseMaterialName.trim() === "") {
+      toast({
+        title: "خطأ",
+        description: "يرجى إدخال اسم المادة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!purchaseQuantity || parseFloat(purchaseQuantity) <= 0) {
+      toast({
+        title: "خطأ",
+        description: "يرجى إدخال كمية صحيحة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!purchaseUnitPrice || parseFloat(purchaseUnitPrice) <= 0) {
+      toast({
+        title: "خطأ",
+        description: "يرجى إدخال سعر الوحدة",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const qty = parseFloat(purchaseQuantity) || 0;
+    const price = parseFloat(purchaseUnitPrice) || 0;
+    const total = purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : qty * price;
+
+    const purchaseData: any = {
+      project_id: selectedProjectId,
+      materialName: purchaseMaterialName.trim(),
+      quantity: qty.toString(),
+      unit: purchaseUnit.trim() || "وحدة",
+      unitPrice: price.toString(),
+      totalAmount: total.toString(),
+      purchaseType: purchaseType,
+      supplierName: purchaseSupplierName.trim() || null,
+      purchaseDate: selectedDate,
+      notes: purchaseNotes.trim() || null,
+      well_id: purchaseWellId || null,
+      paidAmount: purchaseType === 'نقد' ? total.toString() : '0',
+      remainingAmount: purchaseType === 'آجل' ? total.toString() : '0',
+    };
+
+    if (editingMaterialPurchaseId) {
+      updateMaterialPurchaseMutation.mutate({
+        id: editingMaterialPurchaseId,
+        data: purchaseData
+      });
+    } else {
+      addMaterialPurchaseMutation.mutate(purchaseData);
+    }
+  };
+
   const deleteProjectTransferMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/project-fund-transfers/${id}`, "DELETE"),
     onSuccess: () => {
@@ -1157,9 +1384,125 @@ function DailyExpensesContent() {
   });
 
   const [editingProjectTransferId, setEditingProjectTransferId] = useState<string | null>(null);
+  const [projectTransferFromId, setProjectTransferFromId] = useState<string>("");
+  const [projectTransferToId, setProjectTransferToId] = useState<string>("");
+  const [projectTransferAmount, setProjectTransferAmount] = useState<string>("");
+  const [projectTransferReason, setProjectTransferReason] = useState<string>("");
+  const [projectTransferDescription, setProjectTransferDescription] = useState<string>("");
+
+  const addProjectTransferMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (projectTransferReason) {
+        await saveAutocompleteValue('transferReasons', projectTransferReason);
+      }
+      return apiRequest("/api/project-fund-transfers", "POST", data);
+    },
+    onSuccess: () => {
+      refreshAllData();
+      refetchProjectTransfers();
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+      resetProjectTransferForm();
+      toast({ title: "تم إضافة الترحيل", description: "تم ترحيل الأموال بين المشاريع بنجاح" });
+    },
+    onError: async (error: any) => {
+      try {
+        const transferData = {
+          fromProjectId: projectTransferFromId,
+          toProjectId: projectTransferToId,
+          amount: projectTransferAmount,
+          transferDate: selectedDate,
+          transferReason: projectTransferReason,
+          description: projectTransferDescription,
+        };
+        await queueForSync('create', '/api/project-fund-transfers', transferData);
+        toast({
+          title: "تم الحفظ محليًا",
+          description: "خطأ في الاتصال - سيتم المزامنة عند الاتصال",
+          variant: "default",
+        });
+      } catch (queueError) {
+        toast({
+          title: "خطأ",
+          description: error?.message || "حدث خطأ أثناء إضافة ترحيل الأموال",
+          variant: "destructive",
+        });
+      }
+    }
+  });
+
+  const updateProjectTransferMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest(`/api/project-fund-transfers/${id}`, "PATCH", data),
+    onSuccess: async () => {
+      refreshAllData();
+      refetchProjectTransfers();
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyExpenses(selectedProjectId, selectedDate) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.previousBalance(selectedProjectId) });
+      if (projectTransferReason) await saveAutocompleteValue('transferReasons', projectTransferReason);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+      resetProjectTransferForm();
+      toast({ title: "تم التحديث", description: "تم تحديث ترحيل الأموال بنجاح" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "خطأ",
+        description: error?.message || "حدث خطأ أثناء تحديث ترحيل الأموال",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const resetProjectTransferForm = () => {
+    setProjectTransferFromId("");
+    setProjectTransferToId("");
+    setProjectTransferAmount("");
+    setProjectTransferReason("");
+    setProjectTransferDescription("");
+    setEditingProjectTransferId(null);
+  };
 
   const handleEditProjectTransfer = (transfer: any) => {
-    setLocation(`/project-transfers?edit=${transfer.id}`);
+    setProjectTransferFromId(transfer.fromProjectId || "");
+    setProjectTransferToId(transfer.toProjectId || "");
+    setProjectTransferAmount(String(transfer.amount || ""));
+    setProjectTransferReason(transfer.transferReason || "");
+    setProjectTransferDescription(transfer.description || "");
+    setEditingProjectTransferId(transfer.id);
+    setIsProjectTransfersExpanded(true);
+  };
+
+  const handleAddProjectTransfer = () => {
+    if (!projectTransferFromId) {
+      toast({ title: "خطأ", description: "يرجى اختيار المشروع المصدر", variant: "destructive" });
+      return;
+    }
+    if (!projectTransferToId) {
+      toast({ title: "خطأ", description: "يرجى اختيار المشروع المستلم", variant: "destructive" });
+      return;
+    }
+    if (projectTransferFromId === projectTransferToId) {
+      toast({ title: "خطأ", description: "لا يمكن ترحيل الأموال لنفس المشروع", variant: "destructive" });
+      return;
+    }
+    if (!projectTransferAmount || parseFloat(projectTransferAmount) <= 0) {
+      toast({ title: "خطأ", description: "يرجى إدخال مبلغ صحيح", variant: "destructive" });
+      return;
+    }
+
+    const transferData = {
+      fromProjectId: projectTransferFromId,
+      toProjectId: projectTransferToId,
+      amount: projectTransferAmount.toString(),
+      transferDate: selectedDate || getCurrentDate(),
+      transferReason: projectTransferReason.trim() || "ترحيل أموال",
+      description: projectTransferDescription.trim() || null,
+    };
+
+    if (editingProjectTransferId) {
+      updateProjectTransferMutation.mutate({ id: editingProjectTransferId, data: transferData });
+    } else {
+      addProjectTransferMutation.mutate(transferData);
+    }
   };
 
   const deleteWorkerAttendanceMutation = useMutation({
@@ -1282,6 +1625,172 @@ function DailyExpensesContent() {
       });
     }
   });
+
+  // Worker Transfer Add Mutation
+  const addWorkerTransferMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (workerTransferRecipientName && workerTransferRecipientName.trim().length >= 2) {
+        await saveAutocompleteValue('recipientNames', workerTransferRecipientName);
+      }
+      if (workerTransferRecipientPhone && workerTransferRecipientPhone.trim().length >= 2) {
+        await saveAutocompleteValue('recipientPhones', workerTransferRecipientPhone);
+      }
+      return apiRequest("/api/worker-transfers", "POST", data);
+    },
+    onSuccess: () => {
+      refreshAllData();
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+      resetWorkerTransferForm();
+      toast({
+        title: "تم إرسال الحوالة",
+        description: "تم إرسال حوالة العامل بنجاح",
+      });
+    },
+    onError: async (error: any) => {
+      if (workerTransferRecipientName && workerTransferRecipientName.trim().length >= 2) {
+        saveAutocompleteValue('recipientNames', workerTransferRecipientName).catch(() => {});
+      }
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+
+      try {
+        const transferData = {
+          worker_id: workerTransferWorkerId,
+          project_id: selectedProjectId,
+          amount: workerTransferAmount ? parseFloat(workerTransferAmount) : 0,
+          recipientName: workerTransferRecipientName,
+          recipientPhone: workerTransferRecipientPhone,
+          transferMethod: workerTransferMethod,
+          transferNumber: workerTransferNumber,
+          senderName: workerTransferSenderName,
+          transferDate: selectedDate,
+          notes: workerTransferNotes,
+        };
+        await queueForSync('create', '/api/worker-transfers', transferData);
+        toast({
+          title: "تم الحفظ محليًا",
+          description: "خطأ في الاتصال - سيتم المزامنة عند الاتصال",
+          variant: "default",
+        });
+      } catch (queueError) {
+        toast({
+          title: "فشل في إرسال الحوالة",
+          description: error?.message || "حدث خطأ أثناء إرسال حوالة العامل",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  // Worker Transfer Update Mutation
+  const updateWorkerTransferMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      apiRequest(`/api/worker-transfers/${id}`, "PATCH", data),
+    onSuccess: async () => {
+      refreshAllData();
+
+      if (workerTransferRecipientName) await saveAutocompleteValue('recipientNames', workerTransferRecipientName);
+      if (workerTransferRecipientPhone) await saveAutocompleteValue('recipientPhones', workerTransferRecipientPhone);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+
+      resetWorkerTransferForm();
+      toast({
+        title: "تم التحديث",
+        description: "تم تحديث حوالة العامل بنجاح",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "فشل في تحديث الحوالة",
+        description: error?.message || "حدث خطأ أثناء تحديث حوالة العامل",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const resetWorkerTransferForm = () => {
+    setWorkerTransferWorkerId("");
+    setWorkerTransferAmount("");
+    setWorkerTransferRecipientName("");
+    setWorkerTransferRecipientPhone("");
+    setWorkerTransferMethod("hawaleh");
+    setWorkerTransferNumber("");
+    setWorkerTransferSenderName("");
+    setWorkerTransferNotes("");
+    setEditingWorkerTransferId(null);
+  };
+
+  const handleEditWorkerTransfer = (transfer: any) => {
+    setWorkerTransferWorkerId(transfer.worker_id || "");
+    setWorkerTransferAmount(transfer.amount || "");
+    setWorkerTransferRecipientName(transfer.recipientName || "");
+    setWorkerTransferRecipientPhone(transfer.recipientPhone || "");
+    setWorkerTransferMethod(transfer.transferMethod || "hawaleh");
+    setWorkerTransferNumber(transfer.transferNumber || "");
+    setWorkerTransferSenderName(transfer.senderName || "");
+    setWorkerTransferNotes(transfer.notes || "");
+    setEditingWorkerTransferId(transfer.id);
+    setIsWorkerTransfersExpanded(true);
+  };
+
+  const handleAddWorkerTransfer = () => {
+    if (!selectedProjectId || isAllProjects) {
+      toast({
+        title: "يرجى تحديد مشروع",
+        description: "لا يمكن إرسال حوالة عامل على جميع المشاريع. يرجى اختيار مشروع محدد أولاً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!workerTransferWorkerId) {
+      toast({
+        title: "خطأ",
+        description: "يرجى اختيار العامل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!workerTransferAmount || parseFloat(workerTransferAmount) <= 0) {
+      toast({
+        title: "خطأ",
+        description: "يرجى إدخال مبلغ صحيح",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!workerTransferRecipientName || workerTransferRecipientName.trim() === "") {
+      toast({
+        title: "خطأ",
+        description: "يرجى إدخال اسم المستقبل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const transferData = {
+      worker_id: workerTransferWorkerId,
+      project_id: selectedProjectId,
+      amount: workerTransferAmount.toString(),
+      recipientName: workerTransferRecipientName.trim(),
+      recipientPhone: workerTransferRecipientPhone.trim() || null,
+      transferMethod: workerTransferMethod,
+      transferNumber: workerTransferNumber.trim() || null,
+      senderName: workerTransferSenderName.trim() || null,
+      transferDate: selectedDate,
+      notes: workerTransferNotes.trim() || null,
+    };
+
+    if (editingWorkerTransferId) {
+      updateWorkerTransferMutation.mutate({
+        id: editingWorkerTransferId,
+        data: transferData
+      });
+    } else {
+      addWorkerTransferMutation.mutate(transferData);
+    }
+  };
 
   // Fund Transfer Update Mutation
   const updateFundTransferMutation = useMutation({
@@ -2839,27 +3348,161 @@ function DailyExpensesContent() {
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setLocation("/material-purchase")}
-                      className="w-full border-2 border-dashed border-green-300 text-green-600 hover:bg-green-50 mb-3"
-                    >
-                      <Plus className="ml-2 h-4 w-4" />
-                      إضافة شراء مواد جديدة
-                    </Button>
+                    <div className="space-y-3 mb-3 p-3 bg-muted/20 rounded-lg border border-dashed border-green-300">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">اسم المادة *</Label>
+                          <AutocompleteInput
+                            value={purchaseMaterialName}
+                            onChange={setPurchaseMaterialName}
+                            category="materialNames"
+                            placeholder="اسم المادة"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">المورد</Label>
+                          <SearchableSelect
+                            value={purchaseSupplierName}
+                            onValueChange={setPurchaseSupplierName}
+                            options={activeSuppliers.map((supplier: any) => ({
+                              value: supplier.name,
+                              label: supplier.name,
+                              description: supplier.contactPerson || undefined
+                            }))}
+                            placeholder="اختر المورد..."
+                            searchPlaceholder="ابحث عن مورد..."
+                            emptyText="لا توجد موردين مسجلين"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs">الكمية *</Label>
+                          <Input
+                            data-testid="input-purchase-quantity"
+                            type="number"
+                            value={purchaseQuantity}
+                            onChange={(e) => {
+                              setPurchaseQuantity(e.target.value);
+                              const qty = parseFloat(e.target.value) || 0;
+                              const price = parseFloat(purchaseUnitPrice) || 0;
+                              setPurchaseTotalAmount((qty * price).toString());
+                            }}
+                            placeholder="الكمية"
+                            min="0"
+                            step="0.001"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">الوحدة</Label>
+                          <AutocompleteInput
+                            value={purchaseUnit}
+                            onChange={setPurchaseUnit}
+                            category="materialUnits"
+                            placeholder="طن، كيس..."
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">سعر الوحدة *</Label>
+                          <Input
+                            data-testid="input-purchase-unit-price"
+                            type="number"
+                            value={purchaseUnitPrice}
+                            onChange={(e) => {
+                              setPurchaseUnitPrice(e.target.value);
+                              const qty = parseFloat(purchaseQuantity) || 0;
+                              const price = parseFloat(e.target.value) || 0;
+                              setPurchaseTotalAmount((qty * price).toString());
+                            }}
+                            placeholder="سعر الوحدة"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">الإجمالي</Label>
+                          <Input
+                            data-testid="input-purchase-total-amount"
+                            type="number"
+                            value={purchaseTotalAmount}
+                            onChange={(e) => setPurchaseTotalAmount(e.target.value)}
+                            placeholder="المبلغ الإجمالي"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">نوع الشراء *</Label>
+                          <Select value={purchaseType} onValueChange={setPurchaseType}>
+                            <SelectTrigger data-testid="select-purchase-type">
+                              <SelectValue placeholder="نوع الشراء" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="نقد">نقد</SelectItem>
+                              <SelectItem value="آجل">آجل</SelectItem>
+                              <SelectItem value="مخزن">مخزن</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">ملاحظات</Label>
+                        <Input
+                          data-testid="input-purchase-notes"
+                          value={purchaseNotes}
+                          onChange={(e) => setPurchaseNotes(e.target.value)}
+                          placeholder="ملاحظات (اختياري)"
+                        />
+                      </div>
+                      {selectedProjectId && !isAllProjects && (
+                        <div>
+                          <Label className="text-xs">البئر (اختياري)</Label>
+                          <WellSelector
+                            project_id={selectedProjectId}
+                            value={purchaseWellId}
+                            onChange={setPurchaseWellId}
+                            optional
+                          />
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          data-testid="button-add-material-purchase"
+                          onClick={handleAddMaterialPurchase}
+                          disabled={addMaterialPurchaseMutation.isPending || updateMaterialPurchaseMutation.isPending}
+                          className="flex-1"
+                        >
+                          {(addMaterialPurchaseMutation.isPending || updateMaterialPurchaseMutation.isPending) ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent ml-2" />
+                          ) : (
+                            <Plus className="ml-2 h-4 w-4" />
+                          )}
+                          {editingMaterialPurchaseId ? "حفظ التعديل" : "إضافة شراء مواد جديدة"}
+                        </Button>
+                        {editingMaterialPurchaseId && (
+                          <Button
+                            data-testid="button-cancel-edit-material-purchase"
+                            variant="outline"
+                            onClick={resetMaterialPurchaseForm}
+                          >
+                            إلغاء
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                     
-                    {/* Materials Display - يظهر فقط عند وجود بيانات */}
                     {safeMaterialPurchases.length > 0 && (
                       <div className="space-y-2">
                         {safeMaterialPurchases.map((purchase: any, index: number) => {
                           const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
                           const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
-                          const purchaseType = purchase.purchaseType || 'نقد';
-                          const isCash = purchaseType === 'نقد';
-                          const isStorage = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
-                          const isCredit = purchaseType === 'آجل' || purchaseType === 'أجل';
+                          const pType = purchase.purchaseType || 'نقد';
+                          const isCash = pType === 'نقد';
+                          const isStorage = pType === 'مخزن' || pType === 'توريد' || pType === 'مخزني';
+                          const isCredit = pType === 'آجل' || pType === 'أجل';
                           
-                          // تحديد لون البرواز والخلفية بناءً على نوع المشتريات
                           let borderClass = 'border-orange-200 dark:border-orange-900/30';
                           let bgBadgeClass = 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400';
                           let textPriceClass = 'text-orange-600';
@@ -2875,14 +3518,14 @@ function DailyExpensesContent() {
                           }
                           
                           return (
-                            <div key={index} className={`p-3 border-2 rounded-lg shadow-sm hover:shadow-md transition-shadow ${
-                              bgBadgeClass.split(' ')[0] // استخدام جزء من لون الخلفية للبطاقة بشكل خفيف جداً
+                            <div key={purchase.id || index} data-testid={`card-material-purchase-${purchase.id || index}`} className={`p-3 border-2 rounded-lg shadow-sm hover:shadow-md transition-shadow ${
+                              bgBadgeClass.split(' ')[0]
                             } bg-opacity-5 ${borderClass}`}>
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 space-y-1.5">
                                   <div className="flex items-center justify-between">
-                                    <h4 className="font-semibold text-foreground text-sm">{materialName}</h4>
-                                    <span className={`font-bold arabic-numbers text-base ${textPriceClass}`}>
+                                    <h4 className="font-semibold text-foreground text-sm" data-testid={`text-material-name-${purchase.id || index}`}>{materialName}</h4>
+                                    <span className={`font-bold arabic-numbers text-base ${textPriceClass}`} data-testid={`text-material-total-${purchase.id || index}`}>
                                       {formatCurrency(purchase.totalAmount)}
                                     </span>
                                   </div>
@@ -2900,25 +3543,25 @@ function DailyExpensesContent() {
                                     <p className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</p>
                                   )}
                                   <div className={`inline-block text-xs font-semibold px-2 py-1 rounded ${bgBadgeClass}`}>
-                                    {purchaseType}
+                                    {pType}
                                   </div>
                                   {isAllProjects && purchase.projectName && (
-                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>
+                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">{purchase.projectName}</div>
                                   )}
                                 </div>
                                 <div className="flex gap-1 flex-shrink-0">
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                                    onClick={() => setLocation(`/material-purchase?edit=${purchase.id}`)}
+                                  <Button
+                                    data-testid={`button-edit-material-purchase-${purchase.id || index}`}
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleEditMaterialPurchase(purchase)}
                                   >
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                  <Button
+                                    data-testid={`button-delete-material-purchase-${purchase.id || index}`}
+                                    size="icon"
+                                    variant="ghost"
                                     onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
                                     disabled={deleteMaterialPurchaseMutation.isPending}
                                   >
@@ -2968,7 +3611,7 @@ function DailyExpensesContent() {
                     <div className="flex items-center justify-between cursor-pointer hover:bg-muted/30 p-1 rounded-sm">
                       <h4 className="font-medium text-foreground flex items-center">
                         <DollarSign className="text-yellow-600 ml-2 h-5 w-5" />
-                        حوالات العمال المضافة اليوم
+                        إرسال حوالة عامل
                       </h4>
                       <div className="flex items-center gap-1">
                         {safeWorkerTransfers.length > 0 && <Badge variant="outline" className="h-5 text-[10px]">{safeWorkerTransfers.length}</Badge>}
@@ -2977,23 +3620,125 @@ function DailyExpensesContent() {
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setLocation("/worker-accounts")}
-                      className="w-full border-2 border-dashed border-yellow-300 text-yellow-600 hover:bg-yellow-50 mb-3"
-                    >
-                      <Plus className="ml-2 h-4 w-4" />
-                      إرسال حولة عامل جديدة
-                    </Button>
+                    <div className="space-y-3 mb-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col">
+                          <Label className="block text-sm font-medium text-foreground mb-1">العامل *</Label>
+                          <Select value={workerTransferWorkerId} onValueChange={setWorkerTransferWorkerId}>
+                            <SelectTrigger data-testid="select-worker-transfer-worker">
+                              <SelectValue placeholder="اختر العامل" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {workers.map((worker: any) => (
+                                <SelectItem key={worker.id} value={worker.id}>{worker.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex flex-col">
+                          <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            value={workerTransferAmount}
+                            onChange={(e) => setWorkerTransferAmount(e.target.value)}
+                            placeholder="المبلغ"
+                            className="text-center arabic-numbers"
+                            min="0"
+                            step="0.01"
+                            data-testid="input-worker-transfer-amount"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">اسم المستقبل *</Label>
+                          <AutocompleteInput
+                            value={workerTransferRecipientName}
+                            onChange={setWorkerTransferRecipientName}
+                            category="recipientNames"
+                            placeholder="اسم المستقبل"
+                            data-testid="input-worker-transfer-recipient"
+                          />
+                        </div>
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">هاتف المستقبل</Label>
+                          <AutocompleteInput
+                            value={workerTransferRecipientPhone}
+                            onChange={setWorkerTransferRecipientPhone}
+                            category="recipientPhones"
+                            placeholder="رقم الهاتف"
+                            data-testid="input-worker-transfer-phone"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">طريقة التحويل *</Label>
+                          <Select value={workerTransferMethod} onValueChange={setWorkerTransferMethod}>
+                            <SelectTrigger data-testid="select-worker-transfer-method">
+                              <SelectValue placeholder="اختر الطريقة" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="hawaleh">حولة</SelectItem>
+                              <SelectItem value="bank">تحويل بنكي</SelectItem>
+                              <SelectItem value="cash">نقداً</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">رقم الحوالة</Label>
+                          <Input
+                            value={workerTransferNumber}
+                            onChange={(e) => setWorkerTransferNumber(e.target.value)}
+                            placeholder="رقم الحوالة"
+                            className="arabic-numbers"
+                            data-testid="input-worker-transfer-number"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="block text-sm font-medium text-foreground mb-1">ملاحظات</Label>
+                        <Input
+                          value={workerTransferNotes}
+                          onChange={(e) => setWorkerTransferNotes(e.target.value)}
+                          placeholder="ملاحظات"
+                          data-testid="input-worker-transfer-notes"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mb-3">
+                      <Button
+                        onClick={handleAddWorkerTransfer}
+                        size="sm"
+                        className="flex-1 bg-primary"
+                        disabled={addWorkerTransferMutation.isPending || updateWorkerTransferMutation.isPending}
+                        data-testid="button-add-worker-transfer"
+                      >
+                        {addWorkerTransferMutation.isPending || updateWorkerTransferMutation.isPending ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : editingWorkerTransferId ? (
+                          <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</>
+                        ) : (
+                          <><Plus className="h-4 w-4 ml-2" /> إرسال حوالة عامل جديدة</>
+                        )}
+                      </Button>
+                      {editingWorkerTransferId && (
+                        <Button onClick={resetWorkerTransferForm} size="sm" variant="outline" data-testid="button-cancel-worker-transfer">
+                          إلغاء
+                        </Button>
+                      )}
+                    </div>
                     
-                    {/* Worker Transfers Display - يظهر فقط عند وجود بيانات */}
-                    {safeWorkerTransfers.length > 0 && (
-                      <div className="space-y-2">
+                    <div className="mt-3 pt-3 border-t">
+                      <h5 className="text-sm font-medium text-muted-foreground">حوالات العمال المضافة اليوم:</h5>
+                    {safeWorkerTransfers.length > 0 ? (
+                      <div className="space-y-2 mt-2">
                         {safeWorkerTransfers.map((transfer: any, index: number) => {
                           const worker = workers.find((w: any) => w.id === transfer.worker_id);
                           const methodLabel = transfer.transferMethod === "hawaleh" ? "حولة" : transfer.transferMethod === "bank" ? "تحويل بنكي" : "نقداً";
                           return (
-                            <div key={index} className="p-3 bg-white dark:bg-slate-800 border border-yellow-200 dark:border-yellow-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                            <div key={transfer.id || index} className="p-3 bg-white dark:bg-slate-800 border border-yellow-200 dark:border-yellow-900/30 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 space-y-1.5">
                                   <div className="flex items-center justify-between">
@@ -3017,30 +3762,39 @@ function DailyExpensesContent() {
                                     </p>
                                   )}
                                   {isAllProjects && transfer.projectName && (
-                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {transfer.projectName}</div>
+                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                                      <Building2 className="inline h-3 w-3 ml-1" />
+                                      {transfer.projectName}
+                                    </div>
                                   )}
                                 </div>
                                 <div className="flex gap-1 flex-shrink-0">
                                   <Button 
                                     size="sm" 
                                     variant="ghost" 
-                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                    onClick={() => setLocation(`/worker-accounts?edit=${transfer.id}&worker=${transfer.worker_id}`)}
+                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                    onClick={() => handleEditWorkerTransfer(transfer)}
+                                    data-testid={`button-edit-worker-transfer-${transfer.id}`}
                                   >
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
                                   <Button 
                                     size="sm" 
                                     variant="ghost" 
-                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                                     onClick={() => {
                                       if (window.confirm('هل أنت متأكد من حذف حوالة العامل؟')) {
                                         deleteWorkerTransferMutation.mutate(transfer.id);
                                       }
                                     }}
                                     disabled={deleteWorkerTransferMutation.isPending}
+                                    data-testid={`button-delete-worker-transfer-${transfer.id}`}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    {deleteWorkerTransferMutation.isPending ? (
+                                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
                                   </Button>
                                 </div>
                               </div>
@@ -3054,7 +3808,15 @@ function DailyExpensesContent() {
                           </span>
                         </div>
                       </div>
+                    ) : (
+                      <div className="text-center py-4 bg-gray-50 dark:bg-gray-900/30 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 mt-2">
+                        <DollarSign className="mx-auto h-8 w-8 text-gray-400" />
+                        <p className="text-sm text-gray-600 dark:text-gray-400" data-testid="text-no-worker-transfers">
+                          لا توجد حوالات عمال للتاريخ {selectedDate}
+                        </p>
+                      </div>
                     )}
+                    </div>
                   </CollapsibleContent>
                 </Collapsible>
               </div>
@@ -3075,16 +3837,100 @@ function DailyExpensesContent() {
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setLocation("/project-transfers")}
-                      className="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 mb-3"
-                    >
-                      <Plus className="ml-2 h-4 w-4" />
-                      إدارة ترحيل الأموال
-                    </Button>
+                    <div className="space-y-3 mb-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">المشروع المصدر *</Label>
+                          <Select value={projectTransferFromId} onValueChange={setProjectTransferFromId}>
+                            <SelectTrigger data-testid="select-project-transfer-from">
+                              <SelectValue placeholder="اختر المشروع المصدر" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {projects.filter((p: Project) => p.id !== projectTransferToId).map((project: Project) => (
+                                <SelectItem key={project.id} value={project.id} data-testid={`select-item-from-project-${project.id}`}>
+                                  {project.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">المشروع المستلم *</Label>
+                          <Select value={projectTransferToId} onValueChange={setProjectTransferToId}>
+                            <SelectTrigger data-testid="select-project-transfer-to">
+                              <SelectValue placeholder="اختر المشروع المستلم" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {projects.filter((p: Project) => p.id !== projectTransferFromId).map((project: Project) => (
+                                <SelectItem key={project.id} value={project.id} data-testid={`select-item-to-project-${project.id}`}>
+                                  {project.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">المبلغ *</Label>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="المبلغ"
+                            value={projectTransferAmount}
+                            onChange={(e) => setProjectTransferAmount(e.target.value)}
+                            className="text-center arabic-numbers"
+                            min="0"
+                            step="0.01"
+                            data-testid="input-project-transfer-amount"
+                          />
+                        </div>
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">سبب الترحيل</Label>
+                          <AutocompleteInput
+                            value={projectTransferReason}
+                            onChange={setProjectTransferReason}
+                            placeholder="سبب الترحيل"
+                            category="transferReasons"
+                            data-testid="input-project-transfer-reason"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="block text-sm font-medium text-foreground mb-1">الوصف</Label>
+                          <Input
+                            placeholder="وصف إضافي (اختياري)"
+                            value={projectTransferDescription}
+                            onChange={(e) => setProjectTransferDescription(e.target.value)}
+                            data-testid="input-project-transfer-description"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleAddProjectTransfer}
+                          size="sm"
+                          className="flex-1 bg-primary"
+                          disabled={addProjectTransferMutation.isPending || updateProjectTransferMutation.isPending}
+                          data-testid="button-add-project-transfer"
+                        >
+                          {addProjectTransferMutation.isPending || updateProjectTransferMutation.isPending ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          ) : editingProjectTransferId ? (
+                            <><Save className="h-4 w-4 ml-2" /> حفظ التعديل</>
+                          ) : (
+                            <><Plus className="h-4 w-4 ml-2" /> إضافة ترحيل أموال</>
+                          )}
+                        </Button>
+                        {editingProjectTransferId && (
+                          <Button onClick={resetProjectTransferForm} size="sm" variant="outline" data-testid="button-cancel-edit-project-transfer">
+                            إلغاء
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                     
-                    {/* Project Fund Transfers Display - يظهر فقط عند وجود بيانات */}
                     {safeProjectTransfers.length > 0 && (
                       <div className="space-y-3">
                         {safeProjectTransfers.map((transfer: any) => (
@@ -3092,45 +3938,46 @@ function DailyExpensesContent() {
                             key={transfer.id} 
                             className={`p-3 rounded border-r-4 ${
                               transfer.toProjectId === selectedProjectId 
-                                ? 'bg-green-50 border-green-500' 
-                                : 'bg-red-50 border-red-500'
+                                ? 'bg-green-50 dark:bg-green-950/30 border-green-500' 
+                                : 'bg-red-50 dark:bg-red-950/30 border-red-500'
                             }`}
+                            data-testid={`card-project-transfer-${transfer.id}`}
                           >
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between flex-wrap gap-1">
                                   <span className="text-sm font-medium">
                                     {transfer.toProjectId === selectedProjectId ? (
-                                      <span className="text-green-700">أموال واردة من: {transfer.fromProjectName}</span>
+                                      <span className="text-green-700 dark:text-green-400" data-testid={`text-transfer-direction-${transfer.id}`}>أموال واردة من: {transfer.fromProjectName}</span>
                                     ) : (
-                                      <span className="text-red-700">أموال صادرة إلى: {transfer.toProjectName}</span>
+                                      <span className="text-red-700 dark:text-red-400" data-testid={`text-transfer-direction-${transfer.id}`}>أموال صادرة إلى: {transfer.toProjectName}</span>
                                     )}
                                   </span>
                                   <div className="flex items-center gap-2">
                                     <span className={`font-bold arabic-numbers ${
                                       transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
-                                    }`}>
+                                    }`} data-testid={`text-transfer-amount-${transfer.id}`}>
                                       {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
                                     </span>
                                     <div className="flex gap-1">
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                         onClick={() => handleEditProjectTransfer(transfer)}
+                                        data-testid={`button-edit-project-transfer-${transfer.id}`}
                                       >
                                         <Edit2 className="h-3.5 w-3.5" />
                                       </Button>
                                       <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
                                         onClick={() => {
                                           if (confirm("هل أنت متأكد من حذف هذا الترحيل؟")) {
                                             deleteProjectTransferMutation.mutate(transfer.id);
                                           }
                                         }}
                                         disabled={deleteProjectTransferMutation.isPending}
+                                        data-testid={`button-delete-project-transfer-${transfer.id}`}
                                       >
                                         <Trash2 className="h-3.5 w-3.5" />
                                       </Button>

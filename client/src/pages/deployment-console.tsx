@@ -261,11 +261,10 @@ export default function DeploymentConsole() {
   const handleStartDeployment = async () => {
     setIsStarting(true);
     try {
-      const res = await apiRequest("/api/deployment/start", "POST", {
+      const data = await apiRequest("/api/deployment/start", "POST", {
         pipeline: selectedPipeline,
         commitMessage: commitMessage || undefined,
       });
-      const data = await res.json();
 
       setActiveDeploymentId(data.id);
       setLiveLogs([]);
@@ -292,8 +291,7 @@ export default function DeploymentConsole() {
   const handleCheckHealth = async () => {
     setIsCheckingHealth(true);
     try {
-      const res = await apiRequest("/api/deployment/health");
-      const data = await res.json();
+      const data = await apiRequest("/api/deployment/health");
       setHealthData(data);
       toast({ title: `حالة السيرفر: ${data.status === "healthy" ? "سليم" : "متدهور"}`, description: `HTTP: ${data.checks?.httpStatus || "غير معروف"}` });
     } catch (error: any) {
@@ -305,8 +303,7 @@ export default function DeploymentConsole() {
 
   const handleRollback = async (id: string) => {
     try {
-      const res = await apiRequest(`/api/deployment/${id}/rollback`, "POST");
-      const data = await res.json();
+      const data = await apiRequest(`/api/deployment/${id}/rollback`, "POST");
       setActiveDeploymentId(data.id);
       setLiveLogs([]);
       setLiveDeployment(null);
@@ -319,8 +316,7 @@ export default function DeploymentConsole() {
   const handleCleanup = async () => {
     setIsCleaning(true);
     try {
-      const res = await apiRequest("/api/deployment/cleanup", "POST");
-      const data = await res.json();
+      const data = await apiRequest("/api/deployment/cleanup", "POST");
       toast({
         title: "اكتمل التنظيف",
         description: `تم تنظيف: ${data.cleaned?.join("، ") || "لا شيء"}${data.errors?.length ? ` | أخطاء: ${data.errors.length}` : ""}`,
@@ -338,8 +334,7 @@ export default function DeploymentConsole() {
     setLiveDeployment(null);
 
     try {
-      const res = await fetch(`/api/deployment/${id}`);
-      const data = await res.json();
+      const data = await apiRequest(`/api/deployment/${id}`);
       setLiveDeployment(data);
       setLiveLogs(data.logs || []);
     } catch {}

@@ -12,6 +12,9 @@ export default defineConfig({
   root: 'client',
   server: {
     allowedHosts: true,
+    watch: {
+      ignored: ['**/www/**', '**/output_apks/**', '**/android/**'],
+    },
   },
   build: {
     outDir: '../dist/public',

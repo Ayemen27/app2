@@ -112,6 +112,8 @@ const STEP_ICONS: Record<string, any> = {
   "build-server": Terminal,
   "rollback-server": RotateCcw,
   "restart-pm2": RefreshCw,
+  "db-migrate": Server,
+  "hotfix-sync": Rocket,
 };
 
 function StatusBadge({ status }: { status: string }) {

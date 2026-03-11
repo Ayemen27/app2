@@ -22,11 +22,11 @@ interface DeploymentConfig {
 }
 
 const PIPELINE_STEPS: Record<Pipeline, string[]> = {
-  "web-deploy": ["validate", "build-web", "transfer", "deploy-server", "restart-pm2", "verify"],
+  "web-deploy": ["validate", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
   "android-build": ["validate", "build-web", "transfer", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
-  "hotfix": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
+  "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
+  "hotfix": ["validate", "build-web", "hotfix-sync", "restart-pm2", "verify"],
 };
 
 const activeSSEClients = new Map<string, Response[]>();
@@ -68,6 +68,14 @@ export class DeploymentEngine {
 
     const version = await this.getCurrentVersion();
 
+    const deploymentTypeMap: Record<string, string> = {
+      "web-deploy": "web",
+      "android-build": "android",
+      "full-deploy": "web",
+      "git-push": "web",
+      "hotfix": "hotfix",
+    };
+
     const [deployment] = await db.insert(buildDeployments).values({
       buildNumber,
       status: "running",
@@ -79,6 +87,7 @@ export class DeploymentEngine {
       branch: config.branch || "main",
       commitMessage: config.commitMessage,
       pipeline: config.pipeline,
+      deploymentType: deploymentTypeMap[config.pipeline] || "web",
       logs: [],
       steps,
       triggeredBy: config.triggeredBy,
@@ -194,6 +203,12 @@ export class DeploymentEngine {
         break;
       case "build-server":
         await this.stepBuildServer(deploymentId, sshCmd);
+        break;
+      case "db-migrate":
+        await this.stepDbMigrate(deploymentId, sshCmd);
+        break;
+      case "hotfix-sync":
+        await this.stepHotfixSync(deploymentId);
         break;
       default:
         await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
@@ -480,13 +495,23 @@ export class DeploymentEngine {
 
     const rawMessage = config.commitMessage || `Deploy v${await this.getCurrentVersion()} - ${new Date().toISOString()}`;
     const safeMessage = rawMessage.replace(/['"\\$`!]/g, "");
+    const ghUser = process.env.GITHUB_USERNAME;
+    const ghToken = process.env.GITHUB_TOKEN;
+    const repoUrl = `https://${ghUser}:${ghToken}@github.com/${ghUser}/app2.git`;
 
     await this.execWithLog(
       deploymentId,
-      `bash /home/runner/workspace/scripts/push_repo.sh "${safeMessage}"`,
+      `cd /home/runner/workspace && git add -A && git diff --cached --quiet || git commit -m "${safeMessage}" && git push ${repoUrl} main --force 2>&1 && echo "GIT_PUSH_OK"`,
       "Git Push",
       60000
     );
+
+    try {
+      const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace" });
+      const commitHash = stdout.trim();
+      await this.updateDeployment(deploymentId, { commitHash });
+      await this.addLog(deploymentId, `Commit: ${commitHash.substring(0, 8)}`, "info");
+    } catch {}
   }
 
   private async stepPullServer(deploymentId: string, sshCmd: string) {
@@ -523,6 +548,38 @@ export class DeploymentEngine {
       "Server Build",
       120000
     );
+  }
+
+  private async stepDbMigrate(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "Running database migrations on server...", "info");
+    const remoteDir = "/home/administrator/app2";
+
+    await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && npx drizzle-kit push --force 2>&1 | tail -15 && echo 'MIGRATE_OK'"`,
+      "DB Migrate",
+      120000
+    );
+  }
+
+  private async stepHotfixSync(deploymentId: string) {
+    await this.addLog(deploymentId, "Hotfix: syncing built files to server...", "info");
+
+    const scpCmd = this.buildSCPCommand(
+      "/home/runner/workspace/dist/",
+      "/home/administrator/app2/dist/"
+    );
+    await this.execWithLog(
+      deploymentId,
+      `${scpCmd.replace("scp ", "scp -r ")} && echo 'HOTFIX_SYNC_OK'`,
+      "Hotfix Sync",
+      120000
+    );
+
+    try {
+      const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace" });
+      await this.updateDeployment(deploymentId, { commitHash: stdout.trim() });
+    } catch {}
   }
 
   private async getCurrentVersion(): Promise<string> {

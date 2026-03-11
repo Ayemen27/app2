@@ -43,7 +43,47 @@ router.post("/start", requireAdmin as any, async (req, res) => {
   }
 });
 
+router.post("/deploy", requireAdmin as any, async (req, res) => {
+  try {
+    const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage } = req.body;
+
+    const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix"];
+    if (!validPipelines.includes(pipeline)) {
+      return res.status(400).json({ error: `Invalid pipeline. Valid: ${validPipelines.join(", ")}` });
+    }
+
+    const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
+    const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
+
+    const userId = (req as any).user?.id;
+    const deploymentId = await deploymentEngine.startDeployment({
+      pipeline,
+      appType: pipeline === "android-build" || pipeline === "full-deploy" ? "android" : appType,
+      environment,
+      branch: safeBranch,
+      commitMessage: safeMessage,
+      triggeredBy: userId,
+    });
+
+    res.json({ id: deploymentId, message: "Deployment started" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/list", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const deployments = await deploymentEngine.getDeployments(limit, offset);
+    const total = await deploymentEngine.getDeploymentCount();
+    res.json({ deployments, total, limit, offset });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/history", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = parseInt(req.query.offset as string) || 0;
@@ -82,7 +122,7 @@ router.post("/cleanup", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/status/:id", async (req, res) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment) return res.status(404).json({ error: "Deployment not found" });
@@ -153,47 +193,7 @@ router.post("/:id/rollback", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.post("/deploy", requireAdmin as any, async (req, res) => {
-  try {
-    const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage } = req.body;
-
-    const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix"];
-    if (!validPipelines.includes(pipeline)) {
-      return res.status(400).json({ error: `Invalid pipeline. Valid: ${validPipelines.join(", ")}` });
-    }
-
-    const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
-    const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
-
-    const userId = (req as any).user?.id;
-    const deploymentId = await deploymentEngine.startDeployment({
-      pipeline,
-      appType: pipeline === "android-build" || pipeline === "full-deploy" ? "android" : appType,
-      environment,
-      branch: safeBranch,
-      commitMessage: safeMessage,
-      triggeredBy: userId,
-    });
-
-    res.json({ id: deploymentId, message: "Deployment started" });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get("/history", async (req, res) => {
-  try {
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-    const offset = parseInt(req.query.offset as string) || 0;
-    const deployments = await deploymentEngine.getDeployments(limit, offset);
-    const total = await deploymentEngine.getDeploymentCount();
-    res.json({ deployments, total, limit, offset });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get("/status/:id", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment) return res.status(404).json({ error: "Deployment not found" });

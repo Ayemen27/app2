@@ -28,14 +28,6 @@ interface Worker {
   created_at: string;
 }
 
-interface WorkerType {
-  id: string;
-  name: string;
-  usageCount: number;
-  lastUsed: string;
-  created_at: string;
-}
-
 interface WorkerStats {
   totalWorkDays: number;
   totalTransfers: number;
@@ -349,24 +341,17 @@ export default function WorkersPage() {
     refetchOnWindowFocus: true, 
   });
 
-  const { data: workerTypes = [] } = useQuery<WorkerType[]>({
+  const { data: workerTypeOptions = [] } = useQuery<{ value: string; label: string }[]>({
     queryKey: QUERY_KEYS.workerTypes,
     queryFn: async () => {
       try {
-        const response = await fetch('/api/worker-types');
-        if (!response.ok) return [] as WorkerType[];
-        const data = await response.json();
-        let workerTypes = [];
-        if (data && typeof data === 'object') {
-          if (data.success !== undefined && data.data !== undefined) {
-            workerTypes = Array.isArray(data.data) ? data.data : [];
-          } else if (Array.isArray(data)) {
-            workerTypes = data;
-          }
+        const response = await apiRequest("/api/autocomplete/worker-types", "GET");
+        if (response?.data && Array.isArray(response.data)) {
+          return response.data;
         }
-        return (Array.isArray(workerTypes) ? workerTypes : []) as WorkerType[];
+        return [];
       } catch (error) {
-        return [] as WorkerType[];
+        return [];
       }
     },
     staleTime: 900000, 
@@ -507,11 +492,11 @@ export default function WorkersPage() {
       gap: 'sm',
       items: [
         { key: 'avgWage', label: 'متوسط الأجر', value: formatCurrency(stats.avgWage), icon: DollarSign, color: 'purple' },
-        { key: 'totalTypes', label: 'أنواع العمال', value: workerTypes.length, icon: Briefcase, color: 'teal' },
+        { key: 'totalTypes', label: 'أنواع العمال', value: workerTypeOptions.length, icon: Briefcase, color: 'teal' },
         { key: 'totalWorkDays', label: 'مجموع أيام العمل', value: '-', icon: Calendar, color: 'indigo' },
       ]
     }
-  ], [stats, workerTypes]);
+  ], [stats, workerTypeOptions]);
 
   const filtersConfig: FilterConfig[] = useMemo(() => [
     {
@@ -532,10 +517,10 @@ export default function WorkersPage() {
       defaultValue: 'all',
       options: [
         { value: 'all', label: 'جميع الأنواع' },
-        ...(Array.isArray(workerTypes) ? workerTypes.map(type => ({ value: type.name, label: type.name })) : []),
+        ...workerTypeOptions,
       ],
     },
-  ], [workerTypes]);
+  ], [workerTypeOptions]);
 
   const handleNewWorker = () => {
     setEditingWorker(undefined);

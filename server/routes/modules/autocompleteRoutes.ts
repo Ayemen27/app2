@@ -8,7 +8,7 @@ import { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 import { autocompleteData, transportationExpenses } from '../../../shared/schema.js';
-import { eq, desc, and, sql, inArray } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray, or } from 'drizzle-orm';
 import { projectAccessService } from '../../services/ProjectAccessService.js';
 
 export const autocompleteRouter = express.Router();
@@ -339,6 +339,184 @@ autocompleteRouter.get('/projectNames', requireAuth, async (req: Request, res: R
       success: false,
       error: error.message,
       message: 'فشل في جلب أسماء المشاريع'
+    });
+  }
+});
+
+const DEFAULT_WORKER_TYPES = [
+  'معلم', 'عامل', 'حداد', 'نجار', 'سائق', 'كهربائي', 'سباك',
+  'سائق خلاطة', 'حارس', 'تمرير', 'مساح', 'مبيض', 'بلاط', 'لحام'
+];
+
+async function seedUserWorkerTypes(userId: string): Promise<void> {
+  for (const typeName of DEFAULT_WORKER_TYPES) {
+    try {
+      await db.insert(autocompleteData).values({
+        category: 'worker-types',
+        value: typeName,
+        user_id: userId,
+        usageCount: 1,
+        lastUsed: new Date()
+      }).onConflictDoNothing();
+    } catch (_e) {}
+  }
+}
+
+/**
+ * GET /api/autocomplete/worker-types - أنواع العمال (معزولة لكل مستخدم)
+ * يدمج الأنواع من autocomplete + الأنواع الفعلية من سجلات العمال + الجدول العالمي worker_types
+ */
+autocompleteRouter.get('/worker-types', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userRole = (req as any).user?.role || '';
+    
+    let data = await db
+      .select()
+      .from(autocompleteData)
+      .where(and(
+        eq(autocompleteData.category, 'worker-types'),
+        eq(autocompleteData.user_id, userId)
+      ))
+      .orderBy(desc(autocompleteData.usageCount));
+    
+    if (data.length === 0) {
+      await seedUserWorkerTypes(userId);
+      
+      try {
+        const { workers: workersTable, workerTypes: workerTypesTable } = await import('../../../shared/schema.js');
+        
+        const globalTypes = await db.select({ name: workerTypesTable.name }).from(workerTypesTable);
+        for (const gt of globalTypes) {
+          if (gt.name && !DEFAULT_WORKER_TYPES.includes(gt.name)) {
+            try {
+              await db.insert(autocompleteData).values({
+                category: 'worker-types',
+                value: gt.name,
+                user_id: userId,
+                usageCount: 1,
+                lastUsed: new Date()
+              }).onConflictDoNothing();
+            } catch (_e) {}
+          }
+        }
+      } catch (_e) {}
+      
+      data = await db
+        .select()
+        .from(autocompleteData)
+        .where(and(
+          eq(autocompleteData.category, 'worker-types'),
+          eq(autocompleteData.user_id, userId)
+        ))
+        .orderBy(desc(autocompleteData.usageCount));
+    }
+    
+    const autocompleteValues = new Set(data.map(item => item.value));
+    
+    try {
+      const { workers: workersTable } = await import('../../../shared/schema.js');
+      const accessibleProjectIds = await projectAccessService.getAccessibleProjectIds(userId, userRole);
+      
+      let workerTypesFromRecords;
+      if (accessibleProjectIds.length > 0) {
+        workerTypesFromRecords = await db
+          .selectDistinct({ type: workersTable.type })
+          .from(workersTable)
+          .where(
+            or(
+              inArray(workersTable.project_id, accessibleProjectIds),
+              eq(workersTable.created_by, userId)
+            )
+          );
+      } else {
+        workerTypesFromRecords = await db
+          .selectDistinct({ type: workersTable.type })
+          .from(workersTable)
+          .where(eq(workersTable.created_by, userId));
+      }
+      
+      const missingTypes: string[] = [];
+      for (const row of workerTypesFromRecords) {
+        if (row.type && row.type.trim() && !autocompleteValues.has(row.type)) {
+          missingTypes.push(row.type);
+        }
+      }
+      
+      for (const typeName of missingTypes) {
+        try {
+          await db.insert(autocompleteData).values({
+            category: 'worker-types',
+            value: typeName,
+            user_id: userId,
+            usageCount: 1,
+            lastUsed: new Date()
+          }).onConflictDoNothing();
+        } catch (_e) {}
+      }
+      
+      if (missingTypes.length > 0) {
+        data = await db
+          .select()
+          .from(autocompleteData)
+          .where(and(
+            eq(autocompleteData.category, 'worker-types'),
+            eq(autocompleteData.user_id, userId)
+          ))
+          .orderBy(desc(autocompleteData.usageCount));
+      }
+    } catch (_e) {}
+    
+    res.json({
+      success: true,
+      data: data.map(item => ({ value: item.value, label: item.value })),
+      message: 'تم جلب أنواع العمال بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أنواع العمال'
+    });
+  }
+});
+
+/**
+ * DELETE /api/autocomplete/worker-types/:value - حذف نوع عامل (معزول لكل مستخدم)
+ */
+autocompleteRouter.delete('/worker-types/:value', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const typeValue = decodeURIComponent(req.params.value);
+    const userId = (req as any).user?.id;
+    
+    const deleted = await db
+      .delete(autocompleteData)
+      .where(and(
+        eq(autocompleteData.category, 'worker-types'),
+        eq(autocompleteData.value, typeValue),
+        eq(autocompleteData.user_id, userId)
+      ))
+      .returning();
+    
+    if (deleted.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'النوع غير موجود'
+      });
+    }
+    
+    console.log('🗑️ [API] تم حذف نوع العامل:', typeValue, 'للمستخدم:', userId);
+    
+    res.json({
+      success: true,
+      message: 'تم حذف النوع بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في حذف نوع العامل:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في حذف النوع'
     });
   }
 });

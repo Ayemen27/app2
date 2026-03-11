@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
-import { Plus, Phone, User, Briefcase, DollarSign } from "lucide-react";
+import { Phone, User, Briefcase, DollarSign } from "lucide-react";
 import type { InsertWorker } from "@shared/schema";
 
 interface Worker {
@@ -34,12 +33,9 @@ interface AddWorkerFormProps {
   submitLabel?: string;
 }
 
-interface WorkerType {
-  id: string;
-  name: string;
-  usageCount: number;
-  lastUsed: string;
-  createdAt: string;
+interface WorkerTypeOption {
+  value: string;
+  label: string;
 }
 
 export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, submitLabel = "إضافة العامل" }: AddWorkerFormProps) {
@@ -48,8 +44,6 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
   const [dailyWage, setDailyWage] = useState(worker ? worker.dailyWage : "");
   const [phone, setPhone] = useState(worker?.phone || "");
   const [hireDate, setHireDate] = useState(worker?.hireDate || "");
-  const [showAddTypeDialog, setShowAddTypeDialog] = useState(false);
-  const [newTypeName, setNewTypeName] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -74,8 +68,34 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
     }
   };
 
-  const { data: workerTypes = [] } = useQuery<WorkerType[]>({
+  const { data: workerTypeOptions = [] } = useQuery<WorkerTypeOption[]>({
     queryKey: QUERY_KEYS.workerTypes,
+    queryFn: async () => {
+      const response = await apiRequest("/api/autocomplete/worker-types", "GET");
+      if (response?.data && Array.isArray(response.data)) {
+        return response.data as WorkerTypeOption[];
+      }
+      return [];
+    },
+  });
+
+  const addCategoryMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return apiRequest("/api/autocomplete", "POST", { category: 'worker-types', value });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return apiRequest(`/api/autocomplete/worker-types/${encodeURIComponent(value)}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+      toast({ title: "تم الحذف", description: "تم حذف نوع العامل بنجاح" });
+    },
   });
 
   const addWorkerMutation = useMutation({
@@ -133,37 +153,6 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
     },
   });
 
-  const addWorkerTypeMutation = useMutation({
-    mutationFn: async (data: { name: string }) => {
-      await saveAutocompleteValue('workerTypes', data.name);
-      return apiRequest("/api/worker-types", "POST", data);
-    },
-    onSuccess: async (newType, variables) => {
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
-      
-      toast({
-        title: "تم الحفظ",
-        description: "تم إضافة نوع العامل بنجاح",
-      });
-      setType(newType.name);
-      setNewTypeName("");
-      setShowAddTypeDialog(false);
-    },
-    onError: async (error: any, variables) => {
-      await saveAutocompleteValue('workerTypes', variables.name);
-      
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
-      
-      const errorMessage = error?.message || "حدث خطأ أثناء إضافة نوع العامل";
-      toast({
-        title: "فشل في إضافة نوع العامل",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !type || !dailyWage) {
@@ -197,22 +186,6 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
     });
   };
 
-  const handleAddNewType = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTypeName.trim()) {
-      toast({
-        title: "خطأ",
-        description: "يرجى إدخال اسم نوع العامل",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    addWorkerTypeMutation.mutate({
-      name: newTypeName.trim(),
-    });
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <CompactFieldGroup columns={2}>
@@ -236,80 +209,18 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
             <Briefcase className="h-4 w-4 text-purple-500" />
             نوع العامل *
           </Label>
-          <div className="flex gap-2">
-            <SearchableSelect
-              value={type}
-              onValueChange={setType}
-              options={
-                Array.isArray(workerTypes) && workerTypes.length > 0 
-                  ? workerTypes.map((workerType) => ({
-                      value: workerType.name,
-                      label: workerType.name,
-                    }))
-                  : [
-                      { value: "معلم", label: "معلم" },
-                      { value: "عامل", label: "عامل" },
-                      { value: "حداد", label: "حداد" },
-                      { value: "نجار", label: "نجار" },
-                      { value: "سائق", label: "سائق" },
-                      { value: "كهربائي", label: "كهربائي" },
-                      { value: "سباك", label: "سباك" },
-                    ]
-              }
-              placeholder="اختر نوع العامل..."
-              searchPlaceholder="ابحث عن نوع..."
-              emptyText="لا توجد أنواع"
-              className="flex-1"
-            />
-          
-            <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="outline" size="icon" className="shrink-0" title="إضافة نوع جديد">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddNewType} className="space-y-4">
-                  <div>
-                    <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground">
-                      اسم نوع العامل
-                    </Label>
-                    <Input
-                      id="new-type-name"
-                      type="text"
-                      value={newTypeName}
-                      onChange={(e) => setNewTypeName(e.target.value)}
-                      placeholder="مثال: كهربائي، سباك، حداد..."
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="submit"
-                      disabled={addWorkerTypeMutation.isPending}
-                      className="flex-1"
-                    >
-                      {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowAddTypeDialog(false);
-                        setNewTypeName("");
-                      }}
-                      className="flex-1"
-                    >
-                      إلغاء
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <SearchableSelect
+            value={type}
+            onValueChange={setType}
+            options={workerTypeOptions}
+            placeholder="اختر نوع العامل..."
+            searchPlaceholder="ابحث عن نوع..."
+            emptyText="لا توجد أنواع"
+            className="flex-1"
+            allowCustom
+            onCustomAdd={(value) => addCategoryMutation.mutate(value)}
+            onDeleteOption={(value) => deleteCategoryMutation.mutate(value)}
+          />
         </div>
       </CompactFieldGroup>
 

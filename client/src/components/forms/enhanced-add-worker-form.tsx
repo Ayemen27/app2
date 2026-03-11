@@ -4,12 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import type { InsertWorker, InsertWorkerType, WorkerType } from "@shared/schema";
-import { Plus } from "lucide-react";
+import type { InsertWorker } from "@shared/schema";
 
 interface EnhancedAddWorkerFormProps {
   onSuccess?: () => void;
@@ -19,8 +17,6 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
   const [name, setName] = useState("");
   const [type, setType] = useState("");
   const [dailyWage, setDailyWage] = useState("");
-  const [showAddTypeDialog, setShowAddTypeDialog] = useState(false);
-  const [newTypeName, setNewTypeName] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -38,10 +34,34 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
     }
   };
 
-  // جلب أنواع العمال المتاحة
-  const { data: workerTypes = [], isLoading: loadingTypes } = useQuery<WorkerType[]>({
+  const { data: workerTypeOptions = [], isLoading: loadingTypes } = useQuery<{ value: string; label: string }[]>({
     queryKey: QUERY_KEYS.workerTypes,
-    queryFn: () => apiRequest("/api/worker-types", "GET"),
+    queryFn: async () => {
+      const response = await apiRequest("/api/autocomplete/worker-types", "GET");
+      if (response?.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      return [];
+    },
+  });
+
+  const addCategoryMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return apiRequest("/api/autocomplete", "POST", { category: 'worker-types', value });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return apiRequest(`/api/autocomplete/worker-types/${encodeURIComponent(value)}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+      toast({ title: "تم الحذف", description: "تم حذف نوع العامل بنجاح" });
+    },
   });
 
   const addWorkerMutation = useMutation({
@@ -111,29 +131,6 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
     },
   });
 
-  const addWorkerTypeMutation = useMutation({
-    mutationFn: (data: InsertWorkerType) => apiRequest("/api/worker-types", "POST", data),
-    onSuccess: async (newWorkerType: WorkerType) => {
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
-      toast({
-        title: "تم الحفظ",
-        description: "تم إضافة نوع العامل بنجاح",
-      });
-      setNewTypeName("");
-      setShowAddTypeDialog(false);
-      setType(newWorkerType.name); // اختيار النوع الجديد تلقائياً
-    },
-    onError: (error: any) => {
-      const errorMessage = error?.message || "حدث خطأ أثناء إضافة نوع العامل";
-      toast({
-        title: "فشل في إضافة نوع العامل",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !type || !dailyWage) {
@@ -150,21 +147,6 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       type,
       dailyWage,
       isActive: true,
-    });
-  };
-
-  const handleAddNewType = () => {
-    if (!newTypeName.trim()) {
-      toast({
-        title: "خطأ",
-        description: "يرجى إدخال اسم نوع العامل",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    addWorkerTypeMutation.mutate({
-      name: newTypeName.trim(),
     });
   };
 
@@ -191,33 +173,22 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
           <Label htmlFor="worker-type" className="block text-sm font-medium text-foreground">
             نوع العامل
           </Label>
-          <div className="flex gap-2">
-            <SearchableSelect
-              value={type}
-              onValueChange={setType}
-              options={
-                loadingTypes 
-                  ? [{ value: "loading", label: "جاري التحميل...", disabled: true }]
-                  : workerTypes.map((workerType) => ({
-                      value: workerType.name,
-                      label: workerType.name,
-                    }))
-              }
-              placeholder="اختر نوع العامل..."
-              searchPlaceholder="ابحث عن نوع..."
-              emptyText="لا توجد أنواع"
-              className="flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => setShowAddTypeDialog(true)}
-              title="إضافة نوع جديد"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
+          <SearchableSelect
+            value={type}
+            onValueChange={setType}
+            options={
+              loadingTypes 
+                ? [{ value: "loading", label: "جاري التحميل...", disabled: true }]
+                : workerTypeOptions
+            }
+            placeholder="اختر نوع العامل..."
+            searchPlaceholder="ابحث عن نوع..."
+            emptyText="لا توجد أنواع"
+            className="flex-1"
+            allowCustom
+            onCustomAdd={(value) => addCategoryMutation.mutate(value)}
+            onDeleteOption={(value) => deleteCategoryMutation.mutate(value)}
+          />
         </div>
 
         <div>
@@ -247,53 +218,6 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
         </Button>
       </form>
 
-      {/* نافذة إضافة نوع عامل جديد */}
-      <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="new-type-name" className="block text-sm font-medium text-foreground">
-                اسم نوع العامل
-              </Label>
-              <Input
-                id="new-type-name"
-                type="text"
-                value={newTypeName}
-                onChange={(e) => setNewTypeName(e.target.value)}
-                placeholder="مثال: بلاط، دهان، تكييف..."
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddNewType();
-                  }
-                }}
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowAddTypeDialog(false);
-                  setNewTypeName("");
-                }}
-              >
-                إلغاء
-              </Button>
-              <Button
-                type="button"
-                onClick={handleAddNewType}
-                disabled={addWorkerTypeMutation.isPending}
-              >
-                {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

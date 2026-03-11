@@ -27,7 +27,6 @@ import type {
   Project, 
   DailyExpenseSummary, 
   Worker, 
-  AutocompleteData as WorkerType,
   ProjectType
 } from "@shared/schema";
 import { UnifiedStats } from "@/components/ui/unified-stats";
@@ -66,8 +65,6 @@ export default function Dashboard() {
     dailyWage: ''
   });
 
-  const [showAddTypeDialog, setShowAddTypeDialog] = useState(false);
-  const [newTypeName, setNewTypeName] = useState("");
 
   const [projectData, setProjectData] = useState({
     name: '',
@@ -137,15 +134,15 @@ export default function Dashboard() {
     ...queryOptions
   });
 
-  const { data: workerTypes = [] } = useQuery<WorkerType[]>({
+  const { data: workerTypeOptions = [] } = useQuery<{ value: string; label: string }[]>({
     queryKey: QUERY_KEYS.workerTypes,
     queryFn: async () => {
       try {
-        const response = await apiRequest("/api/worker-types", "GET");
-        if (response && response.data && Array.isArray(response.data)) {
-          return response.data as WorkerType[];
+        const response = await apiRequest("/api/autocomplete/worker-types", "GET");
+        if (response?.data && Array.isArray(response.data)) {
+          return response.data;
         }
-        return Array.isArray(response) ? response as WorkerType[] : [];
+        return [];
       } catch (error) {
         console.error("Error fetching worker types:", error);
         return [];
@@ -229,31 +226,6 @@ export default function Dashboard() {
     },
   });
 
-  const addWorkerTypeMutation = useMutation({
-    mutationFn: async (data: { name: string }) => {
-      await saveAutocompleteValue('workerTypes', data.name);
-
-      return apiRequest("/api/worker-types", "POST", data);
-    },
-    onSuccess: async (newType) => {
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
-      toast({
-        title: "تم الحفظ",
-        description: "تم إضافة نوع العامل بنجاح",
-      });
-      setWorkerData({...workerData, type: newType.name});
-      setNewTypeName("");
-      setShowAddTypeDialog(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء إضافة نوع العامل",
-        variant: "destructive",
-      });
-    },
-  });
 
   const { data: todaySummary } = useQuery<DailyExpenseSummary>({
     queryKey: QUERY_KEYS.dailySummary(selectedProjectId, new Date().toISOString().split('T')[0]),
@@ -668,83 +640,25 @@ export default function Dashboard() {
             </div>
             <div className="form-field form-field-full">
               <Label htmlFor="worker-type">نوع العامل</Label>
-              <div className="flex gap-2">
-                <SearchableSelect
-                  value={workerData.type || ""}
-                  onValueChange={(value) => setWorkerData({...workerData, type: value})}
-                  options={
-                    Array.isArray(workerTypes) && workerTypes.length > 0 
-                      ? workerTypes.map((workerType) => ({
-                          value: workerType.value,
-                          label: workerType.value,
-                        }))
-                      : [
-                          { value: "معلم", label: "معلم" },
-                          { value: "عامل", label: "عامل" },
-                          { value: "حداد", label: "حداد" },
-                          { value: "نجار", label: "نجار" },
-                          { value: "سائق", label: "سائق" },
-                          { value: "كهربائي", label: "كهربائي" },
-                          { value: "سباك", label: "سباك" },
-                          { value: "تمرير", label: "تمرير" },
-                        ]
-                  }
-                  placeholder="اختر نوع العامل..."
-                  searchPlaceholder="ابحث عن نوع..."
-                  emptyText="لا توجد أنواع"
-                  className="flex-1"
-                />
-              </div>
+              <SearchableSelect
+                value={workerData.type || ""}
+                onValueChange={(value) => setWorkerData({...workerData, type: value})}
+                options={workerTypeOptions}
+                placeholder="اختر نوع العامل..."
+                searchPlaceholder="ابحث عن نوع..."
+                emptyText="لا توجد أنواع"
+                className="flex-1"
+                allowCustom
+                onCustomAdd={async (value) => {
+                  await apiRequest("/api/autocomplete", "POST", { category: 'worker-types', value });
+                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+                }}
+                onDeleteOption={async (value) => {
+                  await apiRequest(`/api/autocomplete/worker-types/${encodeURIComponent(value)}`, "DELETE");
+                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
+                }}
+              />
             </div>
-
-            {/* Separate Dialog for Adding New Worker Type */}
-            <Dialog open={showAddTypeDialog} onOpenChange={setShowAddTypeDialog}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>إضافة نوع عامل جديد</DialogTitle>
-                  <DialogDescription>
-                    أدخل اسم نوع العامل الجديد ليتم حفظه في قاعدة البيانات
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="form-grid">
-                  <div className="form-field form-field-full">
-                    <Label htmlFor="new-type-name">اسم نوع العامل</Label>
-                    <Input
-                      id="new-type-name"
-                      type="text"
-                      value={newTypeName}
-                      onChange={(e) => setNewTypeName(e.target.value)}
-                      placeholder="مثال: كهربائي، سباك، حداد..."
-                      required
-                    />
-                  </div>
-                  <div className="form-actions">
-                    <Button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        if (newTypeName.trim()) {
-                          addWorkerTypeMutation.mutate({ name: newTypeName.trim() });
-                        }
-                      }}
-                      disabled={!newTypeName.trim() || addWorkerTypeMutation.isPending}
-                    >
-                      {addWorkerTypeMutation.isPending ? "جاري الإضافة..." : "إضافة"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowAddTypeDialog(false);
-                        setNewTypeName("");
-                      }}
-                    >
-                      إلغاء
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
             <div className="form-actions">
               <Button
                 onClick={() => {

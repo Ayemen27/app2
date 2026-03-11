@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Download,
@@ -186,7 +186,7 @@ function ReportTable({
   );
 }
 
-function DailyReportTab() {
+function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -206,6 +206,21 @@ function DailyReportTab() {
     enabled: !!projectIdForApi && !!dateStr,
     staleTime: 2 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (dailyReport && onStatsReady) {
+      onStatsReady([
+        { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
+        { title: "إجمالي الأجور", value: dailyReport.totals?.totalWorkerWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
+        { title: "المواد", value: dailyReport.totals?.totalMaterials || 0, icon: Package, color: "orange", formatter: formatCurrency },
+        { title: "النقل", value: dailyReport.totals?.totalTransport || 0, icon: Truck, color: "teal", formatter: formatCurrency },
+        { title: "مصاريف متنوعة", value: dailyReport.totals?.totalMiscExpenses || 0, icon: CreditCard, color: "red", formatter: formatCurrency },
+        { title: "الرصيد", value: dailyReport.totals?.balance || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
+      ]);
+    } else if (!dailyReport && onStatsReady) {
+      onStatsReady([]);
+    }
+  }, [dailyReport, onStatsReady]);
 
   const handleExport = (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
@@ -260,21 +275,6 @@ function DailyReportTab() {
 
   return (
     <div className="space-y-4">
-      {dailyReport && (
-        <UnifiedStats
-          stats={[
-            { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
-            { title: "إجمالي الأجور", value: dailyReport.totals?.totalWorkerWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
-            { title: "المواد", value: dailyReport.totals?.totalMaterials || 0, icon: Package, color: "orange", formatter: formatCurrency },
-            { title: "النقل", value: dailyReport.totals?.totalTransport || 0, icon: Truck, color: "teal", formatter: formatCurrency },
-            { title: "مصاريف متنوعة", value: dailyReport.totals?.totalMiscExpenses || 0, icon: CreditCard, color: "red", formatter: formatCurrency },
-            { title: "الرصيد", value: dailyReport.totals?.balance || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
-          ]}
-          columns={3}
-          hideHeader={true}
-        />
-      )}
-
       <UnifiedFilterDashboard
         filters={filterConfig}
         filterValues={filterValues}
@@ -467,7 +467,7 @@ function DailyReportTab() {
   );
 }
 
-function WorkerStatementTab() {
+function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
@@ -558,6 +558,19 @@ function WorkerStatementTab() {
     enabled: !!selectedWorkerId,
   });
 
+  useEffect(() => {
+    if (selectedWorkerId && !workerLoading && workerStatement && onStatsReady) {
+      onStatsReady([
+        { title: "إجمالي أيام العمل", value: String(workerStatement.totals?.totalWorkDays || 0), icon: Calendar, color: "blue" },
+        { title: "إجمالي المستحق", value: workerStatement.totals?.totalEarned || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
+        { title: "إجمالي المدفوع", value: workerStatement.totals?.totalPaid || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
+        { title: "الرصيد المتبقي", value: workerStatement.totals?.finalBalance || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
+      ]);
+    } else if (onStatsReady && (!selectedWorkerId || (!workerLoading && !workerStatement))) {
+      onStatsReady([]);
+    }
+  }, [workerStatement, workerLoading, selectedWorkerId, onStatsReady]);
+
   const handleExport = (fmt: "xlsx" | "pdf") => {
     if (!selectedWorkerId) {
       toast({ title: "تنبيه", description: "الرجاء اختيار عامل أولاً", variant: "destructive" });
@@ -595,19 +608,6 @@ function WorkerStatementTab() {
 
   return (
     <div className="space-y-4">
-      {selectedWorkerId && !workerLoading && workerStatement && (
-        <UnifiedStats
-          stats={[
-            { title: "إجمالي أيام العمل", value: String(workerStatement.totals?.totalWorkDays || 0), icon: Calendar, color: "blue" },
-            { title: "إجمالي المستحق", value: workerStatement.totals?.totalEarned || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
-            { title: "إجمالي المدفوع", value: workerStatement.totals?.totalPaid || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
-            { title: "الرصيد المتبقي", value: workerStatement.totals?.finalBalance || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
-          ]}
-          columns={4}
-          hideHeader={true}
-        />
-      )}
-
       <UnifiedFilterDashboard
         filters={filterConfig}
         filterValues={filterValues}
@@ -734,7 +734,7 @@ function WorkerStatementTab() {
   );
 }
 
-function PeriodFinalTab() {
+function PeriodFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
@@ -764,6 +764,26 @@ function PeriodFinalTab() {
     enabled: !!projectIdForApi && !!dateFrom && !!dateTo,
     staleTime: 2 * 60 * 1000,
   });
+
+  useEffect(() => {
+    if (periodReport && onStatsReady) {
+      onStatsReady([
+        { title: "إجمالي الوارد", value: periodReport.totals?.totalIncome || 0, icon: TrendingUp, color: "blue", formatter: formatCurrency },
+        { title: "إجمالي المصروفات", value: periodReport.totals?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
+        { title: "الرصيد", value: periodReport.totals?.balance || 0, icon: Wallet, color: "green", formatter: formatCurrency },
+        {
+          title: "نسبة استخدام الميزانية",
+          value: periodReport.totals?.budgetUtilization != null
+            ? `${Math.round(periodReport.totals.budgetUtilization)}%`
+            : "غير محدد",
+          icon: PieChartIcon,
+          color: "orange",
+        },
+      ]);
+    } else if (!periodReport && onStatsReady) {
+      onStatsReady([]);
+    }
+  }, [periodReport, onStatsReady]);
 
   const handleExport = (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
@@ -821,26 +841,6 @@ function PeriodFinalTab() {
 
   return (
     <div className="space-y-4">
-      {periodReport && (
-        <UnifiedStats
-          stats={[
-            { title: "إجمالي الوارد", value: periodReport.totals?.totalIncome || 0, icon: TrendingUp, color: "blue", formatter: formatCurrency },
-            { title: "إجمالي المصروفات", value: periodReport.totals?.totalExpenses || 0, icon: TrendingDown, color: "red", formatter: formatCurrency },
-            { title: "الرصيد", value: periodReport.totals?.balance || 0, icon: Wallet, color: "green", formatter: formatCurrency },
-            {
-              title: "نسبة استخدام الميزانية",
-              value: periodReport.totals?.budgetUtilization != null
-                ? `${Math.round(periodReport.totals.budgetUtilization)}%`
-                : "غير محدد",
-              icon: PieChartIcon,
-              color: "orange",
-            },
-          ]}
-          columns={4}
-          hideHeader={true}
-        />
-      )}
-
       <UnifiedFilterDashboard
         filters={filterConfig}
         filterValues={filterValues}
@@ -1102,11 +1102,29 @@ function PeriodFinalTab() {
 
 export default function AxionReports() {
   const [activeTab, setActiveTab] = useState("daily");
+  const [currentStats, setCurrentStats] = useState<any[]>([]);
+
+  const handleTabChange = useCallback((tab: string) => {
+    setCurrentStats([]);
+    setActiveTab(tab);
+  }, []);
+
+  const handleStatsReady = useCallback((stats: any[]) => {
+    setCurrentStats(stats);
+  }, []);
 
   return (
     <div className="fade-in pb-40" dir="rtl">
       <div className="p-4 space-y-4 min-h-screen">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {currentStats.length > 0 && (
+          <UnifiedStats
+            stats={currentStats}
+            columns={2}
+            hideHeader={true}
+          />
+        )}
+
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full grid grid-cols-3" data-testid="tabs-report-center">
             <TabsTrigger value="daily" className="gap-1 text-xs sm:text-sm" data-testid="tab-daily">
               <ClipboardList className="h-4 w-4" />
@@ -1126,15 +1144,15 @@ export default function AxionReports() {
           </TabsList>
 
           <TabsContent value="daily" className="mt-4">
-            <DailyReportTab />
+            <DailyReportTab onStatsReady={handleStatsReady} />
           </TabsContent>
 
           <TabsContent value="worker" className="mt-4">
-            <WorkerStatementTab />
+            <WorkerStatementTab onStatsReady={handleStatsReady} />
           </TabsContent>
 
           <TabsContent value="final" className="mt-4">
-            <PeriodFinalTab />
+            <PeriodFinalTab onStatsReady={handleStatsReady} />
           </TabsContent>
         </Tabs>
       </div>

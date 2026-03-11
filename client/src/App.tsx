@@ -186,9 +186,11 @@ function Router() {
         </Suspense>
       </Route>
       <Route path="/deployment">
-        <Suspense fallback={<PageLoader />}>
-          <DeploymentConsole />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <DeploymentConsole />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/projects">
         <Suspense fallback={<PageLoader />}>
@@ -238,9 +240,11 @@ function Router() {
         </Suspense>
       </Route>
       <Route path="/project-transfers">
-        <Suspense fallback={<PageLoader />}>
-          <ProjectTransfers />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <ProjectTransfers />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/project-transactions">
         <AdminRoute>
@@ -250,9 +254,11 @@ function Router() {
         </AdminRoute>
       </Route>
       <Route path="/project-fund-custody">
-        <Suspense fallback={<PageLoader />}>
-          <ProjectFundCustody />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <ProjectFundCustody />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/autocomplete-admin">
         <AdminRoute>
@@ -281,9 +287,11 @@ function Router() {
         </AdminRoute>
       </Route>
       <Route path="/smart-errors">
-        <Suspense fallback={<PageLoader />}>
-          <SmartErrorsPage />
-        </Suspense>
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <SmartErrorsPage />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/security-policies">
         <AdminRoute>

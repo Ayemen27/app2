@@ -1,7 +1,8 @@
 import { 
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
-  ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText, KeyRound
+  ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText, KeyRound,
+  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit
 } from "lucide-react";
 import { 
   Sidebar,
@@ -45,16 +46,18 @@ const sections: SidebarSection[] = [
     items: [
       { title: "لوحة التحكم", url: "/", icon: Home },
       { title: "إدارة المشاريع", url: "/projects", icon: Building2 },
+      { title: "التحليلات", url: "/analysis", icon: BarChart3 },
+      { title: "الإشعارات", url: "/notifications", icon: Bell },
     ]
   },
   {
     title: "القوى العاملة",
     icon: Users,
     items: [
-      { title: "سجل العمليات", url: "/project-transactions", icon: FileText },
       { title: "إدارة العمال", url: "/workers", icon: Users },
       { title: "حضور العمال", url: "/worker-attendance", icon: UserCheck },
       { title: "حسابات العمال", url: "/worker-accounts", icon: Wallet },
+      { title: "سجل العمليات", url: "/project-transactions", icon: FileText, adminOnly: true },
     ]
   },
   {
@@ -63,18 +66,22 @@ const sections: SidebarSection[] = [
     items: [
       { title: "شراء المواد", url: "/material-purchase", icon: Package },
       { title: "الموردين", url: "/suppliers-pro", icon: Truck },
+      { title: "حسابات الموردين", url: "/supplier-accounts", icon: CreditCard, adminOnly: true },
       { title: "إدارة النقل", url: "/transport-management", icon: Truck },
       { title: "الزبائن", url: "/customers", icon: Users },
-      { title: "إدارة المعدات", icon: Wrench, url: "/equipment" },
+      { title: "إدارة المعدات", icon: Wrench, url: "/equipment", adminOnly: true },
     ]
   },
   {
-    title: "المالية والتقارير",
+    title: "الآبار والمالية",
     icon: Calculator,
     items: [
-      { title: "المصاريف اليومية", url: "/daily-expenses", icon: Calculator },
+      { title: "إدارة الآبار", url: "/wells", icon: MapPin },
       { title: "محاسبة الآبار", url: "/well-accounting", icon: Calculator },
       { title: "تقرير التكلفة", url: "/well-cost-report", icon: BarChart3 },
+      { title: "المصاريف اليومية", url: "/daily-expenses", icon: Calculator },
+      { title: "الوارد للعهد", url: "/project-fund-custody", icon: DollarSign, adminOnly: true },
+      { title: "ترحيل بين المشاريع", url: "/project-transfers", icon: ArrowLeftRight, adminOnly: true },
       { title: "التقارير", url: "/reports", icon: BarChart3 },
     ]
   },
@@ -84,16 +91,36 @@ const sections: SidebarSection[] = [
     adminOnly: true,
     items: [
       { title: "لوحة القيادة", icon: BarChart3, url: "/admin/dashboard" },
+      { title: "إدارة المستخدمين", icon: Users, url: "/users-management" },
       { title: "إدارة الصلاحيات", icon: KeyRound, url: "/admin/permissions" },
       { title: "إدارة النظام", icon: Settings, url: "/admin/system" },
-      { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
       { title: "سياسات الأمان", icon: ShieldCheck, url: "/security-policies" },
+      { title: "إشعارات المسؤولين", icon: Bell, url: "/admin-notifications" },
+      { title: "إعدادات الإكمال التلقائي", icon: Wrench, url: "/autocomplete-admin" },
+    ]
+  },
+  {
+    title: "الذكاء الاصطناعي والمراقبة",
+    icon: BrainCircuit,
+    adminOnly: true,
+    items: [
+      { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
+      { title: "كشف الأخطاء الذكي", icon: AlertTriangle, url: "/smart-errors" },
+      { title: "نظام الرصد", icon: Activity, url: "/admin/monitoring" },
       { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },
+      { title: "مقارنة المزامنة", icon: GitCompare, url: "/sync-comparison" },
+    ]
+  },
+  {
+    title: "البنية التحتية",
+    icon: Database,
+    adminOnly: true,
+    items: [
+      { title: "قاعدة البيانات", icon: Database, url: "/local-db" },
       { title: "النسخ الاحتياطي", icon: ShieldCheck, url: "/admin/backups" },
       { title: "إدارة المزامنة", icon: RefreshCw, url: "/admin/sync" },
-      { title: "نظام الرصد", icon: Activity, url: "/admin/monitoring" },
       { title: "ربط الواتساب", icon: MessageSquare, url: "/whatsapp-setup" },
-      { title: "قاعدة البيانات", icon: Database, url: "/local-db" },
+      { title: "لوحة البناء والنشر", icon: Terminal, url: "/deployment" },
     ]
   }
 ];
@@ -105,7 +132,12 @@ export function AppSidebar() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
-  const visibleSections = sections.filter(section => !section.adminOnly || isAdmin);
+  const visibleSections = sections
+    .filter(section => !section.adminOnly || isAdmin)
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => !item.adminOnly || isAdmin)
+    }));
 
   const displayName = user?.name || 
     [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 
@@ -181,7 +213,6 @@ export function AppSidebar() {
             </SidebarGroup>
           </Collapsible>
         ))}
-        {/* مساحة إضافية لضمان وصول التمرير لآخر عنصر */}
         <div className="h-24 w-full" aria-hidden="true" />
       </SidebarContent>
 
@@ -222,7 +253,6 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        {/* إضافة معلومات البيئة في الأسفل */}
         <div className="px-4 py-2 group-data-[collapsible=icon]:hidden">
            <div className="text-[10px] text-slate-500 dark:text-slate-500 text-center border border-slate-200 dark:border-slate-800 rounded py-1 bg-slate-100 dark:bg-slate-900/50">
              البيئة: {process.env.NODE_ENV === 'production' ? 'الإنتاج' : 'التطوير'}

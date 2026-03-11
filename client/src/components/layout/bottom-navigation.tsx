@@ -6,7 +6,8 @@ import {
   Package, DollarSign, Settings, ArrowLeftRight, 
   FileText, CreditCard, Bell, 
   Shield, Database, Wrench, Terminal,
-  Search, X, RefreshCw
+  Search, X, RefreshCw, MessageSquare, Activity, 
+  KeyRound, GitCompare, AlertTriangle, BrainCircuit, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -30,6 +31,9 @@ const allPagesData = [
       { path: "/projects", icon: Building2, label: "إدارة المشاريع", description: "إضافة وإدارة المشاريع", requireAdmin: false },
       { path: "/workers", icon: Users, label: "إدارة العمال", description: "إضافة وإدارة العمال والحرفيين", requireAdmin: false },
       { path: "/suppliers-pro", icon: Truck, label: "إدارة الموردين", description: "إدارة الموردين والموزعين", requireAdmin: false },
+      { path: "/customers", icon: Users, label: "الزبائن", description: "إدارة بيانات الزبائن والعملاء", requireAdmin: false },
+      { path: "/analysis", icon: BarChart, label: "التحليلات", description: "لوحة تحليلات شاملة للبيانات", requireAdmin: false },
+      { path: "/notifications", icon: Bell, label: "الإشعارات", description: "عرض وإدارة إشعارات النظام", requireAdmin: false },
     ]
   },
   {
@@ -42,8 +46,8 @@ const allPagesData = [
       { path: "/daily-expenses", icon: Calculator, label: "المصاريف اليومية", description: "تسجيل المصاريف اليومية للمشاريع", requireAdmin: false },
       { path: "/material-purchase", icon: Package, label: "شراء المواد", description: "إدارة مشتريات مواد البناء", requireAdmin: false },
       { path: "/transport-management", icon: Truck, label: "إدارة النقل", description: "إدارة أجور ونقل العمال والمعدات", requireAdmin: false },
-      { path: "/worker-accounts", icon: DollarSign, label: "حسابات العمال", description: "إدارة حوالات وتحويلات العمال", requireAdmin: true },
-      { path: "/equipment", icon: Settings, label: "إدارة المعدات", description: "إدارة المعدات مع النقل والتتبع", requireAdmin: true },
+      { path: "/worker-accounts", icon: DollarSign, label: "حسابات العمال", description: "إدارة حوالات وتحويلات العمال", requireAdmin: false },
+      { path: "/equipment", icon: Wrench, label: "إدارة المعدات", description: "إدارة المعدات مع النقل والتتبع", requireAdmin: true },
       { path: "/project-fund-custody", icon: DollarSign, label: "الوارد للعهد", description: "إدارة الوارد الرئيسي للعُهد", requireAdmin: true },
       { path: "/project-transfers", icon: ArrowLeftRight, label: "ترحيل بين المشاريع", description: "إدارة ترحيل الأرصدة بين المشاريع", requireAdmin: true },
       { path: "/project-transactions", icon: FileText, label: "سجل العمليات", description: "عرض شامل لجميع المعاملات المالية", requireAdmin: true },
@@ -67,35 +71,36 @@ const allPagesData = [
       { path: "/admin/dashboard", icon: BarChart, label: "لوحة القيادة", description: "مؤشرات الأداء العامة للنظام", requireAdmin: true },
       { path: "/admin/system", icon: Settings, label: "إدارة النظام", description: "لوحة التحكم المركزية في جميع الخدمات", requireAdmin: true },
       { path: "/users-management", icon: Users, label: "إدارة المستخدمين", description: "إدارة حسابات المستخدمين والصلاحيات", requireAdmin: true },
-    ]
-  },
-  {
-    category: "الإشعارات والتنبيهات",
-    pages: [
-      { path: "/notifications", icon: Bell, label: "الإشعارات", description: "عرض وإدارة إشعارات النظام", requireAdmin: false },
+      { path: "/admin/permissions", icon: KeyRound, label: "إدارة الصلاحيات", description: "تعيين صلاحيات المستخدمين للمشاريع", requireAdmin: true },
     ]
   },
   {
     category: "الأمان والمراقبة",
     pages: [
       { path: "/security-policies", icon: Shield, label: "السياسات الأمنية", description: "إدارة السياسات الأمنية والامتثال", requireAdmin: true },
-      { path: "/smart-errors", icon: Database, label: "كشف الأخطاء الذكي", description: "مراقبة وتحليل أخطاء قاعدة البيانات بذكاء اصطناعي", requireAdmin: true },
+      { path: "/smart-errors", icon: AlertTriangle, label: "كشف الأخطاء الذكي", description: "مراقبة وتحليل أخطاء قاعدة البيانات بذكاء اصطناعي", requireAdmin: true },
+      { path: "/admin/monitoring", icon: Activity, label: "نظام الرصد", description: "مراقبة أداء النظام والخدمات", requireAdmin: true },
+      { path: "/admin/data-health", icon: Activity, label: "صحة البيانات", description: "فحص سلامة وصحة البيانات", requireAdmin: true },
     ]
   },
   {
     category: "الإعدادات والإدارة",
     pages: [
+      { path: "/settings", icon: Settings, label: "الإعدادات", description: "إعدادات الحساب والتفضيلات الشخصية", requireAdmin: false },
       { path: "/autocomplete-admin", icon: Wrench, label: "إعدادات الإكمال التلقائي", description: "إدارة بيانات الإكمال التلقائي", requireAdmin: true },
       { path: "/admin-notifications", icon: Bell, label: "إشعارات المسؤولين", description: "إدارة وإرسال إشعارات للمستخدمين", requireAdmin: true },
-      { path: "/deployment", icon: Terminal, label: "لوحة البناء والنشر", description: "نظام البناء الآلي والنشر على السيرفر", requireAdmin: true },
     ]
   },
   {
     category: "الذكاء الاصطناعي والمزامنة",
     pages: [
+      { path: "/ai-chat", icon: MessageSquare, label: "المساعد الذكي", description: "محادثة مع المساعد الذكي للنظام", requireAdmin: true },
       { path: "/local-db", icon: Database, label: "إدارة القاعدة المحلية", description: "فحص حالة البيانات المحلية والمزامنة", requireAdmin: true },
       { path: "/admin/backups", icon: Shield, label: "النسخ الاحتياطي", description: "إدارة واستعادة النسخ الاحتياطية", requireAdmin: true },
       { path: "/admin/sync", icon: RefreshCw, label: "إدارة المزامنة", description: "مراقبة حالة المزامنة والتحكم في البيانات", requireAdmin: true },
+      { path: "/sync-comparison", icon: GitCompare, label: "مقارنة المزامنة", description: "مقارنة البيانات بين قواعد البيانات", requireAdmin: true },
+      { path: "/whatsapp-setup", icon: MessageSquare, label: "ربط الواتساب", description: "إعداد وربط خدمة واتساب مع النظام", requireAdmin: true },
+      { path: "/deployment", icon: Terminal, label: "لوحة البناء والنشر", description: "نظام البناء الآلي والنشر على السيرفر", requireAdmin: true },
     ]
   },
 ];
@@ -106,7 +111,7 @@ export default function BottomNavigation() {
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const allPages = allPagesData.map(category => ({
     ...category,
     pages: category.pages.filter(page => !page.requireAdmin || isAdmin)

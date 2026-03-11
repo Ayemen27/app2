@@ -58,14 +58,41 @@ function getPayloadSummary(payload: Record<string, any>): string {
   return parts.join(' | ') || 'بدون تفاصيل';
 }
 
+function extractRecordIdFromItem(item: { endpoint: string; payload: Record<string, any> }): string | null {
+  if (item.payload?.id) return String(item.payload.id);
+  const parts = item.endpoint.split('/').filter(Boolean);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && lastPart.length > 8 && lastPart !== parts[parts.length - 2]) {
+    return lastPart;
+  }
+  return null;
+}
+
+function buildLWWFetchUrl(endpoint: string, recordId: string): string {
+  if (endpoint.includes(recordId)) {
+    return endpoint;
+  }
+  return `${endpoint}/${recordId}`;
+}
+
+function extractServerRecord(response: any): any {
+  if (!response) return null;
+  if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+    return response.data;
+  }
+  return response;
+}
+
 async function checkLWWConflict(item: SyncQueueItem): Promise<'proceed' | 'skip'> {
   if (item.action !== 'update') return 'proceed';
 
-  const recordId = item.payload?.id;
+  const recordId = extractRecordIdFromItem(item);
   if (!recordId) return 'proceed';
 
   try {
-    const serverRecord = await apiRequest(`${item.endpoint}/${recordId}`, 'GET');
+    const fetchUrl = buildLWWFetchUrl(item.endpoint, recordId);
+    const rawResponse = await apiRequest(fetchUrl, 'GET');
+    const serverRecord = extractServerRecord(rawResponse);
 
     if (!serverRecord || serverRecord.error) {
       console.log(`[Silent-Sync-LWW] Could not fetch server version for ${recordId}, proceeding with update`);
@@ -143,6 +170,10 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
       action: item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE',
       endpoint: item.endpoint,
       payload: item.payload,
+      _metadata: {
+        clientTimestamp: item.lastModifiedAt || item.timestamp,
+        deviceId: localStorage.getItem('deviceId') || 'web-client',
+      },
     }));
 
     const batchIdempotencyKey = `batch:${batchId}:${items[0]?.retries || 0}`;
@@ -277,7 +308,14 @@ async function _executeSilentSync() {
       let response: any;
       try {
         const idempotencyKey = item.idempotencyKey || `sync:${item.id}:${item.retries}`;
-        response = await apiRequest(item.endpoint, method, item.payload, 0, {
+        const payloadWithMeta = {
+          ...item.payload,
+          _metadata: {
+            clientTimestamp: item.lastModifiedAt || item.timestamp,
+            deviceId: localStorage.getItem('deviceId') || 'web-client',
+          },
+        };
+        response = await apiRequest(item.endpoint, method, payloadWithMeta, 0, {
           'x-idempotency-key': idempotencyKey,
         });
       } catch (apiError: any) {

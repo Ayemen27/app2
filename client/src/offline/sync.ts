@@ -227,14 +227,41 @@ export async function performInitialDataPull(): Promise<boolean> {
   }
 }
 
+function extractRecordIdFromItem(item: { endpoint: string; payload: Record<string, any> }): string | null {
+  if (item.payload?.id) return String(item.payload.id);
+  const parts = item.endpoint.split('/').filter(Boolean);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && lastPart.length > 8 && lastPart !== parts[parts.length - 2]) {
+    return lastPart;
+  }
+  return null;
+}
+
+function buildLWWFetchUrl(endpoint: string, recordId: string): string {
+  if (endpoint.includes(recordId)) {
+    return endpoint;
+  }
+  return `${endpoint}/${recordId}`;
+}
+
+function extractServerRecord(response: any): any {
+  if (!response) return null;
+  if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+    return response.data;
+  }
+  return response;
+}
+
 async function checkLWWConflict(item: { action: string; endpoint: string; payload: Record<string, any>; timestamp: number; lastModifiedAt?: number; id: string }): Promise<'proceed' | 'skip'> {
   if (item.action !== 'update') return 'proceed';
 
-  const recordId = item.payload?.id;
+  const recordId = extractRecordIdFromItem(item);
   if (!recordId) return 'proceed';
 
   try {
-    const serverRecord = await apiRequest(`${item.endpoint}/${recordId}`, 'GET');
+    const fetchUrl = buildLWWFetchUrl(item.endpoint, recordId);
+    const rawResponse = await apiRequest(fetchUrl, 'GET');
+    const serverRecord = extractServerRecord(rawResponse);
 
     if (!serverRecord || serverRecord.error) {
       console.log(`[Sync-LWW] Could not fetch server version for ${recordId}, proceeding with update`);
@@ -337,7 +364,7 @@ export async function syncOfflineData(): Promise<void> {
             _metadata: {
               signature,
               version: item.payload.version || 1,
-              clientTimestamp: Date.now(),
+              clientTimestamp: item.lastModifiedAt || item.timestamp,
               deviceId: localStorage.getItem('deviceId') || 'web-client'
             }
           });

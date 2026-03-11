@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface SelectOption {
   value: string;
@@ -146,7 +145,10 @@ export function SearchableSelect({
               </div>
             </div>
           )}
-          <ScrollArea className="w-full" style={{ maxHeight: `${maxHeight}px` }}>
+          <div 
+            className="w-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
+            style={{ maxHeight: `${maxHeight}px` }}
+          >
             <div className="p-1 min-w-[var(--radix-popover-trigger-width)]">
               {filteredOptions.length === 0 ? (
                 <div>
@@ -242,7 +244,7 @@ export function SearchableSelect({
                 </>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </PopoverContent>
       </Popover>
     </div>

@@ -93,6 +93,7 @@ const PIPELINE_LABELS: Record<string, string> = {
   "android-build": "Android APK Build",
   "full-deploy": "Full Deploy (Web + Android)",
   "git-push": "Git Push & Server Pull",
+  "hotfix": "Hotfix Deploy (Fast Push)",
 };
 
 const STEP_ICONS: Record<string, any> = {

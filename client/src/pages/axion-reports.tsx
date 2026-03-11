@@ -355,9 +355,9 @@ function RangeDayPage({ report, searchValue, carryForward = 0 }: { report: Daily
           {allExpenses.length > 0 ? (
             <ReportTable
               testId="table-range-expenses"
-              headers={["#", "القسم", "البيان", "أيام العمل", "المدفوع", "المبلغ", "ملاحظات"]}
+              headers={["#", "القسم", "البيان", "أيام العمل", "المبلغ", "ملاحظات"]}
               rows={allExpenses.map((e, i) => [
-                i + 1, e.category, e.description, e.workDays, e.paidAmount, formatCurrency(e.amount), e.notes,
+                i + 1, e.category, e.description, e.workDays, formatCurrency(e.amount), e.notes,
               ])}
             />
           ) : (

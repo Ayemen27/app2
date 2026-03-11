@@ -147,7 +147,7 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
   workbook.created = new Date();
   workbook.views = [{ x: 0, y: 0, width: 10000, height: 20000, firstSheet: 0, activeTab: 0, visibility: 'visible' }];
 
-  const COL_COUNT = 8;
+  const COL_COUNT = 6;
   let carryForward = 0;
 
   for (const report of reports) {
@@ -171,12 +171,10 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
     ws.columns = [
       { width: 5 },
       { width: 14 },
-      { width: 26 },
+      { width: 34 },
       { width: 10 },
-      { width: 14 },
-      { width: 14 },
-      { width: 22 },
-      { width: 10 },
+      { width: 16 },
+      { width: 28 },
     ];
 
     const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -207,20 +205,17 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
     row++;
     if (expenses.length > 0) {
       row = xlSectionHeader(ws, row, 'جدول المصروفات', COL_COUNT);
-      row = xlTableHeader(ws, row, ['م', 'القسم', 'البيان', 'أيام العمل', 'المدفوع', 'المبلغ (YER)', 'ملاحظات', 'النسبة %']);
+      row = xlTableHeader(ws, row, ['م', 'القسم', 'البيان', 'أيام العمل', 'المبلغ (YER)', 'ملاحظات']);
       expenses.forEach((e, idx) => {
-        const pct = totalExpenses > 0 ? ((e.amount / totalExpenses) * 100).toFixed(1) + '%' : '0%';
-        row = xlDataRow(ws, row, [idx + 1, e.category, e.description, e.workDays, e.paidAmount, formatNum(e.amount), e.notes, pct], idx % 2 === 1);
+        row = xlDataRow(ws, row, [idx + 1, e.category, e.description, e.workDays, formatNum(e.amount), e.notes], idx % 2 === 1);
       });
 
       const totR = ws.getRow(row);
       ws.mergeCells(row, 1, row, 3);
       totR.getCell(1).value = 'إجمالي المصروفات';
       totR.getCell(4).value = '';
-      totR.getCell(5).value = '';
-      totR.getCell(6).value = formatNum(totalExpenses);
-      totR.getCell(7).value = `${expenses.length} عملية`;
-      totR.getCell(8).value = '100%';
+      totR.getCell(5).value = formatNum(totalExpenses);
+      totR.getCell(6).value = `${expenses.length} عملية`;
       for (let c = 1; c <= COL_COUNT; c++) {
         totR.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
         totR.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
@@ -243,7 +238,7 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
       xlApplyBorders(secR, COL_COUNT);
       row++;
 
-      const fHeaders = ['م', 'المبلغ (YER)', 'المرسل', 'نوع التحويل', 'رقم التحويل', 'التاريخ', 'الحالة', 'ملاحظات'];
+      const fHeaders = ['م', 'المبلغ (YER)', 'المرسل', 'نوع التحويل', 'رقم التحويل', 'ملاحظات'];
       row = xlTableHeader(ws, row, fHeaders);
       fundTransfers.forEach((r: any, idx: number) => {
         row = xlDataRow(ws, row, [
@@ -252,9 +247,7 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
           r.senderName || '-',
           r.transferType || '-',
           r.transferNumber || '-',
-          r.transferDate || '-',
           r.status || 'مؤكد',
-          '-',
         ], idx % 2 === 1);
       });
       const ftR = ws.getRow(row);
@@ -274,7 +267,7 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
     if (workerTransfers.length > 0) {
       row++;
       row = xlSectionHeader(ws, row, 'حوالات العمال', COL_COUNT);
-      const wtHeaders = ['م', 'المبلغ (YER)', 'اسم العامل', 'المستلم', 'الطريقة', 'الحالة', 'التاريخ', 'ملاحظات'];
+      const wtHeaders = ['م', 'المبلغ (YER)', 'اسم العامل', 'المستلم', 'الطريقة', 'ملاحظات'];
       row = xlTableHeader(ws, row, wtHeaders);
       const totalWT = workerTransfers.reduce((s: number, r: any) => s + (r.amount || 0), 0);
       workerTransfers.forEach((r: any, idx: number) => {
@@ -285,11 +278,9 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
           r.recipientName || '-',
           r.transferMethod || '-',
           r.status || 'مكتمل',
-          r.transferDate || '-',
-          '-',
         ], idx % 2 === 1);
       });
-      row = xlTotalsRow(ws, row, ['الإجمالي', formatNum(totalWT), '', '', '', '', '', '']);
+      row = xlTotalsRow(ws, row, ['الإجمالي', formatNum(totalWT), '', '', '', '']);
     }
 
     row += 2;

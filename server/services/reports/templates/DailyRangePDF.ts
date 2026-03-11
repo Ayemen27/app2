@@ -123,25 +123,20 @@ function generateDayPage(report: DailyReportData, carryForward: number, dayIndex
       <th style="width:65px;">القسم</th>
       <th>البيان</th>
       <th style="width:50px;">أيام العمل</th>
-      <th style="width:65px;">المدفوع</th>
-      <th style="width:70px;">المبلغ (YER)</th>
+      <th style="width:80px;">المبلغ (YER)</th>
       <th>ملاحظات</th>
-      <th style="width:40px;">النسبة</th>
     </tr></thead><tbody>`;
     expenses.forEach((e, idx) => {
-      const pct = totalExpenses > 0 ? ((e.amount / totalExpenses) * 100).toFixed(1) : '0.0';
       html += `<tr>
         <td>${idx + 1}</td>
         <td>${escapeHtml(e.category)}</td>
         <td style="text-align:right;">${escapeHtml(e.description)}</td>
         <td>${e.workDays}</td>
-        <td>${escapeHtml(e.paidAmount)}</td>
         <td style="font-weight:700;">${formatNum(e.amount)}</td>
         <td style="text-align:right;font-size:8px;">${escapeHtml(e.notes)}</td>
-        <td>${pct}%</td>
       </tr>`;
     });
-    html += pdfTotalRow([`الإجمالي (${expenses.length} عملية)`, '', '', '', formatNum(totalExpenses), '', '100%'], 2);
+    html += pdfTotalRow([`الإجمالي (${expenses.length} عملية)`, '', '', formatNum(totalExpenses), ''], 2);
     html += `</tbody></table>`;
   }
 

@@ -1,1 +1,0 @@
-import{j as c,ao as g}from"./index-BzAd3Cik.js";function m({children:s,columns:r=2,className:o,...d}){const i={2:"grid-cols-1 sm:grid-cols-2",3:"grid-cols-1 sm:grid-cols-2 md:grid-cols-3",4:"grid-cols-1 sm:grid-cols-2 md:grid-cols-4"};return c.jsx("div",{className:g("grid gap-3 md:gap-4",i[r],o),dir:"rtl",...d,children:s})}export{m as C};

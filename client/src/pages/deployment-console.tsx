@@ -112,17 +112,16 @@ const STEP_ICONS: Record<string, any> = {
   "install-deps": Package,
   "build-server": Terminal,
   "rollback-server": RotateCcw,
-  "restart-pm2": RefreshCw,
   "db-migrate": Server,
   "hotfix-sync": Rocket,
 };
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { color: string; icon: any; label: string }> = {
-    pending: { color: "bg-slate-500/10 text-slate-400 border-slate-500/20", icon: Clock, label: "Pending" },
-    running: { color: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: Loader2, label: "Running" },
-    success: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2, label: "Success" },
-    failed: { color: "bg-red-500/10 text-red-400 border-red-500/20", icon: XCircle, label: "Failed" },
+    pending: { color: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20", icon: Clock, label: "Pending" },
+    running: { color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20", icon: Loader2, label: "Running" },
+    success: { color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2, label: "Success" },
+    failed: { color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20", icon: XCircle, label: "Failed" },
   };
   const v = variants[status] || variants.pending;
   const Icon = v.icon;
@@ -324,22 +323,22 @@ export default function DeploymentConsole() {
   const isRunning = liveDeployment?.status === "running";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white" data-testid="deployment-console">
+    <div className="min-h-screen bg-background text-foreground" data-testid="deployment-console">
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white">
               <Rocket className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Deployment Console</h1>
-              <p className="text-sm text-gray-400">AXION DevOps Pipeline Manager</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground" data-testid="text-page-title">Deployment Console</h1>
+              <p className="text-sm text-muted-foreground">AXION DevOps Pipeline Manager</p>
             </div>
           </div>
           {stats.running > 0 && (
-            <Badge className="bg-blue-500/15 text-blue-400 border border-blue-500/30 animate-pulse gap-1.5">
+            <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse gap-1.5">
               <Loader2 className="h-3 w-3 animate-spin" /> {stats.running} active
             </Badge>
           )}
@@ -347,59 +346,59 @@ export default function DeploymentConsole() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-total">
+          <Card className="bg-card border-border" data-testid="card-stat-total">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-slate-500/10 flex items-center justify-center">
-                  <Hash className="h-4 w-4 text-slate-400" />
+                  <Hash className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold" data-testid="text-stat-total">{stats.total}</p>
-                  <p className="text-xs text-gray-500">Total Deploys</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-stat-total">{stats.total}</p>
+                  <p className="text-xs text-muted-foreground">Total Deploys</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-success">
+          <Card className="bg-card border-border" data-testid="card-stat-success">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 text-emerald-400" />
+                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-emerald-400" data-testid="text-stat-success-rate">{stats.successRate}%</p>
-                  <p className="text-xs text-gray-500">Success Rate</p>
+                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400" data-testid="text-stat-success-rate">{stats.successRate}%</p>
+                  <p className="text-xs text-muted-foreground">Success Rate</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-failed">
+          <Card className="bg-card border-border" data-testid="card-stat-failed">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-red-500/10 flex items-center justify-center">
-                  <XCircle className="h-4 w-4 text-red-400" />
+                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-red-400" data-testid="text-stat-failed">{stats.failed}</p>
-                  <p className="text-xs text-gray-500">Failed</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400" data-testid="text-stat-failed">{stats.failed}</p>
+                  <p className="text-xs text-muted-foreground">Failed</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-duration">
+          <Card className="bg-card border-border" data-testid="card-stat-duration">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                  <Timer className="h-4 w-4 text-amber-400" />
+                  <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-amber-400" data-testid="text-stat-avg-duration">
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-stat-avg-duration">
                     {stats.avgDuration > 0 ? formatDuration(stats.avgDuration) : "—"}
                   </p>
-                  <p className="text-xs text-gray-500">Avg Duration</p>
+                  <p className="text-xs text-muted-foreground">Avg Duration</p>
                 </div>
               </div>
             </CardContent>
@@ -407,16 +406,16 @@ export default function DeploymentConsole() {
         </div>
 
         {/* Deploy Controls */}
-        <Card className="bg-gray-900/60 border-gray-800" data-testid="card-deploy-controls">
+        <Card className="bg-card border-border" data-testid="card-deploy-controls">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Rocket className="h-4 w-4 text-blue-400" /> New Deployment
+            <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+              <Rocket className="h-4 w-4 text-blue-600 dark:text-blue-400" /> New Deployment
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-3">
               <Select value={selectedPipeline} onValueChange={setSelectedPipeline} data-testid="select-pipeline">
-                <SelectTrigger className="bg-gray-800/50 border-gray-700 text-white w-full sm:w-[260px]" data-testid="trigger-pipeline">
+                <SelectTrigger className="bg-muted/50 border-border text-foreground w-full sm:w-[260px]" data-testid="trigger-pipeline">
                   <SelectValue placeholder="Select pipeline" />
                 </SelectTrigger>
                 <SelectContent>
@@ -433,7 +432,7 @@ export default function DeploymentConsole() {
                 placeholder="Commit message (optional)"
                 value={commitMessage}
                 onChange={(e) => setCommitMessage(e.target.value)}
-                className="bg-gray-800/50 border-gray-700 text-white flex-1"
+                className="bg-muted/50 border-border text-foreground flex-1"
               />
 
               {!isRunning ? (
@@ -461,10 +460,10 @@ export default function DeploymentConsole() {
         </Card>
 
         {/* Operations Panel */}
-        <Card className="bg-gray-900/60 border-gray-800" data-testid="card-operations">
+        <Card className="bg-card border-border" data-testid="card-operations">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Shield className="h-4 w-4 text-cyan-400" /> Server Operations
+            <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+              <Shield className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> Server Operations
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -474,7 +473,7 @@ export default function DeploymentConsole() {
                 onClick={handleCheckHealth}
                 disabled={isCheckingHealth}
                 variant="outline"
-                className="border-cyan-600/40 text-cyan-400 hover:bg-cyan-500/10 gap-2"
+                className="border-cyan-600/40 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-500/10 gap-2"
               >
                 {isCheckingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <HeartPulse className="h-4 w-4" />}
                 Health Check
@@ -484,18 +483,18 @@ export default function DeploymentConsole() {
                 onClick={handleCleanup}
                 disabled={isCleaning}
                 variant="outline"
-                className="border-amber-600/40 text-amber-400 hover:bg-amber-500/10 gap-2"
+                className="border-amber-600/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 gap-2"
               >
                 {isCleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Cleanup Server
               </Button>
               {healthData && (
                 <div className="flex items-center gap-2 ml-auto">
-                  <div className={`h-2.5 w-2.5 rounded-full ${healthData.status === "healthy" ? "bg-emerald-400" : "bg-amber-400"} animate-pulse`} />
-                  <span className={`text-sm font-medium ${healthData.status === "healthy" ? "text-emerald-400" : "text-amber-400"}`} data-testid="text-health-status">
+                  <div className={`h-2.5 w-2.5 rounded-full ${healthData.status === "healthy" ? "bg-emerald-500 dark:bg-emerald-400" : "bg-amber-500 dark:bg-amber-400"} animate-pulse`} />
+                  <span className={`text-sm font-medium ${healthData.status === "healthy" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} data-testid="text-health-status">
                     {healthData.status === "healthy" ? "Healthy" : "Degraded"}
                   </span>
-                  <span className="text-xs text-gray-500" data-testid="text-health-http">
+                  <span className="text-xs text-muted-foreground" data-testid="text-health-http">
                     HTTP {healthData.checks?.httpStatus || "—"}
                   </span>
                 </div>
@@ -507,10 +506,10 @@ export default function DeploymentConsole() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* Pipeline Steps */}
-          <Card className="bg-gray-900/60 border-gray-800 lg:col-span-1" data-testid="card-pipeline-steps">
+          <Card className="bg-card border-border lg:col-span-1" data-testid="card-pipeline-steps">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Activity className="h-4 w-4 text-purple-400" /> Pipeline
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+                <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Pipeline
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5">
@@ -518,7 +517,7 @@ export default function DeploymentConsole() {
                 <>
                   <div className="flex items-center justify-between mb-3">
                     <StatusBadge status={liveDeployment.status} />
-                    <span className="text-xs text-gray-500 font-mono">#{liveDeployment.buildNumber}</span>
+                    <span className="text-xs text-muted-foreground font-mono">#{liveDeployment.buildNumber}</span>
                   </div>
                   <Progress value={liveDeployment.progress} className="h-1.5 mb-3" />
 
@@ -540,27 +539,27 @@ export default function DeploymentConsole() {
                         }`}
                       >
                         <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-                          isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : "bg-gray-800"
+                          isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : "bg-muted"
                         }`}>
                           {isActive ? (
-                            <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />
+                            <Loader2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
                           ) : isDone ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                           ) : isFailed ? (
-                            <XCircle className="h-3.5 w-3.5 text-red-400" />
+                            <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                           ) : (
-                            <StepIcon className="h-3.5 w-3.5 text-gray-500" />
+                            <StepIcon className="h-3.5 w-3.5 text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-sm font-medium truncate ${
-                            isActive ? "text-blue-300" : isDone ? "text-emerald-300" : isFailed ? "text-red-300" : "text-gray-500"
+                            isActive ? "text-blue-700 dark:text-blue-300" : isDone ? "text-emerald-700 dark:text-emerald-300" : isFailed ? "text-red-700 dark:text-red-300" : "text-muted-foreground"
                           }`}>
                             {step.name.replace(/-/g, " ")}
                           </p>
                         </div>
                         {step.duration && (
-                          <span className="text-xs text-gray-500 font-mono shrink-0">
+                          <span className="text-xs text-muted-foreground font-mono shrink-0">
                             {formatDuration(step.duration)}
                           </span>
                         )}
@@ -569,7 +568,7 @@ export default function DeploymentConsole() {
                   })}
                 </>
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <Rocket className="h-8 w-8 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Select a deployment or start a new one</p>
                 </div>
@@ -578,18 +577,18 @@ export default function DeploymentConsole() {
           </Card>
 
           {/* Live Logs */}
-          <Card className="bg-gray-900/60 border-gray-800 lg:col-span-2" data-testid="card-live-logs">
+          <Card className="bg-card border-border lg:col-span-2" data-testid="card-live-logs">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Terminal className="h-4 w-4 text-green-400" /> Build Logs
+                <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+                  <Terminal className="h-4 w-4 text-green-600 dark:text-green-400" /> Build Logs
                   {isRunning && <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
                 </CardTitle>
-                <span className="text-xs text-gray-500">{liveLogs.length} entries</span>
+                <span className="text-xs text-muted-foreground">{liveLogs.length} entries</span>
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[420px] rounded-lg bg-gray-950/80 border border-gray-800">
+              <ScrollArea className="h-[420px] rounded-lg bg-gray-950 dark:bg-gray-950 border border-gray-800 dark:border-gray-800">
                 <div className="p-3 font-mono text-xs space-y-0.5">
                   {liveLogs.length > 0 ? (
                     liveLogs.map((log, i) => {
@@ -611,7 +610,7 @@ export default function DeploymentConsole() {
                       );
                     })
                   ) : (
-                    <div className="flex items-center justify-center h-full text-gray-600 py-20">
+                    <div className="flex items-center justify-center h-full text-gray-500 py-20">
                       <div className="text-center">
                         <Terminal className="h-8 w-8 mx-auto mb-2 opacity-30" />
                         <p>Waiting for build output...</p>
@@ -626,18 +625,18 @@ export default function DeploymentConsole() {
         </div>
 
         {/* Deployment History */}
-        <Card className="bg-gray-900/60 border-gray-800" data-testid="card-deployment-history">
+        <Card className="bg-card border-border" data-testid="card-deployment-history">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Clock className="h-4 w-4 text-cyan-400" /> Deployment History
+              <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+                <Clock className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> Deployment History
               </CardTitle>
               <Button
                 data-testid="button-refresh-history"
                 variant="ghost"
                 size="sm"
                 onClick={() => refetchHistory()}
-                className="text-gray-400 hover:text-white gap-1.5 text-xs"
+                className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
               >
                 <RefreshCw className="h-3 w-3" /> Refresh
               </Button>
@@ -651,28 +650,28 @@ export default function DeploymentConsole() {
                     key={d.id}
                     data-testid={`deployment-row-${d.buildNumber}`}
                     onClick={() => viewDeployment(d.id)}
-                    className={`w-full flex items-center gap-4 p-3 rounded-lg transition-all hover:bg-gray-800/50 text-left ${
-                      activeDeploymentId === d.id ? "bg-gray-800/60 ring-1 ring-blue-500/30" : "bg-gray-900/40"
+                    className={`w-full flex items-center gap-4 p-3 rounded-lg transition-all hover:bg-muted/50 text-left ${
+                      activeDeploymentId === d.id ? "bg-muted/60 ring-1 ring-blue-500/30" : "bg-muted/20"
                     }`}
                   >
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs font-mono text-gray-500">#{d.buildNumber}</span>
+                      <span className="text-xs font-mono text-muted-foreground">#{d.buildNumber}</span>
                       <StatusBadge status={d.status} />
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] border-gray-700 text-gray-400 shrink-0">
+                        <Badge variant="outline" className="text-[10px] border-border text-muted-foreground shrink-0">
                           {d.pipeline}
                         </Badge>
-                        <span className="text-xs text-gray-400 font-mono">v{d.version}</span>
+                        <span className="text-xs text-muted-foreground font-mono">v{d.version}</span>
                         {d.commitMessage && (
-                          <span className="text-xs text-gray-500 truncate">{d.commitMessage}</span>
+                          <span className="text-xs text-muted-foreground truncate">{d.commitMessage}</span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500">
+                    <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
                       {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
                       <span>{new Date(d.created_at).toLocaleDateString()}</span>
                       {d.status === "success" && (
@@ -680,7 +679,7 @@ export default function DeploymentConsole() {
                           data-testid={`button-rollback-${d.buildNumber}`}
                           variant="ghost"
                           size="sm"
-                          className="h-6 px-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          className="h-6 px-2 text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 hover:bg-amber-500/10"
                           onClick={(e) => { e.stopPropagation(); handleRollback(d.id); }}
                         >
                           <RotateCcw className="h-3 w-3" />
@@ -692,7 +691,7 @@ export default function DeploymentConsole() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">No deployments yet</p>
                 <p className="text-xs mt-1">Start your first deployment above</p>

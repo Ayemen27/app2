@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,561 +12,583 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Play, 
-  Square, 
-  Check, 
-  AlertCircle, 
-  Clock, 
+import { Input } from "@/components/ui/input";
+import {
+  Play,
+  Square,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
   Server,
   Package,
   GitBranch,
-  Zap,
+  Rocket,
   Terminal,
   ChevronRight,
-  Download,
-  Copy,
-  RotateCcw,
   Activity,
   Smartphone,
-  Database,
-  Layers
+  Loader2,
+  TrendingUp,
+  Hash,
+  Timer,
+  XCircle,
+  RefreshCw,
+  Circle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
-interface BuildLog {
-  id: string;
+interface LogEntry {
   timestamp: string;
   message: string;
-  type: 'info' | 'success' | 'error' | 'warning';
+  type: "info" | "error" | "success" | "warn" | "step";
 }
 
-interface BuildStep {
-  id: number;
+interface StepEntry {
   name: string;
-  status: 'pending' | 'running' | 'success' | 'failed';
-  icon: any;
+  status: "pending" | "running" | "success" | "failed";
   duration?: number;
+  startedAt?: string;
 }
 
-interface SchemaPrompt {
-  show: boolean;
-  message: string;
-  action: string;
+interface Deployment {
+  id: string;
+  buildNumber: number;
+  status: string;
+  currentStep: string;
+  progress: number;
+  version: string;
+  appType: string;
+  environment: string;
+  branch: string;
+  commitHash?: string;
+  commitMessage?: string;
+  pipeline: string;
+  errorMessage?: string;
+  artifactUrl?: string;
+  artifactSize?: string;
+  logs: LogEntry[];
+  steps: StepEntry[];
+  duration?: number;
+  startTime: string;
+  endTime?: string;
+  created_at: string;
 }
 
-const getInitialSteps = (appType: 'web' | 'android'): BuildStep[] => {
-  if (appType === 'web') {
-    return [
-      { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
-      { id: 2, name: 'رفع التحديثات إلى GitHub', status: 'pending', icon: GitBranch },
-      { id: 3, name: 'الاتصال بالسيرفر الخارجي', status: 'pending', icon: Server },
-      { id: 4, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Download },
-      { id: 5, name: 'تثبيت الاعتمادات على السيرفر', status: 'pending', icon: Package },
-      { id: 6, name: 'بناء المشروع على السيرفر', status: 'pending', icon: Zap },
-      { id: 7, name: 'إعادة تشغيل الخدمات', status: 'pending', icon: Activity },
-    ];
-  } else {
-    return [
-      { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
-      { id: 2, name: 'رفع التحديثات إلى GitHub', status: 'pending', icon: GitBranch },
-      { id: 3, name: 'الاتصال بالسيرفر الخارجي', status: 'pending', icon: Server },
-      { id: 4, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Download },
-      { id: 5, name: 'تثبيت الاعتمادات على السيرفر', status: 'pending', icon: Package },
-      { id: 6, name: 'بناء APK الـ Android', status: 'pending', icon: Smartphone },
-      { id: 7, name: 'نشر APK على السيرفر', status: 'pending', icon: Download },
-    ];
-  }
+interface DeploymentStats {
+  total: number;
+  success: number;
+  failed: number;
+  running: number;
+  successRate: number;
+  avgDuration: number;
+}
+
+const PIPELINE_LABELS: Record<string, string> = {
+  "web-deploy": "Web Deploy (Direct Transfer)",
+  "android-build": "Android APK Build",
+  "full-deploy": "Full Deploy (Web + Android)",
+  "git-push": "Git Push & Server Pull",
 };
 
-const INITIAL_STEPS: BuildStep[] = [
-  { id: 1, name: 'تجهيز المشروع', status: 'pending', icon: GitBranch },
-  { id: 2, name: 'رفع التحديثات لـ GitHub', status: 'pending', icon: GitBranch },
-  { id: 3, name: 'سحب التحديثات على السيرفر', status: 'pending', icon: Server },
-  { id: 4, name: 'تثبيت الاعتمادات', status: 'pending', icon: Package },
-  { id: 5, name: 'تجهيز التطبيق', status: 'pending', icon: Zap },
-  { id: 6, name: 'بناء التطبيق', status: 'pending', icon: Zap },
-  { id: 7, name: 'تشغيل الخدمات', status: 'pending', icon: Activity },
-];
+const STEP_ICONS: Record<string, any> = {
+  validate: CheckCircle2,
+  "build-web": Package,
+  transfer: Server,
+  "deploy-server": Rocket,
+  "restart-pm2": RefreshCw,
+  "sync-capacitor": Smartphone,
+  "gradle-build": Terminal,
+  "sign-apk": CheckCircle2,
+  "retrieve-artifact": Package,
+  verify: Activity,
+  "git-push": GitBranch,
+  "pull-server": Server,
+  "install-deps": Package,
+  "build-server": Terminal,
+};
 
-type AppType = 'web' | 'android';
+function StatusBadge({ status }: { status: string }) {
+  const variants: Record<string, { color: string; icon: any; label: string }> = {
+    pending: { color: "bg-slate-500/10 text-slate-400 border-slate-500/20", icon: Clock, label: "Pending" },
+    running: { color: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: Loader2, label: "Running" },
+    success: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle2, label: "Success" },
+    failed: { color: "bg-red-500/10 text-red-400 border-red-500/20", icon: XCircle, label: "Failed" },
+  };
+  const v = variants[status] || variants.pending;
+  const Icon = v.icon;
+  return (
+    <Badge data-testid={`badge-status-${status}`} className={`${v.color} border font-medium gap-1.5 px-2.5 py-1`}>
+      <Icon className={`h-3 w-3 ${status === "running" ? "animate-spin" : ""}`} />
+      {v.label}
+    </Badge>
+  );
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  return `${m}m ${rs}s`;
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
 
 export default function DeploymentConsole() {
   const { toast } = useToast();
-  const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [steps, setSteps] = useState<BuildStep[]>(INITIAL_STEPS);
-  const [logs, setLogs] = useState<BuildLog[]>([]);
-  const [autoScroll, setAutoScroll] = useState(true);
-  const [startTime, setStartTime] = useState<number | null>(null);
-  const [endTime, setEndTime] = useState<number | null>(null);
-  const [selectedApp, setSelectedApp] = useState<AppType>('web');
-  const [schemaPrompt, setSchemaPrompt] = useState<SchemaPrompt>({ show: false, message: '', action: '' });
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  const getStepsLogic = () => {
-    const baseSteps = [
-      { id: 1, name: 'تجهيز المشروع', duration: 1000 },
-      { id: 2, name: 'رفع التحديثات لـ GitHub', duration: 3000 },
-      { id: 3, name: 'سحب التحديثات على السيرفر', duration: 2500 },
-      { id: 4, name: 'تثبيت الاعتمادات', duration: 4000 },
-    ];
+  const [selectedPipeline, setSelectedPipeline] = useState<string>("web-deploy");
+  const [commitMessage, setCommitMessage] = useState("");
+  const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
+  const [liveDeployment, setLiveDeployment] = useState<Deployment | null>(null);
+  const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
+  const [isStarting, setIsStarting] = useState(false);
 
-    const schemaStep = { id: 5, name: 'تطبيق المخطط على السيرفر', duration: 3000 };
+  const { data: statsData } = useQuery<DeploymentStats>({
+    queryKey: ["/api/deployment/stats"],
+    refetchInterval: 30000,
+  });
 
-    if (selectedApp === 'web') {
-      return [
-        ...baseSteps,
-        schemaStep,
-        { id: 6, name: 'بناء تطبيق الويب', duration: 6000 },
-        { id: 7, name: 'تشغيل الخدمات (PM2)', duration: 2000 },
-      ];
-    } else {
-      return [
-        ...baseSteps,
-        schemaStep,
-        { id: 6, name: 'بناء تطبيق Android APK', duration: 60000 },
-        { id: 7, name: 'تحميل الملف على السيرفر', duration: 2000 },
-      ];
+  const { data: historyData, refetch: refetchHistory } = useQuery<{ deployments: Deployment[]; total: number }>({
+    queryKey: ["/api/deployment/list"],
+  });
+
+  const connectSSE = useCallback((deploymentId: string) => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
     }
-  };
 
-  const STEPS_LOGIC = getStepsLogic();
+    const es = new EventSource(`/api/deployment/${deploymentId}/stream`);
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+
+        if (payload.type === "initial_state") {
+          setLiveDeployment(payload.data);
+          setLiveLogs(payload.data.logs || []);
+        } else if (payload.type === "log") {
+          setLiveLogs(prev => [...prev, payload.data]);
+        } else if (payload.type === "deployment_update") {
+          setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
+
+          if (payload.data.status === "success" || payload.data.status === "failed") {
+            refetchHistory();
+            queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+          }
+        } else if (payload.type === "step_update") {
+          setLiveDeployment(prev => {
+            if (!prev) return null;
+            const steps = (prev.steps as StepEntry[]).map(s =>
+              s.name === payload.data.stepName
+                ? { ...s, status: payload.data.status, duration: payload.data.duration }
+                : s
+            );
+            return { ...prev, steps };
+          });
+        }
+      } catch {}
+    };
+
+    es.onerror = () => {
+      setTimeout(() => {
+        if (activeDeploymentId === deploymentId) {
+          connectSSE(deploymentId);
+        }
+      }, 3000);
+    };
+  }, [activeDeploymentId, refetchHistory, queryClient]);
 
   useEffect(() => {
-    if (autoScroll && scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (activeDeploymentId) {
+      connectSSE(activeDeploymentId);
     }
-  }, [logs, autoScroll]);
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, [activeDeploymentId, connectSSE]);
 
-  const addLog = (message: string, type: BuildLog['type'] = 'info') => {
-    setLogs(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(36) + Math.floor(Date.now() / 1000).toString(36),
-        timestamp: new Date().toLocaleTimeString('ar-SA'),
-        message,
-        type,
-      },
-    ]);
-  };
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [liveLogs]);
 
-  const updateStep = (id: number, status: BuildStep['status'], duration?: number) => {
-    setSteps(prev => prev.map(step => 
-      step.id === id ? { ...step, status, duration } : step
-    ));
-  };
-
-  const startDeployment = async () => {
-    if (!selectedApp) {
-      toast({ description: "يرجى اختيار التطبيق أولاً", variant: "destructive" });
-      return;
-    }
-
-    setIsRunning(true);
-    setProgress(0);
-    setLogs([]);
-    const appSteps = getInitialSteps(selectedApp);
-    setSteps(appSteps.map(s => ({ ...s, status: 'pending', duration: undefined })));
-    setStartTime(Date.now());
-    setEndTime(null);
-
-    const appName = selectedApp === 'web' ? 'تطبيق الويب' : 'تطبيق Android';
-    addLog(`🚀 بدء عملية البناء والنشر الحقيقية لـ ${appName}...`, 'info');
-
-    // تحديث الخطوة الأولى فوراً
-    updateStep(1, 'running');
-
+  const handleStartDeployment = async () => {
+    setIsStarting(true);
     try {
-      // تنفيذ البناء الحقيقي عبر API
-      addLog('⏳ جاري تنفيذ البناء الفعلي على السيرفر...', 'info');
-      
-      const response = await apiRequest('/api/deployment/build', 'POST', { appType: selectedApp });
-      
-      console.log('📊 [startDeployment] استجابة API:', { response });
-      
-      // التحقق من الاستجابة
-      if (response && response.logs && Array.isArray(response.logs)) {
-        // عرض جميع السجلات الحقيقية من البناء بشكل تدريجي
-        let currentStepIndex = 1;
-        response.logs.forEach((log: any, logIndex: number) => {
-          if (log && log.message && log.type) {
-            addLog(log.message, log.type);
-            
-            // تحديث الخطوات بناءً على نوع السجل
-            // كل 2-3 سجلات، ننتقل لخطوة جديدة
-            const logsPerStep = 2;
-            const nextStepIndex = Math.floor(logIndex / logsPerStep) + 1;
-            
-            if (nextStepIndex < appSteps.length && currentStepIndex !== nextStepIndex) {
-              // تعيين الخطوة السابقة لـ success
-              if (currentStepIndex <= appSteps.length) {
-                updateStep(currentStepIndex, 'success');
-              }
-              // تعيين الخطوة الجديدة لـ running
-              currentStepIndex = nextStepIndex;
-              updateStep(currentStepIndex, 'running');
-            }
-          }
-        });
-        
-        // تعيين جميع الخطوات المتبقية كنجاح
-        setSteps(prev => prev.map((step, idx) => ({
-          ...step,
-          status: 'success' as const,
-          duration: idx < 3 ? 2 : 3
-        })));
-        
-        setProgress(100);
-        addLog(`🎉 اكتملت عملية البناء والنشر لـ ${appName} بنجاح 100%!`, 'success');
-        toast({ description: "تم البناء والنشر بنجاح", variant: "default" });
-      } else {
-        // في حالة عدم وجود logs
-        addLog(`⚠️ لم تتلقى سجلات البناء - الاستجابة: ${JSON.stringify(response)}`, 'warning');
-        setProgress(100);
-        // تعيين جميع الخطوات كنجاح حتى بدون سجلات
-        setSteps(prev => prev.map(step => ({
-          ...step,
-          status: 'success' as const,
-          duration: 3
-        })));
-      }
-    } catch (error: any) {
-      console.error('❌ [startDeployment] خطأ:', error);
-      const errorMessage = error?.message || 'حدث خطأ غير متوقع';
-      addLog(`❌ خطأ في البناء: ${errorMessage}`, 'error');
-      
-      // تعيين الخطوات بناءً على مكان الفشل
-      setSteps(prev => prev.map((s, idx) => {
-        if (idx === 0) return { ...s, status: 'success' as const };
-        if (idx === 1) return { ...s, status: 'failed' as const };
-        return s;
-      }));
-      
-      toast({ description: `فشل البناء: ${errorMessage}`, variant: "destructive" });
-    } finally {
-      setIsRunning(false);
-      setEndTime(Date.now());
-    }
-  };
-
-  const simulateStep = async (step: any) => {
-    return new Promise((resolve, reject) => {
-      const duration = step.duration || 2000;
-      setTimeout(() => {
-        if (false) { // تم إزالة الفشل العشوائي لضمان الشفافية
-          reject(new Error("خطأ في الاتصال أو الموارد غير متاحة"));
-        } else {
-          resolve(true);
-        }
-      }, duration);
-    });
-  };
-
-  const getDuration = () => {
-    if (!startTime) return '00:00';
-    const currentEnd = endTime || Date.now();
-    const diff = Math.floor((currentEnd - startTime) / 1000);
-    const mins = Math.floor(diff / 60);
-    const secs = diff % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const copyLogs = () => {
-    const text = logs.map(l => `[${l.timestamp}] ${l.message}`).join('\n');
-    navigator.clipboard.writeText(text);
-    toast({ description: "تم نسخ السجلات إلى الحافظة" });
-  };
-
-  const applySchema = async () => {
-    setSchemaPrompt({ show: false, message: '', action: '' });
-    addLog('⏳ جاري تطبيق التحديثات على السيرفر الخارجي...', 'info');
-    
-    try {
-      await apiRequest('/api/schema/apply', 'POST', {
-        appType: selectedApp,
-        timestamp: new Date().toISOString(),
+      const res = await apiRequest("/api/deployment/start", "POST", {
+        pipeline: selectedPipeline,
+        commitMessage: commitMessage || undefined,
       });
-      addLog('✅ تم تطبيق المخطط بنجاح على السيرفر', 'success');
+      const data = await res.json();
+
+      setActiveDeploymentId(data.id);
+      setLiveLogs([]);
+      setLiveDeployment(null);
+
+      toast({ title: "Deployment started", description: `Pipeline: ${PIPELINE_LABELS[selectedPipeline]}` });
     } catch (error: any) {
-      addLog(`❌ فشل تطبيق المخطط: ${error.message}`, 'error');
+      toast({ title: "Failed to start deployment", description: error.message, variant: "destructive" });
+    } finally {
+      setIsStarting(false);
     }
   };
 
-  const rejectSchema = () => {
-    setSchemaPrompt({ show: false, message: '', action: '' });
-    addLog('⏭️ تم تخطي خطوة تطبيق المخطط', 'warning');
+  const handleCancelDeployment = async () => {
+    if (!activeDeploymentId) return;
+    try {
+      await apiRequest(`/api/deployment/${activeDeploymentId}/cancel`, "POST");
+      toast({ title: "Deployment cancelled" });
+    } catch (error: any) {
+      toast({ title: "Failed to cancel", description: error.message, variant: "destructive" });
+    }
   };
+
+  const viewDeployment = async (id: string) => {
+    setActiveDeploymentId(id);
+    setLiveLogs([]);
+    setLiveDeployment(null);
+
+    try {
+      const res = await fetch(`/api/deployment/${id}`);
+      const data = await res.json();
+      setLiveDeployment(data);
+      setLiveLogs(data.logs || []);
+    } catch {}
+  };
+
+  const stats = statsData || { total: 0, success: 0, failed: 0, running: 0, successRate: 0, avgDuration: 0 };
+  const deployments = historyData?.deployments || [];
+  const isRunning = liveDeployment?.status === "running";
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 space-y-8">
-      {/* Action Bar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        {/* App Selection Dropdown */}
-        <div className="w-full md:w-auto">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground">اختر التطبيق المراد بناؤه</label>
-            <Select value={selectedApp} onValueChange={(value) => setSelectedApp(value as AppType)} disabled={isRunning}>
-              <SelectTrigger className="w-full md:w-56" data-testid="select-app-type">
-                <SelectValue placeholder="اختر التطبيق" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="web" data-testid="option-web-app">
-                  تطبيق الويب
-                </SelectItem>
-                <SelectItem value="android" data-testid="option-android-app">
-                  تطبيق Android
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white" data-testid="deployment-console">
+      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={copyLogs}
-            className="flex-1 md:flex-none hover-elevate"
-            data-testid="button-copy-logs"
-          >
-            <Copy className="w-4 h-4 ml-2" />
-            نسخ السجلات
-          </Button>
-          {!isRunning ? (
-            <Button 
-              onClick={startDeployment}
-              disabled={!selectedApp}
-              className="flex-1 md:flex-none bg-primary hover-elevate active-elevate-2 px-8"
-              size="lg"
-              data-testid="button-start-deployment"
-            >
-              <Play className="w-4 h-4 ml-2" />
-              ابدأ النشر الآن
-            </Button>
-          ) : (
-            <Button 
-              variant="destructive" 
-              onClick={() => setIsRunning(false)}
-              className="flex-1 md:flex-none hover-elevate"
-              data-testid="button-stop-build"
-            >
-              <Square className="w-4 h-4 ml-2" />
-              إيقاف البناء
-            </Button>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <Rocket className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight" data-testid="text-page-title">Deployment Console</h1>
+              <p className="text-sm text-gray-400">AXION DevOps Pipeline Manager</p>
+            </div>
+          </div>
+          {stats.running > 0 && (
+            <Badge className="bg-blue-500/15 text-blue-400 border border-blue-500/30 animate-pulse gap-1.5">
+              <Loader2 className="h-3 w-3 animate-spin" /> {stats.running} active
+            </Badge>
           )}
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Progress & Steps Column */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="border-border/50 shadow-sm overflow-hidden">
-            <CardHeader className="bg-muted/30 pb-4">
-              <CardTitle className="text-sm font-medium flex items-center justify-between">
-                <span>مراحل خط الإنتاج</span>
-                <Badge variant={isRunning ? "secondary" : "outline"} className={isRunning ? "animate-pulse" : ""}>
-                  {isRunning ? "جاري التنفيذ" : "خامل"}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-1">
-              {steps.map((step, idx) => (
-                <div key={step.id} className="relative pr-6 pb-6 last:pb-0">
-                  {idx !== steps.length - 1 && (
-                    <div className={`absolute right-[11px] top-6 bottom-0 w-[2px] ${
-                      step.status === 'success' ? 'bg-primary' : 'bg-border'
-                    }`} />
-                  )}
-                  <div className="flex items-center gap-4">
-                    <div className={`absolute right-0 w-6 h-6 rounded-full flex items-center justify-center z-10 transition-colors ${
-                      step.status === 'success' ? 'bg-primary text-primary-foreground' :
-                      step.status === 'running' ? 'bg-primary/20 text-primary animate-pulse border-2 border-primary' :
-                      step.status === 'failed' ? 'bg-destructive text-destructive-foreground' :
-                      'bg-muted text-muted-foreground border-2 border-border'
-                    }`}>
-                      {step.status === 'success' ? <Check className="w-3 h-3" /> : 
-                       step.status === 'failed' ? <AlertCircle className="w-3 h-3" /> :
-                       (() => {
-                         const Icon = step.icon;
-                         return <Icon className="w-3 h-3" />;
-                       })()}
-                    </div>
-                    <div className="flex-1 pr-8">
-                      <p className={`text-sm font-semibold ${
-                        step.status === 'running' ? 'text-primary' : 'text-foreground'
-                      }`}>
-                        {step.name}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {step.status === 'running' && (
-                          <span className="text-[10px] text-primary animate-pulse uppercase font-bold">قيد المعالجة</span>
-                        )}
-                        {step.duration && (
-                          <span className="text-[10px] text-muted-foreground font-mono">{step.duration} ثانية</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-total">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-slate-500/10 flex items-center justify-center">
+                  <Hash className="h-4 w-4 text-slate-400" />
                 </div>
-              ))}
+                <div>
+                  <p className="text-2xl font-bold" data-testid="text-stat-total">{stats.total}</p>
+                  <p className="text-xs text-gray-500">Total Deploys</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex justify-between items-end">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase">الوقت الإجمالي</p>
-                  <p className="text-3xl font-mono font-bold text-primary">{getDuration()}</p>
+          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-success">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 text-emerald-400" />
                 </div>
-                <Clock className="w-10 h-10 text-primary/20" />
+                <div>
+                  <p className="text-2xl font-bold text-emerald-400" data-testid="text-stat-success-rate">{stats.successRate}%</p>
+                  <p className="text-xs text-gray-500">Success Rate</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-failed">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-red-500/10 flex items-center justify-center">
+                  <XCircle className="h-4 w-4 text-red-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-red-400" data-testid="text-stat-failed">{stats.failed}</p>
+                  <p className="text-xs text-gray-500">Failed</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-900/60 border-gray-800" data-testid="card-stat-duration">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <Timer className="h-4 w-4 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-amber-400" data-testid="text-stat-avg-duration">
+                    {stats.avgDuration > 0 ? formatDuration(stats.avgDuration) : "—"}
+                  </p>
+                  <p className="text-xs text-gray-500">Avg Duration</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Console / Logs Column */}
-        <div className="lg:col-span-3 space-y-6">
-          <Card className="border-border/50 shadow-sm h-full flex flex-col">
-            <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 px-3 py-1 bg-black/5 dark:bg-white/5 rounded-md border">
-                  <Terminal className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider">مخرجات الكونسول</span>
-                </div>
-                {isRunning && <Badge className="bg-primary animate-pulse text-[10px]">تحديثات مباشرة</Badge>}
-              </div>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                  <Input
-                    type="checkbox"
-                    checked={autoScroll}
-                    onChange={(e) => setAutoScroll(e.target.checked)}
-                    className="rounded border-border w-4 h-4"
-                  />
-                  التمرير التلقائي
-                </label>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                  <Download className="w-4 h-4" />
+        {/* Deploy Controls */}
+        <Card className="bg-gray-900/60 border-gray-800" data-testid="card-deploy-controls">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Rocket className="h-4 w-4 text-blue-400" /> New Deployment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Select value={selectedPipeline} onValueChange={setSelectedPipeline} data-testid="select-pipeline">
+                <SelectTrigger className="bg-gray-800/50 border-gray-700 text-white w-full sm:w-[260px]" data-testid="trigger-pipeline">
+                  <SelectValue placeholder="Select pipeline" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="web-deploy" data-testid="option-web-deploy">Web Deploy (Direct Transfer)</SelectItem>
+                  <SelectItem value="android-build" data-testid="option-android-build">Android APK Build</SelectItem>
+                  <SelectItem value="full-deploy" data-testid="option-full-deploy">Full Deploy (Web + Android)</SelectItem>
+                  <SelectItem value="git-push" data-testid="option-git-push">Git Push & Server Pull</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Input
+                data-testid="input-commit-message"
+                placeholder="Commit message (optional)"
+                value={commitMessage}
+                onChange={(e) => setCommitMessage(e.target.value)}
+                className="bg-gray-800/50 border-gray-700 text-white flex-1"
+              />
+
+              {!isRunning ? (
+                <Button
+                  data-testid="button-start-deploy"
+                  onClick={handleStartDeployment}
+                  disabled={isStarting}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium gap-2 whitespace-nowrap"
+                >
+                  {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  Deploy
                 </Button>
+              ) : (
+                <Button
+                  data-testid="button-cancel-deploy"
+                  onClick={handleCancelDeployment}
+                  variant="destructive"
+                  className="gap-2 whitespace-nowrap"
+                >
+                  <Square className="h-4 w-4" /> Cancel
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+          {/* Pipeline Steps */}
+          <Card className="bg-gray-900/60 border-gray-800 lg:col-span-1" data-testid="card-pipeline-steps">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Activity className="h-4 w-4 text-purple-400" /> Pipeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
+              {liveDeployment ? (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <StatusBadge status={liveDeployment.status} />
+                    <span className="text-xs text-gray-500 font-mono">#{liveDeployment.buildNumber}</span>
+                  </div>
+                  <Progress value={liveDeployment.progress} className="h-1.5 mb-3" />
+
+                  {(liveDeployment.steps as StepEntry[]).map((step, i) => {
+                    const StepIcon = STEP_ICONS[step.name] || Circle;
+                    const isActive = step.status === "running";
+                    const isDone = step.status === "success";
+                    const isFailed = step.status === "failed";
+
+                    return (
+                      <div
+                        key={step.name}
+                        data-testid={`step-${step.name}`}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                          isActive ? "bg-blue-500/10 border border-blue-500/20" :
+                          isDone ? "bg-emerald-500/5 border border-transparent" :
+                          isFailed ? "bg-red-500/10 border border-red-500/20" :
+                          "bg-transparent border border-transparent opacity-50"
+                        }`}
+                      >
+                        <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : "bg-gray-800"
+                        }`}>
+                          {isActive ? (
+                            <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />
+                          ) : isDone ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                          ) : isFailed ? (
+                            <XCircle className="h-3.5 w-3.5 text-red-400" />
+                          ) : (
+                            <StepIcon className="h-3.5 w-3.5 text-gray-500" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${
+                            isActive ? "text-blue-300" : isDone ? "text-emerald-300" : isFailed ? "text-red-300" : "text-gray-500"
+                          }`}>
+                            {step.name.replace(/-/g, " ")}
+                          </p>
+                        </div>
+                        {step.duration && (
+                          <span className="text-xs text-gray-500 font-mono shrink-0">
+                            {formatDuration(step.duration)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Rocket className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Select a deployment or start a new one</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Live Logs */}
+          <Card className="bg-gray-900/60 border-gray-800 lg:col-span-2" data-testid="card-live-logs">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Terminal className="h-4 w-4 text-green-400" /> Build Logs
+                  {isRunning && <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
+                </CardTitle>
+                <span className="text-xs text-gray-500">{liveLogs.length} entries</span>
               </div>
             </CardHeader>
-            <CardContent className="p-0 bg-[#0d1117] min-h-[600px] flex-1">
-              <ScrollArea className="h-full">
-                <div className="p-6 font-mono text-sm leading-relaxed space-y-1">
-                  {logs.length === 0 ? (
-                    <div className="text-muted-foreground/30 italic flex items-center gap-2">
-                      <ChevronRight className="w-4 h-4" />
-                      جاهز لعملية النشر...
-                    </div>
+            <CardContent>
+              <ScrollArea className="h-[420px] rounded-lg bg-gray-950/80 border border-gray-800">
+                <div className="p-3 font-mono text-xs space-y-0.5">
+                  {liveLogs.length > 0 ? (
+                    liveLogs.map((log, i) => {
+                      const color =
+                        log.type === "error" ? "text-red-400" :
+                        log.type === "success" ? "text-emerald-400" :
+                        log.type === "warn" ? "text-amber-400" :
+                        log.type === "step" ? "text-blue-400 font-semibold" :
+                        "text-gray-400";
+
+                      return (
+                        <div key={i} className={`flex gap-2 py-0.5 ${color}`} data-testid={`log-entry-${i}`}>
+                          <span className="text-gray-600 shrink-0 select-none w-[65px] text-right">
+                            {formatTime(log.timestamp)}
+                          </span>
+                          <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 opacity-40" />
+                          <span className="break-all">{log.message}</span>
+                        </div>
+                      );
+                    })
                   ) : (
-                    logs.map((log, i) => (
-                      <div key={log.id} className="group flex gap-4 hover:bg-white/5 py-0.5 rounded px-2 -mx-2 transition-colors">
-                        <span className="text-gray-600 select-none w-12 text-right text-[10px] pt-1">{i + 1}</span>
-                        <span className="text-gray-500 select-none w-20 pt-1 text-[11px]">{log.timestamp}</span>
-                        <span className={`flex-1 break-all ${
-                          log.type === 'success' ? 'text-emerald-400 font-medium' :
-                          log.type === 'error' ? 'text-rose-400 font-bold' :
-                          log.type === 'warning' ? 'text-amber-400' :
-                          'text-slate-300'
-                        }`}>
-                          {log.message}
-                        </span>
+                    <div className="flex items-center justify-center h-full text-gray-600 py-20">
+                      <div className="text-center">
+                        <Terminal className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p>Waiting for build output...</p>
                       </div>
-                    ))
+                    </div>
                   )}
-                  <div ref={scrollRef} className="h-2" />
+                  <div ref={logsEndRef} />
                 </div>
               </ScrollArea>
             </CardContent>
           </Card>
-
-          {/* Real-time Metrics or Success Actions */}
-          {progress === 100 && !isRunning && (
-            <Card className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 animate-in fade-in slide-in-from-bottom-4">
-              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4 text-emerald-700 dark:text-emerald-400">
-                  <div className="bg-emerald-500 text-white p-3 rounded-full shadow-lg shadow-emerald-500/20">
-                    <Check className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">نشر ناجح!</h3>
-                    <p className="text-sm opacity-90">تم تحديث نسخة الإنتاج بنجاح وتجاوزت جميع الاختبارات عبر GitHub.</p>
-                  </div>
-                </div>
-                <div className="flex gap-3 w-full md:w-auto">
-                  <Button className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20" asChild>
-                    <a href="/" target="_blank">معاينة التطبيق المباشر</a>
-                  </Button>
-                  <Button variant="outline" className="flex-1 md:flex-none border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-900/30">
-                    الذهاب للوحة التحكم
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {steps.some(s => s.status === 'failed') && !isRunning && (
-            <Card className="bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800">
-              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4 text-rose-700 dark:text-rose-400">
-                  <div className="bg-rose-500 text-white p-3 rounded-full shadow-lg shadow-rose-500/20">
-                    <AlertCircle className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">فشل في البناء</h3>
-                    <p className="text-sm opacity-90">توقفت العملية بسبب خطأ. يرجى مراجعة سجلات GitHub والسيرفر.</p>
-                  </div>
-                </div>
-                <Button 
-                  onClick={startDeployment} 
-                  className="w-full md:w-auto bg-rose-600 hover:bg-rose-700 text-white border-0 shadow-lg shadow-rose-500/20"
-                >
-                  <RotateCcw className="w-4 h-4 ml-2" />
-                  إعادة محاولة البناء
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Schema Application Prompt */}
-          {schemaPrompt.show && (
-            <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 animate-in fade-in slide-in-from-bottom-4">
-              <CardContent className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4 text-blue-700 dark:text-blue-400">
-                  <div className="bg-blue-500 text-white p-3 rounded-full shadow-lg shadow-blue-500/20 animate-pulse">
-                    <Database className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">تطبيق المخطط</h3>
-                    <p className="text-sm opacity-90">{schemaPrompt.message}</p>
-                  </div>
-                </div>
-                <div className="flex gap-3 w-full md:w-auto">
-                  <Button 
-                    onClick={applySchema}
-                    className="flex-1 md:flex-none bg-blue-600 text-white"
-                    data-testid="button-apply-schema"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span className="ml-2">تطبيق</span>
-                  </Button>
-                  <Button 
-                    onClick={rejectSchema}
-                    variant="outline"
-                    className="flex-1 md:flex-none border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 bg-transparent hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                    data-testid="button-reject-schema"
-                  >
-                    <AlertCircle className="w-4 h-4 ml-2" />
-                    تخطي
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
+
+        {/* Deployment History */}
+        <Card className="bg-gray-900/60 border-gray-800" data-testid="card-deployment-history">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Clock className="h-4 w-4 text-cyan-400" /> Deployment History
+              </CardTitle>
+              <Button
+                data-testid="button-refresh-history"
+                variant="ghost"
+                size="sm"
+                onClick={() => refetchHistory()}
+                className="text-gray-400 hover:text-white gap-1.5 text-xs"
+              >
+                <RefreshCw className="h-3 w-3" /> Refresh
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {deployments.length > 0 ? (
+              <div className="space-y-2">
+                {deployments.map((d) => (
+                  <button
+                    key={d.id}
+                    data-testid={`deployment-row-${d.buildNumber}`}
+                    onClick={() => viewDeployment(d.id)}
+                    className={`w-full flex items-center gap-4 p-3 rounded-lg transition-all hover:bg-gray-800/50 text-left ${
+                      activeDeploymentId === d.id ? "bg-gray-800/60 ring-1 ring-blue-500/30" : "bg-gray-900/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-mono text-gray-500">#{d.buildNumber}</span>
+                      <StatusBadge status={d.status} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] border-gray-700 text-gray-400 shrink-0">
+                          {d.pipeline}
+                        </Badge>
+                        <span className="text-xs text-gray-400 font-mono">v{d.version}</span>
+                        {d.commitMessage && (
+                          <span className="text-xs text-gray-500 truncate">{d.commitMessage}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500">
+                      {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
+                      <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                      <ChevronRight className="h-4 w-4 opacity-30" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No deployments yet</p>
+                <p className="text-xs mt-1">Start your first deployment above</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

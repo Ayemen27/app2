@@ -1,6 +1,7 @@
 node_modules
 dist
 .env
+.env.backup
 project.tar.gz
 *.log
 .git
@@ -16,10 +17,9 @@ backups
 *.zip
 *.rar
 SERVICE_ACCOUNT_KEY.json
-SERVICE_ACCOUNT_KEY.json
-SERVICE_ACCOUNT_KEY.json
-SERVICE_ACCOUNT_KEY.json
 google-services.json
-.env.backup
-.env.backup
 update_and_test.py
+www/
+client/www/
+output_apks/
+.npmrc

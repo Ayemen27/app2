@@ -1163,17 +1163,35 @@ export const notificationReadStates = pgTable("notification_read_states", {
 export const buildDeployments = pgTable("build_deployments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   buildNumber: integer("build_number").notNull(),
-  status: text("status").notNull().default("running"), // pending, running, success, failed
+  status: text("status").notNull().default("pending"),
   currentStep: text("current_step").notNull(),
   progress: integer("progress").notNull().default(0),
   version: text("version").notNull(),
-  appType: text("app_type").notNull().default("web"), // web, android
-  logs: jsonb("logs").notNull().default([]), // Array of {timestamp, message, type}
-  steps: jsonb("steps").notNull().default([]), // Array of {name, status, duration}
+  appType: text("app_type").notNull().default("web"),
+  environment: text("environment").notNull().default("production"),
+  branch: text("branch").default("main"),
+  commitHash: text("commit_hash"),
+  commitMessage: text("commit_message"),
+  pipeline: text("pipeline").notNull().default("web-deploy"),
+  errorMessage: text("error_message"),
+  artifactUrl: text("artifact_url"),
+  artifactSize: text("artifact_size"),
+  logs: jsonb("logs").notNull().default([]),
+  steps: jsonb("steps").notNull().default([]),
+  duration: integer("duration"),
   startTime: timestamp("start_time").defaultNow().notNull(),
   endTime: timestamp("end_time"),
   triggeredBy: varchar("triggered_by").references(() => users.id),
   created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const deploymentEvents = pgTable("deployment_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deploymentId: varchar("deployment_id").notNull().references(() => buildDeployments.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
 export const insertBuildDeploymentSchema = createInsertSchema(buildDeployments).omit({
@@ -1181,8 +1199,14 @@ export const insertBuildDeploymentSchema = createInsertSchema(buildDeployments).
   created_at: true,
 });
 
+export const insertDeploymentEventSchema = createInsertSchema(deploymentEvents).omit({
+  id: true,
+});
+
 export type BuildDeployment = typeof buildDeployments.$inferSelect;
 export type InsertBuildDeployment = z.infer<typeof insertBuildDeploymentSchema>;
+export type DeploymentEvent = typeof deploymentEvents.$inferSelect;
+export type InsertDeploymentEvent = z.infer<typeof insertDeploymentEventSchema>;
 
 
 

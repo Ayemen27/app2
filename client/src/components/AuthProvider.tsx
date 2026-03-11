@@ -7,6 +7,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { useQueryClient } from "@tanstack/react-query";
 import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/queryClient";
 import { isValidJwt, clearInvalidTokens, setAuthMode, getAuthMode, isOfflineMode, getValidToken } from "../lib/token-utils";
+import { ENV } from "../lib/env";
 
 interface User {
   id: string;
@@ -73,26 +74,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
   }, []); // تشغيل مرة واحدة فقط
 
-  // ✅ تحديد الرابط الأساسي للـ API بشكل ديناميكي مع دعم الدومين الخارجي
-  const getApiBaseUrl = () => {
-    if (typeof window !== 'undefined') {
-      const origin = window.location.origin;
-      // إذا كان المستخدم يتصفح عبر الدومين الرسمي، نستخدمه
-      if (origin.includes('binarjoinanelytic.info')) {
-        return `${origin}/api`;
-      }
-      // إذا كان في Replit، نستخدم دومين Replit
-      if (origin.includes('replit.dev')) {
-        return `${origin}/api`;
-      }
-      if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost') || origin.startsWith('capacitor://') || origin.startsWith('file://') || origin === 'null') {
-        return 'https://app2.binarjoinanelytic.info/api';
-      }
-    }
-    return 'https://app2.binarjoinanelytic.info/api';
-  };
-
-  const API_BASE_URL = getApiBaseUrl();
+  const apiBase = ENV.getApiBaseUrl();
+  const API_BASE_URL = apiBase ? `${apiBase}/api` : '/api';
 
 
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة

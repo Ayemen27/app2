@@ -55,5 +55,5 @@ This project is a Node.js application (rest-express v1.0.29) designed as a profe
 - **ORM:** Drizzle ORM.
 - **AI Models:** HuggingFace (Llama 3.1 8B), Gemini 2.0 Flash, OpenAI GPT-4o.
 - **Reporting:** ExcelJS for Excel generation.
-- **Deployment:** PM2 for process management, SSH for deployment.
+- **Deployment:** PM2 for process management, SSH for deployment. Professional Deployment & DevOps Console with real-time SSE log streaming, multi-pipeline support (web-deploy, android-build, full-deploy, git-push), deployment history, and statistics. Backend engine: `server/services/deployment-engine.ts`. API routes: `server/routes/modules/deploymentRoutes.ts`. Frontend: `client/src/pages/deployment-console.tsx`. Database tables: `build_deployments` (enhanced with environment, branch, commit, pipeline, artifact fields) and `deployment_events` (real-time event tracking).
 - **QR Code Generation:** `qrcode` package.

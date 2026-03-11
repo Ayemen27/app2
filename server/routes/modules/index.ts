@@ -33,6 +33,7 @@ import syncAuditRouter from './syncAuditRoutes.js';
 import webauthnRouter from './webauthnRoutes.js';
 import preferencesRouter from './preferencesRoutes.js';
 import permissionRouter from './permissionRoutes.js';
+import deploymentRouter from './deploymentRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 
 /**
@@ -150,6 +151,10 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/permissions', permissionRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الصلاحيات: /api/permissions');
 
+  // مسارات النشر والبناء (Deployment & DevOps)
+  app.use('/api/deployment', deploymentRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات النشر: /api/deployment');
+
   // مسارات الإكمال التلقائي الإضافية
   app.use('/api/worker-transfer-notes', autocompleteRouter);
   app.use('/api/worker-transfer-numbers', autocompleteRouter);
@@ -196,6 +201,7 @@ const REGISTERED_ROUTE_FILES = new Set([
   'webauthnRoutes',
   'preferencesRoutes',
   'permissionRoutes',
+  'deploymentRoutes',
 ]);
 
 export async function checkForUnregisteredRouters() {

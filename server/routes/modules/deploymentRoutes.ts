@@ -64,6 +64,24 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+router.get("/health", requireAdmin as any, async (req, res) => {
+  try {
+    const health = await deploymentEngine.checkServerHealth();
+    res.json(health);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/cleanup", requireAdmin as any, async (req, res) => {
+  try {
+    const result = await deploymentEngine.runCleanup();
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
@@ -121,6 +139,15 @@ router.post("/:id/cancel", requireAdmin as any, async (req, res) => {
 
     await deploymentEngine.cancelDeployment(req.params.id);
     res.json({ message: "Deployment cancelled" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/:id/rollback", requireAdmin as any, async (req, res) => {
+  try {
+    const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id);
+    res.json({ id: rollbackId, message: "Rollback started" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

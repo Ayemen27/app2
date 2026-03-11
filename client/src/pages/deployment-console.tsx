@@ -34,6 +34,10 @@ import {
   XCircle,
   RefreshCw,
   Circle,
+  HeartPulse,
+  RotateCcw,
+  Trash2,
+  Shield,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -106,6 +110,8 @@ const STEP_ICONS: Record<string, any> = {
   "pull-server": Server,
   "install-deps": Package,
   "build-server": Terminal,
+  "rollback-server": RotateCcw,
+  "restart-pm2": RefreshCw,
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -150,6 +156,9 @@ export default function DeploymentConsole() {
   const [liveDeployment, setLiveDeployment] = useState<Deployment | null>(null);
   const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
   const [isStarting, setIsStarting] = useState(false);
+  const [healthData, setHealthData] = useState<{ status: string; checks: Record<string, any> } | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
 
   const { data: statsData } = useQuery<DeploymentStats>({
     queryKey: ["/api/deployment/stats"],
@@ -248,6 +257,49 @@ export default function DeploymentConsole() {
       toast({ title: "Deployment cancelled" });
     } catch (error: any) {
       toast({ title: "Failed to cancel", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleCheckHealth = async () => {
+    setIsCheckingHealth(true);
+    try {
+      const res = await apiRequest("/api/deployment/health");
+      const data = await res.json();
+      setHealthData(data);
+      toast({ title: `Server: ${data.status}`, description: `HTTP: ${data.checks?.httpStatus || "unknown"}` });
+    } catch (error: any) {
+      toast({ title: "Health check failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
+
+  const handleRollback = async (id: string) => {
+    try {
+      const res = await apiRequest(`/api/deployment/${id}/rollback`, "POST");
+      const data = await res.json();
+      setActiveDeploymentId(data.id);
+      setLiveLogs([]);
+      setLiveDeployment(null);
+      toast({ title: "Rollback started" });
+    } catch (error: any) {
+      toast({ title: "Rollback failed", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleCleanup = async () => {
+    setIsCleaning(true);
+    try {
+      const res = await apiRequest("/api/deployment/cleanup", "POST");
+      const data = await res.json();
+      toast({
+        title: "Cleanup complete",
+        description: `Cleaned: ${data.cleaned?.join(", ") || "none"}${data.errors?.length ? ` | Errors: ${data.errors.length}` : ""}`,
+      });
+    } catch (error: any) {
+      toast({ title: "Cleanup failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsCleaning(false);
     }
   };
 
@@ -399,6 +451,50 @@ export default function DeploymentConsole() {
                 >
                   <Square className="h-4 w-4" /> Cancel
                 </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Operations Panel */}
+        <Card className="bg-gray-900/60 border-gray-800" data-testid="card-operations">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Shield className="h-4 w-4 text-cyan-400" /> Server Operations
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <Button
+                data-testid="button-health-check"
+                onClick={handleCheckHealth}
+                disabled={isCheckingHealth}
+                variant="outline"
+                className="border-cyan-600/40 text-cyan-400 hover:bg-cyan-500/10 gap-2"
+              >
+                {isCheckingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <HeartPulse className="h-4 w-4" />}
+                Health Check
+              </Button>
+              <Button
+                data-testid="button-cleanup"
+                onClick={handleCleanup}
+                disabled={isCleaning}
+                variant="outline"
+                className="border-amber-600/40 text-amber-400 hover:bg-amber-500/10 gap-2"
+              >
+                {isCleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Cleanup Server
+              </Button>
+              {healthData && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <div className={`h-2.5 w-2.5 rounded-full ${healthData.status === "healthy" ? "bg-emerald-400" : "bg-amber-400"} animate-pulse`} />
+                  <span className={`text-sm font-medium ${healthData.status === "healthy" ? "text-emerald-400" : "text-amber-400"}`} data-testid="text-health-status">
+                    {healthData.status === "healthy" ? "Healthy" : "Degraded"}
+                  </span>
+                  <span className="text-xs text-gray-500" data-testid="text-health-http">
+                    HTTP {healthData.checks?.httpStatus || "—"}
+                  </span>
+                </div>
               )}
             </div>
           </CardContent>
@@ -575,6 +671,17 @@ export default function DeploymentConsole() {
                     <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500">
                       {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
                       <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                      {d.status === "success" && (
+                        <Button
+                          data-testid={`button-rollback-${d.buildNumber}`}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          onClick={(e) => { e.stopPropagation(); handleRollback(d.id); }}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                        </Button>
+                      )}
                       <ChevronRight className="h-4 w-4 opacity-30" />
                     </div>
                   </button>

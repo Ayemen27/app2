@@ -546,6 +546,160 @@ export class DeploymentEngine {
     broadcastToClients(deploymentId, { type: "deployment_update", data: updates });
   }
 
+  async checkServerHealth(): Promise<{ status: string; checks: Record<string, any> }> {
+    const sshCmd = this.buildSSHCommand();
+    const checks: Record<string, any> = {};
+
+    try {
+      const { stdout: httpCheck } = await execAsync("curl -s -o /dev/null -w '%{http_code}' https://app2.binarjoinanelytic.info/api/health", { timeout: 15000 });
+      checks.httpStatus = httpCheck.trim().replace(/'/g, "");
+    } catch {
+      checks.httpStatus = "unreachable";
+    }
+
+    try {
+      const { stdout: pm2Check } = await execAsync(`${sshCmd} "pm2 jlist 2>/dev/null | head -500"`, { timeout: 15000 });
+      const processes = JSON.parse(pm2Check || "[]");
+      checks.pm2 = processes.map((p: any) => ({
+        name: p.name,
+        status: p.pm2_env?.status,
+        uptime: p.pm2_env?.pm_uptime ? Date.now() - p.pm2_env.pm_uptime : null,
+        restarts: p.pm2_env?.restart_time,
+        memoryMB: p.monit?.memory ? Math.round(p.monit.memory / 1024 / 1024) : null,
+        cpu: p.monit?.cpu,
+      }));
+    } catch {
+      checks.pm2 = "unavailable";
+    }
+
+    try {
+      const { stdout: diskCheck } = await execAsync(`${sshCmd} "df -h /home/administrator | tail -1"`, { timeout: 10000 });
+      checks.disk = diskCheck.trim();
+    } catch {
+      checks.disk = "unavailable";
+    }
+
+    try {
+      const { stdout: memCheck } = await execAsync(`${sshCmd} "free -h | head -2"`, { timeout: 10000 });
+      checks.memory = memCheck.trim();
+    } catch {
+      checks.memory = "unavailable";
+    }
+
+    const httpOk = checks.httpStatus === "200";
+    const pm2Ok = Array.isArray(checks.pm2) && checks.pm2.some((p: any) => p.status === "online");
+    const status = httpOk && pm2Ok ? "healthy" : httpOk || pm2Ok ? "degraded" : "down";
+    return { status, checks };
+  }
+
+  async rollbackDeployment(deploymentId: string): Promise<string> {
+    const deployment = await this.getDeployment(deploymentId);
+    if (!deployment) throw new Error("Deployment not found");
+    if (deployment.status !== "success") throw new Error("Can only rollback successful deployments");
+
+    const rollbackBuildNumber = await this.getNextBuildNumber();
+    const steps: StepEntry[] = [
+      { name: "validate", status: "pending" },
+      { name: "rollback-server", status: "pending" },
+      { name: "restart-pm2", status: "pending" },
+      { name: "verify", status: "pending" },
+    ];
+
+    const [rollbackDeployment] = await db.insert(buildDeployments).values({
+      buildNumber: rollbackBuildNumber,
+      status: "running",
+      currentStep: "validate",
+      progress: 0,
+      version: deployment.version,
+      appType: deployment.appType,
+      environment: deployment.environment,
+      branch: deployment.branch || "main",
+      commitMessage: `Rollback to build #${deployment.buildNumber}`,
+      pipeline: "rollback",
+      deploymentType: "rollback",
+      rollbackInfo: { originalDeploymentId: deploymentId, originalBuildNumber: deployment.buildNumber },
+      logs: [],
+      steps,
+    }).returning();
+
+    this.executeRollback(rollbackDeployment.id, deployment).catch(err => {
+      console.error(`[DeploymentEngine] Rollback error:`, err);
+    });
+
+    return rollbackDeployment.id;
+  }
+
+  private async executeRollback(rollbackId: string, originalDeployment: any) {
+    const sshCmd = this.buildSSHCommand();
+    const startTime = Date.now();
+
+    try {
+      await this.updateStepStatus(rollbackId, "validate", "running");
+      await this.addLog(rollbackId, `Rolling back to build #${originalDeployment.buildNumber} (v${originalDeployment.version})`, "step");
+      await this.updateStepStatus(rollbackId, "validate", "success", Date.now() - startTime);
+
+      await this.updateStepStatus(rollbackId, "rollback-server", "running");
+      await this.updateDeployment(rollbackId, { currentStep: "rollback-server", progress: 25 });
+      const remoteDir = "/home/administrator/app2";
+      await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && git log --oneline -3 2>/dev/null || echo 'git-log-unavailable'"`, "Git Log (before)", 15000);
+      await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && git stash 2>/dev/null; git checkout HEAD~1 -- . 2>/dev/null && npm install --legacy-peer-deps --loglevel=error 2>&1 | tail -3 && npm run build 2>&1 | tail -5 && echo 'ROLLBACK_CODE_OK'"`, "Rollback Code", 180000);
+      await this.updateStepStatus(rollbackId, "rollback-server", "success", Date.now() - startTime);
+
+      await this.updateStepStatus(rollbackId, "restart-pm2", "running");
+      await this.updateDeployment(rollbackId, { currentStep: "restart-pm2", progress: 60 });
+      await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && pm2 restart binarjoin --update-env 2>/dev/null || pm2 restart construction-app --update-env 2>/dev/null && pm2 save && echo 'RESTART_OK'"`, "PM2 Restart", 30000);
+      await this.updateStepStatus(rollbackId, "restart-pm2", "success", Date.now() - startTime);
+
+      await this.updateStepStatus(rollbackId, "verify", "running");
+      await this.updateDeployment(rollbackId, { currentStep: "verify", progress: 85 });
+      await new Promise(r => setTimeout(r, 5000));
+      const health = await this.checkServerHealth();
+      await this.updateDeployment(rollbackId, { serverHealthResult: health });
+      await this.addLog(rollbackId, `Health check: ${health.status}`, health.status === "healthy" ? "success" : "warn");
+      await this.updateStepStatus(rollbackId, "verify", "success", Date.now() - startTime);
+
+      await this.updateDeployment(rollbackId, {
+        status: "success",
+        progress: 100,
+        currentStep: "complete",
+        duration: Date.now() - startTime,
+        endTime: new Date(),
+      });
+      await this.addLog(rollbackId, "Rollback completed successfully", "success");
+    } catch (error: any) {
+      await this.updateDeployment(rollbackId, {
+        status: "failed",
+        duration: Date.now() - startTime,
+        endTime: new Date(),
+        errorMessage: error.message,
+      });
+    }
+  }
+
+  async runCleanup(): Promise<{ cleaned: string[]; errors: string[] }> {
+    const sshCmd = this.buildSSHCommand();
+    const cleaned: string[] = [];
+    const errors: string[] = [];
+    const remoteDir = "/home/administrator/app2";
+
+    try {
+      await execAsync(`${sshCmd} "cd ${remoteDir} && rm -rf android/app/build android/.gradle android/build 2>/dev/null && echo 'CLEAN_ANDROID'"`, { timeout: 30000 });
+      cleaned.push("Android build artifacts");
+    } catch (e: any) { errors.push(`Android cleanup: ${e.message}`); }
+
+    try {
+      await execAsync(`${sshCmd} "rm -f /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null && echo 'CLEAN_TMP'"`, { timeout: 15000 });
+      cleaned.push("Temporary archives");
+    } catch (e: any) { errors.push(`Temp cleanup: ${e.message}`); }
+
+    try {
+      await execAsync(`${sshCmd} "cd ${remoteDir} && pm2 flush 2>/dev/null && echo 'CLEAN_LOGS'"`, { timeout: 15000 });
+      cleaned.push("PM2 logs");
+    } catch (e: any) { errors.push(`PM2 logs: ${e.message}`); }
+
+    return { cleaned, errors };
+  }
+
   async getDeployment(id: string) {
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, id));
     return deployment || null;

@@ -421,6 +421,7 @@ export default function DeploymentConsole() {
                   <SelectItem value="android-build" data-testid="option-android-build">Android APK Build</SelectItem>
                   <SelectItem value="full-deploy" data-testid="option-full-deploy">Full Deploy (Web + Android)</SelectItem>
                   <SelectItem value="git-push" data-testid="option-git-push">Git Push & Server Pull</SelectItem>
+                  <SelectItem value="hotfix" data-testid="option-hotfix">Hotfix Deploy (Fast Push)</SelectItem>
                 </SelectContent>
               </Select>
 

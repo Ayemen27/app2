@@ -1,7 +1,7 @@
 import { db } from "../db.js";
 import { buildDeployments, deploymentEvents } from "@shared/schema";
 import { eq, desc, sql, count } from "drizzle-orm";
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import { promisify } from "util";
 import type { Response } from "express";
 
@@ -10,7 +10,7 @@ const execAsync = promisify(exec);
 type LogEntry = { timestamp: string; message: string; type: "info" | "error" | "success" | "warn" | "step" };
 type StepEntry = { name: string; status: "pending" | "running" | "success" | "failed"; duration?: number; startedAt?: string };
 
-type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "git-push";
+type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "git-push" | "hotfix";
 
 interface DeploymentConfig {
   pipeline: Pipeline;
@@ -26,6 +26,7 @@ const PIPELINE_STEPS: Record<Pipeline, string[]> = {
   "android-build": ["validate", "build-web", "transfer", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact"],
   "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
+  "hotfix": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
 };
 
 const activeSSEClients = new Map<string, Response[]>();
@@ -224,24 +225,56 @@ export class DeploymentEngine {
 
   private async execWithLog(deploymentId: string, command: string, label: string, timeoutMs = 300000): Promise<string> {
     await this.addLog(deploymentId, `[${label}] Executing...`, "info");
-    try {
-      const { stdout, stderr } = await execAsync(command, {
-        timeout: timeoutMs,
-        maxBuffer: 10 * 1024 * 1024,
+
+    return new Promise((resolve, reject) => {
+      const child = spawn("bash", ["-c", command], {
         cwd: "/home/runner/workspace",
+        env: { ...process.env },
       });
 
-      const output = stdout || stderr || "";
-      const lines = output.split("\n").filter(l => l.trim());
-      for (const line of lines.slice(-10)) {
-        await this.addLog(deploymentId, `[${label}] ${this.maskSecrets(line)}`, "info");
-      }
-      return output;
-    } catch (error: any) {
-      const errorOutput = this.maskSecrets(error.stderr || error.stdout || error.message);
-      await this.addLog(deploymentId, `[${label}] Error: ${errorOutput}`, "error");
-      throw new Error(`${label} failed: ${errorOutput.substring(0, 500)}`);
-    }
+      let output = "";
+      let lineBuffer = "";
+      const timer = setTimeout(() => {
+        child.kill("SIGTERM");
+        reject(new Error(`${label} timed out after ${timeoutMs / 1000}s`));
+      }, timeoutMs);
+
+      const processLine = (line: string) => {
+        if (!line.trim()) return;
+        output += line + "\n";
+        this.addLog(deploymentId, `[${label}] ${this.maskSecrets(line)}`, "info").catch(() => {});
+      };
+
+      const handleData = (data: Buffer) => {
+        lineBuffer += data.toString();
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop() || "";
+        for (const line of lines) {
+          processLine(line);
+        }
+      };
+
+      child.stdout.on("data", handleData);
+      child.stderr.on("data", handleData);
+
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        if (lineBuffer.trim()) processLine(lineBuffer);
+        if (code === 0 || code === null) {
+          resolve(output);
+        } else {
+          const errorMsg = this.maskSecrets(output.slice(-500));
+          this.addLog(deploymentId, `[${label}] Exit code: ${code}`, "error").catch(() => {});
+          reject(new Error(`${label} failed (exit ${code}): ${errorMsg}`));
+        }
+      });
+
+      child.on("error", (err) => {
+        clearTimeout(timer);
+        this.addLog(deploymentId, `[${label}] Error: ${this.maskSecrets(err.message)}`, "error").catch(() => {});
+        reject(new Error(`${label} failed: ${this.maskSecrets(err.message)}`));
+      });
+    });
   }
 
   private async stepValidate(deploymentId: string) {

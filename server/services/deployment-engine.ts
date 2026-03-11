@@ -314,6 +314,15 @@ export class DeploymentEngine {
       throw new Error("Cannot connect to remote server via SSH");
     }
 
+    try {
+      const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace" });
+      const commitHash = stdout.trim();
+      await this.updateDeployment(deploymentId, { commitHash });
+      await this.addLog(deploymentId, `Commit: ${commitHash.substring(0, 8)}`, "info");
+    } catch {
+      await this.addLog(deploymentId, "Could not resolve git commit hash", "warn");
+    }
+
     await this.addLog(deploymentId, "All validations passed", "success");
   }
 
@@ -335,9 +344,13 @@ export class DeploymentEngine {
     const version = await this.getCurrentVersion();
     const archivePath = `/tmp/deploy-${version}-${Date.now()}.tar.gz`;
 
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    const includesDist = deployment?.pipeline === "android-build" || deployment?.pipeline === "full-deploy";
+    const distExclude = includesDist ? "" : "--exclude='dist'";
+
     await this.execWithLog(
       deploymentId,
-      `tar --exclude='node_modules' --exclude='dist' --exclude='android/build' --exclude='android/app/build' --exclude='android/.gradle' --exclude='.git' --exclude='.gradle' --exclude='output_apks' -czf ${archivePath} .`,
+      `tar --exclude='node_modules' ${distExclude} --exclude='android/build' --exclude='android/app/build' --exclude='android/.gradle' --exclude='.git' --exclude='.gradle' --exclude='output_apks' --exclude='www' -czf ${archivePath} .`,
       "Archive",
       60000
     );
@@ -370,14 +383,14 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && npm install --loglevel=error --legacy-peer-deps 2>&1 | tail -5 && echo 'INSTALL_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir} && npm install --loglevel=error --legacy-peer-deps 2>&1 | tail -5 && echo 'INSTALL_OK'"`,
       "Install Dependencies",
       120000
     );
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -10 && echo 'BUILD_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -10 && echo 'BUILD_OK'"`,
       "Server Build",
       120000
     );
@@ -413,7 +426,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && chmod +x gradlew && rm -rf app/build .gradle build && ./gradlew clean assembleRelease --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && chmod +x gradlew && rm -rf app/build .gradle build && ./gradlew clean assembleRelease --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
       "Gradle Build",
       300000
     );
@@ -532,7 +545,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && npm install --loglevel=error --legacy-peer-deps 2>&1 | tail -5 && echo 'DEPS_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir} && npm install --loglevel=error --legacy-peer-deps 2>&1 | tail -5 && echo 'DEPS_OK'"`,
       "Install Deps",
       120000
     );
@@ -544,7 +557,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -10 && echo 'BUILD_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -10 && echo 'BUILD_OK'"`,
       "Server Build",
       120000
     );
@@ -556,7 +569,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && npx drizzle-kit push --force 2>&1 | tail -15 && echo 'MIGRATE_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir} && npx drizzle-kit push --force 2>&1 | tail -15 && echo 'MIGRATE_OK'"`,
       "DB Migrate",
       120000
     );
@@ -732,7 +745,7 @@ export class DeploymentEngine {
       await this.updateDeployment(rollbackId, { currentStep: "rollback-server", progress: 25 });
       const remoteDir = "/home/administrator/app2";
       await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && git log --oneline -3 2>/dev/null || echo 'git-log-unavailable'"`, "Git Log (before)", 15000);
-      await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && git stash 2>/dev/null; git checkout HEAD~1 -- . 2>/dev/null && npm install --legacy-peer-deps --loglevel=error 2>&1 | tail -3 && npm run build 2>&1 | tail -5 && echo 'ROLLBACK_CODE_OK'"`, "Rollback Code", 180000);
+      await this.execWithLog(rollbackId, `${sshCmd} "set -o pipefail && cd ${remoteDir} && git stash 2>/dev/null; git checkout HEAD~1 -- . 2>/dev/null && npm install --legacy-peer-deps --loglevel=error 2>&1 | tail -3 && npm run build 2>&1 | tail -5 && echo 'ROLLBACK_CODE_OK'"`, "Rollback Code", 180000);
       await this.updateStepStatus(rollbackId, "rollback-server", "success", Date.now() - startTime);
 
       await this.updateStepStatus(rollbackId, "restart-pm2", "running");

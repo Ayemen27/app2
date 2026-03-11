@@ -43,7 +43,10 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Power,
-  Download
+  Download,
+  Save,
+  XCircle,
+  RefreshCw
 } from "lucide-react";
 import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
@@ -168,6 +171,8 @@ export default function ProjectsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isAddingProjectType, setIsAddingProjectType] = useState(false);
+  const [newProjectTypeName, setNewProjectTypeName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const { setFloatingAction } = useFloatingButton();
@@ -1028,28 +1033,81 @@ export default function ProjectsPage() {
                     <FormItem>
                       <FormLabel>نوع المشروع</FormLabel>
                       <FormControl>
-                        <SearchableSelect
-                          value={field.value?.toString() || ""}
-                          onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
-                          options={[
-                            { value: '', label: 'بدون نوع' },
-                            ...projectTypeOptions
-                          ]}
-                          placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
-                          searchPlaceholder="ابحث عن نوع..."
-                          emptyText="لا توجد أنواع"
-                          allowCustom
-                          onCustomAdd={async (value) => {
-                            const result = await addProjectTypeMutation.mutateAsync(value);
-                            if (result?.data?.id) {
-                              field.onChange(result.data.id);
-                            }
-                          }}
-                          onDeleteOption={(label) => {
-                            const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
-                            if (opt) deleteProjectTypeMutation.mutate(opt.label);
-                          }}
-                        />
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <SearchableSelect
+                                value={field.value?.toString() || ""}
+                                onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                                options={[
+                                  { value: '', label: 'بدون نوع' },
+                                  ...projectTypeOptions
+                                ]}
+                                placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
+                                searchPlaceholder="ابحث عن نوع..."
+                                emptyText="لا توجد أنواع"
+                                allowCustom
+                                onCustomAdd={async (value) => {
+                                  const result = await addProjectTypeMutation.mutateAsync(value);
+                                  if (result?.data?.id) {
+                                    field.onChange(result.data.id);
+                                  }
+                                }}
+                                onDeleteOption={(label) => {
+                                  const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
+                                  if (opt) deleteProjectTypeMutation.mutate(opt.label);
+                                }}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              onClick={() => setIsAddingProjectType(!isAddingProjectType)}
+                              data-testid="button-add-project-type-create"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {isAddingProjectType && (
+                            <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
+                              <Input
+                                value={newProjectTypeName}
+                                onChange={(e) => setNewProjectTypeName(e.target.value)}
+                                placeholder="اسم النوع الجديد..."
+                                className="flex-1 text-xs"
+                                data-testid="input-new-project-type-create"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={async () => {
+                                  if (newProjectTypeName.trim()) {
+                                    const result = await addProjectTypeMutation.mutateAsync(newProjectTypeName.trim());
+                                    if (result?.data?.id) {
+                                      field.onChange(result.data.id);
+                                    }
+                                    setNewProjectTypeName("");
+                                    setIsAddingProjectType(false);
+                                  }
+                                }}
+                                disabled={!newProjectTypeName.trim() || addProjectTypeMutation.isPending}
+                                data-testid="button-save-project-type-create"
+                              >
+                                {addProjectTypeMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => { setIsAddingProjectType(false); setNewProjectTypeName(""); }}
+                                data-testid="button-cancel-project-type-create"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1155,28 +1213,81 @@ export default function ProjectsPage() {
                   <FormItem>
                     <FormLabel>نوع المشروع</FormLabel>
                     <FormControl>
-                      <SearchableSelect
-                        value={field.value?.toString() || ""}
-                        onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
-                        options={[
-                          { value: '', label: 'بدون نوع' },
-                          ...projectTypeOptions
-                        ]}
-                        placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
-                        searchPlaceholder="ابحث عن نوع..."
-                        emptyText="لا توجد أنواع"
-                        allowCustom
-                        onCustomAdd={async (value) => {
-                          const result = await addProjectTypeMutation.mutateAsync(value);
-                          if (result?.data?.id) {
-                            field.onChange(result.data.id);
-                          }
-                        }}
-                        onDeleteOption={(label) => {
-                          const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
-                          if (opt) deleteProjectTypeMutation.mutate(opt.label);
-                        }}
-                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <SearchableSelect
+                              value={field.value?.toString() || ""}
+                              onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                              options={[
+                                { value: '', label: 'بدون نوع' },
+                                ...projectTypeOptions
+                              ]}
+                              placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
+                              searchPlaceholder="ابحث عن نوع..."
+                              emptyText="لا توجد أنواع"
+                              allowCustom
+                              onCustomAdd={async (value) => {
+                                const result = await addProjectTypeMutation.mutateAsync(value);
+                                if (result?.data?.id) {
+                                  field.onChange(result.data.id);
+                                }
+                              }}
+                              onDeleteOption={(label) => {
+                                const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
+                                if (opt) deleteProjectTypeMutation.mutate(opt.label);
+                              }}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() => setIsAddingProjectType(!isAddingProjectType)}
+                            data-testid="button-add-project-type-edit"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {isAddingProjectType && (
+                          <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
+                            <Input
+                              value={newProjectTypeName}
+                              onChange={(e) => setNewProjectTypeName(e.target.value)}
+                              placeholder="اسم النوع الجديد..."
+                              className="flex-1 text-xs"
+                              data-testid="input-new-project-type-edit"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={async () => {
+                                if (newProjectTypeName.trim()) {
+                                  const result = await addProjectTypeMutation.mutateAsync(newProjectTypeName.trim());
+                                  if (result?.data?.id) {
+                                    field.onChange(result.data.id);
+                                  }
+                                  setNewProjectTypeName("");
+                                  setIsAddingProjectType(false);
+                                }
+                              }}
+                              disabled={!newProjectTypeName.trim() || addProjectTypeMutation.isPending}
+                              data-testid="button-save-project-type-edit"
+                            >
+                              {addProjectTypeMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => { setIsAddingProjectType(false); setNewProjectTypeName(""); }}
+                              data-testid="button-cancel-project-type-edit"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

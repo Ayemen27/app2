@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
-import { Phone, User, Briefcase, DollarSign } from "lucide-react";
+import { Phone, User, Briefcase, DollarSign, Plus, Save, XCircle, RefreshCw } from "lucide-react";
 import type { InsertWorker } from "@shared/schema";
 
 interface Worker {
@@ -44,6 +44,8 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
   const [dailyWage, setDailyWage] = useState(worker ? worker.dailyWage : "");
   const [phone, setPhone] = useState(worker?.phone || "");
   const [hireDate, setHireDate] = useState(worker?.hireDate || "");
+  const [isAddingType, setIsAddingType] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -209,18 +211,66 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
             <Briefcase className="h-4 w-4 text-purple-500" />
             نوع العامل *
           </Label>
-          <SearchableSelect
-            value={type}
-            onValueChange={setType}
-            options={workerTypeOptions}
-            placeholder="اختر نوع العامل..."
-            searchPlaceholder="ابحث عن نوع..."
-            emptyText="لا توجد أنواع"
-            className="flex-1"
-            allowCustom
-            onCustomAdd={(value) => addCategoryMutation.mutate(value)}
-            onDeleteOption={(value) => deleteCategoryMutation.mutate(value)}
-          />
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <SearchableSelect
+                value={type}
+                onValueChange={setType}
+                options={workerTypeOptions}
+                placeholder="اختر نوع العامل..."
+                searchPlaceholder="ابحث عن نوع..."
+                emptyText="لا توجد أنواع"
+                allowCustom
+                onCustomAdd={(value) => addCategoryMutation.mutate(value)}
+                onDeleteOption={(value) => deleteCategoryMutation.mutate(value)}
+              />
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => setIsAddingType(!isAddingType)}
+              data-testid="button-add-worker-type"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {isAddingType && (
+            <div className="flex items-center gap-2 mt-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
+              <Input
+                value={newTypeName}
+                onChange={(e) => setNewTypeName(e.target.value)}
+                placeholder="اسم النوع الجديد..."
+                className="flex-1 text-xs"
+                data-testid="input-new-worker-type"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  if (newTypeName.trim()) {
+                    addCategoryMutation.mutate(newTypeName.trim());
+                    setType(newTypeName.trim());
+                    setNewTypeName("");
+                    setIsAddingType(false);
+                  }
+                }}
+                disabled={!newTypeName.trim() || addCategoryMutation.isPending}
+                data-testid="button-save-worker-type"
+              >
+                {addCategoryMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => { setIsAddingType(false); setNewTypeName(""); }}
+                data-testid="button-cancel-worker-type"
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CompactFieldGroup>
 

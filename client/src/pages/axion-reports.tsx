@@ -186,11 +186,255 @@ function ReportTable({
   );
 }
 
+function SingleDayReport({ report, searchValue }: { report: DailyReportData; searchValue: string }) {
+  const q = searchValue.trim().toLowerCase();
+  const filteredAttendance = (report.attendance || []).filter((r: any) =>
+    !q || [r.workerName, r.workerType, r.workDescription].some((v: string) => v?.toLowerCase().includes(q))
+  );
+  const filteredMaterials = (report.materials || []).filter((r: any) =>
+    !q || [r.materialName, r.category, r.supplierName].some((v: string) => v?.toLowerCase().includes(q))
+  );
+  const filteredTransport = (report.transport || []).filter((r: any) =>
+    !q || [r.description, r.workerName].some((v: string) => v?.toLowerCase().includes(q))
+  );
+  const filteredMisc = (report.miscExpenses || []).filter((r: any) =>
+    !q || [r.description, r.notes].some((v: string) => v?.toLowerCase().includes(q))
+  );
+  const filteredFundTransfers = (report.fundTransfers || []).filter((r: any) =>
+    !q || [r.senderName, r.transferType, r.transferNumber].some((v: string) => v?.toLowerCase().includes(q))
+  );
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-base">سجل الحضور</CardTitle>
+          <Badge variant="secondary">{filteredAttendance.length}</Badge>
+        </CardHeader>
+        <CardContent>
+          <ReportTable
+            testId="table-daily-attendance"
+            headers={["#", "اسم العامل", "نوع العامل", "أيام العمل", "الأجر اليومي", "إجمالي الأجر", "المدفوع", "المتبقي", "وصف العمل"]}
+            rows={filteredAttendance.map((r: any, i: number) => [
+              i + 1, r.workerName, r.workerType, r.workDays, formatCurrency(r.dailyWage),
+              formatCurrency(r.totalWage), formatCurrency(r.paidAmount), formatCurrency(r.remainingAmount), r.workDescription || "-",
+            ])}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-base">المواد والمشتريات</CardTitle>
+          <Badge variant="secondary">{filteredMaterials.length}</Badge>
+        </CardHeader>
+        <CardContent>
+          <ReportTable
+            testId="table-daily-materials"
+            headers={["#", "اسم المادة", "الصنف", "الكمية", "الوحدة", "سعر الوحدة", "الإجمالي", "المورد"]}
+            rows={filteredMaterials.map((r: any, i: number) => [
+              i + 1, r.materialName, r.category || "-", r.quantity, r.unit || "-",
+              formatCurrency(r.unitPrice), formatCurrency(r.totalAmount), r.supplierName || "-",
+            ])}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-base">مصاريف النقل</CardTitle>
+          <Badge variant="secondary">{filteredTransport.length}</Badge>
+        </CardHeader>
+        <CardContent>
+          <ReportTable
+            testId="table-daily-transport"
+            headers={["#", "المبلغ", "الوصف", "اسم العامل"]}
+            rows={filteredTransport.map((r: any, i: number) => [
+              i + 1, formatCurrency(r.amount), r.description || "-", r.workerName || "-",
+            ])}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-base">مصاريف متنوعة</CardTitle>
+          <Badge variant="secondary">{filteredMisc.length}</Badge>
+        </CardHeader>
+        <CardContent>
+          <ReportTable
+            testId="table-daily-misc"
+            headers={["#", "المبلغ", "الوصف", "ملاحظات"]}
+            rows={filteredMisc.map((r: any, i: number) => [
+              i + 1, formatCurrency(r.amount), r.description || "-", r.notes || "-",
+            ])}
+          />
+        </CardContent>
+      </Card>
+
+      {filteredFundTransfers.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">تحويلات الصناديق</CardTitle>
+            <Badge variant="secondary">{filteredFundTransfers.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <ReportTable
+              testId="table-daily-fund-transfers"
+              headers={["#", "المبلغ", "المرسل", "نوع التحويل", "رقم التحويل"]}
+              rows={filteredFundTransfers.map((r: any, i: number) => [
+                i + 1, formatCurrency(r.amount), r.senderName || "-", r.transferType || "-", r.transferNumber || "-",
+              ])}
+            />
+          </CardContent>
+        </Card>
+      )}
+    </>
+  );
+}
+
+function RangeDayPage({ report, searchValue }: { report: DailyReportData; searchValue: string }) {
+  const q = searchValue.trim().toLowerCase();
+
+  const allExpenses: { category: string; description: string; amount: number; notes: string }[] = [];
+
+  (report.attendance || []).forEach((r: any) => {
+    if (!q || [r.workerName, r.workerType].some((v: string) => v?.toLowerCase().includes(q)))
+      allExpenses.push({ category: "أجور عمال", description: r.workerName + (r.workerType ? ` (${r.workerType})` : ""), amount: r.totalWage || 0, notes: r.workDescription || "-" });
+  });
+  (report.materials || []).forEach((r: any) => {
+    if (!q || [r.materialName, r.supplierName].some((v: string) => v?.toLowerCase().includes(q)))
+      allExpenses.push({ category: "مواد", description: r.materialName + (r.quantity ? ` × ${r.quantity}` : ""), amount: r.totalAmount || 0, notes: r.supplierName || "-" });
+  });
+  (report.transport || []).forEach((r: any) => {
+    if (!q || [r.description, r.workerName].some((v: string) => v?.toLowerCase().includes(q)))
+      allExpenses.push({ category: "نقل", description: r.description || "نقل", amount: r.amount || 0, notes: r.workerName || "-" });
+  });
+  (report.miscExpenses || []).forEach((r: any) => {
+    if (!q || [r.description, r.notes].some((v: string) => v?.toLowerCase().includes(q)))
+      allExpenses.push({ category: "مصاريف متنوعة", description: r.description || "-", amount: r.amount || 0, notes: r.notes || "-" });
+  });
+
+  const totalExpenses = allExpenses.reduce((s, e) => s + e.amount, 0);
+
+  const fundTransfers = (report.fundTransfers || []).filter((r: any) =>
+    !q || [r.senderName, r.transferType].some((v: string) => v?.toLowerCase().includes(q))
+  );
+  const totalFundTransfers = fundTransfers.reduce((s: number, r: any) => s + (r.amount || 0), 0);
+
+  const workerTransfers = (report.workerTransfers || []).filter((r: any) =>
+    !q || [r.workerName, r.transferType].some((v: string) => v?.toLowerCase().includes(q))
+  );
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-primary" />
+            جدول المصروفات
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{allExpenses.length} عملية</Badge>
+            <Badge className="bg-primary/10 text-primary border-primary/20">{formatCurrency(totalExpenses)}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {allExpenses.length > 0 ? (
+            <ReportTable
+              testId="table-range-expenses"
+              headers={["#", "القسم", "البيان", "المبلغ", "ملاحظات"]}
+              rows={allExpenses.map((e, i) => [
+                i + 1, e.category, e.description, formatCurrency(e.amount), e.notes,
+              ])}
+            />
+          ) : (
+            <EmptyState message="لا توجد مصروفات لهذا اليوم" />
+          )}
+          {allExpenses.length > 0 && (
+            <div className="flex justify-end mt-3 pt-3 border-t">
+              <div className="text-sm font-bold text-foreground">
+                إجمالي المصروفات: <span className="text-primary mr-1">{formatCurrency(totalExpenses)}</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {fundTransfers.length > 0 && (
+        <Card className="border-green-200 dark:border-green-800/50">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-green-700 dark:text-green-400">
+              <Wallet className="h-4 w-4" />
+              العهدة (الوارد للصندوق)
+            </CardTitle>
+            <Badge className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">{formatCurrency(totalFundTransfers)}</Badge>
+          </CardHeader>
+          <CardContent>
+            <ReportTable
+              testId="table-range-fund-transfers"
+              headers={["#", "المبلغ", "المرسل", "نوع التحويل", "رقم التحويل"]}
+              rows={fundTransfers.map((r: any, i: number) => [
+                i + 1, formatCurrency(r.amount), r.senderName || "-", r.transferType || "-", r.transferNumber || "-",
+              ])}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {workerTransfers.length > 0 && (
+        <Card className="border-blue-200 dark:border-blue-800/50">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base flex items-center gap-2 text-blue-700 dark:text-blue-400">
+              <ArrowUpDown className="h-4 w-4" />
+              الأموال الواردة من مشروع آخر
+            </CardTitle>
+            <Badge variant="secondary">{workerTransfers.length}</Badge>
+          </CardHeader>
+          <CardContent>
+            <ReportTable
+              testId="table-range-worker-transfers"
+              headers={["#", "المبلغ", "اسم العامل", "نوع التحويل"]}
+              rows={workerTransfers.map((r: any, i: number) => [
+                i + 1, formatCurrency(r.amount), r.workerName || "-", r.transferType || "-",
+              ])}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+          <p className="text-[10px] text-muted-foreground font-medium">عدد العمال</p>
+          <p className="font-bold text-blue-700 dark:text-blue-400 text-sm mt-0.5">{report.totals?.workerCount || 0}</p>
+        </div>
+        <div className="text-center p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-900/50">
+          <p className="text-[10px] text-muted-foreground font-medium">المواد</p>
+          <p className="font-bold text-orange-700 dark:text-orange-400 text-sm mt-0.5">{formatCurrency(report.totals?.totalMaterials || 0)}</p>
+        </div>
+        <div className="text-center p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
+          <p className="text-[10px] text-muted-foreground font-medium">الأجور</p>
+          <p className="font-bold text-purple-700 dark:text-purple-400 text-sm mt-0.5">{formatCurrency(report.totals?.totalWorkerWages || 0)}</p>
+        </div>
+        <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50">
+          <p className="text-[10px] text-muted-foreground font-medium">إجمالي المصروفات</p>
+          <p className="font-bold text-red-700 dark:text-red-400 text-sm mt-0.5">{formatCurrency(report.totals?.totalExpenses || 0)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => void }) {
   const { selectedProjectId, selectedProjectName, isAllProjects } = useSelectedProjectContext();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchValue, setSearchValue] = useState("");
+  const [reportMode, setReportMode] = useState<"single" | "range">("single");
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [rangePageIndex, setRangePageIndex] = useState(0);
+  const [rangeReports, setRangeReports] = useState<DailyReportData[]>([]);
+  const [isLoadingRange, setIsLoadingRange] = useState(false);
+  const [rangeDates, setRangeDates] = useState<string[]>([]);
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
   const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -203,24 +447,103 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
       const res = await apiRequest(`/api/reports/v2/daily?${params.toString()}`, "GET");
       return res?.data || res;
     },
-    enabled: !!projectIdForApi && !!dateStr,
+    enabled: !!projectIdForApi && !!dateStr && reportMode === "single",
     staleTime: 2 * 60 * 1000,
   });
 
   useEffect(() => {
-    if (dailyReport && onStatsReady) {
+    if (reportMode === "single") {
+      if (dailyReport && onStatsReady) {
+        onStatsReady([
+          { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
+          { title: "إجمالي الأجور", value: dailyReport.totals?.totalWorkerWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
+          { title: "المواد", value: dailyReport.totals?.totalMaterials || 0, icon: Package, color: "orange", formatter: formatCurrency },
+          { title: "النقل", value: dailyReport.totals?.totalTransport || 0, icon: Truck, color: "teal", formatter: formatCurrency },
+          { title: "مصاريف متنوعة", value: dailyReport.totals?.totalMiscExpenses || 0, icon: CreditCard, color: "red", formatter: formatCurrency },
+          { title: "الرصيد", value: dailyReport.totals?.balance || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
+        ]);
+      } else if (!dailyReport && onStatsReady) {
+        onStatsReady([]);
+      }
+    }
+  }, [dailyReport, onStatsReady, reportMode]);
+
+  useEffect(() => {
+    if (reportMode === "range" && rangeReports.length > 0 && onStatsReady) {
+      const totalExpenses = rangeReports.reduce((s, r) => s + (r.totals?.totalExpenses || 0), 0);
+      const totalWages = rangeReports.reduce((s, r) => s + (r.totals?.totalWorkerWages || 0), 0);
+      const totalMaterials = rangeReports.reduce((s, r) => s + (r.totals?.totalMaterials || 0), 0);
+      const daysWithData = rangeReports.filter(r => (r.totals?.totalExpenses || 0) > 0).length;
       onStatsReady([
-        { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
-        { title: "إجمالي الأجور", value: dailyReport.totals?.totalWorkerWages || 0, icon: Wallet, color: "purple", formatter: formatCurrency },
-        { title: "المواد", value: dailyReport.totals?.totalMaterials || 0, icon: Package, color: "orange", formatter: formatCurrency },
-        { title: "النقل", value: dailyReport.totals?.totalTransport || 0, icon: Truck, color: "teal", formatter: formatCurrency },
-        { title: "مصاريف متنوعة", value: dailyReport.totals?.totalMiscExpenses || 0, icon: CreditCard, color: "red", formatter: formatCurrency },
-        { title: "الرصيد", value: dailyReport.totals?.balance || 0, icon: TrendingUp, color: "green", formatter: formatCurrency },
+        { title: "أيام الفترة", value: String(rangeDates.length), icon: Calendar, color: "blue" },
+        { title: "أيام بها بيانات", value: String(daysWithData), icon: ClipboardList, color: "green" },
+        { title: "إجمالي الأجور", value: totalWages, icon: Wallet, color: "purple", formatter: formatCurrency },
+        { title: "إجمالي المواد", value: totalMaterials, icon: Package, color: "orange", formatter: formatCurrency },
+        { title: "إجمالي المصروفات", value: totalExpenses, icon: TrendingDown, color: "red", formatter: formatCurrency },
       ]);
-    } else if (!dailyReport && onStatsReady) {
+    } else if (reportMode === "range" && rangeReports.length === 0 && onStatsReady) {
       onStatsReady([]);
     }
-  }, [dailyReport, onStatsReady]);
+  }, [rangeReports, rangeDates, onStatsReady, reportMode]);
+
+  const generateDateRange = (from: Date, to: Date): string[] => {
+    const dates: string[] = [];
+    const current = new Date(from);
+    const end = new Date(to);
+    while (current <= end) {
+      dates.push(format(current, "yyyy-MM-dd"));
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  };
+
+  const fetchRangeReports = async () => {
+    if (!projectIdForApi || !dateRange.from || !dateRange.to) {
+      toast({ title: "تنبيه", description: "الرجاء اختيار المشروع وتحديد الفترة الزمنية", variant: "destructive" });
+      return;
+    }
+    const from = new Date(dateRange.from);
+    const to = new Date(dateRange.to);
+    if (from > to) {
+      toast({ title: "خطأ", description: "تاريخ البداية يجب أن يكون قبل تاريخ النهاية", variant: "destructive" });
+      return;
+    }
+    const dates = generateDateRange(from, to);
+    if (dates.length > 60) {
+      toast({ title: "تنبيه", description: "الحد الأقصى للفترة 60 يوماً", variant: "destructive" });
+      return;
+    }
+    setIsLoadingRange(true);
+    setRangeDates(dates);
+    setRangePageIndex(0);
+    try {
+      const reports: DailyReportData[] = [];
+      const batchSize = 5;
+      for (let i = 0; i < dates.length; i += batchSize) {
+        const batch = dates.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batch.map(async (d) => {
+            try {
+              const params = new URLSearchParams({ project_id: projectIdForApi, date: d });
+              const res = await apiRequest(`/api/reports/v2/daily?${params.toString()}`, "GET");
+              const data = res?.data || res;
+              if (data && data.date) return data as DailyReportData;
+              return { reportType: 'daily' as const, date: d, attendance: [], materials: [], transport: [], miscExpenses: [], workerTransfers: [], fundTransfers: [], totals: { totalWorkerWages: 0, totalPaidWages: 0, totalMaterials: 0, totalTransport: 0, totalMiscExpenses: 0, totalWorkerTransfers: 0, totalFundTransfers: 0, totalExpenses: 0, balance: 0, workerCount: 0, totalWorkDays: 0 }, project: { id: projectIdForApi, name: selectedProjectName || "" }, generatedAt: new Date().toISOString(), kpis: [] } as DailyReportData;
+            } catch {
+              return { reportType: 'daily' as const, date: d, attendance: [], materials: [], transport: [], miscExpenses: [], workerTransfers: [], fundTransfers: [], totals: { totalWorkerWages: 0, totalPaidWages: 0, totalMaterials: 0, totalTransport: 0, totalMiscExpenses: 0, totalWorkerTransfers: 0, totalFundTransfers: 0, totalExpenses: 0, balance: 0, workerCount: 0, totalWorkDays: 0 }, project: { id: projectIdForApi, name: selectedProjectName || "" }, generatedAt: new Date().toISOString(), kpis: [] } as DailyReportData;
+            }
+          })
+        );
+        reports.push(...batchResults);
+      }
+      setRangeReports(reports);
+      toast({ title: "تم التحميل", description: `تم تحميل ${reports.length} تقرير يومي` });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل تحميل التقارير", variant: "destructive" });
+    } finally {
+      setIsLoadingRange(false);
+    }
+  };
 
   const handleExport = (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
@@ -230,17 +553,23 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
     secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
   };
 
-  const filterConfig: FilterConfig[] = [
-    { key: "specificDate", label: "التاريخ", type: "date" },
+  const filterConfigSingle: FilterConfig[] = [
+    { key: "specificDate", label: "تاريخ محدد", type: "date" },
   ];
 
-  const filterValues: Record<string, any> = {
-    specificDate: selectedDate,
-  };
+  const filterConfigRange: FilterConfig[] = [
+    { key: "dateRange", label: "الفترة الزمنية", type: "date-range" },
+  ];
+
+  const filterValuesSingle: Record<string, any> = { specificDate: selectedDate };
+  const filterValuesRange: Record<string, any> = { dateRange };
 
   const onFilterChange = (key: string, val: any) => {
     if (key === "specificDate" && val) {
       setSelectedDate(val instanceof Date ? val : new Date(val));
+    }
+    if (key === "dateRange") {
+      setDateRange(val || {});
     }
   };
 
@@ -273,196 +602,156 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
     setSelectedDate(d);
   };
 
+  const currentRangeReport = rangeReports[rangePageIndex];
+  const currentRangeDate = rangeDates[rangePageIndex];
+
   return (
     <div className="space-y-4">
-      <UnifiedFilterDashboard
-        filters={filterConfig}
-        filterValues={filterValues}
-        onFilterChange={onFilterChange}
-        actions={exportActions}
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
-        searchPlaceholder="البحث في التقرير..."
-        onRefresh={() => refetch()}
-        isRefreshing={isLoading}
-        onReset={() => {
-          setSearchValue("");
-          setSelectedDate(new Date());
-        }}
-      />
+      <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit mx-auto" data-testid="mode-toggle">
+        <Button
+          variant={reportMode === "single" ? "default" : "ghost"}
+          size="sm"
+          className="text-xs h-8 px-3 gap-1.5 rounded-md"
+          onClick={() => { setReportMode("single"); setRangeReports([]); setRangeDates([]); }}
+          data-testid="btn-mode-single"
+        >
+          <Calendar className="h-3.5 w-3.5" />
+          يوم واحد
+        </Button>
+        <Button
+          variant={reportMode === "range" ? "default" : "ghost"}
+          size="sm"
+          className="text-xs h-8 px-3 gap-1.5 rounded-md"
+          onClick={() => setReportMode("range")}
+          data-testid="btn-mode-range"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          فترة زمنية
+        </Button>
+      </div>
 
-      {!isAllProjects && selectedDate && (
-        <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md" data-testid="date-navigator">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-            onClick={prevDate}
-            title="اليوم السابق"
-            data-testid="btn-prev-date"
-          >
-            <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-          </Button>
-
-          <div className="flex flex-col items-center flex-1">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">التقرير اليومي</span>
-            <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-primary" />
-              {format(selectedDate, "EEEE, d MMMM yyyy", { locale: arSA })}
-            </span>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-            onClick={nextDate}
-            title="اليوم التالي"
-            data-testid="btn-next-date"
-          >
-            <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-          </Button>
-        </div>
-      )}
-
-      {isAllProjects && (
-        <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقرير اليومي" icon={ClipboardList} />
-      )}
-
-      {!isAllProjects && isLoading && <LoadingSpinner message="جاري تحميل التقرير اليومي..." />}
-
-      {!isAllProjects && !isLoading && !dailyReport && (
-        <EmptyState message="لا توجد بيانات لهذا اليوم" />
-      )}
-
-      {dailyReport && (() => {
-        const q = searchValue.trim().toLowerCase();
-        const filteredAttendance = (dailyReport.attendance || []).filter((r: any) =>
-          !q || [r.workerName, r.workerType, r.workDescription].some((v: string) => v?.toLowerCase().includes(q))
-        );
-        const filteredMaterials = (dailyReport.materials || []).filter((r: any) =>
-          !q || [r.materialName, r.category, r.supplierName].some((v: string) => v?.toLowerCase().includes(q))
-        );
-        const filteredTransport = (dailyReport.transport || []).filter((r: any) =>
-          !q || [r.description, r.workerName].some((v: string) => v?.toLowerCase().includes(q))
-        );
-        const filteredMisc = (dailyReport.miscExpenses || []).filter((r: any) =>
-          !q || [r.description, r.notes].some((v: string) => v?.toLowerCase().includes(q))
-        );
-        const filteredFundTransfers = (dailyReport.fundTransfers || []).filter((r: any) =>
-          !q || [r.senderName, r.transferType, r.transferNumber].some((v: string) => v?.toLowerCase().includes(q))
-        );
-        return (
+      {reportMode === "single" && (
         <>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-base">سجل الحضور</CardTitle>
-              <Badge variant="secondary">{filteredAttendance.length}</Badge>
-            </CardHeader>
-            <CardContent>
-              <ReportTable
-                testId="table-daily-attendance"
-                headers={["#", "اسم العامل", "نوع العامل", "أيام العمل", "الأجر اليومي", "إجمالي الأجر", "المدفوع", "المتبقي", "وصف العمل"]}
-                rows={filteredAttendance.map((r: any, i: number) => [
-                  i + 1,
-                  r.workerName,
-                  r.workerType,
-                  r.workDays,
-                  formatCurrency(r.dailyWage),
-                  formatCurrency(r.totalWage),
-                  formatCurrency(r.paidAmount),
-                  formatCurrency(r.remainingAmount),
-                  r.workDescription || "-",
-                ])}
-              />
-            </CardContent>
-          </Card>
+          <UnifiedFilterDashboard
+            filters={filterConfigSingle}
+            filterValues={filterValuesSingle}
+            onFilterChange={onFilterChange}
+            actions={exportActions}
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            searchPlaceholder="البحث في التقرير..."
+            onRefresh={() => refetch()}
+            isRefreshing={isLoading}
+            onReset={() => { setSearchValue(""); setSelectedDate(new Date()); }}
+          />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-base">المواد والمشتريات</CardTitle>
-              <Badge variant="secondary">{filteredMaterials.length}</Badge>
-            </CardHeader>
-            <CardContent>
-              <ReportTable
-                testId="table-daily-materials"
-                headers={["#", "اسم المادة", "الصنف", "الكمية", "الوحدة", "سعر الوحدة", "الإجمالي", "المورد"]}
-                rows={filteredMaterials.map((r: any, i: number) => [
-                  i + 1,
-                  r.materialName,
-                  r.category || "-",
-                  r.quantity,
-                  r.unit || "-",
-                  formatCurrency(r.unitPrice),
-                  formatCurrency(r.totalAmount),
-                  r.supplierName || "-",
-                ])}
-              />
-            </CardContent>
-          </Card>
+          {!isAllProjects && selectedDate && (
+            <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md" data-testid="date-navigator">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={prevDate} data-testid="btn-prev-date">
+                <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              </Button>
+              <div className="flex flex-col items-center flex-1">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">التقرير اليومي</span>
+                <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  {format(selectedDate, "EEEE, d MMMM yyyy", { locale: arSA })}
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={nextDate} data-testid="btn-next-date">
+                <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              </Button>
+            </div>
+          )}
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-base">مصاريف النقل</CardTitle>
-              <Badge variant="secondary">{filteredTransport.length}</Badge>
-            </CardHeader>
-            <CardContent>
-              <ReportTable
-                testId="table-daily-transport"
-                headers={["#", "المبلغ", "الوصف", "اسم العامل"]}
-                rows={filteredTransport.map((r: any, i: number) => [
-                  i + 1,
-                  formatCurrency(r.amount),
-                  r.description || "-",
-                  r.workerName || "-",
-                ])}
-              />
-            </CardContent>
-          </Card>
+          {isAllProjects && <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقرير اليومي" icon={ClipboardList} />}
+          {!isAllProjects && isLoading && <LoadingSpinner message="جاري تحميل التقرير اليومي..." />}
+          {!isAllProjects && !isLoading && !dailyReport && <EmptyState message="لا توجد بيانات لهذا اليوم" />}
+          {dailyReport && <SingleDayReport report={dailyReport} searchValue={searchValue} />}
+        </>
+      )}
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-base">مصاريف متنوعة</CardTitle>
-              <Badge variant="secondary">{filteredMisc.length}</Badge>
-            </CardHeader>
-            <CardContent>
-              <ReportTable
-                testId="table-daily-misc"
-                headers={["#", "المبلغ", "الوصف", "ملاحظات"]}
-                rows={filteredMisc.map((r: any, i: number) => [
-                  i + 1,
-                  formatCurrency(r.amount),
-                  r.description || "-",
-                  r.notes || "-",
-                ])}
-              />
-            </CardContent>
-          </Card>
+      {reportMode === "range" && (
+        <>
+          <UnifiedFilterDashboard
+            filters={filterConfigRange}
+            filterValues={filterValuesRange}
+            onFilterChange={onFilterChange}
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            searchPlaceholder="البحث في التقرير..."
+            onReset={() => { setSearchValue(""); setDateRange({}); setRangeReports([]); setRangeDates([]); }}
+          />
 
-          {filteredFundTransfers.length > 0 && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-                <CardTitle className="text-base">تحويلات الصناديق</CardTitle>
-                <Badge variant="secondary">{filteredFundTransfers.length}</Badge>
-              </CardHeader>
-              <CardContent>
-                <ReportTable
-                  testId="table-daily-fund-transfers"
-                  headers={["#", "المبلغ", "المرسل", "نوع التحويل", "رقم التحويل"]}
-                  rows={filteredFundTransfers.map((r: any, i: number) => [
-                    i + 1,
-                    formatCurrency(r.amount),
-                    r.senderName || "-",
-                    r.transferType || "-",
-                    r.transferNumber || "-",
-                  ])}
-                />
-              </CardContent>
-            </Card>
+          {isAllProjects && <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقارير" icon={ClipboardList} />}
+
+          {!isAllProjects && (
+            <div className="flex justify-center">
+              <Button
+                onClick={fetchRangeReports}
+                disabled={isLoadingRange || !dateRange.from || !dateRange.to}
+                className="gap-2 bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 min-h-[44px]"
+                data-testid="btn-generate-range"
+              >
+                {isLoadingRange ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {isLoadingRange ? "جاري إنتاج التقارير..." : "إنتاج التقارير"}
+              </Button>
+            </div>
+          )}
+
+          {isLoadingRange && <LoadingSpinner message="جاري تحميل التقارير اليومية..." />}
+
+          {!isLoadingRange && rangeReports.length > 0 && currentRangeReport && (
+            <>
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm" data-testid="range-page-nav">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                  onClick={() => setRangePageIndex(Math.max(0, rangePageIndex - 1))}
+                  disabled={rangePageIndex === 0}
+                  data-testid="btn-range-prev"
+                >
+                  <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                </Button>
+
+                <div className="flex flex-col items-center flex-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[10px] px-2 py-0 h-5 font-bold">
+                      {rangePageIndex + 1} / {rangeDates.length}
+                    </Badge>
+                  </div>
+                  <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5 mt-0.5">
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    {currentRangeDate ? format(new Date(currentRangeDate), "EEEE, d MMMM yyyy", { locale: arSA }) : ""}
+                  </span>
+                  {dateRange.from && dateRange.to && (
+                    <span className="text-[10px] text-muted-foreground mt-0.5">
+                      {format(dateRange.from, "d MMM", { locale: arSA })} — {format(dateRange.to, "d MMM yyyy", { locale: arSA })}
+                    </span>
+                  )}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                  onClick={() => setRangePageIndex(Math.min(rangeDates.length - 1, rangePageIndex + 1))}
+                  disabled={rangePageIndex >= rangeDates.length - 1}
+                  data-testid="btn-range-next"
+                >
+                  <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                </Button>
+              </div>
+
+              <RangeDayPage report={currentRangeReport} searchValue={searchValue} />
+            </>
+          )}
+
+          {!isLoadingRange && rangeReports.length === 0 && dateRange.from && dateRange.to && (
+            <EmptyState message="اضغط على 'إنتاج التقارير' لتحميل التقارير اليومية للفترة المحددة" icon={FileText} />
           )}
         </>
-        );
-      })()}
+      )}
     </div>
   );
 }

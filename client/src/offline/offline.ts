@@ -12,6 +12,7 @@ export interface SyncQueueItem {
   endpoint: string;
   payload: Record<string, any>;
   timestamp: number;
+  lastModifiedAt?: number;
   retries: number;
   status: SyncItemStatus;
   lastError?: string;
@@ -105,20 +106,22 @@ export async function queueForSync(
     console.log(`⚠️ [Queue] عملية مكررة تم تجاهلها: ${idempotencyKey}`);
     if (action === 'update') {
       duplicate.payload = { ...duplicate.payload, ...payload };
-      duplicate.timestamp = Date.now();
+      duplicate.lastModifiedAt = Date.now();
       await smartPut('syncQueue', duplicate);
       console.log(`🔄 [Queue] تم تحديث payload العملية المكررة: ${duplicate.id}`);
     }
     return duplicate.id;
   }
 
+  const now = Date.now();
   const id = uuidv4();
   const queueItem: SyncQueueItem = {
     id,
     action,
     endpoint,
     payload,
-    timestamp: Date.now(),
+    timestamp: now,
+    lastModifiedAt: now,
     retries: 0,
     status: 'pending',
     idempotencyKey

@@ -5,6 +5,8 @@ import {
 } from './offline';
 import { smartGet, smartPut } from './storage-factory';
 import { apiRequest } from '../lib/queryClient';
+import { resolveConflictLWW, logConflict } from './conflict-resolver';
+import type { ConflictData } from './conflict-resolver';
 
 let _isSyncing = false;
 
@@ -56,6 +58,52 @@ function getPayloadSummary(payload: Record<string, any>): string {
   return parts.join(' | ') || 'بدون تفاصيل';
 }
 
+async function checkLWWConflict(item: SyncQueueItem): Promise<'proceed' | 'skip'> {
+  if (item.action !== 'update') return 'proceed';
+
+  const recordId = item.payload?.id;
+  if (!recordId) return 'proceed';
+
+  try {
+    const serverRecord = await apiRequest(`${item.endpoint}/${recordId}`, 'GET');
+
+    if (!serverRecord || serverRecord.error) {
+      console.log(`[Silent-Sync-LWW] Could not fetch server version for ${recordId}, proceeding with update`);
+      return 'proceed';
+    }
+
+    const serverUpdatedAt = serverRecord.updated_at || serverRecord.updatedAt;
+    if (!serverUpdatedAt) {
+      return 'proceed';
+    }
+
+    const serverTimestamp = new Date(serverUpdatedAt).getTime();
+    const clientTimestamp = item.lastModifiedAt || item.timestamp;
+
+    const conflictData: ConflictData = {
+      clientVersion: item.payload,
+      serverVersion: serverRecord,
+      clientTimestamp,
+      serverTimestamp,
+    };
+
+    const resolved = resolveConflictLWW(conflictData);
+
+    if (resolved === conflictData.serverVersion) {
+      console.log(`[Silent-Sync-LWW] Server version is newer for ${recordId} (server: ${serverTimestamp}, client: ${clientTimestamp}), skipping`);
+      await logConflict('update', String(recordId), conflictData, 'server-wins');
+      return 'skip';
+    }
+
+    console.log(`[Silent-Sync-LWW] Client version is newer for ${recordId} (client: ${clientTimestamp}, server: ${serverTimestamp}), proceeding`);
+    await logConflict('update', String(recordId), conflictData, 'client-wins');
+    return 'proceed';
+  } catch (error) {
+    console.warn(`[Silent-Sync-LWW] Error checking server version for ${recordId}, proceeding:`, error);
+    return 'proceed';
+  }
+}
+
 async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<void> {
   const startTime = Date.now();
   console.log(`[Silent-Sync] معالجة دفعة ${batchId} (${items.length} عملية)...`);
@@ -64,8 +112,34 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
     await markItemInFlight(item.id);
   }
 
+  const itemsToSend: SyncQueueItem[] = [];
+  for (const item of items) {
+    const lwwDecision = await checkLWWConflict(item);
+    if (lwwDecision === 'skip') {
+      await removeSyncQueueItem(item.id);
+      await updateLocalItemSyncStatus(item, true);
+      await logSyncResult({
+        queueItemId: item.id,
+        action: item.action,
+        endpoint: item.endpoint,
+        status: 'success',
+        duration: Date.now() - startTime,
+        payloadSummary: getPayloadSummary(item.payload),
+        retryCount: item.retries,
+      });
+      console.log(`[Silent-Sync] Skipped ${item.id} in batch - server version is newer (LWW)`);
+    } else {
+      itemsToSend.push(item);
+    }
+  }
+
+  if (itemsToSend.length === 0) {
+    console.log(`[Silent-Sync] All items in batch ${batchId} skipped by LWW`);
+    return;
+  }
+
   try {
-    const operations = items.map(item => ({
+    const operations = itemsToSend.map(item => ({
       action: item.action === 'create' ? 'POST' : item.action === 'update' ? 'PATCH' : 'DELETE',
       endpoint: item.endpoint,
       payload: item.payload,
@@ -77,7 +151,7 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
     });
 
     if (response && response.success) {
-      for (const item of items) {
+      for (const item of itemsToSend) {
         await removeSyncQueueItem(item.id);
         await updateLocalItemSyncStatus(item, true);
         await logSyncResult({
@@ -100,7 +174,7 @@ async function processBatch(batchId: string, items: SyncQueueItem[]): Promise<vo
     const errorMsg = error?.message || String(error);
     console.error(`[Silent-Sync] فشل الدفعة ${batchId}:`, errorMsg);
 
-    for (const item of items) {
+    for (const item of itemsToSend) {
       if (!isRetryableError(statusCode) && statusCode > 0) {
         await moveToDLQ({
           ...item,
@@ -172,6 +246,23 @@ async function _executeSilentSync() {
       }
 
       await markItemInFlight(item.id);
+
+      const lwwDecision = await checkLWWConflict(item);
+      if (lwwDecision === 'skip') {
+        await removeSyncQueueItem(item.id);
+        await updateLocalItemSyncStatus(item, true);
+        await logSyncResult({
+          queueItemId: item.id,
+          action: item.action,
+          endpoint: item.endpoint,
+          status: 'success',
+          duration: 0,
+          payloadSummary: getPayloadSummary(item.payload),
+          retryCount: item.retries,
+        });
+        console.log(`[Silent-Sync] Skipped ${item.id} - server version is newer (LWW)`);
+        continue;
+      }
 
       if (item.retries > 0) {
         const delay = calculateBackoffDelay(item.retries);

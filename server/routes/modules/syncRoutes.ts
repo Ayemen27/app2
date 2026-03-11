@@ -563,7 +563,19 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         if (!payload || !payload.id) {
           throw new Error(`عملية ${i}: payload.id مطلوب للإنشاء`);
         }
-        const { columns, values } = sanitizeColumns(payload);
+        const { _metadata: _postMeta, ...insertFields } = payload;
+        const { columns, values } = sanitizeColumns(insertFields);
+
+        const dateCols = await getTableDateColumns(tableName);
+        if (dateCols.includes('updated_at') && !columns.includes('updated_at')) {
+          columns.push('updated_at');
+          values.push(new Date().toISOString());
+        }
+        if (dateCols.includes('created_at') && !columns.includes('created_at')) {
+          columns.push('created_at');
+          values.push(new Date().toISOString());
+        }
+
         const placeholders = columns.map((_, idx) => `$${idx + 1}`);
         const query = `INSERT INTO "${tableName}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO NOTHING RETURNING *`;
         const result = await client.query(query, values);
@@ -572,17 +584,50 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         if (!payload || !payload.id) {
           throw new Error(`عملية ${i}: payload.id مطلوب للتعديل`);
         }
-        const { id, ...updateFields } = payload;
+        const { id, _metadata, ...updateFields } = payload;
+        const clientTimestamp = _metadata?.clientTimestamp || op._metadata?.clientTimestamp;
         const { columns, values: colValues } = sanitizeColumns(updateFields);
         if (columns.length === 0) {
           results.push({ index: i, success: true, data: payload });
           continue;
         }
+
+        const dateCols = await getTableDateColumns(tableName);
+        const hasUpdatedAt = dateCols.includes('updated_at');
+
+        if (hasUpdatedAt && !columns.includes('updated_at')) {
+          columns.push('updated_at');
+          colValues.push(new Date().toISOString());
+        } else if (hasUpdatedAt) {
+          const uIdx = columns.indexOf('updated_at');
+          colValues[uIdx] = new Date().toISOString();
+        }
+
         const setClauses = columns.map((col, idx) => `"${col}" = $${idx + 2}`);
         const values = [id, ...colValues];
-        const query = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`;
+
+        let query: string;
+        if (hasUpdatedAt && clientTimestamp) {
+          const tsParamIndex = values.length + 1;
+          values.push(new Date(clientTimestamp).toISOString());
+          query = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE id = $1 AND (updated_at IS NULL OR updated_at <= $${tsParamIndex}) RETURNING *`;
+        } else {
+          query = `UPDATE "${tableName}" SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`;
+        }
+
         const result = await client.query(query, values);
-        results.push({ index: i, success: true, data: result.rows[0] || payload });
+
+        if (result.rowCount === 0 && hasUpdatedAt && clientTimestamp) {
+          const existing = await client.query(`SELECT * FROM "${tableName}" WHERE id = $1`, [id]);
+          if (existing.rows.length > 0) {
+            console.log(`[Sync-Batch] LWW conflict resolved (server wins) for ${tableName} id=${id}`);
+            results.push({ index: i, success: true, conflictResolved: true, resolution: 'server_wins', data: existing.rows[0] });
+          } else {
+            results.push({ index: i, success: true, data: payload });
+          }
+        } else {
+          results.push({ index: i, success: true, data: result.rows[0] || payload });
+        }
       } else if (action === 'DELETE') {
         const id = payload?.id || parts[parts.length - 1];
         if (!id) {

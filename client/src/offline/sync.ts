@@ -3,7 +3,8 @@ import {
   markItemFailed, markItemDuplicateResolved, logSyncResult
 } from './offline';
 import { clearAllLocalData } from './data-cleanup';
-import { detectConflict, resolveConflict, logConflict } from './conflict-resolver';
+import { resolveConflictLWW, logConflict } from './conflict-resolver';
+import type { ConflictData } from './conflict-resolver';
 import { apiRequest } from '../lib/api-client';
 import { smartSave, smartGetAll, smartClear, smartPut, smartGet } from './storage-factory';
 import { intelligentMonitor } from './intelligent-monitor';
@@ -226,6 +227,52 @@ export async function performInitialDataPull(): Promise<boolean> {
   }
 }
 
+async function checkLWWConflict(item: { action: string; endpoint: string; payload: Record<string, any>; timestamp: number; lastModifiedAt?: number; id: string }): Promise<'proceed' | 'skip'> {
+  if (item.action !== 'update') return 'proceed';
+
+  const recordId = item.payload?.id;
+  if (!recordId) return 'proceed';
+
+  try {
+    const serverRecord = await apiRequest(`${item.endpoint}/${recordId}`, 'GET');
+
+    if (!serverRecord || serverRecord.error) {
+      console.log(`[Sync-LWW] Could not fetch server version for ${recordId}, proceeding with update`);
+      return 'proceed';
+    }
+
+    const serverUpdatedAt = serverRecord.updated_at || serverRecord.updatedAt;
+    if (!serverUpdatedAt) {
+      return 'proceed';
+    }
+
+    const serverTimestamp = new Date(serverUpdatedAt).getTime();
+    const clientTimestamp = item.lastModifiedAt || item.timestamp;
+
+    const conflictData: ConflictData = {
+      clientVersion: item.payload,
+      serverVersion: serverRecord,
+      clientTimestamp,
+      serverTimestamp,
+    };
+
+    const resolved = resolveConflictLWW(conflictData);
+
+    if (resolved === conflictData.serverVersion) {
+      console.log(`[Sync-LWW] Server version is newer for ${recordId} (server: ${serverTimestamp}, client: ${clientTimestamp}), skipping update`);
+      await logConflict('update', String(recordId), conflictData, 'server-wins');
+      return 'skip';
+    }
+
+    console.log(`[Sync-LWW] Client version is newer for ${recordId} (client: ${clientTimestamp}, server: ${serverTimestamp}), proceeding`);
+    await logConflict('update', String(recordId), conflictData, 'client-wins');
+    return 'proceed';
+  } catch (error) {
+    console.warn(`[Sync-LWW] Error checking server version for ${recordId}, proceeding with update:`, error);
+    return 'proceed';
+  }
+}
+
 /**
  * مزامنة جميع البيانات المعلقة
  */
@@ -263,6 +310,22 @@ export async function syncOfflineData(): Promise<void> {
       try {
         await markItemInFlight(item.id);
         const startTime = Date.now();
+
+        const lwwDecision = await checkLWWConflict(item);
+        if (lwwDecision === 'skip') {
+          await removeSyncQueueItem(item.id);
+          await logSyncResult({
+            queueItemId: item.id,
+            action: item.action,
+            endpoint: item.endpoint,
+            status: 'success',
+            duration: Date.now() - startTime,
+            retryCount: item.retries,
+          });
+          successCount++;
+          console.log(`[Sync] Skipped update for ${item.id} - server version is newer (LWW)`);
+          continue;
+        }
 
         const payloadString = JSON.stringify(item.payload);
         const signature = btoa(encodeURIComponent(payloadString).replace(/%([0-9A-F]{2})/g, (m, p1) => String.fromCharCode(parseInt(p1, 16)))).substring(0, 32);

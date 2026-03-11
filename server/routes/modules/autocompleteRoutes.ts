@@ -7,8 +7,9 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
 import { db } from '../../db.js';
-import { autocompleteData } from '../../../shared/schema.js';
-import { eq, desc, and } from 'drizzle-orm';
+import { autocompleteData, transportationExpenses } from '../../../shared/schema.js';
+import { eq, desc, and, sql, inArray } from 'drizzle-orm';
+import { projectAccessService } from '../../services/ProjectAccessService.js';
 
 export const autocompleteRouter = express.Router();
 
@@ -348,6 +349,19 @@ const DEFAULT_TRANSPORT_CATEGORIES = [
   'توريد مياه', 'أخرى'
 ];
 
+const ENGLISH_TO_ARABIC_CATEGORIES: Record<string, string> = {
+  'worker_transport': 'نقل عمال',
+  'material_supply': 'توريد مواد',
+  'concrete_transport': 'نقل خرسانة',
+  'iron_platforms': 'نقل حديد ومنصات',
+  'fuel_shas': 'بترول شاص',
+  'fuel_hilux': 'بترول هيلكس',
+  'loading_unloading': 'تحميل وتنزيل',
+  'maintenance': 'صيانة وإصلاح',
+  'water_supply': 'توريد مياه',
+  'other': 'أخرى'
+};
+
 async function seedUserTransportCategories(userId: string): Promise<void> {
   for (const cat of DEFAULT_TRANSPORT_CATEGORIES) {
     try {
@@ -364,6 +378,7 @@ async function seedUserTransportCategories(userId: string): Promise<void> {
 
 /**
  * GET /api/autocomplete/transport-categories - فئات النقل (معزولة لكل مستخدم)
+ * يدمج الفئات من autocomplete + الفئات الفعلية من سجلات النقل
  */
 autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -389,6 +404,51 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
         ))
         .orderBy(desc(autocompleteData.usageCount));
     }
+    
+    const autocompleteValues = new Set(data.map(item => item.value));
+    
+    try {
+      const userRole = (req as any).user?.role || '';
+      const accessibleProjectIds = await projectAccessService.getAccessibleProjectIds(userId, userRole);
+      
+      if (accessibleProjectIds.length > 0) {
+        const recordCategories = await db
+          .selectDistinct({ category: transportationExpenses.category })
+          .from(transportationExpenses)
+          .where(inArray(transportationExpenses.project_id, accessibleProjectIds));
+        
+        const missingCategories: string[] = [];
+        for (const row of recordCategories) {
+          const arabicName = ENGLISH_TO_ARABIC_CATEGORIES[row.category] || row.category;
+          if (arabicName && !autocompleteValues.has(arabicName)) {
+            missingCategories.push(arabicName);
+          }
+        }
+        
+        for (const cat of missingCategories) {
+          try {
+            await db.insert(autocompleteData).values({
+              category: 'transport-categories',
+              value: cat,
+              user_id: userId,
+              usageCount: 1,
+              lastUsed: new Date()
+            }).onConflictDoNothing();
+          } catch (_e) {}
+        }
+        
+        if (missingCategories.length > 0) {
+          data = await db
+            .select()
+            .from(autocompleteData)
+            .where(and(
+              eq(autocompleteData.category, 'transport-categories'),
+              eq(autocompleteData.user_id, userId)
+            ))
+            .orderBy(desc(autocompleteData.usageCount));
+        }
+      }
+    } catch (_e) {}
     
     res.json({
       success: true,

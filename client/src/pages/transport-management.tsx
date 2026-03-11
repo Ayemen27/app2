@@ -505,6 +505,11 @@ export default function TransportManagement() {
                           placeholder="اختر الفئة..."
                           triggerClassName="text-xs"
                           data-testid="select-category"
+                          onCustomAdd={(val) => {
+                            if (val.trim()) {
+                              addCategoryMutation.mutate(val.trim());
+                            }
+                          }}
                           onDeleteOption={(val) => {
                             if (confirm(`هل تريد حذف الفئة "${val}"؟`)) {
                               deleteCategoryMutation.mutate(val);

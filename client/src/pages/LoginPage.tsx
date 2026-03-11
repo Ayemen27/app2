@@ -175,19 +175,17 @@ export default function LoginPage() {
     onSuccess: () => {
       toast({
         title: "تم تسجيل الدخول",
-        description: "مرحباً بك في نظام أكسيون",
+        description: loginMode === 'offline' ? "تم الدخول بوضع الأوفلاين" : "مرحباً بك في نظام أكسيون",
       });
       navigate("/");
     },
     onError: (error: any) => {
-      // التحقق من حالة عدم تفعيل البريد الإلكتروني
       if (error.requireEmailVerification || error.status === 403) {
         toast({
           title: "يجب التحقق من البريد الإلكتروني",
           description: "تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني",
           variant: "default",
         });
-        // التوجيه إلى صفحة التحقق من البريد مع المعلومات اللازمة
         const user_id = error.user_id || error.data?.user_id;
         const email = error.email || error.data?.email || form.getValues('email');
         navigate(`/verify-email?user_id=${user_id}&email=${encodeURIComponent(email)}`);

@@ -1,9 +1,81 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { isOnline } from "@/offline/offline-queries";
-import { smartGetAll } from "@/offline/storage-factory";
+import { smartGetAll, smartSave } from "@/offline/storage-factory";
 import { ENV } from './env';
 import { offlineApiInterceptor, isOfflineSupportedEndpoint, triggerBackgroundSync } from "@/offline/offline-api-interceptor";
 import { isValidJwt, getValidToken, isTokenExpired } from './token-utils';
+
+const QUERY_KEY_TO_STORE: Record<string, string> = {
+  '/api/workers': 'workers',
+  '/api/projects': 'projects',
+  '/api/projects/with-stats': 'projects',
+  '/api/suppliers': 'suppliers',
+  '/api/materials': 'materials',
+  '/api/fund-transfers': 'fundTransfers',
+  '/api/worker-attendance': 'workerAttendance',
+  '/api/material-purchases': 'materialPurchases',
+  '/api/transportation-expenses': 'transportationExpenses',
+  '/api/worker-transfers': 'workerTransfers',
+  '/api/worker-misc-expenses': 'workerMiscExpenses',
+  '/api/supplier-payments': 'supplierPayments',
+  '/api/autocomplete': 'autocompleteData',
+  '/api/autocomplete/worker-types': 'workerTypes',
+  '/api/project-types': 'projectTypes',
+  '/api/wells': 'wells',
+  '/api/daily-expense-summaries': 'dailyExpenseSummaries',
+  '/api/worker-balances': 'workerBalances',
+  '/api/notifications': 'notifications',
+};
+
+function resolveStoreForQueryKey(queryKey: readonly unknown[]): string | null {
+  const fullPath = (queryKey as string[]).join('/');
+  const cleanPath = fullPath.split('?')[0];
+  
+  if (cleanPath.includes('/autocomplete/worker-types')) return 'workerTypes';
+  
+  if (cleanPath.includes('/fund-transfers')) return 'fundTransfers';
+  if (cleanPath.includes('/worker-attendance')) return 'workerAttendance';
+  if (cleanPath.includes('/material-purchases')) return 'materialPurchases';
+  if (cleanPath.includes('/transportation')) return 'transportationExpenses';
+  if (cleanPath.includes('/worker-transfers')) return 'workerTransfers';
+  if (cleanPath.includes('/worker-misc')) return 'workerMiscExpenses';
+  if (cleanPath.includes('/supplier-payments')) return 'supplierPayments';
+  if (cleanPath.includes('/daily-expenses') || cleanPath.includes('/daily-expense-summaries')) return 'dailyExpenseSummaries';
+  
+  for (const [pattern, store] of Object.entries(QUERY_KEY_TO_STORE)) {
+    if (cleanPath === pattern || cleanPath.startsWith(pattern + '/')) {
+      return store;
+    }
+  }
+  
+  return null;
+}
+
+function cacheResponseToLocal(storeName: string, data: any) {
+  try {
+    let records: any[] = [];
+    if (Array.isArray(data)) {
+      records = data;
+    } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+      records = data.data;
+    } else if (data && typeof data === 'object' && data.success && Array.isArray(data.data)) {
+      records = data.data;
+    }
+    
+    const normalizedRecords = records.map((r: any) => {
+      if (!r) return null;
+      if (r.id || r.key) return r;
+      if (r.value !== undefined) {
+        return { ...r, id: String(r.value) };
+      }
+      return null;
+    }).filter(Boolean);
+    
+    if (normalizedRecords.length > 0) {
+      smartSave(storeName, normalizedRecords).catch(() => {});
+    }
+  } catch {}
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -113,14 +185,24 @@ export async function apiRequest(
   }
 
   try {
-    if (!navigator.onLine && method !== 'GET' && isOfflineSupportedEndpoint(endpoint)) {
-      console.log(`📴 [apiRequest] بدون اتصال - تحويل لحفظ محلي: ${method} ${endpoint}`);
-      const offlineResult = await offlineApiInterceptor(endpoint, method, data);
-      if (offlineResult.success) {
-        window.dispatchEvent(new CustomEvent('offline-mutation-queued', { 
-          detail: { endpoint, method, pendingSync: true } 
-        }));
-        return { ...offlineResult.data, isOffline: true, pendingSync: true };
+    if (!navigator.onLine && method !== 'GET') {
+      if (isOfflineSupportedEndpoint(endpoint)) {
+        console.log(`📴 [apiRequest] بدون اتصال - تحويل لحفظ محلي: ${method} ${endpoint}`);
+        try {
+          const offlineResult = await offlineApiInterceptor(endpoint, method, data);
+          if (offlineResult.success) {
+            window.dispatchEvent(new CustomEvent('offline-mutation-queued', { 
+              detail: { endpoint, method, pendingSync: true } 
+            }));
+            return { ...offlineResult.data, isOffline: true, pendingSync: true };
+          }
+        } catch (offErr) {
+          console.warn('⚠️ [apiRequest] فشل الحفظ المحلي:', offErr);
+          return { success: false, data: null, message: 'لا يمكن حفظ البيانات محلياً بدون اتصال', isOffline: true };
+        }
+      } else {
+        console.warn(`📴 [apiRequest] نقطة نهاية غير مدعومة أوفلاين: ${endpoint}`);
+        return { success: false, data: null, message: 'هذه العملية غير متاحة بدون اتصال بالإنترنت', isOffline: true };
       }
     }
 
@@ -230,19 +312,28 @@ export async function apiRequest(
     return result;
   } catch (error) {
     if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed'))) {
-      if (method !== 'GET' && isOfflineSupportedEndpoint(endpoint)) {
-        console.log(`📴 [apiRequest] خطأ شبكة - تحويل لحفظ محلي: ${method} ${endpoint}`);
-        try {
-          const offlineResult = await offlineApiInterceptor(endpoint, method, data);
-          if (offlineResult.success) {
-            window.dispatchEvent(new CustomEvent('offline-mutation-queued', {
-              detail: { endpoint, method, pendingSync: true }
-            }));
-            return { ...offlineResult.data, isOffline: true, pendingSync: true };
+      if (method !== 'GET') {
+        if (isOfflineSupportedEndpoint(endpoint)) {
+          console.log(`📴 [apiRequest] خطأ شبكة - تحويل لحفظ محلي: ${method} ${endpoint}`);
+          try {
+            const offlineResult = await offlineApiInterceptor(endpoint, method, data);
+            if (offlineResult.success) {
+              window.dispatchEvent(new CustomEvent('offline-mutation-queued', {
+                detail: { endpoint, method, pendingSync: true }
+              }));
+              return { ...offlineResult.data, isOffline: true, pendingSync: true };
+            }
+          } catch (offErr) {
+            console.warn('⚠️ [apiRequest] فشل الحفظ المحلي:', offErr);
+            return { success: false, data: null, message: 'لا يمكن حفظ البيانات بدون اتصال', isOffline: true };
           }
-        } catch (offErr) {
-          console.error('❌ [apiRequest] فشل الحفظ المحلي أيضاً:', offErr);
+        } else {
+          return { success: false, data: null, message: 'هذه العملية غير متاحة بدون اتصال بالإنترنت', isOffline: true };
         }
+      }
+      if (method === 'GET') {
+        console.warn(`📴 [apiRequest] GET request failed offline: ${endpoint}`);
+        return { success: true, data: [], message: 'بدون اتصال', isOffline: true };
       }
     }
     console.error(`❌ API Error: ${method} ${endpoint}`, error);
@@ -290,14 +381,21 @@ export const getQueryFn: <T>(options: {
           if (!online && useLocalFallback) {
             console.log(`📡 [QueryClient] بدون إنترنت - محاولة جلب البيانات محلياً لـ: ${(queryKey as any[]).join("/")}`);
             try {
-              const tableName = (queryKey as any[])[0].startsWith('/api/') ? (queryKey as any[])[0].substring(5) : (queryKey as any[])[0];
-              const localData = await smartGetAll(tableName as string);
-              if (localData && Array.isArray(localData) && localData.length > 0) {
-                console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً`);
-                return localData as any;
+              const storeName = resolveStoreForQueryKey(queryKey);
+              if (storeName) {
+                const localData = await smartGetAll(storeName);
+                if (localData && Array.isArray(localData) && localData.length > 0) {
+                  console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً من ${storeName}`);
+                  return localData as any;
+                }
+                console.log(`📭 [QueryClient] لا توجد بيانات محلية في ${storeName}`);
+              } else {
+                console.log(`⚠️ [QueryClient] لا يوجد مخزن محلي لـ: ${(queryKey as any[]).join("/")}`);
               }
+              return [] as any;
             } catch (localError) {
               console.error(`❌ [QueryClient] فشل جلب البيانات المحلية:`, localError);
+              return [] as any;
             }
           }
 
@@ -419,39 +517,63 @@ export const getQueryFn: <T>(options: {
               return data.data;
             }
 
-            // إذا كانت null أو undefined، إرجاع مصفوفة فارغة لضمان عدم كسر الواجهة
             if (data.data === null || data.data === undefined) {
               return [];
+            }
+
+            const cacheStore = resolveStoreForQueryKey(queryKey);
+            if (cacheStore && data.data) {
+              cacheResponseToLocal(cacheStore, data.data);
             }
 
             return data.data;
           }
 
-          // إذا كانت البيانات مصفوفة مباشرة (شكل Replit)
           if (Array.isArray(data)) {
-            console.log(`📋 [QueryClient] مصفوفة مباشرة لـ ${queryKey.join("/")}:`, data.length);
+            const cacheStore = resolveStoreForQueryKey(queryKey);
+            if (cacheStore) {
+              cacheResponseToLocal(cacheStore, data);
+            }
             return data;
           }
 
-          // إذا كان لديها خاصية data مباشرة
           if (data.data !== undefined) {
-            console.log(`🔗 [QueryClient] خاصية data مباشرة لـ ${queryKey.join("/")}:`, data.data);
+            const cacheStore = resolveStoreForQueryKey(queryKey);
+            if (cacheStore && data.data) {
+              cacheResponseToLocal(cacheStore, data.data);
+            }
             return data.data !== null ? data.data : [];
           }
         }
 
-        console.log(`🔄 [QueryClient] إرجاع البيانات كما هي لـ ${queryKey.join("/")}:`, data);
         return data;
-      } catch (error) {
+      } catch (fetchError) {
         clearTimeout(timeoutId);
 
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.log(`⏰ [QueryClient] timeout لـ ${queryKey.join("/")}`);
-          throw new Error('انتهت مهلة الطلب، يرجى المحاولة مرة أخرى');
+        if (fetchError instanceof Error && (
+          fetchError.message.includes('Failed to fetch') || 
+          fetchError.message.includes('NetworkError') || 
+          fetchError.message.includes('Network request failed') ||
+          fetchError.name === 'AbortError' ||
+          fetchError.name === 'TypeError'
+        )) {
+          console.log(`📴 [QueryClient] خطأ شبكة - محاولة جلب بيانات محلية لـ: ${(queryKey as any[]).join("/")}`);
+          try {
+            const storeName = resolveStoreForQueryKey(queryKey);
+            if (storeName) {
+              const localData = await smartGetAll(storeName);
+              if (localData && Array.isArray(localData) && localData.length > 0) {
+                console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً بعد خطأ شبكة`);
+                return localData as any;
+              }
+            }
+            return [] as any;
+          } catch {
+            return [] as any;
+          }
         }
 
-        console.error(`❌ [QueryClient] خطأ في ${queryKey.join("/")}`, error);
-        throw error;
+        throw fetchError;
       }
     }
 

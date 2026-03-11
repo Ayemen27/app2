@@ -202,13 +202,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       console.log(`📡 [AuthProvider.login] إرسال طلب لـ ${API_BASE_URL}/auth/login...`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         result = await response.json();
@@ -222,22 +226,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر، محاولة تسجيل الدخول أوفلاين...', networkError);
     }
 
-    if (!result && (!response || response.status === 503 || response.status === 500)) {
+    if (!result && (!response || response.status === 503 || response.status === 500 || !navigator.onLine)) {
       console.log('🔍 [AuthProvider] السيرفر غير متاح، محاولة تسجيل الدخول أوفلاين...');
       
       try {
         const { smartGetAll } = await import('../offline/storage-factory');
         
         const localUsers = await smartGetAll('users');
-        console.log(`📱 [AuthProvider] فحص ${localUsers.length} مستخدم محلي`);
+        const emergencyUsers = await smartGetAll('emergencyUsers');
+        const allUsers = [...localUsers, ...emergencyUsers];
+        console.log(`📱 [AuthProvider] فحص ${allUsers.length} مستخدم محلي`);
         
-        const localUser = localUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
+        const localUser = allUsers.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase());
         
-        if (localUser && localUser.passwordHash) {
-          const { verifyOfflinePassword } = await import('../offline/crypto-utils');
-          const passwordValid = await verifyOfflinePassword(password, localUser.passwordHash);
-          if (passwordValid) {
-            console.log('✅ [AuthProvider] تسجيل دخول أوفلاين ناجح بعد التحقق من كلمة المرور');
+        if (localUser) {
+          let passwordVerified = false;
+          
+          if (localUser.passwordHash) {
+            try {
+              const { verifyOfflinePassword } = await import('../offline/crypto-utils');
+              passwordVerified = await verifyOfflinePassword(password, localUser.passwordHash);
+              if (passwordVerified) {
+                console.log('✅ [AuthProvider] تسجيل دخول أوفلاين ناجح بعد التحقق من كلمة المرور');
+              } else {
+                console.log('❌ [AuthProvider] كلمة المرور غير صحيحة (أوفلاين)');
+              }
+            } catch (hashErr) {
+              console.warn('⚠️ [AuthProvider] فشل التحقق من كلمة المرور أوفلاين:', hashErr);
+              passwordVerified = false;
+            }
+          } else {
+            console.log('⚠️ [AuthProvider] لا يوجد hash محلي - رفض الدخول أوفلاين');
+            passwordVerified = false;
+          }
+
+          if (passwordVerified) {
             setAuthMode('offline');
             result = {
               success: true,
@@ -246,18 +269,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 tokens: null
               }
             };
-          } else {
-            console.log('❌ [AuthProvider] كلمة المرور غير صحيحة (أوفلاين)');
           }
-        } else if (localUser) {
-          console.warn('⚠️ [AuthProvider] المستخدم المحلي لا يحتوي على hash لكلمة المرور - لا يمكن التحقق أوفلاين');
         }
       } catch (offlineError) {
         console.error('❌ [AuthProvider] خطأ في منطق الأوفلاين:', offlineError);
       }
     }
 
-    // إذا لم تنجح محاولات الأوفلاين وكان هناك رد خطأ من السيرفر
     if (response && !response.ok && !result) {
       const errorData = await response.json().catch(() => ({}));
       // في حالة عدم التحقق من البريد الإلكتروني (403)
@@ -333,12 +351,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error('فشل تسجيل الدخول. لا يمكن الوصول للخادم ولا يوجد بيانات أوفلاين صالحة.');
     }
 
-    if (!tokenData && authMode !== 'offline') {
+    if (!tokenData && getAuthMode() !== 'offline') {
       console.error('❌ [AuthProvider.login] التوكن مفقود من الاستجابة');
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 
-    if (!userData && authMode !== 'offline') {
+    if (!userData && getAuthMode() !== 'offline') {
       throw new Error('بيانات المستخدم مفقودة من الاستجابة.');
     }
 

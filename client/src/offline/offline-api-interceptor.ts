@@ -18,11 +18,34 @@ const ENDPOINT_TO_STORE: Record<string, string> = {
   '/api/wells': 'wells',
   '/api/project-types': 'projectTypes',
   '/api/autocomplete': 'autocompleteData',
+  '/api/autocomplete/worker-types': 'workerTypes',
+  '/api/autocomplete/material-names': 'autocompleteData',
+  '/api/autocomplete/supplier-names': 'autocompleteData',
   '/api/supplier-payments': 'supplierPayments',
+  '/api/daily-expense-summaries': 'dailyExpenseSummaries',
+  '/api/worker-balances': 'workerBalances',
+  '/api/notifications': 'notifications',
 };
 
 function resolveStoreName(endpoint: string): string | null {
   const clean = endpoint.split('?')[0];
+  
+  if (clean === '/api/autocomplete/worker-types' || clean.startsWith('/api/autocomplete/worker-types/')) {
+    return 'workerTypes';
+  }
+  
+  if (clean.startsWith('/api/projects/') && clean.includes('/')) {
+    const subResource = clean.replace(/^\/api\/projects\/\d+\//, '');
+    if (subResource.startsWith('fund-transfers')) return 'fundTransfers';
+    if (subResource.startsWith('worker-attendance')) return 'workerAttendance';
+    if (subResource.startsWith('material-purchases')) return 'materialPurchases';
+    if (subResource.startsWith('transportation')) return 'transportationExpenses';
+    if (subResource.startsWith('worker-transfers')) return 'workerTransfers';
+    if (subResource.startsWith('worker-misc')) return 'workerMiscExpenses';
+    if (subResource.startsWith('supplier-payments')) return 'supplierPayments';
+    if (subResource.startsWith('daily-expenses') || subResource.startsWith('daily-expense-summaries')) return 'dailyExpenseSummaries';
+    if (subResource.startsWith('workers')) return 'workers';
+  }
   
   for (const [pattern, store] of Object.entries(ENDPOINT_TO_STORE)) {
     if (clean === pattern || clean.startsWith(pattern + '/')) {
@@ -30,28 +53,20 @@ function resolveStoreName(endpoint: string): string | null {
     }
   }
   
-  if (clean.startsWith('/api/projects/') && clean.includes('/fund-transfers')) {
-    return 'fundTransfers';
-  }
-  if (clean.startsWith('/api/projects/') && clean.includes('/worker-attendance')) {
-    return 'workerAttendance';
-  }
-  if (clean.startsWith('/api/projects/') && clean.includes('/material-purchases')) {
-    return 'materialPurchases';
-  }
-  if (clean.startsWith('/api/projects/') && clean.includes('/transportation')) {
-    return 'transportationExpenses';
-  }
-  if (clean.startsWith('/api/projects/') && clean.includes('/daily-expenses')) {
-    return null;
-  }
-  
   return null;
 }
 
 function extractIdFromEndpoint(endpoint: string): string | null {
   const clean = endpoint.split('?')[0];
-  const parts = clean.split('/');
+  const parts = clean.split('/').filter(Boolean);
+  
+  if (parts.length >= 4 && parts[0] === 'api' && parts[1] === 'projects') {
+    const lastPart = parts[parts.length - 1];
+    if (lastPart && !isNaN(Number(lastPart)) || (lastPart && lastPart.length > 8 && !['fund-transfers', 'worker-attendance', 'material-purchases', 'transportation', 'worker-transfers', 'worker-misc', 'supplier-payments', 'daily-expenses', 'workers'].includes(lastPart))) {
+      return lastPart;
+    }
+    return null;
+  }
   
   for (const [pattern] of Object.entries(ENDPOINT_TO_STORE)) {
     if (clean.startsWith(pattern + '/')) {
@@ -81,20 +96,41 @@ export async function offlineApiInterceptor(
   const storeName = resolveStoreName(endpoint);
   
   if (!storeName) {
-    throw new Error(`[Offline] لا يمكن معالجة ${endpoint} بدون اتصال`);
+    console.warn(`[Offline] لا يمكن معالجة ${endpoint} بدون اتصال`);
+    return {
+      success: false,
+      data: { success: false, data: null, message: 'هذه العملية غير متاحة بدون اتصال' },
+      isOffline: true,
+      pendingSync: false,
+    };
   }
 
-  if (method === 'POST') {
-    return handleOfflineCreate(endpoint, storeName, data);
-  } else if (method === 'PATCH' || method === 'PUT') {
-    return handleOfflineUpdate(endpoint, storeName, data);
-  } else if (method === 'DELETE') {
-    return handleOfflineDelete(endpoint, storeName);
-  } else if (method === 'GET') {
-    return handleOfflineRead(endpoint, storeName);
+  try {
+    if (method === 'POST') {
+      return await handleOfflineCreate(endpoint, storeName, data);
+    } else if (method === 'PATCH' || method === 'PUT') {
+      return await handleOfflineUpdate(endpoint, storeName, data);
+    } else if (method === 'DELETE') {
+      return await handleOfflineDelete(endpoint, storeName);
+    } else if (method === 'GET') {
+      return await handleOfflineRead(endpoint, storeName);
+    }
+  } catch (err) {
+    console.error(`[Offline] خطأ أثناء معالجة ${method} ${endpoint}:`, err);
+    return {
+      success: false,
+      data: { success: false, data: null, message: 'حدث خطأ أثناء الحفظ المحلي' },
+      isOffline: true,
+      pendingSync: false,
+    };
   }
   
-  throw new Error(`[Offline] العملية ${method} غير مدعومة بدون اتصال`);
+  return {
+    success: false,
+    data: { success: false, data: null, message: `العملية ${method} غير مدعومة بدون اتصال` },
+    isOffline: true,
+    pendingSync: false,
+  };
 }
 
 async function handleOfflineCreate(

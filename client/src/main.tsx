@@ -32,7 +32,7 @@ const registerServiceWorker = async () => {
     try {
       const cacheNames = await caches.keys();
       for (const name of cacheNames) {
-        if (name.includes('binarjoin-v') && name !== 'binarjoin-v5') {
+        if (name.includes('binarjoin-v') && name !== 'binarjoin-v6') {
           await caches.delete(name);
         }
       }

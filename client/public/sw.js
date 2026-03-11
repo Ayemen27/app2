@@ -1,4 +1,4 @@
-const CACHE_NAME = 'binarjoin-v5';
+const CACHE_NAME = 'binarjoin-v6';
 const API_CACHE = 'api-data-v2';
 
 const APP_SHELL = [
@@ -9,6 +9,12 @@ const APP_SHELL = [
   '/icon-192.png',
   '/icon-512.png'
 ];
+
+const VITE_DEV_PATHS = ['/@vite', '/@react-refresh', '/@fs', '/__vite', '/node_modules/.vite', '/src/'];
+
+function isViteDevRequest(pathname) {
+  return VITE_DEV_PATHS.some(p => pathname.startsWith(p));
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -79,6 +85,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (isViteDevRequest(url.pathname)) {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          if (url.pathname.endsWith('.css')) {
+            return new Response('', { headers: { 'Content-Type': 'text/css' } });
+          }
+          if (url.pathname.endsWith('.js') || url.pathname.endsWith('.ts') || url.pathname.endsWith('.tsx') || url.pathname.endsWith('.jsx')) {
+            return new Response('', { headers: { 'Content-Type': 'application/javascript' } });
+          }
+          return new Response('', { status: 204 });
+        });
+      })
+    );
+    return;
+  }
+
   const assetExtensions = /\.(js|css|png|jpg|jpeg|svg|gif|ico|woff2?|ttf|eot)(\?.*)?$/;
   if (assetExtensions.test(url.pathname) || url.pathname.startsWith('/assets/')) {
     event.respondWith(
@@ -101,7 +125,15 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return response;
-        }).catch(() => caches.match('/offline.html'));
+        }).catch(() => {
+          if (url.pathname.endsWith('.js')) {
+            return new Response('', { headers: { 'Content-Type': 'application/javascript' } });
+          }
+          if (url.pathname.endsWith('.css')) {
+            return new Response('', { headers: { 'Content-Type': 'text/css' } });
+          }
+          return new Response('', { status: 204 });
+        });
       })
     );
     return;

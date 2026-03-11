@@ -240,11 +240,9 @@ function Router() {
         </Suspense>
       </Route>
       <Route path="/project-transfers">
-        <AdminRoute>
-          <Suspense fallback={<PageLoader />}>
-            <ProjectTransfers />
-          </Suspense>
-        </AdminRoute>
+        <Suspense fallback={<PageLoader />}>
+          <ProjectTransfers />
+        </Suspense>
       </Route>
       <Route path="/project-transactions">
         <AdminRoute>
@@ -254,11 +252,9 @@ function Router() {
         </AdminRoute>
       </Route>
       <Route path="/project-fund-custody">
-        <AdminRoute>
-          <Suspense fallback={<PageLoader />}>
-            <ProjectFundCustody />
-          </Suspense>
-        </AdminRoute>
+        <Suspense fallback={<PageLoader />}>
+          <ProjectFundCustody />
+        </Suspense>
       </Route>
       <Route path="/autocomplete-admin">
         <AdminRoute>

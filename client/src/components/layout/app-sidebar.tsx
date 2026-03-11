@@ -80,8 +80,8 @@ const sections: SidebarSection[] = [
       { title: "محاسبة الآبار", url: "/well-accounting", icon: Calculator },
       { title: "تقرير التكلفة", url: "/well-cost-report", icon: BarChart3 },
       { title: "المصاريف اليومية", url: "/daily-expenses", icon: Calculator },
-      { title: "الوارد للعهد", url: "/project-fund-custody", icon: DollarSign, adminOnly: true },
-      { title: "ترحيل بين المشاريع", url: "/project-transfers", icon: ArrowLeftRight, adminOnly: true },
+      { title: "الوارد للعهد", url: "/project-fund-custody", icon: DollarSign },
+      { title: "ترحيل بين المشاريع", url: "/project-transfers", icon: ArrowLeftRight },
       { title: "التقارير", url: "/reports", icon: BarChart3 },
     ]
   },

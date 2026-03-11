@@ -225,7 +225,7 @@ export default function DatabaseManager() {
     <div className="space-y-4" dir="rtl">
       <div className="flex items-center gap-3 flex-wrap">
         <Select value={selectedSource} onValueChange={setSelectedSource} data-testid="select-db-source">
-          <SelectTrigger className="w-[220px]" data-testid="trigger-db-source">
+          <SelectTrigger className="w-full sm:w-[220px]" data-testid="trigger-db-source">
             <div className="flex items-center gap-2">
               {selectedSource === 'active' && <CircleDot className="h-3.5 w-3.5 text-blue-500" />}
               {selectedSource === 'local' && <MonitorSmartphone className="h-3.5 w-3.5 text-emerald-500" />}
@@ -704,7 +704,7 @@ function ComparisonTab({ data, loading, onRefresh, connections, source1, source2
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex-1 min-w-[150px]">
+            <div className="flex-1 min-w-0 sm:min-w-[150px]">
               <label className="text-xs text-muted-foreground mb-1 block">القاعدة الأولى</label>
               <Select value={source1} onValueChange={onSource1Change} data-testid="select-compare-source1">
                 <SelectTrigger data-testid="select-trigger-source1">
@@ -720,7 +720,7 @@ function ComparisonTab({ data, loading, onRefresh, connections, source1, source2
               </Select>
             </div>
             <ArrowLeftRight className="h-5 w-5 text-muted-foreground mt-4 shrink-0" />
-            <div className="flex-1 min-w-[150px]">
+            <div className="flex-1 min-w-0 sm:min-w-[150px]">
               <label className="text-xs text-muted-foreground mb-1 block">القاعدة الثانية</label>
               <Select value={source2} onValueChange={onSource2Change} data-testid="select-compare-source2">
                 <SelectTrigger data-testid="select-trigger-source2">

@@ -274,9 +274,9 @@ export default function EmailVerificationPage() {
 
   if (step === 'verified') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4 relative">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 relative">
         <AnimatedBackground />
-        <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+        <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
           <CardHeader className="text-center space-y-1">
             <div className="mx-auto bg-blue-600 dark:bg-white rounded-full p-4 w-20 h-20 flex items-center justify-center shadow-lg shadow-blue-600/20">
               <CheckCircle className="w-10 h-10 text-white dark:text-blue-600" />
@@ -290,7 +290,7 @@ export default function EmailVerificationPage() {
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-center space-y-1">
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 سيتم توجيهك إلى صفحة تسجيل الدخول خلال ثوانِ...
               </p>
               <Button 
@@ -308,10 +308,10 @@ export default function EmailVerificationPage() {
   }
 
   return (
-    <div className="w-full bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-4 relative py-8">
+    <div className="w-full bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4 relative py-8">
       <AnimatedBackground />
       
-      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
         <CardHeader className="text-center space-y-1">
           <div className="mx-auto bg-blue-600 dark:bg-white rounded-full p-4 w-20 h-20 flex items-center justify-center shadow-lg shadow-blue-600/20">
             <Mail className="w-10 h-10 text-white dark:text-blue-600" />
@@ -323,7 +323,7 @@ export default function EmailVerificationPage() {
             أدخل رمز التحقق المرسل إلى بريدك الإلكتروني
           </CardDescription>
           {userInfo.email && (
-            <p className="text-sm text-gray-600 bg-gray-100 p-2 rounded-lg">
+            <p className="text-sm text-muted-foreground bg-muted p-2 rounded-lg">
               📧 {userInfo.email}
             </p>
           )}
@@ -331,8 +331,8 @@ export default function EmailVerificationPage() {
 
         <CardContent className="space-y-1">
           {step === 'error' && (
-            <Alert className="border-red-200 bg-red-50">
-              <AlertDescription className="text-red-700">
+            <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30">
+              <AlertDescription className="text-red-700 dark:text-red-400">
                 فشل في التحقق من الرمز. يرجى التأكد من صحة الرمز والمحاولة مرة أخرى.
               </AlertDescription>
             </Alert>
@@ -345,7 +345,7 @@ export default function EmailVerificationPage() {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-700 font-medium">رمز التحقق</FormLabel>
+                    <FormLabel className="text-foreground font-medium">رمز التحقق</FormLabel>
                     <div className="relative">
                       <FormControl>
                         <Input
@@ -410,10 +410,10 @@ export default function EmailVerificationPage() {
           <div className="text-center space-y-1">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
+                <div className="w-full border-t border-border"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">أو</span>
+                <span className="px-2 bg-card text-muted-foreground">أو</span>
               </div>
             </div>
 
@@ -422,7 +422,7 @@ export default function EmailVerificationPage() {
                 variant="outline"
                 onClick={handleResend}
                 disabled={countdown > 0 || resendMutation.isPending}
-                className="w-full border-2 hover:bg-gray-50"
+                className="w-full border-2 hover:bg-muted"
                 data-testid="button-resend-code"
               >
                 {resendMutation.isPending ? (
@@ -446,7 +446,7 @@ export default function EmailVerificationPage() {
               <Button
                 variant="ghost"
                 onClick={() => navigate('/login')}
-                className="w-full text-gray-600 hover:text-gray-800"
+                className="w-full text-muted-foreground hover:text-foreground"
                 data-testid="button-back-login"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -455,9 +455,9 @@ export default function EmailVerificationPage() {
             </div>
           </div>
 
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-900">💡 نصائح مهمة:</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
+          <div className="bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
+            <h4 className="font-medium text-blue-900 dark:text-blue-300">💡 نصائح مهمة:</h4>
+            <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
               <li>• تحقق من مجلد الرسائل غير المرغوب فيها</li>
               <li>• الرمز صالح لمدة 24 ساعة فقط</li>
               <li>• الرمز يحتوي على 6 أرقام</li>

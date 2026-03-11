@@ -532,7 +532,7 @@ function ServerAuditTab() {
       <Card className="border-none shadow-sm">
         <CardContent className="p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[180px]">
+            <div className="relative flex-1 min-w-0 sm:min-w-[180px]">
               <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="بحث في سجل التدقيق..."
@@ -543,7 +543,7 @@ function ServerAuditTab() {
               />
             </div>
             <Select value={auditModule} onValueChange={(v) => { setAuditModule(v); setAuditPage(1); }}>
-              <SelectTrigger className="w-[140px]" data-testid="select-audit-module">
+              <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-audit-module">
                 <SelectValue placeholder="القسم" />
               </SelectTrigger>
               <SelectContent>
@@ -554,7 +554,7 @@ function ServerAuditTab() {
               </SelectContent>
             </Select>
             <Select value={auditStatus} onValueChange={(v) => { setAuditStatus(v); setAuditPage(1); }}>
-              <SelectTrigger className="w-[120px]" data-testid="select-audit-status">
+              <SelectTrigger className="w-full sm:w-[120px]" data-testid="select-audit-status">
                 <SelectValue placeholder="الحالة" />
               </SelectTrigger>
               <SelectContent>
@@ -567,7 +567,7 @@ function ServerAuditTab() {
               </SelectContent>
             </Select>
             <Select value={auditAction} onValueChange={(v) => { setAuditAction(v); setAuditPage(1); }}>
-              <SelectTrigger className="w-[140px]" data-testid="select-audit-action">
+              <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-audit-action">
                 <SelectValue placeholder="نوع العملية" />
               </SelectTrigger>
               <SelectContent>

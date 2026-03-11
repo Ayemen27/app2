@@ -126,7 +126,7 @@ function StatusBadge({ status }: { status: string }) {
   const v = variants[status] || variants.pending;
   const Icon = v.icon;
   return (
-    <Badge data-testid={`badge-status-${status}`} className={`${v.color} border font-medium gap-1.5 px-2.5 py-1`}>
+    <Badge data-testid={`badge-status-${status}`} className={`${v.color} border font-medium gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs`}>
       <Icon className={`h-3 w-3 ${status === "running" ? "animate-spin" : ""}`} />
       {v.label}
     </Badge>
@@ -323,82 +323,82 @@ export default function DeploymentConsole() {
   const isRunning = liveDeployment?.status === "running";
 
   return (
-    <div className="min-h-screen bg-background text-foreground" data-testid="deployment-console">
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+    <div className="min-h-screen min-h-[100dvh] bg-background text-foreground safe-area-inset-top" data-testid="deployment-console">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white">
-              <Rocket className="h-5 w-5" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shrink-0">
+              <Rocket className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground" data-testid="text-page-title">Deployment Console</h1>
-              <p className="text-sm text-muted-foreground">AXION DevOps Pipeline Manager</p>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate" data-testid="text-page-title">Deployment Console</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden xs:block">AXION DevOps Pipeline Manager</p>
             </div>
           </div>
           {stats.running > 0 && (
-            <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse gap-1.5">
+            <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse gap-1 sm:gap-1.5 shrink-0 text-[10px] sm:text-xs">
               <Loader2 className="h-3 w-3 animate-spin" /> {stats.running} active
             </Badge>
           )}
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
           <Card className="bg-card border-border" data-testid="card-stat-total">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-slate-500/10 flex items-center justify-center">
-                  <Hash className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-slate-500/10 flex items-center justify-center shrink-0">
+                  <Hash className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-slate-500 dark:text-slate-400" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground" data-testid="text-stat-total">{stats.total}</p>
-                  <p className="text-xs text-muted-foreground">Total Deploys</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-foreground" data-testid="text-stat-total">{stats.total}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Total Deploys</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-card border-border" data-testid="card-stat-success">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400" data-testid="text-stat-success-rate">{stats.successRate}%</p>
-                  <p className="text-xs text-muted-foreground">Success Rate</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400" data-testid="text-stat-success-rate">{stats.successRate}%</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Success Rate</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-card border-border" data-testid="card-stat-failed">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-red-500/10 flex items-center justify-center">
-                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                  <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600 dark:text-red-400" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400" data-testid="text-stat-failed">{stats.failed}</p>
-                  <p className="text-xs text-muted-foreground">Failed</p>
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400" data-testid="text-stat-failed">{stats.failed}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Failed</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-card border-border" data-testid="card-stat-duration">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                  <Timer className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <Timer className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-stat-avg-duration">
+                <div className="min-w-0">
+                  <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-stat-avg-duration">
                     {stats.avgDuration > 0 ? formatDuration(stats.avgDuration) : "—"}
                   </p>
-                  <p className="text-xs text-muted-foreground">Avg Duration</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Avg Duration</p>
                 </div>
               </div>
             </CardContent>
@@ -407,40 +407,42 @@ export default function DeploymentConsole() {
 
         {/* Deploy Controls */}
         <Card className="bg-card border-border" data-testid="card-deploy-controls">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+          <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
               <Rocket className="h-4 w-4 text-blue-600 dark:text-blue-400" /> New Deployment
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Select value={selectedPipeline} onValueChange={setSelectedPipeline} data-testid="select-pipeline">
-                <SelectTrigger className="bg-muted/50 border-border text-foreground w-full sm:w-[260px]" data-testid="trigger-pipeline">
-                  <SelectValue placeholder="Select pipeline" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="web-deploy" data-testid="option-web-deploy">Web Deploy (Direct Transfer)</SelectItem>
-                  <SelectItem value="android-build" data-testid="option-android-build">Android APK Build</SelectItem>
-                  <SelectItem value="full-deploy" data-testid="option-full-deploy">Full Deploy (Web + Android)</SelectItem>
-                  <SelectItem value="git-push" data-testid="option-git-push">Git Push & Server Pull</SelectItem>
-                  <SelectItem value="hotfix" data-testid="option-hotfix">Hotfix Deploy (Fast Push)</SelectItem>
-                </SelectContent>
-              </Select>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="flex flex-col gap-2 sm:gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <Select value={selectedPipeline} onValueChange={setSelectedPipeline} data-testid="select-pipeline">
+                  <SelectTrigger className="bg-muted/50 border-border text-foreground w-full sm:w-[260px]" data-testid="trigger-pipeline">
+                    <SelectValue placeholder="Select pipeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="web-deploy" data-testid="option-web-deploy">Web Deploy (Direct Transfer)</SelectItem>
+                    <SelectItem value="android-build" data-testid="option-android-build">Android APK Build</SelectItem>
+                    <SelectItem value="full-deploy" data-testid="option-full-deploy">Full Deploy (Web + Android)</SelectItem>
+                    <SelectItem value="git-push" data-testid="option-git-push">Git Push & Server Pull</SelectItem>
+                    <SelectItem value="hotfix" data-testid="option-hotfix">Hotfix Deploy (Fast Push)</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Input
-                data-testid="input-commit-message"
-                placeholder="Commit message (optional)"
-                value={commitMessage}
-                onChange={(e) => setCommitMessage(e.target.value)}
-                className="bg-muted/50 border-border text-foreground flex-1"
-              />
+                <Input
+                  data-testid="input-commit-message"
+                  placeholder="Commit message (optional)"
+                  value={commitMessage}
+                  onChange={(e) => setCommitMessage(e.target.value)}
+                  className="bg-muted/50 border-border text-foreground flex-1"
+                />
+              </div>
 
               {!isRunning ? (
                 <Button
                   data-testid="button-start-deploy"
                   onClick={handleStartDeployment}
                   disabled={isStarting}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium gap-2 whitespace-nowrap"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium gap-2 whitespace-nowrap w-full sm:w-auto sm:self-start min-h-[44px]"
                 >
                   {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                   Deploy
@@ -450,7 +452,7 @@ export default function DeploymentConsole() {
                   data-testid="button-cancel-deploy"
                   onClick={handleCancelDeployment}
                   variant="destructive"
-                  className="gap-2 whitespace-nowrap"
+                  className="gap-2 whitespace-nowrap w-full sm:w-auto sm:self-start min-h-[44px]"
                 >
                   <Square className="h-4 w-4" /> Cancel
                 </Button>
@@ -461,35 +463,37 @@ export default function DeploymentConsole() {
 
         {/* Operations Panel */}
         <Card className="bg-card border-border" data-testid="card-operations">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+          <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+            <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
               <Shield className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> Server Operations
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-              <Button
-                data-testid="button-health-check"
-                onClick={handleCheckHealth}
-                disabled={isCheckingHealth}
-                variant="outline"
-                className="border-cyan-600/40 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-500/10 gap-2"
-              >
-                {isCheckingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <HeartPulse className="h-4 w-4" />}
-                Health Check
-              </Button>
-              <Button
-                data-testid="button-cleanup"
-                onClick={handleCleanup}
-                disabled={isCleaning}
-                variant="outline"
-                className="border-amber-600/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 gap-2"
-              >
-                {isCleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                Cleanup Server
-              </Button>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+              <div className="flex gap-2">
+                <Button
+                  data-testid="button-health-check"
+                  onClick={handleCheckHealth}
+                  disabled={isCheckingHealth}
+                  variant="outline"
+                  className="border-cyan-600/40 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-500/10 gap-2 flex-1 sm:flex-none min-h-[44px]"
+                >
+                  {isCheckingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <HeartPulse className="h-4 w-4" />}
+                  <span className="text-xs sm:text-sm">Health Check</span>
+                </Button>
+                <Button
+                  data-testid="button-cleanup"
+                  onClick={handleCleanup}
+                  disabled={isCleaning}
+                  variant="outline"
+                  className="border-amber-600/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 gap-2 flex-1 sm:flex-none min-h-[44px]"
+                >
+                  {isCleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  <span className="text-xs sm:text-sm">Cleanup Server</span>
+                </Button>
+              </div>
               {healthData && (
-                <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-2 sm:ml-auto">
                   <div className={`h-2.5 w-2.5 rounded-full ${healthData.status === "healthy" ? "bg-emerald-500 dark:bg-emerald-400" : "bg-amber-500 dark:bg-amber-400"} animate-pulse`} />
                   <span className={`text-sm font-medium ${healthData.status === "healthy" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} data-testid="text-health-status">
                     {healthData.status === "healthy" ? "Healthy" : "Degraded"}
@@ -503,23 +507,23 @@ export default function DeploymentConsole() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
 
           {/* Pipeline Steps */}
           <Card className="bg-card border-border lg:col-span-1" data-testid="card-pipeline-steps">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+            <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
                 <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Pipeline
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1.5">
+            <CardContent className="space-y-1 sm:space-y-1.5 px-3 sm:px-6 pb-3 sm:pb-6">
               {liveDeployment ? (
                 <>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
                     <StatusBadge status={liveDeployment.status} />
                     <span className="text-xs text-muted-foreground font-mono">#{liveDeployment.buildNumber}</span>
                   </div>
-                  <Progress value={liveDeployment.progress} className="h-1.5 mb-3" />
+                  <Progress value={liveDeployment.progress} className="h-1.5 mb-2 sm:mb-3" />
 
                   {(liveDeployment.steps as StepEntry[]).map((step, i) => {
                     const StepIcon = STEP_ICONS[step.name] || Circle;
@@ -531,35 +535,35 @@ export default function DeploymentConsole() {
                       <div
                         key={step.name}
                         data-testid={`step-${step.name}`}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                        className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all ${
                           isActive ? "bg-blue-500/10 border border-blue-500/20" :
                           isDone ? "bg-emerald-500/5 border border-transparent" :
                           isFailed ? "bg-red-500/10 border border-red-500/20" :
                           "bg-transparent border border-transparent opacity-50"
                         }`}
                       >
-                        <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
+                        <div className={`h-6 w-6 sm:h-7 sm:w-7 rounded-lg flex items-center justify-center shrink-0 ${
                           isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : "bg-muted"
                         }`}>
                           {isActive ? (
-                            <Loader2 className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
+                            <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
                           ) : isDone ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 dark:text-emerald-400" />
                           ) : isFailed ? (
-                            <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                            <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-600 dark:text-red-400" />
                           ) : (
-                            <StepIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            <StepIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate ${
+                          <p className={`text-xs sm:text-sm font-medium truncate ${
                             isActive ? "text-blue-700 dark:text-blue-300" : isDone ? "text-emerald-700 dark:text-emerald-300" : isFailed ? "text-red-700 dark:text-red-300" : "text-muted-foreground"
                           }`}>
                             {step.name.replace(/-/g, " ")}
                           </p>
                         </div>
                         {step.duration && (
-                          <span className="text-xs text-muted-foreground font-mono shrink-0">
+                          <span className="text-[10px] sm:text-xs text-muted-foreground font-mono shrink-0">
                             {formatDuration(step.duration)}
                           </span>
                         )}
@@ -568,9 +572,9 @@ export default function DeploymentConsole() {
                   })}
                 </>
               ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Rocket className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Select a deployment or start a new one</p>
+                <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                  <Rocket className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-xs sm:text-sm">Select a deployment or start a new one</p>
                 </div>
               )}
             </CardContent>
@@ -578,18 +582,18 @@ export default function DeploymentConsole() {
 
           {/* Live Logs */}
           <Card className="bg-card border-border lg:col-span-2" data-testid="card-live-logs">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+                <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
                   <Terminal className="h-4 w-4 text-green-600 dark:text-green-400" /> Build Logs
                   {isRunning && <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
                 </CardTitle>
-                <span className="text-xs text-muted-foreground">{liveLogs.length} entries</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">{liveLogs.length} entries</span>
               </div>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[420px] rounded-lg bg-gray-950 dark:bg-gray-950 border border-gray-800 dark:border-gray-800">
-                <div className="p-3 font-mono text-xs space-y-0.5">
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <ScrollArea className="h-[250px] sm:h-[350px] lg:h-[420px] rounded-lg bg-gray-950 border border-gray-800">
+                <div className="p-2 sm:p-3 font-mono text-[10px] sm:text-xs space-y-0.5">
                   {liveLogs.length > 0 ? (
                     liveLogs.map((log, i) => {
                       const color =
@@ -600,20 +604,20 @@ export default function DeploymentConsole() {
                         "text-gray-400";
 
                       return (
-                        <div key={i} className={`flex gap-2 py-0.5 ${color}`} data-testid={`log-entry-${i}`}>
-                          <span className="text-gray-600 shrink-0 select-none w-[65px] text-right">
+                        <div key={i} className={`flex gap-1 sm:gap-2 py-0.5 ${color}`} data-testid={`log-entry-${i}`}>
+                          <span className="text-gray-600 shrink-0 select-none w-[50px] sm:w-[65px] text-right hidden xs:inline">
                             {formatTime(log.timestamp)}
                           </span>
-                          <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 opacity-40" />
+                          <ChevronRight className="h-3 w-3 mt-0.5 shrink-0 opacity-40 hidden sm:block" />
                           <span className="break-all">{log.message}</span>
                         </div>
                       );
                     })
                   ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500 py-20">
+                    <div className="flex items-center justify-center h-full text-gray-500 py-12 sm:py-20">
                       <div className="text-center">
-                        <Terminal className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        <p>Waiting for build output...</p>
+                        <Terminal className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-[10px] sm:text-xs">Waiting for build output...</p>
                       </div>
                     </div>
                   )}
@@ -626,9 +630,9 @@ export default function DeploymentConsole() {
 
         {/* Deployment History */}
         <Card className="bg-card border-border" data-testid="card-deployment-history">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold flex items-center gap-2 text-foreground">
+              <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
                 <Clock className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> Deployment History
               </CardTitle>
               <Button
@@ -636,13 +640,13 @@ export default function DeploymentConsole() {
                 variant="ghost"
                 size="sm"
                 onClick={() => refetchHistory()}
-                className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
+                className="text-muted-foreground hover:text-foreground gap-1 sm:gap-1.5 text-[10px] sm:text-xs min-h-[36px]"
               >
                 <RefreshCw className="h-3 w-3" /> Refresh
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             {deployments.length > 0 ? (
               <div className="space-y-2">
                 {deployments.map((d) => (
@@ -650,28 +654,34 @@ export default function DeploymentConsole() {
                     key={d.id}
                     data-testid={`deployment-row-${d.buildNumber}`}
                     onClick={() => viewDeployment(d.id)}
-                    className={`w-full flex items-center gap-4 p-3 rounded-lg transition-all hover:bg-muted/50 text-left ${
+                    className={`w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2.5 sm:p-3 rounded-lg transition-all hover:bg-muted/50 text-left ${
                       activeDeploymentId === d.id ? "bg-muted/60 ring-1 ring-blue-500/30" : "bg-muted/20"
                     }`}
                   >
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs font-mono text-muted-foreground">#{d.buildNumber}</span>
-                      <StatusBadge status={d.status} />
+                    <div className="flex items-center gap-2 justify-between sm:justify-start shrink-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] sm:text-xs font-mono text-muted-foreground">#{d.buildNumber}</span>
+                        <StatusBadge status={d.status} />
+                      </div>
+                      <div className="flex items-center gap-1.5 sm:hidden text-[10px] text-muted-foreground">
+                        {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
+                        <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] border-border text-muted-foreground shrink-0">
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-[9px] sm:text-[10px] border-border text-muted-foreground shrink-0">
                           {d.pipeline}
                         </Badge>
-                        <span className="text-xs text-muted-foreground font-mono">v{d.version}</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground font-mono">v{d.version}</span>
                         {d.commitMessage && (
-                          <span className="text-xs text-muted-foreground truncate">{d.commitMessage}</span>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[150px] sm:max-w-none">{d.commitMessage}</span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+                    <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
                       {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
                       <span>{new Date(d.created_at).toLocaleDateString()}</span>
                       {d.status === "success" && (
@@ -691,10 +701,10 @@ export default function DeploymentConsole() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No deployments yet</p>
-                <p className="text-xs mt-1">Start your first deployment above</p>
+              <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                <Clock className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-xs sm:text-sm">No deployments yet</p>
+                <p className="text-[10px] sm:text-xs mt-1">Start your first deployment above</p>
               </div>
             )}
           </CardContent>

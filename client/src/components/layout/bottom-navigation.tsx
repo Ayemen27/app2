@@ -100,7 +100,7 @@ const allPagesData = [
       { path: "/admin/sync", icon: RefreshCw, label: "إدارة المزامنة", description: "مراقبة حالة المزامنة والتحكم في البيانات", requireAdmin: true },
       { path: "/sync-comparison", icon: GitCompare, label: "مقارنة المزامنة", description: "مقارنة البيانات بين قواعد البيانات", requireAdmin: true },
       { path: "/whatsapp-setup", icon: MessageSquare, label: "ربط الواتساب", description: "إعداد وربط خدمة واتساب مع النظام", requireAdmin: true },
-      { path: "/deployment", icon: Terminal, label: "لوحة البناء والنشر", description: "نظام البناء الآلي والنشر على السيرفر", requireAdmin: true },
+      { path: "/deployment", icon: Terminal, label: "إدارة النشر", description: "نظام البناء الآلي والنشر على السيرفر", requireAdmin: true },
     ]
   },
 ];

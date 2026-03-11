@@ -89,11 +89,31 @@ interface DeploymentStats {
 }
 
 const PIPELINE_LABELS: Record<string, string> = {
-  "web-deploy": "Web Deploy (Direct Transfer)",
-  "android-build": "Android APK Build",
-  "full-deploy": "Full Deploy (Web + Android)",
-  "git-push": "Git Push & Server Pull",
-  "hotfix": "Hotfix Deploy (Fast Push)",
+  "web-deploy": "نشر الويب (نقل مباشر)",
+  "android-build": "بناء تطبيق أندرويد APK",
+  "full-deploy": "نشر كامل (ويب + أندرويد)",
+  "git-push": "دفع Git وسحب من السيرفر",
+  "hotfix": "إصلاح سريع (نشر فوري)",
+};
+
+const STEP_LABELS: Record<string, string> = {
+  "validate": "التحقق",
+  "build-web": "بناء الويب",
+  "transfer": "النقل",
+  "deploy-server": "نشر على السيرفر",
+  "restart-pm2": "إعادة تشغيل PM2",
+  "sync-capacitor": "مزامنة Capacitor",
+  "gradle-build": "بناء Gradle",
+  "sign-apk": "توقيع APK",
+  "retrieve-artifact": "استرجاع الملفات",
+  "verify": "التحقق النهائي",
+  "git-push": "دفع Git",
+  "pull-server": "سحب من السيرفر",
+  "install-deps": "تثبيت التبعيات",
+  "build-server": "بناء السيرفر",
+  "rollback-server": "التراجع",
+  "db-migrate": "تهجير قاعدة البيانات",
+  "hotfix-sync": "مزامنة الإصلاح السريع",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -116,12 +136,19 @@ const STEP_ICONS: Record<string, any> = {
   "hotfix-sync": Rocket,
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: "قيد الانتظار",
+  running: "جاري التنفيذ",
+  success: "ناجح",
+  failed: "فشل",
+};
+
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { color: string; icon: any; label: string }> = {
-    pending: { color: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20", icon: Clock, label: "Pending" },
-    running: { color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20", icon: Loader2, label: "Running" },
-    success: { color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2, label: "Success" },
-    failed: { color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20", icon: XCircle, label: "Failed" },
+    pending: { color: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20", icon: Clock, label: STATUS_LABELS.pending },
+    running: { color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20", icon: Loader2, label: STATUS_LABELS.running },
+    success: { color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2, label: STATUS_LABELS.success },
+    failed: { color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20", icon: XCircle, label: STATUS_LABELS.failed },
   };
   const v = variants[status] || variants.pending;
   const Icon = v.icon;
@@ -136,14 +163,14 @@ function StatusBadge({ status }: { status: string }) {
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
+  if (s < 60) return `${s}ث`;
   const m = Math.floor(s / 60);
   const rs = s % 60;
-  return `${m}m ${rs}s`;
+  return `${m}د ${rs}ث`;
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 export default function DeploymentConsole() {
@@ -244,9 +271,9 @@ export default function DeploymentConsole() {
       setLiveLogs([]);
       setLiveDeployment(null);
 
-      toast({ title: "Deployment started", description: `Pipeline: ${PIPELINE_LABELS[selectedPipeline]}` });
+      toast({ title: "بدأ النشر", description: `المسار: ${PIPELINE_LABELS[selectedPipeline]}` });
     } catch (error: any) {
-      toast({ title: "Failed to start deployment", description: error.message, variant: "destructive" });
+      toast({ title: "فشل بدء النشر", description: error.message, variant: "destructive" });
     } finally {
       setIsStarting(false);
     }
@@ -256,9 +283,9 @@ export default function DeploymentConsole() {
     if (!activeDeploymentId) return;
     try {
       await apiRequest(`/api/deployment/${activeDeploymentId}/cancel`, "POST");
-      toast({ title: "Deployment cancelled" });
+      toast({ title: "تم إلغاء النشر" });
     } catch (error: any) {
-      toast({ title: "Failed to cancel", description: error.message, variant: "destructive" });
+      toast({ title: "فشل الإلغاء", description: error.message, variant: "destructive" });
     }
   };
 
@@ -268,9 +295,9 @@ export default function DeploymentConsole() {
       const res = await apiRequest("/api/deployment/health");
       const data = await res.json();
       setHealthData(data);
-      toast({ title: `Server: ${data.status}`, description: `HTTP: ${data.checks?.httpStatus || "unknown"}` });
+      toast({ title: `حالة السيرفر: ${data.status === "healthy" ? "سليم" : "متدهور"}`, description: `HTTP: ${data.checks?.httpStatus || "غير معروف"}` });
     } catch (error: any) {
-      toast({ title: "Health check failed", description: error.message, variant: "destructive" });
+      toast({ title: "فشل فحص السلامة", description: error.message, variant: "destructive" });
     } finally {
       setIsCheckingHealth(false);
     }
@@ -283,9 +310,9 @@ export default function DeploymentConsole() {
       setActiveDeploymentId(data.id);
       setLiveLogs([]);
       setLiveDeployment(null);
-      toast({ title: "Rollback started" });
+      toast({ title: "بدأ التراجع" });
     } catch (error: any) {
-      toast({ title: "Rollback failed", description: error.message, variant: "destructive" });
+      toast({ title: "فشل التراجع", description: error.message, variant: "destructive" });
     }
   };
 
@@ -295,11 +322,11 @@ export default function DeploymentConsole() {
       const res = await apiRequest("/api/deployment/cleanup", "POST");
       const data = await res.json();
       toast({
-        title: "Cleanup complete",
-        description: `Cleaned: ${data.cleaned?.join(", ") || "none"}${data.errors?.length ? ` | Errors: ${data.errors.length}` : ""}`,
+        title: "اكتمل التنظيف",
+        description: `تم تنظيف: ${data.cleaned?.join("، ") || "لا شيء"}${data.errors?.length ? ` | أخطاء: ${data.errors.length}` : ""}`,
       });
     } catch (error: any) {
-      toast({ title: "Cleanup failed", description: error.message, variant: "destructive" });
+      toast({ title: "فشل التنظيف", description: error.message, variant: "destructive" });
     } finally {
       setIsCleaning(false);
     }
@@ -323,26 +350,8 @@ export default function DeploymentConsole() {
   const isRunning = liveDeployment?.status === "running";
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-background text-foreground safe-area-inset-top" data-testid="deployment-console">
+    <div className="min-h-screen min-h-[100dvh] bg-background text-foreground safe-area-inset-top" data-testid="deployment-console" dir="rtl">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
-
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shrink-0">
-              <Rocket className="h-4 w-4 sm:h-5 sm:w-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate" data-testid="text-page-title">Deployment Console</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground hidden xs:block">AXION DevOps Pipeline Manager</p>
-            </div>
-          </div>
-          {stats.running > 0 && (
-            <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 animate-pulse gap-1 sm:gap-1.5 shrink-0 text-[10px] sm:text-xs">
-              <Loader2 className="h-3 w-3 animate-spin" /> {stats.running} active
-            </Badge>
-          )}
-        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
@@ -354,7 +363,7 @@ export default function DeploymentConsole() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xl sm:text-2xl font-bold text-foreground" data-testid="text-stat-total">{stats.total}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Total Deploys</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">إجمالي عمليات النشر</p>
                 </div>
               </div>
             </CardContent>
@@ -368,7 +377,7 @@ export default function DeploymentConsole() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400" data-testid="text-stat-success-rate">{stats.successRate}%</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Success Rate</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">نسبة النجاح</p>
                 </div>
               </div>
             </CardContent>
@@ -382,7 +391,7 @@ export default function DeploymentConsole() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xl sm:text-2xl font-bold text-red-600 dark:text-red-400" data-testid="text-stat-failed">{stats.failed}</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Failed</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">فشل</p>
                 </div>
               </div>
             </CardContent>
@@ -398,7 +407,7 @@ export default function DeploymentConsole() {
                   <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-stat-avg-duration">
                     {stats.avgDuration > 0 ? formatDuration(stats.avgDuration) : "—"}
                   </p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Avg Duration</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">متوسط المدة</p>
                 </div>
               </div>
             </CardContent>
@@ -409,7 +418,7 @@ export default function DeploymentConsole() {
         <Card className="bg-card border-border" data-testid="card-deploy-controls">
           <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
-              <Rocket className="h-4 w-4 text-blue-600 dark:text-blue-400" /> New Deployment
+              <Rocket className="h-4 w-4 text-blue-600 dark:text-blue-400" /> نشر جديد
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
@@ -417,20 +426,20 @@ export default function DeploymentConsole() {
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <Select value={selectedPipeline} onValueChange={setSelectedPipeline} data-testid="select-pipeline">
                   <SelectTrigger className="bg-muted/50 border-border text-foreground w-full sm:w-[260px]" data-testid="trigger-pipeline">
-                    <SelectValue placeholder="Select pipeline" />
+                    <SelectValue placeholder="اختر مسار النشر" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="web-deploy" data-testid="option-web-deploy">Web Deploy (Direct Transfer)</SelectItem>
-                    <SelectItem value="android-build" data-testid="option-android-build">Android APK Build</SelectItem>
-                    <SelectItem value="full-deploy" data-testid="option-full-deploy">Full Deploy (Web + Android)</SelectItem>
-                    <SelectItem value="git-push" data-testid="option-git-push">Git Push & Server Pull</SelectItem>
-                    <SelectItem value="hotfix" data-testid="option-hotfix">Hotfix Deploy (Fast Push)</SelectItem>
+                    <SelectItem value="web-deploy" data-testid="option-web-deploy">نشر الويب (نقل مباشر)</SelectItem>
+                    <SelectItem value="android-build" data-testid="option-android-build">بناء تطبيق أندرويد APK</SelectItem>
+                    <SelectItem value="full-deploy" data-testid="option-full-deploy">نشر كامل (ويب + أندرويد)</SelectItem>
+                    <SelectItem value="git-push" data-testid="option-git-push">دفع Git وسحب من السيرفر</SelectItem>
+                    <SelectItem value="hotfix" data-testid="option-hotfix">إصلاح سريع (نشر فوري)</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <Input
                   data-testid="input-commit-message"
-                  placeholder="Commit message (optional)"
+                  placeholder="رسالة التحديث (اختياري)"
                   value={commitMessage}
                   onChange={(e) => setCommitMessage(e.target.value)}
                   className="bg-muted/50 border-border text-foreground flex-1"
@@ -445,7 +454,7 @@ export default function DeploymentConsole() {
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium gap-2 whitespace-nowrap w-full sm:w-auto sm:self-start min-h-[44px]"
                 >
                   {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  Deploy
+                  نشر
                 </Button>
               ) : (
                 <Button
@@ -454,7 +463,7 @@ export default function DeploymentConsole() {
                   variant="destructive"
                   className="gap-2 whitespace-nowrap w-full sm:w-auto sm:self-start min-h-[44px]"
                 >
-                  <Square className="h-4 w-4" /> Cancel
+                  <Square className="h-4 w-4" /> إلغاء
                 </Button>
               )}
             </div>
@@ -465,7 +474,7 @@ export default function DeploymentConsole() {
         <Card className="bg-card border-border" data-testid="card-operations">
           <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
-              <Shield className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> Server Operations
+              <Shield className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> عمليات السيرفر
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
@@ -479,7 +488,7 @@ export default function DeploymentConsole() {
                   className="border-cyan-600/40 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-500/10 gap-2 flex-1 sm:flex-none min-h-[44px]"
                 >
                   {isCheckingHealth ? <Loader2 className="h-4 w-4 animate-spin" /> : <HeartPulse className="h-4 w-4" />}
-                  <span className="text-xs sm:text-sm">Health Check</span>
+                  <span className="text-xs sm:text-sm">فحص السلامة</span>
                 </Button>
                 <Button
                   data-testid="button-cleanup"
@@ -489,14 +498,14 @@ export default function DeploymentConsole() {
                   className="border-amber-600/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 gap-2 flex-1 sm:flex-none min-h-[44px]"
                 >
                   {isCleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  <span className="text-xs sm:text-sm">Cleanup Server</span>
+                  <span className="text-xs sm:text-sm">تنظيف السيرفر</span>
                 </Button>
               </div>
               {healthData && (
-                <div className="flex items-center gap-2 sm:ml-auto">
+                <div className="flex items-center gap-2 sm:mr-auto">
                   <div className={`h-2.5 w-2.5 rounded-full ${healthData.status === "healthy" ? "bg-emerald-500 dark:bg-emerald-400" : "bg-amber-500 dark:bg-amber-400"} animate-pulse`} />
                   <span className={`text-sm font-medium ${healthData.status === "healthy" ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`} data-testid="text-health-status">
-                    {healthData.status === "healthy" ? "Healthy" : "Degraded"}
+                    {healthData.status === "healthy" ? "سليم" : "متدهور"}
                   </span>
                   <span className="text-xs text-muted-foreground" data-testid="text-health-http">
                     HTTP {healthData.checks?.httpStatus || "—"}
@@ -513,7 +522,7 @@ export default function DeploymentConsole() {
           <Card className="bg-card border-border lg:col-span-1" data-testid="card-pipeline-steps">
             <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
               <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
-                <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Pipeline
+                <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" /> مراحل التنفيذ
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1 sm:space-y-1.5 px-3 sm:px-6 pb-3 sm:pb-6">
@@ -559,7 +568,7 @@ export default function DeploymentConsole() {
                           <p className={`text-xs sm:text-sm font-medium truncate ${
                             isActive ? "text-blue-700 dark:text-blue-300" : isDone ? "text-emerald-700 dark:text-emerald-300" : isFailed ? "text-red-700 dark:text-red-300" : "text-muted-foreground"
                           }`}>
-                            {step.name.replace(/-/g, " ")}
+                            {STEP_LABELS[step.name] || step.name.replace(/-/g, " ")}
                           </p>
                         </div>
                         {step.duration && (
@@ -574,7 +583,7 @@ export default function DeploymentConsole() {
               ) : (
                 <div className="text-center py-6 sm:py-8 text-muted-foreground">
                   <Rocket className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs sm:text-sm">Select a deployment or start a new one</p>
+                  <p className="text-xs sm:text-sm">اختر عملية نشر أو ابدأ واحدة جديدة</p>
                 </div>
               )}
             </CardContent>
@@ -585,14 +594,14 @@ export default function DeploymentConsole() {
             <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
-                  <Terminal className="h-4 w-4 text-green-600 dark:text-green-400" /> Build Logs
+                  <Terminal className="h-4 w-4 text-green-600 dark:text-green-400" /> سجل البناء
                   {isRunning && <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />}
                 </CardTitle>
-                <span className="text-[10px] sm:text-xs text-muted-foreground">{liveLogs.length} entries</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground">{liveLogs.length} سطر</span>
               </div>
             </CardHeader>
             <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <ScrollArea className="h-[250px] sm:h-[350px] lg:h-[420px] rounded-lg bg-gray-950 border border-gray-800">
+              <ScrollArea className="h-[250px] sm:h-[350px] lg:h-[420px] rounded-lg bg-gray-950 border border-gray-800" dir="ltr">
                 <div className="p-2 sm:p-3 font-mono text-[10px] sm:text-xs space-y-0.5">
                   {liveLogs.length > 0 ? (
                     liveLogs.map((log, i) => {
@@ -617,7 +626,7 @@ export default function DeploymentConsole() {
                     <div className="flex items-center justify-center h-full text-gray-500 py-12 sm:py-20">
                       <div className="text-center">
                         <Terminal className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-[10px] sm:text-xs">Waiting for build output...</p>
+                        <p className="text-[10px] sm:text-xs">في انتظار مخرجات البناء...</p>
                       </div>
                     </div>
                   )}
@@ -633,7 +642,7 @@ export default function DeploymentConsole() {
           <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm sm:text-base font-semibold flex items-center gap-2 text-foreground">
-                <Clock className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> Deployment History
+                <Clock className="h-4 w-4 text-cyan-600 dark:text-cyan-400" /> سجل عمليات النشر
               </CardTitle>
               <Button
                 data-testid="button-refresh-history"
@@ -642,7 +651,7 @@ export default function DeploymentConsole() {
                 onClick={() => refetchHistory()}
                 className="text-muted-foreground hover:text-foreground gap-1 sm:gap-1.5 text-[10px] sm:text-xs min-h-[36px]"
               >
-                <RefreshCw className="h-3 w-3" /> Refresh
+                <RefreshCw className="h-3 w-3" /> تحديث
               </Button>
             </div>
           </CardHeader>
@@ -654,7 +663,7 @@ export default function DeploymentConsole() {
                     key={d.id}
                     data-testid={`deployment-row-${d.buildNumber}`}
                     onClick={() => viewDeployment(d.id)}
-                    className={`w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2.5 sm:p-3 rounded-lg transition-all hover:bg-muted/50 text-left ${
+                    className={`w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2.5 sm:p-3 rounded-lg transition-all hover:bg-muted/50 text-right ${
                       activeDeploymentId === d.id ? "bg-muted/60 ring-1 ring-blue-500/30" : "bg-muted/20"
                     }`}
                   >
@@ -665,7 +674,7 @@ export default function DeploymentConsole() {
                       </div>
                       <div className="flex items-center gap-1.5 sm:hidden text-[10px] text-muted-foreground">
                         {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
-                        <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                        <span>{new Date(d.created_at).toLocaleDateString("ar-SA")}</span>
                       </div>
                     </div>
 
@@ -683,7 +692,7 @@ export default function DeploymentConsole() {
 
                     <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
                       {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
-                      <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                      <span>{new Date(d.created_at).toLocaleDateString("ar-SA")}</span>
                       {d.status === "success" && (
                         <Button
                           data-testid={`button-rollback-${d.buildNumber}`}
@@ -703,8 +712,8 @@ export default function DeploymentConsole() {
             ) : (
               <div className="text-center py-6 sm:py-8 text-muted-foreground">
                 <Clock className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-xs sm:text-sm">No deployments yet</p>
-                <p className="text-[10px] sm:text-xs mt-1">Start your first deployment above</p>
+                <p className="text-xs sm:text-sm">لا توجد عمليات نشر بعد</p>
+                <p className="text-[10px] sm:text-xs mt-1">ابدأ أول عملية نشر من الأعلى</p>
               </div>
             )}
           </CardContent>

@@ -120,7 +120,7 @@ const sections: SidebarSection[] = [
       { title: "النسخ الاحتياطي", icon: ShieldCheck, url: "/admin/backups" },
       { title: "إدارة المزامنة", icon: RefreshCw, url: "/admin/sync" },
       { title: "ربط الواتساب", icon: MessageSquare, url: "/whatsapp-setup" },
-      { title: "لوحة البناء والنشر", icon: Terminal, url: "/deployment" },
+      { title: "إدارة النشر", icon: Terminal, url: "/deployment" },
     ]
   }
 ];

@@ -37,7 +37,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/wells': { title: 'إدارة الآبار', icon: Layers },
   '/transport-management': { title: 'إدارة النقل', icon: Truck },
   '/daily-expenses': { title: 'المصاريف اليومية', icon: DollarSign },
-  '/deployment': { title: 'لوحة البناء والنشر التلقائي', icon: Activity },
+  '/deployment': { title: 'إدارة النشر', icon: Activity },
   '/settings': { title: 'إعدادات النظام', icon: Settings },
   '/project-fund-custody': { title: 'عهدة صندوق المشروع', icon: Wallet },
   '/notifications': { title: 'الإشعارات', icon: Bell },

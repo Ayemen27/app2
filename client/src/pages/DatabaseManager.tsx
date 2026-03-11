@@ -332,7 +332,7 @@ export default function DatabaseManager() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full grid grid-cols-6 h-10" data-testid="tabs-db-manager">
+        <TabsList className="w-full flex overflow-x-auto sm:grid sm:grid-cols-6 h-10 no-scrollbar" data-testid="tabs-db-manager">
           <TabsTrigger value="overview" className="gap-1 text-xs sm:text-sm" data-testid="tab-overview">
             <BarChart3 className="h-3.5 w-3.5 shrink-0" /> <span className="hidden sm:inline">نظرة عامة</span><span className="sm:hidden">عامة</span>
           </TabsTrigger>

@@ -253,7 +253,7 @@ export default function SyncManagementPage() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" dir="rtl">
-        <TabsList className="grid w-full grid-cols-5 mb-4" data-testid="tabs-sync">
+        <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-5 mb-4 no-scrollbar" data-testid="tabs-sync">
           <TabsTrigger value="pending" className="gap-1" data-testid="tab-pending">
             <Clock className="h-3.5 w-3.5" />
             معلقة

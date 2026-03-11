@@ -370,7 +370,7 @@ export default function EmailVerificationPage() {
                         variant="ghost"
                         size="sm"
                         onClick={handleCopyCode}
-                        className="absolute left-2 top-1/2 transform -translate-y-1/2 h-10 w-10 p-0 hover:bg-blue-100"
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 h-10 w-10 p-0 hover:bg-blue-100 dark:hover:bg-blue-900/30"
                         title="نسخ الرمز إلى الحافظة"
                         data-testid="button-copy-verification-code"
                       >

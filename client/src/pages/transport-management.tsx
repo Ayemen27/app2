@@ -11,30 +11,27 @@ import {
 } from "lucide-react";
 import { downloadExcelFile } from '@/utils/webview-download';
 
-const categoryColors: Record<string, string> = {
-  worker_transport: "border-l-blue-500",
-  material_delivery: "border-l-green-500",
-  concrete_transport: "border-l-orange-500",
-  iron_platforms: "border-l-slate-500",
-  fuel_shas: "border-l-red-500",
-  fuel_hilux: "border-l-red-400",
-  loading_unloading: "border-l-amber-500",
-  maintenance: "border-l-purple-500",
-  water_supply: "border-l-cyan-500",
-  other: "border-l-slate-400"
+const BORDER_COLORS = [
+  "border-l-blue-500", "border-l-green-500", "border-l-orange-500",
+  "border-l-slate-500", "border-l-red-500", "border-l-red-400",
+  "border-l-amber-500", "border-l-purple-500", "border-l-cyan-500",
+  "border-l-indigo-500", "border-l-pink-500", "border-l-teal-500",
+  "border-l-lime-500", "border-l-rose-500", "border-l-emerald-500"
+];
+const ICON_COLORS = [
+  "text-blue-500", "text-green-500", "text-orange-500",
+  "text-slate-500", "text-red-500", "text-red-400",
+  "text-amber-500", "text-purple-500", "text-cyan-500",
+  "text-indigo-500", "text-pink-500", "text-teal-500",
+  "text-lime-500", "text-rose-500", "text-emerald-500"
+];
+const getCategoryBorderColor = (cat: string, categories: string[]) => {
+  const idx = categories.indexOf(cat);
+  return idx >= 0 ? BORDER_COLORS[idx % BORDER_COLORS.length] : "border-l-slate-400";
 };
-
-const categoryIconColors: Record<string, string> = {
-  worker_transport: "text-blue-500",
-  material_delivery: "text-green-500",
-  concrete_transport: "text-orange-500",
-  iron_platforms: "text-slate-500",
-  fuel_shas: "text-red-500",
-  fuel_hilux: "text-red-400",
-  loading_unloading: "text-amber-500",
-  maintenance: "text-purple-500",
-  water_supply: "text-cyan-500",
-  other: "text-slate-400"
+const getCategoryIconColor = (cat: string, categories: string[]) => {
+  const idx = categories.indexOf(cat);
+  return idx >= 0 ? ICON_COLORS[idx % ICON_COLORS.length] : "text-slate-400";
 };
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +75,7 @@ export default function TransportManagement() {
   const [description, setDescription] = useState<string>("");
   const [date, setDate] = useState<string>(getCurrentDate());
   const [notes, setNotes] = useState<string>("");
-  const [category, setCategory] = useState<string>("worker_transport");
+  const [category, setCategory] = useState<string>("");
   const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
 
   const { toast } = useToast();
@@ -92,10 +89,12 @@ export default function TransportManagement() {
     setDescription("");
     setDate(getCurrentDate());
     setNotes("");
-    setCategory("worker_transport");
+    setCategory("");
     setSelectedWellId(undefined);
     setEditingExpenseId(null);
     setIsDialogOpen(false);
+    setIsAddingCategory(false);
+    setNewCategoryName("");
   }, []);
 
   // Unified Floating Button
@@ -137,53 +136,58 @@ export default function TransportManagement() {
     enabled: !!selectedProjectId || isAllProjects
   });
 
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+
   const { data: autocompleteResponse } = useQuery({
     queryKey: QUERY_KEYS.autocompleteTransportCategories,
     queryFn: async () => apiRequest("/api/autocomplete/transport-categories", "GET")
   });
 
-  const categoriesMap = useMemo(() => {
-    const map: Record<string, string> = {
-      worker_transport: "نقل عمال",
-      material_delivery: "توريد مواد",
-      concrete_transport: "نقل خرسانة",
-      iron_platforms: "نقل حديد ومنصات",
-      fuel_shas: "بترول شاص",
-      fuel_hilux: "بترول هيلكس",
-      loading_unloading: "تحميل وتنزيل",
-      maintenance: "صيانة وإصلاح",
-      water_supply: "توريد مياه",
-      other: "أخرى"
-    };
-    if (autocompleteResponse?.data) {
-      autocompleteResponse.data.forEach((cat: any) => {
-        map[cat.value] = cat.label;
+  const addCategoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest("/api/autocomplete", "POST", {
+        category: "transport-categories",
+        value: name.replace(/\s+/g, '_').toLowerCase(),
+        label: name,
       });
+    },
+    onSuccess: (_data, name) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteTransportCategories });
+      const newValue = name.replace(/\s+/g, '_').toLowerCase();
+      setCategory(newValue);
+      setNewCategoryName("");
+      setIsAddingCategory(false);
+      toast({ title: "تم إضافة الفئة بنجاح", description: `تمت إضافة "${name}"` });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ في إضافة الفئة", description: error?.message || "حدث خطأ", variant: "destructive" });
     }
-    return map;
+  });
+
+  const dynamicCategories = useMemo(() => {
+    if (!autocompleteResponse?.data || !Array.isArray(autocompleteResponse.data)) return [];
+    return autocompleteResponse.data.map((cat: any) => ({
+      value: typeof cat === 'string' ? cat : cat.value,
+      label: typeof cat === 'string' ? cat : (cat.label || cat.value)
+    }));
   }, [autocompleteResponse]);
 
+  const categoryKeys = useMemo(() => dynamicCategories.map(c => c.value), [dynamicCategories]);
+
+  const categoriesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    dynamicCategories.forEach(cat => { map[cat.value] = cat.label; });
+    return map;
+  }, [dynamicCategories]);
+
   const filterCategories = useMemo(() => {
-    const base = [
-      { value: 'all', label: 'جميع الفئات' },
-      { value: "worker_transport", label: "نقل عمال" },
-      { value: "material_delivery", label: "توريد مواد" },
-      { value: "concrete_transport", label: "نقل خرسانة" },
-      { value: "iron_platforms", label: "نقل حديد ومنصات" },
-      { value: "fuel_shas", label: "بترول شاص" },
-      { value: "fuel_hilux", label: "بترول هيلكس" },
-      { value: "loading_unloading", label: "تحميل وتنزيل" },
-      { value: "maintenance", label: "صيانة وإصلاح" },
-      { value: "water_supply", label: "توريد مياه" },
-      { value: "other", label: "أخرى" }
-    ];
-    if (!autocompleteResponse?.data) return base;
-    const existingValues = new Set(base.map(b => b.value));
-    const dynamic = autocompleteResponse.data
-      .map((cat: any) => ({ value: cat.value, label: cat.label }))
-      .filter((cat: any) => !existingValues.has(cat.value));
-    return [...base, ...dynamic];
-  }, [autocompleteResponse]);
+    return [{ value: 'all', label: 'جميع الفئات' }, ...dynamicCategories];
+  }, [dynamicCategories]);
+
+  const formCategoryOptions = useMemo(() => {
+    return [...dynamicCategories];
+  }, [dynamicCategories]);
 
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
 
@@ -203,18 +207,17 @@ export default function TransportManagement() {
     return result;
   }, [expenses, searchValue, filterValues.category]);
 
+  const STAT_COLORS: Array<"blue" | "green" | "amber" | "purple" | "red" | "indigo" | "orange" | "slate" | "gray"> = [
+    "purple", "red", "indigo", "orange", "slate", "gray", "blue", "green", "amber"
+  ];
+  const STAT_ICONS = [Package, Droplets, Truck, Building2, Settings, Info, DollarSign, TrendingUp, Filter];
+
   const statsData = useMemo(() => {
     const data = filteredExpenses;
     const totalAmount = data.reduce((sum, e) => sum + Number(e.amount), 0);
     const count = data.length;
-    const maintenanceCost = data.filter(e => e.category === 'maintenance').reduce((sum, e) => sum + Number(e.amount), 0);
-    const fuelCost = data.filter(e => e.category === 'fuel_shas' || e.category === 'fuel_hilux').reduce((sum, e) => sum + Number(e.amount), 0);
-    const materialTransport = data.filter(e => e.category === 'material_delivery').reduce((sum, e) => sum + Number(e.amount), 0);
-    const concreteTransport = data.filter(e => e.category === 'concrete_transport').reduce((sum, e) => sum + Number(e.amount), 0);
-    const ironPlatformsCost = data.filter(e => e.category === 'iron_platforms').reduce((sum, e) => sum + Number(e.amount), 0);
-    const otherCategories = data.filter(e => e.category === 'other' || !['maintenance', 'fuel_shas', 'fuel_hilux', 'material_delivery', 'concrete_transport', 'iron_platforms'].includes(e.category)).reduce((sum, e) => sum + Number(e.amount), 0);
 
-    return [
+    const summaryStats: UnifiedStatItem[] = [
       {
         title: "إجمالي تكلفة النقل",
         value: formatCurrency(totalAmount),
@@ -232,45 +235,21 @@ export default function TransportManagement() {
         value: formatCurrency(count > 0 ? totalAmount / count : 0),
         icon: TrendingUp,
         color: "amber" as const,
-      },
-      {
-        title: "تكاليف الصيانة",
-        value: formatCurrency(maintenanceCost),
-        icon: Settings,
-        color: "purple" as const,
-      },
-      {
-        title: "تكاليف الوقود",
-        value: formatCurrency(fuelCost),
-        icon: Droplets,
-        color: "red" as const,
-      },
-      {
-        title: "نقل المواد",
-        value: formatCurrency(materialTransport),
-        icon: Package,
-        color: "indigo" as const,
-      },
-      {
-        title: "نقل الخرسانة",
-        value: formatCurrency(concreteTransport),
-        icon: Building2,
-        color: "orange" as const,
-      },
-      {
-        title: "نقل حديد المنصات",
-        value: formatCurrency(ironPlatformsCost),
-        icon: Package,
-        color: "slate" as const,
-      },
-      {
-        title: "فئات أخرى",
-        value: formatCurrency(otherCategories),
-        icon: Info,
-        color: "gray" as const,
       }
-    ] as UnifiedStatItem[];
-  }, [filteredExpenses]);
+    ];
+
+    const categoryStats: UnifiedStatItem[] = dynamicCategories.map((cat, idx) => {
+      const catTotal = data.filter(e => e.category === cat.value).reduce((sum, e) => sum + Number(e.amount), 0);
+      return {
+        title: cat.label,
+        value: formatCurrency(catTotal),
+        icon: STAT_ICONS[idx % STAT_ICONS.length],
+        color: STAT_COLORS[idx % STAT_COLORS.length],
+      };
+    });
+
+    return [...summaryStats, ...categoryStats];
+  }, [filteredExpenses, dynamicCategories]);
 
   const handleExportToExcel = async () => {
     try {
@@ -374,8 +353,8 @@ export default function TransportManagement() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !description) {
-      toast({ title: "خطأ", description: "يرجى ملء الحقول الأساسية", variant: "destructive" });
+    if (!amount || !description || !category) {
+      toast({ title: "خطأ", description: "يرجى ملء الحقول الأساسية (المبلغ، الوصف، الفئة)", variant: "destructive" });
       return;
     }
 
@@ -398,7 +377,7 @@ export default function TransportManagement() {
     setDescription(expense.description);
     setDate(expense.date);
     setNotes(expense.notes || "");
-    setCategory(expense.category || "worker_transport");
+    setCategory(expense.category || "");
     setSelectedWellId(expense.well_id || undefined);
     setIsDialogOpen(true);
   };
@@ -464,8 +443,8 @@ export default function TransportManagement() {
           />
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-none rounded-2xl shadow-2xl">
-              <DialogHeader className="p-6 bg-gradient-to-r from-primary/10 to-primary/5 border-b border-primary/10">
+            <DialogContent className="sm:max-w-[520px] p-0 overflow-hidden border-none rounded-2xl shadow-2xl">
+              <DialogHeader className="p-5 pb-4 bg-gradient-to-r from-primary/10 to-primary/5 border-b border-primary/10">
                 <DialogTitle className="flex items-center gap-3 text-xl font-bold text-primary">
                   <div className="p-2 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
                     <Truck className="h-5 w-5" />
@@ -475,51 +454,86 @@ export default function TransportManagement() {
               </DialogHeader>
               <div className="p-4">
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2 space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                        <Edit className="h-3 w-3" /> البيان / الوصف
-                      </Label>
-                      <AutocompleteInput
-                        category="transport_desc"
-                        value={description}
-                        onChange={setDescription}
-                        placeholder="مثلاً: نقل عمال، توريد مياه..."
-                        className="h-9 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
-                        autoWidth
-                        maxWidth={400}
-                      />
+                  <div className="space-y-1">
+                    <Label data-testid="label-category" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Filter className="h-3 w-3" /> الفئة
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <SearchableSelect
+                          options={formCategoryOptions}
+                          value={category}
+                          onValueChange={(val) => setCategory(val)}
+                          allowCustom={true}
+                          placeholder="اختر الفئة..."
+                          triggerClassName="text-xs"
+                          data-testid="select-category"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        onClick={() => setIsAddingCategory(!isAddingCategory)}
+                        data-testid="button-add-category"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <div className="col-span-1 space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                        <Filter className="h-3 w-3" /> الفئة
-                      </Label>
-                      <SearchableSelect
-                        options={[
-                          { value: "worker_transport", label: "نقل عمال" },
-                          { value: "material_delivery", label: "توريد مواد" },
-                          { value: "concrete_transport", label: "نقل خرسانة" },
-                          { value: "iron_platforms", label: "نقل حديد ومنصات" },
-                          { value: "fuel_shas", label: "بترول شاص" },
-                          { value: "fuel_hilux", label: "بترول هيلكس" },
-                          { value: "loading_unloading", label: "تحميل وتنزيل" },
-                          { value: "maintenance", label: "صيانة وإصلاح" },
-                          { value: "water_supply", label: "توريد مياه" },
-                          { value: "other", label: "أخرى" }
-                        ]}
-                        value={category}
-                        onValueChange={(val) => setCategory(val)}
-                        allowCustom={true}
-                        placeholder="اختر الفئة..."
-                        className="h-9"
-                        triggerClassName="h-9 text-xs"
-                      />
-                    </div>
+                    {isAddingCategory && (
+                      <div className="flex items-center gap-2 mt-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-dashed border-slate-300 dark:border-slate-600">
+                        <Input
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          placeholder="اسم الفئة الجديدة..."
+                          className="flex-1 text-xs"
+                          data-testid="input-new-category"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            if (newCategoryName.trim()) {
+                              addCategoryMutation.mutate(newCategoryName.trim());
+                            }
+                          }}
+                          disabled={!newCategoryName.trim() || addCategoryMutation.isPending}
+                          data-testid="button-save-category"
+                        >
+                          {addCategoryMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => { setIsAddingCategory(false); setNewCategoryName(""); }}
+                          data-testid="button-cancel-category"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label data-testid="label-description" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Edit className="h-3 w-3" /> البيان / الوصف
+                    </Label>
+                    <AutocompleteInput
+                      category="transport_desc"
+                      value={description}
+                      onChange={setDescription}
+                      placeholder="مثلاً: نقل عمال، توريد مياه..."
+                      className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-primary/20"
+                      autoWidth
+                      maxWidth={500}
+                      data-testid="input-description"
+                    />
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Label data-testid="label-amount" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <DollarSign className="h-3 w-3" /> المبلغ
                       </Label>
                       <div className="relative">
@@ -528,29 +542,28 @@ export default function TransportManagement() {
                           value={amount} 
                           onChange={(e) => setAmount(e.target.value)} 
                           placeholder="0.00"
-                          autoWidth
-                          maxWidth={200}
-                          className="min-h-11 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-7 focus:ring-primary/20 text-xs"
+                          className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 pl-7 focus:ring-primary/20 text-xs"
+                          data-testid="input-amount"
                         />
                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">RY</span>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Label data-testid="label-date" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Calendar className="h-3 w-3" /> التاريخ
                       </Label>
                       <DatePickerField
                         value={date}
                         onChange={(d) => setDate(d ? format(d, "yyyy-MM-dd") : getCurrentDate())}
-                        className="h-9"
+                        data-testid="input-date"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                        <Plus className="h-3 w-3" /> العامل (اختياري)
+                      <Label data-testid="label-worker" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <User className="h-3 w-3" /> العامل (اختياري)
                       </Label>
                       <Combobox
                         options={workers.map(w => String(w.name))}
@@ -560,10 +573,11 @@ export default function TransportManagement() {
                           if (worker) setWorkerId(worker.id);
                         }}
                         placeholder="اختر العامل..."
+                        data-testid="select-worker"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Label data-testid="label-well" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Hash className="h-3 w-3" /> البئر
                       </Label>
                       <WellSelector 
@@ -571,12 +585,15 @@ export default function TransportManagement() {
                         value={selectedWellId} 
                         onChange={setSelectedWellId}
                         showLabel={false}
+                        data-testid="select-well"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">ملاحظات</Label>
+                    <Label data-testid="label-notes" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Info className="h-3 w-3" /> ملاحظات
+                    </Label>
                     <Textarea 
                       value={notes} 
                       onChange={(e) => setNotes(e.target.value)} 
@@ -585,12 +602,15 @@ export default function TransportManagement() {
                       autoHeight
                       minRows={2}
                       maxRows={6}
+                      data-testid="input-notes"
                     />
                   </div>
 
                   <div className="flex items-center gap-2 pt-2">
-                    <Button type="button" variant="ghost" onClick={resetForm} className="flex-1 rounded-lg h-9 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold">إلغاء</Button>
-                    <Button type="submit" className="flex-[2] rounded-lg h-9 shadow-lg shadow-primary/20 gap-2 text-xs font-bold" disabled={saveMutation.isPending}>
+                    <Button type="button" variant="ghost" onClick={resetForm} className="flex-1 text-xs font-bold" data-testid="button-cancel">
+                      إلغاء
+                    </Button>
+                    <Button type="submit" className="flex-[2] shadow-lg shadow-primary/20 gap-2 text-xs font-bold" disabled={saveMutation.isPending} data-testid="button-submit">
                       <Save className="h-4 w-4" />
                       {editingExpenseId ? "تحديث" : "حفظ"}
                     </Button>
@@ -648,7 +668,7 @@ export default function TransportManagement() {
                   titleIcon={Truck}
                   className={cn(
                     "hover-elevate active-elevate-2 transition-all duration-300 border-l-4 shadow-md hover:shadow-xl group py-2",
-                    categoryColors[expense.category] || "border-l-blue-500"
+                    getCategoryBorderColor(expense.category, categoryKeys)
                   )}
                   compact={true}
                   fields={[
@@ -662,21 +682,10 @@ export default function TransportManagement() {
                     },
                     {
                       label: "الفئة",
-                      value: [
-                        { value: "worker_transport", label: "نقل عمال" },
-                        { value: "material_delivery", label: "توريد مواد" },
-                        { value: "concrete_transport", label: "نقل خرسانة" },
-                        { value: "iron_platforms", label: "نقل حديد ومنصات" },
-                        { value: "fuel_shas", label: "بترول شاص" },
-                        { value: "fuel_hilux", label: "بترول هيلكس" },
-                        { value: "loading_unloading", label: "تحميل وتنزيل" },
-                        { value: "maintenance", label: "صيانة وإصلاح" },
-                        { value: "water_supply", label: "توريد مياه" },
-                        { value: "other", label: "أخرى" }
-                      ].find(opt => opt.value === expense.category)?.label || expense.category || "أخرى",
+                      value: categoriesMap[expense.category] || expense.category || "أخرى",
                       icon: Filter,
                       emphasis: false,
-                      iconClassName: categoryIconColors[expense.category] || "text-blue-500"
+                      iconClassName: getCategoryIconColor(expense.category, categoryKeys)
                     } as any,
                     {
                       label: "التاريخ",

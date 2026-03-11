@@ -356,7 +356,7 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
     
     res.json({
       success: true,
-      data: data.map(item => item.value),
+      data: data.map(item => ({ value: item.value, label: item.value })),
       message: 'تم جلب فئات النقل بنجاح'
     });
   } catch (error: any) {

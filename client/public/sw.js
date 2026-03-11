@@ -78,8 +78,17 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          return caches.match('/')
-            .then((appShell) => appShell || caches.match('/offline.html'));
+          return caches.match('/').then((cachedRoot) => {
+            if (cachedRoot) {
+              return cachedRoot.clone().text().then((html) => {
+                if (html.includes('/@vite/client') || html.includes('/src/main.tsx')) {
+                  return caches.match('/offline.html');
+                }
+                return cachedRoot;
+              });
+            }
+            return caches.match('/offline.html');
+          });
         })
     );
     return;
@@ -90,7 +99,7 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request).catch(() => {
         return caches.match(event.request).then((cached) => {
           if (cached) return cached;
-          return new Response('/* offline */', { headers: { 'Content-Type': 'application/javascript' } });
+          return new Response('', { headers: { 'Content-Type': 'application/javascript' } });
         });
       })
     );

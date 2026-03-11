@@ -14,6 +14,19 @@ interface UnifiedExpense {
   notes: string;
 }
 
+interface DayTotals {
+  totalExpenses: number;
+  totalFund: number;
+}
+
+function computeDayTotals(report: DailyReportData): DayTotals {
+  const expenses = flattenExpenses(report);
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const fundTransfers = report.fundTransfers || [];
+  const totalFund = fundTransfers.reduce((s: number, r: any) => s + parseFloat(r.amount || '0'), 0);
+  return { totalExpenses, totalFund };
+}
+
 function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
   const expenses: UnifiedExpense[] = [];
   (report.attendance || []).forEach((r: any) => {
@@ -198,8 +211,9 @@ export function generateDailyRangeHTML(reports: DailyReportData[], dateFrom: str
     return exp.length > 0 || fund.length > 0 || wt.length > 0;
   });
 
-  const grandTotalExpenses = filteredReports.reduce((s, r) => s + (r.totals?.totalExpenses || 0), 0);
-  const grandTotalFund = filteredReports.reduce((s, r) => s + (r.totals?.totalFundTransfers || 0), 0);
+  const dayTotalsMap = filteredReports.map(r => computeDayTotals(r));
+  const grandTotalExpenses = dayTotalsMap.reduce((s, d) => s + d.totalExpenses, 0);
+  const grandTotalFund = dayTotalsMap.reduce((s, d) => s + d.totalFund, 0);
   const grandBalance = grandTotalFund - grandTotalExpenses;
   const balColor = grandBalance >= 0 ? PDF_COLORS.green : PDF_COLORS.red;
 
@@ -232,8 +246,9 @@ export function generateDailyRangeHTML(reports: DailyReportData[], dateFrom: str
     </tr></thead><tbody>`;
     let cf = 0;
     filteredReports.forEach((r, idx) => {
-      const exp = r.totals?.totalExpenses || 0;
-      const fund = r.totals?.totalFundTransfers || 0;
+      const dt = dayTotalsMap[idx];
+      const exp = dt.totalExpenses;
+      const fund = dt.totalFund;
       const income = cf + fund;
       const bal = income - exp;
       const balC = bal >= 0 ? PDF_COLORS.green : PDF_COLORS.red;
@@ -263,10 +278,9 @@ export function generateDailyRangeHTML(reports: DailyReportData[], dateFrom: str
   let carryForward = 0;
   for (let i = 0; i < filteredReports.length; i++) {
     const report = filteredReports[i];
-    const totalExpenses = report.totals?.totalExpenses || 0;
-    const totalFund = report.totals?.totalFundTransfers || 0;
-    const totalIncome = carryForward + totalFund;
-    const dayBalance = totalIncome - totalExpenses;
+    const dt = dayTotalsMap[i];
+    const totalIncome = carryForward + dt.totalFund;
+    const dayBalance = totalIncome - dt.totalExpenses;
 
     body += generateDayPage(report, carryForward, i, filteredReports.length);
 

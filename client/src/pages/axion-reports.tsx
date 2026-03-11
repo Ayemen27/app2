@@ -780,7 +780,16 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
               <RangeDayPage report={currentRangeReport} searchValue={searchValue} carryForward={
                 rangeReports.slice(0, rangePageIndex).reduce((cf, r) => {
                   const fund = (r.fundTransfers || []).reduce((s: number, f: any) => s + parseFloat(f.amount || '0'), 0);
-                  const exp = r.totals?.totalExpenses || 0;
+                  let exp = 0;
+                  (r.attendance || []).forEach((a: any) => {
+                    const days = parseFloat(a.workDays || '0');
+                    const dailyW = parseFloat(a.dailyWage || '0');
+                    const paid = parseFloat(a.paidAmount || '0');
+                    exp += paid > 0 ? paid : (dailyW * days);
+                  });
+                  (r.materials || []).forEach((m: any) => { exp += parseFloat(m.totalAmount || '0'); });
+                  (r.transport || []).forEach((t: any) => { exp += parseFloat(t.amount || '0'); });
+                  (r.miscExpenses || []).forEach((e: any) => { exp += parseFloat(e.amount || '0'); });
                   return cf + fund - exp;
                 }, 0)
               } />

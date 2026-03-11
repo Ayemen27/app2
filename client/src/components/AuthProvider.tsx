@@ -448,6 +448,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     setUser(userToSave);
 
+    if (getAuthMode() !== 'offline') {
+      try {
+        const { hashPasswordForOffline } = await import('../offline/crypto-utils');
+        const { smartPut } = await import('../offline/storage-factory');
+        const offlineHash = await hashPasswordForOffline(password);
+        await smartPut('emergencyUsers', {
+          id: String(userToSave.id),
+          email: userToSave.email,
+          passwordHash: offlineHash,
+          name: userToSave.name,
+          role: userToSave.role
+        });
+        console.log('✅ [AuthProvider] تم حفظ بيانات الدخول الأوفلاين بنجاح');
+      } catch (offlineHashErr) {
+        console.warn('⚠️ [AuthProvider] فشل حفظ بيانات الدخول الأوفلاين:', offlineHashErr);
+      }
+    }
+
     // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية وبحماية شاملة)
     const performInitialDataPull = async () => {
       try {
@@ -648,7 +666,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             return true;
           } else {
             // فشل HTTP أو بيانات غير صحيحة
-            console.log(`❌ [AuthProvider.refreshToken] فشل ${response.status}:`, data.message || responseText);
+            console.log(`❌ [AuthProvider.refreshToken] فشل ${response.status}:`, data.message || 'خطأ غير معروف');
           }
 
           // إذا كان 401 أو 403، فالـ refresh token منتهي الصلاحية

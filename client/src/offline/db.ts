@@ -169,25 +169,7 @@ export interface BinarJoinDB extends DBSchema {
 
 let dbInstance: IDBPDatabase<BinarJoinDB> | null = null;
 
-const ALL_STORES = [
-  'users', 'authUserSessions', 'emailVerificationTokens', 'passwordResetTokens',
-  'projectTypes', 'projects', 'workers', 'wells', 'fundTransfers',
-  'workerAttendance', 'suppliers', 'materials', 'materialPurchases',
-  'supplierPayments', 'transportationExpenses', 'workerTransfers',
-  'workerBalances', 'dailyExpenseSummaries', 'workerTypes', 'autocompleteData',
-  'workerMiscExpenses', 'printSettings', 'projectFundTransfers',
-  'securityPolicies', 'securityPolicyImplementations',
-  'securityPolicySuggestions', 'securityPolicyViolations',
-  'permissionAuditLogs', 'userProjectPermissions', 'materialCategories',
-  'wellTasks', 'wellExpenses', 'wellAuditLogs',
-  'wellTaskAccounts', 'notifications',
-  'notificationReadStates',
-  'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
-  'reportTemplates', 'backupLogs', 'backupSettings',
-  'equipment', 'equipmentMovements',
-  'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
-  'deadLetterQueue', 'localAuditLog'
-] as const;
+import { ALL_STORES } from './store-registry';
 
 export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   if (dbInstance) {

@@ -166,24 +166,21 @@ export async function performInitialDataPull(): Promise<boolean> {
       });
       await smartSave('users', data.users);
       
-      const { hashPasswordForOffline } = await import('./crypto-utils');
-      const emergencyData = await Promise.all(data.users.map(async (u: any) => {
-        let passwordHash = '';
-        if (u.password) {
-          try {
-            passwordHash = await hashPasswordForOffline(u.password);
-          } catch (e) {
-            console.warn(`[Sync] Failed to hash password for user ${u.id}`);
-          }
-        }
+      const existingEmergency = await smartGetAll('emergencyUsers');
+      const existingMap = new Map(existingEmergency.map((e: any) => [e.id, e]));
+      
+      const emergencyData = data.users.map((u: any) => {
+        const existing = existingMap.get(u.id.toString());
         return {
           id: u.id.toString(),
           email: u.email,
-          passwordHash,
+          passwordHash: (existing?.passwordHash && existing.passwordHash.startsWith('pbkdf2:')) 
+            ? existing.passwordHash 
+            : '',
           name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
           role: u.role || 'user'
         };
-      }));
+      });
       await smartSave('emergencyUsers', emergencyData);
     }
 
@@ -322,6 +319,7 @@ export async function syncOfflineData(): Promise<void> {
     updateSyncState({ isOnline: false });
     return;
   }
+  if (!isCurrentTabLeader()) return;
 
   isSyncing = true;
   updateSyncState({ isSyncing: true, isOnline: true });

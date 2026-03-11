@@ -94,8 +94,21 @@ export async function smartAdd(tableName: string, record: any): Promise<void> {
   if (isNative()) {
     await nativeStorage.set(tableName, id, record);
   } else {
-    const db = await getIDB();
-    await db.add(tableName as any, record);
+    try {
+      const db = await getIDB();
+      await db.add(tableName as any, record);
+    } catch (error: any) {
+      const { isQuotaExceededError, isCorruptionError, handleStorageError } = await import('./storage-recovery');
+      if (isQuotaExceededError(error) || isCorruptionError(error)) {
+        const recovered = await handleStorageError(error);
+        if (recovered) {
+          const db = await getIDB();
+          await db.add(tableName as any, record);
+          return;
+        }
+      }
+      throw error;
+    }
   }
 }
 
@@ -104,8 +117,16 @@ export async function smartDelete(tableName: string, id: string): Promise<void> 
   if (isNative()) {
     await nativeStorage.delete(tableName, id);
   } else {
-    const db = await getIDB();
-    await db.delete(tableName as any, id);
+    try {
+      const db = await getIDB();
+      await db.delete(tableName as any, id);
+    } catch (error: any) {
+      const { isCorruptionError, handleStorageError } = await import('./storage-recovery');
+      if (isCorruptionError(error)) {
+        await handleStorageError(error);
+      }
+      throw error;
+    }
   }
 }
 
@@ -117,7 +138,12 @@ export async function smartClear(tableName: string): Promise<void> {
     const db = await getIDB();
     try {
       await db.clear(tableName as any);
-    } catch (e) {
+    } catch (e: any) {
+      const { isCorruptionError, handleStorageError } = await import('./storage-recovery');
+      if (isCorruptionError(e)) {
+        await handleStorageError(e);
+        return;
+      }
       console.warn(`[smartClear] Failed to clear ${tableName}:`, e);
     }
   }

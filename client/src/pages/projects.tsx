@@ -9,7 +9,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserSelect, SearchableSelect, ProjectTypeSelect, type SelectOption } from "@/components/ui/searchable-select";
+import { UserSelect, SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,7 +45,7 @@ import {
   Power,
   Download
 } from "lucide-react";
-import type { Project, InsertProject, ProjectType } from "@shared/schema";
+import type { Project, InsertProject } from "@shared/schema";
 import { insertProjectSchema } from "@shared/schema";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
@@ -339,12 +339,12 @@ export default function ProjectsPage() {
   }, [usersResponse]);
 
   // جلب قائمة أنواع المشاريع
-  const { data: projectTypes = [], isLoading: typesLoading } = useQuery<ProjectType[]>({
+  const { data: projectTypeOptions = [], isLoading: typesLoading } = useQuery<{ value: string; label: string; id: number | null }[]>({
     queryKey: QUERY_KEYS.projectTypes,
     queryFn: async () => {
       try {
-        const response = await apiRequest("/api/project-types", "GET");
-        if (response?.success && Array.isArray(response.data)) {
+        const response = await apiRequest("/api/autocomplete/project-types", "GET");
+        if (response?.data && Array.isArray(response.data)) {
           return response.data;
         }
         return [];
@@ -354,6 +354,24 @@ export default function ProjectsPage() {
       }
     },
     staleTime: 60000,
+  });
+
+  const addProjectTypeMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return apiRequest("/api/autocomplete/project-types", "POST", { value });
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
+    },
+  });
+
+  const deleteProjectTypeMutation = useMutation({
+    mutationFn: async (label: string) => {
+      return apiRequest(`/api/autocomplete/project-types/${encodeURIComponent(label)}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
+    },
   });
 
   // Create project form
@@ -1010,12 +1028,27 @@ export default function ProjectsPage() {
                     <FormItem>
                       <FormLabel>نوع المشروع</FormLabel>
                       <FormControl>
-                        <ProjectTypeSelect
+                        <SearchableSelect
                           value={field.value?.toString() || ""}
                           onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
-                          projectTypes={projectTypes}
+                          options={[
+                            { value: '', label: 'بدون نوع' },
+                            ...projectTypeOptions
+                          ]}
                           placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
-                          disabled={typesLoading}
+                          searchPlaceholder="ابحث عن نوع..."
+                          emptyText="لا توجد أنواع"
+                          allowCustom
+                          onCustomAdd={async (value) => {
+                            const result = await addProjectTypeMutation.mutateAsync(value);
+                            if (result?.data?.id) {
+                              field.onChange(result.data.id);
+                            }
+                          }}
+                          onDeleteOption={(label) => {
+                            const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
+                            if (opt) deleteProjectTypeMutation.mutate(opt.label);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1122,12 +1155,27 @@ export default function ProjectsPage() {
                   <FormItem>
                     <FormLabel>نوع المشروع</FormLabel>
                     <FormControl>
-                      <ProjectTypeSelect
+                      <SearchableSelect
                         value={field.value?.toString() || ""}
                         onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
-                        projectTypes={projectTypes}
+                        options={[
+                          { value: '', label: 'بدون نوع' },
+                          ...projectTypeOptions
+                        ]}
                         placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
-                        disabled={typesLoading}
+                        searchPlaceholder="ابحث عن نوع..."
+                        emptyText="لا توجد أنواع"
+                        allowCustom
+                        onCustomAdd={async (value) => {
+                          const result = await addProjectTypeMutation.mutateAsync(value);
+                          if (result?.data?.id) {
+                            field.onChange(result.data.id);
+                          }
+                        }}
+                        onDeleteOption={(label) => {
+                          const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
+                          if (opt) deleteProjectTypeMutation.mutate(opt.label);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />

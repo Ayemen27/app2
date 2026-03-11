@@ -521,6 +521,184 @@ autocompleteRouter.delete('/worker-types/:value', requireAuth, async (req: Reque
   }
 });
 
+const DEFAULT_PROJECT_TYPES = [
+  'سكني', 'تجاري', 'صناعي', 'زراعي', 'حكومي', 'تعليمي', 'صحي', 'بنية تحتية', 'أخرى'
+];
+
+async function seedUserProjectTypes(userId: string) {
+  for (const typeName of DEFAULT_PROJECT_TYPES) {
+    try {
+      await db.insert(autocompleteData).values({
+        category: 'project-types',
+        value: typeName,
+        user_id: userId,
+        usageCount: 1,
+        lastUsed: new Date()
+      }).onConflictDoNothing();
+    } catch (_e) {}
+  }
+}
+
+/**
+ * GET /api/autocomplete/project-types - جلب أنواع المشاريع (معزول لكل مستخدم)
+ */
+autocompleteRouter.get('/project-types', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'غير مصرح' });
+    }
+
+    let data = await db
+      .select()
+      .from(autocompleteData)
+      .where(and(
+        eq(autocompleteData.category, 'project-types'),
+        eq(autocompleteData.user_id, userId)
+      ))
+      .orderBy(desc(autocompleteData.usageCount));
+
+    if (data.length === 0) {
+      await seedUserProjectTypes(userId);
+
+      try {
+        const { projectTypes: projectTypesTable } = await import('../../../shared/schema.js');
+        const globalTypes = await db.select({ name: projectTypesTable.name }).from(projectTypesTable);
+        for (const gt of globalTypes) {
+          if (gt.name && !DEFAULT_PROJECT_TYPES.includes(gt.name)) {
+            try {
+              await db.insert(autocompleteData).values({
+                category: 'project-types',
+                value: gt.name,
+                user_id: userId,
+                usageCount: 1,
+                lastUsed: new Date()
+              }).onConflictDoNothing();
+            } catch (_e) {}
+          }
+        }
+      } catch (_e) {}
+
+      data = await db
+        .select()
+        .from(autocompleteData)
+        .where(and(
+          eq(autocompleteData.category, 'project-types'),
+          eq(autocompleteData.user_id, userId)
+        ))
+        .orderBy(desc(autocompleteData.usageCount));
+    }
+
+    const { projectTypes: projectTypesTable } = await import('../../../shared/schema.js');
+    const allProjectTypes = await db.select().from(projectTypesTable);
+    const typeNameToId = new Map(allProjectTypes.map(t => [t.name, t.id]));
+
+    const result = data.map(item => {
+      const existingId = typeNameToId.get(item.value);
+      return {
+        value: existingId ? existingId.toString() : item.value,
+        label: item.value,
+        id: existingId || null
+      };
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'تم جلب أنواع المشاريع بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في جلب أنواع المشاريع'
+    });
+  }
+});
+
+/**
+ * POST /api/autocomplete/project-types - إضافة نوع مشروع جديد (معزول + إنشاء في project_types)
+ */
+autocompleteRouter.post('/project-types', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { value } = req.body;
+    if (!value || !value.trim()) {
+      return res.status(400).json({ success: false, message: 'القيمة مطلوبة' });
+    }
+
+    const trimmed = value.trim();
+
+    await db.insert(autocompleteData).values({
+      category: 'project-types',
+      value: trimmed,
+      user_id: userId,
+      usageCount: 1,
+      lastUsed: new Date()
+    }).onConflictDoNothing();
+
+    const { projectTypes: projectTypesTable } = await import('../../../shared/schema.js');
+    let projectType;
+    const existing = await db.select().from(projectTypesTable).where(eq(projectTypesTable.name, trimmed));
+    if (existing.length > 0) {
+      projectType = existing[0];
+    } else {
+      const inserted = await db.insert(projectTypesTable).values({
+        name: trimmed,
+        is_active: true
+      }).returning();
+      projectType = inserted[0];
+    }
+
+    res.json({
+      success: true,
+      data: {
+        value: projectType.id.toString(),
+        label: trimmed,
+        id: projectType.id
+      },
+      message: 'تم إضافة نوع المشروع بنجاح'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في إضافة نوع المشروع'
+    });
+  }
+});
+
+/**
+ * DELETE /api/autocomplete/project-types/:value - حذف نوع مشروع (معزول لكل مستخدم)
+ */
+autocompleteRouter.delete('/project-types/:value', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const typeValue = decodeURIComponent(req.params.value);
+    const userId = (req as any).user?.id;
+
+    const deleted = await db
+      .delete(autocompleteData)
+      .where(and(
+        eq(autocompleteData.category, 'project-types'),
+        eq(autocompleteData.value, typeValue),
+        eq(autocompleteData.user_id, userId)
+      ))
+      .returning();
+
+    if (deleted.length === 0) {
+      return res.status(404).json({ success: false, message: 'النوع غير موجود' });
+    }
+
+    res.json({ success: true, message: 'تم حذف نوع المشروع بنجاح' });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في حذف نوع المشروع'
+    });
+  }
+});
+
 const DEFAULT_TRANSPORT_CATEGORIES = [
   'نقل عمال', 'توريد مواد', 'نقل خرسانة', 'نقل حديد ومنصات',
   'بترول شاص', 'بترول هيلكس', 'تحميل وتنزيل', 'صيانة وإصلاح',

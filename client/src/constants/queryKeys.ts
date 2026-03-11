@@ -1,7 +1,7 @@
 export const QUERY_KEYS = {
   projects: ["/api/projects"] as const,
   projectsWithStats: ["/api/projects/with-stats"] as const,
-  projectTypes: ["/api/project-types"] as const,
+  projectTypes: ["/api/autocomplete/project-types"] as const,
   materials: ["/api/materials"] as const,
   suppliers: ["/api/suppliers"] as const,
   workers: ["/api/workers"] as const,

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchableSelect, ProjectTypeSelect, type SelectOption } from "@/components/ui/searchable-select";
+import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,6 @@ import type {
   Project, 
   DailyExpenseSummary, 
   Worker, 
-  ProjectType
 } from "@shared/schema";
 import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -151,12 +150,12 @@ export default function Dashboard() {
   });
 
   // جلب قائمة أنواع المشاريع
-  const { data: projectTypes = [], isLoading: typesLoading } = useQuery<ProjectType[]>({
+  const { data: projectTypeOptions = [], isLoading: typesLoading } = useQuery<{ value: string; label: string; id: number | null }[]>({
     queryKey: QUERY_KEYS.projectTypes,
     queryFn: async () => {
       try {
-        const response = await apiRequest("/api/project-types", "GET");
-        if (response?.success && Array.isArray(response.data)) {
+        const response = await apiRequest("/api/autocomplete/project-types", "GET");
+        if (response?.data && Array.isArray(response.data)) {
           return response.data;
         }
         return [];
@@ -733,12 +732,31 @@ export default function Dashboard() {
             </div>
             <div className="form-field">
               <Label htmlFor="project-type">نوع المشروع</Label>
-              <ProjectTypeSelect
+              <SearchableSelect
                 value={projectData.project_type_id?.toString() || ""}
                 onValueChange={(val) => setProjectData({...projectData, project_type_id: val ? parseInt(val) : null})}
-                projectTypes={projectTypes}
+                options={[
+                  { value: '', label: 'بدون نوع' },
+                  ...projectTypeOptions
+                ]}
                 placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
-                disabled={typesLoading}
+                searchPlaceholder="ابحث عن نوع..."
+                emptyText="لا توجد أنواع"
+                allowCustom
+                onCustomAdd={async (value) => {
+                  const result = await apiRequest("/api/autocomplete/project-types", "POST", { value });
+                  if (result?.data?.id) {
+                    setProjectData({...projectData, project_type_id: result.data.id});
+                  }
+                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
+                }}
+                onDeleteOption={async (label) => {
+                  const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
+                  if (opt) {
+                    await apiRequest(`/api/autocomplete/project-types/${encodeURIComponent(opt.label)}`, "DELETE");
+                    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
+                  }
+                }}
               />
             </div>
             <div className="form-field">

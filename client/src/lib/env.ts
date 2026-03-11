@@ -21,7 +21,7 @@ export const ENV = {
     if (typeof window === 'undefined') return process.env.VITE_API_BASE_URL || '';
     
     if (detectIsNativePlatform()) {
-      return import.meta.env.VITE_API_BASE_URL || PRODUCTION_API;
+      return PRODUCTION_API;
     }
 
     const hostname = window.location.hostname;

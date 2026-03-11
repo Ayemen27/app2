@@ -85,14 +85,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (origin.includes('replit.dev')) {
         return `${origin}/api`;
       }
-      // دعم تطبيقات الـ APK والمنصات الأصلية
-      if (origin.startsWith('http://localhost') || origin.startsWith('file://') || origin === 'null') {
-        return import.meta.env.VITE_API_BASE_URL || 'https://app2.binarjoinanelytic.info/api';
+      if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost') || origin.startsWith('capacitor://') || origin.startsWith('file://') || origin === 'null') {
+        return 'https://app2.binarjoinanelytic.info/api';
       }
     }
-    // القيمة الافتراضية (Fallback) للـ APK هي الدومين الرسمي للمشروع
-    const fallbackDomain = import.meta.env.VITE_API_BASE_URL || 'https://app2.binarjoinanelytic.info/api';
-    return fallbackDomain.endsWith('/api') ? fallbackDomain : `${fallbackDomain}/api`;
+    return 'https://app2.binarjoinanelytic.info/api';
   };
 
   const API_BASE_URL = getApiBaseUrl();

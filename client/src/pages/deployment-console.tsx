@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { ENV } from "@/lib/env";
 
 interface LogEntry {
   timestamp: string;
@@ -203,7 +204,10 @@ export default function DeploymentConsole() {
       eventSourceRef.current.close();
     }
 
-    const es = new EventSource(`/api/deployment/${deploymentId}/stream`);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+    const apiBase = ENV.getApiBaseUrl();
+    const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream${tokenParam}`);
     eventSourceRef.current = es;
 
     es.onmessage = (event) => {

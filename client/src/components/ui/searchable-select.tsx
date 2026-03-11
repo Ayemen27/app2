@@ -146,8 +146,9 @@ export function SearchableSelect({
             </div>
           )}
           <div 
-            className="w-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
-            style={{ maxHeight: `${maxHeight}px` }}
+            className="w-full overflow-y-auto overscroll-contain"
+            style={{ maxHeight: `${maxHeight}px`, WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+            onTouchMove={(e) => e.stopPropagation()}
           >
             <div className="p-1 min-w-[var(--radix-popover-trigger-width)]">
               {filteredOptions.length === 0 ? (

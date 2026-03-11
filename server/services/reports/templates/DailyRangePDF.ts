@@ -1,33 +1,43 @@
 import type { DailyReportData } from '../../../../shared/report-types';
 import {
   escapeHtml, formatNum, formatDateBR, PDF_COLORS,
-  pdfHeader, pdfInfoBar, pdfSectionTitle,
+  pdfHeader, pdfInfoBar, pdfKpiStrip, pdfSectionTitle,
   pdfTotalRow, pdfGrandTotalRow, pdfFooter, pdfWrap,
-  PDF_BASE_STYLES,
 } from './shared-styles';
 
 interface UnifiedExpense {
   category: string;
   description: string;
   amount: number;
+  workDays: string;
+  paidAmount: string;
   notes: string;
 }
 
 function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
   const expenses: UnifiedExpense[] = [];
   (report.attendance || []).forEach((r: any) => {
+    const days = parseFloat(r.workDays || '0');
+    const dailyW = parseFloat(r.dailyWage || '0');
+    const calculatedWage = dailyW * days;
+    const paid = parseFloat(r.paidAmount || '0');
+    const actualAmount = paid > 0 ? paid : calculatedWage;
     expenses.push({
       category: 'أجور عمال',
       description: r.workerName + (r.workerType ? ` (${r.workerType})` : ''),
-      amount: r.totalWage || 0,
-      notes: r.workDescription || '-',
+      amount: actualAmount,
+      workDays: days > 0 ? days.toFixed(1) : '0',
+      paidAmount: paid > 0 ? formatNum(paid) : '-',
+      notes: r.workDescription || (days === 0 && paid > 0 ? 'مبلغ بدون عمل' : days === 0 ? 'بدون عمل' : '-'),
     });
   });
   (report.materials || []).forEach((r: any) => {
     expenses.push({
       category: 'مواد',
       description: r.materialName + (r.quantity ? ` × ${r.quantity}` : ''),
-      amount: r.totalAmount || 0,
+      amount: parseFloat(r.totalAmount || '0'),
+      workDays: '-',
+      paidAmount: '-',
       notes: r.supplierName || '-',
     });
   });
@@ -35,7 +45,9 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
     expenses.push({
       category: 'نقل',
       description: r.description || 'نقل',
-      amount: r.amount || 0,
+      amount: parseFloat(r.amount || '0'),
+      workDays: '-',
+      paidAmount: '-',
       notes: r.workerName || '-',
     });
   });
@@ -43,163 +55,233 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
     expenses.push({
       category: 'مصاريف متنوعة',
       description: r.description || '-',
-      amount: r.amount || 0,
+      amount: parseFloat(r.amount || '0'),
+      workDays: '-',
+      paidAmount: '-',
       notes: r.notes || '-',
     });
   });
   return expenses;
 }
 
-function generateSingleDayHTML(report: DailyReportData): string {
+function generateDayPage(report: DailyReportData, carryForward: number, dayIndex: number, totalDays: number): string {
   const expenses = flattenExpenses(report);
   const fundTransfers = report.fundTransfers || [];
   const workerTransfers = report.workerTransfers || [];
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const totalFund = fundTransfers.reduce((s: number, r: any) => s + (r.amount || 0), 0);
+  const totalIncome = carryForward + totalFund;
+  const dayBalance = totalIncome - totalExpenses;
   const dateLabel = formatDateBR(report.date);
+  const balColor = dayBalance >= 0 ? PDF_COLORS.green : PDF_COLORS.red;
 
-  let body = '';
+  let html = '';
 
-  body += `<div class="day-header" style="background:linear-gradient(135deg, ${PDF_COLORS.navy} 0%, ${PDF_COLORS.blue} 100%); color:#fff; text-align:center; padding:8px 12px; border-radius:6px 6px 0 0; margin-top:12px;">
-    <h2 style="font-size:13px; font-weight:800; margin:0;">تقرير يوم ${dateLabel}</h2>
-    <div style="font-size:10px; opacity:0.85;">${escapeHtml(report.project?.name || '')}</div>
-  </div>`;
+  html += pdfHeader(
+    'الفتيني للمقاولات العامة والاستشارات الهندسية',
+    `التقرير اليومي المختصر — يوم ${dayIndex + 1} من ${totalDays}`
+  );
 
-  body += `<div class="info-bar" style="margin-bottom:6px;">
-    <div><b>المشروع:</b> ${escapeHtml(report.project?.name || '-')}</div>
-    <div><b>التاريخ:</b> ${dateLabel}</div>
-  </div>`;
+  html += pdfInfoBar(
+    [
+      `<b>المشروع:</b> ${escapeHtml(report.project?.name || '-')}`,
+      (report.project as any)?.engineerName ? `<b>المهندس:</b> ${escapeHtml((report.project as any).engineerName)}` : '',
+    ].filter(Boolean),
+    [
+      `<b>التاريخ:</b> ${dateLabel}`,
+      (report.project as any)?.managerName ? `<b>المدير:</b> ${escapeHtml((report.project as any).managerName)}` : '',
+    ].filter(Boolean)
+  );
+
+  const kpis: { label: string; value: string; color?: string }[] = [
+    { label: 'ترحيل سابق', value: `${formatNum(carryForward)} YER`, color: carryForward >= 0 ? PDF_COLORS.green : PDF_COLORS.red },
+    { label: 'العهدة الواردة', value: `${formatNum(totalFund)} YER`, color: PDF_COLORS.green },
+    { label: 'إجمالي المتاح', value: `${formatNum(totalIncome)} YER`, color: PDF_COLORS.navy },
+    { label: 'المصروفات', value: `${formatNum(totalExpenses)} YER`, color: PDF_COLORS.red },
+    { label: 'المتبقي', value: `${formatNum(dayBalance)} YER`, color: balColor },
+    { label: 'عدد العمال', value: `${report.totals?.workerCount || 0}` },
+  ];
+  html += pdfKpiStrip(kpis);
 
   if (expenses.length > 0) {
-    body += pdfSectionTitle('جدول المصروفات');
-    body += `<table><thead><tr>
-      <th style="width:30px;">#</th>
-      <th style="width:80px;">القسم</th>
+    html += pdfSectionTitle('جدول المصروفات');
+    html += `<table><thead><tr>
+      <th style="width:24px;">م</th>
+      <th style="width:65px;">القسم</th>
       <th>البيان</th>
-      <th style="width:80px;">المبلغ</th>
+      <th style="width:50px;">أيام العمل</th>
+      <th style="width:65px;">المدفوع</th>
+      <th style="width:70px;">المبلغ (YER)</th>
       <th>ملاحظات</th>
+      <th style="width:40px;">النسبة</th>
     </tr></thead><tbody>`;
     expenses.forEach((e, idx) => {
-      body += `<tr>
+      const pct = totalExpenses > 0 ? ((e.amount / totalExpenses) * 100).toFixed(1) : '0.0';
+      html += `<tr>
         <td>${idx + 1}</td>
         <td>${escapeHtml(e.category)}</td>
         <td style="text-align:right;">${escapeHtml(e.description)}</td>
+        <td>${e.workDays}</td>
+        <td>${escapeHtml(e.paidAmount)}</td>
         <td style="font-weight:700;">${formatNum(e.amount)}</td>
         <td style="text-align:right;font-size:8px;">${escapeHtml(e.notes)}</td>
+        <td>${pct}%</td>
       </tr>`;
     });
-    body += pdfTotalRow(['إجمالي المصروفات', formatNum(totalExpenses)], 3);
-    body += `</tbody></table>`;
+    html += pdfTotalRow([`الإجمالي (${expenses.length} عملية)`, '', '', '', formatNum(totalExpenses), '', '100%'], 2);
+    html += `</tbody></table>`;
   }
 
   if (fundTransfers.length > 0) {
-    body += `<div class="section-title" style="background:${PDF_COLORS.green};">العهدة (الوارد للصندوق)</div>`;
-    body += `<table><thead><tr>
-      <th style="width:30px;">#</th>
-      <th style="width:80px;">المبلغ</th>
+    html += `<div class="section-title" style="background:${PDF_COLORS.green};">العهدة (الوارد للصندوق)</div>`;
+    html += `<table><thead><tr>
+      <th style="width:28px;">م</th>
+      <th style="width:80px;">المبلغ (YER)</th>
       <th>المرسل</th>
-      <th style="width:80px;">نوع التحويل</th>
-      <th>رقم التحويل</th>
+      <th style="width:75px;">نوع التحويل</th>
+      <th style="width:90px;">رقم التحويل</th>
     </tr></thead><tbody>`;
     fundTransfers.forEach((r: any, idx: number) => {
-      body += `<tr>
+      html += `<tr>
         <td>${idx + 1}</td>
-        <td style="font-weight:700; color:${PDF_COLORS.green};">${formatNum(r.amount)}</td>
+        <td class="debit-cell">${formatNum(r.amount)}</td>
         <td style="text-align:right;">${escapeHtml(r.senderName || '-')}</td>
         <td>${escapeHtml(r.transferType || '-')}</td>
         <td>${escapeHtml(r.transferNumber || '-')}</td>
       </tr>`;
     });
-    body += pdfTotalRow(['الإجمالي', formatNum(totalFund)], 3);
-    body += `</tbody></table>`;
+    html += pdfTotalRow(['الإجمالي', formatNum(totalFund), '', '', ''], 1);
+    html += `</tbody></table>`;
   }
 
   if (workerTransfers.length > 0) {
-    body += pdfSectionTitle('حوالات العمال');
+    html += pdfSectionTitle('حوالات العمال');
     const totalWT = workerTransfers.reduce((s: number, r: any) => s + (r.amount || 0), 0);
-    body += `<table><thead><tr>
-      <th style="width:30px;">#</th>
-      <th style="width:80px;">المبلغ</th>
+    html += `<table><thead><tr>
+      <th style="width:28px;">م</th>
+      <th style="width:80px;">المبلغ (YER)</th>
       <th>اسم العامل</th>
-      <th>نوع التحويل</th>
+      <th>المستلم</th>
+      <th style="width:75px;">الطريقة</th>
     </tr></thead><tbody>`;
     workerTransfers.forEach((r: any, idx: number) => {
-      body += `<tr>
+      html += `<tr>
         <td>${idx + 1}</td>
         <td style="font-weight:700;">${formatNum(r.amount)}</td>
         <td style="text-align:right;">${escapeHtml(r.workerName || '-')}</td>
-        <td>${escapeHtml(r.transferType || '-')}</td>
+        <td style="text-align:right;">${escapeHtml(r.recipientName || '-')}</td>
+        <td>${escapeHtml(r.transferMethod || '-')}</td>
       </tr>`;
     });
-    body += pdfTotalRow(['الإجمالي', formatNum(totalWT)], 2);
-    body += `</tbody></table>`;
+    html += pdfTotalRow(['الإجمالي', formatNum(totalWT), '', '', ''], 1);
+    html += `</tbody></table>`;
   }
 
-  body += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
-    <div style="flex:1; min-width:80px; text-align:center; padding:5px; border-radius:4px; background:#EFF6FF; border:1px solid #BFDBFE;">
-      <div style="font-size:8px; color:${PDF_COLORS.textMuted};">عدد العمال</div>
-      <div style="font-size:11px; font-weight:800; color:#1D4ED8;">${report.totals?.workerCount || 0}</div>
-    </div>
-    <div style="flex:1; min-width:80px; text-align:center; padding:5px; border-radius:4px; background:#FFF7ED; border:1px solid #FED7AA;">
-      <div style="font-size:8px; color:${PDF_COLORS.textMuted};">المواد</div>
-      <div style="font-size:11px; font-weight:800; color:#C2410C;">${formatNum(report.totals?.totalMaterials || 0)}</div>
-    </div>
-    <div style="flex:1; min-width:80px; text-align:center; padding:5px; border-radius:4px; background:#F5F3FF; border:1px solid #C4B5FD;">
-      <div style="font-size:8px; color:${PDF_COLORS.textMuted};">الأجور</div>
-      <div style="font-size:11px; font-weight:800; color:#7C3AED;">${formatNum(report.totals?.totalWorkerWages || 0)}</div>
-    </div>
-    <div style="flex:1; min-width:80px; text-align:center; padding:5px; border-radius:4px; background:#FEF2F2; border:1px solid #FECACA;">
-      <div style="font-size:8px; color:${PDF_COLORS.textMuted};">إجمالي المصروفات</div>
-      <div style="font-size:11px; font-weight:800; color:#DC2626;">${formatNum(report.totals?.totalExpenses || 0)}</div>
-    </div>
-  </div>`;
+  html += pdfSectionTitle('ملخص اليوم المالي');
+  html += `<table class="summary-table" style="width:100%;">
+    <tr><td class="label-cell">ترحيل من اليوم السابق</td><td class="value-cell">${formatNum(carryForward)} YER</td></tr>
+    <tr><td class="label-cell">العهدة الواردة (الدخل)</td><td class="value-cell" style="color:${PDF_COLORS.green};">${formatNum(totalFund)} YER</td></tr>
+    ${pdfTotalRow(['إجمالي المتاح (ترحيل + دخل)', `${formatNum(totalIncome)} YER`])}
+    <tr><td class="label-cell">إجمالي المصروفات</td><td class="value-cell" style="color:${PDF_COLORS.red};">${formatNum(totalExpenses)} YER</td></tr>
+    ${pdfGrandTotalRow(['المتبقي (يُرحّل لليوم التالي)', `${formatNum(dayBalance)} YER`])}
+  </table>`;
 
-  return body;
+  return html;
 }
 
 export function generateDailyRangeHTML(reports: DailyReportData[], dateFrom: string, dateTo: string): string {
   const projectName = reports[0]?.project?.name || '-';
+  const filteredReports = reports.filter(r => {
+    const exp = flattenExpenses(r);
+    const fund = r.fundTransfers || [];
+    const wt = r.workerTransfers || [];
+    return exp.length > 0 || fund.length > 0 || wt.length > 0;
+  });
+
+  const grandTotalExpenses = filteredReports.reduce((s, r) => s + (r.totals?.totalExpenses || 0), 0);
+  const grandTotalFund = filteredReports.reduce((s, r) => s + (r.totals?.totalFundTransfers || 0), 0);
+  const grandBalance = grandTotalFund - grandTotalExpenses;
+  const balColor = grandBalance >= 0 ? PDF_COLORS.green : PDF_COLORS.red;
 
   let body = pdfHeader(
     'الفتيني للمقاولات العامة والاستشارات الهندسية',
-    `تقرير الفترة الزمنية - ${escapeHtml(projectName)}`
+    `تقرير الفترة الزمنية — ${escapeHtml(projectName)}`
   );
 
   body += pdfInfoBar(
-    [`<b>المشروع:</b> ${escapeHtml(projectName)}`, `<b>عدد الأيام:</b> ${reports.length} يوم`],
+    [`<b>المشروع:</b> ${escapeHtml(projectName)}`, `<b>عدد الأيام:</b> ${filteredReports.length} يوم`],
     [`<b>من:</b> ${formatDateBR(dateFrom)}`, `<b>إلى:</b> ${formatDateBR(dateTo)}`]
   );
 
-  const grandTotalExpenses = reports.reduce((s, r) => s + (r.totals?.totalExpenses || 0), 0);
-  const grandTotalFund = reports.reduce((s, r) => s + (r.totals?.totalFundTransfers || 0), 0);
+  body += pdfKpiStrip([
+    { label: 'إجمالي العهدة الواردة', value: `${formatNum(grandTotalFund)} YER`, color: PDF_COLORS.green },
+    { label: 'إجمالي المصروفات', value: `${formatNum(grandTotalExpenses)} YER`, color: PDF_COLORS.red },
+    { label: 'المتبقي النهائي', value: `${formatNum(grandBalance)} YER`, color: balColor },
+    { label: 'عدد الأيام', value: `${filteredReports.length}` },
+  ]);
 
-  body += `<div style="display:flex; gap:6px; margin:8px 0;">
-    <div style="flex:1; text-align:center; padding:6px; border-radius:6px; background:${PDF_COLORS.navy}; color:#fff;">
-      <div style="font-size:8px; opacity:0.8;">إجمالي مصروفات الفترة</div>
-      <div style="font-size:13px; font-weight:800;">${formatNum(grandTotalExpenses)} YER</div>
-    </div>
-    <div style="flex:1; text-align:center; padding:6px; border-radius:6px; background:${PDF_COLORS.green}; color:#fff;">
-      <div style="font-size:8px; opacity:0.8;">إجمالي العهدة الواردة</div>
-      <div style="font-size:13px; font-weight:800;">${formatNum(grandTotalFund)} YER</div>
-    </div>
-    <div style="flex:1; text-align:center; padding:6px; border-radius:6px; background:#7C3AED; color:#fff;">
-      <div style="font-size:8px; opacity:0.8;">عدد الأيام</div>
-      <div style="font-size:13px; font-weight:800;">${reports.length}</div>
-    </div>
-  </div>`;
+  if (filteredReports.length > 0) {
+    body += pdfSectionTitle('فهرس الأيام');
+    body += `<table><thead><tr>
+      <th style="width:28px;">م</th>
+      <th style="width:85px;">التاريخ</th>
+      <th style="width:80px;">ترحيل سابق</th>
+      <th style="width:80px;">العهدة</th>
+      <th style="width:80px;">المصروفات</th>
+      <th style="width:80px;">المتبقي</th>
+    </tr></thead><tbody>`;
+    let cf = 0;
+    filteredReports.forEach((r, idx) => {
+      const exp = r.totals?.totalExpenses || 0;
+      const fund = r.totals?.totalFundTransfers || 0;
+      const income = cf + fund;
+      const bal = income - exp;
+      const balC = bal >= 0 ? PDF_COLORS.green : PDF_COLORS.red;
+      body += `<tr>
+        <td>${idx + 1}</td>
+        <td>${formatDateBR(r.date)}</td>
+        <td>${formatNum(cf)}</td>
+        <td class="debit-cell">${formatNum(fund)}</td>
+        <td class="credit-cell">${formatNum(exp)}</td>
+        <td style="font-weight:800;color:${balC};">${formatNum(bal)}</td>
+      </tr>`;
+      cf = bal;
+    });
+    body += pdfTotalRow([
+      'الإجمالي',
+      '',
+      '',
+      formatNum(grandTotalFund),
+      formatNum(grandTotalExpenses),
+      formatNum(grandBalance),
+    ], 1);
+    body += `</tbody></table>`;
+  }
 
-  for (let i = 0; i < reports.length; i++) {
-    body += generateSingleDayHTML(reports[i]);
-    if (i < reports.length - 1) {
+  body += '<div style="page-break-after: always;"></div>';
+
+  let carryForward = 0;
+  for (let i = 0; i < filteredReports.length; i++) {
+    const report = filteredReports[i];
+    const totalExpenses = report.totals?.totalExpenses || 0;
+    const totalFund = report.totals?.totalFundTransfers || 0;
+    const totalIncome = carryForward + totalFund;
+    const dayBalance = totalIncome - totalExpenses;
+
+    body += generateDayPage(report, carryForward, i, filteredReports.length);
+
+    carryForward = dayBalance;
+
+    if (i < filteredReports.length - 1) {
       body += '<div style="page-break-after: always;"></div>';
     }
   }
 
-  if (reports.length === 0) {
-    body += '<h2 style="text-align:center;padding:40px;">لا توجد بيانات في هذه الفترة</h2>';
+  if (filteredReports.length === 0) {
+    body += '<h2 style="text-align:center;padding:40px;color:#6C757D;">لا توجد بيانات في هذه الفترة</h2>';
   }
 
   body += pdfFooter(new Date().toISOString());
 
-  return pdfWrap(`تقرير الفترة - ${escapeHtml(projectName)} - ${formatDateBR(dateFrom)} إلى ${formatDateBR(dateTo)}`, body);
+  return pdfWrap(`تقرير الفترة — ${escapeHtml(projectName)} — ${formatDateBR(dateFrom)} إلى ${formatDateBR(dateTo)}`, body);
 }

@@ -1,13 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
-import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,6 +18,8 @@ import { useEffect } from "react";
 
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import AddWorkerForm from "@/components/forms/add-worker-form";
+import AddProjectForm from "@/components/forms/add-project-form";
 import type { 
   Project, 
   DailyExpenseSummary, 
@@ -57,23 +54,6 @@ export default function Dashboard() {
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
 
-  const [workerData, setWorkerData] = useState({
-    name: '',
-    phone: '',
-    type: '',
-    dailyWage: ''
-  });
-
-
-  const [projectData, setProjectData] = useState({
-    name: '',
-    status: 'active',
-    description: '',
-    project_type_id: null as number | null
-  });
-
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const {
     searchValue,
@@ -133,97 +113,6 @@ export default function Dashboard() {
     ...queryOptions
   });
 
-  const { data: workerTypeOptions = [] } = useQuery<{ value: string; label: string }[]>({
-    queryKey: QUERY_KEYS.workerTypes,
-    queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/autocomplete/worker-types", "GET");
-        if (response?.data && Array.isArray(response.data)) {
-          return response.data;
-        }
-        return [];
-      } catch (error) {
-        console.error("Error fetching worker types:", error);
-        return [];
-      }
-    },
-  });
-
-  // جلب قائمة أنواع المشاريع
-  const { data: projectTypeOptions = [], isLoading: typesLoading } = useQuery<{ value: string; label: string; id: number | null }[]>({
-    queryKey: QUERY_KEYS.projectTypes,
-    queryFn: async () => {
-      try {
-        const response = await apiRequest("/api/autocomplete/project-types", "GET");
-        if (response?.data && Array.isArray(response.data)) {
-          return response.data;
-        }
-        return [];
-      } catch (error) {
-        console.error('❌ [Dashboard] خطأ في جلب أنواع المشاريع:', error);
-        return [];
-      }
-    },
-    staleTime: 60000,
-  });
-
-  const addWorkerMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await Promise.all([
-        saveAutocompleteValue('workerNames', data.name),
-        saveAutocompleteValue('workerTypes', data.type)
-      ]);
-
-      return apiRequest("/api/workers", "POST", data);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
-      toast({
-        title: "نجح الحفظ",
-        description: "تم إضافة العامل بنجاح",
-      });
-      setShowWorkerModal(false);
-      setWorkerData({ name: '', phone: '', type: '', dailyWage: '' });
-    },
-    onError: (error) => {
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء إضافة العامل",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const addProjectMutation = useMutation({
-    mutationFn: async (data: any) => {
-      await Promise.all([
-        saveAutocompleteValue('projectNames', data.name),
-        saveAutocompleteValue('projectDescriptions', data.description)
-      ]);
-
-      return apiRequest("/api/projects", "POST", data);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectsWithStats });
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
-      toast({
-        title: "نجح الحفظ",
-        description: "تم إضافة المشروع بنجاح",
-      });
-      setShowProjectModal(false);
-      setProjectData({ name: '', status: 'active', description: '', project_type_id: null });
-    },
-    onError: (error) => {
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء إضافة المشروع",
-        variant: "destructive",
-      });
-    },
-  });
 
 
   const { data: todaySummary } = useQuery<DailyExpenseSummary>({
@@ -331,15 +220,6 @@ export default function Dashboard() {
     }).format(amount) + ' ر.ي';
   };
 
-  // وظيفة للحصول على قيم الإكمال التلقائي
-  const saveAutocompleteValue = useCallback(async (category: string, value: string) => {
-    if (!value || value.trim().length < 2) return;
-    try {
-      await apiRequest("/api/autocomplete", "POST", { category, value: value.trim() });
-    } catch (error) {
-      console.warn(`[Dashboard] Failed to save autocomplete: ${category}`, error);
-    }
-  }, []);
 
   // الإحصائيات الحالية - من ExpenseLedgerService فقط (مصدر موحد للحقيقة)
   const currentStats = useMemo(() => {
@@ -605,203 +485,26 @@ export default function Dashboard() {
               أدخل بيانات العامل الجديد لإضافته إلى النظام
             </DialogDescription>
           </DialogHeader>
-          <div className="form-grid">
-            <div className="form-field form-field-full">
-              <Label htmlFor="worker-name">اسم العامل</Label>
-              <Input
-                id="worker-name"
-                value={workerData.name}
-                onChange={(e) => setWorkerData({...workerData, name: e.target.value})}
-                placeholder="أدخل اسم العامل"
-              />
-            </div>
-            <div className="form-field">
-              <Label htmlFor="worker-phone">رقم الهاتف</Label>
-              <Input
-                id="worker-phone"
-                value={workerData.phone}
-                onChange={(e) => setWorkerData({...workerData, phone: e.target.value})}
-                placeholder="أدخل رقم الهاتف"
-              />
-            </div>
-            <div className="form-field">
-              <Label htmlFor="worker-wage">الأجر اليومي (ر.ي)</Label>
-              <Input
-                id="worker-wage"
-                type="number"
-                inputMode="decimal"
-                value={workerData.dailyWage}
-                onChange={(e) => setWorkerData({...workerData, dailyWage: e.target.value})}
-                placeholder="0"
-                className="text-center"
-                required
-              />
-            </div>
-            <div className="form-field form-field-full">
-              <Label htmlFor="worker-type">نوع العامل</Label>
-              <SearchableSelect
-                value={workerData.type || ""}
-                onValueChange={(value) => setWorkerData({...workerData, type: value})}
-                options={workerTypeOptions}
-                placeholder="اختر نوع العامل..."
-                searchPlaceholder="ابحث عن نوع..."
-                emptyText="لا توجد أنواع"
-                className="flex-1"
-                allowCustom
-                onCustomAdd={async (value) => {
-                  await apiRequest("/api/autocomplete", "POST", { category: 'worker-types', value });
-                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
-                }}
-                onDeleteOption={async (value) => {
-                  await apiRequest(`/api/autocomplete/worker-types/${encodeURIComponent(value)}`, "DELETE");
-                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerTypes });
-                }}
-              />
-            </div>
-            <div className="form-actions">
-              <Button
-                onClick={() => {
-                  if (!workerData.name.trim() || !workerData.type || !workerData.dailyWage) {
-                    toast({
-                      title: "خطأ",
-                      description: "يرجى ملء جميع البيانات المطلوبة",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  const parsedWage = parseFloat(workerData.dailyWage);
-                  if (isNaN(parsedWage) || parsedWage <= 0) {
-                    toast({
-                      title: "خطأ",
-                      description: "يرجى إدخال مبلغ صحيح للأجر اليومي",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  addWorkerMutation.mutate({
-                    name: workerData.name.trim(),
-                    phone: workerData.phone || null,
-                    type: workerData.type,
-                    dailyWage: parsedWage.toString(),
-                    is_active: true,
-                    ...(selectedProjectId && selectedProjectId !== 'all' ? { project_id: selectedProjectId } : {}),
-                  });
-                }}
-                disabled={addWorkerMutation.isPending}
-                className="gap-2"
-              >
-                {addWorkerMutation.isPending ? "⏳ جاري الحفظ..." : "✅ حفظ"}
-              </Button>
-              <Button variant="outline" onClick={() => setShowWorkerModal(false)}>
-                إلغاء
-              </Button>
-            </div>
-
-            {/* Button to add new worker type - moved outside of form */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddTypeDialog(true)}
-              className="w-full gap-2 mt-2"
-            >
-              <Plus className="h-4 w-4" />
-              إضافة نوع عامل جديد
-            </Button>
-          </div>
+          <AddWorkerForm
+            projectId={selectedProjectId && selectedProjectId !== 'all' ? selectedProjectId : undefined}
+            onSuccess={() => setShowWorkerModal(false)}
+            onCancel={() => setShowWorkerModal(false)}
+          />
         </DialogContent>
       </Dialog>
 
       <Dialog open={showProjectModal} onOpenChange={setShowProjectModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>إضافة مشروع جديد</DialogTitle>
+            <DialogTitle>إنشاء مشروع جديد</DialogTitle>
             <DialogDescription>
-              أدخل بيانات المشروع الجديد لإضافته إلى النظام
+              أدخل بيانات المشروع الجديد
             </DialogDescription>
           </DialogHeader>
-          <div className="form-grid">
-            <div className="form-field form-field-full">
-              <Label htmlFor="project-name">اسم المشروع</Label>
-              <Input
-                id="project-name"
-                value={projectData.name}
-                onChange={(e) => setProjectData({...projectData, name: e.target.value})}
-                placeholder="أدخل اسم المشروع"
-              />
-            </div>
-            <div className="form-field">
-              <Label htmlFor="project-type">نوع المشروع</Label>
-              <SearchableSelect
-                value={projectData.project_type_id?.toString() || ""}
-                onValueChange={(val) => setProjectData({...projectData, project_type_id: val ? parseInt(val) : null})}
-                options={[
-                  { value: '', label: 'بدون نوع' },
-                  ...projectTypeOptions
-                ]}
-                placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
-                searchPlaceholder="ابحث عن نوع..."
-                emptyText="لا توجد أنواع"
-                allowCustom
-                onCustomAdd={async (value) => {
-                  const result = await apiRequest("/api/autocomplete/project-types", "POST", { value });
-                  if (result?.data?.id) {
-                    setProjectData({...projectData, project_type_id: result.data.id});
-                  }
-                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
-                }}
-                onDeleteOption={async (label) => {
-                  const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
-                  if (opt) {
-                    await apiRequest(`/api/autocomplete/project-types/${encodeURIComponent(opt.label)}`, "DELETE");
-                    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
-                  }
-                }}
-              />
-            </div>
-            <div className="form-field">
-              <Label htmlFor="project-status">حالة المشروع</Label>
-              <Select value={projectData.status} onValueChange={(value) => setProjectData({...projectData, status: value})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">نشط</SelectItem>
-                  <SelectItem value="completed">مكتمل</SelectItem>
-                  <SelectItem value="paused">متوقف</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="form-field form-field-full">
-              <Label htmlFor="project-description">وصف المشروع</Label>
-              <Input
-                id="project-description"
-                value={projectData.description}
-                onChange={(e) => setProjectData({...projectData, description: e.target.value})}
-                placeholder="أدخل وصف المشروع (اختياري)"
-              />
-            </div>
-            <div className="form-actions">
-              <Button
-                onClick={() => {
-                  if (projectData.name) {
-                    addProjectMutation.mutate({
-                      name: projectData.name,
-                      status: projectData.status,
-                      description: projectData.description || null,
-                      project_type_id: projectData.project_type_id
-                    });
-                  }
-                }}
-                disabled={!projectData.name || addProjectMutation.isPending}
-              >
-                {addProjectMutation.isPending ? "جاري الحفظ..." : "حفظ"}
-              </Button>
-              <Button variant="outline" onClick={() => setShowProjectModal(false)}>
-                إلغاء
-              </Button>
-            </div>
-          </div>
+          <AddProjectForm
+            onSuccess={() => setShowProjectModal(false)}
+            onCancel={() => setShowProjectModal(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>

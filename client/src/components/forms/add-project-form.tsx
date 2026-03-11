@@ -5,59 +5,59 @@ import { Input } from "@/components/ui/input";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
-import { ProjectTypeSelect } from "@/components/ui/searchable-select";
-import type { InsertProject, ProjectType } from "@shared/schema";
+import type { InsertProject } from "@shared/schema";
 
 interface AddProjectFormProps {
   onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
+export default function AddProjectForm({ onSuccess, onCancel }: AddProjectFormProps) {
   const [name, setName] = useState("");
   const [status, setStatus] = useState("active");
-  const [engineerId, setEngineerId] = useState<string | null>(null);
+  const [description, setDescription] = useState("");
   const [projectTypeId, setProjectTypeId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // جلب قائمة المستخدمين (للاستخدام في اختيار المهندس)
-  const { data: usersData = [], isLoading: usersLoading, isError: usersError } = useQuery<{id: string; name: string; email: string; role: string}[]>({
-    queryKey: QUERY_KEYS.usersList,
-    queryFn: async () => {
-      const response = await apiRequest("/api/users/list", "GET");
-      
-      // التحقق من نجاح الاستجابة
-      if (response.success === false) {
-        throw new Error(response.message || "فشل في جلب قائمة المهندسين");
-      }
-      
-      // التأكد من وجود البيانات
-      if (!response.data || !Array.isArray(response.data)) {
-        console.warn("استجابة غير متوقعة من /api/users/list:", response);
-        return [];
-      }
-      
-      return response.data;
-    },
-    retry: false,
-  });
-
-  // جلب قائمة أنواع المشاريع
-  const { data: projectTypes = [], isLoading: typesLoading } = useQuery<ProjectType[]>({
+  const { data: projectTypeOptions = [], isLoading: typesLoading } = useQuery<{ value: string; label: string; id: number | null }[]>({
     queryKey: QUERY_KEYS.projectTypes,
     queryFn: async () => {
-      const response = await apiRequest("/api/project-types", "GET");
-      if (response.success === false) {
-        throw new Error(response.message || "فشل في جلب أنواع المشاريع");
+      try {
+        const response = await apiRequest("/api/autocomplete/project-types", "GET");
+        if (response?.data && Array.isArray(response.data)) {
+          return response.data;
+        }
+        return [];
+      } catch (error) {
+        return [];
       }
-      return response.data || [];
+    },
+    staleTime: 60000,
+  });
+
+  const addProjectTypeMutation = useMutation({
+    mutationFn: async (value: string) => {
+      return apiRequest("/api/autocomplete/project-types", "POST", { value });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
     },
   });
 
+  const deleteProjectTypeMutation = useMutation({
+    mutationFn: async (label: string) => {
+      return apiRequest(`/api/autocomplete/project-types/${encodeURIComponent(label)}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectTypes });
+    },
+  });
 
   const saveAutocompleteValue = async (category: string, value: string | null | undefined) => {
     if (!value || typeof value !== 'string' || !value.trim()) return;
@@ -72,7 +72,10 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
 
   const addProjectMutation = useMutation({
     mutationFn: async (data: InsertProject) => {
-      await saveAutocompleteValue('projectNames', data.name);
+      await Promise.all([
+        saveAutocompleteValue('projectNames', data.name),
+        saveAutocompleteValue('projectDescriptions', data.description)
+      ]);
       return apiRequest("/api/projects", "POST", data);
     },
     onSuccess: async () => {
@@ -85,13 +88,12 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
       });
       setName("");
       setStatus("active");
-      setEngineerId(null);
+      setDescription("");
       setProjectTypeId(null);
       onSuccess?.();
     },
     onError: async (error: any, variables) => {
       await saveAutocompleteValue('projectNames', variables.name);
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
       const errorMessage = error?.message || "حدث خطأ أثناء إضافة المشروع";
       toast({
         title: "فشل في إضافة المشروع",
@@ -115,8 +117,8 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
     addProjectMutation.mutate({
       name: name.trim(),
       status,
-      engineerId: engineerId,
-      projectTypeId: projectTypeId,
+      description: description || null,
+      project_type_id: projectTypeId,
     });
   };
 
@@ -124,8 +126,8 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <CompactFieldGroup columns={2}>
         <div className="space-y-2">
-          <Label htmlFor="project-name" className="text-sm font-medium text-foreground">
-            اسم المشروع
+          <Label className="text-sm font-medium text-foreground">
+            اسم المشروع *
           </Label>
           <AutocompleteInput
             category="projectNames"
@@ -136,7 +138,7 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="project-status" className="text-sm font-medium text-foreground">
+          <Label className="text-sm font-medium text-foreground">
             حالة المشروع
           </Label>
           <Select value={status} onValueChange={setStatus}>
@@ -151,55 +153,60 @@ export default function AddProjectForm({ onSuccess }: AddProjectFormProps) {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="project-engineer" className="text-sm font-medium text-foreground">
-            المهندس المسؤول
-          </Label>
-          <Select
-            value={engineerId || "none"}
-            onValueChange={(value) => setEngineerId(value === "none" ? null : value)}
-            disabled={usersLoading}
-          >
-            <SelectTrigger id="project-engineer">
-              <SelectValue placeholder={usersLoading ? "جاري التحميل..." : usersError ? "فشل في جلب المهندسين" : "اختر مهندسًا..."} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">بدون مهندس</SelectItem>
-              {usersError && (
-                <SelectItem value="error" disabled className="text-destructive">
-                  فشل في تحميل قائمة المهندسين
-                </SelectItem>
-              )}
-              {usersData.map((user) => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.name || user.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
+        <div className="space-y-2 col-span-2">
           <Label className="text-sm font-medium text-foreground">
             نوع المشروع
           </Label>
-          <ProjectTypeSelect
+          <SearchableSelect
             value={projectTypeId?.toString() || ""}
             onValueChange={(val) => setProjectTypeId(val ? parseInt(val) : null)}
-            projectTypes={projectTypes}
+            options={[
+              { value: '', label: 'بدون نوع' },
+              ...projectTypeOptions
+            ]}
             placeholder={typesLoading ? "جاري التحميل..." : "اختر نوع المشروع..."}
-            disabled={typesLoading}
+            searchPlaceholder="ابحث عن نوع..."
+            emptyText="لا توجد أنواع"
+            allowCustom
+            onCustomAdd={async (value) => {
+              const result = await addProjectTypeMutation.mutateAsync(value);
+              if (result?.data?.id) {
+                setProjectTypeId(result.data.id);
+              }
+            }}
+            onDeleteOption={(label) => {
+              const opt = projectTypeOptions.find(o => o.value === label || o.label === label);
+              if (opt) deleteProjectTypeMutation.mutate(opt.label);
+            }}
+          />
+        </div>
+
+        <div className="space-y-2 col-span-2">
+          <Label className="text-sm font-medium text-foreground">
+            وصف المشروع
+          </Label>
+          <Input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="أدخل وصف المشروع (اختياري)"
           />
         </div>
       </CompactFieldGroup>
 
-      <Button
-        type="submit"
-        disabled={addProjectMutation.isPending}
-        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-      >
-        {addProjectMutation.isPending ? "جاري الإضافة..." : "إضافة المشروع"}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          disabled={addProjectMutation.isPending}
+          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+        >
+          {addProjectMutation.isPending ? "جاري الإضافة..." : "إضافة المشروع"}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel}>
+            إلغاء
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

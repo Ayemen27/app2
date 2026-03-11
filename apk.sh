@@ -1,7 +1,4 @@
 #!/bin/bash
-# AXION AI Build Engine v31.1.0 (Unified Build Script)
-# Handles local (remote server) and Replit environment builds
-
 set -e
 
 LOG_FILE="/tmp/axion_smart_build_$(date +%s).log"
@@ -13,6 +10,11 @@ SSH_PASS="${SSH_PASSWORD}"
 REMOTE_HOST="93.127.142.144"
 REMOTE_USER="administrator"
 REMOTE_PROJECT="/home/administrator/app2"
+
+BUILD_TYPE="${BUILD_TYPE:-release}"
+KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-}"
+KEYSTORE_ALIAS="${KEYSTORE_ALIAS:-axion-key}"
+KEYSTORE_KEY_PASSWORD="${KEYSTORE_KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
 
 log() {
     echo -e "\e[34m[AXION]\e[0m $1" | tee -a "$LOG_FILE"
@@ -27,8 +29,15 @@ err() {
 }
 
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log "   AXION Build Engine v31.1.0 - Professional   "
+log "   AXION Build Engine v32.0.0 - com.axion.app    "
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "Build type: $BUILD_TYPE"
+
+if [ "$BUILD_TYPE" = "release" ] && [ -z "$KEYSTORE_PASSWORD" ]; then
+    err "KEYSTORE_PASSWORD environment variable is required for release builds."
+    err "Set it via: export KEYSTORE_PASSWORD=your_password"
+    exit 1
+fi
 
 if [ "$HOSTNAME" == "mr-199" ] || [ -d "/home/administrator/app2" ]; then
     log "Mode: [REMOTE SERVER] - Starting Native Build..."
@@ -41,15 +50,29 @@ if [ "$HOSTNAME" == "mr-199" ] || [ -d "/home/administrator/app2" ]; then
 
     mkdir -p android/app/src/main/java/com/axion/app
 
+    if [ -f "google-services.json" ] && [ ! -f "android/app/google-services.json" ]; then
+        cp google-services.json android/app/google-services.json
+        ok "Copied google-services.json to android/app/"
+    fi
+
     rm -rf android/app/build android/.gradle android/build
 
-    log "Launching Gradle Build..."
-    cd android && chmod +x gradlew
-    ./gradlew clean assembleDebug --no-daemon --warning-mode=none 2>&1 | tail -20
-    BUILD_EXIT=$?
+    if [ "$BUILD_TYPE" = "release" ]; then
+        log "Launching Gradle Release Build..."
+        cd android && chmod +x gradlew
+        ./gradlew clean assembleRelease --no-daemon --warning-mode=none 2>&1 | tail -20
+        BUILD_EXIT=$?
+        APK_SEARCH_PATH="*/release/*"
+    else
+        log "Launching Gradle Debug Build..."
+        cd android && chmod +x gradlew
+        ./gradlew clean assembleDebug --no-daemon --warning-mode=none 2>&1 | tail -20
+        BUILD_EXIT=$?
+        APK_SEARCH_PATH="*/debug/*"
+    fi
     
     if [ $BUILD_EXIT -eq 0 ]; then
-        APK_PATH=$(find . -name '*.apk' -path '*/debug/*' | head -1)
+        APK_PATH=$(find . -name '*.apk' -path "$APK_SEARCH_PATH" | head -1)
         if [ -z "$APK_PATH" ]; then
             APK_PATH=$(find . -name '*.apk' | head -1)
         fi
@@ -84,13 +107,20 @@ else
         --exclude='android/app/build' \
         --exclude='android/.gradle' \
         --exclude='android/build' \
-        android/ capacitor.config.json apk.sh
+        android/ capacitor.config.json google-services.json apk.sh
 
     sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no /tmp/www_assets.tar.gz "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/www_assets.tar.gz"
     sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no /tmp/android_project.tar.gz "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/android_project.tar.gz"
     ok "Assets synced"
 
-    log "Step 3: Building APK on remote server..."
+    GRADLE_TASK="assembleDebug"
+    APK_SUBPATH="debug"
+    if [ "$BUILD_TYPE" = "release" ]; then
+        GRADLE_TASK="assembleRelease"
+        APK_SUBPATH="release"
+    fi
+
+    log "Step 3: Building $BUILD_TYPE APK on remote server..."
     BUILD_RESULT=$(sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 "$REMOTE_USER@$REMOTE_HOST" "
         cd $REMOTE_PROJECT
 
@@ -107,10 +137,18 @@ else
 
         cp capacitor.config.json android/app/src/main/assets/capacitor.config.json
 
+        if [ -f google-services.json ] && [ ! -f android/app/google-services.json ]; then
+            cp google-services.json android/app/google-services.json
+        fi
+
         export JAVA_HOME='/usr/lib/jvm/java-21-openjdk-amd64'
         export PATH=\"\$JAVA_HOME/bin:\$PATH\"
         export ANDROID_HOME='/opt/android-sdk'
         export PATH=\"\$ANDROID_HOME/platform-tools:\$PATH\"
+
+        export KEYSTORE_PASSWORD='${KEYSTORE_PASSWORD}'
+        export KEYSTORE_ALIAS='${KEYSTORE_ALIAS}'
+        export KEYSTORE_KEY_PASSWORD='${KEYSTORE_KEY_PASSWORD}'
 
         cat > android/gradle/wrapper/gradle-wrapper.properties << 'GWEOF'
 distributionBase=GRADLE_USER_HOME
@@ -135,12 +173,12 @@ CVEOF
         chmod +x gradlew
 
         echo 'GRADLE_BUILD_START'
-        ./gradlew clean assembleDebug --no-daemon --warning-mode=none 2>&1 | tail -20
+        ./gradlew clean $GRADLE_TASK --no-daemon --warning-mode=none 2>&1 | tail -20
         BUILD_EXIT=\$?
 
         if [ \$BUILD_EXIT -eq 0 ]; then
             echo 'GRADLE_BUILD_SUCCESS'
-            APK_PATH=\$(find . -name '*.apk' -path '*/debug/*' | head -1)
+            APK_PATH=\$(find . -name '*.apk' -path '*/$APK_SUBPATH/*' | head -1)
             if [ -z \"\$APK_PATH\" ]; then
                 APK_PATH=\$(find . -name '*.apk' | head -1)
             fi
@@ -168,9 +206,10 @@ CVEOF
     log "Step 4: Retrieving APK..."
     mkdir -p "$APK_OUTPUT_DIR"
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    if sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/AXION_LATEST.apk" "$APK_OUTPUT_DIR/AXION_v1.0.29_${TIMESTAMP}.apk" 2>/dev/null; then
-        APK_SIZE=$(ls -lh "$APK_OUTPUT_DIR/AXION_v1.0.29_${TIMESTAMP}.apk" | awk '{print $5}')
-        ok "APK retrieved: AXION_v1.0.29_${TIMESTAMP}.apk (${APK_SIZE})"
+    APK_FILENAME="AXION_${BUILD_TYPE}_${TIMESTAMP}.apk"
+    if sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/AXION_LATEST.apk" "$APK_OUTPUT_DIR/$APK_FILENAME" 2>/dev/null; then
+        APK_SIZE=$(ls -lh "$APK_OUTPUT_DIR/$APK_FILENAME" | awk '{print $5}')
+        ok "APK retrieved: $APK_FILENAME (${APK_SIZE})"
     else
         err "Could not retrieve APK"
         exit 1
@@ -178,5 +217,5 @@ CVEOF
 fi
 
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-ok "AXION Build Engine: Complete"
+ok "AXION Build Engine: Complete ($BUILD_TYPE)"
 log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

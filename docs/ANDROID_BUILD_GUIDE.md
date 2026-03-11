@@ -1,149 +1,108 @@
-# 📱 دليل بناء وتثبيت تطبيق BinarJoin على Android
+# 📱 Axion Android Build Guide
 
-## 🚀 الطريقة الذكية (موصى بها)
+## Package Name
+The app uses the unified package name `com.axion.app` across all configuration:
+- `capacitor.config.json` — `appId: "com.axion.app"`
+- `android/app/build.gradle` — `namespace` and `applicationId`
+- `google-services.json` — Firebase client `package_name`
 
-استخدم الأمر الذكي الذي ينقل التحديثات عبر Git تلقائياً:
+## 🔐 Environment Variables Required
 
-```bash
-npm run android:deploy
+### Signing (for release builds)
+```
+KEYSTORE_PASSWORD=<your keystore password>
+KEYSTORE_ALIAS=axion-key
+KEYSTORE_KEY_PASSWORD=<your key password>
 ```
 
-### ماذا يفعل السكريبت:
-1. ✅ **تحديث الإصدار** - يرفع رقم الإصدار تلقائياً (1.0.0 → 1.0.1)
-2. ✅ **دفع إلى Git** - ينقل التحديثات للمستودع
-3. ✅ **سحب على السيرفر** - يسحب آخر التحديثات من Git
-4. ✅ **بناء APK** - ينشئ APK جديدة مع الإصدار الجديد
-5. ✅ **التحقق** - يتأكد من نجاح البناء
+### SSH (for remote builds from Replit)
+```
+SSH_PASSWORD=<server password>
+```
+
+### Firebase
+```
+FIREBASE_SERVICE_ACCOUNT_KEY=<JSON service account key>
+VITE_FIREBASE_API_KEY=<api key>
+VITE_FIREBASE_APP_ID=<app id>
+VITE_FIREBASE_AUTH_DOMAIN=<auth domain>
+VITE_FIREBASE_PROJECT_ID=<project id>
+VITE_FIREBASE_STORAGE_BUCKET=<storage bucket>
+VITE_FIREBASE_MESSAGING_SENDER_ID=<sender id>
+VITE_FIREBASE_VAPID_KEY=<vapid key>
+```
+
+### VAPID Key
+The `VITE_FIREBASE_VAPID_KEY` is required for web push notifications. To generate one:
+1. Go to Firebase Console → Project Settings → Cloud Messaging
+2. Under "Web configuration", find or generate a Web Push certificate
+3. Copy the Key pair value (a base64-encoded string, typically 87 characters)
+4. Set it as `VITE_FIREBASE_VAPID_KEY` in your `.env` file
 
 ---
 
-## 📥 متطلبات الاستخدام
+## 🚀 Build Commands
 
-تأكد من وجود متغيرات البيئة:
-```
-SSH_HOST=93.127.142.144
-SSH_USER=administrator
-SSH_PORT=22
-SSH_PASSWORD=your_password
-```
-
----
-
-## 🔧 الأوامر المتاحة
-
-### بناء الواجهة الأمامية
+### Release Build (signed APK)
 ```bash
-npm run build:client
+export KEYSTORE_PASSWORD="your_password"
+bash apk.sh
 ```
 
-### بناء الخادم
+### Debug Build
 ```bash
-npm run build:server
+BUILD_TYPE=debug bash apk.sh
 ```
 
-### بناء وتثبيت على الهاتف
+### Remote Server Build (from Replit)
 ```bash
-npm run android:build
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-### تنظيف ملفات البناء
-```bash
-npm run android:clean
-```
-
----
-
-## 📱 التثبيت اليدوي
-
-إذا أردت البناء اليدوي على السيرفر:
-
-### 1. الاتصال بالسيرفر
-```bash
-ssh administrator@93.127.142.144
-cd /home/administrator/app2/android
-```
-
-### 2. بناء APK
-```bash
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-export PATH=$JAVA_HOME/bin:$PATH
-export ANDROID_HOME=/opt/android-sdk
-
-./gradlew assembleDebug
-```
-
-### 3. البحث عن APK
-```bash
-ls -lh app/build/outputs/apk/debug/app-debug.apk
+export KEYSTORE_PASSWORD="your_password"
+bash build-apk-on-server.sh
 ```
 
 ---
 
-## 📋 الملفات المهمة
+## 📋 Key Files
 
-- `scripts/build-and-deploy.sh` - سكريبت البناء الذكي
-- `capacitor.config.json` - إعدادات التطبيق
-- `android/app/build.gradle` - إعدادات Android
-- `android/gradle.properties` - إعدادات Gradle
-- `package.json` - رقم الإصدار الرئيسي
-
----
-
-## ✅ التحقق من الإصدار
-
-بعد البناء، الإصدار الجديد يظهر في:
-
-- **package.json**: `"version": "1.0.1"`
-- **android/app/build.gradle**: `versionCode 101` و `versionName "1.0.1"`
+| File | Purpose |
+|------|---------|
+| `capacitor.config.json` | Capacitor app config (appId: com.axion.app) |
+| `google-services.json` | Firebase Android config |
+| `apk.sh` | Main build script (local + remote) |
+| `build-apk-on-server.sh` | Remote-only build script |
+| `client/src/services/firebase.ts` | Firebase web SDK initialization |
+| `client/src/services/capacitorPush.ts` | Native push notification handling |
+| `server/services/FcmService.ts` | Server-side FCM notification sending |
 
 ---
 
-## 🎯 سير العمل الموصى به
+## 🔧 google-services.json
 
-```
-1. عدّل الكود
-2. اختبر محلياً (npm run dev)
-3. شغّل: npm run android:deploy
-4. انتظر اكتمال البناء (2-3 دقائق)
-5. ثبّت APK على الهاتف
-```
+The `google-services.json` file must be placed at `android/app/google-services.json` for Firebase to work. The build scripts automatically copy it from the project root if it's missing from the android directory.
+
+The file contains the Firebase project config for `com.axion.app` under project `app2-eb4df`.
 
 ---
 
-## 🐛 استكشاف الأخطاء
+## 🐛 Troubleshooting
 
-### خطأ: "BUILD FAILED"
+### BUILD FAILED
 ```bash
-# نظّف وأعد المحاولة
 cd android
 ./gradlew clean
-./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
-### خطأ: "SSH connection failed"
-تأكد من:
-- صحة بيانات SSH
-- وجود الاتصال بالإنترنت
-- أن السيرفر يعمل
+### Firebase not initializing
+- Check that `google-services.json` is at `android/app/google-services.json`
+- Verify the package name matches `com.axion.app`
+- Ensure `com.google.gms.google-services` plugin is applied in build.gradle
 
-### خطأ: "Git authentication failed"
-```bash
-# تحقق من إعدادات Git
-git config user.name
-git config user.email
-git remote -v
-```
+### Push notifications not working
+- Verify `FIREBASE_SERVICE_ACCOUNT_KEY` is set on the server
+- Check FCM initialization logs for errors
+- Ensure the app has notification permissions
 
 ---
 
-## 📊 معلومات الإصدار
-
-| الإصدار | التاريخ | التعديلات |
-|---------|--------|----------|
-| 1.0.0 | 25 ديسمبر 2025 | الإصدار الأولى |
-| 1.0.1+ | جاري | تحديثات تلقائية |
-
----
-
-**آخر تحديث: 25 ديسمبر 2025**
+**Last updated: March 2026**

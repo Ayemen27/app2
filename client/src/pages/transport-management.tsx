@@ -185,21 +185,33 @@ export default function TransportManagement() {
     }));
   }, [autocompleteResponse]);
 
-  const categoryKeys = useMemo(() => dynamicCategories.map(c => c.value), [dynamicCategories]);
+  const allCategories = useMemo(() => {
+    const catMap = new Map<string, string>();
+    dynamicCategories.forEach(cat => catMap.set(cat.value, cat.label));
+    const expenseData = expensesResponse?.data || [];
+    expenseData.forEach((e: any) => {
+      if (e.category && !catMap.has(e.category)) {
+        catMap.set(e.category, e.category);
+      }
+    });
+    return Array.from(catMap.entries()).map(([value, label]) => ({ value, label }));
+  }, [dynamicCategories, expensesResponse]);
+
+  const categoryKeys = useMemo(() => allCategories.map(c => c.value), [allCategories]);
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, string> = {};
-    dynamicCategories.forEach(cat => { map[cat.value] = cat.label; });
+    allCategories.forEach(cat => { map[cat.value] = cat.label; });
     return map;
-  }, [dynamicCategories]);
+  }, [allCategories]);
 
   const filterCategories = useMemo(() => {
-    return [{ value: 'all', label: 'جميع الفئات' }, ...dynamicCategories];
-  }, [dynamicCategories]);
+    return [{ value: 'all', label: 'جميع الفئات' }, ...allCategories];
+  }, [allCategories]);
 
   const formCategoryOptions = useMemo(() => {
-    return [...dynamicCategories];
-  }, [dynamicCategories]);
+    return [...allCategories];
+  }, [allCategories]);
 
   const expenses = useMemo(() => expensesResponse?.data || [], [expensesResponse]);
 
@@ -250,7 +262,7 @@ export default function TransportManagement() {
       }
     ];
 
-    const categoryStats: UnifiedStatItem[] = dynamicCategories
+    const categoryStats: UnifiedStatItem[] = allCategories
       .map((cat, idx) => {
         const catTotal = data.filter(e => e.category === cat.value).reduce((sum, e) => sum + Number(e.amount), 0);
         return {
@@ -265,7 +277,7 @@ export default function TransportManagement() {
       .map(({ _amount, ...stat }) => stat);
 
     return [...summaryStats, ...categoryStats];
-  }, [filteredExpenses, dynamicCategories]);
+  }, [filteredExpenses, allCategories]);
 
   const handleExportToExcel = async () => {
     try {
@@ -338,6 +350,14 @@ export default function TransportManagement() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (data.category && !dynamicCategories.some(c => c.value === data.category)) {
+        try {
+          await apiRequest("/api/autocomplete", "POST", {
+            category: "transport-categories",
+            value: data.category,
+          });
+        } catch (_e) {}
+      }
       if (editingExpenseId) {
         return apiRequest(`/api/transportation-expenses/${editingExpenseId}`, "PATCH", data);
       }
@@ -346,6 +366,7 @@ export default function TransportManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transportationExpenses });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteTransportCategories });
       toast({ title: editingExpenseId ? "تم التعديل بنجاح" : "تم الحفظ بنجاح" });
       resetForm();
     },

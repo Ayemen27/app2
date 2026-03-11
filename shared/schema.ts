@@ -564,10 +564,11 @@ export const workerTypes = pgTable("worker_types", {
 // Autocomplete data table (بيانات الإكمال التلقائي)
 export const autocompleteData = pgTable("autocomplete_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  category: text("category").notNull(), // نوع البيانات: senderNames, recipientNames, etc
-  value: text("value").notNull(), // القيمة المحفوظة
-  usageCount: integer("usage_count").default(1).notNull(), // عدد مرات الاستخدام
-  lastUsed: timestamp("last_used").defaultNow().notNull(), // آخر استخدام
+  category: text("category").notNull(),
+  value: text("value").notNull(),
+  user_id: varchar("user_id"),
+  usageCount: integer("usage_count").default(1).notNull(),
+  lastUsed: timestamp("last_used").defaultNow().notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 

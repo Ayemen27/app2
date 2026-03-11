@@ -21,6 +21,7 @@ autocompleteRouter.post('/', requireAuth, async (req: Request, res: Response) =>
   const startTime = Date.now();
   try {
     const { category, value, usageCount = 1 } = req.body;
+    const userId = (req as any).user?.id;
     
     if (!category || !value) {
       return res.status(400).json({
@@ -29,7 +30,6 @@ autocompleteRouter.post('/', requireAuth, async (req: Request, res: Response) =>
       });
     }
 
-    // ✅ التحقق من طول القيمة
     if (value.length > 500) {
       return res.status(400).json({
         success: false,
@@ -37,21 +37,20 @@ autocompleteRouter.post('/', requireAuth, async (req: Request, res: Response) =>
       });
     }
     
-    console.log('📝 [API] حفظ إكمال تلقائي:', { category, value });
+    console.log('📝 [API] حفظ إكمال تلقائي:', { category, value, userId });
     
-    // ✅ البحث عن القيمة الموجودة في نفس الفئة (category + value)
     const existing = await db
       .select()
       .from(autocompleteData)
       .where(and(
         eq(autocompleteData.value, value),
-        eq(autocompleteData.category, category)
+        eq(autocompleteData.category, category),
+        eq(autocompleteData.user_id, userId)
       ))
       .limit(1);
     
     let saved;
     if (existing.length > 0) {
-      // تحديث الاستخدام إذا كانت موجودة
       saved = await db
         .update(autocompleteData)
         .set({
@@ -61,12 +60,12 @@ autocompleteRouter.post('/', requireAuth, async (req: Request, res: Response) =>
         .where(eq(autocompleteData.id, existing[0].id))
         .returning();
     } else {
-      // إنشاء سجل جديد
       saved = await db
         .insert(autocompleteData)
         .values({
           category,
           value,
+          user_id: userId,
           usageCount: 1,
           lastUsed: new Date()
         })
@@ -103,16 +102,16 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
   const startTime = Date.now();
   try {
     const category = req.query.category as string | undefined;
-    console.log('📊 [API] جلب بيانات الإكمال التلقائي', category ? `للفئة: ${category}` : '(جميع الفئات)');
+    const userId = (req as any).user?.id;
+    console.log('📊 [API] جلب بيانات الإكمال التلقائي', category ? `للفئة: ${category}` : '(جميع الفئات)', 'للمستخدم:', userId);
     
-    let query = db.select().from(autocompleteData);
-    
-    // إذا تم تحديد فئة معينة
+    let conditions = [eq(autocompleteData.user_id, userId)];
     if (category) {
-      query = query.where(eq(autocompleteData.category, category));
+      conditions.push(eq(autocompleteData.category, category));
     }
     
-    const data = await query
+    const data = await db.select().from(autocompleteData)
+      .where(and(...conditions))
       .orderBy(desc(autocompleteData.usageCount))
       .limit(1000);
     
@@ -343,16 +342,53 @@ autocompleteRouter.get('/projectNames', requireAuth, async (req: Request, res: R
   }
 });
 
+const DEFAULT_TRANSPORT_CATEGORIES = [
+  'نقل عمال', 'توريد مواد', 'نقل خرسانة', 'نقل حديد ومنصات',
+  'بترول شاص', 'بترول هيلكس', 'تحميل وتنزيل', 'صيانة وإصلاح',
+  'توريد مياه', 'أخرى'
+];
+
+async function seedUserTransportCategories(userId: string): Promise<void> {
+  for (const cat of DEFAULT_TRANSPORT_CATEGORIES) {
+    try {
+      await db.insert(autocompleteData).values({
+        category: 'transport-categories',
+        value: cat,
+        user_id: userId,
+        usageCount: 1,
+        lastUsed: new Date()
+      }).onConflictDoNothing();
+    } catch (_e) {}
+  }
+}
+
 /**
- * GET /api/autocomplete/transport-categories - فئات النقل
+ * GET /api/autocomplete/transport-categories - فئات النقل (معزولة لكل مستخدم)
  */
 autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request, res: Response) => {
   try {
-    const data = await db
+    const userId = (req as any).user?.id;
+    
+    let data = await db
       .select()
       .from(autocompleteData)
-      .where(eq(autocompleteData.category, 'transport-categories'))
+      .where(and(
+        eq(autocompleteData.category, 'transport-categories'),
+        eq(autocompleteData.user_id, userId)
+      ))
       .orderBy(desc(autocompleteData.usageCount));
+    
+    if (data.length === 0) {
+      await seedUserTransportCategories(userId);
+      data = await db
+        .select()
+        .from(autocompleteData)
+        .where(and(
+          eq(autocompleteData.category, 'transport-categories'),
+          eq(autocompleteData.user_id, userId)
+        ))
+        .orderBy(desc(autocompleteData.usageCount));
+    }
     
     res.json({
       success: true,
@@ -369,17 +405,19 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
 });
 
 /**
- * DELETE /api/autocomplete/transport-categories/:value - حذف فئة نقل
+ * DELETE /api/autocomplete/transport-categories/:value - حذف فئة نقل (معزولة لكل مستخدم)
  */
 autocompleteRouter.delete('/transport-categories/:value', requireAuth, async (req: Request, res: Response) => {
   try {
     const categoryValue = decodeURIComponent(req.params.value);
+    const userId = (req as any).user?.id;
     
     const deleted = await db
       .delete(autocompleteData)
       .where(and(
         eq(autocompleteData.category, 'transport-categories'),
-        eq(autocompleteData.value, categoryValue)
+        eq(autocompleteData.value, categoryValue),
+        eq(autocompleteData.user_id, userId)
       ))
       .returning();
     
@@ -390,7 +428,7 @@ autocompleteRouter.delete('/transport-categories/:value', requireAuth, async (re
       });
     }
     
-    console.log('🗑️ [API] تم حذف فئة النقل:', categoryValue);
+    console.log('🗑️ [API] تم حذف فئة النقل:', categoryValue, 'للمستخدم:', userId);
     
     res.json({
       success: true,

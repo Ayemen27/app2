@@ -10,6 +10,45 @@ export async function runAutocompleteIndexMigration(): Promise<void> {
   try {
     console.log('🔄 بدء تشغيل هجرة فهارس الإكمال التلقائي...');
 
+    // إضافة عمود user_id لعزل الفئات لكل مستخدم
+    try {
+      await db.execute(sql`
+        ALTER TABLE autocomplete_data ADD COLUMN IF NOT EXISTS user_id VARCHAR
+      `);
+      console.log('✅ تم إضافة عمود user_id');
+    } catch (e: any) {
+      console.log('⚠️ عمود user_id موجود مسبقاً أو خطأ:', e.message?.slice(0, 80));
+    }
+
+    // تحديث القيد الفريد ليشمل user_id
+    try {
+      await db.execute(sql`
+        ALTER TABLE autocomplete_data DROP CONSTRAINT IF EXISTS uk_autocomplete_category_value
+      `);
+      await db.execute(sql`
+        DELETE FROM autocomplete_data 
+        WHERE id NOT IN (
+          SELECT MIN(id) 
+          FROM autocomplete_data 
+          GROUP BY COALESCE(user_id, ''), category, value
+        )
+      `);
+      await db.execute(sql`
+        ALTER TABLE autocomplete_data 
+        ADD CONSTRAINT uk_autocomplete_user_category_value 
+        UNIQUE (user_id, category, value)
+      `);
+      console.log('✅ تم تحديث القيد الفريد ليشمل user_id');
+    } catch (e: any) {
+      console.log('⚠️ تخطي تحديث القيد الفريد:', e.message?.slice(0, 80));
+    }
+
+    // فهرس للبحث حسب المستخدم والفئة
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_autocomplete_user_category 
+      ON autocomplete_data (user_id, category, usage_count DESC)
+    `);
+
     // إضافة فهرس مركب لتحسين البحث والترتيب حسب الفئة وعدد الاستخدام
     await db.execute(sql`
       CREATE INDEX IF NOT EXISTS idx_autocomplete_category_usage 

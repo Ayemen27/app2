@@ -429,15 +429,16 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchValue, setSearchValue] = useState("");
-  const [reportMode, setReportMode] = useState<"single" | "range">("single");
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const [rangePageIndex, setRangePageIndex] = useState(0);
   const [rangeReports, setRangeReports] = useState<DailyReportData[]>([]);
   const [isLoadingRange, setIsLoadingRange] = useState(false);
   const [rangeDates, setRangeDates] = useState<string[]>([]);
+  const [lastFetchedKey, setLastFetchedKey] = useState("");
 
   const projectIdForApi = isAllProjects ? "" : selectedProjectId;
   const dateStr = format(selectedDate, "yyyy-MM-dd");
+  const isRangeMode = !!(dateRange.from && dateRange.to);
 
   const { data: dailyReport, isLoading, refetch } = useQuery<DailyReportData | null>({
     queryKey: ["reports-v2-daily", projectIdForApi, dateStr],
@@ -447,12 +448,12 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
       const res = await apiRequest(`/api/reports/v2/daily?${params.toString()}`, "GET");
       return res?.data || res;
     },
-    enabled: !!projectIdForApi && !!dateStr && reportMode === "single",
+    enabled: !!projectIdForApi && !!dateStr && !isRangeMode,
     staleTime: 2 * 60 * 1000,
   });
 
   useEffect(() => {
-    if (reportMode === "single") {
+    if (!isRangeMode) {
       if (dailyReport && onStatsReady) {
         onStatsReady([
           { title: "عدد العمال", value: String(dailyReport.totals?.workerCount || 0), icon: Users, color: "blue" },
@@ -466,10 +467,10 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
         onStatsReady([]);
       }
     }
-  }, [dailyReport, onStatsReady, reportMode]);
+  }, [dailyReport, onStatsReady, isRangeMode]);
 
   useEffect(() => {
-    if (reportMode === "range" && rangeReports.length > 0 && onStatsReady) {
+    if (isRangeMode && rangeReports.length > 0 && onStatsReady) {
       const totalExpenses = rangeReports.reduce((s, r) => s + (r.totals?.totalExpenses || 0), 0);
       const totalWages = rangeReports.reduce((s, r) => s + (r.totals?.totalWorkerWages || 0), 0);
       const totalMaterials = rangeReports.reduce((s, r) => s + (r.totals?.totalMaterials || 0), 0);
@@ -481,10 +482,10 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
         { title: "إجمالي المواد", value: totalMaterials, icon: Package, color: "orange", formatter: formatCurrency },
         { title: "إجمالي المصروفات", value: totalExpenses, icon: TrendingDown, color: "red", formatter: formatCurrency },
       ]);
-    } else if (reportMode === "range" && rangeReports.length === 0 && onStatsReady) {
+    } else if (isRangeMode && rangeReports.length === 0 && onStatsReady) {
       onStatsReady([]);
     }
-  }, [rangeReports, rangeDates, onStatsReady, reportMode]);
+  }, [rangeReports, rangeDates, onStatsReady, isRangeMode]);
 
   const generateDateRange = (from: Date, to: Date): string[] => {
     const dates: string[] = [];
@@ -497,22 +498,19 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
     return dates;
   };
 
-  const fetchRangeReports = async () => {
-    if (!projectIdForApi || !dateRange.from || !dateRange.to) {
-      toast({ title: "تنبيه", description: "الرجاء اختيار المشروع وتحديد الفترة الزمنية", variant: "destructive" });
-      return;
-    }
-    const from = new Date(dateRange.from);
-    const to = new Date(dateRange.to);
-    if (from > to) {
-      toast({ title: "خطأ", description: "تاريخ البداية يجب أن يكون قبل تاريخ النهاية", variant: "destructive" });
-      return;
-    }
+  const emptyReport = useCallback((d: string): DailyReportData => ({
+    reportType: 'daily' as const, date: d, attendance: [], materials: [], transport: [], miscExpenses: [], workerTransfers: [], fundTransfers: [],
+    totals: { totalWorkerWages: 0, totalPaidWages: 0, totalMaterials: 0, totalTransport: 0, totalMiscExpenses: 0, totalWorkerTransfers: 0, totalFundTransfers: 0, totalExpenses: 0, balance: 0, workerCount: 0, totalWorkDays: 0 },
+    project: { id: projectIdForApi, name: selectedProjectName || "" }, generatedAt: new Date().toISOString(), kpis: [],
+  }), [projectIdForApi, selectedProjectName]);
+
+  const fetchRangeReports = useCallback(async (from: Date, to: Date) => {
+    if (!projectIdForApi) return;
+    if (from > to) return;
     const dates = generateDateRange(from, to);
-    if (dates.length > 60) {
-      toast({ title: "تنبيه", description: "الحد الأقصى للفترة 60 يوماً", variant: "destructive" });
-      return;
-    }
+    const fetchKey = `${projectIdForApi}-${format(from, "yyyy-MM-dd")}-${format(to, "yyyy-MM-dd")}`;
+    if (fetchKey === lastFetchedKey) return;
+    setLastFetchedKey(fetchKey);
     setIsLoadingRange(true);
     setRangeDates(dates);
     setRangePageIndex(0);
@@ -528,22 +526,27 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
               const res = await apiRequest(`/api/reports/v2/daily?${params.toString()}`, "GET");
               const data = res?.data || res;
               if (data && data.date) return data as DailyReportData;
-              return { reportType: 'daily' as const, date: d, attendance: [], materials: [], transport: [], miscExpenses: [], workerTransfers: [], fundTransfers: [], totals: { totalWorkerWages: 0, totalPaidWages: 0, totalMaterials: 0, totalTransport: 0, totalMiscExpenses: 0, totalWorkerTransfers: 0, totalFundTransfers: 0, totalExpenses: 0, balance: 0, workerCount: 0, totalWorkDays: 0 }, project: { id: projectIdForApi, name: selectedProjectName || "" }, generatedAt: new Date().toISOString(), kpis: [] } as DailyReportData;
+              return emptyReport(d);
             } catch {
-              return { reportType: 'daily' as const, date: d, attendance: [], materials: [], transport: [], miscExpenses: [], workerTransfers: [], fundTransfers: [], totals: { totalWorkerWages: 0, totalPaidWages: 0, totalMaterials: 0, totalTransport: 0, totalMiscExpenses: 0, totalWorkerTransfers: 0, totalFundTransfers: 0, totalExpenses: 0, balance: 0, workerCount: 0, totalWorkDays: 0 }, project: { id: projectIdForApi, name: selectedProjectName || "" }, generatedAt: new Date().toISOString(), kpis: [] } as DailyReportData;
+              return emptyReport(d);
             }
           })
         );
         reports.push(...batchResults);
       }
       setRangeReports(reports);
-      toast({ title: "تم التحميل", description: `تم تحميل ${reports.length} تقرير يومي` });
     } catch (error: any) {
       toast({ title: "خطأ", description: error.message || "فشل تحميل التقارير", variant: "destructive" });
     } finally {
       setIsLoadingRange(false);
     }
-  };
+  }, [projectIdForApi, lastFetchedKey, emptyReport, toast]);
+
+  useEffect(() => {
+    if (dateRange.from && dateRange.to && projectIdForApi) {
+      fetchRangeReports(dateRange.from, dateRange.to);
+    }
+  }, [dateRange.from, dateRange.to, projectIdForApi, fetchRangeReports]);
 
   const handleExport = (fmt: "xlsx" | "pdf") => {
     if (!projectIdForApi) {
@@ -553,23 +556,35 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
     secureDownloadExport("daily", fmt, { project_id: projectIdForApi, date: dateStr }, toast);
   };
 
-  const filterConfigSingle: FilterConfig[] = [
-    { key: "specificDate", label: "تاريخ محدد", type: "date" },
+  const filterConfig: FilterConfig[] = [
+    { key: "specificDate", label: "التاريخ", type: "date" },
+    { key: "dateRange", label: "فترة زمنية", type: "date-range" },
   ];
 
-  const filterConfigRange: FilterConfig[] = [
-    { key: "dateRange", label: "الفترة الزمنية", type: "date-range" },
-  ];
-
-  const filterValuesSingle: Record<string, any> = { specificDate: selectedDate };
-  const filterValuesRange: Record<string, any> = { dateRange };
+  const filterValues: Record<string, any> = {
+    specificDate: isRangeMode ? undefined : selectedDate,
+    dateRange: dateRange.from ? dateRange : undefined,
+  };
 
   const onFilterChange = (key: string, val: any) => {
     if (key === "specificDate" && val) {
       setSelectedDate(val instanceof Date ? val : new Date(val));
+      setDateRange({});
+      setRangeReports([]);
+      setRangeDates([]);
+      setLastFetchedKey("");
     }
     if (key === "dateRange") {
-      setDateRange(val || {});
+      if (val && val.from && val.to) {
+        setDateRange(val);
+      } else if (val && val.from) {
+        setDateRange({ from: val.from });
+      } else {
+        setDateRange({});
+        setRangeReports([]);
+        setRangeDates([]);
+        setLastFetchedKey("");
+      }
     }
   };
 
@@ -607,44 +622,21 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit mx-auto" data-testid="mode-toggle">
-        <Button
-          variant={reportMode === "single" ? "default" : "ghost"}
-          size="sm"
-          className="text-xs h-8 px-3 gap-1.5 rounded-md"
-          onClick={() => { setReportMode("single"); setRangeReports([]); setRangeDates([]); }}
-          data-testid="btn-mode-single"
-        >
-          <Calendar className="h-3.5 w-3.5" />
-          يوم واحد
-        </Button>
-        <Button
-          variant={reportMode === "range" ? "default" : "ghost"}
-          size="sm"
-          className="text-xs h-8 px-3 gap-1.5 rounded-md"
-          onClick={() => setReportMode("range")}
-          data-testid="btn-mode-range"
-        >
-          <FileText className="h-3.5 w-3.5" />
-          فترة زمنية
-        </Button>
-      </div>
+      <UnifiedFilterDashboard
+        filters={filterConfig}
+        filterValues={filterValues}
+        onFilterChange={onFilterChange}
+        actions={isRangeMode ? [] : exportActions}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="البحث في التقرير..."
+        onRefresh={isRangeMode ? undefined : () => refetch()}
+        isRefreshing={isRangeMode ? isLoadingRange : isLoading}
+        onReset={() => { setSearchValue(""); setSelectedDate(new Date()); setDateRange({}); setRangeReports([]); setRangeDates([]); setLastFetchedKey(""); }}
+      />
 
-      {reportMode === "single" && (
+      {!isRangeMode && (
         <>
-          <UnifiedFilterDashboard
-            filters={filterConfigSingle}
-            filterValues={filterValuesSingle}
-            onFilterChange={onFilterChange}
-            actions={exportActions}
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            searchPlaceholder="البحث في التقرير..."
-            onRefresh={() => refetch()}
-            isRefreshing={isLoading}
-            onReset={() => { setSearchValue(""); setSelectedDate(new Date()); }}
-          />
-
           {!isAllProjects && selectedDate && (
             <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md" data-testid="date-navigator">
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={prevDate} data-testid="btn-prev-date">
@@ -670,34 +662,9 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
         </>
       )}
 
-      {reportMode === "range" && (
+      {isRangeMode && (
         <>
-          <UnifiedFilterDashboard
-            filters={filterConfigRange}
-            filterValues={filterValuesRange}
-            onFilterChange={onFilterChange}
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            searchPlaceholder="البحث في التقرير..."
-            onReset={() => { setSearchValue(""); setDateRange({}); setRangeReports([]); setRangeDates([]); }}
-          />
-
           {isAllProjects && <EmptyState message="الرجاء اختيار مشروع محدد لعرض التقارير" icon={ClipboardList} />}
-
-          {!isAllProjects && (
-            <div className="flex justify-center">
-              <Button
-                onClick={fetchRangeReports}
-                disabled={isLoadingRange || !dateRange.from || !dateRange.to}
-                className="gap-2 bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 min-h-[44px]"
-                data-testid="btn-generate-range"
-              >
-                {isLoadingRange ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                {isLoadingRange ? "جاري إنتاج التقارير..." : "إنتاج التقارير"}
-              </Button>
-            </div>
-          )}
-
           {isLoadingRange && <LoadingSpinner message="جاري تحميل التقارير اليومية..." />}
 
           {!isLoadingRange && rangeReports.length > 0 && currentRangeReport && (
@@ -745,10 +712,6 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
 
               <RangeDayPage report={currentRangeReport} searchValue={searchValue} />
             </>
-          )}
-
-          {!isLoadingRange && rangeReports.length === 0 && dateRange.from && dateRange.to && (
-            <EmptyState message="اضغط على 'إنتاج التقارير' لتحميل التقارير اليومية للفترة المحددة" icon={FileText} />
           )}
         </>
       )}

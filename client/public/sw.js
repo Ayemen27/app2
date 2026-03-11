@@ -72,8 +72,8 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          return caches.match(event.request.url)
-            .then((cached) => cached || caches.match('/offline.html'));
+          return caches.match('/')
+            .then((appShell) => appShell || caches.match('/offline.html'));
         })
     );
     return;

@@ -131,14 +131,76 @@ function stopWatchdog() {
   }
 }
 
+const LS_LEADER_KEY = 'binarjoin-sync-leader-lock';
+const LS_LEASE_TTL = 8000;
+
+function tryLocalStorageLease(): boolean {
+  try {
+    const raw = localStorage.getItem(LS_LEADER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.tabId !== tabId && (Date.now() - parsed.timestamp) < LS_LEASE_TTL) {
+        return false;
+      }
+    }
+    localStorage.setItem(LS_LEADER_KEY, JSON.stringify({ tabId, timestamp: Date.now() }));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function startLocalStorageHeartbeat() {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(() => {
+    if (isLeader) {
+      try {
+        localStorage.setItem(LS_LEADER_KEY, JSON.stringify({ tabId, timestamp: Date.now() }));
+      } catch {}
+    }
+  }, HEARTBEAT_INTERVAL);
+}
+
+function startLocalStorageWatchdog() {
+  stopWatchdog();
+  watchdogTimer = setInterval(() => {
+    if (isLeader) return;
+    try {
+      const raw = localStorage.getItem(LS_LEADER_KEY);
+      if (!raw || (Date.now() - JSON.parse(raw).timestamp) > LS_LEASE_TTL) {
+        if (tryLocalStorageLease()) {
+          isLeader = true;
+          startLocalStorageHeartbeat();
+          leaderChangeCallbacks.forEach(cb => cb(true));
+        }
+      }
+    } catch {}
+  }, HEARTBEAT_TIMEOUT);
+}
+
 export function initLeaderElection(): void {
-  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
+  if (typeof window === 'undefined') {
     isLeader = true;
     leaderChangeCallbacks.forEach(cb => cb(true));
     return;
   }
 
   tabId = generateTabId();
+
+  if (typeof BroadcastChannel === 'undefined') {
+    if (tryLocalStorageLease()) {
+      isLeader = true;
+      startLocalStorageHeartbeat();
+    }
+    startLocalStorageWatchdog();
+    window.addEventListener('beforeunload', () => {
+      if (isLeader) {
+        try { localStorage.removeItem(LS_LEADER_KEY); } catch {}
+      }
+    });
+    leaderChangeCallbacks.forEach(cb => cb(isLeader));
+    return;
+  }
 
   try {
     channel = new BroadcastChannel(CHANNEL_NAME);

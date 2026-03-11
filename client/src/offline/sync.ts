@@ -25,6 +25,10 @@ const MAX_RETRIES = 5;
 const INITIAL_SYNC_DELAY = 2000; 
 let isSyncing = false;
 
+export function isSyncEngineActive(): boolean {
+  return isSyncing;
+}
+
 function extractStatusCode(error: any): number {
   if (error?.status) return error.status;
   if (error?.statusCode) return error.statusCode;

@@ -121,6 +121,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         try {
           const parsedUser = JSON.parse(savedUser);
+          
+          if (!accessToken && isOfflineMode()) {
+            try {
+              const { smartGet } = await import('../offline/storage-factory');
+              const emergencyUser = await smartGet('emergencyUsers', String(parsedUser.id));
+              if (emergencyUser?.passwordHash?.startsWith('pbkdf2:')) {
+                const verifiedRole = emergencyUser.role || parsedUser.role;
+                const trustedUser = { ...parsedUser, role: verifiedRole };
+                setUser(trustedUser);
+                console.log('📴 [AuthProvider] وضع أوفلاين - بيانات اعتماد مُتحقق منها مسبقاً');
+              } else {
+                console.log('⚠️ [AuthProvider] لا توجد بيانات اعتماد أوفلاين مُتحقق منها');
+              }
+            } catch {
+              console.log('⚠️ [AuthProvider] فشل فحص بيانات الأوفلاين');
+            }
+            setIsLoading(false);
+            return;
+          }
+          
           setUser(parsedUser);
           setIsLoading(false);
           

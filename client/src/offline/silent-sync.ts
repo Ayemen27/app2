@@ -9,6 +9,7 @@ import { resolveConflictLWW, logConflict } from './conflict-resolver';
 import type { ConflictData } from './conflict-resolver';
 import { endpointToStore } from './store-registry';
 import { isCurrentTabLeader } from './sync-leader';
+import { isSyncEngineActive } from './sync';
 
 let _isSyncing = false;
 
@@ -34,6 +35,7 @@ function isRetryableError(statusCode: number): boolean {
 export async function runSilentSync() {
   if (_isSyncing) return;
   if (!isCurrentTabLeader()) return;
+  if (isSyncEngineActive()) return;
   _isSyncing = true;
   try {
     await _executeSilentSync();

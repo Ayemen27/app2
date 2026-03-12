@@ -363,7 +363,7 @@ export default function RecordsTransfer() {
     }
     setIsSendingFund(true);
     try {
-      await apiRequest("/api/financial/project-fund-transfers", "POST", {
+      await apiRequest("/api/project-fund-transfers", "POST", {
         fromProjectId: sourceProjectId,
         toProjectId: targetProjectId,
         amount: String(amt),

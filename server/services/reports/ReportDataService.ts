@@ -44,7 +44,7 @@ interface WorkerStatementOptions {
 
 export class ReportDataService {
   async getDailyReport(projectId: string, date: string): Promise<DailyReportData> {
-    const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData] = await Promise.all([
+    const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData, projectFundTransfersData] = await Promise.all([
       db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
 
       db
@@ -128,6 +128,24 @@ export class ReportDataService {
             sql`${SAFE_DATE_EXPR(fundTransfers.transferDate)} = ${date}::date`
           )
         ),
+
+      db
+        .select({
+          id: projectFundTransfers.id,
+          amount: projectFundTransfers.amount,
+          description: projectFundTransfers.description,
+          transferReason: projectFundTransfers.transferReason,
+          fromProjectId: projectFundTransfers.fromProjectId,
+          fromProjectName: projects.name,
+        })
+        .from(projectFundTransfers)
+        .leftJoin(projects, eq(projectFundTransfers.fromProjectId, projects.id))
+        .where(
+          and(
+            eq(projectFundTransfers.toProjectId, projectId),
+            eq(projectFundTransfers.transferDate, date)
+          )
+        ),
     ]);
 
     const proj = projectInfo[0];
@@ -186,13 +204,22 @@ export class ReportDataService {
       transferMethod: t.transferMethod || '-',
     }));
 
-    const fundTransfersList: FundTransferRecord[] = fundTransfersData.map((f) => ({
-      id: typeof f.id === 'string' ? parseInt(f.id, 10) || 0 : (f.id as number),
-      amount: safeNum(f.amount),
-      senderName: f.senderName || '-',
-      transferType: f.transferType || '-',
-      transferNumber: f.transferNumber || '-',
-    }));
+    const fundTransfersList: FundTransferRecord[] = [
+      ...fundTransfersData.map((f) => ({
+        id: typeof f.id === 'string' ? parseInt(f.id, 10) || 0 : (f.id as number),
+        amount: safeNum(f.amount),
+        senderName: f.senderName || '-',
+        transferType: f.transferType || '-',
+        transferNumber: f.transferNumber || '-',
+      })),
+      ...projectFundTransfersData.map((pf) => ({
+        id: typeof pf.id === 'string' ? parseInt(pf.id, 10) || 0 : 0,
+        amount: safeNum(pf.amount),
+        senderName: pf.fromProjectName || 'مشروع آخر',
+        transferType: 'ترحيل من مشروع',
+        transferNumber: pf.description || pf.transferReason || '-',
+      })),
+    ];
 
     const totalWorkerWages = attendance.reduce((s, a) => s + a.totalWage, 0);
     const totalPaidWages = attendance.reduce((s, a) => s + a.paidAmount, 0);

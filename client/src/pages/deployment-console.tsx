@@ -95,9 +95,17 @@ const PIPELINE_LABELS: Record<string, string> = {
   "android-build": "بناء تطبيق أندرويد APK",
 };
 
+const PIPELINE_LABELS_FULL: Record<string, string> = {
+  ...PIPELINE_LABELS,
+  "health-check": "فحص السلامة",
+  "cleanup": "تنظيف السيرفر",
+};
+
 const STEP_LABELS: Record<string, string> = {
   "validate": "التحقق",
   "build-web": "بناء الويب",
+  "health-check": "فحص السلامة",
+  "cleanup": "تنظيف السيرفر",
   "transfer": "النقل",
   "deploy-server": "نشر على السيرفر",
   "restart-pm2": "إعادة تشغيل PM2",
@@ -117,6 +125,8 @@ const STEP_LABELS: Record<string, string> = {
 
 const STEP_ICONS: Record<string, any> = {
   validate: CheckCircle2,
+  "health-check": HeartPulse,
+  "cleanup": Trash2,
   "build-web": Package,
   transfer: Server,
   "deploy-server": Rocket,
@@ -352,12 +362,45 @@ export default function DeploymentConsole() {
 
   const handleCheckHealth = async () => {
     setIsCheckingHealth(true);
+    const now = () => new Date().toISOString();
+    const logs: LogEntry[] = [];
+    const addLocalLog = (message: string, type: LogEntry["type"] = "info") => {
+      logs.push({ timestamp: now(), message, type });
+      setLiveLogs([...logs]);
+    };
+
+    setLiveDeployment({
+      id: "health-check", buildNumber: 0, status: "running", currentStep: "health-check",
+      progress: 50, version: "", appType: "web", environment: "production", branch: "main",
+      pipeline: "health-check", logs: [], steps: [
+        { name: "health-check", status: "running" }
+      ], startTime: now(), created_at: now(),
+    } as Deployment);
+    setActiveDeploymentId("health-check");
+
+    addLocalLog("بدء فحص سلامة السيرفر...", "step");
     try {
       const data = await apiRequest("/api/deployment/health");
       setHealthData(data);
-      toast({ title: `حالة السيرفر: ${data.status === "healthy" ? "سليم" : "متدهور"}`, description: `HTTP: ${data.checks?.httpStatus || "غير معروف"}` });
+      const isHealthy = data.status === "healthy";
+      addLocalLog(`حالة السيرفر: ${isHealthy ? "سليم" : "متدهور"}`, isHealthy ? "success" : "warn");
+      addLocalLog(`HTTP Status: ${data.checks?.httpStatus || "غير معروف"}`, "info");
+      if (data.checks?.pm2) {
+        addLocalLog(`PM2: ${JSON.stringify(data.checks.pm2)}`, "info");
+      }
+      if (data.checks?.disk) {
+        addLocalLog(`القرص: ${data.checks.disk}`, "info");
+      }
+      if (data.checks?.memory) {
+        addLocalLog(`الذاكرة: ${data.checks.memory}`, "info");
+      }
+      addLocalLog("اكتمل فحص السلامة", "success");
+      setLiveDeployment(prev => prev ? { ...prev, status: "success", progress: 100, currentStep: "complete",
+        steps: [{ name: "health-check", status: "success" }] } : null);
     } catch (error: any) {
-      toast({ title: "فشل فحص السلامة", description: error.message, variant: "destructive" });
+      addLocalLog(`فشل فحص السلامة: ${error.message}`, "error");
+      setLiveDeployment(prev => prev ? { ...prev, status: "failed", progress: 100, currentStep: "complete",
+        steps: [{ name: "health-check", status: "failed" }] } : null);
     } finally {
       setIsCheckingHealth(false);
     }
@@ -377,16 +420,60 @@ export default function DeploymentConsole() {
 
   const handleCleanup = async () => {
     setIsCleaning(true);
+    const now = () => new Date().toISOString();
+    const logs: LogEntry[] = [];
+    const addLocalLog = (message: string, type: LogEntry["type"] = "info") => {
+      logs.push({ timestamp: now(), message, type });
+      setLiveLogs([...logs]);
+    };
+
+    setLiveDeployment({
+      id: "cleanup", buildNumber: 0, status: "running", currentStep: "cleanup",
+      progress: 50, version: "", appType: "web", environment: "production", branch: "main",
+      pipeline: "cleanup", logs: [], steps: [
+        { name: "cleanup", status: "running" }
+      ], startTime: now(), created_at: now(),
+    } as Deployment);
+    setActiveDeploymentId("cleanup");
+
+    addLocalLog("بدء تنظيف السيرفر...", "step");
     try {
       const data = await apiRequest("/api/deployment/cleanup", "POST");
-      toast({
-        title: "اكتمل التنظيف",
-        description: `تم تنظيف: ${data.cleaned?.join("، ") || "لا شيء"}${data.errors?.length ? ` | أخطاء: ${data.errors.length}` : ""}`,
-      });
+      if (data.cleaned?.length > 0) {
+        data.cleaned.forEach((item: string) => addLocalLog(`تم تنظيف: ${item}`, "success"));
+      } else {
+        addLocalLog("لا يوجد شيء يحتاج تنظيف", "info");
+      }
+      if (data.errors?.length > 0) {
+        data.errors.forEach((err: string) => addLocalLog(`خطأ: ${err}`, "error"));
+      }
+      addLocalLog("اكتمل التنظيف", "success");
+      setLiveDeployment(prev => prev ? { ...prev, status: "success", progress: 100, currentStep: "complete",
+        steps: [{ name: "cleanup", status: "success" }] } : null);
     } catch (error: any) {
-      toast({ title: "فشل التنظيف", description: error.message, variant: "destructive" });
+      addLocalLog(`فشل التنظيف: ${error.message}`, "error");
+      setLiveDeployment(prev => prev ? { ...prev, status: "failed", progress: 100, currentStep: "complete",
+        steps: [{ name: "cleanup", status: "failed" }] } : null);
     } finally {
       setIsCleaning(false);
+    }
+  };
+
+  const handleDeleteDeployment = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("هل تريد حذف هذه العملية؟")) return;
+    try {
+      await apiRequest(`/api/deployment/${id}`, "DELETE");
+      toast({ title: "تم حذف العملية بنجاح" });
+      if (activeDeploymentId === id) {
+        setActiveDeploymentId(null);
+        setLiveDeployment(null);
+        setLiveLogs([]);
+      }
+      refetchHistory();
+      queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+    } catch (error: any) {
+      toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
     }
   };
 
@@ -739,14 +826,23 @@ export default function DeploymentConsole() {
                       </div>
                       <div className="flex items-center gap-1.5 sm:hidden text-[10px] text-muted-foreground">
                         {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
-                        <span>{new Date(d.created_at).toLocaleDateString("ar-SA")}</span>
+                        <span dir="ltr">{new Date(d.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                        {d.status !== "running" && (
+                          <button
+                            data-testid={`button-delete-mobile-${d.buildNumber}`}
+                            className="p-1 text-red-500 hover:text-red-400"
+                            onClick={(e) => handleDeleteDeployment(d.id, e)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                         <Badge variant="outline" className="text-[9px] sm:text-[10px] border-border text-muted-foreground shrink-0">
-                          {d.pipeline}
+                          {PIPELINE_LABELS_FULL[d.pipeline] || d.pipeline}
                         </Badge>
                         <span className="text-[10px] sm:text-xs text-muted-foreground font-mono">v{d.version}</span>
                         {d.commitMessage && (
@@ -757,7 +853,7 @@ export default function DeploymentConsole() {
 
                     <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
                       {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
-                      <span>{new Date(d.created_at).toLocaleDateString("ar-SA")}</span>
+                      <span dir="ltr">{new Date(d.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                       {d.status === "success" && (
                         <Button
                           data-testid={`button-rollback-${d.buildNumber}`}
@@ -767,6 +863,17 @@ export default function DeploymentConsole() {
                           onClick={(e) => { e.stopPropagation(); handleRollback(d.id); }}
                         >
                           <RotateCcw className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {d.status !== "running" && (
+                        <Button
+                          data-testid={`button-delete-${d.buildNumber}`}
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-red-500/10"
+                          onClick={(e) => handleDeleteDeployment(d.id, e)}
+                        >
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       )}
                       <ChevronRight className="h-4 w-4 opacity-30" />

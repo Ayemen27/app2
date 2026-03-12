@@ -867,6 +867,13 @@ export class DeploymentEngine {
     return deployment || null;
   }
 
+  async deleteDeployment(id: string) {
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, id));
+    if (!deployment) throw new Error("العملية غير موجودة");
+    if (deployment.status === "running") throw new Error("لا يمكن حذف عملية قيد التنفيذ");
+    await db.delete(buildDeployments).where(eq(buildDeployments.id, id));
+  }
+
   async getDeployments(limit = 20, offset = 0) {
     return db.select().from(buildDeployments).orderBy(desc(buildDeployments.created_at)).limit(limit).offset(offset);
   }

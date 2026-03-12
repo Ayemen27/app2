@@ -216,4 +216,13 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+router.delete("/:id", requireAdmin as any, async (req, res) => {
+  try {
+    await deploymentEngine.deleteDeployment(req.params.id);
+    res.json({ success: true, message: "تم حذف العملية" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

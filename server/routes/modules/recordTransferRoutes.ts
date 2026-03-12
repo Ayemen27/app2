@@ -3,7 +3,8 @@ import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { db } from "../../db.js";
 import { 
   materialPurchases, supplierPayments, transportationExpenses, 
-  workerTransfers, workerMiscExpenses, workerAttendance, projects, workers
+  workerTransfers, workerMiscExpenses, workerAttendance, projects, workers,
+  projectFundTransfers
 } from "../../../shared/schema.js";
 import { eq, and, ne, sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -36,6 +37,8 @@ const DATE_PROP_MAP: Record<string, string> = {
   workerTransfers: "transferDate",
   workerMiscExpenses: "date",
   attendance: "attendanceDate",
+  fundTransferOut: "transferDate",
+  fundTransferIn: "transferDate",
 };
 
 const TABLE_LABELS: Record<string, string> = {
@@ -45,6 +48,8 @@ const TABLE_LABELS: Record<string, string> = {
   workerTransfers: "حوالات العمال",
   workerMiscExpenses: "نثريات العمال",
   attendance: "الحضور",
+  fundTransferOut: "ترحيل أموال صادر",
+  fundTransferIn: "ترحيل أموال وارد",
 };
 
 function formatNum(n: number): string {
@@ -102,6 +107,13 @@ function makeFingerprint(table: string, record: any): string {
       parts.push(normalize(record.totalPay));
       parts.push(normalize(record.paidAmount));
       break;
+    case "fundTransferOut":
+    case "fundTransferIn":
+      parts.push(normalize(record.fromProjectId));
+      parts.push(normalize(record.toProjectId));
+      parts.push(normalize(record.amount));
+      parts.push(normalize(record.description));
+      break;
   }
 
   const key = parts.join("|");
@@ -151,6 +163,13 @@ function getFingerprintFields(table: string, record: any): Record<string, string
       fields["إجمالي الأجر"] = normalize(record.totalPay);
       fields["المدفوع"] = normalize(record.paidAmount);
       break;
+    case "fundTransferOut":
+    case "fundTransferIn":
+      fields["من مشروع"] = normalize(record._fromProjectName || record.fromProjectId);
+      fields["إلى مشروع"] = normalize(record._toProjectName || record.toProjectId);
+      fields["المبلغ"] = normalize(record.amount);
+      fields["الوصف"] = normalize(record.description);
+      break;
   }
   return fields;
 }
@@ -195,6 +214,14 @@ function formatRecord(table: string, record: any) {
       description = parts.join(" | ");
       break;
     }
+    case "fundTransferOut":
+      amount = parseFloat(record.amount || "0");
+      description = `صادر إلى: ${record._toProjectName || record.toProjectId}${record.description ? ` - ${record.description}` : ""}`;
+      break;
+    case "fundTransferIn":
+      amount = parseFloat(record.amount || "0");
+      description = `وارد من: ${record._fromProjectName || record.fromProjectId}${record.description ? ` - ${record.description}` : ""}`;
+      break;
   }
 
   return {
@@ -242,6 +269,32 @@ router.get("/review", requireAdmin as any, async (req, res) => {
       }
     }
 
+    try {
+      const outRows = await db.select().from(projectFundTransfers).where(
+        and(eq(projectFundTransfers.fromProjectId, pid), eq(projectFundTransfers.transferDate, dateStr))
+      );
+      for (const row of outRows) {
+        let toName = row.toProjectId;
+        try { const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, row.toProjectId)); if (p) toName = p.name; } catch (_) {}
+        results.push(formatRecord("fundTransferOut", { ...row, _toProjectName: toName }));
+      }
+    } catch (e: any) {
+      tableErrors.push({ table: TABLE_LABELS["fundTransferOut"], error: "فشل في قراءة البيانات" });
+    }
+
+    try {
+      const inRows = await db.select().from(projectFundTransfers).where(
+        and(eq(projectFundTransfers.toProjectId, pid), eq(projectFundTransfers.transferDate, dateStr))
+      );
+      for (const row of inRows) {
+        let fromName = row.fromProjectId;
+        try { const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, row.fromProjectId)); if (p) fromName = p.name; } catch (_) {}
+        results.push(formatRecord("fundTransferIn", { ...row, _fromProjectName: fromName }));
+      }
+    } catch (e: any) {
+      tableErrors.push({ table: TABLE_LABELS["fundTransferIn"], error: "فشل في قراءة البيانات" });
+    }
+
     results.sort((a, b) => (TABLE_LABELS[a.table] || "").localeCompare(TABLE_LABELS[b.table] || ""));
     res.json({ 
       date: dateStr, 
@@ -286,6 +339,27 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
       } catch (e: any) {
         console.error(`[RecordTransfer] preview target read ${tableName}:`, e.message);
       }
+    }
+
+    try {
+      const outRows = await db.select().from(projectFundTransfers).where(
+        and(eq(projectFundTransfers.fromProjectId, String(targetProjectId)), eq(projectFundTransfers.transferDate, String(date)))
+      );
+      for (const row of outRows) {
+        let toName = row.toProjectId;
+        try { const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, row.toProjectId)); if (p) toName = p.name; } catch (_) {}
+        targetRecords.push(formatRecord("fundTransferOut", { ...row, _toProjectName: toName }));
+      }
+      const inRows = await db.select().from(projectFundTransfers).where(
+        and(eq(projectFundTransfers.toProjectId, String(targetProjectId)), eq(projectFundTransfers.transferDate, String(date)))
+      );
+      for (const row of inRows) {
+        let fromName = row.fromProjectId;
+        try { const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, row.fromProjectId)); if (p) fromName = p.name; } catch (_) {}
+        targetRecords.push(formatRecord("fundTransferIn", { ...row, _fromProjectName: fromName }));
+      }
+    } catch (e: any) {
+      console.error(`[RecordTransfer] preview target read fundTransfers:`, e.message);
     }
 
     const targetFpMap = new Map<string, any>();
@@ -337,6 +411,71 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
     let totalAmount = 0;
 
     for (const sel of selections) {
+      const isFundTransfer = sel.table === "fundTransferOut" || sel.table === "fundTransferIn";
+
+      if (isFundTransfer) {
+        try {
+          const [record] = await db.select().from(projectFundTransfers).where(eq(projectFundTransfers.id, sel.id));
+          if (!record) continue;
+
+          const isOut = sel.table === "fundTransferOut";
+          const belongsToSource = isOut
+            ? record.fromProjectId === String(sourceProjectId)
+            : record.toProjectId === String(sourceProjectId);
+          if (!belongsToSource) continue;
+
+          const postMoveRecord = { ...record };
+          if (isOut) {
+            postMoveRecord.fromProjectId = String(targetProjectId);
+          } else {
+            postMoveRecord.toProjectId = String(targetProjectId);
+          }
+
+          if (postMoveRecord.fromProjectId === postMoveRecord.toProjectId) {
+            duplicates.push({
+              ...formatRecord(sel.table, record),
+              matchInfo: {
+                targetProjectName: tProjectName,
+                targetRecordId: record.id,
+                targetDate: record.transferDate,
+                targetDescription: "النقل سيُنتج تحويل ذاتي (من/إلى نفس المشروع)",
+                targetAmount: parseFloat(String(record.amount || "0")),
+                matchedFields: { "تحذير": "fromProjectId === toProjectId بعد النقل" },
+              }
+            });
+            continue;
+          }
+
+          let fromName = record.fromProjectId, toName = record.toProjectId;
+          try { const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, record.fromProjectId)); if (p) fromName = p.name; } catch (_) {}
+          try { const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, record.toProjectId)); if (p) toName = p.name; } catch (_) {}
+
+          const formatted = formatRecord(sel.table, { ...record, _fromProjectName: fromName, _toProjectName: toName });
+
+          const postMoveFp = makeFingerprint(sel.table, postMoveRecord);
+          const matchingTarget = targetFpMap.get(postMoveFp) || targetFpMap.get(formatted.fingerprint);
+          if (matchingTarget) {
+            duplicates.push({
+              ...formatted,
+              matchInfo: {
+                targetProjectName: tProjectName,
+                targetRecordId: matchingTarget.id,
+                targetDate: matchingTarget.date,
+                targetDescription: matchingTarget.description,
+                targetAmount: matchingTarget.amount,
+                matchedFields: getFingerprintFields(sel.table, record),
+              }
+            });
+          } else {
+            transferable.push(formatted);
+            totalAmount += formatted.amount;
+          }
+        } catch (e: any) {
+          console.error(`[RecordTransfer] preview selection read ${sel.table}:`, e.message);
+        }
+        continue;
+      }
+
       const table = TABLE_MAP[sel.table];
       if (!table) continue;
       try {
@@ -425,6 +564,69 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
 
     await db.transaction(async (tx) => {
       for (const sel of selections) {
+        const isFundTransfer = sel.table === "fundTransferOut" || sel.table === "fundTransferIn";
+
+        if (isFundTransfer) {
+          try {
+            const isOut = sel.table === "fundTransferOut";
+            const ownerCol = isOut ? projectFundTransfers.fromProjectId : projectFundTransfers.toProjectId;
+            const [existing] = await tx.select().from(projectFundTransfers).where(
+              and(eq(projectFundTransfers.id, sel.id), eq(ownerCol, String(sourceProjectId)))
+            );
+            if (!existing) {
+              errors.push(`سجل ترحيل أموال غير موجود أو لا ينتمي للمشروع المصدر`);
+              continue;
+            }
+
+            const postFrom = isOut ? String(targetProjectId) : existing.fromProjectId;
+            const postTo = isOut ? existing.toProjectId : String(targetProjectId);
+            if (postFrom === postTo) {
+              errors.push(`تم تخطي سجل: النقل سيُنتج تحويل ذاتي (من/إلى نفس المشروع)`);
+              continue;
+            }
+
+            if (!force) {
+              const postMoveRecord = { ...existing, fromProjectId: postFrom, toProjectId: postTo };
+              const postMoveFp = makeFingerprint(sel.table, postMoveRecord);
+              const targetRows = await tx.select().from(projectFundTransfers).where(
+                and(
+                  eq(projectFundTransfers.transferDate, existing.transferDate),
+                  isOut
+                    ? eq(projectFundTransfers.fromProjectId, String(targetProjectId))
+                    : eq(projectFundTransfers.toProjectId, String(targetProjectId))
+                )
+              );
+              const hasDuplicate = targetRows.some((r: any) => {
+                if (r.id === sel.id) return false;
+                const fp = makeFingerprint(sel.table, r);
+                return fp === postMoveFp;
+              });
+              if (hasDuplicate) {
+                errors.push(`سجل ترحيل أموال مكرر تم تخطيه`);
+                continue;
+              }
+            }
+
+            if (isOut) {
+              await tx.update(projectFundTransfers)
+                .set({ fromProjectId: String(targetProjectId) })
+                .where(and(eq(projectFundTransfers.id, sel.id), eq(projectFundTransfers.fromProjectId, String(sourceProjectId))));
+            } else {
+              await tx.update(projectFundTransfers)
+                .set({ toProjectId: String(targetProjectId) })
+                .where(and(eq(projectFundTransfers.id, sel.id), eq(projectFundTransfers.toProjectId, String(sourceProjectId))));
+            }
+
+            movedCount++;
+            totalAmountMoved += parseFloat(String(existing.amount || "0"));
+            movedItems.push({ table: sel.table, id: sel.id });
+          } catch (e: any) {
+            console.error(`[RecordTransfer] confirm error for ${sel.table}:`, e.message);
+            errors.push(`فشل نقل سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
+          }
+          continue;
+        }
+
         const table = TABLE_MAP[sel.table];
         const dateColumn = DATE_COLUMN_MAP[sel.table];
         if (!table || !dateColumn) {
@@ -498,6 +700,29 @@ router.post("/delete", requireAdmin as any, async (req, res) => {
 
     await db.transaction(async (tx) => {
       for (const sel of selections) {
+        const isFundTransfer = sel.table === "fundTransferOut" || sel.table === "fundTransferIn";
+
+        if (isFundTransfer) {
+          try {
+            const isOut = sel.table === "fundTransferOut";
+            const ownerCol = isOut ? projectFundTransfers.fromProjectId : projectFundTransfers.toProjectId;
+            const [existing] = await tx.select().from(projectFundTransfers).where(
+              and(eq(projectFundTransfers.id, sel.id), eq(ownerCol, String(projectId)))
+            );
+            if (!existing) {
+              errors.push(`سجل ترحيل أموال غير موجود أو لا ينتمي للمشروع: ${sel.id}`);
+              continue;
+            }
+            await tx.delete(projectFundTransfers).where(
+              and(eq(projectFundTransfers.id, sel.id), eq(ownerCol, String(projectId)))
+            );
+            deletedCount++;
+          } catch (e: any) {
+            errors.push(`فشل حذف سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
+          }
+          continue;
+        }
+
         const table = TABLE_MAP[sel.table];
         if (!table) {
           errors.push(`جدول غير معروف: ${sel.table}`);

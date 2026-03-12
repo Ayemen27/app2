@@ -47,6 +47,10 @@ const TABLE_LABELS: Record<string, string> = {
   attendance: "الحضور",
 };
 
+function formatNum(n: number): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
 function normalize(val: any): string {
   if (val === null || val === undefined) return "";
   return String(val).trim().toLowerCase();
@@ -96,11 +100,59 @@ function makeFingerprint(table: string, record: any): string {
       parts.push(normalize(record.dailyWage));
       parts.push(normalize(record.workDays));
       parts.push(normalize(record.totalPay));
+      parts.push(normalize(record.paidAmount));
       break;
   }
 
   const key = parts.join("|");
   return crypto.createHash("sha256").update(key).digest("hex").substring(0, 24);
+}
+
+function getFingerprintFields(table: string, record: any): Record<string, string> {
+  const dateProp = DATE_PROP_MAP[table];
+  const fields: Record<string, string> = { "التاريخ": normalize(record[dateProp]) };
+
+  switch (table) {
+    case "materialPurchases":
+      fields["اسم المادة"] = normalize(record.materialName);
+      fields["الكمية"] = normalize(record.quantity);
+      fields["الوحدة"] = normalize(record.unit);
+      fields["سعر الوحدة"] = normalize(record.unitPrice);
+      fields["المبلغ"] = normalize(record.totalAmount);
+      fields["المورد"] = normalize(record.supplier_id);
+      fields["رقم الفاتورة"] = normalize(record.invoiceNumber);
+      break;
+    case "supplierPayments":
+      fields["المورد"] = normalize(record.supplier_id);
+      fields["المبلغ"] = normalize(record.amount);
+      fields["طريقة الدفع"] = normalize(record.paymentMethod);
+      fields["رقم المرجع"] = normalize(record.referenceNumber);
+      break;
+    case "transportationExpenses":
+      fields["المبلغ"] = normalize(record.amount);
+      fields["الوصف"] = normalize(record.description);
+      fields["الفئة"] = normalize(record.category);
+      fields["العامل"] = normalize(record.worker_id);
+      break;
+    case "workerTransfers":
+      fields["العامل"] = normalize(record.worker_id);
+      fields["المبلغ"] = normalize(record.amount);
+      fields["المستلم"] = normalize(record.recipientName);
+      fields["طريقة التحويل"] = normalize(record.transferMethod);
+      break;
+    case "workerMiscExpenses":
+      fields["المبلغ"] = normalize(record.amount);
+      fields["الوصف"] = normalize(record.description);
+      break;
+    case "attendance":
+      fields["العامل"] = normalize(record.worker_id);
+      fields["الأجر اليومي"] = normalize(record.dailyWage);
+      fields["أيام العمل"] = normalize(record.workDays);
+      fields["إجمالي الأجر"] = normalize(record.totalPay);
+      fields["المدفوع"] = normalize(record.paidAmount);
+      break;
+  }
+  return fields;
 }
 
 function formatRecord(table: string, record: any) {
@@ -129,10 +181,20 @@ function formatRecord(table: string, record: any) {
       amount = parseFloat(record.amount || "0");
       description = record.description || record.notes || "";
       break;
-    case "attendance":
-      amount = parseFloat(record.totalPay || record.dailyWage || "0");
-      description = `حضور - أيام العمل: ${record.workDays || "0"}`;
+    case "attendance": {
+      const paid = parseFloat(record.paidAmount || "0");
+      const total = parseFloat(record.totalPay || "0");
+      const wage = parseFloat(record.dailyWage || "0");
+      amount = paid > 0 ? paid : total;
+      const parts = [`أيام: ${record.workDays || "0"}`];
+      parts.push(`يومي: ${formatNum(wage)}`);
+      parts.push(`مستحق: ${formatNum(total)}`);
+      if (paid > 0) parts.push(`مدفوع: ${formatNum(paid)}`);
+      const rem = parseFloat(record.remainingAmount || "0");
+      if (rem > 0) parts.push(`متبقي: ${formatNum(rem)}`);
+      description = parts.join(" | ");
       break;
+    }
   }
 
   return {
@@ -204,6 +266,9 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
       return res.status(400).json({ error: "المشروع المصدر والهدف يجب أن يكونا مختلفين" });
     }
 
+    const targetProjectName = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, String(targetProjectId)));
+    const tProjectName = targetProjectName[0]?.name || "المشروع الهدف";
+
     const targetRecords: any[] = [];
     for (const [tableName, table] of Object.entries(TABLE_MAP)) {
       const dateColumn = DATE_COLUMN_MAP[tableName];
@@ -223,7 +288,10 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
       }
     }
 
-    const targetFingerprints = new Set(targetRecords.map(r => r.fingerprint));
+    const targetFpMap = new Map<string, any>();
+    for (const tr of targetRecords) {
+      targetFpMap.set(tr.fingerprint, tr);
+    }
 
     const transferable: any[] = [];
     const duplicates: any[] = [];
@@ -239,8 +307,19 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
         if (!record) continue;
         const formatted = formatRecord(sel.table, record);
 
-        if (targetFingerprints.has(formatted.fingerprint)) {
-          duplicates.push(formatted);
+        const matchingTarget = targetFpMap.get(formatted.fingerprint);
+        if (matchingTarget) {
+          duplicates.push({
+            ...formatted,
+            matchInfo: {
+              targetProjectName: tProjectName,
+              targetRecordId: matchingTarget.id,
+              targetDate: matchingTarget.date,
+              targetDescription: matchingTarget.description,
+              targetAmount: matchingTarget.amount,
+              matchedFields: getFingerprintFields(sel.table, record),
+            }
+          });
         } else {
           transferable.push(formatted);
           totalAmount += formatted.amount;
@@ -250,12 +329,15 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
       }
     }
 
+    console.log(`[RecordTransfer] preview: ${transferable.length} transferable, ${duplicates.length} duplicates, target had ${targetRecords.length} records`);
+
     res.json({
       transferableCount: transferable.length,
       duplicateCount: duplicates.length,
       totalAmount,
       transferable,
       duplicates,
+      targetRecordCount: targetRecords.length,
     });
   } catch (error: any) {
     console.error("[RecordTransfer] /preview error:", error.message);
@@ -265,7 +347,7 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
 
 router.post("/confirm", requireAdmin as any, async (req, res) => {
   try {
-    const { sourceProjectId, targetProjectId, selections } = req.body;
+    const { sourceProjectId, targetProjectId, selections, force } = req.body;
     if (!sourceProjectId || !targetProjectId || !selections?.length) {
       return res.status(400).json({ error: "بيانات غير مكتملة" });
     }
@@ -295,25 +377,27 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
             continue;
           }
 
-          const formatted = formatRecord(sel.table, existing);
-          const dateProp = DATE_PROP_MAP[sel.table];
-          const dateVal = existing[dateProp];
+          if (!force) {
+            const formatted = formatRecord(sel.table, existing);
+            const dateProp = DATE_PROP_MAP[sel.table];
+            const dateVal = existing[dateProp];
 
-          if (dateVal) {
-            const targetRows = await tx.select().from(table).where(
-              and(
-                eq(table.project_id, String(targetProjectId)),
-                eq(dateColumn, dateVal)
-              )
-            );
-            const hasDuplicate = targetRows.some((r: any) => {
-              const fp = makeFingerprint(sel.table, r);
-              return fp === formatted.fingerprint;
-            });
+            if (dateVal) {
+              const targetRows = await tx.select().from(table).where(
+                and(
+                  eq(table.project_id, String(targetProjectId)),
+                  eq(dateColumn, dateVal)
+                )
+              );
+              const hasDuplicate = targetRows.some((r: any) => {
+                const fp = makeFingerprint(sel.table, r);
+                return fp === formatted.fingerprint;
+              });
 
-            if (hasDuplicate) {
-              errors.push(`سجل مكرر تم تخطيه: ${formatted.description}`);
-              continue;
+              if (hasDuplicate) {
+                errors.push(`سجل مكرر تم تخطيه: ${formatted.description}`);
+                continue;
+              }
             }
           }
 
@@ -336,6 +420,50 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
   } catch (error: any) {
     console.error("[RecordTransfer] /confirm error:", error.message);
     res.status(500).json({ error: "حدث خطأ أثناء عملية النقل - لم يتم نقل أي سجل" });
+  }
+});
+
+router.post("/delete", requireAdmin as any, async (req, res) => {
+  try {
+    const { projectId, selections } = req.body;
+    if (!projectId || !selections?.length) {
+      return res.status(400).json({ error: "بيانات غير مكتملة" });
+    }
+
+    let deletedCount = 0;
+    const errors: string[] = [];
+
+    await db.transaction(async (tx) => {
+      for (const sel of selections) {
+        const table = TABLE_MAP[sel.table];
+        if (!table) {
+          errors.push(`جدول غير معروف: ${sel.table}`);
+          continue;
+        }
+        try {
+          const [existing] = await tx.select().from(table).where(
+            and(eq(table.id, sel.id), eq(table.project_id, String(projectId)))
+          );
+          if (!existing) {
+            errors.push(`سجل غير موجود: ${sel.id}`);
+            continue;
+          }
+
+          await tx.delete(table).where(
+            and(eq(table.id, sel.id), eq(table.project_id, String(projectId)))
+          );
+          deletedCount++;
+        } catch (e: any) {
+          console.error(`[RecordTransfer] delete error for ${sel.table}:`, e.message);
+          errors.push(`فشل حذف سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
+        }
+      }
+    });
+
+    res.json({ deletedCount, errors });
+  } catch (error: any) {
+    console.error("[RecordTransfer] /delete error:", error.message);
+    res.status(500).json({ error: "حدث خطأ أثناء الحذف" });
   }
 });
 

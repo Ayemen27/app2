@@ -11,10 +11,19 @@ import {
   ArrowLeftRight, ChevronRight, ChevronLeft, Calendar, Package,
   Truck, Users, Wallet, AlertTriangle, CheckCircle2, Loader2,
   ArrowRight, Eye, FileWarning, ClipboardList, TrendingUp,
-  ChevronsRight, ChevronsLeft, RotateCcw
+  ChevronsRight, ChevronsLeft, RotateCcw, Trash2, ShieldAlert, Info
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+interface MatchInfo {
+  targetProjectName: string;
+  targetRecordId: string;
+  targetDate: string;
+  targetDescription: string;
+  targetAmount: number;
+  matchedFields: Record<string, string>;
+}
 
 interface TransferRecord {
   id: string;
@@ -27,6 +36,7 @@ interface TransferRecord {
   supplierId: string | null;
   fingerprint: string;
   raw: any;
+  matchInfo?: MatchInfo;
 }
 
 interface ReviewResponse {
@@ -43,6 +53,7 @@ interface PreviewResponse {
   totalAmount: number;
   transferable: TransferRecord[];
   duplicates: TransferRecord[];
+  targetRecordCount: number;
 }
 
 interface Project {
@@ -93,9 +104,11 @@ function getDayName(dateStr: string): string {
 
 export default function RecordsTransfer() {
   const { toast } = useToast();
-  const [sourceProjectId, setSourceProjectId] = useState<string>("");
-  const [targetProjectId, setTargetProjectId] = useState<string>("");
+  const [sourceProjectId, setSourceProjectId] = useState<string>(() => localStorage.getItem("rt_source") || "");
+  const [targetProjectId, setTargetProjectId] = useState<string>(() => localStorage.getItem("rt_target") || "");
   const [currentDate, setCurrentDate] = useState(() => {
+    const saved = localStorage.getItem("rt_date");
+    if (saved) return saved;
     const n = new Date();
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
   });
@@ -105,6 +118,8 @@ export default function RecordsTransfer() {
   const [isPreview, setIsPreview] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isForceTransferring, setIsForceTransferring] = useState(false);
 
   const { data: projectsData } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -123,6 +138,10 @@ export default function RecordsTransfer() {
     queryFn: () => apiRequest(`/api/record-transfer/review?projectId=${targetProjectId}&date=${currentDate}`),
     enabled: !!targetProjectId,
   });
+
+  useEffect(() => { localStorage.setItem("rt_source", sourceProjectId); }, [sourceProjectId]);
+  useEffect(() => { localStorage.setItem("rt_target", targetProjectId); }, [targetProjectId]);
+  useEffect(() => { localStorage.setItem("rt_date", currentDate); }, [currentDate]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -257,17 +276,84 @@ export default function RecordsTransfer() {
         title: `تم نقل ${result.movedCount} سجل بنجاح`,
         description: `إجمالي المبالغ المنقولة: ${formatCurrency(result.totalAmountMoved)}`,
       });
-      setIsPreview(false);
-      setPreviewData(null);
-      setSelectedIds(new Set());
-      setSelectedRecords([]);
-      refetchSource();
-      refetchTarget();
+      resetAndRefresh();
     } catch (error: any) {
       toast({ title: "فشل النقل", description: error.message, variant: "destructive" });
     } finally {
       setIsTransferring(false);
     }
+  };
+
+  const handleForceTransfer = async () => {
+    if (!previewData || !previewData.duplicates.length) return;
+    setIsForceTransferring(true);
+    try {
+      const forceSelections = previewData.duplicates.map(r => ({ table: r.table, id: r.id }));
+      const result = await apiRequest("/api/record-transfer/confirm", "POST", {
+        sourceProjectId,
+        targetProjectId,
+        selections: forceSelections,
+        force: true,
+      });
+      toast({
+        title: `تم نقل ${result.movedCount} سجل إجبارياً`,
+        description: result.errors?.length ? result.errors.join("\n") : `إجمالي: ${formatCurrency(result.totalAmountMoved)}`,
+      });
+      resetAndRefresh();
+    } catch (error: any) {
+      toast({ title: "فشل النقل الإجباري", description: error.message, variant: "destructive" });
+    } finally {
+      setIsForceTransferring(false);
+    }
+  };
+
+  const handleDeleteDuplicates = async (which: "source" | "target") => {
+    if (!previewData || !previewData.duplicates.length) return;
+    setIsDeleting(true);
+    try {
+      let selections: { table: string; id: string }[];
+      let projectId: string;
+
+      if (which === "source") {
+        selections = previewData.duplicates.map(r => ({ table: r.table, id: r.id }));
+        projectId = sourceProjectId;
+      } else {
+        selections = previewData.duplicates
+          .filter(r => r.matchInfo?.targetRecordId)
+          .map(r => ({ table: r.table, id: r.matchInfo!.targetRecordId }));
+        projectId = targetProjectId;
+      }
+
+      if (!selections.length) {
+        toast({ title: "لا توجد سجلات للحذف", variant: "destructive" });
+        setIsDeleting(false);
+        return;
+      }
+
+      const result = await apiRequest("/api/record-transfer/delete", "POST", {
+        projectId,
+        selections,
+      });
+      const label = which === "source" ? "المصدر" : "الهدف";
+      toast({
+        title: `تم حذف ${result.deletedCount} سجل مكرر من ${label}`,
+        description: result.errors?.length ? result.errors.join("\n") : undefined,
+      });
+      resetAndRefresh();
+    } catch (error: any) {
+      toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const resetAndRefresh = () => {
+    setIsPreview(false);
+    setPreviewData(null);
+    setSelectedIds(new Set());
+    setSelectedRecords([]);
+    refetchSource();
+    refetchTarget();
   };
 
   const groupByTable = (records: TransferRecord[]) => {
@@ -345,7 +431,7 @@ export default function RecordsTransfer() {
             {isDuplicate && (
               <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[8px] border gap-0.5 px-1 py-0">
                 <AlertTriangle className="h-2 w-2" />
-                مكرر
+                مكرر في الهدف
               </Badge>
             )}
           </div>
@@ -437,7 +523,55 @@ export default function RecordsTransfer() {
     );
   };
 
-  const isToday = currentDate === new Date().toISOString().split("T")[0];
+  const renderDuplicateDetail = (dup: TransferRecord) => {
+    const Icon = TABLE_ICONS[dup.table] || Package;
+    const match = dup.matchInfo;
+
+    return (
+      <div key={dup.id} className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Badge className={`${TABLE_COLORS[dup.table]} text-[8px] border gap-0.5 px-1 py-0`}>
+                <Icon className="h-2 w-2" />
+                {dup.tableLabel}
+              </Badge>
+              <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[8px] border gap-0.5 px-1 py-0">
+                <AlertTriangle className="h-2 w-2" />
+                مكرر
+              </Badge>
+            </div>
+            <p className="text-[11px] text-foreground">{dup.description}</p>
+            <p className="text-[10px] font-mono font-semibold">{formatCurrency(dup.amount)}</p>
+          </div>
+        </div>
+
+        {match && (
+          <div className="p-2 rounded-md bg-muted/40 border border-border/50 space-y-1.5">
+            <p className="text-[10px] font-semibold text-foreground flex items-center gap-1">
+              <Info className="h-3 w-3 text-blue-500" />
+              سبب التكرار: سجل مطابق في "{match.targetProjectName}"
+            </p>
+            <p className="text-[9px] text-muted-foreground mr-4">
+              تاريخ: {match.targetDate} | {match.targetDescription} | المبلغ: {formatCurrency(match.targetAmount)}
+            </p>
+            <div className="mr-4">
+              <p className="text-[9px] text-muted-foreground font-semibold mb-0.5">الحقول المتطابقة:</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                {match.matchedFields && Object.entries(match.matchedFields).map(([key, val]) => (
+                  <p key={key} className="text-[8px] text-muted-foreground">
+                    <span className="font-medium">{key}:</span> {val || "-"}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const isToday = currentDate === toLocalDateStr(new Date());
 
   return (
     <div className="min-h-screen bg-background p-2 sm:p-4" dir="rtl">
@@ -620,16 +754,52 @@ export default function RecordsTransfer() {
                   </div>
 
                   {previewData.duplicates.length > 0 && (
-                    <div className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/20">
-                      <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-1">
-                        <FileWarning className="h-3 w-3" />
-                        سجلات مكررة لن يتم نقلها
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <FileWarning className="h-3.5 w-3.5" />
+                        سجلات مكررة ({previewData.duplicates.length})
                       </p>
-                      {previewData.duplicates.map(d => (
-                        <p key={d.id} className="text-[9px] text-muted-foreground mr-4">
-                          {d.tableLabel}: {d.description} ({formatCurrency(d.amount)})
-                        </p>
-                      ))}
+                      <ScrollArea className="max-h-[250px]">
+                        <div className="space-y-2">
+                          {previewData.duplicates.map(d => renderDuplicateDetail(d))}
+                        </div>
+                      </ScrollArea>
+                      <div className="flex flex-wrap gap-2 p-2 rounded-lg bg-muted/30 border border-border/50">
+                        <p className="text-[10px] text-muted-foreground w-full mb-1">خيارات التعامل مع المكرر:</p>
+                        <Button
+                          data-testid="button-force-transfer"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleForceTransfer}
+                          disabled={isForceTransferring || isDeleting}
+                          className="text-[10px] h-7 gap-1 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                        >
+                          {isForceTransferring ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldAlert className="h-3 w-3" />}
+                          نقل إجباري من المصدر
+                        </Button>
+                        <Button
+                          data-testid="button-delete-source-dup"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteDuplicates("source")}
+                          disabled={isDeleting || isForceTransferring}
+                          className="text-[10px] h-7 gap-1 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                        >
+                          {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          حذف المكرر من المصدر
+                        </Button>
+                        <Button
+                          data-testid="button-delete-target-dup"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteDuplicates("target")}
+                          disabled={isDeleting || isForceTransferring}
+                          className="text-[10px] h-7 gap-1 border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10"
+                        >
+                          {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          حذف المكرر من الهدف
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -642,20 +812,22 @@ export default function RecordsTransfer() {
                     >
                       إلغاء
                     </Button>
-                    <Button
-                      data-testid="button-confirm-transfer"
-                      size="sm"
-                      onClick={handleConfirm}
-                      disabled={isTransferring || previewData.transferableCount === 0}
-                      className="gap-1.5 bg-green-600 hover:bg-green-700"
-                    >
-                      {isTransferring ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      )}
-                      تأكيد نقل {previewData.transferableCount} سجل
-                    </Button>
+                    {previewData.transferableCount > 0 && (
+                      <Button
+                        data-testid="button-confirm-transfer"
+                        size="sm"
+                        onClick={handleConfirm}
+                        disabled={isTransferring}
+                        className="gap-1.5 bg-green-600 hover:bg-green-700"
+                      >
+                        {isTransferring ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        )}
+                        تأكيد نقل {previewData.transferableCount} سجل
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

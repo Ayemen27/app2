@@ -54,6 +54,40 @@ function broadcastGlobal(data: any) {
 
 export class DeploymentEngine {
 
+  async recoverOrphanedDeployments() {
+    try {
+      const orphaned = await db.select().from(buildDeployments)
+        .where(eq(buildDeployments.status, "running"));
+
+      for (const d of orphaned) {
+        const age = Date.now() - new Date(d.created_at!).getTime();
+        if (age > 60000) {
+          await db.update(buildDeployments).set({
+            status: "failed",
+            errorMessage: "توقفت العملية بسبب إعادة تشغيل الخادم",
+            endTime: new Date(),
+            duration: age,
+          }).where(eq(buildDeployments.id, d.id));
+
+          await db.insert(deploymentEvents).values({
+            deploymentId: d.id,
+            eventType: "deployment_failed",
+            message: "توقفت العملية بسبب إعادة تشغيل الخادم (recovery)",
+            metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep },
+          });
+
+          console.log(`[DeploymentEngine] Recovered orphaned deployment #${d.buildNumber} (${d.id})`);
+        }
+      }
+
+      if (orphaned.length > 0) {
+        console.log(`[DeploymentEngine] Recovered ${orphaned.length} orphaned deployment(s)`);
+      }
+    } catch (err) {
+      console.error("[DeploymentEngine] Error recovering orphaned deployments:", err);
+    }
+  }
+
   async getNextBuildNumber(): Promise<number> {
     const result = await db.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
     return (result[0]?.maxBuild || 0) + 1;
@@ -352,7 +386,7 @@ export class DeploymentEngine {
       deploymentId,
       `tar --exclude='node_modules' ${distExclude} --exclude='android/build' --exclude='android/app/build' --exclude='android/.gradle' --exclude='.git' --exclude='.gradle' --exclude='output_apks' --exclude='www' -czf ${archivePath} .`,
       "Archive",
-      60000
+      180000
     );
 
     const { stdout: sizeOut } = await execAsync(`du -h ${archivePath} | cut -f1`);
@@ -571,7 +605,7 @@ export class DeploymentEngine {
       deploymentId,
       `${sshCmd} "set -o pipefail && cd ${remoteDir} && npx drizzle-kit push --force 2>&1 | tail -15 && echo 'MIGRATE_OK'"`,
       "DB Migrate",
-      120000
+      300000
     );
   }
 
@@ -607,11 +641,15 @@ export class DeploymentEngine {
   private async addLog(deploymentId: string, message: string, type: LogEntry["type"]) {
     const entry: LogEntry = { timestamp: new Date().toISOString(), message, type };
 
-    await db.execute(sql`
-      UPDATE build_deployments 
-      SET logs = logs || ${JSON.stringify([entry])}::jsonb 
-      WHERE id = ${deploymentId}
-    `);
+    try {
+      await db.execute(sql`
+        UPDATE build_deployments 
+        SET logs = COALESCE(logs, '[]'::jsonb) || ${JSON.stringify([entry])}::jsonb 
+        WHERE id = ${deploymentId}
+      `);
+    } catch (err) {
+      console.error(`[DeploymentEngine] Failed to save log for ${deploymentId}:`, err);
+    }
 
     broadcastToClients(deploymentId, { type: "log", data: entry });
   }

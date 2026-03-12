@@ -199,9 +199,31 @@ export default function DeploymentConsole() {
     queryKey: ["/api/deployment/list"],
   });
 
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startPolling = useCallback((deploymentId: string) => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const data = await apiRequest(`/api/deployment/${deploymentId}`);
+        setLiveDeployment(data);
+        setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
+        if (data.status === "success" || data.status === "failed") {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          refetchHistory();
+          queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+        }
+      } catch {}
+    }, 5000);
+  }, [refetchHistory, queryClient]);
+
   const connectSSE = useCallback((deploymentId: string) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+    }
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
     }
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
@@ -209,14 +231,16 @@ export default function DeploymentConsole() {
     const apiBase = ENV.getApiBaseUrl();
     const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream${tokenParam}`);
     eventSourceRef.current = es;
+    let sseConnected = false;
 
     es.onmessage = (event) => {
       try {
+        sseConnected = true;
         const payload = JSON.parse(event.data);
 
         if (payload.type === "initial_state") {
           setLiveDeployment(payload.data);
-          setLiveLogs(payload.data.logs || []);
+          setLiveLogs(Array.isArray(payload.data.logs) ? payload.data.logs : []);
         } else if (payload.type === "log") {
           setLiveLogs(prev => [...prev, payload.data]);
         } else if (payload.type === "deployment_update") {
@@ -241,13 +265,19 @@ export default function DeploymentConsole() {
     };
 
     es.onerror = () => {
-      setTimeout(() => {
-        if (activeDeploymentId === deploymentId) {
-          connectSSE(deploymentId);
-        }
-      }, 3000);
+      es.close();
+      eventSourceRef.current = null;
+      if (!sseConnected) {
+        startPolling(deploymentId);
+      } else {
+        setTimeout(() => {
+          if (activeDeploymentId === deploymentId) {
+            connectSSE(deploymentId);
+          }
+        }, 3000);
+      }
     };
-  }, [activeDeploymentId, refetchHistory, queryClient]);
+  }, [activeDeploymentId, refetchHistory, queryClient, startPolling]);
 
   useEffect(() => {
     if (activeDeploymentId) {
@@ -255,6 +285,10 @@ export default function DeploymentConsole() {
     }
     return () => {
       eventSourceRef.current?.close();
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     };
   }, [activeDeploymentId, connectSSE]);
 
@@ -333,15 +367,14 @@ export default function DeploymentConsole() {
   };
 
   const viewDeployment = async (id: string) => {
-    setActiveDeploymentId(id);
-    setLiveLogs([]);
-    setLiveDeployment(null);
-
     try {
       const data = await apiRequest(`/api/deployment/${id}`);
+      setActiveDeploymentId(id);
       setLiveDeployment(data);
-      setLiveLogs(data.logs || []);
-    } catch {}
+      setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
+    } catch (error: any) {
+      toast({ title: "فشل تحميل بيانات العملية", description: error.message, variant: "destructive" });
+    }
   };
 
   const stats = statsData || { total: 0, success: 0, failed: 0, running: 0, successRate: 0, avgDuration: 0 };

@@ -4,6 +4,10 @@ import { deploymentEngine } from "../../services/deployment-engine.js";
 
 const router = Router();
 
+deploymentEngine.recoverOrphanedDeployments().catch(err => {
+  console.error("[DeploymentRoutes] Failed to recover orphaned deployments:", err);
+});
+
 function sanitizeShellArg(input: string): string {
   return input.replace(/[^\w\s\u0600-\u06FF.,!?@#$%^&*()\-=+\[\]{}|:;<>\/~`'"]/g, "").substring(0, 200);
 }

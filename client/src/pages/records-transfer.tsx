@@ -143,6 +143,21 @@ export default function RecordsTransfer() {
     enabled: !!targetProjectId,
   });
 
+  const { data: sourceBalanceData } = useQuery<any>({
+    queryKey: ["/api/projects", sourceProjectId, "previous-balance", currentDate],
+    queryFn: () => apiRequest(`/api/projects/${sourceProjectId}/previous-balance/${currentDate}`),
+    enabled: !!sourceProjectId,
+  });
+
+  const { data: targetBalanceData } = useQuery<any>({
+    queryKey: ["/api/projects", targetProjectId, "previous-balance", currentDate],
+    queryFn: () => apiRequest(`/api/projects/${targetProjectId}/previous-balance/${currentDate}`),
+    enabled: !!targetProjectId,
+  });
+
+  const sourceBalance = sourceBalanceData?.data?.balance ? parseFloat(sourceBalanceData.data.balance) : null;
+  const targetBalance = targetBalanceData?.data?.balance ? parseFloat(targetBalanceData.data.balance) : null;
+
   useEffect(() => { localStorage.setItem("rt_source", sourceProjectId); }, [sourceProjectId]);
   useEffect(() => { localStorage.setItem("rt_target", targetProjectId); }, [targetProjectId]);
   useEffect(() => { localStorage.setItem("rt_date", currentDate); }, [currentDate]);
@@ -485,7 +500,8 @@ export default function RecordsTransfer() {
     records: TransferRecord[],
     loading: boolean,
     side: "source" | "target",
-    summary: Record<string, { count: number; total: number; label: string }>
+    summary: Record<string, { count: number; total: number; label: string }>,
+    balance: number | null
   ) => {
     const groups = groupByTable(records);
     const totalAmount = records.reduce((s, r) => s + r.amount, 0);
@@ -503,6 +519,29 @@ export default function RecordsTransfer() {
               <span className="text-[10px] font-mono font-bold text-foreground">{formatCurrency(totalAmount)}</span>
             </div>
           </div>
+          {balance !== null && (() => {
+            const remaining = balance - totalAmount;
+            return (
+              <div className={`flex items-center gap-2 mt-1 p-1.5 rounded-md border ${
+                remaining >= 0 
+                  ? "bg-green-500/5 border-green-500/20" 
+                  : "bg-red-500/5 border-red-500/20"
+              }`}>
+                <div className="flex items-center gap-1">
+                  <Wallet className="h-3 w-3 text-blue-500" />
+                  <span className="text-[9px] text-muted-foreground">العهدة:</span>
+                  <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400">{formatCurrency(balance)}</span>
+                </div>
+                <span className="text-[9px] text-muted-foreground">|</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-muted-foreground">المتبقي:</span>
+                  <span className={`text-[10px] font-mono font-bold ${remaining >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    {formatCurrency(remaining)}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
           {side === "source" && records.length > 0 && (
             <div className="flex items-center gap-1 mt-1.5">
               <Button
@@ -751,14 +790,16 @@ export default function RecordsTransfer() {
                 sourceRecords,
                 sourceLoading,
                 "source",
-                sourceSummary
+                sourceSummary,
+                sourceBalance
               )}
               {renderProjectColumn(
                 projects.find(p => p.id === targetProjectId)?.name || "الهدف",
                 targetRecords,
                 targetLoading,
                 "target",
-                targetSummary
+                targetSummary,
+                targetBalance
               )}
             </div>
 

@@ -602,9 +602,16 @@ export default function RecordsTransfer() {
     setPreviewData(null);
     setSelectedIds(new Set());
     setSelectedRecords([]);
-    queryClient.invalidateQueries({ queryKey: ["/api/projects", sourceProjectId, "daily-expenses", currentDate] });
-    queryClient.invalidateQueries({ queryKey: ["/api/projects", targetProjectId, "daily-expenses", currentDate] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", sourceProjectId, "daily-expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", targetProjectId, "daily-expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", sourceProjectId, "previous-balance"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", targetProjectId, "previous-balance"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", sourceProjectId, "daily-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", targetProjectId, "daily-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", sourceProjectId, "all-expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", targetProjectId, "all-expenses"] });
     queryClient.invalidateQueries({ queryKey: ["/api/financial-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects/all-projects-total"] });
   };
 
   const groupByTable = (records: TransferRecord[]) => {

@@ -8,6 +8,8 @@ import {
 } from "../../../shared/schema.js";
 import { eq, and, ne, sql } from "drizzle-orm";
 import crypto from "crypto";
+import { storage } from "../../storage.js";
+import { invalidateBalanceCache } from "./projectRoutes.js";
 
 const router = Router();
 router.use(requireAuth as any);
@@ -581,6 +583,7 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
     let totalAmountMoved = 0;
     const errors: string[] = [];
     const movedItems: { table: string; id: string }[] = [];
+    const affectedDates = new Set<string>();
 
     await db.transaction(async (tx) => {
       for (const sel of selections) {
@@ -640,6 +643,7 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
             movedCount++;
             totalAmountMoved += parseFloat(String(existing.amount || "0"));
             movedItems.push({ table: sel.table, id: sel.id });
+            if (existing.transferDate) affectedDates.add(existing.transferDate);
           } catch (e: any) {
             console.error(`[RecordTransfer] confirm error for ${sel.table}:`, e.message);
             errors.push(`فشل نقل سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
@@ -694,6 +698,8 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
           const amt = parseFloat(existing.amount || existing.totalAmount || existing.totalPay || existing.dailyWage || "0");
           totalAmountMoved += amt;
           movedItems.push({ table: sel.table, id: sel.id });
+          const dateProp = DATE_PROP_MAP[sel.table];
+          if (dateProp && existing[dateProp]) affectedDates.add(existing[dateProp]);
         } catch (e: any) {
           console.error(`[RecordTransfer] confirm error for ${sel.table}:`, e.message);
           errors.push(`فشل نقل سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
@@ -701,7 +707,24 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
       }
     });
 
-    res.json({ movedCount, totalAmountMoved, errors, movedItems });
+    if (movedCount > 0) {
+      try {
+        const sortedDates = [...affectedDates].sort();
+        console.log(`[RecordTransfer] إعادة حساب الملخصات للمشروعين، تواريخ: ${sortedDates.join(", ")}`);
+        for (const date of sortedDates) {
+          await storage.updateDailySummaryForDate(String(sourceProjectId), date);
+          await storage.updateDailySummaryForDate(String(targetProjectId), date);
+        }
+        invalidateBalanceCache(String(sourceProjectId));
+        invalidateBalanceCache(String(targetProjectId));
+        console.log(`[RecordTransfer] ✅ تم إعادة حساب الملخصات ومسح الكاش`);
+      } catch (recalcErr: any) {
+        console.error(`[RecordTransfer] ⚠️ خطأ في إعادة حساب الملخصات:`, recalcErr.message);
+        errors.push("تم النقل بنجاح لكن فشل تحديث الملخصات المالية");
+      }
+    }
+
+    res.json({ movedCount, totalAmountMoved, errors, movedItems, recalculationDone: movedCount > 0 });
   } catch (error: any) {
     console.error("[RecordTransfer] /confirm error:", error.message);
     res.status(500).json({ error: "حدث خطأ أثناء عملية النقل - لم يتم نقل أي سجل" });
@@ -717,6 +740,7 @@ router.post("/delete", requireAdmin as any, async (req, res) => {
 
     let deletedCount = 0;
     const errors: string[] = [];
+    const affectedDates = new Set<string>();
 
     await db.transaction(async (tx) => {
       for (const sel of selections) {
@@ -733,6 +757,7 @@ router.post("/delete", requireAdmin as any, async (req, res) => {
               errors.push(`سجل ترحيل أموال غير موجود أو لا ينتمي للمشروع: ${sel.id}`);
               continue;
             }
+            if (existing.transferDate) affectedDates.add(existing.transferDate);
             await tx.delete(projectFundTransfers).where(
               and(eq(projectFundTransfers.id, sel.id), eq(ownerCol, String(projectId)))
             );
@@ -757,6 +782,9 @@ router.post("/delete", requireAdmin as any, async (req, res) => {
             continue;
           }
 
+          const dateProp = DATE_PROP_MAP[sel.table];
+          if (dateProp && existing[dateProp]) affectedDates.add(existing[dateProp]);
+
           await tx.delete(table).where(
             and(eq(table.id, sel.id), eq(table.project_id, String(projectId)))
           );
@@ -767,6 +795,18 @@ router.post("/delete", requireAdmin as any, async (req, res) => {
         }
       }
     });
+
+    if (deletedCount > 0) {
+      try {
+        const sortedDates = [...affectedDates].sort();
+        for (const date of sortedDates) {
+          await storage.updateDailySummaryForDate(String(projectId), date);
+        }
+        invalidateBalanceCache(String(projectId));
+      } catch (recalcErr: any) {
+        console.error(`[RecordTransfer] ⚠️ خطأ في إعادة حساب الملخصات بعد الحذف:`, recalcErr.message);
+      }
+    }
 
     res.json({ deletedCount, errors });
   } catch (error: any) {

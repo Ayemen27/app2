@@ -1557,8 +1557,13 @@ export class DatabaseStorage implements IStorage {
         totalExpenses: totalExpenses.toString(),
         remainingBalance: remainingBalance.toString()
       });
+
+      await db.delete(dailyExpenseSummaries)
+        .where(and(
+          eq(dailyExpenseSummaries.project_id, project_id),
+          sql`${dailyExpenseSummaries.date} > ${date}`
+        ));
       
-      // تم تحديث الملخص بنجاح
     } catch (error) {
       console.error('❌ Error updating daily summary:', error);
       throw error;

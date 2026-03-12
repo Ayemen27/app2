@@ -7,11 +7,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import {
   ArrowLeftRight, ChevronRight, ChevronLeft, Calendar, Package,
   Truck, Users, Wallet, AlertTriangle, CheckCircle2, Loader2,
   ArrowRight, Eye, FileWarning, ClipboardList, TrendingUp,
-  ChevronsRight, ChevronsLeft, RotateCcw, Trash2, ShieldAlert, Info
+  ChevronsRight, ChevronsLeft, RotateCcw, Trash2, ShieldAlert, Info,
+  Send, DollarSign
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -120,6 +122,8 @@ export default function RecordsTransfer() {
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isForceTransferring, setIsForceTransferring] = useState(false);
+  const [fundAmount, setFundAmount] = useState<string>("");
+  const [isSendingFund, setIsSendingFund] = useState(false);
 
   const { data: projectsData } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -344,6 +348,40 @@ export default function RecordsTransfer() {
       toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleFundTransfer = async () => {
+    const amt = parseFloat(fundAmount);
+    if (!amt || amt <= 0) {
+      toast({ title: "أدخل مبلغاً صحيحاً", variant: "destructive" });
+      return;
+    }
+    if (!sourceProjectId || !targetProjectId) {
+      toast({ title: "اختر المشروع المصدر والهدف", variant: "destructive" });
+      return;
+    }
+    setIsSendingFund(true);
+    try {
+      await apiRequest("/api/financial/project-fund-transfers", "POST", {
+        fromProjectId: sourceProjectId,
+        toProjectId: targetProjectId,
+        amount: String(amt),
+        transferDate: currentDate,
+        description: `ترحيل من صفحة نقل السجلات`,
+        transferReason: "ترحيل أموال بين المشاريع",
+      });
+      const srcName = projects.find(p => p.id === sourceProjectId)?.name || "";
+      const tgtName = projects.find(p => p.id === targetProjectId)?.name || "";
+      toast({
+        title: `تم ترحيل ${formatCurrency(amt)} بنجاح`,
+        description: `من "${srcName}" إلى "${tgtName}"`,
+      });
+      setFundAmount("");
+    } catch (error: any) {
+      toast({ title: "فشل الترحيل", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSendingFund(false);
     }
   };
 
@@ -651,6 +689,43 @@ export default function RecordsTransfer() {
             </div>
           </CardContent>
         </Card>
+
+        {sourceProjectId && targetProjectId && (
+          <Card className="bg-card border-border">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-[11px] font-semibold text-foreground">ترحيل أموال</span>
+                </div>
+                <Input
+                  data-testid="input-fund-amount"
+                  type="number"
+                  placeholder="المبلغ"
+                  value={fundAmount}
+                  onChange={(e) => setFundAmount(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleFundTransfer(); }}
+                  className="h-8 w-32 text-xs font-mono text-center"
+                  min="0"
+                  dir="ltr"
+                />
+                <Button
+                  data-testid="button-fund-transfer"
+                  size="sm"
+                  onClick={handleFundTransfer}
+                  disabled={isSendingFund || !fundAmount}
+                  className="h-8 gap-1.5 text-xs bg-green-600 hover:bg-green-700"
+                >
+                  {isSendingFund ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  ترحيل
+                </Button>
+                <span className="text-[9px] text-muted-foreground">
+                  من {projects.find(p => p.id === sourceProjectId)?.name || "المصدر"} → {projects.find(p => p.id === targetProjectId)?.name || "الهدف"} | {formatDate(currentDate)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {sourceProjectId && targetProjectId ? (
           <>

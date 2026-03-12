@@ -44,7 +44,7 @@ interface WorkerStatementOptions {
 
 export class ReportDataService {
   async getDailyReport(projectId: string, date: string): Promise<DailyReportData> {
-    const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData, projectFundTransfersData] = await Promise.all([
+    const [projectInfo, attendanceData, materialsData, transportData, miscExpensesData, transfersData, fundTransfersData, projectFundTransfersData, projectFundTransfersOutData] = await Promise.all([
       db.select().from(projects).where(eq(projects.id, projectId)).limit(1),
 
       db
@@ -146,6 +146,24 @@ export class ReportDataService {
             eq(projectFundTransfers.transferDate, date)
           )
         ),
+
+      db
+        .select({
+          id: projectFundTransfers.id,
+          amount: projectFundTransfers.amount,
+          description: projectFundTransfers.description,
+          transferReason: projectFundTransfers.transferReason,
+          toProjectId: projectFundTransfers.toProjectId,
+          toProjectName: projects.name,
+        })
+        .from(projectFundTransfers)
+        .leftJoin(projects, eq(projectFundTransfers.toProjectId, projects.id))
+        .where(
+          and(
+            eq(projectFundTransfers.fromProjectId, projectId),
+            eq(projectFundTransfers.transferDate, date)
+          )
+        ),
     ]);
 
     const proj = projectInfo[0];
@@ -229,7 +247,8 @@ export class ReportDataService {
     const totalMiscExpenses = miscExpenses.reduce((s, e) => s + e.amount, 0);
     const totalWorkerTransfers = workerTransfersList.reduce((s, t) => s + t.amount, 0);
     const totalFundTransfers = fundTransfersList.reduce((s, f) => s + f.amount, 0);
-    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers;
+    const totalProjectTransfersOut = projectFundTransfersOutData.reduce((s, f) => s + safeNum(f.amount), 0);
+    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut;
     const balance = totalFundTransfers - totalExpenses;
 
     const kpis: ReportKPI[] = [
@@ -264,6 +283,12 @@ export class ReportDataService {
       miscExpenses,
       workerTransfers: workerTransfersList,
       fundTransfers: fundTransfersList,
+      projectTransfersOut: projectFundTransfersOutData.map((pf) => ({
+        id: typeof pf.id === 'string' ? parseInt(pf.id, 10) || 0 : 0,
+        amount: safeNum(pf.amount),
+        toProjectName: pf.toProjectName || 'مشروع آخر',
+        description: pf.description || pf.transferReason || '-',
+      })),
       totals: {
         totalWorkerWages,
         totalPaidWages,

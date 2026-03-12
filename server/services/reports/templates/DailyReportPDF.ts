@@ -150,6 +150,25 @@ export function generateDailyReportHTML(data: DailyReportData): string {
     </tbody></table>`;
   }
 
+  if ((data.projectTransfersOut || []).length > 0) {
+    const ptOut = data.projectTransfersOut!;
+    const totalPtOut = ptOut.reduce((s, p) => s + p.amount, 0);
+    body += pdfSectionTitle('ترحيل لمشاريع أخرى');
+    body += `<table><thead><tr>
+      <th style="width:30px;">م</th><th>المشروع</th><th>البيان</th><th style="width:80px;">المبلغ</th>
+    </tr></thead><tbody>`;
+    ptOut.forEach((pt, idx) => {
+      body += `<tr>
+        <td>${idx + 1}</td>
+        <td style="text-align:right;">${escapeHtml(pt.toProjectName)}</td>
+        <td style="text-align:right;">${escapeHtml(pt.description)}</td>
+        <td style="font-weight:700;">${formatNum(pt.amount)}</td>
+      </tr>`;
+    });
+    body += pdfTotalRow(['الإجمالي', formatNum(totalPtOut)], 3);
+    body += `</tbody></table>`;
+  }
+
   if (data.fundTransfers.length > 0) {
     body += pdfSectionTitle('التحويلات المالية');
     body += `<table><thead><tr>

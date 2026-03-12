@@ -225,6 +225,24 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     [[1, 2], [4, 9]], COL_COUNT);
   row++;
 
+  const ptOut = data.projectTransfersOut || [];
+  if (ptOut.length > 0) {
+    row = xlSectionHeader(ws, row, 'ترحيل لمشاريع أخرى', COL_COUNT);
+    row = xlMergedHeader(ws, row,
+      [{ col: 1, text: '#' }, { col: 2, text: 'المشروع' }, { col: 4, text: 'البيان' }, { col: 7, text: 'المبلغ' }],
+      [[2, 3], [4, 6], [7, 9]], COL_COUNT);
+    ptOut.forEach((rec, idx) => {
+      row = xlMergedDataRow(ws, row,
+        [{ col: 1, value: idx + 1 }, { col: 2, value: rec.toProjectName, rightAlign: true }, { col: 4, value: rec.description, rightAlign: true }, { col: 7, value: formatNum(rec.amount) }],
+        [[2, 3], [4, 6], [7, 9]], COL_COUNT, idx % 2 === 1);
+    });
+    const totalPtOut = ptOut.reduce((s, p) => s + p.amount, 0);
+    row = xlMergedTotalsRow(ws, row,
+      [{ col: 1, value: 'الإجمالي' }, { col: 7, value: formatNum(totalPtOut) }],
+      [[1, 6], [7, 9]], COL_COUNT);
+    row++;
+  }
+
   row = xlSectionHeader(ws, row, 'تحويلات العهدة', COL_COUNT);
   row = xlMergedHeader(ws, row,
     [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'المرسل' }, { col: 5, text: 'نوع التحويل' }, { col: 7, text: 'رقم التحويل' }],

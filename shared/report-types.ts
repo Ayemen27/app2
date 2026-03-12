@@ -91,6 +91,12 @@ export interface DailyReportData {
   miscExpenses: MiscExpenseRecord[];
   workerTransfers: WorkerTransferRecord[];
   fundTransfers: FundTransferRecord[];
+  projectTransfersOut?: {
+    id: number;
+    amount: number;
+    toProjectName: string;
+    description: string;
+  }[];
   totals: {
     totalWorkerWages: number;
     totalPaidWages: number;

@@ -70,6 +70,16 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
       notes: r.transferMethod || r.recipientName || '-',
     });
   });
+  (report.projectTransfersOut || []).forEach((r: any) => {
+    expenses.push({
+      category: 'ترحيل لمشروع',
+      description: r.toProjectName || 'مشروع آخر',
+      amount: parseFloat(r.amount || '0'),
+      workDays: '-',
+      paidAmount: '-',
+      notes: r.description || '-',
+    });
+  });
   return expenses;
 }
 

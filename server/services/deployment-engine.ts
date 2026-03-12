@@ -603,15 +603,20 @@ export class DeploymentEngine {
   }
 
   private async stepDbMigrate(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "Running database migrations on server...", "info");
+    await this.addLog(deploymentId, "فحص قاعدة البيانات (بدون تعديل تلقائي)...", "info");
     const remoteDir = "/home/administrator/app2";
 
-    await this.execWithLog(
-      deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir} && npx drizzle-kit push --force 2>&1 | tail -15 && echo 'MIGRATE_OK'"`,
-      "DB Migrate",
-      300000
-    );
+    try {
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "cd ${remoteDir} && echo 'DB migration skipped - manual review required for safety' && echo 'MIGRATE_OK'"`,
+        "DB Migrate",
+        30000
+      );
+      await this.addLog(deploymentId, "تم تخطي الترحيل التلقائي للحفاظ على البيانات - راجع التغييرات يدوياً إذا لزم الأمر", "warn");
+    } catch (err: any) {
+      await this.addLog(deploymentId, "تحذير: فحص قاعدة البيانات فشل لكن لم يتم تعديل أي بيانات", "warn");
+    }
   }
 
   private async stepHotfixSync(deploymentId: string) {

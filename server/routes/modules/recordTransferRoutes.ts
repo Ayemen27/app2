@@ -20,13 +20,22 @@ const TABLE_MAP: Record<string, any> = {
   attendance: workerAttendance,
 };
 
-const DATE_FIELD_MAP: Record<string, string> = {
-  materialPurchases: "purchase_date",
-  supplierPayments: "payment_date",
+const DATE_COLUMN_MAP: Record<string, any> = {
+  materialPurchases: materialPurchases.purchaseDate,
+  supplierPayments: supplierPayments.paymentDate,
+  transportationExpenses: transportationExpenses.date,
+  workerTransfers: workerTransfers.transferDate,
+  workerMiscExpenses: workerMiscExpenses.date,
+  attendance: workerAttendance.attendanceDate,
+};
+
+const DATE_PROP_MAP: Record<string, string> = {
+  materialPurchases: "purchaseDate",
+  supplierPayments: "paymentDate",
   transportationExpenses: "date",
-  workerTransfers: "transfer_date",
+  workerTransfers: "transferDate",
   workerMiscExpenses: "date",
-  attendance: "attendance_date",
+  attendance: "attendanceDate",
 };
 
 const TABLE_LABELS: Record<string, string> = {
@@ -45,24 +54,24 @@ function normalize(val: any): string {
 
 function makeFingerprint(table: string, record: any): string {
   let parts: string[] = [table];
-  const dateField = DATE_FIELD_MAP[table];
-  parts.push(normalize(record[dateField]));
+  const dateProp = DATE_PROP_MAP[table];
+  parts.push(normalize(record[dateProp]));
 
   switch (table) {
     case "materialPurchases":
-      parts.push(normalize(record.material_name));
+      parts.push(normalize(record.materialName));
       parts.push(normalize(record.quantity));
       parts.push(normalize(record.unit));
-      parts.push(normalize(record.unit_price));
-      parts.push(normalize(record.total_amount));
+      parts.push(normalize(record.unitPrice));
+      parts.push(normalize(record.totalAmount));
       parts.push(normalize(record.supplier_id));
-      parts.push(normalize(record.invoice_number));
+      parts.push(normalize(record.invoiceNumber));
       break;
     case "supplierPayments":
       parts.push(normalize(record.supplier_id));
       parts.push(normalize(record.amount));
-      parts.push(normalize(record.payment_method));
-      parts.push(normalize(record.reference_number));
+      parts.push(normalize(record.paymentMethod));
+      parts.push(normalize(record.referenceNumber));
       parts.push(normalize(record.purchase_id));
       break;
     case "transportationExpenses":
@@ -74,9 +83,9 @@ function makeFingerprint(table: string, record: any): string {
     case "workerTransfers":
       parts.push(normalize(record.worker_id));
       parts.push(normalize(record.amount));
-      parts.push(normalize(record.recipient_name));
-      parts.push(normalize(record.transfer_method));
-      parts.push(normalize(record.transfer_number));
+      parts.push(normalize(record.recipientName));
+      parts.push(normalize(record.transferMethod));
+      parts.push(normalize(record.transferNumber));
       break;
     case "workerMiscExpenses":
       parts.push(normalize(record.amount));
@@ -84,9 +93,9 @@ function makeFingerprint(table: string, record: any): string {
       break;
     case "attendance":
       parts.push(normalize(record.worker_id));
-      parts.push(normalize(record.daily_wage));
-      parts.push(normalize(record.work_days));
-      parts.push(normalize(record.total_pay));
+      parts.push(normalize(record.dailyWage));
+      parts.push(normalize(record.workDays));
+      parts.push(normalize(record.totalPay));
       break;
   }
 
@@ -95,18 +104,18 @@ function makeFingerprint(table: string, record: any): string {
 }
 
 function formatRecord(table: string, record: any) {
-  const dateField = DATE_FIELD_MAP[table];
+  const dateProp = DATE_PROP_MAP[table];
   let amount = 0;
   let description = "";
 
   switch (table) {
     case "materialPurchases":
-      amount = parseFloat(record.total_amount || "0");
-      description = `${record.material_name || ""} - ${record.supplier_name || ""} (${record.quantity} ${record.unit})`;
+      amount = parseFloat(record.totalAmount || "0");
+      description = `${record.materialName || ""} - ${record.supplierName || ""} (${record.quantity} ${record.unit})`;
       break;
     case "supplierPayments":
       amount = parseFloat(record.amount || "0");
-      description = `دفعة ${record.payment_method || ""} - مرجع: ${record.reference_number || "-"}`;
+      description = `دفعة ${record.paymentMethod || ""} - مرجع: ${record.referenceNumber || "-"}`;
       break;
     case "transportationExpenses":
       amount = parseFloat(record.amount || "0");
@@ -114,15 +123,15 @@ function formatRecord(table: string, record: any) {
       break;
     case "workerTransfers":
       amount = parseFloat(record.amount || "0");
-      description = `حوالة لـ ${record.recipient_name || ""} - ${record.transfer_method || ""}`;
+      description = `حوالة لـ ${record.recipientName || ""} - ${record.transferMethod || ""}`;
       break;
     case "workerMiscExpenses":
       amount = parseFloat(record.amount || "0");
       description = record.description || record.notes || "";
       break;
     case "attendance":
-      amount = parseFloat(record.total_pay || record.daily_wage || "0");
-      description = `حضور - أيام العمل: ${record.work_days || "0"}`;
+      amount = parseFloat(record.totalPay || record.dailyWage || "0");
+      description = `حضور - أيام العمل: ${record.workDays || "0"}`;
       break;
   }
 
@@ -130,7 +139,7 @@ function formatRecord(table: string, record: any) {
     id: record.id,
     table,
     tableLabel: TABLE_LABELS[table],
-    date: record[dateField],
+    date: record[dateProp],
     amount,
     description,
     workerId: record.worker_id || null,
@@ -153,12 +162,13 @@ router.get("/review", requireAdmin as any, async (req, res) => {
     const tableErrors: { table: string; error: string }[] = [];
 
     for (const [tableName, table] of Object.entries(TABLE_MAP)) {
-      const dateCol = DATE_FIELD_MAP[tableName];
+      const dateColumn = DATE_COLUMN_MAP[tableName];
+      if (!dateColumn) continue;
       try {
         const rows = await db.select().from(table).where(
           and(
             eq(table.project_id, pid),
-            eq((table as any)[dateCol], dateStr)
+            eq(dateColumn, dateStr)
           )
         );
         for (const row of rows) {
@@ -166,7 +176,7 @@ router.get("/review", requireAdmin as any, async (req, res) => {
         }
       } catch (e: any) {
         console.error(`[RecordTransfer] خطأ في قراءة ${tableName}:`, e.message);
-        tableErrors.push({ table: TABLE_LABELS[tableName], error: "فشل في قراءة البيانات من هذا الجدول" });
+        tableErrors.push({ table: TABLE_LABELS[tableName], error: "فشل في قراءة البيانات" });
       }
     }
 
@@ -196,18 +206,21 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
 
     const targetRecords: any[] = [];
     for (const [tableName, table] of Object.entries(TABLE_MAP)) {
-      const dateCol = DATE_FIELD_MAP[tableName];
+      const dateColumn = DATE_COLUMN_MAP[tableName];
+      if (!dateColumn) continue;
       try {
         const rows = await db.select().from(table).where(
           and(
             eq(table.project_id, String(targetProjectId)),
-            eq((table as any)[dateCol], String(date))
+            eq(dateColumn, String(date))
           )
         );
         for (const row of rows) {
           targetRecords.push(formatRecord(tableName, row));
         }
-      } catch {}
+      } catch (e: any) {
+        console.error(`[RecordTransfer] preview target read ${tableName}:`, e.message);
+      }
     }
 
     const targetFingerprints = new Set(targetRecords.map(r => r.fingerprint));
@@ -232,7 +245,9 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
           transferable.push(formatted);
           totalAmount += formatted.amount;
         }
-      } catch {}
+      } catch (e: any) {
+        console.error(`[RecordTransfer] preview selection read ${sel.table}:`, e.message);
+      }
     }
 
     res.json({
@@ -266,7 +281,8 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
     await db.transaction(async (tx) => {
       for (const sel of selections) {
         const table = TABLE_MAP[sel.table];
-        if (!table) {
+        const dateColumn = DATE_COLUMN_MAP[sel.table];
+        if (!table || !dateColumn) {
           errors.push(`جدول غير معروف: ${sel.table}`);
           continue;
         }
@@ -275,19 +291,19 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
             and(eq(table.id, sel.id), eq(table.project_id, String(sourceProjectId)))
           );
           if (!existing) {
-            errors.push(`سجل غير موجود: ${sel.id} في ${TABLE_LABELS[sel.table] || sel.table}`);
+            errors.push(`سجل غير موجود في ${TABLE_LABELS[sel.table] || sel.table}`);
             continue;
           }
 
           const formatted = formatRecord(sel.table, existing);
-          const dateField = DATE_FIELD_MAP[sel.table];
-          const dateVal = existing[dateField];
+          const dateProp = DATE_PROP_MAP[sel.table];
+          const dateVal = existing[dateProp];
 
           if (dateVal) {
             const targetRows = await tx.select().from(table).where(
               and(
                 eq(table.project_id, String(targetProjectId)),
-                eq((table as any)[dateField], dateVal)
+                eq(dateColumn, dateVal)
               )
             );
             const hasDuplicate = targetRows.some((r: any) => {
@@ -306,11 +322,12 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
             .where(and(eq(table.id, sel.id), eq(table.project_id, String(sourceProjectId))));
 
           movedCount++;
-          const amt = parseFloat(existing.amount || existing.total_amount || existing.total_pay || existing.daily_wage || "0");
+          const amt = parseFloat(existing.amount || existing.totalAmount || existing.totalPay || existing.dailyWage || "0");
           totalAmountMoved += amt;
           movedItems.push({ table: sel.table, id: sel.id });
         } catch (e: any) {
-          errors.push(`فشل نقل ${TABLE_LABELS[sel.table] || sel.table} (${sel.id}): ${e.message}`);
+          console.error(`[RecordTransfer] confirm error for ${sel.table}:`, e.message);
+          errors.push(`فشل نقل سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
         }
       }
     });

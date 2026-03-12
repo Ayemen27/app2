@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeftRight, ChevronRight, ChevronLeft, Calendar, Package,
   Truck, Users, Wallet, AlertTriangle, CheckCircle2, Loader2,
-  ArrowRight, Eye, FileWarning, ClipboardList
+  ArrowRight, Eye, FileWarning, ClipboardList, TrendingUp,
+  ChevronsRight, ChevronsLeft, RotateCcw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -67,6 +68,15 @@ const TABLE_COLORS: Record<string, string> = {
   attendance: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
 };
 
+const SUMMARY_COLORS: Record<string, string> = {
+  materialPurchases: "from-blue-500/10 to-blue-500/5 border-blue-500/20",
+  supplierPayments: "from-purple-500/10 to-purple-500/5 border-purple-500/20",
+  transportationExpenses: "from-amber-500/10 to-amber-500/5 border-amber-500/20",
+  workerTransfers: "from-green-500/10 to-green-500/5 border-green-500/20",
+  workerMiscExpenses: "from-red-500/10 to-red-500/5 border-red-500/20",
+  attendance: "from-cyan-500/10 to-cyan-500/5 border-cyan-500/20",
+};
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -76,11 +86,19 @@ function formatCurrency(amount: number): string {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
+function getDayName(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("ar-SA", { weekday: "long" });
+}
+
 export default function RecordsTransfer() {
   const { toast } = useToast();
   const [sourceProjectId, setSourceProjectId] = useState<string>("");
   const [targetProjectId, setTargetProjectId] = useState<string>("");
-  const [currentDate, setCurrentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [currentDate, setCurrentDate] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedRecords, setSelectedRecords] = useState<{ table: string; id: string }[]>([]);
   const [previewData, setPreviewData] = useState<PreviewResponse | null>(null);
@@ -118,11 +136,42 @@ export default function RecordsTransfer() {
 
   const targetFingerprints = new Set(targetRecords.map(r => r.fingerprint));
 
-  const goDay = (delta: number) => {
-    const d = new Date(currentDate + "T00:00:00");
-    d.setDate(d.getDate() + delta);
-    setCurrentDate(d.toISOString().split("T")[0]);
+  const toLocalDateStr = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   };
+
+  const changeDateBy = (type: "day" | "month" | "year", delta: number) => {
+    const d = new Date(currentDate + "T12:00:00");
+    if (type === "day") d.setDate(d.getDate() + delta);
+    else if (type === "month") d.setMonth(d.getMonth() + delta);
+    else d.setFullYear(d.getFullYear() + delta);
+    setCurrentDate(toLocalDateStr(d));
+  };
+
+  const goToToday = () => setCurrentDate(toLocalDateStr(new Date()));
+
+  const sourceSummary = useMemo(() => {
+    const groups: Record<string, { count: number; total: number; label: string }> = {};
+    for (const r of sourceRecords) {
+      if (!groups[r.table]) groups[r.table] = { count: 0, total: 0, label: r.tableLabel };
+      groups[r.table].count++;
+      groups[r.table].total += r.amount;
+    }
+    return groups;
+  }, [sourceRecords]);
+
+  const targetSummary = useMemo(() => {
+    const groups: Record<string, { count: number; total: number; label: string }> = {};
+    for (const r of targetRecords) {
+      if (!groups[r.table]) groups[r.table] = { count: 0, total: 0, label: r.tableLabel };
+      groups[r.table].count++;
+      groups[r.table].total += r.amount;
+    }
+    return groups;
+  }, [targetRecords]);
 
   const toggleRecord = (record: TransferRecord) => {
     const newSet = new Set(selectedIds);
@@ -150,6 +199,26 @@ export default function RecordsTransfer() {
       setSelectedIds(all);
       setSelectedRecords(sourceRecords.map(r => ({ table: r.table, id: r.id })));
     }
+  };
+
+  const toggleTable = (tableName: string) => {
+    const tableRecords = sourceRecords.filter(r => r.table === tableName);
+    const tableKeys = tableRecords.map(r => `${r.table}:${r.id}`);
+    const allSelected = tableKeys.every(k => selectedIds.has(k));
+
+    const newSet = new Set(selectedIds);
+    if (allSelected) {
+      tableKeys.forEach(k => newSet.delete(k));
+    } else {
+      tableKeys.forEach(k => newSet.add(k));
+    }
+    setSelectedIds(newSet);
+    setSelectedRecords(
+      Array.from(newSet).map(k => {
+        const [table, id] = k.split(":");
+        return { table, id };
+      })
+    );
   };
 
   const handlePreview = async () => {
@@ -210,6 +279,38 @@ export default function RecordsTransfer() {
     return groups;
   };
 
+  const renderSummaryBar = (summary: Record<string, { count: number; total: number; label: string }>, records: TransferRecord[]) => {
+    const totalAmount = records.reduce((s, r) => s + r.amount, 0);
+    const entries = Object.entries(summary);
+    if (entries.length === 0) return null;
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-[11px] font-semibold text-foreground">ملخص المصروفات</span>
+          </div>
+          <span className="text-xs font-mono font-bold text-foreground">{formatCurrency(totalAmount)}</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+          {entries.map(([table, info]) => {
+            const Icon = TABLE_ICONS[table] || Package;
+            return (
+              <div key={table} className={`flex items-center gap-1.5 p-1.5 rounded-md border bg-gradient-to-br ${SUMMARY_COLORS[table]}`}>
+                <Icon className="h-3 w-3 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[9px] text-muted-foreground truncate">{info.label}</p>
+                  <p className="text-[10px] font-mono font-semibold">{formatCurrency(info.total)} <span className="text-muted-foreground font-normal">({info.count})</span></p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderRecordCard = (record: TransferRecord, side: "source" | "target") => {
     const Icon = TABLE_ICONS[record.table] || Package;
     const isDuplicate = side === "source" && targetFingerprints.has(record.fingerprint);
@@ -219,7 +320,7 @@ export default function RecordsTransfer() {
       <div
         key={record.id}
         data-testid={`record-${side}-${record.id}`}
-        className={`flex items-start gap-2 p-2.5 rounded-lg border transition-all ${
+        className={`flex items-start gap-2 p-2 rounded-lg border transition-all ${
           isDuplicate
             ? "border-amber-500/30 bg-amber-500/5"
             : isSelected
@@ -236,22 +337,20 @@ export default function RecordsTransfer() {
           />
         )}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Badge className={`${TABLE_COLORS[record.table]} text-[9px] border gap-1 px-1.5 py-0`}>
-              <Icon className="h-2.5 w-2.5" />
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Badge className={`${TABLE_COLORS[record.table]} text-[8px] border gap-0.5 px-1 py-0`}>
+              <Icon className="h-2 w-2" />
               {record.tableLabel}
             </Badge>
             {isDuplicate && (
-              <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[9px] border gap-1 px-1.5 py-0">
-                <AlertTriangle className="h-2.5 w-2.5" />
+              <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[8px] border gap-0.5 px-1 py-0">
+                <AlertTriangle className="h-2 w-2" />
                 مكرر
               </Badge>
             )}
           </div>
-          <p className="text-xs text-foreground truncate">{record.description || "-"}</p>
-          <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
-            <span className="font-mono font-semibold text-foreground">{formatCurrency(record.amount)}</span>
-          </div>
+          <p className="text-[11px] text-foreground truncate">{record.description || "-"}</p>
+          <span className="text-[10px] font-mono font-semibold text-foreground">{formatCurrency(record.amount)}</span>
         </div>
       </div>
     );
@@ -261,7 +360,8 @@ export default function RecordsTransfer() {
     title: string,
     records: TransferRecord[],
     loading: boolean,
-    side: "source" | "target"
+    side: "source" | "target",
+    summary: Record<string, { count: number; total: number; label: string }>
   ) => {
     const groups = groupByTable(records);
     const totalAmount = records.reduce((s, r) => s + r.amount, 0);
@@ -270,43 +370,61 @@ export default function RecordsTransfer() {
       <Card className="bg-card border-border flex-1" data-testid={`card-${side}`}>
         <CardHeader className="pb-2 px-3 pt-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold text-foreground">{title}</CardTitle>
+            <CardTitle className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <div className={`h-2 w-2 rounded-full ${side === "source" ? "bg-blue-500" : "bg-green-500"}`} />
+              {title}
+            </CardTitle>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px]">{records.length} سجل</Badge>
-              <span className="text-[10px] font-mono text-muted-foreground">{formatCurrency(totalAmount)}</span>
+              <Badge variant="outline" className="text-[9px] h-5">{records.length} سجل</Badge>
+              <span className="text-[10px] font-mono font-bold text-foreground">{formatCurrency(totalAmount)}</span>
             </div>
           </div>
           {side === "source" && records.length > 0 && (
-            <Button
-              data-testid="button-select-all"
-              variant="ghost"
-              size="sm"
-              onClick={toggleAll}
-              className="text-[10px] h-6 px-2 mt-1 text-blue-600 dark:text-blue-400"
-            >
-              {selectedIds.size === records.length ? "إلغاء تحديد الكل" : "تحديد الكل"}
-            </Button>
+            <div className="flex items-center gap-1 mt-1.5">
+              <Button
+                data-testid="button-select-all"
+                variant="outline"
+                size="sm"
+                onClick={toggleAll}
+                className="text-[9px] h-6 px-2"
+              >
+                {selectedIds.size === records.length ? "إلغاء الكل" : "تحديد الكل"}
+              </Button>
+              {Object.keys(groups).length > 1 && Object.entries(groups).map(([table, recs]) => (
+                <Button
+                  key={table}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleTable(table)}
+                  className={`text-[8px] h-5 px-1.5 ${TABLE_COLORS[table]}`}
+                >
+                  {recs[0]?.tableLabel}
+                </Button>
+              ))}
+            </div>
           )}
         </CardHeader>
-        <CardContent className="px-3 pb-3">
-          <ScrollArea className="h-[400px] sm:h-[500px]">
+        <CardContent className="px-3 pb-3 space-y-2">
+          {!loading && records.length > 0 && renderSummaryBar(summary, records)}
+
+          <ScrollArea className="h-[350px] sm:h-[450px]">
             {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : records.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-xs">لا توجد سجلات في هذا اليوم</p>
+              <div className="text-center py-12 text-muted-foreground">
+                <ClipboardList className="h-7 w-7 mx-auto mb-2 opacity-20" />
+                <p className="text-[11px]">لا توجد سجلات في هذا اليوم</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {Object.entries(groups).map(([table, recs]) => (
                   <div key={table}>
-                    <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">
-                      {recs[0]?.tableLabel} ({recs.length})
+                    <p className="text-[9px] font-semibold text-muted-foreground mb-1">
+                      {recs[0]?.tableLabel} ({recs.length}) - {formatCurrency(recs.reduce((s, r) => s + r.amount, 0))}
                     </p>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       {recs.map(r => renderRecordCard(r, side))}
                     </div>
                   </div>
@@ -319,22 +437,16 @@ export default function RecordsTransfer() {
     );
   };
 
-  return (
-    <div className="min-h-screen bg-background p-3 sm:p-6" dir="rtl">
-      <div className="max-w-7xl mx-auto space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <ArrowLeftRight className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-foreground" data-testid="page-title">مراجعة ونقل السجلات بين المشاريع</h1>
-            <p className="text-xs text-muted-foreground">راجع السجلات يومياً وانقل ما يلزم للمشروع الصحيح</p>
-          </div>
-        </div>
+  const isToday = currentDate === new Date().toISOString().split("T")[0];
 
+  return (
+    <div className="min-h-screen bg-background p-2 sm:p-4" dir="rtl">
+      <div className="max-w-7xl mx-auto space-y-2.5">
         <Card className="bg-card border-border">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col sm:flex-row gap-3 items-end">
+          <CardContent className="p-3 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2.5 items-end">
               <div className="flex-1 w-full">
-                <label className="text-xs text-muted-foreground mb-1 block">المشروع المصدر</label>
+                <label className="text-[10px] text-muted-foreground mb-1 block">المشروع المصدر</label>
                 <Select value={sourceProjectId} onValueChange={setSourceProjectId}>
                   <SelectTrigger data-testid="select-source-project" className="h-9">
                     <SelectValue placeholder="اختر المشروع المصدر" />
@@ -347,10 +459,10 @@ export default function RecordsTransfer() {
                 </Select>
               </div>
 
-              <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0 hidden sm:block rotate-180" />
+              <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 hidden sm:block rotate-180" />
 
               <div className="flex-1 w-full">
-                <label className="text-xs text-muted-foreground mb-1 block">المشروع الهدف</label>
+                <label className="text-[10px] text-muted-foreground mb-1 block">المشروع الهدف</label>
                 <Select value={targetProjectId} onValueChange={setTargetProjectId}>
                   <SelectTrigger data-testid="select-target-project" className="h-9">
                     <SelectValue placeholder="اختر المشروع الهدف" />
@@ -362,20 +474,45 @@ export default function RecordsTransfer() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              <Separator orientation="vertical" className="h-8 hidden sm:block" />
+            <Separator />
 
+            <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-1">
-                <Button data-testid="button-prev-day" variant="outline" size="icon" className="h-9 w-9" onClick={() => goDay(-1)}>
-                  <ChevronRight className="h-4 w-4" />
+                <Button data-testid="button-next-year" variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => changeDateBy("year", 1)}>
+                  <ChevronsRight className="h-3.5 w-3.5" />
                 </Button>
-                <div className="flex items-center gap-1.5 px-3 h-9 border rounded-md bg-muted/30 min-w-[130px] justify-center">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-mono" data-testid="text-current-date" dir="ltr">{formatDate(currentDate)}</span>
+                <Button data-testid="button-next-month" variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => changeDateBy("month", 1)}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+                <Button data-testid="button-next-day" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => changeDateBy("day", 1)}>
+                  التالي
+                </Button>
+
+                <div className="flex items-center gap-1.5 px-3 h-8 border rounded-md bg-muted/40 min-w-[140px] justify-center">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[11px] font-mono font-semibold" data-testid="text-current-date" dir="ltr">{formatDate(currentDate)}</span>
                 </div>
-                <Button data-testid="button-next-day" variant="outline" size="icon" className="h-9 w-9" onClick={() => goDay(1)}>
-                  <ChevronLeft className="h-4 w-4" />
+
+                <Button data-testid="button-prev-day" variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => changeDateBy("day", -1)}>
+                  السابق
                 </Button>
+                <Button data-testid="button-prev-month" variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => changeDateBy("month", -1)}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <Button data-testid="button-prev-year" variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-muted-foreground hover:text-foreground" onClick={() => changeDateBy("year", -1)}>
+                  <ChevronsLeft className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">{getDayName(currentDate)}</span>
+                {!isToday && (
+                  <Button data-testid="button-today" variant="ghost" size="sm" className="h-5 px-2 text-[9px] text-blue-600 dark:text-blue-400" onClick={goToToday}>
+                    <RotateCcw className="h-2.5 w-2.5 ml-1" />
+                    اليوم
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -385,108 +522,121 @@ export default function RecordsTransfer() {
           <>
             {(sourceData?.tableErrors?.length || targetData?.tableErrors?.length) ? (
               <Card className="bg-amber-500/5 border-amber-500/20">
-                <CardContent className="p-3">
-                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-1">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    تحذير: بعض الجداول لم تُقرأ بشكل صحيح - البيانات قد تكون ناقصة
+                <CardContent className="p-2.5">
+                  <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    تحذير: بعض الجداول لم تُقرأ بشكل صحيح
                   </p>
-                  <div className="space-y-0.5">
+                  <div className="mt-1 space-y-0.5">
                     {[...(sourceData?.tableErrors || []), ...(targetData?.tableErrors || [])].map((e, i) => (
-                      <p key={i} className="text-[10px] text-muted-foreground">{e.table}: {e.error}</p>
+                      <p key={i} className="text-[9px] text-muted-foreground mr-5">{e.table}: {e.error}</p>
                     ))}
                   </div>
                 </CardContent>
               </Card>
             ) : null}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {renderProjectColumn(
                 projects.find(p => p.id === sourceProjectId)?.name || "المصدر",
                 sourceRecords,
                 sourceLoading,
-                "source"
+                "source",
+                sourceSummary
               )}
               {renderProjectColumn(
                 projects.find(p => p.id === targetProjectId)?.name || "الهدف",
                 targetRecords,
                 targetLoading,
-                "target"
+                "target",
+                targetSummary
               )}
             </div>
 
             {selectedIds.size > 0 && !isPreview && (
-              <Card className="bg-blue-500/5 border-blue-500/20">
-                <CardContent className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
-                      {selectedIds.size} سجل محدد
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      إجمالي: <span className="font-mono font-semibold text-foreground">
-                        {formatCurrency(
-                          sourceRecords
-                            .filter(r => selectedIds.has(`${r.table}:${r.id}`))
-                            .reduce((s, r) => s + r.amount, 0)
-                        )}
-                      </span>
-                    </span>
+              <Card className="bg-blue-500/5 border-blue-500/20 sticky bottom-2 z-10 shadow-lg">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <Badge className="bg-blue-600 text-white text-[10px] h-6 px-2">
+                        {selectedIds.size} سجل محدد
+                      </Badge>
+                      <div className="text-xs text-muted-foreground">
+                        إجمالي: <span className="font-mono font-bold text-foreground">
+                          {formatCurrency(
+                            sourceRecords
+                              .filter(r => selectedIds.has(`${r.table}:${r.id}`))
+                              .reduce((s, r) => s + r.amount, 0)
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setSelectedIds(new Set()); setSelectedRecords([]); }}
+                        className="text-[10px] h-8"
+                      >
+                        إلغاء
+                      </Button>
+                      <Button
+                        data-testid="button-preview-transfer"
+                        onClick={handlePreview}
+                        disabled={isPreviewing}
+                        className="gap-1.5 h-8 text-xs"
+                      >
+                        {isPreviewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                        معاينة النقل
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    data-testid="button-preview-transfer"
-                    onClick={handlePreview}
-                    disabled={isPreviewing}
-                    className="gap-2"
-                  >
-                    {isPreviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                    معاينة النقل
-                  </Button>
                 </CardContent>
               </Card>
             )}
 
             {isPreview && previewData && (
-              <Card className="bg-card border-2 border-blue-500/30">
-                <CardHeader className="pb-2 px-4 pt-4">
+              <Card className="bg-card border-2 border-blue-500/30 sticky bottom-2 z-10 shadow-lg">
+                <CardHeader className="pb-2 px-3 pt-3">
                   <CardTitle className="text-sm flex items-center gap-2 text-foreground">
                     <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    ملخص المعاينة قبل النقل
+                    معاينة النقل
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/20 text-center">
-                      <p className="text-xl font-bold text-green-600 dark:text-green-400">{previewData.transferableCount}</p>
-                      <p className="text-[10px] text-muted-foreground">جاهز للنقل</p>
+                <CardContent className="px-3 pb-3 space-y-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-2.5 rounded-lg bg-green-500/5 border border-green-500/20 text-center">
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400">{previewData.transferableCount}</p>
+                      <p className="text-[9px] text-muted-foreground">جاهز للنقل</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20 text-center">
-                      <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{previewData.duplicateCount}</p>
-                      <p className="text-[10px] text-muted-foreground">مكرر (لن ينقل)</p>
+                    <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 text-center">
+                      <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{previewData.duplicateCount}</p>
+                      <p className="text-[9px] text-muted-foreground">مكرر</p>
                     </div>
-                    <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-center col-span-2">
-                      <p className="text-xl font-bold font-mono text-blue-600 dark:text-blue-400">{formatCurrency(previewData.totalAmount)}</p>
-                      <p className="text-[10px] text-muted-foreground">إجمالي المبالغ للنقل</p>
+                    <div className="p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 text-center">
+                      <p className="text-lg font-bold font-mono text-blue-600 dark:text-blue-400">{formatCurrency(previewData.totalAmount)}</p>
+                      <p className="text-[9px] text-muted-foreground">المبلغ</p>
                     </div>
                   </div>
 
                   {previewData.duplicates.length > 0 && (
                     <div className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/20">
-                      <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-1">
-                        <FileWarning className="h-3.5 w-3.5" />
-                        سجلات مكررة (موجودة في المشروع الهدف)
+                      <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-1">
+                        <FileWarning className="h-3 w-3" />
+                        سجلات مكررة لن يتم نقلها
                       </p>
-                      <div className="space-y-1">
-                        {previewData.duplicates.map(d => (
-                          <p key={d.id} className="text-[10px] text-muted-foreground">
-                            {d.tableLabel}: {d.description} ({formatCurrency(d.amount)})
-                          </p>
-                        ))}
-                      </div>
+                      {previewData.duplicates.map(d => (
+                        <p key={d.id} className="text-[9px] text-muted-foreground mr-4">
+                          {d.tableLabel}: {d.description} ({formatCurrency(d.amount)})
+                        </p>
+                      ))}
                     </div>
                   )}
 
                   <div className="flex gap-2 justify-end">
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={() => { setIsPreview(false); setPreviewData(null); }}
                       data-testid="button-cancel-preview"
                     >
@@ -494,14 +644,15 @@ export default function RecordsTransfer() {
                     </Button>
                     <Button
                       data-testid="button-confirm-transfer"
+                      size="sm"
                       onClick={handleConfirm}
                       disabled={isTransferring || previewData.transferableCount === 0}
-                      className="gap-2 bg-green-600 hover:bg-green-700"
+                      className="gap-1.5 bg-green-600 hover:bg-green-700"
                     >
                       {isTransferring ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <CheckCircle2 className="h-4 w-4" />
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                       )}
                       تأكيد نقل {previewData.transferableCount} سجل
                     </Button>
@@ -512,10 +663,9 @@ export default function RecordsTransfer() {
           </>
         ) : (
           <Card className="bg-card border-border">
-            <CardContent className="p-8 text-center text-muted-foreground">
-              <ArrowLeftRight className="h-10 w-10 mx-auto mb-3 opacity-20" />
-              <p className="text-sm">اختر المشروع المصدر والمشروع الهدف للبدء</p>
-              <p className="text-xs mt-1">ستظهر سجلات كل مشروع جنباً لجنب للمقارنة</p>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              <ArrowLeftRight className="h-8 w-8 mx-auto mb-2 opacity-20" />
+              <p className="text-xs">اختر المشروع المصدر والمشروع الهدف للبدء</p>
             </CardContent>
           </Card>
         )}

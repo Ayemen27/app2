@@ -82,6 +82,7 @@ const sections: SidebarSection[] = [
       { title: "المصاريف اليومية", url: "/daily-expenses", icon: Calculator },
       { title: "الوارد للعهد", url: "/project-fund-custody", icon: DollarSign },
       { title: "ترحيل بين المشاريع", url: "/project-transfers", icon: ArrowLeftRight },
+      { title: "نقل السجلات", url: "/records-transfer", icon: ArrowLeftRight, adminOnly: true },
       { title: "التقارير", url: "/reports", icon: BarChart3 },
     ]
   },

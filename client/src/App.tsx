@@ -44,6 +44,7 @@ const WorkersPage = lazy(() => import("./pages/workers"));
 const BackupManager = lazy(() => import("./pages/backup-manager"));
 const NotificationsPage = lazy(() => import("./pages/notifications"));
 const DailyExpenses = lazy(() => import("./pages/daily-expenses"));
+const RecordsTransfer = lazy(() => import("./pages/records-transfer"));
 const WellsPage = lazy(() => import("./pages/wells"));
 const WellCostReport = lazy(() => import("./pages/well-cost-report"));
 const WellAccounting = lazy(() => import("./pages/well-accounting"));
@@ -300,6 +301,13 @@ function Router() {
         <Suspense fallback={<PageLoader />}>
           <DailyExpenses />
         </Suspense>
+      </Route>
+      <Route path="/records-transfer">
+        <AdminRoute>
+          <Suspense fallback={<PageLoader />}>
+            <RecordsTransfer />
+          </Suspense>
+        </AdminRoute>
       </Route>
       <Route path="/wells">
         <Suspense fallback={<PageLoader />}>

@@ -34,6 +34,7 @@ import webauthnRouter from './webauthnRoutes.js';
 import preferencesRouter from './preferencesRoutes.js';
 import permissionRouter from './permissionRoutes.js';
 import deploymentRouter from './deploymentRoutes.js';
+import recordTransferRouter from './recordTransferRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 
 /**
@@ -154,6 +155,9 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات النشر والبناء (Deployment & DevOps)
   app.use('/api/deployment', deploymentRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات النشر: /api/deployment');
+
+  app.use('/api/record-transfer', recordTransferRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات نقل السجلات: /api/record-transfer');
 
   // مسارات الإكمال التلقائي الإضافية
   app.use('/api/worker-transfer-notes', autocompleteRouter);

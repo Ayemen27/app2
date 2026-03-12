@@ -2235,7 +2235,10 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
       transportationResult,
       workerTransfersResult,
       miscExpensesResult,
-      projectInfo
+      projectInfo,
+      supplierPaymentsResult,
+      projectFundTransfersOutResult,
+      projectFundTransfersInResult
     ] = await Promise.all([
       db.select().from(fundTransfers)
         .where(and(eq(fundTransfers.project_id, project_id), gte(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`${finalDate}::date`), lt(sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`, sql`(${finalDate}::date + interval '1 day')`))),
@@ -2267,7 +2270,13 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
         .where(and(eq(workerTransfers.project_id, project_id), eq(workerTransfers.transferDate, finalDate))),
       db.select().from(workerMiscExpenses)
         .where(and(eq(workerMiscExpenses.project_id, project_id), eq(workerMiscExpenses.date, finalDate))),
-      db.select().from(projects).where(eq(projects.id, project_id)).limit(1)
+      db.select().from(projects).where(eq(projects.id, project_id)).limit(1),
+      db.select().from(supplierPayments)
+        .where(and(eq(supplierPayments.project_id, project_id), eq(supplierPayments.paymentDate, finalDate))),
+      db.select().from(projectFundTransfers)
+        .where(and(eq(projectFundTransfers.fromProjectId, project_id), eq(projectFundTransfers.transferDate, finalDate))),
+      db.select().from(projectFundTransfers)
+        .where(and(eq(projectFundTransfers.toProjectId, project_id), eq(projectFundTransfers.transferDate, finalDate)))
     ]);
 
     // حساب المجاميع
@@ -2277,9 +2286,10 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
     const totalTransportation = transportationResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
     const totalWorkerTransfers = workerTransfersResult.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0);
     const totalMiscExpenses = miscExpensesResult.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0);
+    const totalSupplierPayments = supplierPaymentsResult.reduce((sum: number, s: any) => sum + parseFloat(s.amount || '0'), 0);
 
     const totalIncome = totalFundTransfers;
-    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses;
+    const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportation + totalWorkerTransfers + totalMiscExpenses + totalSupplierPayments;
 
     // 💰 جلب الرصيد المرحل من اليوم السابق
     let carriedForward = 0;
@@ -2347,6 +2357,27 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
     // 💡 الحساب الصحيح: الرصيد المرحل + الدخل - المصروفات
     const remainingBalance = carriedForward + totalIncome - totalExpenses;
 
+    const allProjectIds = new Set<string>();
+    for (const r of projectFundTransfersOutResult) { if (r.toProjectId) allProjectIds.add(r.toProjectId); }
+    for (const r of projectFundTransfersInResult) { if (r.fromProjectId) allProjectIds.add(r.fromProjectId); }
+    const projectNameMap: Record<string, string> = {};
+    if (allProjectIds.size > 0) {
+      try {
+        const pRows = await db.select({ id: projects.id, name: projects.name }).from(projects)
+          .where(sql`${projects.id} IN (${sql.join([...allProjectIds].map(id => sql`${id}`), sql`, `)})`);
+        for (const p of pRows) { projectNameMap[p.id] = p.name; }
+      } catch (_) {}
+    }
+
+    const fundTransfersOut = projectFundTransfersOutResult.map((r: any) => ({
+      ...r,
+      _toProjectName: projectNameMap[r.toProjectId] || r.toProjectId,
+    }));
+    const fundTransfersIn = projectFundTransfersInResult.map((r: any) => ({
+      ...r,
+      _fromProjectName: projectNameMap[r.fromProjectId] || r.fromProjectId,
+    }));
+
     const responseData = {
       date: finalDate,
       projectName: projectInfo[0]?.name || 'مشروع غير معروف',
@@ -2361,7 +2392,10 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
       materialPurchases: materialPurchasesResult,
       transportationExpenses: transportationResult,
       workerTransfers: workerTransfersResult,
-      miscExpenses: miscExpensesResult
+      miscExpenses: miscExpensesResult,
+      supplierPayments: supplierPaymentsResult,
+      projectFundTransfersOut: fundTransfersOut,
+      projectFundTransfersIn: fundTransfersIn
     };
 
     const duration = Date.now() - startTime;

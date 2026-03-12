@@ -42,14 +42,6 @@ interface TransferRecord {
   matchInfo?: MatchInfo;
 }
 
-interface ReviewResponse {
-  date: string;
-  projectId: string;
-  records: TransferRecord[];
-  count: number;
-  tableErrors?: { table: string; error: string }[];
-}
-
 interface CrossWarning {
   recordId: string;
   table: string;
@@ -83,6 +75,8 @@ const TABLE_ICONS: Record<string, any> = {
   workerTransfers: ArrowLeftRight,
   workerMiscExpenses: ClipboardList,
   attendance: Users,
+  fundTransferOut: Send,
+  fundTransferIn: DollarSign,
 };
 
 const TABLE_COLORS: Record<string, string> = {
@@ -92,6 +86,8 @@ const TABLE_COLORS: Record<string, string> = {
   workerTransfers: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
   workerMiscExpenses: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
   attendance: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20",
+  fundTransferOut: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
+  fundTransferIn: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20",
 };
 
 const SUMMARY_COLORS: Record<string, string> = {
@@ -101,6 +97,19 @@ const SUMMARY_COLORS: Record<string, string> = {
   workerTransfers: "from-green-500/10 to-green-500/5 border-green-500/20",
   workerMiscExpenses: "from-red-500/10 to-red-500/5 border-red-500/20",
   attendance: "from-cyan-500/10 to-cyan-500/5 border-cyan-500/20",
+  fundTransferOut: "from-indigo-500/10 to-indigo-500/5 border-indigo-500/20",
+  fundTransferIn: "from-teal-500/10 to-teal-500/5 border-teal-500/20",
+};
+
+const TABLE_LABELS: Record<string, string> = {
+  materialPurchases: "مشتريات المواد",
+  supplierPayments: "مدفوعات الموردين",
+  transportationExpenses: "أجور المواصلات",
+  workerTransfers: "حوالات العمال",
+  workerMiscExpenses: "نثريات العمال",
+  attendance: "الحضور",
+  fundTransferOut: "ترحيل أموال صادر",
+  fundTransferIn: "ترحيل أموال وارد",
 };
 
 function formatDate(dateStr: string): string {
@@ -115,6 +124,160 @@ function formatCurrency(amount: number): string {
 function getDayName(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("ar-SA", { weekday: "long" });
+}
+
+function transformDailyExpensesToRecords(data: any, projectId: string): TransferRecord[] {
+  if (!data?.data) return [];
+  const d = data.data;
+  const records: TransferRecord[] = [];
+
+  if (d.materialPurchases) {
+    for (const r of d.materialPurchases) {
+      records.push({
+        id: r.id,
+        table: "materialPurchases",
+        tableLabel: TABLE_LABELS.materialPurchases,
+        date: r.purchaseDate || d.date,
+        amount: parseFloat(r.totalAmount || "0"),
+        description: `${r.materialName || ""} - ${r.supplierName || ""} (${r.quantity} ${r.unit})`,
+        workerId: null,
+        supplierId: r.supplier_id || null,
+        fingerprint: `mp_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  if (d.workerAttendance) {
+    for (const r of d.workerAttendance) {
+      const paid = parseFloat(r.paidAmount || "0");
+      const wage = parseFloat(r.actualWage || r.dailyWage || "0");
+      const workDays = parseFloat(r.workDays || "0");
+      const total = wage * workDays;
+      const amount = paid > 0 ? paid : total;
+      if (amount <= 0) continue;
+      const parts = [`أيام: ${r.workDays || "0"}`];
+      parts.push(`يومي: ${formatCurrency(wage)}`);
+      parts.push(`مستحق: ${formatCurrency(total)}`);
+      if (paid > 0) parts.push(`مدفوع: ${formatCurrency(paid)}`);
+      records.push({
+        id: r.id,
+        table: "attendance",
+        tableLabel: TABLE_LABELS.attendance,
+        date: r.date || r.attendanceDate || d.date,
+        amount,
+        description: `${r.workerName || ""} | ${parts.join(" | ")}`,
+        workerId: r.worker_id || null,
+        supplierId: null,
+        fingerprint: `att_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  if (d.transportationExpenses) {
+    for (const r of d.transportationExpenses) {
+      records.push({
+        id: r.id,
+        table: "transportationExpenses",
+        tableLabel: TABLE_LABELS.transportationExpenses,
+        date: r.date || d.date,
+        amount: parseFloat(r.amount || "0"),
+        description: r.description || "",
+        workerId: r.worker_id || null,
+        supplierId: null,
+        fingerprint: `te_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  if (d.workerTransfers) {
+    for (const r of d.workerTransfers) {
+      records.push({
+        id: r.id,
+        table: "workerTransfers",
+        tableLabel: TABLE_LABELS.workerTransfers,
+        date: r.transferDate || d.date,
+        amount: parseFloat(r.amount || "0"),
+        description: `حوالة لـ ${r.recipientName || ""} - ${r.transferMethod || ""}`,
+        workerId: r.worker_id || null,
+        supplierId: null,
+        fingerprint: `wt_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  if (d.miscExpenses) {
+    for (const r of d.miscExpenses) {
+      records.push({
+        id: r.id,
+        table: "workerMiscExpenses",
+        tableLabel: TABLE_LABELS.workerMiscExpenses,
+        date: r.date || d.date,
+        amount: parseFloat(r.amount || "0"),
+        description: r.description || r.notes || "",
+        workerId: r.worker_id || null,
+        supplierId: null,
+        fingerprint: `wme_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  if (d.supplierPayments) {
+    for (const r of d.supplierPayments) {
+      records.push({
+        id: r.id,
+        table: "supplierPayments",
+        tableLabel: TABLE_LABELS.supplierPayments,
+        date: r.paymentDate || d.date,
+        amount: parseFloat(r.amount || "0"),
+        description: `دفعة ${r.paymentMethod || ""} - مرجع: ${r.referenceNumber || "-"}`,
+        workerId: null,
+        supplierId: r.supplier_id || null,
+        fingerprint: `sp_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  if (d.projectFundTransfersOut) {
+    for (const r of d.projectFundTransfersOut) {
+      records.push({
+        id: r.id,
+        table: "fundTransferOut",
+        tableLabel: TABLE_LABELS.fundTransferOut,
+        date: r.transferDate || d.date,
+        amount: parseFloat(r.amount || "0"),
+        description: `صادر إلى: ${r._toProjectName || r.toProjectId}${r.description ? ` - ${r.description}` : ""}`,
+        workerId: null,
+        supplierId: null,
+        fingerprint: `fto_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  if (d.projectFundTransfersIn) {
+    for (const r of d.projectFundTransfersIn) {
+      records.push({
+        id: r.id,
+        table: "fundTransferIn",
+        tableLabel: TABLE_LABELS.fundTransferIn,
+        date: r.transferDate || d.date,
+        amount: parseFloat(r.amount || "0"),
+        description: `وارد من: ${r._fromProjectName || r.fromProjectId}${r.description ? ` - ${r.description}` : ""}`,
+        workerId: null,
+        supplierId: null,
+        fingerprint: `fti_${r.id}`,
+        raw: r,
+      });
+    }
+  }
+
+  return records;
 }
 
 export default function RecordsTransfer() {
@@ -144,17 +307,20 @@ export default function RecordsTransfer() {
 
   const projects = projectsData || [];
 
-  const { data: sourceData, isLoading: sourceLoading, refetch: refetchSource } = useQuery<ReviewResponse>({
-    queryKey: ["/api/record-transfer/review", sourceProjectId, currentDate],
-    queryFn: () => apiRequest(`/api/record-transfer/review?projectId=${sourceProjectId}&date=${currentDate}`),
+  const { data: sourceRawData, isLoading: sourceLoading, refetch: refetchSource } = useQuery({
+    queryKey: ["/api/projects", sourceProjectId, "daily-expenses", currentDate],
+    queryFn: () => apiRequest(`/api/projects/${sourceProjectId}/daily-expenses/${currentDate}`),
     enabled: !!sourceProjectId,
   });
 
-  const { data: targetData, isLoading: targetLoading, refetch: refetchTarget } = useQuery<ReviewResponse>({
-    queryKey: ["/api/record-transfer/review", targetProjectId, currentDate],
-    queryFn: () => apiRequest(`/api/record-transfer/review?projectId=${targetProjectId}&date=${currentDate}`),
+  const { data: targetRawData, isLoading: targetLoading, refetch: refetchTarget } = useQuery({
+    queryKey: ["/api/projects", targetProjectId, "daily-expenses", currentDate],
+    queryFn: () => apiRequest(`/api/projects/${targetProjectId}/daily-expenses/${currentDate}`),
     enabled: !!targetProjectId,
   });
+
+  const sourceRecords = useMemo(() => transformDailyExpensesToRecords(sourceRawData, sourceProjectId), [sourceRawData, sourceProjectId]);
+  const targetRecords = useMemo(() => transformDailyExpensesToRecords(targetRawData, targetProjectId), [targetRawData, targetProjectId]);
 
   const { summary: sourceFinancial } = useFinancialSummary({
     project_id: sourceProjectId || undefined,
@@ -178,9 +344,6 @@ export default function RecordsTransfer() {
     setPreviewData(null);
     setIsPreview(false);
   }, [currentDate, sourceProjectId, targetProjectId]);
-
-  const sourceRecords = sourceData?.records || [];
-  const targetRecords = targetData?.records || [];
 
   const targetFingerprints = new Set(targetRecords.map(r => r.fingerprint));
 
@@ -403,6 +566,7 @@ export default function RecordsTransfer() {
         description: `من "${srcName}" إلى "${tgtName}"`,
       });
       setFundAmount("");
+      resetAndRefresh();
     } catch (error: any) {
       toast({ title: "فشل الترحيل", description: error.message, variant: "destructive" });
     } finally {
@@ -415,8 +579,9 @@ export default function RecordsTransfer() {
     setPreviewData(null);
     setSelectedIds(new Set());
     setSelectedRecords([]);
-    refetchSource();
-    refetchTarget();
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", sourceProjectId, "daily-expenses", currentDate] });
+    queryClient.invalidateQueries({ queryKey: ["/api/projects", targetProjectId, "daily-expenses", currentDate] });
+    queryClient.invalidateQueries({ queryKey: ["/api/financial-summary"] });
   };
 
   const groupByTable = (records: TransferRecord[]) => {
@@ -446,7 +611,7 @@ export default function RecordsTransfer() {
           {entries.map(([table, info]) => {
             const Icon = TABLE_ICONS[table] || Package;
             return (
-              <div key={table} className={`flex items-center gap-1.5 p-1.5 rounded-md border bg-gradient-to-br ${SUMMARY_COLORS[table]}`}>
+              <div key={table} className={`flex items-center gap-1.5 p-1.5 rounded-md border bg-gradient-to-br ${SUMMARY_COLORS[table] || "from-gray-500/10 to-gray-500/5 border-gray-500/20"}`}>
                 <Icon className="h-3 w-3 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[9px] text-muted-foreground truncate">{info.label}</p>
@@ -462,7 +627,6 @@ export default function RecordsTransfer() {
 
   const renderRecordCard = (record: TransferRecord, side: "source" | "target") => {
     const Icon = TABLE_ICONS[record.table] || Package;
-    const isDuplicate = side === "source" && targetFingerprints.has(record.fingerprint);
     const isSelected = selectedIds.has(`${record.table}:${record.id}`);
 
     return (
@@ -470,9 +634,7 @@ export default function RecordsTransfer() {
         key={record.id}
         data-testid={`record-${side}-${record.id}`}
         className={`flex items-start gap-2 p-2 rounded-lg border transition-all ${
-          isDuplicate
-            ? "border-amber-500/30 bg-amber-500/5"
-            : isSelected
+          isSelected
             ? "border-blue-500/40 bg-blue-500/5"
             : "border-border/50 bg-muted/20 hover:bg-muted/40"
         }`}
@@ -487,16 +649,10 @@ export default function RecordsTransfer() {
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <Badge className={`${TABLE_COLORS[record.table]} text-[8px] border gap-0.5 px-1 py-0`}>
+            <Badge className={`${TABLE_COLORS[record.table] || "bg-gray-500/10 text-gray-600 border-gray-500/20"} text-[8px] border gap-0.5 px-1 py-0`}>
               <Icon className="h-2 w-2" />
               {record.tableLabel}
             </Badge>
-            {isDuplicate && (
-              <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-[8px] border gap-0.5 px-1 py-0">
-                <AlertTriangle className="h-2 w-2" />
-                مكرر في الهدف
-              </Badge>
-            )}
           </div>
           <p className="text-[11px] text-foreground truncate">{record.description || "-"}</p>
           <span className="text-[10px] font-mono font-semibold text-foreground">{formatCurrency(record.amount)}</span>
@@ -518,7 +674,6 @@ export default function RecordsTransfer() {
 
     const income = financial?.income;
     const expenses = financial?.expenses;
-    const fundTransfers = income?.fundTransfers || 0;
     const carriedForward = income?.carriedForwardBalance || 0;
     const totalIncome = income?.totalIncome || 0;
     const availableBalance = totalIncome + carriedForward;
@@ -569,7 +724,7 @@ export default function RecordsTransfer() {
             </div>
           )}
           {side === "source" && records.length > 0 && (
-            <div className="flex items-center gap-1 mt-1.5">
+            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
               <Button
                 data-testid="button-select-all"
                 variant="outline"
@@ -585,7 +740,7 @@ export default function RecordsTransfer() {
                   variant="ghost"
                   size="sm"
                   onClick={() => toggleTable(table)}
-                  className={`text-[8px] h-5 px-1.5 ${TABLE_COLORS[table]}`}
+                  className={`text-[8px] h-5 px-1.5 ${TABLE_COLORS[table] || ""}`}
                 >
                   {recs[0]?.tableLabel}
                 </Button>
@@ -635,7 +790,7 @@ export default function RecordsTransfer() {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
-              <Badge className={`${TABLE_COLORS[dup.table]} text-[8px] border gap-0.5 px-1 py-0`}>
+              <Badge className={`${TABLE_COLORS[dup.table] || "bg-gray-500/10 text-gray-600 border-gray-500/20"} text-[8px] border gap-0.5 px-1 py-0`}>
                 <Icon className="h-2 w-2" />
                 {dup.tableLabel}
               </Badge>
@@ -794,22 +949,6 @@ export default function RecordsTransfer() {
 
         {sourceProjectId && targetProjectId ? (
           <>
-            {(sourceData?.tableErrors?.length || targetData?.tableErrors?.length) ? (
-              <Card className="bg-amber-500/5 border-amber-500/20">
-                <CardContent className="p-2.5">
-                  <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    تحذير: بعض الجداول لم تُقرأ بشكل صحيح
-                  </p>
-                  <div className="mt-1 space-y-0.5">
-                    {[...(sourceData?.tableErrors || []), ...(targetData?.tableErrors || [])].map((e, i) => (
-                      <p key={i} className="text-[9px] text-muted-foreground mr-5">{e.table}: {e.error}</p>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {renderProjectColumn(
                 projects.find(p => p.id === sourceProjectId)?.name || "المصدر",

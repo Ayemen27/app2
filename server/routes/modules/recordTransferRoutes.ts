@@ -38,10 +38,60 @@ const TABLE_LABELS: Record<string, string> = {
   attendance: "الحضور",
 };
 
+function normalize(val: any): string {
+  if (val === null || val === undefined) return "";
+  return String(val).trim().toLowerCase();
+}
+
 function makeFingerprint(table: string, record: any): string {
+  let parts: string[] = [table];
   const dateField = DATE_FIELD_MAP[table];
-  const key = `${table}|${record[dateField]}|${record.amount || record.total_amount || record.daily_rate || "0"}|${record.worker_id || record.supplier_id || ""}|${record.description || record.material_name || record.notes || ""}`;
-  return crypto.createHash("md5").update(key).digest("hex").substring(0, 12);
+  parts.push(normalize(record[dateField]));
+
+  switch (table) {
+    case "materialPurchases":
+      parts.push(normalize(record.material_name));
+      parts.push(normalize(record.quantity));
+      parts.push(normalize(record.unit));
+      parts.push(normalize(record.unit_price));
+      parts.push(normalize(record.total_amount));
+      parts.push(normalize(record.supplier_id));
+      parts.push(normalize(record.invoice_number));
+      break;
+    case "supplierPayments":
+      parts.push(normalize(record.supplier_id));
+      parts.push(normalize(record.amount));
+      parts.push(normalize(record.payment_method));
+      parts.push(normalize(record.reference_number));
+      parts.push(normalize(record.purchase_id));
+      break;
+    case "transportationExpenses":
+      parts.push(normalize(record.amount));
+      parts.push(normalize(record.description));
+      parts.push(normalize(record.category));
+      parts.push(normalize(record.worker_id));
+      break;
+    case "workerTransfers":
+      parts.push(normalize(record.worker_id));
+      parts.push(normalize(record.amount));
+      parts.push(normalize(record.recipient_name));
+      parts.push(normalize(record.transfer_method));
+      parts.push(normalize(record.transfer_number));
+      break;
+    case "workerMiscExpenses":
+      parts.push(normalize(record.amount));
+      parts.push(normalize(record.description));
+      break;
+    case "attendance":
+      parts.push(normalize(record.worker_id));
+      parts.push(normalize(record.daily_wage));
+      parts.push(normalize(record.work_days));
+      parts.push(normalize(record.total_pay));
+      break;
+  }
+
+  const key = parts.join("|");
+  return crypto.createHash("sha256").update(key).digest("hex").substring(0, 24);
 }
 
 function formatRecord(table: string, record: any) {
@@ -71,8 +121,8 @@ function formatRecord(table: string, record: any) {
       description = record.description || record.notes || "";
       break;
     case "attendance":
-      amount = parseFloat(record.daily_rate || "0");
-      description = `حضور - حالة: ${record.status || ""}`;
+      amount = parseFloat(record.total_pay || record.daily_wage || "0");
+      description = `حضور - أيام العمل: ${record.work_days || "0"}`;
       break;
   }
 
@@ -100,6 +150,7 @@ router.get("/review", requireAdmin as any, async (req, res) => {
     const dateStr = String(date);
     const pid = String(projectId);
     const results: any[] = [];
+    const tableErrors: { table: string; error: string }[] = [];
 
     for (const [tableName, table] of Object.entries(TABLE_MAP)) {
       const dateCol = DATE_FIELD_MAP[tableName];
@@ -113,11 +164,19 @@ router.get("/review", requireAdmin as any, async (req, res) => {
         for (const row of rows) {
           results.push(formatRecord(tableName, row));
         }
-      } catch {}
+      } catch (e: any) {
+        tableErrors.push({ table: TABLE_LABELS[tableName], error: e.message });
+      }
     }
 
     results.sort((a, b) => (TABLE_LABELS[a.table] || "").localeCompare(TABLE_LABELS[b.table] || ""));
-    res.json({ date: dateStr, projectId: pid, records: results, count: results.length });
+    res.json({ 
+      date: dateStr, 
+      projectId: pid, 
+      records: results, 
+      count: results.length,
+      tableErrors: tableErrors.length > 0 ? tableErrors : undefined,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -128,6 +187,9 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
     const { sourceProjectId, targetProjectId, date, selections } = req.body;
     if (!sourceProjectId || !targetProjectId || !selections?.length) {
       return res.status(400).json({ error: "بيانات غير مكتملة" });
+    }
+    if (sourceProjectId === targetProjectId) {
+      return res.status(400).json({ error: "المشروع المصدر والهدف يجب أن يكونا مختلفين" });
     }
 
     const targetRecords: any[] = [];
@@ -189,10 +251,14 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
     if (!sourceProjectId || !targetProjectId || !selections?.length) {
       return res.status(400).json({ error: "بيانات غير مكتملة" });
     }
+    if (sourceProjectId === targetProjectId) {
+      return res.status(400).json({ error: "المشروع المصدر والهدف يجب أن يكونا مختلفين" });
+    }
 
     let movedCount = 0;
     let totalAmountMoved = 0;
     const errors: string[] = [];
+    const movedItems: { table: string; id: string }[] = [];
 
     await db.transaction(async (tx) => {
       for (const sel of selections) {
@@ -206,8 +272,31 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
             and(eq(table.id, sel.id), eq(table.project_id, String(sourceProjectId)))
           );
           if (!existing) {
-            errors.push(`سجل غير موجود: ${sel.id}`);
+            errors.push(`سجل غير موجود: ${sel.id} في ${TABLE_LABELS[sel.table] || sel.table}`);
             continue;
+          }
+
+          const formatted = formatRecord(sel.table, existing);
+          const dateField = DATE_FIELD_MAP[sel.table];
+          const dateVal = existing[dateField];
+
+          if (dateVal) {
+            const [targetDup] = await tx.select({ id: table.id }).from(table).where(
+              and(
+                eq(table.project_id, String(targetProjectId)),
+                eq((table as any)[dateField], dateVal)
+              )
+            ).then((rows: any[]) => {
+              return rows.filter((r: any) => {
+                const fp = makeFingerprint(sel.table, r);
+                return fp === formatted.fingerprint;
+              });
+            });
+
+            if (targetDup) {
+              errors.push(`سجل مكرر تم تخطيه: ${formatted.description}`);
+              continue;
+            }
           }
 
           await tx.update(table)
@@ -215,15 +304,16 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
             .where(and(eq(table.id, sel.id), eq(table.project_id, String(sourceProjectId))));
 
           movedCount++;
-          const amt = parseFloat(existing.amount || existing.total_amount || existing.daily_rate || "0");
+          const amt = parseFloat(existing.amount || existing.total_amount || existing.total_pay || existing.daily_wage || "0");
           totalAmountMoved += amt;
+          movedItems.push({ table: sel.table, id: sel.id });
         } catch (e: any) {
-          errors.push(`فشل نقل ${sel.id}: ${e.message}`);
+          errors.push(`فشل نقل ${TABLE_LABELS[sel.table] || sel.table} (${sel.id}): ${e.message}`);
         }
       }
     });
 
-    res.json({ movedCount, totalAmountMoved, errors });
+    res.json({ movedCount, totalAmountMoved, errors, movedItems });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

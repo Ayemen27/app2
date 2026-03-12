@@ -33,6 +33,7 @@ interface ReviewResponse {
   projectId: string;
   records: TransferRecord[];
   count: number;
+  tableErrors?: { table: string; error: string }[];
 }
 
 interface PreviewResponse {
@@ -382,6 +383,22 @@ export default function RecordsTransfer() {
 
         {sourceProjectId && targetProjectId ? (
           <>
+            {(sourceData?.tableErrors?.length || targetData?.tableErrors?.length) ? (
+              <Card className="bg-amber-500/5 border-amber-500/20">
+                <CardContent className="p-3">
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    تحذير: بعض الجداول لم تُقرأ بشكل صحيح - البيانات قد تكون ناقصة
+                  </p>
+                  <div className="space-y-0.5">
+                    {[...(sourceData?.tableErrors || []), ...(targetData?.tableErrors || [])].map((e, i) => (
+                      <p key={i} className="text-[10px] text-muted-foreground">{e.table}: {e.error}</p>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {renderProjectColumn(
                 projects.find(p => p.id === sourceProjectId)?.name || "المصدر",

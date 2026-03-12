@@ -50,12 +50,24 @@ interface ReviewResponse {
   tableErrors?: { table: string; error: string }[];
 }
 
+interface CrossWarning {
+  recordId: string;
+  table: string;
+  tableLabel: string;
+  workerName: string;
+  workerId: string;
+  recordAmount: number;
+  otherPayments: { table: string; tableLabel: string; projectName: string; amount: number }[];
+  totalOtherAmount: number;
+}
+
 interface PreviewResponse {
   transferableCount: number;
   duplicateCount: number;
   totalAmount: number;
   transferable: TransferRecord[];
   duplicates: TransferRecord[];
+  crossWarnings: CrossWarning[];
   targetRecordCount: number;
 }
 
@@ -868,7 +880,7 @@ export default function RecordsTransfer() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3 space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className={`grid gap-2 ${previewData.crossWarnings?.length > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
                     <div className="p-2.5 rounded-lg bg-green-500/5 border border-green-500/20 text-center">
                       <p className="text-lg font-bold text-green-600 dark:text-green-400">{previewData.transferableCount}</p>
                       <p className="text-[9px] text-muted-foreground">جاهز للنقل</p>
@@ -877,6 +889,12 @@ export default function RecordsTransfer() {
                       <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{previewData.duplicateCount}</p>
                       <p className="text-[9px] text-muted-foreground">مكرر</p>
                     </div>
+                    {previewData.crossWarnings?.length > 0 && (
+                      <div className="p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/20 text-center">
+                        <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{previewData.crossWarnings.length}</p>
+                        <p className="text-[9px] text-muted-foreground">تحذير مبالغ</p>
+                      </div>
+                    )}
                     <div className="p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 text-center">
                       <p className="text-lg font-bold font-mono text-blue-600 dark:text-blue-400">{formatCurrency(previewData.totalAmount)}</p>
                       <p className="text-[9px] text-muted-foreground">المبلغ</p>
@@ -930,6 +948,46 @@ export default function RecordsTransfer() {
                           حذف المكرر من الهدف
                         </Button>
                       </div>
+                    </div>
+                  )}
+
+                  {previewData.crossWarnings && previewData.crossWarnings.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-semibold text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                        تحذير: عمال استلموا مبالغ من مشاريع أخرى بنفس اليوم ({previewData.crossWarnings.length})
+                      </p>
+                      <ScrollArea className="max-h-[250px]">
+                        <div className="space-y-2">
+                          {previewData.crossWarnings.map((cw) => (
+                            <div key={cw.recordId} className="p-2.5 rounded-lg border border-orange-500/20 bg-orange-500/5 space-y-1.5" data-testid={`cross-warning-${cw.recordId}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-foreground">{cw.workerName}</span>
+                                <Badge variant="outline" className="text-[8px] h-4 border-orange-500/30 text-orange-600">{cw.tableLabel}</Badge>
+                              </div>
+                              <div className="text-[9px] text-muted-foreground">
+                                المبلغ الحالي: <span className="font-mono font-bold text-foreground">{formatCurrency(cw.recordAmount)}</span>
+                              </div>
+                              <div className="space-y-1 mt-1">
+                                <p className="text-[9px] font-semibold text-orange-600 dark:text-orange-400">مدفوعات من مشاريع أخرى:</p>
+                                {cw.otherPayments.map((op, idx) => (
+                                  <div key={idx} className="flex items-center justify-between px-2 py-1 rounded bg-background/60 border border-border/50">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] text-foreground font-medium">{op.projectName}</span>
+                                      <span className="text-[8px] text-muted-foreground">({op.tableLabel})</span>
+                                    </div>
+                                    <span className="text-[10px] font-mono font-bold text-orange-600 dark:text-orange-400">{formatCurrency(op.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-center justify-between pt-1 border-t border-orange-500/20">
+                                <span className="text-[9px] text-muted-foreground">إجمالي من مشاريع أخرى:</span>
+                                <span className="text-[10px] font-mono font-bold text-orange-600 dark:text-orange-400">{formatCurrency(cw.totalOtherAmount)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </div>
                   )}
 

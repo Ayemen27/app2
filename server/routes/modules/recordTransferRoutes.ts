@@ -3,9 +3,9 @@ import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { db } from "../../db.js";
 import { 
   materialPurchases, supplierPayments, transportationExpenses, 
-  workerTransfers, workerMiscExpenses, workerAttendance, projects
+  workerTransfers, workerMiscExpenses, workerAttendance, projects, workers
 } from "../../../shared/schema.js";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import crypto from "crypto";
 
 const router = Router();
@@ -293,8 +293,47 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
       targetFpMap.set(tr.fingerprint, tr);
     }
 
+    const WORKER_TABLES: { tableName: string; table: any; dateCol: any; amountProp: string }[] = [
+      { tableName: "attendance", table: workerAttendance, dateCol: workerAttendance.attendanceDate, amountProp: "paidAmount" },
+      { tableName: "workerTransfers", table: workerTransfers, dateCol: workerTransfers.transferDate, amountProp: "amount" },
+      { tableName: "transportationExpenses", table: transportationExpenses, dateCol: transportationExpenses.date, amountProp: "amount" },
+      { tableName: "workerMiscExpenses", table: workerMiscExpenses, dateCol: workerMiscExpenses.date, amountProp: "amount" },
+    ];
+
+    async function findWorkerPaymentsInOtherProjects(workerId: string, dateStr: string, excludeProjectId: string): Promise<any[]> {
+      const results: any[] = [];
+      for (const wt of WORKER_TABLES) {
+        try {
+          const rows = await db.select().from(wt.table).where(
+            and(
+              eq(wt.table.worker_id, workerId),
+              eq(wt.dateCol, dateStr),
+              ne(wt.table.project_id, excludeProjectId)
+            )
+          );
+          for (const row of rows) {
+            const amt = parseFloat(String(row[wt.amountProp] || row.amount || "0"));
+            let projName = row.project_id;
+            try {
+              const [p] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, row.project_id));
+              if (p) projName = p.name;
+            } catch (_) { /* skip */ }
+            results.push({
+              table: wt.tableName,
+              tableLabel: TABLE_LABELS[wt.tableName],
+              projectName: projName,
+              projectId: row.project_id,
+              amount: amt,
+            });
+          }
+        } catch (e: any) { /* skip */ }
+      }
+      return results;
+    }
+
     const transferable: any[] = [];
     const duplicates: any[] = [];
+    const crossWarnings: any[] = [];
     let totalAmount = 0;
 
     for (const sel of selections) {
@@ -324,12 +363,35 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
           transferable.push(formatted);
           totalAmount += formatted.amount;
         }
+
+        if (record.worker_id) {
+          const otherPayments = await findWorkerPaymentsInOtherProjects(record.worker_id, String(date), sourceProjectId);
+          if (otherPayments.length > 0) {
+            let workerName = record.worker_id;
+            try {
+              const [w] = await db.select({ name: workers.name }).from(workers).where(eq(workers.id, record.worker_id));
+              if (w) workerName = w.name;
+            } catch (_) { /* skip */ }
+            
+            const totalOther = otherPayments.reduce((s: number, p: any) => s + p.amount, 0);
+            crossWarnings.push({
+              recordId: formatted.id,
+              table: sel.table,
+              tableLabel: formatted.tableLabel,
+              workerName,
+              workerId: record.worker_id,
+              recordAmount: formatted.amount,
+              otherPayments,
+              totalOtherAmount: totalOther,
+            });
+          }
+        }
       } catch (e: any) {
         console.error(`[RecordTransfer] preview selection read ${sel.table}:`, e.message);
       }
     }
 
-    console.log(`[RecordTransfer] preview: ${transferable.length} transferable, ${duplicates.length} duplicates, target had ${targetRecords.length} records`);
+    console.log(`[RecordTransfer] preview: ${transferable.length} transferable, ${duplicates.length} duplicates, ${crossWarnings.length} cross-warnings`);
 
     res.json({
       transferableCount: transferable.length,
@@ -337,6 +399,7 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
       totalAmount,
       transferable,
       duplicates,
+      crossWarnings,
       targetRecordCount: targetRecords.length,
     });
   } catch (error: any) {

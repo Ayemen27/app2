@@ -178,6 +178,8 @@ export default function DeploymentConsole() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const [selectedPipeline, setSelectedPipeline] = useState<string>("web-deploy");
@@ -296,7 +298,9 @@ export default function DeploymentConsole() {
   }, [historyData, activeDeploymentId]);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userScrolledUp.current) {
+      logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [liveLogs]);
 
   const handleStartDeployment = async () => {
@@ -312,6 +316,7 @@ export default function DeploymentConsole() {
       }
 
       setLiveLogs([]);
+      userScrolledUp.current = false;
 
       try {
         const fresh = await apiRequest(`/api/deployment/${data.id}`);
@@ -390,6 +395,7 @@ export default function DeploymentConsole() {
       setActiveDeploymentId(id);
       setLiveDeployment(data);
       setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
+      userScrolledUp.current = false;
     } catch (error: any) {
       toast({ title: "فشل تحميل بيانات العملية", description: error.message, variant: "destructive" });
     }
@@ -651,8 +657,16 @@ export default function DeploymentConsole() {
               </div>
             </CardHeader>
             <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-              <ScrollArea className="h-[250px] sm:h-[350px] lg:h-[420px] rounded-lg bg-gray-950 border border-gray-800" dir="ltr">
-                <div className="p-2 sm:p-3 font-mono text-[10px] sm:text-xs space-y-0.5">
+              <ScrollArea className="h-[250px] sm:h-[350px] lg:h-[420px] rounded-lg bg-gray-950 border border-gray-800" dir="ltr"
+                onScrollCapture={(e) => {
+                  const el = e.currentTarget.querySelector('[data-radix-scroll-area-viewport]');
+                  if (el) {
+                    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+                    userScrolledUp.current = !atBottom;
+                  }
+                }}
+              >
+                <div ref={logsContainerRef} className="p-2 sm:p-3 font-mono text-[10px] sm:text-xs space-y-0.5">
                   {liveLogs.length > 0 ? (
                     liveLogs.map((log, i) => {
                       const color =

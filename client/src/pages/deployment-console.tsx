@@ -298,8 +298,11 @@ export default function DeploymentConsole() {
   }, [historyData, activeDeploymentId]);
 
   useEffect(() => {
-    if (!userScrolledUp.current) {
-      logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userScrolledUp.current && logsContainerRef.current) {
+      const viewport = logsContainerRef.current.closest('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [liveLogs]);
 

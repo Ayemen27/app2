@@ -90,11 +90,9 @@ interface DeploymentStats {
 }
 
 const PIPELINE_LABELS: Record<string, string> = {
-  "web-deploy": "نشر الويب (نقل مباشر)",
-  "android-build": "بناء تطبيق أندرويد APK",
-  "full-deploy": "نشر كامل (ويب + أندرويد)",
-  "git-push": "دفع Git وسحب من السيرفر",
+  "git-push": "نشر عبر Git (دفع + سحب + بناء)",
   "hotfix": "إصلاح سريع (نشر فوري)",
+  "android-build": "بناء تطبيق أندرويد APK",
 };
 
 const STEP_LABELS: Record<string, string> = {
@@ -182,7 +180,7 @@ export default function DeploymentConsole() {
   const userScrolledUp = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const [selectedPipeline, setSelectedPipeline] = useState<string>("web-deploy");
+  const [selectedPipeline, setSelectedPipeline] = useState<string>("git-push");
   const [commitMessage, setCommitMessage] = useState("");
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
   const [liveDeployment, setLiveDeployment] = useState<Deployment | null>(null);

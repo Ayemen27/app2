@@ -1,13 +1,13 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -40,7 +40,6 @@ jobs:
         run: |
           if [ -d "android" ]; then
             cd android
-            # تأكد من استخدام إصدار Gradle متوافق مع Java 21 (Capacitor 7+)
             if [ ! -f "gradlew" ]; then
               echo "Generating Gradle wrapper..."
               gradle wrapper --gradle-version 8.11.1
@@ -48,7 +47,7 @@ jobs:
             chmod +x gradlew
             ./gradlew assembleRelease
           else
-            echo "❌ Android directory not found."
+            echo "Android directory not found."
             exit 1
           fi
         continue-on-error: false

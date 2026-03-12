@@ -374,7 +374,7 @@ export class DeploymentEngine {
   }
 
   private async stepTransfer(deploymentId: string) {
-    await this.addLog(deploymentId, "Creating deployment archive...", "info");
+    await this.addLog(deploymentId, "إنشاء أرشيف النشر...", "info");
 
     const version = await this.getCurrentVersion();
     const archivePath = `/tmp/deploy-${version}-${Date.now()}.tar.gz`;
@@ -383,26 +383,35 @@ export class DeploymentEngine {
     const includesDist = deployment?.pipeline === "android-build" || deployment?.pipeline === "full-deploy";
     const distExclude = includesDist ? "" : "--exclude='dist'";
 
+    const excludes = [
+      "node_modules", ".git", ".cache", ".pythonlibs", ".local",
+      ".agents", ".agentforge", "attached_assets", "output_apks",
+      "android/build", "android/app/build", "android/.gradle", ".gradle",
+      "www", "*.log", ".npm", ".config", "libs/AgentForge_archived",
+      "signoz", "tools", "system_core_docs", "governance",
+      distExclude ? "dist" : "",
+    ].filter(Boolean).map(e => `--exclude='${e}'`).join(" ");
+
     await this.execWithLog(
       deploymentId,
-      `tar --exclude='node_modules' ${distExclude} --exclude='android/build' --exclude='android/app/build' --exclude='android/.gradle' --exclude='.git' --exclude='.gradle' --exclude='output_apks' --exclude='www' -czf ${archivePath} .`,
+      `cd /home/runner/workspace && tar ${excludes} -czf ${archivePath} .`,
       "Archive",
       180000
     );
 
     const { stdout: sizeOut } = await execAsync(`du -h ${archivePath} | cut -f1`);
-    await this.addLog(deploymentId, `Archive size: ${sizeOut.trim()}`, "info");
+    await this.addLog(deploymentId, `حجم الأرشيف: ${sizeOut.trim()}`, "info");
 
-    await this.addLog(deploymentId, "Uploading to server...", "info");
+    await this.addLog(deploymentId, "رفع الأرشيف إلى السيرفر...", "info");
     await this.execWithLog(
       deploymentId,
       this.buildSCPCommand(archivePath, "/tmp/deploy-package.tar.gz"),
       "Upload",
-      120000
+      600000
     );
 
     await execAsync(`rm -f ${archivePath}`);
-    await this.addLog(deploymentId, "Transfer complete", "success");
+    await this.addLog(deploymentId, "اكتمل النقل بنجاح", "success");
   }
 
   private async stepDeployServer(deploymentId: string, sshCmd: string) {

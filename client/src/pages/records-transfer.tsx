@@ -69,6 +69,7 @@ interface Project {
 }
 
 const TABLE_ICONS: Record<string, any> = {
+  fundTransfers: DollarSign,
   materialPurchases: Package,
   supplierPayments: Wallet,
   transportationExpenses: Truck,
@@ -80,6 +81,7 @@ const TABLE_ICONS: Record<string, any> = {
 };
 
 const TABLE_COLORS: Record<string, string> = {
+  fundTransfers: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   materialPurchases: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
   supplierPayments: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
   transportationExpenses: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
@@ -91,6 +93,7 @@ const TABLE_COLORS: Record<string, string> = {
 };
 
 const SUMMARY_COLORS: Record<string, string> = {
+  fundTransfers: "from-emerald-500/10 to-emerald-500/5 border-emerald-500/20",
   materialPurchases: "from-blue-500/10 to-blue-500/5 border-blue-500/20",
   supplierPayments: "from-purple-500/10 to-purple-500/5 border-purple-500/20",
   transportationExpenses: "from-amber-500/10 to-amber-500/5 border-amber-500/20",
@@ -102,6 +105,7 @@ const SUMMARY_COLORS: Record<string, string> = {
 };
 
 const TABLE_LABELS: Record<string, string> = {
+  fundTransfers: "العهدة",
   materialPurchases: "مشتريات المواد",
   supplierPayments: "مدفوعات الموردين",
   transportationExpenses: "أجور المواصلات",
@@ -130,6 +134,25 @@ function transformDailyExpensesToRecords(data: any, projectId: string): Transfer
   if (!data?.data) return [];
   const d = data.data;
   const records: TransferRecord[] = [];
+
+  if (d.fundTransfers) {
+    for (const r of d.fundTransfers) {
+      const amount = parseFloat(r.amount || "0");
+      if (amount <= 0) continue;
+      records.push({
+        id: r.id,
+        table: "fundTransfers",
+        tableLabel: TABLE_LABELS.fundTransfers,
+        date: r.transferDate || d.date,
+        amount,
+        description: `${r.senderName || r.sender_name || ""} - ${r.transferType || r.transfer_type || ""} ${r.notes ? `| ${r.notes}` : ""}`.trim(),
+        workerId: null,
+        supplierId: null,
+        fingerprint: `ft_${r.id}`,
+        raw: r,
+      });
+    }
+  }
 
   if (d.materialPurchases) {
     for (const r of d.materialPurchases) {

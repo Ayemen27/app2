@@ -4,7 +4,7 @@ import { db } from "../../db.js";
 import { 
   materialPurchases, supplierPayments, transportationExpenses, 
   workerTransfers, workerMiscExpenses, workerAttendance, projects, workers,
-  projectFundTransfers
+  projectFundTransfers, fundTransfers
 } from "../../../shared/schema.js";
 import { eq, and, ne, sql } from "drizzle-orm";
 import crypto from "crypto";
@@ -13,6 +13,7 @@ const router = Router();
 router.use(requireAuth as any);
 
 const TABLE_MAP: Record<string, any> = {
+  fundTransfers,
   materialPurchases,
   supplierPayments,
   transportationExpenses,
@@ -22,6 +23,7 @@ const TABLE_MAP: Record<string, any> = {
 };
 
 const DATE_COLUMN_MAP: Record<string, any> = {
+  fundTransfers: fundTransfers.transferDate,
   materialPurchases: materialPurchases.purchaseDate,
   supplierPayments: supplierPayments.paymentDate,
   transportationExpenses: transportationExpenses.date,
@@ -31,6 +33,7 @@ const DATE_COLUMN_MAP: Record<string, any> = {
 };
 
 const DATE_PROP_MAP: Record<string, string> = {
+  fundTransfers: "transferDate",
   materialPurchases: "purchaseDate",
   supplierPayments: "paymentDate",
   transportationExpenses: "date",
@@ -42,6 +45,7 @@ const DATE_PROP_MAP: Record<string, string> = {
 };
 
 const TABLE_LABELS: Record<string, string> = {
+  fundTransfers: "العهدة",
   materialPurchases: "مشتريات المواد",
   supplierPayments: "مدفوعات الموردين",
   transportationExpenses: "أجور المواصلات",
@@ -107,6 +111,12 @@ function makeFingerprint(table: string, record: any): string {
       parts.push(normalize(record.totalPay));
       parts.push(normalize(record.paidAmount));
       break;
+    case "fundTransfers":
+      parts.push(normalize(record.amount));
+      parts.push(normalize(record.senderName));
+      parts.push(normalize(record.transferType));
+      parts.push(normalize(record.transferNumber));
+      break;
     case "fundTransferOut":
     case "fundTransferIn":
       parts.push(normalize(record.fromProjectId));
@@ -163,6 +173,12 @@ function getFingerprintFields(table: string, record: any): Record<string, string
       fields["إجمالي الأجر"] = normalize(record.totalPay);
       fields["المدفوع"] = normalize(record.paidAmount);
       break;
+    case "fundTransfers":
+      fields["المبلغ"] = normalize(record.amount);
+      fields["المرسل"] = normalize(record.senderName);
+      fields["نوع التحويل"] = normalize(record.transferType);
+      fields["رقم الحوالة"] = normalize(record.transferNumber);
+      break;
     case "fundTransferOut":
     case "fundTransferIn":
       fields["من مشروع"] = normalize(record._fromProjectName || record.fromProjectId);
@@ -180,6 +196,10 @@ function formatRecord(table: string, record: any) {
   let description = "";
 
   switch (table) {
+    case "fundTransfers":
+      amount = parseFloat(record.amount || "0");
+      description = `${record.senderName || ""} - ${record.transferType || ""}${record.notes ? ` | ${record.notes}` : ""}`;
+      break;
     case "materialPurchases":
       amount = parseFloat(record.totalAmount || "0");
       description = `${record.materialName || ""} - ${record.supplierName || ""} (${record.quantity} ${record.unit})`;

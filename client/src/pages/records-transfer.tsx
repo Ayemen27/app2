@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 
 interface MatchInfo {
   targetProjectName: string;
@@ -143,20 +144,17 @@ export default function RecordsTransfer() {
     enabled: !!targetProjectId,
   });
 
-  const { data: sourceBalanceData } = useQuery<any>({
-    queryKey: ["/api/projects", sourceProjectId, "previous-balance", currentDate],
-    queryFn: () => apiRequest(`/api/projects/${sourceProjectId}/previous-balance/${currentDate}`),
+  const { summary: sourceFinancial } = useFinancialSummary({
+    project_id: sourceProjectId || undefined,
+    date: currentDate,
     enabled: !!sourceProjectId,
   });
 
-  const { data: targetBalanceData } = useQuery<any>({
-    queryKey: ["/api/projects", targetProjectId, "previous-balance", currentDate],
-    queryFn: () => apiRequest(`/api/projects/${targetProjectId}/previous-balance/${currentDate}`),
+  const { summary: targetFinancial } = useFinancialSummary({
+    project_id: targetProjectId || undefined,
+    date: currentDate,
     enabled: !!targetProjectId,
   });
-
-  const sourceBalance = sourceBalanceData?.data?.balance ? parseFloat(sourceBalanceData.data.balance) : null;
-  const targetBalance = targetBalanceData?.data?.balance ? parseFloat(targetBalanceData.data.balance) : null;
 
   useEffect(() => { localStorage.setItem("rt_source", sourceProjectId); }, [sourceProjectId]);
   useEffect(() => { localStorage.setItem("rt_target", targetProjectId); }, [targetProjectId]);
@@ -501,10 +499,21 @@ export default function RecordsTransfer() {
     loading: boolean,
     side: "source" | "target",
     summary: Record<string, { count: number; total: number; label: string }>,
-    balance: number | null
+    financial: any | null
   ) => {
     const groups = groupByTable(records);
     const totalAmount = records.reduce((s, r) => s + r.amount, 0);
+
+    const income = financial?.income;
+    const expenses = financial?.expenses;
+    const fundTransfers = income?.fundTransfers || 0;
+    const carriedForward = income?.carriedForwardBalance || 0;
+    const totalIncome = income?.totalIncome || 0;
+    const availableBalance = totalIncome + carriedForward;
+    const totalCashExpenses = expenses?.totalCashExpenses || 0;
+    const remainingBalance = availableBalance - totalCashExpenses;
+    const incomingTransfers = income?.incomingProjectTransfers || 0;
+    const outgoingTransfers = expenses?.outgoingProjectTransfers || 0;
 
     return (
       <Card className="bg-card border-border flex-1" data-testid={`card-${side}`}>
@@ -519,29 +528,34 @@ export default function RecordsTransfer() {
               <span className="text-[10px] font-mono font-bold text-foreground">{formatCurrency(totalAmount)}</span>
             </div>
           </div>
-          {balance !== null && (() => {
-            const remaining = balance - totalAmount;
-            return (
-              <div className={`flex items-center gap-2 mt-1 p-1.5 rounded-md border ${
-                remaining >= 0 
-                  ? "bg-green-500/5 border-green-500/20" 
-                  : "bg-red-500/5 border-red-500/20"
-              }`}>
-                <div className="flex items-center gap-1">
-                  <Wallet className="h-3 w-3 text-blue-500" />
-                  <span className="text-[9px] text-muted-foreground">العهدة:</span>
-                  <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400">{formatCurrency(balance)}</span>
+          {financial && (
+            <div className="mt-1.5 space-y-1">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="p-1.5 rounded-md border bg-blue-500/5 border-blue-500/20">
+                  <p className="text-[8px] text-muted-foreground">العهدة (المرحل)</p>
+                  <p className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400">{formatCurrency(carriedForward)}</p>
                 </div>
-                <span className="text-[9px] text-muted-foreground">|</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-muted-foreground">المتبقي:</span>
-                  <span className={`text-[10px] font-mono font-bold ${remaining >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-                    {formatCurrency(remaining)}
-                  </span>
+                <div className="p-1.5 rounded-md border bg-green-500/5 border-green-500/20">
+                  <p className="text-[8px] text-muted-foreground">الدخل اليوم</p>
+                  <p className="text-[10px] font-mono font-bold text-green-600 dark:text-green-400">{formatCurrency(totalIncome)}</p>
+                </div>
+                <div className="p-1.5 rounded-md border bg-red-500/5 border-red-500/20">
+                  <p className="text-[8px] text-muted-foreground">المصروفات</p>
+                  <p className="text-[10px] font-mono font-bold text-red-600 dark:text-red-400">{formatCurrency(totalCashExpenses)}</p>
+                </div>
+                <div className={`p-1.5 rounded-md border ${remainingBalance >= 0 ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"}`}>
+                  <p className="text-[8px] text-muted-foreground">المتبقي</p>
+                  <p className={`text-[10px] font-mono font-bold ${remainingBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>{formatCurrency(remainingBalance)}</p>
                 </div>
               </div>
-            );
-          })()}
+              {(incomingTransfers > 0 || outgoingTransfers > 0) && (
+                <div className="flex items-center gap-2 text-[8px] text-muted-foreground px-1">
+                  {incomingTransfers > 0 && <span>وارد: <span className="font-mono font-semibold text-green-600">{formatCurrency(incomingTransfers)}</span></span>}
+                  {outgoingTransfers > 0 && <span>صادر: <span className="font-mono font-semibold text-red-600">{formatCurrency(outgoingTransfers)}</span></span>}
+                </div>
+              )}
+            </div>
+          )}
           {side === "source" && records.length > 0 && (
             <div className="flex items-center gap-1 mt-1.5">
               <Button
@@ -791,7 +805,7 @@ export default function RecordsTransfer() {
                 sourceLoading,
                 "source",
                 sourceSummary,
-                sourceBalance
+                sourceFinancial
               )}
               {renderProjectColumn(
                 projects.find(p => p.id === targetProjectId)?.name || "الهدف",
@@ -799,7 +813,7 @@ export default function RecordsTransfer() {
                 targetLoading,
                 "target",
                 targetSummary,
-                targetBalance
+                targetFinancial
               )}
             </div>
 

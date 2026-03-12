@@ -210,74 +210,66 @@ export default function DeploymentConsole() {
         setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
         if (data.status === "success" || data.status === "failed") {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
           refetchHistory();
           queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
         }
       } catch {}
-    }, 5000);
+    }, 3000);
   }, [refetchHistory, queryClient]);
 
   const connectSSE = useCallback((deploymentId: string) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
+
+    startPolling(deploymentId);
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
     const apiBase = ENV.getApiBaseUrl();
-    const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream${tokenParam}`);
-    eventSourceRef.current = es;
-    let sseConnected = false;
+    
+    try {
+      const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream${tokenParam}`);
+      eventSourceRef.current = es;
 
-    es.onmessage = (event) => {
-      try {
-        sseConnected = true;
-        const payload = JSON.parse(event.data);
+      es.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
 
-        if (payload.type === "initial_state") {
-          setLiveDeployment(payload.data);
-          setLiveLogs(Array.isArray(payload.data.logs) ? payload.data.logs : []);
-        } else if (payload.type === "log") {
-          setLiveLogs(prev => [...prev, payload.data]);
-        } else if (payload.type === "deployment_update") {
-          setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
+          if (payload.type === "initial_state") {
+            setLiveDeployment(payload.data);
+            setLiveLogs(Array.isArray(payload.data.logs) ? payload.data.logs : []);
+          } else if (payload.type === "log") {
+            setLiveLogs(prev => [...prev, payload.data]);
+          } else if (payload.type === "deployment_update") {
+            setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
 
-          if (payload.data.status === "success" || payload.data.status === "failed") {
-            refetchHistory();
-            queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+            if (payload.data.status === "success" || payload.data.status === "failed") {
+              refetchHistory();
+              queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+            }
+          } else if (payload.type === "step_update") {
+            setLiveDeployment(prev => {
+              if (!prev) return null;
+              const steps = (prev.steps as StepEntry[]).map(s =>
+                s.name === payload.data.stepName
+                  ? { ...s, status: payload.data.status, duration: payload.data.duration }
+                  : s
+              );
+              return { ...prev, steps };
+            });
           }
-        } else if (payload.type === "step_update") {
-          setLiveDeployment(prev => {
-            if (!prev) return null;
-            const steps = (prev.steps as StepEntry[]).map(s =>
-              s.name === payload.data.stepName
-                ? { ...s, status: payload.data.status, duration: payload.data.duration }
-                : s
-            );
-            return { ...prev, steps };
-          });
-        }
-      } catch {}
-    };
+        } catch {}
+      };
 
-    es.onerror = () => {
-      es.close();
-      eventSourceRef.current = null;
-      if (!sseConnected) {
-        startPolling(deploymentId);
-      } else {
-        setTimeout(() => {
-          if (activeDeploymentId === deploymentId) {
-            connectSSE(deploymentId);
-          }
-        }, 3000);
-      }
-    };
-  }, [activeDeploymentId, refetchHistory, queryClient, startPolling]);
+      es.onerror = () => {
+        es.close();
+        eventSourceRef.current = null;
+      };
+    } catch {
+    }
+  }, [refetchHistory, queryClient, startPolling]);
 
   useEffect(() => {
     if (activeDeploymentId) {
@@ -291,6 +283,17 @@ export default function DeploymentConsole() {
       }
     };
   }, [activeDeploymentId, connectSSE]);
+
+  useEffect(() => {
+    if (!activeDeploymentId && historyData?.deployments) {
+      const running = historyData.deployments.find(d => d.status === "running");
+      if (running) {
+        setActiveDeploymentId(running.id);
+        setLiveDeployment(running);
+        setLiveLogs(Array.isArray(running.logs) ? running.logs : []);
+      }
+    }
+  }, [historyData, activeDeploymentId]);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -309,8 +312,17 @@ export default function DeploymentConsole() {
       }
 
       setLiveLogs([]);
-      setLiveDeployment(null);
+
+      try {
+        const fresh = await apiRequest(`/api/deployment/${data.id}`);
+        setLiveDeployment(fresh);
+        setLiveLogs(Array.isArray(fresh.logs) ? fresh.logs : []);
+      } catch {
+        setLiveDeployment(null);
+      }
+
       setActiveDeploymentId(data.id);
+      startPolling(data.id);
 
       toast({ title: "بدأ النشر", description: `المسار: ${PIPELINE_LABELS[selectedPipeline]}` });
 

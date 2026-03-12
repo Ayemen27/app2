@@ -549,7 +549,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git add -A && git diff --cached --quiet || git commit -m "${safeMessage}" && git push ${repoUrl} main --force 2>&1 && echo "GIT_PUSH_OK"`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git add -A && git diff --cached --quiet || git commit -m "${safeMessage}" && git push ${repoUrl} main --force 2>&1 && echo "GIT_PUSH_OK"`,
       "Git Push",
       60000
     );
@@ -643,11 +643,13 @@ export class DeploymentEngine {
     const entry: LogEntry = { timestamp: new Date().toISOString(), message, type };
 
     try {
-      await db.execute(sql`
-        UPDATE build_deployments 
-        SET logs = COALESCE(logs, '[]'::jsonb) || ${JSON.stringify([entry])}::jsonb 
-        WHERE id = ${deploymentId}
-      `);
+      const [current] = await db.select({ logs: buildDeployments.logs }).from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+      const existingLogs = Array.isArray(current?.logs) ? current.logs : [];
+      const maxLogs = 500;
+      const updatedLogs = existingLogs.length >= maxLogs 
+        ? [...existingLogs.slice(-maxLogs + 1), entry]
+        : [...existingLogs, entry];
+      await db.update(buildDeployments).set({ logs: updatedLogs }).where(eq(buildDeployments.id, deploymentId));
     } catch (err) {
       console.error(`[DeploymentEngine] Failed to save log for ${deploymentId}:`, err);
     }

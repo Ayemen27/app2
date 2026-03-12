@@ -304,11 +304,17 @@ export default function DeploymentConsole() {
         commitMessage: commitMessage || undefined,
       });
 
-      setActiveDeploymentId(data.id);
+      if (!data?.id) {
+        throw new Error("لم يتم إرجاع معرّف العملية من الخادم");
+      }
+
       setLiveLogs([]);
       setLiveDeployment(null);
+      setActiveDeploymentId(data.id);
 
       toast({ title: "بدأ النشر", description: `المسار: ${PIPELINE_LABELS[selectedPipeline]}` });
+
+      refetchHistory();
     } catch (error: any) {
       toast({ title: "فشل بدء النشر", description: error.message, variant: "destructive" });
     } finally {

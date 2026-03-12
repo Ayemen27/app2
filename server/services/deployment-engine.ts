@@ -327,25 +327,26 @@ export class DeploymentEngine {
   }
 
   private async stepValidate(deploymentId: string) {
-    await this.addLog(deploymentId, "Validating environment...", "info");
+    await this.addLog(deploymentId, "التحقق من البيئة...", "info");
 
-    const checks = [
-      { name: "SSH_PASSWORD", ok: !!process.env.SSH_PASSWORD },
-      { name: "SSH_HOST", ok: !!process.env.SSH_HOST },
-      { name: "package.json", ok: true },
-    ];
+    const host = process.env.SSH_HOST || "93.127.142.144";
+    const user = process.env.SSH_USER || "administrator";
+    const sshPass = process.env.SSH_PASSWORD;
 
-    const failed = checks.filter(c => !c.ok);
-    if (failed.length > 0) {
-      throw new Error(`Validation failed: missing ${failed.map(c => c.name).join(", ")}`);
+    await this.addLog(deploymentId, `الخادم: ${user}@${host}`, "info");
+
+    if (!sshPass) {
+      throw new Error("متغير SSH_PASSWORD غير محدد في البيئة");
     }
 
+    await this.addLog(deploymentId, "اختبار اتصال SSH...", "info");
     try {
       const sshCmd = this.buildSSHCommand();
-      await execAsync(`${sshCmd} "echo SSH_OK"`, { timeout: 15000 });
-      await this.addLog(deploymentId, "SSH connection verified", "success");
-    } catch {
-      throw new Error("Cannot connect to remote server via SSH");
+      const { stdout } = await execAsync(`${sshCmd} "echo SSH_OK && hostname && uptime"`, { timeout: 30000 });
+      await this.addLog(deploymentId, `اتصال SSH ناجح: ${stdout.trim()}`, "success");
+    } catch (sshErr: any) {
+      await this.addLog(deploymentId, `فشل اتصال SSH: ${this.maskSecrets(sshErr.message)}`, "error");
+      throw new Error(`فشل الاتصال بالخادم عبر SSH: ${this.maskSecrets(sshErr.message)}`);
     }
 
     try {

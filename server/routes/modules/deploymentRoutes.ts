@@ -157,10 +157,19 @@ router.get("/:id/stream", async (req, res) => {
 
   deploymentEngine.registerSSEClient(req.params.id, res);
 
-  const deployment = await deploymentEngine.getDeployment(req.params.id);
-  if (deployment) {
-    res.write(`data: ${JSON.stringify({ type: "initial_state", data: deployment })}\n\n`);
-  }
+  const sendInitialState = async () => {
+    try {
+      const deployment = await deploymentEngine.getDeployment(req.params.id);
+      if (deployment) {
+        res.write(`data: ${JSON.stringify({ type: "initial_state", data: deployment })}\n\n`);
+      }
+    } catch (e) {
+      console.error("[SSE] Failed to send initial state:", e);
+    }
+  };
+  
+  await sendInitialState();
+  setTimeout(() => sendInitialState(), 1500);
 
   const heartbeat = setInterval(() => {
     try {

@@ -71,6 +71,16 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
       notes: r.notes || '-',
     });
   });
+  (report.workerTransfers || []).forEach((r: any) => {
+    expenses.push({
+      category: 'حوالات عمال',
+      description: r.workerName || '-',
+      amount: parseFloat(r.amount || '0'),
+      workDays: '-',
+      paidAmount: '-',
+      notes: r.transferMethod || r.recipientName || '-',
+    });
+  });
   return expenses;
 }
 

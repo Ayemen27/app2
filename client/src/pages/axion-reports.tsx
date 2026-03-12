@@ -323,6 +323,10 @@ function RangeDayPage({ report, searchValue, carryForward = 0 }: { report: Daily
     if (!q || [r.description, r.notes].some((v: string) => v?.toLowerCase().includes(q)))
       allExpenses.push({ category: "مصاريف متنوعة", description: r.description || "-", amount: parseFloat(r.amount || '0'), workDays: "-", paidAmount: "-", notes: r.notes || "-" });
   });
+  (report.workerTransfers || []).forEach((r: any) => {
+    if (!q || [r.workerName, r.recipientName].some((v: string) => v?.toLowerCase().includes(q)))
+      allExpenses.push({ category: "حوالات عمال", description: r.workerName || "-", amount: parseFloat(r.amount || '0'), workDays: "-", paidAmount: "-", notes: r.transferMethod || r.recipientName || "-" });
+  });
 
   const totalExpenses = allExpenses.reduce((s, e) => s + e.amount, 0);
 
@@ -785,6 +789,7 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
                   (r.materials || []).forEach((m: any) => { exp += parseFloat(m.totalAmount || '0'); });
                   (r.transport || []).forEach((t: any) => { exp += parseFloat(t.amount || '0'); });
                   (r.miscExpenses || []).forEach((e: any) => { exp += parseFloat(e.amount || '0'); });
+                  (r.workerTransfers || []).forEach((wt: any) => { exp += parseFloat(wt.amount || '0'); });
                   return cf + fund - exp;
                 }, 0)
               } />

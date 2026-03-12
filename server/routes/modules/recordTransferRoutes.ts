@@ -165,7 +165,8 @@ router.get("/review", requireAdmin as any, async (req, res) => {
           results.push(formatRecord(tableName, row));
         }
       } catch (e: any) {
-        tableErrors.push({ table: TABLE_LABELS[tableName], error: e.message });
+        console.error(`[RecordTransfer] خطأ في قراءة ${tableName}:`, e.message);
+        tableErrors.push({ table: TABLE_LABELS[tableName], error: "فشل في قراءة البيانات من هذا الجدول" });
       }
     }
 
@@ -178,7 +179,8 @@ router.get("/review", requireAdmin as any, async (req, res) => {
       tableErrors: tableErrors.length > 0 ? tableErrors : undefined,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[RecordTransfer] /review error:", error.message);
+    res.status(500).json({ error: "حدث خطأ أثناء جلب السجلات" });
   }
 });
 
@@ -241,7 +243,8 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
       duplicates,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[RecordTransfer] /preview error:", error.message);
+    res.status(500).json({ error: "حدث خطأ أثناء معاينة النقل" });
   }
 });
 
@@ -281,19 +284,18 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
           const dateVal = existing[dateField];
 
           if (dateVal) {
-            const [targetDup] = await tx.select({ id: table.id }).from(table).where(
+            const targetRows = await tx.select().from(table).where(
               and(
                 eq(table.project_id, String(targetProjectId)),
                 eq((table as any)[dateField], dateVal)
               )
-            ).then((rows: any[]) => {
-              return rows.filter((r: any) => {
-                const fp = makeFingerprint(sel.table, r);
-                return fp === formatted.fingerprint;
-              });
+            );
+            const hasDuplicate = targetRows.some((r: any) => {
+              const fp = makeFingerprint(sel.table, r);
+              return fp === formatted.fingerprint;
             });
 
-            if (targetDup) {
+            if (hasDuplicate) {
               errors.push(`سجل مكرر تم تخطيه: ${formatted.description}`);
               continue;
             }
@@ -315,7 +317,8 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
 
     res.json({ movedCount, totalAmountMoved, errors, movedItems });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[RecordTransfer] /confirm error:", error.message);
+    res.status(500).json({ error: "حدث خطأ أثناء عملية النقل - لم يتم نقل أي سجل" });
   }
 });
 

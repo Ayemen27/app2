@@ -300,17 +300,14 @@ function RangeDayPage({ report, searchValue, carryForward = 0 }: { report: Daily
   (report.attendance || []).forEach((r: any) => {
     if (!q || [r.workerName, r.workerType].some((v: string) => v?.toLowerCase().includes(q))) {
       const days = parseFloat(r.workDays || '0');
-      const dailyW = parseFloat(r.dailyWage || '0');
-      const calculatedWage = dailyW * days;
       const paid = parseFloat(r.paidAmount || '0');
-      const actualAmount = paid > 0 ? paid : calculatedWage;
       allExpenses.push({
         category: "أجور عمال",
         description: r.workerName + (r.workerType ? ` (${r.workerType})` : ""),
-        amount: actualAmount,
+        amount: paid,
         workDays: days > 0 ? days.toFixed(1) : "0",
         paidAmount: paid > 0 ? formatCurrency(paid) : "-",
-        notes: r.workDescription || (days === 0 && paid > 0 ? "مبلغ بدون عمل" : days === 0 ? "بدون عمل" : "-"),
+        notes: r.workDescription || (days === 0 && paid > 0 ? "مبلغ بدون عمل" : days > 0 && paid === 0 ? "عمل بدون صرف" : days === 0 ? "بدون عمل" : "-"),
       });
     }
   });
@@ -782,10 +779,8 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
                   const fund = (r.fundTransfers || []).reduce((s: number, f: any) => s + parseFloat(f.amount || '0'), 0);
                   let exp = 0;
                   (r.attendance || []).forEach((a: any) => {
-                    const days = parseFloat(a.workDays || '0');
-                    const dailyW = parseFloat(a.dailyWage || '0');
                     const paid = parseFloat(a.paidAmount || '0');
-                    exp += paid > 0 ? paid : (dailyW * days);
+                    exp += paid;
                   });
                   (r.materials || []).forEach((m: any) => { exp += parseFloat(m.totalAmount || '0'); });
                   (r.transport || []).forEach((t: any) => { exp += parseFloat(t.amount || '0'); });

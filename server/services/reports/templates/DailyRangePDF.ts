@@ -31,17 +31,14 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
   const expenses: UnifiedExpense[] = [];
   (report.attendance || []).forEach((r: any) => {
     const days = parseFloat(r.workDays || '0');
-    const dailyW = parseFloat(r.dailyWage || '0');
-    const calculatedWage = dailyW * days;
     const paid = parseFloat(r.paidAmount || '0');
-    const actualAmount = paid > 0 ? paid : calculatedWage;
     expenses.push({
       category: 'أجور عمال',
       description: r.workerName + (r.workerType ? ` (${r.workerType})` : ''),
-      amount: actualAmount,
+      amount: paid,
       workDays: days > 0 ? days.toFixed(1) : '0',
       paidAmount: paid > 0 ? formatNum(paid) : '-',
-      notes: r.workDescription || (days === 0 && paid > 0 ? 'مبلغ بدون عمل' : days === 0 ? 'بدون عمل' : '-'),
+      notes: r.workDescription || (days === 0 && paid > 0 ? 'مبلغ بدون عمل' : days > 0 && paid === 0 ? 'عمل بدون صرف' : days === 0 ? 'بدون عمل' : '-'),
     });
   });
   (report.materials || []).forEach((r: any) => {

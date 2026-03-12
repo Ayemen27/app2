@@ -72,13 +72,17 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
     });
   });
   (report.workerTransfers || []).forEach((r: any) => {
+    const noteParts: string[] = [];
+    if (r.recipientName) noteParts.push(`المستلم: ${r.recipientName}`);
+    if (r.transferMethod) noteParts.push(r.transferMethod);
+    if (r.transferNumber) noteParts.push(`رقم: ${r.transferNumber}`);
     expenses.push({
       category: 'حوالات عمال',
       description: r.workerName || '-',
       amount: parseFloat(r.amount || '0'),
       workDays: '-',
       paidAmount: '-',
-      notes: r.transferMethod || r.recipientName || '-',
+      notes: noteParts.join(' | ') || '-',
     });
   });
   (report.projectTransfersOut || []).forEach((r: any) => {
@@ -97,7 +101,6 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
 function generateDayPage(report: DailyReportData, carryForward: number, dayIndex: number, totalDays: number): string {
   const expenses = flattenExpenses(report);
   const fundTransfers = report.fundTransfers || [];
-  const workerTransfers = report.workerTransfers || [];
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const totalFund = fundTransfers.reduce((s: number, r: any) => s + (r.amount || 0), 0);
   const totalIncome = carryForward + totalFund;
@@ -133,30 +136,6 @@ function generateDayPage(report: DailyReportData, carryForward: number, dayIndex
   ];
   html += pdfKpiStrip(kpis);
 
-  if (expenses.length > 0) {
-    html += pdfSectionTitle('جدول المصروفات');
-    html += `<table><thead><tr>
-      <th style="width:24px;">م</th>
-      <th style="width:65px;">القسم</th>
-      <th>البيان</th>
-      <th style="width:50px;">أيام العمل</th>
-      <th style="width:80px;">المبلغ (YER)</th>
-      <th>ملاحظات</th>
-    </tr></thead><tbody>`;
-    expenses.forEach((e, idx) => {
-      html += `<tr>
-        <td>${idx + 1}</td>
-        <td>${escapeHtml(e.category)}</td>
-        <td style="text-align:right;">${escapeHtml(e.description)}</td>
-        <td>${e.workDays}</td>
-        <td style="font-weight:700;">${formatNum(e.amount)}</td>
-        <td style="text-align:right;font-size:8px;">${escapeHtml(e.notes)}</td>
-      </tr>`;
-    });
-    html += pdfTotalRow([`الإجمالي (${expenses.length} عملية)`, '', '', formatNum(totalExpenses), ''], 2);
-    html += `</tbody></table>`;
-  }
-
   if (fundTransfers.length > 0) {
     html += `<div class="section-title" style="background:${PDF_COLORS.green};">العهدة (الوارد للصندوق)</div>`;
     html += `<table><thead><tr>
@@ -179,26 +158,33 @@ function generateDayPage(report: DailyReportData, carryForward: number, dayIndex
     html += `</tbody></table>`;
   }
 
-  if (workerTransfers.length > 0) {
-    html += pdfSectionTitle('حوالات العمال');
-    const totalWT = workerTransfers.reduce((s: number, r: any) => s + (r.amount || 0), 0);
+  if (expenses.length > 0) {
+    html += pdfSectionTitle('جدول المصروفات');
     html += `<table><thead><tr>
-      <th style="width:28px;">م</th>
+      <th style="width:24px;">م</th>
+      <th style="width:65px;">القسم</th>
+      <th>البيان</th>
+      <th style="width:50px;">أيام العمل</th>
       <th style="width:80px;">المبلغ (YER)</th>
-      <th>اسم العامل</th>
-      <th>المستلم</th>
-      <th style="width:75px;">الطريقة</th>
+      <th>ملاحظات</th>
     </tr></thead><tbody>`;
-    workerTransfers.forEach((r: any, idx: number) => {
-      html += `<tr>
+    expenses.forEach((e, idx) => {
+      let rowStyle = '';
+      if (e.category === 'حوالات عمال') {
+        rowStyle = `background:${PDF_COLORS.redBg};`;
+      } else if (e.category === 'ترحيل لمشروع') {
+        rowStyle = `background:#FFF3E0;`;
+      }
+      html += `<tr style="${rowStyle}">
         <td>${idx + 1}</td>
-        <td style="font-weight:700;">${formatNum(r.amount)}</td>
-        <td style="text-align:right;">${escapeHtml(r.workerName || '-')}</td>
-        <td style="text-align:right;">${escapeHtml(r.recipientName || '-')}</td>
-        <td>${escapeHtml(r.transferMethod || '-')}</td>
+        <td>${escapeHtml(e.category)}</td>
+        <td style="text-align:right;">${escapeHtml(e.description)}</td>
+        <td>${e.workDays}</td>
+        <td style="font-weight:700;">${formatNum(e.amount)}</td>
+        <td style="text-align:right;font-size:8px;">${escapeHtml(e.notes)}</td>
       </tr>`;
     });
-    html += pdfTotalRow(['الإجمالي', formatNum(totalWT), '', '', ''], 1);
+    html += pdfTotalRow([`الإجمالي (${expenses.length} عملية)`, '', '', formatNum(totalExpenses), ''], 2);
     html += `</tbody></table>`;
   }
 

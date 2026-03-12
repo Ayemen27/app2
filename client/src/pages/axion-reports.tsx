@@ -147,10 +147,12 @@ function ReportTable({
   headers,
   rows,
   testId,
+  rowClassNames,
 }: {
   headers: string[];
   rows: (string | number)[][];
   testId: string;
+  rowClassNames?: (string | undefined)[];
 }) {
   if (!rows || rows.length === 0) {
     return <EmptyState message="لا توجد بيانات لعرضها" />;
@@ -171,7 +173,7 @@ function ReportTable({
           {rows.map((row, i) => (
             <tr
               key={i}
-              className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}
+              className={rowClassNames?.[i] || (i % 2 === 0 ? "bg-background" : "bg-muted/20")}
             >
               {row.map((cell, j) => (
                 <td key={j} className="p-3 border-b whitespace-nowrap">
@@ -324,8 +326,13 @@ function RangeDayPage({ report, searchValue, carryForward = 0 }: { report: Daily
       allExpenses.push({ category: "مصاريف متنوعة", description: r.description || "-", amount: parseFloat(r.amount || '0'), workDays: "-", paidAmount: "-", notes: r.notes || "-" });
   });
   (report.workerTransfers || []).forEach((r: any) => {
-    if (!q || [r.workerName, r.recipientName].some((v: string) => v?.toLowerCase().includes(q)))
-      allExpenses.push({ category: "حوالات عمال", description: r.workerName || "-", amount: parseFloat(r.amount || '0'), workDays: "-", paidAmount: "-", notes: r.transferMethod || r.recipientName || "-" });
+    if (!q || [r.workerName, r.recipientName].some((v: string) => v?.toLowerCase().includes(q))) {
+      const noteParts: string[] = [];
+      if (r.recipientName) noteParts.push(`المستلم: ${r.recipientName}`);
+      if (r.transferMethod) noteParts.push(r.transferMethod);
+      if (r.transferNumber) noteParts.push(`رقم: ${r.transferNumber}`);
+      allExpenses.push({ category: "حوالات عمال", description: r.workerName || "-", amount: parseFloat(r.amount || '0'), workDays: "-", paidAmount: "-", notes: noteParts.join(' | ') || "-" });
+    }
   });
   (report.projectTransfersOut || []).forEach((r: any) => {
     if (!q || [r.toProjectName, r.description].some((v: string) => v?.toLowerCase().includes(q)))
@@ -345,39 +352,6 @@ function RangeDayPage({ report, searchValue, carryForward = 0 }: { report: Daily
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-primary" />
-            جدول المصروفات
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{allExpenses.length} عملية</Badge>
-            <Badge className="bg-primary/10 text-primary border-primary/20">{formatCurrency(totalExpenses)}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {allExpenses.length > 0 ? (
-            <ReportTable
-              testId="table-range-expenses"
-              headers={["#", "القسم", "البيان", "أيام العمل", "المبلغ", "ملاحظات"]}
-              rows={allExpenses.map((e, i) => [
-                i + 1, e.category, e.description, e.workDays, formatCurrency(e.amount), e.notes,
-              ])}
-            />
-          ) : (
-            <EmptyState message="لا توجد مصروفات لهذا اليوم" />
-          )}
-          {allExpenses.length > 0 && (
-            <div className="flex justify-end mt-3 pt-3 border-t">
-              <div className="text-sm font-bold text-foreground">
-                إجمالي المصروفات: <span className="text-primary mr-1">{formatCurrency(totalExpenses)}</span>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {fundTransfers.length > 0 && (
         <Card className="border-green-200 dark:border-green-800/50">
           <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
@@ -399,26 +373,43 @@ function RangeDayPage({ report, searchValue, carryForward = 0 }: { report: Daily
         </Card>
       )}
 
-      {workerTransfers.length > 0 && (
-        <Card className="border-blue-200 dark:border-blue-800/50">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-base flex items-center gap-2 text-blue-700 dark:text-blue-400">
-              <ArrowUpDown className="h-4 w-4" />
-              الأموال الواردة من مشروع آخر
-            </CardTitle>
-            <Badge variant="secondary">{workerTransfers.length}</Badge>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-primary" />
+            جدول المصروفات
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{allExpenses.length} عملية</Badge>
+            <Badge className="bg-primary/10 text-primary border-primary/20">{formatCurrency(totalExpenses)}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {allExpenses.length > 0 ? (
             <ReportTable
-              testId="table-range-worker-transfers"
-              headers={["#", "المبلغ", "اسم العامل", "نوع التحويل"]}
-              rows={workerTransfers.map((r: any, i: number) => [
-                i + 1, formatCurrency(r.amount), r.workerName || "-", r.transferType || "-",
+              testId="table-range-expenses"
+              headers={["#", "القسم", "البيان", "أيام العمل", "المبلغ", "ملاحظات"]}
+              rows={allExpenses.map((e, i) => [
+                i + 1, e.category, e.description, e.workDays, formatCurrency(e.amount), e.notes,
               ])}
+              rowClassNames={allExpenses.map((e) =>
+                e.category === "حوالات عمال" ? "bg-red-50 dark:bg-red-950/30" :
+                e.category === "ترحيل لمشروع" ? "bg-orange-50 dark:bg-orange-950/30" :
+                undefined
+              )}
             />
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <EmptyState message="لا توجد مصروفات لهذا اليوم" />
+          )}
+          {allExpenses.length > 0 && (
+            <div className="flex justify-end mt-3 pt-3 border-t">
+              <div className="text-sm font-bold text-foreground">
+                إجمالي المصروفات: <span className="text-primary mr-1">{formatCurrency(totalExpenses)}</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {carryForward !== 0 && (
         <Card className={`border-2 ${carryForward >= 0 ? 'border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20' : 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-950/20'}`}>

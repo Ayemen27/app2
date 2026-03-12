@@ -61,13 +61,17 @@ function flattenExpenses(report: DailyReportData): UnifiedExpense[] {
     });
   });
   (report.workerTransfers || []).forEach((r: any) => {
+    const noteParts: string[] = [];
+    if (r.recipientName) noteParts.push(`المستلم: ${r.recipientName}`);
+    if (r.transferMethod) noteParts.push(r.transferMethod);
+    if (r.transferNumber) noteParts.push(`رقم: ${r.transferNumber}`);
     expenses.push({
       category: 'حوالات عمال',
       description: r.workerName || '-',
       amount: parseFloat(r.amount || '0'),
       workDays: '-',
       paidAmount: '-',
-      notes: r.transferMethod || r.recipientName || '-',
+      notes: noteParts.join(' | ') || '-',
     });
   });
   (report.projectTransfersOut || []).forEach((r: any) => {

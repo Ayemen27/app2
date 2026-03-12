@@ -535,10 +535,10 @@ export class DeploymentEngine {
   }
 
   private async stepGitPush(deploymentId: string, config: DeploymentConfig) {
-    await this.addLog(deploymentId, "Pushing to GitHub...", "info");
+    await this.addLog(deploymentId, "دفع الكود إلى GitHub...", "info");
 
     if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_USERNAME) {
-      throw new Error("GITHUB_TOKEN and GITHUB_USERNAME are required for git push");
+      throw new Error("GITHUB_TOKEN و GITHUB_USERNAME مطلوبان لدفع الكود");
     }
 
     const rawMessage = config.commitMessage || `Deploy v${await this.getCurrentVersion()} - ${new Date().toISOString()}`;
@@ -549,10 +549,14 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git add -A && git diff --cached --quiet || git commit -m "${safeMessage}" && git push ${repoUrl} main --force 2>&1 && echo "GIT_PUSH_OK"`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin ${repoUrl} && git push origin main --force 2>&1; git remote set-url origin https://github.com/${ghUser}/app2.git && echo "GIT_PUSH_OK"`,
       "Git Push",
       60000
     );
+
+    try {
+      await execAsync("git fetch origin main", { cwd: "/home/runner/workspace", timeout: 15000 });
+    } catch {}
 
     try {
       const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace" });
@@ -587,14 +591,14 @@ export class DeploymentEngine {
   }
 
   private async stepBuildServer(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "Building application on server...", "info");
+    await this.addLog(deploymentId, "بناء التطبيق على السيرفر (قد يستغرق 3-5 دقائق)...", "info");
     const remoteDir = "/home/administrator/app2";
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -10 && echo 'BUILD_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -20 && echo 'BUILD_OK'"`,
       "Server Build",
-      120000
+      300000
     );
   }
 

@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { BotReply } from './whatsapp/InteractiveMenu';
 import { botSettingsService } from './whatsapp/BotSettingsService';
+import { NotificationService } from '../NotificationService';
 
 const logger = pino({ level: 'info' });
 
@@ -70,6 +71,7 @@ export class WhatsAppBot {
   private dedupCleanupTimer: NodeJS.Timeout | null = null;
   private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
   private userMinuteRates: Map<string, number[]> = new Map();
+  private notificationService: NotificationService = new NotificationService();
 
   getStatus(): BotStatus {
     return this.status;
@@ -617,10 +619,65 @@ export class WhatsAppBot {
           }
           this.dailyMessageCount++;
         }
+
+        this.createWhatsAppNotification(cleanPhone, displayText, inputType).catch(err => {
+          console.warn('[WhatsAppBot] Failed to create notification:', err.message);
+        });
       } catch (error) {
         console.error('[WhatsAppBot] Error processing message:', error);
       }
     });
+  }
+
+  private async createWhatsAppNotification(phone: string, messageText: string, inputType: string): Promise<void> {
+    try {
+      const settings = await botSettingsService.getSettings();
+      if (!settings.notifyNewMessage) return;
+
+      const truncatedMsg = messageText && messageText.length > 100 
+        ? messageText.substring(0, 100) + '...' 
+        : (messageText || '');
+
+      const mediaLabel = inputType === 'image' ? '📷 صورة' : 
+                         inputType === 'audio' ? '🎵 صوت' : 
+                         inputType === 'video' ? '🎥 فيديو' : 
+                         inputType === 'document' ? '📄 مستند' : '';
+
+      const bodyText = mediaLabel 
+        ? `${mediaLabel}${truncatedMsg ? ' - ' + truncatedMsg : ''}` 
+        : truncatedMsg;
+
+      const notification = await this.notificationService.createNotification({
+        type: 'whatsapp',
+        title: `💬 رسالة واتساب من ${phone}`,
+        body: bodyText || 'رسالة جديدة',
+        priority: 3,
+        recipients: ['admin'],
+        payload: {
+          source: 'whatsapp',
+          phone,
+          inputType,
+          action: 'open_whatsapp',
+        },
+      });
+
+      const io = (global as any).io;
+      if (io) {
+        io.emit('notification:new', {
+          id: notification.id,
+          type: 'whatsapp',
+          title: `💬 رسالة واتساب من ${phone}`,
+          body: bodyText || 'رسالة جديدة',
+          priority: 3,
+          createdAt: notification.createdAt,
+        });
+        io.emit('entity:update', { entity: 'notifications', type: 'NEW' });
+      }
+
+      console.log(`🔔 [WhatsAppBot] تم إنشاء إشعار لرسالة واتساب من ${phone}`);
+    } catch (err: any) {
+      console.warn(`⚠️ [WhatsAppBot] فشل إنشاء إشعار واتساب: ${err.message}`);
+    }
   }
 
   private async resolveLidToPhone(lid: string): Promise<string | null> {

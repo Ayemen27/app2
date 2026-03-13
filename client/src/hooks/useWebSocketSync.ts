@@ -45,7 +45,6 @@ export function useWebSocketSync() {
           try {
             console.log('📨 [Socket.IO] رسالة مستلمة:', message);
 
-            // Handle different message types
             if (message.type === 'INVALIDATE') {
               const queryKey = [message.entity, message.id].filter(Boolean);
               console.log('🔄 [Socket.IO] تحديث الـ cache:', queryKey);
@@ -58,6 +57,21 @@ export function useWebSocketSync() {
             }
           } catch (error) {
             console.error('❌ [Socket.IO] خطأ في معالجة الرسالة:', error);
+          }
+        });
+
+        socket.on('notification:new', (data: any) => {
+          console.log('🔔 [Socket.IO] إشعار جديد:', data);
+          queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+          toast({
+            title: data.title || 'إشعار جديد',
+            description: data.body || '',
+          });
+        });
+
+        socket.on('entity:update', (data: any) => {
+          if (data?.entity === 'notifications') {
+            queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
           }
         });
 

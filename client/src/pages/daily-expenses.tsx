@@ -2955,9 +2955,14 @@ function DailyExpensesContent() {
                                     <Badge variant="outline" className="text-[10px] bg-orange-100/50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
                             {dynamicTransportCategories.find(opt => opt.value === expense.category)?.label || expense.category || "أخرى"}
                           </Badge>
-                          {expense.notes && (
+                          {expense.notes && expense.notes.startsWith('📱 واتساب') ? (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-900/50">
+                              <span className="text-[10px] text-green-700 dark:text-green-400 font-medium whitespace-nowrap">📱 واتساب</span>
+                              <span className="text-[10px] text-green-600 dark:text-green-500">{expense.notes.replace('📱 واتساب | ', '')}</span>
+                            </div>
+                          ) : expense.notes ? (
                             <p className="text-xs text-muted-foreground">الملاحظات: {expense.notes}</p>
-                          )}
+                          ) : null}
                         </div>
                         {expense.wellName && (
                           <p className="text-xs text-muted-foreground">البئر: {expense.wellName}</p>
@@ -3275,12 +3280,17 @@ function DailyExpensesContent() {
                               <p className="text-xs text-muted-foreground">ملاحظات: {attendance.workDescription}</p>
                             )}
                             <div className="flex flex-col gap-1">
-                              {attendance.notes && (
+                              {attendance.notes && attendance.notes.startsWith('📱 واتساب') ? (
+                                <div className="flex items-center gap-1.5 mt-1 px-2 py-1 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-900/50">
+                                  <span className="text-[10px] text-green-700 dark:text-green-400 font-medium whitespace-nowrap">📱 واتساب</span>
+                                  <span className="text-[10px] text-green-600 dark:text-green-500">{attendance.notes.replace('📱 واتساب | ', '')}</span>
+                                </div>
+                              ) : attendance.notes ? (
                                 <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 p-2 rounded-md border border-amber-200 dark:border-amber-900/50 mt-1">
                                   <span className="font-bold text-amber-700 dark:text-amber-400">الملاحظات: </span>
                                   {attendance.notes}
                                 </p>
-                              )}
+                              ) : null}
                             </div>
                             {isAllProjects && attendance.projectName && (
                               <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {attendance.projectName}</div>

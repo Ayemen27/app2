@@ -426,15 +426,17 @@ export class WhatsAppAIService {
       const worker = await db.select().from(workers).where(eq(workers.id, workerId!)).limit(1);
       const dailyWage = worker[0]?.dailyWage || "0";
 
+      const todayDate = new Date().toISOString().split('T')[0];
       const [attendance] = await db.insert(workerAttendance).values({
         project_id: projectId!,
         worker_id: workerId!,
-        attendanceDate: new Date().toISOString().split('T')[0],
+        attendanceDate: todayDate,
+        date: todayDate,
         workDays: workDays!,
         dailyWage: dailyWage.toString(),
         totalPay: amount!,
         paidAmount: amount!,
-        notes: `قيد آلي عبر واتساب - ${userName} - ${expenseType}`
+        notes: `📱 واتساب | ${userName} | ${expenseType}`
       }).returning();
 
       const summaryText = formatExpenseSummary({

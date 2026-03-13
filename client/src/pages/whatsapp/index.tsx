@@ -19,13 +19,28 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import {
   Loader2, CheckCircle2, QrCode, MessageSquare, AlertCircle,
   RefreshCw, Smartphone, ShieldCheck, Zap, History, BarChart3,
   Settings2, Copy, Shield, Clock, WifiOff, Wifi, PhoneCall,
   Lock, Unlock, AlertTriangle, Activity, Timer, Send,
   ChevronDown, ChevronUp, Eye, EyeOff, Power, RotateCcw,
   CheckCircle, XCircle, Info, Gauge, TrendingUp, Users,
-  LinkIcon, Unlink, UserCheck, Trash2
+  LinkIcon, Unlink, UserCheck, Trash2, Settings, FolderOpen
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -88,6 +103,17 @@ export default function WhatsAppSetupPage() {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
     open: false, title: "", description: "", onConfirm: () => {},
   });
+  const [permissionsDialogLink, setPermissionsDialogLink] = useState<any>(null);
+  const [permForm, setPermForm] = useState({
+    permissionsMode: "inherit_user",
+    canRead: true,
+    canAdd: true,
+    canEdit: true,
+    canDelete: true,
+    scopeAllProjects: true,
+  });
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
@@ -157,6 +183,40 @@ export default function WhatsAppSetupPage() {
   const { data: realStats } = useQuery({
     queryKey: [isAdmin ? "/api/whatsapp-ai/stats/admin" : "/api/whatsapp-ai/stats/me"],
   });
+
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ["/api/projects"],
+    enabled: isAdmin && !!permissionsDialogLink,
+  });
+
+  const { data: linkPermissions, isLoading: isLoadingPermissions } = useQuery({
+    queryKey: ["/api/whatsapp-ai/admin/links", permissionsDialogLink?.id, "permissions"],
+    enabled: isAdmin && !!permissionsDialogLink?.id,
+  });
+
+  const { data: linkProjects, isLoading: isLoadingLinkProjects } = useQuery({
+    queryKey: ["/api/whatsapp-ai/admin/links", permissionsDialogLink?.id, "projects"],
+    enabled: isAdmin && !!permissionsDialogLink?.id,
+  });
+
+  useEffect(() => {
+    if (linkPermissions) {
+      setPermForm({
+        permissionsMode: linkPermissions.permissionsMode || "inherit_user",
+        canRead: linkPermissions.canRead ?? true,
+        canAdd: linkPermissions.canAdd ?? true,
+        canEdit: linkPermissions.canEdit ?? true,
+        canDelete: linkPermissions.canDelete ?? true,
+        scopeAllProjects: linkPermissions.scopeAllProjects ?? true,
+      });
+    }
+  }, [linkPermissions]);
+
+  useEffect(() => {
+    if (linkProjects && Array.isArray(linkProjects)) {
+      setSelectedProjectIds(linkProjects.map((p: any) => p.projectId));
+    }
+  }, [linkProjects]);
 
   useEffect(() => {
     if (botStatus) {
@@ -270,6 +330,41 @@ export default function WhatsAppSetupPage() {
   const showConfirm = useCallback((title: string, description: string, onConfirm: () => void, variant: "destructive" | "default" = "destructive") => {
     setConfirmDialog({ open: true, title, description, onConfirm, variant });
   }, []);
+
+  const handleOpenPermissionsDialog = useCallback((link: any) => {
+    setPermissionsDialogLink(link);
+  }, []);
+
+  const handleSavePermissions = useCallback(async () => {
+    if (!permissionsDialogLink?.id) return;
+    setIsSavingPermissions(true);
+    try {
+      await apiRequest(`/api/whatsapp-ai/admin/links/${permissionsDialogLink.id}/permissions`, "PUT", {
+        permissionsMode: permForm.permissionsMode,
+        canRead: permForm.canRead,
+        canAdd: permForm.canAdd,
+        canEdit: permForm.canEdit,
+        canDelete: permForm.canDelete,
+        scopeAllProjects: permForm.scopeAllProjects,
+      });
+
+      if (!permForm.scopeAllProjects) {
+        await apiRequest(`/api/whatsapp-ai/admin/links/${permissionsDialogLink.id}/projects`, "PUT", {
+          projectIds: selectedProjectIds,
+        });
+      }
+
+      toast({ title: "تم الحفظ", description: "تم تحديث الصلاحيات بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/admin/links", permissionsDialogLink.id, "permissions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/admin/links", permissionsDialogLink.id, "projects"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/all-links"] });
+      setPermissionsDialogLink(null);
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في حفظ الصلاحيات", variant: "destructive" });
+    } finally {
+      setIsSavingPermissions(false);
+    }
+  }, [permissionsDialogLink, permForm, selectedProjectIds, toast]);
 
   const isConnected = status === "open";
   const isConnecting = status === "connecting";
@@ -404,6 +499,162 @@ export default function WhatsAppSetupPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={!!permissionsDialogLink} onOpenChange={(open) => { if (!open) setPermissionsDialogLink(null); }}>
+          <DialogContent className="max-w-lg rounded-2xl" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="text-right font-black flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                  <Settings className="h-4 w-4 text-indigo-600" />
+                </div>
+                إدارة الصلاحيات
+                {permissionsDialogLink && (
+                  <Badge variant="secondary" className="text-[9px] font-black">
+                    +{permissionsDialogLink.phoneNumber}
+                  </Badge>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            {(isLoadingPermissions || isLoadingLinkProjects) ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-indigo-500" />
+                    <Label className="text-sm font-black text-slate-700 dark:text-slate-300">وضع الصلاحيات</Label>
+                  </div>
+                  <Select
+                    data-testid="select-permissions-mode"
+                    value={permForm.permissionsMode}
+                    onValueChange={(val) => setPermForm(prev => ({ ...prev, permissionsMode: val }))}
+                  >
+                    <SelectTrigger data-testid="select-permissions-mode-trigger" className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inherit_user">وراثة من المستخدم</SelectItem>
+                      <SelectItem value="custom">تخصيص</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {permForm.permissionsMode === "custom" && (
+                    <div className="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                      {[
+                        { key: "canRead" as const, label: "قراءة البيانات", icon: Eye },
+                        { key: "canAdd" as const, label: "إضافة بيانات", icon: CheckCircle },
+                        { key: "canEdit" as const, label: "تعديل البيانات", icon: Settings2 },
+                        { key: "canDelete" as const, label: "حذف بيانات", icon: Trash2 },
+                      ].map((perm) => (
+                        <div key={perm.key} className="flex items-center justify-between p-2 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <perm.icon className="h-3.5 w-3.5 text-slate-500" />
+                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{perm.label}</span>
+                          </div>
+                          <Switch
+                            data-testid={`switch-${perm.key}`}
+                            checked={permForm[perm.key]}
+                            onCheckedChange={(checked) => setPermForm(prev => ({ ...prev, [perm.key]: checked }))}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-teal-500" />
+                    <Label className="text-sm font-black text-slate-700 dark:text-slate-300">نطاق المشاريع</Label>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-300">الوصول لجميع مشاريع المستخدم</span>
+                    </div>
+                    <Switch
+                      data-testid="switch-scope-all-projects"
+                      checked={permForm.scopeAllProjects}
+                      onCheckedChange={(checked) => setPermForm(prev => ({ ...prev, scopeAllProjects: checked }))}
+                    />
+                  </div>
+
+                  {!permForm.scopeAllProjects && (
+                    <div className="space-y-2 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                      <Label className="text-xs font-black text-slate-500 uppercase tracking-wider">اختر المشاريع المحددة</Label>
+                      <ScrollArea className="max-h-48">
+                        <div className="space-y-2">
+                          {Array.isArray(allProjects) && allProjects.length > 0 ? allProjects.map((project: any) => {
+                            const projectId = project.id;
+                            const isSelected = selectedProjectIds.includes(projectId);
+                            return (
+                              <div
+                                key={projectId}
+                                data-testid={`checkbox-project-${projectId}`}
+                                className={cn(
+                                  "flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors",
+                                  isSelected
+                                    ? "bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800"
+                                    : "hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                                )}
+                                onClick={() => {
+                                  setSelectedProjectIds(prev =>
+                                    isSelected
+                                      ? prev.filter(id => id !== projectId)
+                                      : [...prev, projectId]
+                                  );
+                                }}
+                              >
+                                <Checkbox checked={isSelected} />
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{project.name}</span>
+                                {project.status && (
+                                  <Badge variant="outline" className="text-[8px] font-bold mr-auto">
+                                    {project.status === 'active' ? 'نشط' : project.status === 'completed' ? 'مكتمل' : project.status}
+                                  </Badge>
+                                )}
+                              </div>
+                            );
+                          }) : (
+                            <p className="text-xs text-slate-400 text-center py-4">لا توجد مشاريع</p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                      {selectedProjectIds.length > 0 && (
+                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-2">
+                          تم اختيار {selectedProjectIds.length} مشروع
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    data-testid="btn-save-permissions"
+                    className="flex-1 rounded-xl font-black bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+                    onClick={handleSavePermissions}
+                    disabled={isSavingPermissions}
+                  >
+                    {isSavingPermissions ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                    حفظ الصلاحيات
+                  </Button>
+                  <Button
+                    data-testid="btn-cancel-permissions"
+                    variant="outline"
+                    className="rounded-xl font-bold"
+                    onClick={() => setPermissionsDialogLink(null)}
+                  >
+                    إلغاء
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Connection Status Strip */}
         <div className={cn(
@@ -988,9 +1239,10 @@ export default function WhatsAppSetupPage() {
                             <TableHead className="font-black text-[11px]">المستخدم</TableHead>
                             <TableHead className="font-black text-[11px]">رقم الواتساب</TableHead>
                             <TableHead className="font-black text-[11px]">الحالة</TableHead>
+                            <TableHead className="font-black text-[11px]">الصلاحيات</TableHead>
                             <TableHead className="font-black text-[11px]">الرسائل</TableHead>
                             <TableHead className="font-black text-[11px]">آخر رسالة</TableHead>
-                            <TableHead className="font-black text-[11px]">إجراء</TableHead>
+                            <TableHead className="font-black text-[11px]">إجراءات</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1012,27 +1264,56 @@ export default function WhatsAppSetupPage() {
                                   {link.isActive ? 'نشط' : 'معطل'}
                                 </Badge>
                               </TableCell>
+                              <TableCell>
+                                <Badge
+                                  data-testid={`badge-permissions-mode-${link.id}`}
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[9px] font-black gap-1",
+                                    link.permissionsMode === "custom"
+                                      ? "text-indigo-600 border-indigo-200 dark:border-indigo-800"
+                                      : "text-slate-500 border-slate-200 dark:border-slate-700"
+                                  )}
+                                >
+                                  {link.permissionsMode === "custom" ? (
+                                    <><Settings className="h-2.5 w-2.5" /> مخصص</>
+                                  ) : (
+                                    <><UserCheck className="h-2.5 w-2.5" /> وراثة</>
+                                  )}
+                                </Badge>
+                              </TableCell>
                               <TableCell className="text-xs font-bold">{link.totalMessages}</TableCell>
                               <TableCell className="text-xs text-slate-500">{link.lastMessageAt ? formatDate(link.lastMessageAt) : '—'}</TableCell>
                               <TableCell>
-                                <Button
-                                  data-testid={`btn-admin-unlink-${link.user_id}`}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg gap-1"
-                                  onClick={() => showConfirm(
-                                    "إلغاء ربط المستخدم",
-                                    `هل تريد إلغاء ربط ${link.userName || link.userEmail}؟ لن يتمكن من استخدام البوت حتى يعيد الربط.`,
-                                    () => adminUnlinkMutation.mutate(link.user_id)
-                                  )}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    data-testid={`btn-manage-permissions-${link.id}`}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg"
+                                    onClick={() => handleOpenPermissionsDialog(link)}
+                                  >
+                                    <Settings className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    data-testid={`btn-admin-unlink-${link.user_id}`}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg"
+                                    onClick={() => showConfirm(
+                                      "إلغاء ربط المستخدم",
+                                      `هل تريد إلغاء ربط ${link.userName || link.userEmail}؟ لن يتمكن من استخدام البوت حتى يعيد الربط.`,
+                                      () => adminUnlinkMutation.mutate(link.user_id)
+                                    )}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           )) : (
                             <TableRow>
-                              <TableCell colSpan={6} className="text-center py-16">
+                              <TableCell colSpan={7} className="text-center py-16">
                                 <div className="flex flex-col items-center gap-3">
                                   <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
                                     <Users className="h-8 w-8 text-slate-300" />

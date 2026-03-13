@@ -1,6 +1,6 @@
 import { db } from "../../db";
-import { whatsappUserLinks, users, userProjectPermissions, projects } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { whatsappUserLinks, whatsappLinkProjects, users, userProjectPermissions, projects } from "@shared/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { projectAccessService, type ProjectPermissionInfo } from "../ProjectAccessService";
 
 export class WhatsAppSecurityContext {
@@ -10,6 +10,11 @@ export class WhatsAppSecurityContext {
   isAdmin: boolean;
   phoneNumber: string;
   userName: string;
+  canRead: boolean;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  permissionsMode: string;
   private _permissions: ProjectPermissionInfo[] | null = null;
 
   private constructor(
@@ -17,7 +22,12 @@ export class WhatsAppSecurityContext {
     userId: string | null,
     role: string,
     accessibleProjectIds: string[],
-    userName: string
+    userName: string,
+    canRead: boolean = true,
+    canAdd: boolean = true,
+    canEdit: boolean = true,
+    canDelete: boolean = true,
+    permissionsMode: string = "inherit_user"
   ) {
     this.phoneNumber = phoneNumber;
     this.userId = userId;
@@ -25,6 +35,11 @@ export class WhatsAppSecurityContext {
     this.accessibleProjectIds = accessibleProjectIds;
     this.isAdmin = role === "admin" || role === "super_admin";
     this.userName = userName;
+    this.canRead = canRead;
+    this.canAdd = canAdd;
+    this.canEdit = canEdit;
+    this.canDelete = canDelete;
+    this.permissionsMode = permissionsMode;
   }
 
   static async fromPhone(phone: string): Promise<WhatsAppSecurityContext> {
@@ -45,10 +60,12 @@ export class WhatsAppSecurityContext {
       return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
     }
 
+    const linkData = link[0];
+
     const user = await db
       .select()
       .from(users)
-      .where(eq(users.id, link[0].user_id))
+      .where(eq(users.id, linkData.user_id))
       .limit(1);
 
     if (user.length === 0) {
@@ -60,17 +77,52 @@ export class WhatsAppSecurityContext {
     const userName =
       user[0].full_name || user[0].first_name || user[0].email;
 
-    const accessibleProjectIds = await projectAccessService.getAccessibleProjectIds(
+    let accessibleProjectIds = await projectAccessService.getAccessibleProjectIds(
       userId,
       role
     );
+
+    let canRead = true;
+    let canAdd = true;
+    let canEdit = true;
+    let canDelete = true;
+    const permissionsMode = linkData.permissionsMode || "inherit_user";
+
+    if (permissionsMode === "custom") {
+      canRead = linkData.canRead;
+      canAdd = linkData.canAdd;
+      canEdit = linkData.canEdit;
+      canDelete = linkData.canDelete;
+
+      if (!linkData.scopeAllProjects) {
+        const linkProjects = await db
+          .select()
+          .from(whatsappLinkProjects)
+          .where(
+            and(
+              eq(whatsappLinkProjects.linkId, linkData.id),
+              eq(whatsappLinkProjects.isActive, true)
+            )
+          );
+
+        const allowedProjectIds = linkProjects.map((lp) => lp.project_id);
+        accessibleProjectIds = accessibleProjectIds.filter((id) =>
+          allowedProjectIds.includes(id)
+        );
+      }
+    }
 
     return new WhatsAppSecurityContext(
       cleanPhone,
       userId,
       role,
       accessibleProjectIds,
-      userName
+      userName,
+      canRead,
+      canAdd,
+      canEdit,
+      canDelete,
+      permissionsMode
     );
   }
 
@@ -98,6 +150,7 @@ export class WhatsAppSecurityContext {
   }
 
   async canAddToProject(projectId: string): Promise<boolean> {
+    if (!this.canAdd) return false;
     if (this.isAdmin) return true;
     if (!this.userId) return false;
     return projectAccessService.checkProjectAccess(

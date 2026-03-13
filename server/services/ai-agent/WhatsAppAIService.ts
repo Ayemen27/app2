@@ -79,9 +79,20 @@ export class WhatsAppAIService {
       return `مرحباً ${userName}، لا توجد مشاريع مرتبطة بحسابك حالياً.\nيرجى التواصل مع المسؤول لإضافتك إلى المشاريع.`;
     }
 
+    if (!securityContext.canRead) {
+      if (msg === 'مساعدة' || msg === 'help') {
+        return `مرحباً ${userName}! صلاحيتك على هذا الرقم محدودة. يرجى التواصل مع المسؤول لتفعيل صلاحية القراءة.`;
+      }
+      return `عذراً ${userName}، ليس لديك صلاحية قراءة البيانات عبر هذا الرقم. يرجى التواصل مع المسؤول.`;
+    }
+
     if (context.step === 'idle') {
       const expenseMatch = msg.match(/(\d+)\s+مصاريف\s+(.+)/i);
       if (expenseMatch) {
+        if (!securityContext.canAdd) {
+          return `عذراً ${userName}، ليس لديك صلاحية لإضافة مصروفات عبر هذا الرقم.`;
+        }
+
         const amount = expenseMatch[1];
         const workerName = expenseMatch[2].trim();
 

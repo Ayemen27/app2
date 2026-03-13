@@ -780,6 +780,24 @@ export class AIAgentService {
       const proposeRest = fullProposeContent.substring(proposeType.length + 1);
       let proposeParams: string[];
 
+      if (securityContext) {
+        if (proposeType === "INSERT" && !securityContext.canAdd) {
+          processedResponse = processedResponse.replace(/\[PROPOSE:[^\]]+\]\s*/g, "");
+          processedResponse += "\n\n⛔ ليس لديك صلاحية لإضافة سجلات عبر هذا الرقم.";
+          return { processedResponse, action: `PROPOSE_${proposeType}`, actionData: null };
+        }
+        if (proposeType === "UPDATE" && !securityContext.canEdit) {
+          processedResponse = processedResponse.replace(/\[PROPOSE:[^\]]+\]\s*/g, "");
+          processedResponse += "\n\n⛔ ليس لديك صلاحية لتعديل سجلات عبر هذا الرقم.";
+          return { processedResponse, action: `PROPOSE_${proposeType}`, actionData: null };
+        }
+        if (proposeType === "DELETE" && !securityContext.canDelete) {
+          processedResponse = processedResponse.replace(/\[PROPOSE:[^\]]+\]\s*/g, "");
+          processedResponse += "\n\n⛔ ليس لديك صلاحية لحذف سجلات عبر هذا الرقم.";
+          return { processedResponse, action: `PROPOSE_${proposeType}`, actionData: null };
+        }
+      }
+
       if (proposeType === "INSERT" || proposeType === "UPDATE") {
         const jsonStart = proposeRest.indexOf("{");
         if (jsonStart >= 0) {

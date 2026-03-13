@@ -1701,6 +1701,12 @@ export const whatsappUserLinks = pgTable("whatsapp_user_links", {
   linkedAt: timestamp("linked_at").defaultNow().notNull(),
   lastMessageAt: timestamp("last_message_at"),
   totalMessages: integer("total_messages").default(0).notNull(),
+  permissionsMode: varchar("permissions_mode", { length: 20 }).default("inherit_user").notNull(),
+  canRead: boolean("can_read").default(true).notNull(),
+  canAdd: boolean("can_add").default(true).notNull(),
+  canEdit: boolean("can_edit").default(true).notNull(),
+  canDelete: boolean("can_delete").default(true).notNull(),
+  scopeAllProjects: boolean("scope_all_projects").default(true).notNull(),
 }, (table) => ({
   uniquePhone: sql`UNIQUE (phone_number)`,
   uniqueUser: sql`UNIQUE (user_id)`,
@@ -1709,6 +1715,20 @@ export const whatsappUserLinks = pgTable("whatsapp_user_links", {
 export const insertWhatsappUserLinkSchema = createInsertSchema(whatsappUserLinks).omit({ id: true, linkedAt: true, lastMessageAt: true, totalMessages: true });
 export type WhatsappUserLink = typeof whatsappUserLinks.$inferSelect;
 export type InsertWhatsappUserLink = z.infer<typeof insertWhatsappUserLinkSchema>;
+
+export const whatsappLinkProjects = pgTable("whatsapp_link_projects", {
+  id: serial("id").primaryKey(),
+  linkId: integer("link_id").notNull().references(() => whatsappUserLinks.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueLinkProject: sql`UNIQUE (link_id, project_id)`,
+}));
+
+export const insertWhatsappLinkProjectSchema = createInsertSchema(whatsappLinkProjects).omit({ id: true, createdAt: true });
+export type WhatsappLinkProject = typeof whatsappLinkProjects.$inferSelect;
+export type InsertWhatsappLinkProject = z.infer<typeof insertWhatsappLinkProjectSchema>;
 
 export const whatsappAllowedNumbers = pgTable("whatsapp_allowed_numbers", {
   id: serial("id").primaryKey(),

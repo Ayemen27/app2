@@ -3,8 +3,8 @@ import { getWhatsAppAIService } from "../../services/ai-agent/WhatsAppAIService"
 import { getWhatsAppBot } from "../../services/ai-agent/WhatsAppBot";
 import { storage } from "../../storage";
 import { db } from "../../db";
-import { whatsappUserLinks, whatsappAllowedNumbers, whatsappMessages, users } from "@shared/schema";
-import { eq, and, sql, ne, desc } from "drizzle-orm";
+import { whatsappUserLinks, whatsappAllowedNumbers, whatsappMessages, whatsappLinkProjects, users, projects } from "@shared/schema";
+import { eq, and, sql, ne, desc, inArray } from "drizzle-orm";
 import { authenticate } from "../../middleware/auth";
 import { z } from "zod";
 import { projectAccessService } from "../../services/ProjectAccessService";
@@ -126,6 +126,8 @@ router.get("/all-links", requireAdminCheck, async (req: Request, res: Response) 
       linkedAt: whatsappUserLinks.linkedAt,
       lastMessageAt: whatsappUserLinks.lastMessageAt,
       totalMessages: whatsappUserLinks.totalMessages,
+      permissionsMode: whatsappUserLinks.permissionsMode,
+      scopeAllProjects: whatsappUserLinks.scopeAllProjects,
       userName: users.full_name,
       userEmail: users.email,
     })
@@ -486,6 +488,189 @@ router.delete("/allowed-numbers/:id", requireAdminCheck, async (req: Request, re
     const id = parseInt(req.params.id);
     await db.delete(whatsappAllowedNumbers).where(eq(whatsappAllowedNumbers.id, id));
     res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/admin/links/:linkId/permissions", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const linkId = parseInt(req.params.linkId);
+    if (isNaN(linkId)) {
+      return res.status(400).json({ error: "معرف الرابط غير صالح" });
+    }
+
+    const link = await db.select({
+      permissionsMode: whatsappUserLinks.permissionsMode,
+      canRead: whatsappUserLinks.canRead,
+      canAdd: whatsappUserLinks.canAdd,
+      canEdit: whatsappUserLinks.canEdit,
+      canDelete: whatsappUserLinks.canDelete,
+      scopeAllProjects: whatsappUserLinks.scopeAllProjects,
+    })
+    .from(whatsappUserLinks)
+    .where(eq(whatsappUserLinks.id, linkId))
+    .limit(1);
+
+    if (link.length === 0) {
+      return res.status(404).json({ error: "الرابط غير موجود" });
+    }
+
+    res.json(link[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const updatePermissionsSchema = z.object({
+  permissionsMode: z.enum(["inherit_user", "custom"]).optional(),
+  canRead: z.boolean().optional(),
+  canAdd: z.boolean().optional(),
+  canEdit: z.boolean().optional(),
+  canDelete: z.boolean().optional(),
+  scopeAllProjects: z.boolean().optional(),
+});
+
+router.put("/admin/links/:linkId/permissions", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const linkId = parseInt(req.params.linkId);
+    if (isNaN(linkId)) {
+      return res.status(400).json({ error: "معرف الرابط غير صالح" });
+    }
+
+    const existing = await db.select({ id: whatsappUserLinks.id })
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.id, linkId))
+      .limit(1);
+
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "الرابط غير موجود" });
+    }
+
+    const validation = updatePermissionsSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
+    }
+
+    const updates: any = {};
+    const data = validation.data;
+    if (data.permissionsMode !== undefined) updates.permissionsMode = data.permissionsMode;
+    if (data.canRead !== undefined) updates.canRead = data.canRead;
+    if (data.canAdd !== undefined) updates.canAdd = data.canAdd;
+    if (data.canEdit !== undefined) updates.canEdit = data.canEdit;
+    if (data.canDelete !== undefined) updates.canDelete = data.canDelete;
+    if (data.scopeAllProjects !== undefined) updates.scopeAllProjects = data.scopeAllProjects;
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(whatsappUserLinks)
+        .set(updates)
+        .where(eq(whatsappUserLinks.id, linkId));
+    }
+
+    const updated = await db.select({
+      permissionsMode: whatsappUserLinks.permissionsMode,
+      canRead: whatsappUserLinks.canRead,
+      canAdd: whatsappUserLinks.canAdd,
+      canEdit: whatsappUserLinks.canEdit,
+      canDelete: whatsappUserLinks.canDelete,
+      scopeAllProjects: whatsappUserLinks.scopeAllProjects,
+    })
+    .from(whatsappUserLinks)
+    .where(eq(whatsappUserLinks.id, linkId))
+    .limit(1);
+
+    res.json(updated[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/admin/links/:linkId/projects", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const linkId = parseInt(req.params.linkId);
+    if (isNaN(linkId)) {
+      return res.status(400).json({ error: "معرف الرابط غير صالح" });
+    }
+
+    const existing = await db.select({ id: whatsappUserLinks.id })
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.id, linkId))
+      .limit(1);
+
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "الرابط غير موجود" });
+    }
+
+    const linkProjects = await db.select({
+      id: whatsappLinkProjects.id,
+      linkId: whatsappLinkProjects.linkId,
+      projectId: whatsappLinkProjects.project_id,
+      isActive: whatsappLinkProjects.isActive,
+      createdAt: whatsappLinkProjects.createdAt,
+      projectName: projects.name,
+    })
+    .from(whatsappLinkProjects)
+    .leftJoin(projects, eq(whatsappLinkProjects.project_id, projects.id))
+    .where(eq(whatsappLinkProjects.linkId, linkId));
+
+    res.json(linkProjects);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const updateLinkProjectsSchema = z.object({
+  projectIds: z.array(z.string()),
+});
+
+router.put("/admin/links/:linkId/projects", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const linkId = parseInt(req.params.linkId);
+    if (isNaN(linkId)) {
+      return res.status(400).json({ error: "معرف الرابط غير صالح" });
+    }
+
+    const existing = await db.select({ id: whatsappUserLinks.id })
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.id, linkId))
+      .limit(1);
+
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "الرابط غير موجود" });
+    }
+
+    const validation = updateLinkProjectsSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
+    }
+
+    const { projectIds } = validation.data;
+
+    await db.delete(whatsappLinkProjects)
+      .where(eq(whatsappLinkProjects.linkId, linkId));
+
+    if (projectIds.length > 0) {
+      await db.insert(whatsappLinkProjects)
+        .values(projectIds.map(projectId => ({
+          linkId,
+          project_id: projectId,
+          isActive: true,
+        })));
+    }
+
+    const updatedProjects = await db.select({
+      id: whatsappLinkProjects.id,
+      linkId: whatsappLinkProjects.linkId,
+      projectId: whatsappLinkProjects.project_id,
+      isActive: whatsappLinkProjects.isActive,
+      createdAt: whatsappLinkProjects.createdAt,
+      projectName: projects.name,
+    })
+    .from(whatsappLinkProjects)
+    .leftJoin(projects, eq(whatsappLinkProjects.project_id, projects.id))
+    .where(eq(whatsappLinkProjects.linkId, linkId));
+
+    res.json(updatedProjects);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

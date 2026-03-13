@@ -1,27 +1,12 @@
-export interface BotReplyButton {
-  id: string;
-  title: string;
-}
-
-export interface ListRow {
-  id: string;
-  title: string;
-  description?: string;
-}
-
-export interface ListSection {
-  title: string;
-  rows: ListRow[];
-}
-
 export interface BotReply {
-  type: 'text' | 'buttons' | 'list';
+  type: 'text';
   body: string;
-  header?: string;
-  footer?: string;
-  buttons?: BotReplyButton[];
-  listButtonText?: string;
-  sections?: ListSection[];
+}
+
+export interface MenuOption {
+  id: string;
+  title: string;
+  emoji: string;
 }
 
 export interface MenuNode {
@@ -29,30 +14,30 @@ export interface MenuNode {
   title: string;
   body: string;
   parentId?: string;
-  options: { id: string; title: string; emoji: string }[];
+  options: MenuOption[];
 }
 
 const menuRegistry: Record<string, MenuNode> = {
   main: {
     id: 'main',
-    title: 'القائمة الرئيسية',
-    body: 'اختر رقم الخدمة المطلوبة:',
+    title: 'الخدمات المتاحة',
+    body: 'اختر رقم الخدمة:',
     options: [
       { id: 'menu_expenses', title: 'إدارة المصروفات', emoji: '💰' },
       { id: 'menu_projects', title: 'المشاريع', emoji: '🏗️' },
       { id: 'menu_reports', title: 'التقارير', emoji: '📊' },
-      { id: 'menu_help', title: 'المساعدة', emoji: '❓' },
+      { id: 'menu_help', title: 'المساعدة والأوامر', emoji: '❓' },
     ],
   },
   expenses: {
     id: 'expenses',
     title: 'إدارة المصروفات',
-    body: 'اختر العملية المطلوبة:',
+    body: 'اختر العملية:',
     parentId: 'main',
     options: [
       { id: 'expense_add', title: 'تسجيل مصروف جديد', emoji: '➕' },
       { id: 'expense_summary', title: 'ملخص المصروفات', emoji: '📋' },
-      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
     ],
   },
   projects: {
@@ -63,7 +48,7 @@ const menuRegistry: Record<string, MenuNode> = {
     options: [
       { id: 'projects_list', title: 'عرض جميع المشاريع', emoji: '📂' },
       { id: 'projects_status', title: 'إحصائيات المشاريع', emoji: '📈' },
-      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
     ],
   },
   reports: {
@@ -75,26 +60,137 @@ const menuRegistry: Record<string, MenuNode> = {
       { id: 'report_daily', title: 'تقرير يومي', emoji: '📅' },
       { id: 'report_project', title: 'تقرير مشروع', emoji: '🏢' },
       { id: 'report_ask', title: 'اسأل الذكاء الاصطناعي', emoji: '🤖' },
-      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
     ],
   },
   help: {
     id: 'help',
     title: 'المساعدة',
-    body: 'كيف يمكنني مساعدتك؟',
+    body: 'كيف أقدر أساعدك؟',
     parentId: 'main',
     options: [
       { id: 'help_commands', title: 'الأوامر المتاحة', emoji: '📖' },
       { id: 'help_contact', title: 'تواصل مع الدعم', emoji: '📞' },
-      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
     ],
   },
 };
+
+const SEPARATOR = `━━━━━━━━━━━━━━━━━━`;
+const NAV_HINT = `💡 أرسل *رقم* الخيار | *0* القائمة | *#* رجوع`;
+
+export function getMenuNode(menuId: string): MenuNode | undefined {
+  return menuRegistry[menuId];
+}
+
+function formatMenuOptions(options: MenuOption[]): string {
+  return options.map((opt, i) => `  ${opt.emoji}  *${i + 1}.*  ${opt.title}`).join('\n');
+}
+
+export function buildWelcomeReply(userName: string): BotReply {
+  const mainNode = menuRegistry.main;
+  const lines: string[] = [
+    `╔══════════════════╗`,
+    `  🏗️  *مساعد إدارة المشاريع*`,
+    `╚══════════════════╝`,
+    ``,
+    `أهلاً وسهلاً *${userName}*! 👋`,
+    ``,
+    `أنا مساعدك الذكي لإدارة المشاريع`,
+    `أقدر أساعدك في:`,
+    `  ✅ تسجيل المصروفات`,
+    `  ✅ متابعة المشاريع`,
+    `  ✅ التقارير والإحصائيات`,
+    `  ✅ الإجابة على استفساراتك`,
+    ``,
+    SEPARATOR,
+    `📌  *${mainNode.title}*`,
+    SEPARATOR,
+    ``,
+    formatMenuOptions(mainNode.options),
+    ``,
+    SEPARATOR,
+    `💡 أرسل *رقم* الخدمة للبدء`,
+    `💬 أو اكتب سؤالك مباشرة`,
+  ];
+  return { type: 'text', body: lines.join('\n') };
+}
+
+export function buildMenuReply(menuId: string): BotReply {
+  const node = menuRegistry[menuId];
+  if (!node) {
+    return { type: 'text', body: '❌ القائمة غير موجودة.\nأرسل *0* للعودة للرئيسية.' };
+  }
+  const lines: string[] = [
+    SEPARATOR,
+    `📌  *${node.title}*`,
+    SEPARATOR,
+    ``,
+    node.body,
+    ``,
+    formatMenuOptions(node.options),
+    ``,
+    SEPARATOR,
+    NAV_HINT,
+  ];
+  return { type: 'text', body: lines.join('\n') };
+}
+
+export function buildTextWithMenu(header: string, body: string, menuId?: string): BotReply {
+  const lines: string[] = [
+    SEPARATOR,
+    `📌  *${header}*`,
+    SEPARATOR,
+    ``,
+    body,
+  ];
+  if (menuId) {
+    const node = menuRegistry[menuId];
+    if (node) {
+      lines.push(``);
+      lines.push(SEPARATOR);
+      lines.push(`📌  *${node.title}*`);
+      lines.push(SEPARATOR);
+      lines.push(``);
+      lines.push(formatMenuOptions(node.options));
+    }
+  }
+  lines.push(``);
+  lines.push(SEPARATOR);
+  lines.push(NAV_HINT);
+  return { type: 'text', body: lines.join('\n') };
+}
+
+export function buildQuickOptions(header: string, body: string, options: { emoji: string; title: string }[]): BotReply {
+  const lines: string[] = [
+    SEPARATOR,
+    `📌  *${header}*`,
+    SEPARATOR,
+    ``,
+    body,
+    ``,
+  ];
+  options.forEach((opt, i) => {
+    lines.push(`  ${opt.emoji}  *${i + 1}.*  ${opt.title}`);
+  });
+  lines.push(``);
+  lines.push(SEPARATOR);
+  lines.push(NAV_HINT);
+  return { type: 'text', body: lines.join('\n') };
+}
+
+export interface ResolvedInput {
+  action: 'navigate' | 'cancel' | 'menu_select' | 'free_text';
+  targetMenuId?: string;
+  selectedOptionId?: string;
+  originalText?: string;
+}
 
 const GLOBAL_COMMANDS: Record<string, string> = {
   'رجوع': 'nav_back',
   'الرئيسية': 'nav_home',
   'إلغاء': 'nav_cancel',
+  'الغاء': 'nav_cancel',
   'القائمة': 'nav_home',
   'قائمة': 'nav_home',
   'back': 'nav_back',
@@ -105,76 +201,32 @@ const GLOBAL_COMMANDS: Record<string, string> = {
   '#': 'nav_back',
 };
 
-export function getMenuNode(menuId: string): MenuNode | undefined {
-  return menuRegistry[menuId];
-}
+const TEXT_MENU_MAP: Record<string, string> = {
+  'مصروفات': 'expenses',
+  'مصاريف': 'expenses',
+  'مشاريع': 'projects',
+  'مشاريعي': 'projects',
+  'تقارير': 'reports',
+  'تقرير': 'reports',
+  'مساعدة': 'help',
+  'مساعده': 'help',
+  'help': 'help',
+  'خدمات': 'main',
+  'الخدمات': 'main',
+};
 
-export function buildNumberedMenu(node: MenuNode): string {
-  const lines: string[] = [];
-  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`📌 *${node.title}*`);
-  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push('');
-  lines.push(node.body);
-  lines.push('');
-  node.options.forEach((opt, i) => {
-    lines.push(`  ${opt.emoji}  *${i + 1}.* ${opt.title}`);
-  });
-  lines.push('');
-  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`💡 أرسل *رقم* الخدمة | *0* الرئيسية | *#* رجوع`);
-  return lines.join('\n');
-}
-
-export function buildWelcomeReply(userName: string): BotReply {
-  const mainNode = menuRegistry.main;
-  const lines: string[] = [];
-  lines.push(`╔═══════════════════╗`);
-  lines.push(`   🏗️ *مساعد المشاريع الذكي*`);
-  lines.push(`╚═══════════════════╝`);
-  lines.push('');
-  lines.push(`مرحباً بك *${userName}*! 👋`);
-  lines.push(`أنا مساعدك الذكي لإدارة المشاريع.`);
-  lines.push(`يمكنني مساعدتك في تسجيل المصروفات،`);
-  lines.push(`متابعة المشاريع، والتقارير.`);
-  lines.push('');
-  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`📌 *الخدمات المتاحة*`);
-  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push('');
-  mainNode.options.forEach((opt, i) => {
-    lines.push(`  ${opt.emoji}  *${i + 1}.* ${opt.title}`);
-  });
-  lines.push('');
-  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`💡 أرسل *رقم* الخدمة للبدء`);
-  lines.push(`💬 أو اكتب سؤالك مباشرة`);
-
-  return { type: 'text', body: lines.join('\n') };
-}
-
-export function buildMenuReply(menuId: string): BotReply {
-  const node = menuRegistry[menuId];
-  if (!node) {
-    return {
-      type: 'text',
-      body: '❌ القائمة غير موجودة.\nأرسل *0* للعودة للقائمة الرئيسية.',
-    };
-  }
-  return { type: 'text', body: buildNumberedMenu(node) };
-}
-
-export interface ResolvedInput {
-  action: 'navigate' | 'command' | 'menu_select' | 'unknown';
-  targetMenuId?: string;
-  commandId?: string;
-  selectedOptionId?: string;
-}
+const DIRECT_OPTION_MAP: Record<string, string> = {
+  'menu_expenses': 'expenses',
+  'menu_projects': 'projects',
+  'menu_reports': 'reports',
+  'menu_help': 'help',
+};
 
 export function resolveUserInput(input: string, currentMenuId?: string): ResolvedInput {
   const trimmed = input.trim();
+  const lower = trimmed.toLowerCase();
 
-  const globalCmd = GLOBAL_COMMANDS[trimmed.toLowerCase()] || GLOBAL_COMMANDS[trimmed];
+  const globalCmd = GLOBAL_COMMANDS[lower] || GLOBAL_COMMANDS[trimmed];
 
   if (globalCmd === 'nav_back') {
     if (currentMenuId) {
@@ -191,7 +243,7 @@ export function resolveUserInput(input: string, currentMenuId?: string): Resolve
   }
 
   if (globalCmd === 'nav_cancel') {
-    return { action: 'command', commandId: 'cancel' };
+    return { action: 'cancel' };
   }
 
   const numMatch = trimmed.match(/^(\d+)$/);
@@ -203,41 +255,20 @@ export function resolveUserInput(input: string, currentMenuId?: string): Resolve
       if (selectedOption.id === 'nav_back') {
         return { action: 'navigate', targetMenuId: currentNode.parentId || 'main' };
       }
-      const menuMap: Record<string, string> = {
-        'menu_expenses': 'expenses',
-        'menu_projects': 'projects',
-        'menu_reports': 'reports',
-        'menu_help': 'help',
-      };
-      if (menuMap[selectedOption.id]) {
-        return { action: 'navigate', targetMenuId: menuMap[selectedOption.id] };
+      if (DIRECT_OPTION_MAP[selectedOption.id]) {
+        return { action: 'navigate', targetMenuId: DIRECT_OPTION_MAP[selectedOption.id] };
       }
       return { action: 'menu_select', selectedOptionId: selectedOption.id };
     }
   }
 
-  const directMenuMap: Record<string, string> = {
-    'menu_expenses': 'expenses',
-    'menu_projects': 'projects',
-    'menu_reports': 'reports',
-    'menu_help': 'help',
-  };
-  if (directMenuMap[trimmed]) {
-    return { action: 'navigate', targetMenuId: directMenuMap[trimmed] };
+  if (DIRECT_OPTION_MAP[trimmed]) {
+    return { action: 'navigate', targetMenuId: DIRECT_OPTION_MAP[trimmed] };
   }
 
-  const textMenuMap: Record<string, string> = {
-    'مصروفات': 'expenses',
-    'مصاريف': 'expenses',
-    'مشاريع': 'projects',
-    'مشاريعي': 'projects',
-    'تقارير': 'reports',
-    'مساعدة': 'help',
-    'help': 'help',
-  };
-  if (textMenuMap[trimmed]) {
-    return { action: 'navigate', targetMenuId: textMenuMap[trimmed] };
+  if (TEXT_MENU_MAP[lower]) {
+    return { action: 'navigate', targetMenuId: TEXT_MENU_MAP[lower] };
   }
 
-  return { action: 'unknown', commandId: trimmed };
+  return { action: 'free_text', originalText: trimmed };
 }

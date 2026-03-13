@@ -1,14 +1,15 @@
 import { AIAgentService, getAIAgentService } from "./AIAgentService";
 import { WhatsAppSecurityContext } from "./WhatsAppSecurityContext";
 import { db } from "../../db";
-import { workers, projects, wellExpenses, wells, workerAttendance, whatsappUserLinks, whatsappMessages, whatsappSecurityEvents, userProjectPermissions, users } from "@shared/schema";
+import { workers, projects, workerAttendance, whatsappUserLinks, whatsappMessages, aiChatSessions } from "@shared/schema";
 import { eq, ilike, and, sql, inArray } from "drizzle-orm";
 import {
   BotReply,
   buildWelcomeReply,
   buildMenuReply,
+  buildTextWithMenu,
+  buildQuickOptions,
   resolveUserInput,
-  getMenuNode,
 } from "./whatsapp/InteractiveMenu";
 import {
   bold,
@@ -36,6 +37,7 @@ export interface WhatsAppContext {
     projectName?: string;
     workDays?: string;
     expenseType?: string;
+    activeProjects?: { id: string; name: string }[];
   };
 }
 
@@ -43,12 +45,31 @@ function textReply(body: string): BotReply {
   return { type: 'text', body };
 }
 
+function addNavFooter(body: string): string {
+  return `${body}\n\n━━━━━━━━━━━━━━━━━━\n💡 أرسل *0* للقائمة الرئيسية | *#* رجوع`;
+}
+
 export class WhatsAppAIService {
   private aiAgent: AIAgentService;
   private sessions: Map<string, WhatsAppContext> = new Map();
+  private waSessionIds: Map<string, string> = new Map();
 
   constructor() {
     this.aiAgent = getAIAgentService();
+  }
+
+  private async getOrCreateAISession(userId: string, senderPhone: string): Promise<string> {
+    const cacheKey = `${userId}_${senderPhone}`;
+    const cached = this.waSessionIds.get(cacheKey);
+    if (cached) {
+      const check = await db.select({ id: aiChatSessions.id }).from(aiChatSessions)
+        .where(and(eq(aiChatSessions.id, cached), eq(aiChatSessions.user_id, userId)))
+        .limit(1);
+      if (check.length > 0) return cached;
+    }
+    const sessionId = await this.aiAgent.createSession(userId, `محادثة واتساب - ${senderPhone}`);
+    this.waSessionIds.set(cacheKey, sessionId);
+    return sessionId;
   }
 
   async handleIncomingMessage(
@@ -60,27 +81,29 @@ export class WhatsAppAIService {
     const securityContext = await WhatsAppSecurityContext.fromPhone(senderPhone);
 
     if (!securityContext.userId) {
-      return textReply("رقمك غير مسجل في النظام.\nيرجى ربط رقم الواتساب من حسابك في التطبيق أولاً.");
+      return textReply("❌ رقمك غير مسجل في النظام.\n\nيرجى ربط رقم الواتساب من حسابك في التطبيق أولاً.");
     }
 
     const { userId, userName, role, isAdmin } = securityContext;
     const userProjectIds = securityContext.accessibleProjectIds;
 
-    await db.update(whatsappUserLinks)
-      .set({
-        lastMessageAt: new Date(),
-        totalMessages: sql`${whatsappUserLinks.totalMessages} + 1`
-      })
-      .where(and(
-        eq(whatsappUserLinks.isActive, true),
-        eq(whatsappUserLinks.phoneNumber, senderPhone.replace(/\D/g, ''))
-      ));
+    try {
+      await db.update(whatsappUserLinks)
+        .set({
+          lastMessageAt: new Date(),
+          totalMessages: sql`${whatsappUserLinks.totalMessages} + 1`
+        })
+        .where(and(
+          eq(whatsappUserLinks.isActive, true),
+          eq(whatsappUserLinks.phoneNumber, senderPhone.replace(/\D/g, ''))
+        ));
+    } catch (e) {}
 
     try {
       await db.insert(whatsappMessages).values({
         sender: senderPhone.replace(/\D/g, ''),
         wa_id: 'bot',
-        content: message.trim(),
+        content: message.trim().substring(0, 5000),
         status: 'received',
         phone_number: senderPhone.replace(/\D/g, ''),
         user_id: userId,
@@ -105,30 +128,35 @@ export class WhatsAppAIService {
       context = { step: 'idle', userId, userName, menuStack: [], currentMenu: 'main', data: {} };
     }
 
-    const resolved = resolveUserInput(effectiveInput, context.currentMenu);
-
-    if (resolved.action === 'command' && resolved.commandId === 'cancel') {
-      this.sessions.delete(senderPhone);
-      return {
-        type: 'buttons',
-        body: formatConfirmation(`تم إلغاء العملية الحالية يا ${userName}.`),
-        footer: 'يمكنك البدء من جديد',
-        buttons: [
-          { id: 'menu_expenses', title: 'إضافة مصروف' },
-          { id: 'menu_projects', title: 'مشاريعي' },
-          { id: 'menu_help', title: 'مساعدة' },
-        ],
-      };
+    if (!this.sessions.has(senderPhone)) {
+      this.sessions.set(senderPhone, context);
+      return buildWelcomeReply(userName);
     }
 
-    if (resolved.action === 'navigate' && resolved.targetMenuId === 'main' && context.step === 'idle') {
+    if (context.step !== 'idle') {
+      return this.handleFlowStep(context, effectiveInput, senderPhone, userName, securityContext, userProjectIds);
+    }
+
+    const resolved = resolveUserInput(effectiveInput, context.currentMenu);
+
+    if (resolved.action === 'cancel') {
+      this.sessions.delete(senderPhone);
+      const lines = [
+        formatConfirmation(`تم إلغاء العملية يا ${userName}.`),
+        ``,
+        `ماذا تريد أن تفعل الآن؟`,
+      ];
+      return buildTextWithMenu('تم الإلغاء', lines.join('\n'), 'main');
+    }
+
+    if (resolved.action === 'navigate' && resolved.targetMenuId === 'main') {
       context.menuStack = [];
       context.currentMenu = 'main';
       this.sessions.set(senderPhone, context);
       return buildWelcomeReply(userName);
     }
 
-    if (resolved.action === 'navigate' && resolved.targetMenuId && resolved.targetMenuId !== 'main' && context.step === 'idle') {
+    if (resolved.action === 'navigate' && resolved.targetMenuId) {
       if (context.currentMenu !== resolved.targetMenuId) {
         context.menuStack.push(context.currentMenu);
       }
@@ -137,394 +165,458 @@ export class WhatsAppAIService {
       return buildMenuReply(resolved.targetMenuId);
     }
 
-    if (userProjectIds.length === 0) {
-      return textReply(`مرحباً ${userName}، لا توجد مشاريع مرتبطة بحسابك حالياً.\nيرجى التواصل مع المسؤول لإضافتك إلى المشاريع.`);
+    if (resolved.action === 'menu_select' && resolved.selectedOptionId) {
+      return this.handleMenuAction(resolved.selectedOptionId, context, senderPhone, userName, securityContext, userProjectIds);
     }
 
-    if (!securityContext.canRead) {
-      if (effectiveInput === 'مساعدة' || effectiveInput === 'help' || effectiveInput === 'help_commands') {
-        return textReply(`مرحباً ${userName}! صلاحيتك على هذا الرقم محدودة. يرجى التواصل مع المسؤول لتفعيل صلاحية القراءة.`);
-      }
-      return textReply(`عذراً ${userName}، ليس لديك صلاحية قراءة البيانات عبر هذا الرقم. يرجى التواصل مع المسؤول.`);
+    if (resolved.action === 'free_text') {
+      return this.handleFreeText(effectiveInput, context, senderPhone, userId, userName, securityContext, userProjectIds, role, isAdmin);
     }
 
-    if (context.step === 'idle') {
-      if (effectiveInput === 'expense_add' || effectiveInput === 'menu_expenses') {
-        if (!securityContext.canAdd) {
-          return textReply(`عذراً ${userName}، ليس لديك صلاحية لإضافة مصروفات عبر هذا الرقم.`);
-        }
-        context.currentMenu = 'expenses';
-        this.sessions.set(senderPhone, context);
-        return {
-          type: 'text',
-          header: 'تسجيل مصروف جديد',
-          body: `${bold('لتسجيل مصروف، أرسل بالصيغة التالية:')}\n\nالمبلغ مصاريف اسم_العامل\n\nمثال: 5000 مصاريف أحمد`,
-          footer: 'أرسل "إلغاء" للرجوع',
-        };
+    return buildWelcomeReply(userName);
+  }
+
+  private async handleMenuAction(
+    actionId: string,
+    context: WhatsAppContext,
+    senderPhone: string,
+    userName: string,
+    securityContext: WhatsAppSecurityContext,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+
+    if (actionId === 'expense_add') {
+      if (!securityContext.canAdd) {
+        return textReply(addNavFooter(`❌ عذراً *${userName}*، ليس لديك صلاحية لإضافة مصروفات عبر هذا الرقم.`));
       }
+      context.step = 'idle';
+      context.currentMenu = 'expenses';
+      this.sessions.set(senderPhone, context);
+      const lines = [
+        `━━━━━━━━━━━━━━━━━━`,
+        `📌  *تسجيل مصروف جديد*`,
+        `━━━━━━━━━━━━━━━━━━`,
+        ``,
+        `✏️ أرسل المصروف بالصيغة التالية:`,
+        ``,
+        `   *المبلغ مصاريف اسم_العامل*`,
+        ``,
+        `📝 *أمثلة:*`,
+        `   • 5000 مصاريف أحمد`,
+        `   • 3000 مصاريف محمد علي`,
+        ``,
+        `━━━━━━━━━━━━━━━━━━`,
+        `💡 أرسل *إلغاء* للرجوع`,
+      ];
+      return textReply(lines.join('\n'));
+    }
 
-      if (effectiveInput === 'expense_summary') {
-        const activeProjects = await db.select().from(projects)
-          .where(and(
-            eq(projects.status, 'active'),
-            inArray(projects.id, userProjectIds)
-          ))
-          .limit(10);
+    if (actionId === 'expense_summary') {
+      return this.showExpenseSummary(userProjectIds);
+    }
 
-        if (activeProjects.length === 0) {
-          return textReply('لا توجد مشاريع نشطة حالياً.');
-        }
+    if (actionId === 'projects_list') {
+      return this.showProjectsList(userProjectIds);
+    }
 
-        return {
-          type: 'list',
-          header: 'ملخص المصروفات',
-          body: 'اختر المشروع لعرض ملخص مصروفاته:',
-          footer: 'اختر مشروعاً',
-          listButtonText: 'عرض المشاريع',
-          sections: [{
-            title: 'المشاريع النشطة',
-            rows: activeProjects.map(p => ({
-              id: `project_summary_${p.id}`,
-              title: p.name,
-              description: `حالة: نشط`,
-            })),
-          }],
-        };
-      }
+    if (actionId === 'projects_status') {
+      return this.showProjectsStatus(userProjectIds);
+    }
 
-      if (effectiveInput === 'projects_list' || effectiveInput === 'menu_projects') {
-        const userProjects = await db.select().from(projects)
-          .where(inArray(projects.id, userProjectIds))
-          .limit(20);
+    if (actionId === 'report_daily' || actionId === 'report_project') {
+      const lines = [
+        `✏️ اكتب سؤالك مباشرة وسأجيبك.`,
+        ``,
+        `📝 *أمثلة:*`,
+        `   • تقرير مصروفات اليوم`,
+        `   • ملخص مشروع الرياض`,
+        `   • كشف حساب العامل أحمد`,
+        `   • إجمالي المصروفات هذا الشهر`,
+      ];
+      return textReply(addNavFooter(lines.join('\n')));
+    }
 
-        if (userProjects.length === 0) {
-          return textReply('لا توجد مشاريع مرتبطة بحسابك حالياً.');
-        }
+    if (actionId === 'report_ask') {
+      return textReply(addNavFooter(`🤖 *اسأل الذكاء الاصطناعي*\n\nاكتب سؤالك أو طلبك وسأحاول مساعدتك.\n\n📝 مثال: "كم إجمالي المصروفات؟" أو "أعطني تقرير المشاريع"`));
+    }
 
-        return {
-          type: 'list',
-          header: 'مشاريعك',
-          body: formatProjectList(userProjects.map(p => ({ name: p.name, status: p.status, id: p.id }))),
-          footer: `إجمالي: ${userProjects.length} مشروع`,
-          listButtonText: 'عرض التفاصيل',
-          sections: [{
-            title: 'المشاريع',
-            rows: userProjects.map(p => ({
-              id: `project_detail_${p.id}`,
-              title: p.name,
-              description: p.status === 'active' ? 'نشط' : p.status === 'completed' ? 'مكتمل' : 'متوقف',
-            })),
-          }],
-        };
-      }
+    if (actionId === 'help_commands') {
+      return textReply(addNavFooter(formatHelp(userName)));
+    }
 
-      if (effectiveInput === 'projects_status') {
-        const userProjects = await db.select().from(projects)
-          .where(inArray(projects.id, userProjectIds))
-          .limit(20);
+    if (actionId === 'help_contact') {
+      return textReply(addNavFooter(`📞 *الدعم الفني*\n\nللتواصل مع الدعم، أرسل وصف المشكلة وسيتم الرد عليك في أقرب وقت.`));
+    }
 
-        const active = userProjects.filter(p => p.status === 'active').length;
-        const completed = userProjects.filter(p => p.status === 'completed').length;
-        const paused = userProjects.filter(p => p.status !== 'active' && p.status !== 'completed').length;
+    return buildMenuReply(context.currentMenu);
+  }
 
-        return {
-          type: 'buttons',
-          header: 'حالة المشاريع',
-          body: `${bold('إحصائيات مشاريعك:')}\n\nنشط: ${active}\nمكتمل: ${completed}\nمتوقف: ${paused}\nالإجمالي: ${userProjects.length}`,
-          footer: 'اختر إجراء',
-          buttons: [
-            { id: 'projects_list', title: 'عرض التفاصيل' },
-            { id: 'nav_back', title: 'رجوع' },
-          ],
-        };
-      }
+  private async handleFlowStep(
+    context: WhatsAppContext,
+    effectiveInput: string,
+    senderPhone: string,
+    userName: string,
+    securityContext: WhatsAppSecurityContext,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    const resolved = resolveUserInput(effectiveInput);
 
-      if (effectiveInput === 'report_daily' || effectiveInput === 'report_project') {
-        return {
-          type: 'text',
-          body: `${bold('التقارير')}\n\nللحصول على تقرير، اكتب سؤالك مباشرة.\nمثال: "تقرير مصروفات اليوم" أو "ملخص مشروع الرياض"`,
-          footer: 'أو أرسل "الرئيسية" للعودة',
-        };
-      }
-
-      if (effectiveInput === 'help_commands' || effectiveInput === 'menu_help' || effectiveInput === 'مساعدة' || effectiveInput === 'help') {
-        return {
-          type: 'buttons',
-          body: formatHelp(userName),
-          footer: 'اختر إجراء أو اكتب سؤالك',
-          buttons: [
-            { id: 'menu_expenses', title: 'إضافة مصروف' },
-            { id: 'menu_projects', title: 'مشاريعي' },
-            { id: 'nav_home', title: 'الرئيسية' },
-          ],
-        };
-      }
-
-      if (effectiveInput === 'help_contact') {
-        return textReply(`${bold('الدعم الفني')}\n\nللتواصل مع الدعم، يرجى إرسال رسالة تحتوي على وصف المشكلة وسيتم الرد عليك.`);
-      }
-
-      if (effectiveInput === 'مشاريعي' || effectiveInput === 'مشاريع') {
-        const userProjects = await db.select().from(projects)
-          .where(inArray(projects.id, userProjectIds))
-          .limit(20);
-
-        if (userProjects.length === 0) {
-          return textReply('لا توجد مشاريع مرتبطة بحسابك حالياً.');
-        }
-
-        return {
-          type: 'list',
-          header: 'مشاريعك',
-          body: formatProjectList(userProjects.map(p => ({ name: p.name, status: p.status, id: p.id }))),
-          footer: `إجمالي: ${userProjects.length} مشروع`,
-          listButtonText: 'عرض المشاريع',
-          sections: [{
-            title: 'المشاريع',
-            rows: userProjects.map(p => ({
-              id: `project_detail_${p.id}`,
-              title: p.name,
-              description: p.status === 'active' ? 'نشط' : p.status === 'completed' ? 'مكتمل' : 'متوقف',
-            })),
-          }],
-        };
-      }
-
-      const expenseMatch = effectiveInput.match(/(\d+)\s+مصاريف\s+(.+)/i);
-      if (expenseMatch) {
-        if (!securityContext.canAdd) {
-          return textReply(`عذراً ${userName}، ليس لديك صلاحية لإضافة مصروفات عبر هذا الرقم.`);
-        }
-
-        const amount = expenseMatch[1];
-        const workerName = expenseMatch[2].trim();
-
-        const workerResult = await db.select().from(workers)
-          .where(and(
-            ilike(workers.name, `%${workerName}%`),
-            userProjectIds.length > 0
-              ? sql`${workers.id} IN (SELECT DISTINCT worker_id FROM worker_attendance WHERE project_id IN (${sql.join(userProjectIds.map(id => sql`${id}`), sql`, `)}))`
-              : sql`false`
-          ))
-          .limit(1);
-
-        if (workerResult.length > 0) {
-          const worker = workerResult[0];
-          const activeProjects = await db.select().from(projects)
-            .where(and(
-              eq(projects.status, 'active'),
-              inArray(projects.id, userProjectIds)
-            ))
-            .limit(10);
-
-          context.step = 'awaiting_project';
-          context.data = { amount, workerId: worker.id, workerName: worker.name };
-          this.sessions.set(senderPhone, context);
-
-          if (activeProjects.length <= 3) {
-            return {
-              type: 'buttons',
-              header: 'اختيار المشروع',
-              body: formatProjectSelection(
-                activeProjects.map(p => ({ name: p.name, id: p.id })),
-                worker.name,
-                amount
-              ),
-              footer: 'اختر المشروع',
-              buttons: activeProjects.map(p => ({
-                id: `select_project_${p.id}`,
-                title: p.name.substring(0, 20),
-              })),
-            };
-          }
-
-          return {
-            type: 'list',
-            header: 'اختيار المشروع',
-            body: formatProjectSelection(
-              activeProjects.map(p => ({ name: p.name, id: p.id })),
-              worker.name,
-              amount
-            ),
-            footer: 'اختر المشروع من القائمة',
-            listButtonText: 'عرض المشاريع',
-            sections: [{
-              title: 'المشاريع النشطة',
-              rows: activeProjects.map(p => ({
-                id: `select_project_${p.id}`,
-                title: p.name,
-              })),
-            }],
-          };
-        } else {
-          return textReply(formatError(`لم أجد عامل باسم "${workerName}" في مشاريعك. يرجى التأكد من الاسم.`));
-        }
-      }
-
-      if (!this.sessions.has(senderPhone)) {
-        this.sessions.set(senderPhone, context);
-        return buildWelcomeReply(userName);
-      }
+    if (resolved.action === 'cancel') {
+      this.sessions.delete(senderPhone);
+      return buildTextWithMenu('تم الإلغاء', formatConfirmation(`تم إلغاء العملية يا ${userName}.`), 'main');
+    }
+    if (resolved.action === 'navigate' && resolved.targetMenuId === 'main') {
+      context.step = 'idle';
+      context.menuStack = [];
+      context.currentMenu = 'main';
+      context.data = {};
+      this.sessions.set(senderPhone, context);
+      return buildWelcomeReply(userName);
     }
 
     if (context.step === 'awaiting_project') {
-      let projectResult;
-
-      const projectIdMatch = effectiveInput.match(/^select_project_(.+)$/);
-      if (projectIdMatch) {
-        projectResult = await db.select().from(projects)
-          .where(and(
-            eq(projects.id, projectIdMatch[1]),
-            inArray(projects.id, userProjectIds)
-          ))
-          .limit(1);
-      }
-
-      if (!projectResult) {
-        const indexMatch = effectiveInput.match(/^(\d+)$/);
-        if (indexMatch) {
-          const idx = parseInt(indexMatch[1]) - 1;
-          const activeProjects = await db.select().from(projects)
-            .where(and(
-              eq(projects.status, 'active'),
-              inArray(projects.id, userProjectIds)
-            ))
-            .limit(10);
-
-          if (idx >= 0 && idx < activeProjects.length) {
-            projectResult = [activeProjects[idx]];
-          }
-        }
-      }
-
-      if (!projectResult) {
-        projectResult = await db.select().from(projects)
-          .where(and(
-            ilike(projects.name, `%${effectiveInput}%`),
-            inArray(projects.id, userProjectIds)
-          ))
-          .limit(1);
-      }
-
-      if (projectResult && projectResult.length > 0) {
-        const selectedProject = projectResult[0];
-        const canAdd = await securityContext.canAddToProject(selectedProject.id);
-        if (!canAdd) {
-          return textReply(`ليس لديك صلاحية إضافة مصروفات على مشروع "${selectedProject.name}". يرجى التواصل مع المسؤول.`);
-        }
-
-        context.data.projectId = selectedProject.id;
-        context.data.projectName = selectedProject.name;
-        context.step = 'awaiting_days';
-        this.sessions.set(senderPhone, context);
-        return {
-          type: 'buttons',
-          header: 'عدد الأيام',
-          body: `${formatConfirmation(`تم تحديد مشروع: ${selectedProject.name}`)}\n\n${formatDaysPrompt()}`,
-          footer: 'أرسل عدد الأيام',
-          buttons: [
-            { id: 'days_1', title: '1 يوم' },
-            { id: 'days_0.5', title: 'نصف يوم' },
-            { id: 'nav_cancel', title: 'إلغاء' },
-          ],
-        };
-      }
-      return textReply(formatError("لم أجد المشروع في مشاريعك. يرجى كتابة اسم المشروع بشكل أدق أو رقمه من القائمة، أو إرسال 'إلغاء'."));
+      return this.handleProjectSelection(context, effectiveInput, senderPhone, userName, securityContext, userProjectIds);
     }
 
     if (context.step === 'awaiting_days') {
-      let days: number;
-      const daysMatch = effectiveInput.match(/^days_(.+)$/);
-      if (daysMatch) {
-        days = parseFloat(daysMatch[1]);
-      } else {
-        days = parseFloat(effectiveInput);
-      }
-
-      if (!isNaN(days)) {
-        context.data.workDays = days.toString();
-        context.step = 'awaiting_type';
-        this.sessions.set(senderPhone, context);
-        return {
-          type: 'buttons',
-          header: 'نوع المصروف',
-          body: `${formatConfirmation(`تم تسجيل ${days} يوم.`)}\n\n${formatExpenseTypePrompt()}`,
-          footer: 'اختر نوع المصروف',
-          buttons: [
-            { id: 'type_wages', title: 'أجور' },
-            { id: 'type_materials', title: 'مواد' },
-            { id: 'type_transfer', title: 'تحويلة' },
-          ],
-        };
-      }
-      return textReply(formatError("يرجى إدخال رقم صحيح لعدد الأيام."));
+      return this.handleDaysInput(context, effectiveInput, senderPhone, userName);
     }
 
     if (context.step === 'awaiting_type') {
-      const typeMap: Record<string, string> = {
-        'type_wages': 'أجور',
-        'type_materials': 'مواد',
-        'type_transfer': 'تحويلة',
-        '1': 'أجور',
-        '2': 'مواد',
-        '3': 'تحويلة',
-        '4': 'أخرى',
-        'أجور': 'أجور',
-        'مواد': 'مواد',
-        'تحويلة': 'تحويلة',
-        'أخرى': 'أخرى',
-      };
+      return this.handleTypeSelection(context, effectiveInput, senderPhone, userName, userProjectIds);
+    }
 
-      const expenseType = typeMap[effectiveInput] || effectiveInput;
+    context.step = 'idle';
+    this.sessions.set(senderPhone, context);
+    return buildWelcomeReply(userName);
+  }
 
-      try {
-        const { amount, workerId, projectId, workDays } = context.data;
+  private async handleProjectSelection(
+    context: WhatsAppContext,
+    input: string,
+    senderPhone: string,
+    userName: string,
+    securityContext: WhatsAppSecurityContext,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    let projectResult;
+    const cachedProjects = context.data.activeProjects || [];
 
-        const worker = await db.select().from(workers).where(eq(workers.id, workerId!)).limit(1);
-        const dailyWage = worker[0]?.dailyWage || "0";
+    const projectIdMatch = input.match(/^select_project_(.+)$/);
+    if (projectIdMatch) {
+      projectResult = await db.select().from(projects)
+        .where(and(eq(projects.id, projectIdMatch[1]), inArray(projects.id, userProjectIds)))
+        .limit(1);
+    }
 
-        const [attendance] = await db.insert(workerAttendance).values({
-          project_id: projectId!,
-          worker_id: workerId!,
-          attendanceDate: new Date().toISOString().split('T')[0],
-          workDays: workDays!,
-          dailyWage: dailyWage.toString(),
-          totalPay: amount!,
-          paidAmount: amount!,
-          notes: `قيد آلي عبر واتساب - ${userName} - ${expenseType}`
-        }).returning();
-
-        const summaryText = formatExpenseSummary({
-          workerName: context.data.workerName || '',
-          projectName: context.data.projectName || '',
-          amount: context.data.amount || '',
-          days: context.data.workDays || '',
-          type: expenseType,
-          recordId: attendance.id,
-        });
-
-        this.sessions.delete(senderPhone);
-
-        return {
-          type: 'buttons',
-          body: summaryText,
-          footer: 'ماذا تريد أن تفعل؟',
-          buttons: [
-            { id: 'menu_expenses', title: 'مصروف جديد' },
-            { id: 'menu_projects', title: 'مشاريعي' },
-            { id: 'nav_home', title: 'الرئيسية' },
-          ],
-        };
-      } catch (error: any) {
-        console.error('[WhatsAppAI] Error saving expense:', error);
-        return textReply(formatError(`حدث خطأ أثناء حفظ البيانات: ${error.message}. يرجى المحاولة لاحقاً أو إرسال 'إلغاء'.`));
+    if (!projectResult || projectResult.length === 0) {
+      const indexMatch = input.match(/^(\d+)$/);
+      if (indexMatch && cachedProjects.length > 0) {
+        const idx = parseInt(indexMatch[1]) - 1;
+        if (idx >= 0 && idx < cachedProjects.length) {
+          projectResult = await db.select().from(projects)
+            .where(and(eq(projects.id, cachedProjects[idx].id), inArray(projects.id, userProjectIds)))
+            .limit(1);
+        }
       }
     }
 
+    if (!projectResult || projectResult.length === 0) {
+      projectResult = await db.select().from(projects)
+        .where(and(ilike(projects.name, `%${input}%`), inArray(projects.id, userProjectIds)))
+        .limit(1);
+    }
+
+    if (projectResult && projectResult.length > 0) {
+      const selectedProject = projectResult[0];
+      const canAdd = await securityContext.canAddToProject(selectedProject.id);
+      if (!canAdd) {
+        return textReply(addNavFooter(`❌ ليس لديك صلاحية إضافة مصروفات على مشروع "*${selectedProject.name}*".`));
+      }
+
+      context.data.projectId = selectedProject.id;
+      context.data.projectName = selectedProject.name;
+      context.step = 'awaiting_days';
+      this.sessions.set(senderPhone, context);
+
+      const lines = [
+        `━━━━━━━━━━━━━━━━━━`,
+        `📌  *عدد أيام العمل*`,
+        `━━━━━━━━━━━━━━━━━━`,
+        ``,
+        formatConfirmation(`تم اختيار: ${selectedProject.name}`),
+        ``,
+        formatDaysPrompt(),
+        ``,
+        `⚡ *اختيار سريع:*`,
+        `  1️⃣  *1.*  يوم كامل`,
+        `  🔀  *2.*  نصف يوم`,
+        ``,
+        `أو اكتب العدد مباشرة (مثل: 0.5، 1، 2)`,
+        ``,
+        `━━━━━━━━━━━━━━━━━━`,
+        `💡 أرسل *إلغاء* للرجوع`,
+      ];
+      return textReply(lines.join('\n'));
+    }
+
+    return textReply(addNavFooter(formatError(`لم أجد المشروع. اكتب اسمه أو رقمه من القائمة، أو أرسل *إلغاء*.`)));
+  }
+
+  private async handleDaysInput(
+    context: WhatsAppContext,
+    input: string,
+    senderPhone: string,
+    userName: string
+  ): Promise<BotReply> {
+    let days: number;
+
+    if (input === '1' || input === 'يوم') {
+      days = 1;
+    } else if (input === '2' || input === 'نصف') {
+      days = 0.5;
+    } else {
+      days = parseFloat(input);
+    }
+
+    if (isNaN(days) || days <= 0) {
+      return textReply(addNavFooter(formatError(`يرجى إدخال رقم صحيح لعدد الأيام.\nمثال: 1 أو 0.5`)));
+    }
+
+    context.data.workDays = days.toString();
+    context.step = 'awaiting_type';
+    this.sessions.set(senderPhone, context);
+
+    const lines = [
+      `━━━━━━━━━━━━━━━━━━`,
+      `📌  *نوع المصروف*`,
+      `━━━━━━━━━━━━━━━━━━`,
+      ``,
+      formatConfirmation(`تم: ${days} يوم`),
+      ``,
+      formatExpenseTypePrompt(),
+      ``,
+      `━━━━━━━━━━━━━━━━━━`,
+      `💡 أرسل *الرقم* أو *اسم النوع* | *إلغاء* للرجوع`,
+    ];
+    return textReply(lines.join('\n'));
+  }
+
+  private async handleTypeSelection(
+    context: WhatsAppContext,
+    input: string,
+    senderPhone: string,
+    userName: string,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    const typeMap: Record<string, string> = {
+      '1': 'أجور', '2': 'مواد', '3': 'تحويلة', '4': 'أخرى',
+      'أجور': 'أجور', 'مواد': 'مواد', 'تحويلة': 'تحويلة', 'أخرى': 'أخرى',
+      'type_wages': 'أجور', 'type_materials': 'مواد', 'type_transfer': 'تحويلة',
+    };
+
+    const expenseType = typeMap[input];
+    if (!expenseType) {
+      return textReply(addNavFooter(formatError(`اختيار غير صحيح. أرسل رقم من 1 إلى 4.`)));
+    }
+
     try {
+      const { amount, workerId, projectId, workDays } = context.data;
+
+      const worker = await db.select().from(workers).where(eq(workers.id, workerId!)).limit(1);
+      const dailyWage = worker[0]?.dailyWage || "0";
+
+      const [attendance] = await db.insert(workerAttendance).values({
+        project_id: projectId!,
+        worker_id: workerId!,
+        attendanceDate: new Date().toISOString().split('T')[0],
+        workDays: workDays!,
+        dailyWage: dailyWage.toString(),
+        totalPay: amount!,
+        paidAmount: amount!,
+        notes: `قيد آلي عبر واتساب - ${userName} - ${expenseType}`
+      }).returning();
+
+      const summaryText = formatExpenseSummary({
+        workerName: context.data.workerName || '',
+        projectName: context.data.projectName || '',
+        amount: context.data.amount || '',
+        days: context.data.workDays || '',
+        type: expenseType,
+        recordId: attendance.id,
+      });
+
+      this.sessions.delete(senderPhone);
+
+      const lines = [
+        summaryText,
+        ``,
+        `ماذا تريد أن تفعل الآن؟`,
+      ];
+      return buildTextWithMenu('تم بنجاح', lines.join('\n'), 'main');
+    } catch (error: any) {
+      console.error('[WhatsAppAI] Error saving expense:', error);
+      return textReply(addNavFooter(formatError(`حدث خطأ أثناء الحفظ: ${error.message}\nأرسل *إلغاء* وحاول مرة أخرى.`)));
+    }
+  }
+
+  private async showExpenseSummary(userProjectIds: string[]): Promise<BotReply> {
+    if (userProjectIds.length === 0) {
+      return textReply(addNavFooter('📋 لا توجد مشاريع مرتبطة بحسابك.'));
+    }
+
+    const activeProjects = await db.select().from(projects)
+      .where(and(eq(projects.status, 'active'), inArray(projects.id, userProjectIds)))
+      .limit(10);
+
+    if (activeProjects.length === 0) {
+      return textReply(addNavFooter('📋 لا توجد مشاريع نشطة حالياً.'));
+    }
+
+    const lines = [
+      `━━━━━━━━━━━━━━━━━━`,
+      `📌  *ملخص المصروفات*`,
+      `━━━━━━━━━━━━━━━━━━`,
+      ``,
+      `اختر رقم المشروع لعرض ملخصه:`,
+      ``,
+    ];
+    activeProjects.forEach((p, i) => {
+      lines.push(`  🟢  *${i + 1}.*  ${p.name}`);
+    });
+    lines.push(``);
+    lines.push(`━━━━━━━━━━━━━━━━━━`);
+    lines.push(`💡 أرسل *رقم* المشروع | *0* القائمة | *#* رجوع`);
+    return textReply(lines.join('\n'));
+  }
+
+  private async showProjectsList(userProjectIds: string[]): Promise<BotReply> {
+    if (userProjectIds.length === 0) {
+      return textReply(addNavFooter('📂 لا توجد مشاريع مرتبطة بحسابك.'));
+    }
+
+    const userProjects = await db.select().from(projects)
+      .where(inArray(projects.id, userProjectIds))
+      .limit(20);
+
+    if (userProjects.length === 0) {
+      return textReply(addNavFooter('📂 لا توجد مشاريع.'));
+    }
+
+    const body = formatProjectList(userProjects.map(p => ({ name: p.name, status: p.status, id: p.id })));
+    return textReply(addNavFooter(body));
+  }
+
+  private async showProjectsStatus(userProjectIds: string[]): Promise<BotReply> {
+    const userProjects = await db.select().from(projects)
+      .where(inArray(projects.id, userProjectIds))
+      .limit(20);
+
+    const active = userProjects.filter(p => p.status === 'active').length;
+    const completed = userProjects.filter(p => p.status === 'completed').length;
+    const paused = userProjects.filter(p => p.status !== 'active' && p.status !== 'completed').length;
+
+    const lines = [
+      `━━━━━━━━━━━━━━━━━━`,
+      `📌  *إحصائيات المشاريع*`,
+      `━━━━━━━━━━━━━━━━━━`,
+      ``,
+      `  🟢  نشط:     *${active}*`,
+      `  ✅  مكتمل:   *${completed}*`,
+      `  🟡  متوقف:   *${paused}*`,
+      `  📊  الإجمالي: *${userProjects.length}*`,
+      ``,
+      `  📂  أرسل *1* لعرض تفاصيل المشاريع`,
+    ];
+    return textReply(addNavFooter(lines.join('\n')));
+  }
+
+  private async handleFreeText(
+    input: string,
+    context: WhatsAppContext,
+    senderPhone: string,
+    userId: string,
+    userName: string,
+    securityContext: WhatsAppSecurityContext,
+    userProjectIds: string[],
+    role: string,
+    isAdmin: boolean
+  ): Promise<BotReply> {
+
+    const expenseMatch = input.match(/(\d+)\s+مصاريف\s+(.+)/i);
+    if (expenseMatch) {
+      if (!securityContext.canAdd) {
+        return textReply(addNavFooter(`❌ عذراً *${userName}*، ليس لديك صلاحية لإضافة مصروفات.`));
+      }
+
+      const amount = expenseMatch[1];
+      const workerName = expenseMatch[2].trim();
+
+      const workerResult = await db.select().from(workers)
+        .where(and(
+          ilike(workers.name, `%${workerName}%`),
+          userProjectIds.length > 0
+            ? sql`${workers.id} IN (SELECT DISTINCT worker_id FROM worker_attendance WHERE project_id IN (${sql.join(userProjectIds.map(id => sql`${id}`), sql`, `)}))`
+            : sql`false`
+        ))
+        .limit(1);
+
+      if (workerResult.length > 0) {
+        const worker = workerResult[0];
+        const activeProjects = await db.select().from(projects)
+          .where(and(eq(projects.status, 'active'), inArray(projects.id, userProjectIds)))
+          .limit(10);
+
+        context.step = 'awaiting_project';
+        context.data = {
+          amount,
+          workerId: worker.id,
+          workerName: worker.name,
+          activeProjects: activeProjects.map(p => ({ id: p.id, name: p.name })),
+        };
+        this.sessions.set(senderPhone, context);
+
+        const projectLines = activeProjects.map((p, i) => `  🏗️  *${i + 1}.*  ${p.name}`).join('\n');
+        const lines = [
+          `━━━━━━━━━━━━━━━━━━`,
+          `📌  *اختيار المشروع*`,
+          `━━━━━━━━━━━━━━━━━━`,
+          ``,
+          `👷 *العامل:* ${worker.name}`,
+          `💰 *المبلغ:* ${amount} ريال`,
+          ``,
+          `اختر رقم المشروع:`,
+          ``,
+          projectLines,
+          ``,
+          `━━━━━━━━━━━━━━━━━━`,
+          `💡 أرسل *رقم* المشروع أو اسمه | *إلغاء* للرجوع`,
+        ];
+        return textReply(lines.join('\n'));
+      } else {
+        return textReply(addNavFooter(formatError(`لم أجد عامل باسم "${workerName}" في مشاريعك.\nتأكد من الاسم وحاول مرة أخرى.`)));
+      }
+    }
+
+    const greetings = ['السلام عليكم', 'سلام', 'مرحبا', 'مرحبًا', 'هلا', 'الو', 'اهلا', 'أهلا', 'هاي', 'hi', 'hello', 'hey'];
+    if (greetings.some(g => input.toLowerCase().includes(g))) {
+      return buildWelcomeReply(userName);
+    }
+
+    if (userProjectIds.length === 0) {
+      return textReply(addNavFooter(`مرحباً *${userName}*، لا توجد مشاريع مرتبطة بحسابك حالياً.\nيرجى التواصل مع المسؤول.`));
+    }
+
+    if (!securityContext.canRead) {
+      return textReply(addNavFooter(`❌ عذراً *${userName}*، ليس لديك صلاحية قراءة البيانات.\nتواصل مع المسؤول لتفعيل الصلاحية.`));
+    }
+
+    try {
+      const sessionId = await this.getOrCreateAISession(userId, senderPhone);
+
       const response = await this.aiAgent.processMessage(
-        `wa_${userId}_${senderPhone}`,
-        effectiveInput,
+        sessionId,
+        input,
         userId,
         securityContext
       );
@@ -544,17 +636,17 @@ export class WhatsAppAIService {
         console.error('[WhatsAppAI] Failed to log outgoing message:', e2);
       }
 
-      return textReply(response.message);
-    } catch (e) {
-      return {
-        type: 'buttons',
-        body: formatError("عذراً، لم أفهم طلبك."),
-        footer: 'جرب أحد الخيارات',
-        buttons: [
-          { id: 'menu_help', title: 'مساعدة' },
-          { id: 'nav_home', title: 'الرئيسية' },
-        ],
-      };
+      return textReply(addNavFooter(response.message));
+    } catch (e: any) {
+      console.error('[WhatsAppAI] AI processing error:', e);
+      const lines = [
+        `⚠️ لم أتمكن من معالجة طلبك حالياً.`,
+        ``,
+        `💡 *يمكنك تجربة:*`,
+        `   • إعادة صياغة السؤال`,
+        `   • اختيار خدمة من القائمة`,
+      ];
+      return buildTextWithMenu('حاول مرة أخرى', lines.join('\n'), 'main');
     }
   }
 }

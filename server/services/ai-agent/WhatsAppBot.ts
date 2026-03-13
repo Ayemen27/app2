@@ -277,59 +277,7 @@ export class WhatsAppBot {
 
   async sendInteractiveReply(jid: string, reply: BotReply): Promise<void> {
     if (!this.sock) return;
-
-    if (reply.type === 'buttons' && reply.buttons && reply.buttons.length > 0) {
-      const buttonContent: any = {
-        text: reply.body,
-        buttons: reply.buttons.slice(0, 3).map(btn => ({
-          buttonId: btn.id,
-          buttonText: { displayText: btn.title },
-          type: 1,
-        })),
-        headerType: 1,
-      };
-      if (reply.footer) {
-        buttonContent.footer = reply.footer;
-      }
-      if (reply.header) {
-        buttonContent.text = `*${reply.header}*\n\n${reply.body}`;
-      }
-      await this.safeSendMessage(jid, buttonContent);
-      return;
-    }
-
-    if (reply.type === 'list' && reply.sections && reply.sections.length > 0) {
-      const listContent: any = {
-        text: reply.body,
-        buttonText: reply.listButtonText || 'عرض الخيارات',
-        sections: reply.sections.map(section => ({
-          title: section.title,
-          rows: section.rows.map(row => ({
-            title: row.title,
-            rowId: row.id,
-            description: row.description || '',
-          })),
-        })),
-        headerType: 1,
-      };
-      if (reply.footer) {
-        listContent.footer = reply.footer;
-      }
-      if (reply.header) {
-        listContent.text = `*${reply.header}*\n\n${reply.body}`;
-      }
-      await this.safeSendMessage(jid, listContent);
-      return;
-    }
-
-    let textBody = reply.body;
-    if (reply.header) {
-      textBody = `*${reply.header}*\n\n${textBody}`;
-    }
-    if (reply.footer) {
-      textBody = `${textBody}\n\n${reply.footer}`;
-    }
-    await this.safeSendMessage(jid, { text: textBody });
+    await this.safeSendMessage(jid, { text: reply.body });
   }
 
   async start(phoneNumber?: string): Promise<void> {

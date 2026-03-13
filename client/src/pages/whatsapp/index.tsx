@@ -438,22 +438,22 @@ export default function WhatsAppSetupPage() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={cn(
-            "w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-2xl shadow-sm h-12",
-            `grid grid-cols-${tabItems.length}`,
-            isAdmin ? "lg:w-[700px]" : "lg:w-[450px]"
-          )}>
-            {tabItems.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                data-testid={`tab-${tab.id}`}
-                value={tab.id}
-                className={cn("rounded-xl font-bold text-xs gap-1.5 transition-all data-[state=active]:text-white", tab.color)}
-              >
-                <tab.icon className="h-3.5 w-3.5" /> {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
+            <TabsList className={cn(
+              "inline-flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-2xl shadow-sm h-12 gap-0.5 min-w-max w-full lg:w-auto"
+            )}>
+              {tabItems.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  data-testid={`tab-${tab.id}`}
+                  value={tab.id}
+                  className={cn("rounded-xl font-bold text-[11px] gap-1 transition-all data-[state=active]:text-white px-3 whitespace-nowrap", tab.color)}
+                >
+                  <tab.icon className="h-3.5 w-3.5 shrink-0" /> {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           {/* My Link Tab - Per User Phone Registration */}
           <TabsContent value="mylink" className="mt-6 space-y-6">

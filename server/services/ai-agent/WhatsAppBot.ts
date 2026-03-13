@@ -68,6 +68,8 @@ export class WhatsAppBot {
   private static CACHE_TTL = 60_000;
   private processedMessages: Map<string, number> = new Map();
   private dedupCleanupTimer: NodeJS.Timeout | null = null;
+  private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
+  private userMinuteRates: Map<string, number[]> = new Map();
 
   getStatus(): BotStatus {
     return this.status;
@@ -520,13 +522,49 @@ export class WhatsAppBot {
 
       const botSettings = await botSettingsService.getSettings();
 
+      if (!botSettings.botEnabled) {
+        console.log(`[WhatsAppBot] Bot is disabled. Ignoring message from ${cleanPhone}`);
+        return;
+      }
+
+      if (botSettings.maintenanceMode) {
+        const maintenanceMsg = botSettings.maintenanceMessage || "🔧 البوت في وضع الصيانة حالياً.";
+        await this.safeSendMessage(from, { text: maintenanceMsg });
+        return;
+      }
+
+      if (!botSettingsService.isWithinBusinessHours(botSettings)) {
+        const outsideMsg = botSettingsService.getOutsideHoursMessage(botSettings);
+        await this.safeSendMessage(from, { text: outsideMsg });
+        return;
+      }
+
       if (this.dailyMessageCount >= botSettings.dailyMessageLimit) {
         console.warn(`[AntiBot] Daily message limit reached (${botSettings.dailyMessageLimit}). Ignoring message.`);
         return;
       }
 
+      if (!this.checkUserDailyLimit(cleanPhone, botSettings.perUserDailyLimit)) {
+        console.warn(`[AntiBot] Per-user daily limit reached for ${cleanPhone} (${botSettings.perUserDailyLimit})`);
+        return;
+      }
+
+      if (!this.checkUserRateLimit(cleanPhone, botSettings.rateLimitPerMinute)) {
+        console.warn(`[AntiBot] Rate limit exceeded for ${cleanPhone} (${botSettings.rateLimitPerMinute}/min)`);
+        return;
+      }
+
+      if (inputType === 'image' && !botSettings.mediaEnabled) {
+        await this.safeSendMessage(from, { text: "📷 عذراً، استقبال الوسائط معطّل حالياً." });
+        return;
+      }
+
       try {
         const whatsappAIService = getWhatsAppAIService();
+
+        if (botSettings.waitingMessage && text && text.length > 20) {
+          await this.safeSendMessage(from, { text: botSettings.waitingMessage });
+        }
 
         let msgMetadata: Record<string, any> | undefined;
         if (inputType === 'image') {
@@ -543,17 +581,37 @@ export class WhatsAppBot {
           }
         }
 
-        const reply = await whatsappAIService.handleIncomingMessage(
-          cleanPhone,
-          text || inputId || '',
-          inputType,
-          inputId,
-          msgMetadata
-        );
+        let retries = 0;
+        const maxRetries = botSettings.maxRetries || 3;
+        let reply: any = null;
+
+        while (retries <= maxRetries) {
+          try {
+            reply = await whatsappAIService.handleIncomingMessage(
+              cleanPhone,
+              text || inputId || '',
+              inputType,
+              inputId,
+              msgMetadata
+            );
+            break;
+          } catch (retryErr) {
+            retries++;
+            if (retries > maxRetries) {
+              console.error(`[WhatsAppBot] Max retries (${maxRetries}) exceeded for message from ${cleanPhone}`);
+              throw retryErr;
+            }
+            console.warn(`[WhatsAppBot] Retry ${retries}/${maxRetries} for message from ${cleanPhone}`);
+            await new Promise(r => setTimeout(r, 1000 * retries));
+          }
+        }
 
         if (reply) {
           if (typeof reply === 'string') {
-            await this.safeSendMessage(from, { text: reply });
+            const trimmedReply = botSettings.maxMessageLength && reply.length > botSettings.maxMessageLength
+              ? reply.substring(0, botSettings.maxMessageLength) + "\n\n... (تم اختصار الرسالة)"
+              : reply;
+            await this.safeSendMessage(from, { text: trimmedReply });
           } else {
             await this.sendInteractiveReply(from, reply);
           }
@@ -655,6 +713,28 @@ export class WhatsAppBot {
     }
   }
 
+  private checkUserDailyLimit(phone: string, limit: number): boolean {
+    const now = Date.now();
+    const entry = this.userMessageCounts.get(phone);
+    if (!entry || now > entry.resetAt) {
+      this.userMessageCounts.set(phone, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
+      return true;
+    }
+    if (entry.count >= limit) return false;
+    entry.count++;
+    return true;
+  }
+
+  private checkUserRateLimit(phone: string, maxPerMinute: number): boolean {
+    const now = Date.now();
+    const timestamps = this.userMinuteRates.get(phone) || [];
+    const recent = timestamps.filter(t => now - t < 60_000);
+    if (recent.length >= maxPerMinute) return false;
+    recent.push(now);
+    this.userMinuteRates.set(phone, recent);
+    return true;
+  }
+
   clearAllowedCache(): void {
     this.allowedCacheTime = 0;
     this.allowedNumbersCache.clear();
@@ -689,12 +769,14 @@ export class WhatsAppBot {
 
     this.lastMessageTime = Date.now();
     
-    try {
-      await this.sock.sendPresenceUpdate('composing', jid);
-      const typingDelay = Math.floor(Math.random() * 1500) + 500;
-      await new Promise(resolve => setTimeout(resolve, typingDelay));
-      await this.sock.sendPresenceUpdate('paused', jid);
-    } catch (e) {}
+    if (settings.typingIndicator) {
+      try {
+        await this.sock.sendPresenceUpdate('composing', jid);
+        const typingDelay = Math.floor(Math.random() * 1500) + 500;
+        await new Promise(resolve => setTimeout(resolve, typingDelay));
+        await this.sock.sendPresenceUpdate('paused', jid);
+      } catch (e) {}
+    }
 
     return await this.sock.sendMessage(jid, content);
   }

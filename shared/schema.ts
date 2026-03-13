@@ -1770,6 +1770,30 @@ export const whatsappBotSettings = pgTable("whatsapp_bot_settings", {
   menuExportEmoji: varchar("menu_export_emoji", { length: 10 }).default("📤"),
   menuHelpEmoji: varchar("menu_help_emoji", { length: 10 }).default("❓"),
 
+  botEnabled: boolean("bot_enabled").default(true).notNull(),
+  maintenanceMode: boolean("maintenance_mode").default(false).notNull(),
+  maintenanceMessage: text("maintenance_message").default("🔧 البوت في وضع الصيانة حالياً. سنعود قريباً."),
+
+  businessHoursEnabled: boolean("business_hours_enabled").default(false).notNull(),
+  businessHoursStart: varchar("business_hours_start", { length: 5 }).default("08:00").notNull(),
+  businessHoursEnd: varchar("business_hours_end", { length: 5 }).default("17:00").notNull(),
+  businessDays: varchar("business_days", { length: 50 }).default("0,1,2,3,4").notNull(),
+  outsideHoursMessage: text("outside_hours_message").default("⏰ عذراً، ساعات العمل من {start} إلى {end}. سنرد عليك في أقرب وقت."),
+
+  smartGreeting: boolean("smart_greeting").default(true).notNull(),
+  goodbyeMessage: text("goodbye_message").default(""),
+  waitingMessage: text("waiting_message").default("⏳ جاري معالجة طلبك..."),
+  typingIndicator: boolean("typing_indicator").default(true).notNull(),
+
+  sessionTimeoutMinutes: integer("session_timeout_minutes").default(30).notNull(),
+  maxMessageLength: integer("max_message_length").default(4000).notNull(),
+  perUserDailyLimit: integer("per_user_daily_limit").default(100).notNull(),
+  rateLimitPerMinute: integer("rate_limit_per_minute").default(10).notNull(),
+  maxRetries: integer("max_retries").default(3).notNull(),
+
+  adminNotifyPhone: varchar("admin_notify_phone", { length: 20 }).default(""),
+  mediaEnabled: boolean("media_enabled").default(true).notNull(),
+
   protectionLevel: varchar("protection_level", { length: 20 }).default("balanced").notNull(),
   responseDelayMin: integer("response_delay_min").default(2000).notNull(),
   responseDelayMax: integer("response_delay_max").default(5000).notNull(),

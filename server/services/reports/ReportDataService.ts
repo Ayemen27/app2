@@ -1076,8 +1076,8 @@ export class ReportDataService {
     const combinedTransport = projectReports.reduce((s, r) => s + r.totals.totalTransport, 0);
     const combinedMisc = projectReports.reduce((s, r) => s + r.totals.totalMisc, 0);
     const combinedWorkerTransfers = projectReports.reduce((s, r) => s + r.totals.totalWorkerTransfers, 0);
-    const combinedExpenses = combinedWages + combinedMaterials + combinedTransport + combinedMisc + combinedWorkerTransfers + combinedProjectTransfersOut;
-    const combinedBalance = combinedIncome - combinedExpenses;
+    const combinedExpenses = projectReports.reduce((s, r) => s + r.totals.totalExpenses, 0);
+    const combinedBalance = projectReports.reduce((s, r) => s + r.totals.balance, 0);
 
     const allWorkers: MultiProjectFinalReportData['combinedSections']['attendance']['byWorker'] = [];
     for (const r of projectReports) {

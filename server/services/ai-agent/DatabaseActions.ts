@@ -37,16 +37,41 @@ export interface ActionResult {
 }
 
 export class DatabaseActions {
+
+  private isProjectAllowed(projectId: string, allowedProjectIds?: string[]): boolean {
+    if (allowedProjectIds === undefined) return true;
+    return allowedProjectIds.includes(projectId);
+  }
+
+  private getProjectFilter(allowedProjectIds?: string[]): typeof projects | null {
+    if (allowedProjectIds === undefined) return null;
+    if (allowedProjectIds.length === 0) return null;
+    return null;
+  }
   
   // ==================== عمليات القراءة ====================
 
-  async findWorkerByName(name: string): Promise<ActionResult> {
+  async findWorkerByName(name: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "find_worker" };
+      }
       const trimmed = name.trim();
-      const result = await db
-        .select()
-        .from(workers)
-        .where(sql`${workers.name} ILIKE ${'%' + trimmed + '%'}`);
+      let result;
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        result = await db
+          .select()
+          .from(workers)
+          .where(and(
+            sql`${workers.name} ILIKE ${'%' + trimmed + '%'}`,
+            sql`${workers.id} IN (SELECT DISTINCT worker_id FROM worker_attendance WHERE project_id IN (${sql.join(allowedProjectIds.map(id => sql`${id}`), sql`, `)}))`
+          ));
+      } else {
+        result = await db
+          .select()
+          .from(workers)
+          .where(sql`${workers.name} ILIKE ${'%' + trimmed + '%'}`);
+      }
 
       return {
         success: true,
@@ -63,19 +88,32 @@ export class DatabaseActions {
     }
   }
 
-  async getProjectInfo(projectIdOrName: string): Promise<ActionResult> {
+  async getProjectInfo(projectIdOrName: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const result = await db
-        .select()
-        .from(projects)
-        .where(
-          sql`${projects.id} = ${projectIdOrName} OR ${projects.name} ILIKE ${'%' + projectIdOrName + '%'}`
-        );
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: false, message: "لا توجد مشاريع مرتبطة بحسابك", action: "get_project" };
+      }
+      let baseCondition = sql`${projects.id} = ${projectIdOrName} OR ${projects.name} ILIKE ${'%' + projectIdOrName + '%'}`;
+      let result;
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        result = await db
+          .select()
+          .from(projects)
+          .where(and(
+            sql`(${baseCondition})`,
+            inArray(projects.id, allowedProjectIds)
+          ));
+      } else {
+        result = await db
+          .select()
+          .from(projects)
+          .where(baseCondition);
+      }
 
       if (result.length === 0) {
         return {
           success: false,
-          message: "لم يتم العثور على المشروع",
+          message: "لم يتم العثور على المشروع أو ليس لديك صلاحية الوصول إليه",
           action: "get_project",
         };
       }
@@ -236,8 +274,11 @@ export class DatabaseActions {
     }
   }
 
-  async getProjectExpensesSummary(projectId: string): Promise<ActionResult> {
+  async getProjectExpensesSummary(projectId: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && !this.isProjectAllowed(projectId, allowedProjectIds)) {
+        return { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "get_expenses_summary" };
+      }
       const fundsResult = await db
         .select({ total: sql<string>`COALESCE(SUM(${fundTransfers.amount}), 0)` })
         .from(fundTransfers)
@@ -294,12 +335,18 @@ export class DatabaseActions {
     }
   }
 
-  async getWorkerAttendance(workerId: string, projectId?: string): Promise<ActionResult> {
+  async getWorkerAttendance(workerId: string, projectId?: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      let conditions: any[] = [eq(workerAttendance.worker_id, workerId)];
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        conditions.push(inArray(workerAttendance.project_id, allowedProjectIds));
+      } else if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: { records: [], summary: { totalDays: 0, totalEarned: 0, totalPaid: 0, balance: 0 } }, message: "لا توجد مشاريع مرتبطة بحسابك", action: "get_worker_attendance" };
+      }
       let result = await db
         .select()
         .from(workerAttendance)
-        .where(eq(workerAttendance.worker_id, workerId))
+        .where(and(...conditions))
         .orderBy(desc(workerAttendance.attendanceDate));
 
       if (projectId) {
@@ -328,12 +375,18 @@ export class DatabaseActions {
     }
   }
 
-  async getWorkerTransfers(workerId: string): Promise<ActionResult> {
+  async getWorkerTransfers(workerId: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      let conditions: any[] = [eq(workerTransfers.worker_id, workerId)];
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        conditions.push(inArray(workerTransfers.project_id, allowedProjectIds));
+      } else if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: { transfers: [], totalTransferred: 0 }, message: "لا توجد مشاريع مرتبطة بحسابك", action: "get_worker_transfers" };
+      }
       const result = await db
         .select()
         .from(workerTransfers)
-        .where(eq(workerTransfers.worker_id, workerId))
+        .where(and(...conditions))
         .orderBy(desc(workerTransfers.transferDate));
 
       const total = result.reduce((sum: number, r: any) => sum + parseFloat(r.amount), 0);
@@ -353,7 +406,7 @@ export class DatabaseActions {
     }
   }
 
-  async getWorkerStatement(workerId: string): Promise<ActionResult> {
+  async getWorkerStatement(workerId: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
       const workerResult = await db
         .select()
@@ -369,8 +422,8 @@ export class DatabaseActions {
       }
 
       const worker = workerResult[0];
-      const attendance = await this.getWorkerAttendance(workerId);
-      const transfers = await this.getWorkerTransfers(workerId);
+      const attendance = await this.getWorkerAttendance(workerId, undefined, allowedProjectIds);
+      const transfers = await this.getWorkerTransfers(workerId, allowedProjectIds);
 
       const totalEarned = attendance.data?.summary?.totalEarned || 0;
       const totalPaid = attendance.data?.summary?.totalPaid || 0;
@@ -397,8 +450,11 @@ export class DatabaseActions {
     }
   }
 
-  async getDailyExpenses(projectId: string, date: string): Promise<ActionResult> {
+  async getDailyExpenses(projectId: string, date: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && !this.isProjectAllowed(projectId, allowedProjectIds)) {
+        return { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "get_daily_expenses" };
+      }
       console.log(`🗄️ [DatabaseActions] Fetching expenses for Project: ${projectId}, Date: ${date}`);
       
       const wages = await db
@@ -455,8 +511,11 @@ export class DatabaseActions {
   /**
    * جلب معلومات مالية لمشروع محدد بدقة من ExpenseLedgerService
    */
-  async getProjectFinancialData(projectId: string, date?: string): Promise<ActionResult> {
+  async getProjectFinancialData(projectId: string, date?: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && !this.isProjectAllowed(projectId, allowedProjectIds)) {
+        return { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "get_financial_data" };
+      }
       const { ExpenseLedgerService } = await import("../ExpenseLedgerService");
       const summary = await ExpenseLedgerService.getProjectFinancialSummary(projectId, date);
       return {
@@ -1254,48 +1313,86 @@ export class DatabaseActions {
   }
   // ==================== أدوات ذكية متقدمة ====================
 
-  async getDashboardSummary(): Promise<ActionResult> {
+  async getDashboardSummary(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const [projectStats] = await db.select({
-        total: sql<number>`count(*)`,
-        active: sql<number>`count(*) filter (where ${projects.status} = 'active')`,
-        completed: sql<number>`count(*) filter (where ${projects.status} = 'completed')`,
-      }).from(projects);
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: { projects: { total: 0, active: 0, completed: 0 }, workers: { total: 0, active: 0 }, finance: { totalFunds: 0, totalExpenses: 0, totalWages: 0, totalMaterials: 0, totalTransport: 0, balance: 0, wagesPaid: 0 }, suppliers: { total: 0, totalDebt: 0 }, equipment: { total: 0 }, wells: { total: 0 } }, message: "لا توجد مشاريع مرتبطة بحسابك", action: "dashboard_summary" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
 
-      const [workerStats] = await db.select({
-        total: sql<number>`count(*)`,
-        active: sql<number>`count(*) filter (where ${workers.is_active} = true)`,
-      }).from(workers);
+      const [projectStats] = hasFilter
+        ? await db.select({
+            total: sql<number>`count(*)`,
+            active: sql<number>`count(*) filter (where ${projects.status} = 'active')`,
+            completed: sql<number>`count(*) filter (where ${projects.status} = 'completed')`,
+          }).from(projects).where(inArray(projects.id, allowedProjectIds!))
+        : await db.select({
+            total: sql<number>`count(*)`,
+            active: sql<number>`count(*) filter (where ${projects.status} = 'active')`,
+            completed: sql<number>`count(*) filter (where ${projects.status} = 'completed')`,
+          }).from(projects);
 
+      const [workerStats] = hasFilter
+        ? await db.select({
+            total: sql<number>`count(distinct ${workerAttendance.worker_id})`,
+            active: sql<number>`count(distinct ${workerAttendance.worker_id})`,
+          }).from(workerAttendance).where(inArray(workerAttendance.project_id, allowedProjectIds!))
+        : await db.select({
+            total: sql<number>`count(*)`,
+            active: sql<number>`count(*) filter (where ${workers.is_active} = true)`,
+          }).from(workers);
+
+      const fundCondition = hasFilter ? inArray(fundTransfers.project_id, allowedProjectIds!) : undefined;
       const [fundStats] = await db.select({
         totalFunds: sql<string>`coalesce(sum(case when ${fundTransfers.amount}::text != 'NaN' then ${fundTransfers.amount}::numeric else 0 end), 0)`,
-      }).from(fundTransfers);
+      }).from(fundTransfers).where(fundCondition!);
 
+      const attCondition = hasFilter ? inArray(workerAttendance.project_id, allowedProjectIds!) : undefined;
       const [attendanceStats] = await db.select({
         totalWages: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0)`,
         totalPaid: sql<string>`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
-      }).from(workerAttendance);
+      }).from(workerAttendance).where(attCondition!);
 
+      const matCondition = hasFilter ? inArray(materialPurchases.project_id, allowedProjectIds!) : undefined;
       const [materialStats] = await db.select({
         totalMaterials: sql<string>`coalesce(sum(case when ${materialPurchases.totalAmount}::text != 'NaN' then ${materialPurchases.totalAmount}::numeric else 0 end), 0)`,
-      }).from(materialPurchases);
+      }).from(materialPurchases).where(matCondition!);
 
+      const transCondition = hasFilter ? inArray(transportationExpenses.project_id, allowedProjectIds!) : undefined;
       const [transportStats] = await db.select({
         totalTransport: sql<string>`coalesce(sum(case when ${transportationExpenses.amount}::text != 'NaN' then ${transportationExpenses.amount}::numeric else 0 end), 0)`,
-      }).from(transportationExpenses);
+      }).from(transportationExpenses).where(transCondition!);
 
-      const [supplierStats] = await db.select({
-        totalSuppliers: sql<number>`count(*)`,
-        totalDebt: sql<string>`coalesce(sum(${suppliers.totalDebt}::numeric), 0)`,
-      }).from(suppliers);
+      let supplierStats: { totalSuppliers: number; totalDebt: string };
+      if (hasFilter) {
+        const supplierIdsInScope = await db.selectDistinct({ id: materialPurchases.supplier_id })
+          .from(materialPurchases)
+          .where(inArray(materialPurchases.project_id, allowedProjectIds!));
+        const ids = supplierIdsInScope.map(s => s.id).filter(Boolean) as string[];
+        if (ids.length > 0) {
+          [supplierStats] = await db.select({
+            totalSuppliers: sql<number>`count(*)`,
+            totalDebt: sql<string>`coalesce(sum(${suppliers.totalDebt}::numeric), 0)`,
+          }).from(suppliers).where(inArray(suppliers.id, ids));
+        } else {
+          supplierStats = { totalSuppliers: 0, totalDebt: '0' };
+        }
+      } else {
+        [supplierStats] = await db.select({
+          totalSuppliers: sql<number>`count(*)`,
+          totalDebt: sql<string>`coalesce(sum(${suppliers.totalDebt}::numeric), 0)`,
+        }).from(suppliers);
+      }
 
+      const eqCondition = hasFilter ? inArray(equipment.project_id, allowedProjectIds!) : undefined;
       const [equipmentStats] = await db.select({
         totalEquipment: sql<number>`count(*)`,
-      }).from(equipment);
+      }).from(equipment).where(eqCondition!);
 
+      const wellCondition = hasFilter ? inArray(wells.project_id, allowedProjectIds!) : undefined;
       const [wellStats] = await db.select({
         totalWells: sql<number>`count(*)`,
-      }).from(wells);
+      }).from(wells).where(wellCondition!);
 
       const totalFunds = parseFloat(fundStats.totalFunds || '0');
       const totalWages = parseFloat(attendanceStats.totalWages || '0');
@@ -1329,8 +1426,22 @@ export class DatabaseActions {
     }
   }
 
-  async getSuppliersList(): Promise<ActionResult> {
+  async getSuppliersList(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "list_suppliers" };
+      }
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        const supplierIdsInScope = await db.selectDistinct({ id: materialPurchases.supplier_id })
+          .from(materialPurchases)
+          .where(inArray(materialPurchases.project_id, allowedProjectIds));
+        const ids = supplierIdsInScope.map(s => s.id).filter(Boolean) as string[];
+        if (ids.length === 0) {
+          return { success: true, data: [], message: "لا يوجد موردون مرتبطون بمشاريعك", action: "list_suppliers" };
+        }
+        const result = await db.select().from(suppliers).where(inArray(suppliers.id, ids)).orderBy(desc(suppliers.totalDebt));
+        return { success: true, data: result, message: `تم العثور على ${result.length} مورد`, action: "list_suppliers" };
+      }
       const result = await db.select().from(suppliers).orderBy(desc(suppliers.totalDebt));
       return {
         success: true,
@@ -1343,8 +1454,11 @@ export class DatabaseActions {
     }
   }
 
-  async getSupplierStatement(supplierIdOrName: string): Promise<ActionResult> {
+  async getSupplierStatement(supplierIdOrName: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: null, message: "لا توجد مشاريع مرتبطة بحسابك", action: "supplier_statement" };
+      }
       const isUUID = /^[0-9a-f]{8}-/.test(supplierIdOrName);
       let supplier: any;
 
@@ -1367,12 +1481,22 @@ export class DatabaseActions {
 
       if (!supplier) return { success: false, message: `لم يتم العثور على المورد "${supplierIdOrName}"`, action: "supplier_statement" };
 
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+
+      const purchaseConditions = hasFilter
+        ? and(eq(materialPurchases.supplier_id, supplier.id), inArray(materialPurchases.project_id, allowedProjectIds!))
+        : eq(materialPurchases.supplier_id, supplier.id);
+
       const purchases = await db.select().from(materialPurchases)
-        .where(eq(materialPurchases.supplier_id, supplier.id))
+        .where(purchaseConditions)
         .orderBy(desc(materialPurchases.purchaseDate));
 
+      const paymentConditions = hasFilter
+        ? and(eq(supplierPayments.supplier_id, supplier.id), inArray(supplierPayments.project_id, allowedProjectIds!))
+        : eq(supplierPayments.supplier_id, supplier.id);
+
       const payments = await db.select().from(supplierPayments)
-        .where(eq(supplierPayments.supplier_id, supplier.id))
+        .where(paymentConditions)
         .orderBy(desc(supplierPayments.paymentDate));
 
       const totalPurchases = purchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0);
@@ -1394,9 +1518,15 @@ export class DatabaseActions {
     }
   }
 
-  async getEquipmentList(): Promise<ActionResult> {
+  async getEquipmentList(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const result = await db.select().from(equipment).orderBy(equipment.name);
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "list_equipment" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const result = hasFilter
+        ? await db.select().from(equipment).where(inArray(equipment.project_id, allowedProjectIds!)).orderBy(equipment.name)
+        : await db.select().from(equipment).orderBy(equipment.name);
       return {
         success: true,
         data: result,
@@ -1408,11 +1538,18 @@ export class DatabaseActions {
     }
   }
 
-  async getEquipmentMovements(equipmentId: string): Promise<ActionResult> {
+  async getEquipmentMovements(equipmentId: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: null, message: "لا توجد مشاريع مرتبطة بحسابك", action: "equipment_movements" };
+      }
       const eqId = parseInt(equipmentId);
       const [eq_item] = await db.select().from(equipment).where(eq(equipment.id, eqId));
       if (!eq_item) return { success: false, message: "المعدة غير موجودة", action: "equipment_movements" };
+
+      if (allowedProjectIds && allowedProjectIds.length > 0 && eq_item.project_id && !allowedProjectIds.includes(eq_item.project_id)) {
+        return { success: false, message: "ليس لديك صلاحية الوصول لهذه المعدة", action: "equipment_movements" };
+      }
 
       const movements = await db.select().from(equipmentMovements)
         .where(eq(equipmentMovements.equipmentId, eqId))
@@ -1429,9 +1566,15 @@ export class DatabaseActions {
     }
   }
 
-  async getWellsList(): Promise<ActionResult> {
+  async getWellsList(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const result = await db.select().from(wells).orderBy(wells.id);
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "list_wells" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const result = hasFilter
+        ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!)).orderBy(wells.id)
+        : await db.select().from(wells).orderBy(wells.id);
       return {
         success: true,
         data: result,
@@ -1443,11 +1586,18 @@ export class DatabaseActions {
     }
   }
 
-  async getWellDetails(wellId: string): Promise<ActionResult> {
+  async getWellDetails(wellId: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: null, message: "لا توجد مشاريع مرتبطة بحسابك", action: "well_details" };
+      }
       const wId = parseInt(wellId);
       const [well] = await db.select().from(wells).where(eq(wells.id, wId));
       if (!well) return { success: false, message: "البئر غير موجود", action: "well_details" };
+
+      if (allowedProjectIds && allowedProjectIds.length > 0 && !allowedProjectIds.includes(well.project_id)) {
+        return { success: false, message: "ليس لديك صلاحية الوصول لهذا البئر", action: "well_details" };
+      }
 
       const tasks = await db.select().from(wellTasks).where(eq(wellTasks.well_id, wId)).orderBy(wellTasks.taskOrder);
       const expenses = await db.select().from(wellExpenses).where(eq(wellExpenses.well_id, wId));
@@ -1473,8 +1623,16 @@ export class DatabaseActions {
     }
   }
 
-  async getTopWorkers(limit: number = 10): Promise<ActionResult> {
+  async getTopWorkers(limit: number = 10, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "top_workers" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const joinCondition = hasFilter
+        ? and(eq(workers.id, workerAttendance.worker_id), inArray(workerAttendance.project_id, allowedProjectIds!))
+        : eq(workers.id, workerAttendance.worker_id);
+
       const result = await db.select({
         id: workers.id,
         name: workers.name,
@@ -1485,7 +1643,7 @@ export class DatabaseActions {
         totalDays: sql<string>`coalesce(sum(case when ${workerAttendance.workDays}::text != 'NaN' then ${workerAttendance.workDays}::numeric else 0 end), 0)`,
       })
       .from(workers)
-      .leftJoin(workerAttendance, eq(workers.id, workerAttendance.worker_id))
+      .leftJoin(workerAttendance, joinCondition)
       .groupBy(workers.id, workers.name, workers.type, workers.dailyWage)
       .orderBy(sql`sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end) desc nulls last`)
       .limit(limit);
@@ -1501,9 +1659,15 @@ export class DatabaseActions {
     }
   }
 
-  async getBudgetAnalysis(): Promise<ActionResult> {
+  async getBudgetAnalysis(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const allProjects = await db.select().from(projects).where(eq(projects.status, 'active'));
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: { projects: [], summary: { total: 0, exceeded: 0, critical: 0 } }, message: "لا توجد مشاريع مرتبطة بحسابك", action: "budget_analysis" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const allProjects = hasFilter
+        ? await db.select().from(projects).where(and(eq(projects.status, 'active'), inArray(projects.id, allowedProjectIds!)))
+        : await db.select().from(projects).where(eq(projects.status, 'active'));
       const analysis: any[] = [];
 
       for (const project of allProjects) {
@@ -1562,8 +1726,16 @@ export class DatabaseActions {
     }
   }
 
-  async getRecentActivities(limit: number = 20): Promise<ActionResult> {
+  async getRecentActivities(limit: number = 20, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "recent_activities" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const attFilter = hasFilter ? inArray(workerAttendance.project_id, allowedProjectIds!) : undefined;
+      const matFilter = hasFilter ? inArray(materialPurchases.project_id, allowedProjectIds!) : undefined;
+      const fundFilter = hasFilter ? inArray(fundTransfers.project_id, allowedProjectIds!) : undefined;
+
       const recentAttendance = await db.select({
         type: sql<string>`'حضور'`,
         description: sql<string>`${workers.name} || ' - ' || ${workerAttendance.workDays} || ' يوم'`,
@@ -1571,6 +1743,7 @@ export class DatabaseActions {
         amount: workerAttendance.totalPay,
       }).from(workerAttendance)
         .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
+        .where(attFilter!)
         .orderBy(desc(workerAttendance.attendanceDate))
         .limit(limit);
 
@@ -1580,6 +1753,7 @@ export class DatabaseActions {
         date: materialPurchases.purchaseDate,
         amount: materialPurchases.totalAmount,
       }).from(materialPurchases)
+        .where(matFilter!)
         .orderBy(desc(materialPurchases.purchaseDate))
         .limit(limit);
 
@@ -1589,6 +1763,7 @@ export class DatabaseActions {
         date: fundTransfers.transferDate,
         amount: fundTransfers.amount,
       }).from(fundTransfers)
+        .where(fundFilter!)
         .orderBy(desc(fundTransfers.transferDate))
         .limit(limit);
 
@@ -1611,10 +1786,23 @@ export class DatabaseActions {
     }
   }
 
-  async getMonthlyTrends(projectId?: string): Promise<ActionResult> {
+  async getMonthlyTrends(projectId?: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const projectFilter = projectId ? `AND project_id = $1` : '';
-      const params = projectId ? [projectId] : [];
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "monthly_trends" };
+      }
+      if (projectId && allowedProjectIds && !this.isProjectAllowed(projectId, allowedProjectIds)) {
+        return { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "monthly_trends" };
+      }
+      let projectFilter = '';
+      let params: any[] = [];
+      if (projectId) {
+        projectFilter = `AND project_id = $1`;
+        params = [projectId];
+      } else if (allowedProjectIds && allowedProjectIds.length > 0) {
+        projectFilter = `AND project_id = ANY($1::text[])`;
+        params = [allowedProjectIds];
+      }
 
       const result = await pool.query(`
         WITH months AS (
@@ -1644,21 +1832,49 @@ export class DatabaseActions {
     }
   }
 
-  async searchGlobal(query: string): Promise<ActionResult> {
+  async searchGlobal(query: string, allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "global_search" };
+      }
       const searchTerm = '%' + query.trim() + '%';
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
 
-      const projectResults = await db.select({ id: projects.id, name: projects.name, type: sql<string>`'مشروع'` })
-        .from(projects).where(sql`${projects.name} ILIKE ${searchTerm}`).limit(5);
+      const projectResults = hasFilter
+        ? await db.select({ id: projects.id, name: projects.name, type: sql<string>`'مشروع'` })
+            .from(projects).where(and(sql`${projects.name} ILIKE ${searchTerm}`, inArray(projects.id, allowedProjectIds!))).limit(5)
+        : await db.select({ id: projects.id, name: projects.name, type: sql<string>`'مشروع'` })
+            .from(projects).where(sql`${projects.name} ILIKE ${searchTerm}`).limit(5);
 
-      const workerResults = await db.select({ id: workers.id, name: workers.name, type: sql<string>`'عامل'` })
-        .from(workers).where(sql`${workers.name} ILIKE ${searchTerm}`).limit(5);
+      const workerResults = hasFilter
+        ? await db.select({ id: workers.id, name: workers.name, type: sql<string>`'عامل'` })
+            .from(workers).where(and(
+              sql`${workers.name} ILIKE ${searchTerm}`,
+              sql`${workers.id} IN (SELECT DISTINCT worker_id FROM worker_attendance WHERE project_id IN (${sql.join(allowedProjectIds!.map(id => sql`${id}`), sql`, `)}))`
+            )).limit(5)
+        : await db.select({ id: workers.id, name: workers.name, type: sql<string>`'عامل'` })
+            .from(workers).where(sql`${workers.name} ILIKE ${searchTerm}`).limit(5);
 
-      const supplierResults = await db.select({ id: suppliers.id, name: suppliers.name, type: sql<string>`'مورد'` })
-        .from(suppliers).where(sql`${suppliers.name} ILIKE ${searchTerm}`).limit(5);
+      let supplierResults: any[];
+      if (hasFilter) {
+        const supplierIdsInScope = await db.selectDistinct({ id: materialPurchases.supplier_id })
+          .from(materialPurchases)
+          .where(inArray(materialPurchases.project_id, allowedProjectIds!));
+        const sIds = supplierIdsInScope.map(s => s.id).filter(Boolean) as string[];
+        supplierResults = sIds.length > 0
+          ? await db.select({ id: suppliers.id, name: suppliers.name, type: sql<string>`'مورد'` })
+              .from(suppliers).where(and(sql`${suppliers.name} ILIKE ${searchTerm}`, inArray(suppliers.id, sIds))).limit(5)
+          : [];
+      } else {
+        supplierResults = await db.select({ id: suppliers.id, name: suppliers.name, type: sql<string>`'مورد'` })
+          .from(suppliers).where(sql`${suppliers.name} ILIKE ${searchTerm}`).limit(5);
+      }
 
-      const equipmentResults = await db.select({ id: sql<string>`${equipment.id}::text`, name: equipment.name, type: sql<string>`'معدة'` })
-        .from(equipment).where(sql`${equipment.name} ILIKE ${searchTerm}`).limit(5);
+      const equipmentResults = hasFilter
+        ? await db.select({ id: sql<string>`${equipment.id}::text`, name: equipment.name, type: sql<string>`'معدة'` })
+            .from(equipment).where(and(sql`${equipment.name} ILIKE ${searchTerm}`, inArray(equipment.project_id, allowedProjectIds!))).limit(5)
+        : await db.select({ id: sql<string>`${equipment.id}::text`, name: equipment.name, type: sql<string>`'معدة'` })
+            .from(equipment).where(sql`${equipment.name} ILIKE ${searchTerm}`).limit(5);
 
       const all = [...projectResults, ...workerResults, ...supplierResults, ...equipmentResults];
 
@@ -1673,8 +1889,16 @@ export class DatabaseActions {
     }
   }
 
-  async getWorkersUnpaidBalances(): Promise<ActionResult> {
+  async getWorkersUnpaidBalances(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: { workers: [], totalUnpaid: 0, count: 0 }, message: "لا توجد مشاريع مرتبطة بحسابك", action: "unpaid_balances" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const joinCondition = hasFilter
+        ? and(eq(workers.id, workerAttendance.worker_id), inArray(workerAttendance.project_id, allowedProjectIds!))
+        : eq(workers.id, workerAttendance.worker_id);
+
       const result = await db.select({
         id: workers.id,
         name: workers.name,
@@ -1684,7 +1908,7 @@ export class DatabaseActions {
         balance: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0) - coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
       })
       .from(workers)
-      .leftJoin(workerAttendance, eq(workers.id, workerAttendance.worker_id))
+      .leftJoin(workerAttendance, joinCondition)
       .where(eq(workers.is_active, true))
       .groupBy(workers.id, workers.name, workers.type)
       .having(sql`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0) - coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0) > 0`)
@@ -1705,9 +1929,15 @@ export class DatabaseActions {
     }
   }
 
-  async getProjectComparison(): Promise<ActionResult> {
+  async getProjectComparison(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const allProjects = await db.select().from(projects);
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "project_comparison" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const allProjects = hasFilter
+        ? await db.select().from(projects).where(inArray(projects.id, allowedProjectIds!))
+        : await db.select().from(projects);
       const comparison: any[] = [];
 
       for (const project of allProjects) {

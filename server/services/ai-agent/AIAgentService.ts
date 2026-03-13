@@ -495,14 +495,16 @@ export class AIAgentService {
             continue;
           }
 
+          const scopeIds = securityContext ? securityContext.accessibleProjectIds : undefined;
+
           let currentResult: ActionResult | ReportResult | null = null;
           switch (actionType) {
             case "FIND_WORKER":
-              currentResult = await this.dbActions.findWorkerByName(actionParams[0] || "");
+              currentResult = await this.dbActions.findWorkerByName(actionParams[0] || "", scopeIds);
               break;
 
             case "GET_PROJECT":
-              currentResult = await this.dbActions.getProjectInfo(actionParams[0] || "");
+              currentResult = await this.dbActions.getProjectInfo(actionParams[0] || "", scopeIds);
               break;
 
             case "WORKER_STATEMENT": {
@@ -510,7 +512,7 @@ export class AIAgentService {
               const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(workerId);
               if (!isUUID && workerId) {
                 console.log(`🔍 [AI] WORKER_STATEMENT received name "${workerId}", auto-resolving to UUID...`);
-                const searchResult = await this.dbActions.findWorkerByName(workerId);
+                const searchResult = await this.dbActions.findWorkerByName(workerId, scopeIds);
                 if (searchResult.success && searchResult.data?.length === 1) {
                   workerId = searchResult.data[0].id;
                   console.log(`✅ [AI] Auto-resolved worker "${actionParams[0]}" -> UUID: ${workerId}`);
@@ -530,12 +532,22 @@ export class AIAgentService {
               break;
             }
 
-            case "PROJECT_EXPENSES":
-              currentResult = await this.reportGenerator.generateProjectExpensesSummary(actionParams[0] || "");
+            case "PROJECT_EXPENSES": {
+              const pId = actionParams[0] || "";
+              if (scopeIds && !scopeIds.includes(pId)) {
+                currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "project_expenses" };
+              } else {
+                currentResult = await this.reportGenerator.generateProjectExpensesSummary(pId);
+              }
               break;
+            }
 
             case "DAILY_EXPENSES": {
               const projectId = actionParams[0] || "";
+              if (scopeIds && !scopeIds.includes(projectId)) {
+                currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع", action: "daily_expenses" };
+                break;
+              }
               let dateStr = actionParams[1];
               
               if (!dateStr || dateStr === "yesterday" || dateStr === "yesterday") {
@@ -551,49 +563,63 @@ export class AIAgentService {
             }
 
             case "LIST_PROJECTS":
-              currentResult = await this.dbActions.getAllProjects(
-                securityContext ? securityContext.accessibleProjectIds : undefined
-              );
+              currentResult = await this.dbActions.getAllProjects(scopeIds);
               break;
 
             case "ALL_PROJECTS_REPORT":
-              currentResult = await this.dbActions.getAllProjectsWithExpenses(
-                securityContext ? securityContext.accessibleProjectIds : undefined
-              );
+              currentResult = await this.dbActions.getAllProjectsWithExpenses(scopeIds);
               break;
 
             case "LIST_WORKERS":
-              currentResult = await this.dbActions.getAllWorkers(
-                securityContext ? securityContext.accessibleProjectIds : undefined
-              );
+              currentResult = await this.dbActions.getAllWorkers(scopeIds);
               break;
 
             case "LIST_TABLES":
-              currentResult = await this.dbActions.listAllTables();
+              if (scopeIds) {
+                currentResult = { success: false, message: "هذا الأمر متاح فقط للمسؤولين", action: "list_tables" };
+              } else {
+                currentResult = await this.dbActions.listAllTables();
+              }
               break;
 
             case "DESCRIBE_TABLE":
-              currentResult = await this.dbActions.describeTable(actionParams[0] || "");
+              if (scopeIds) {
+                currentResult = { success: false, message: "هذا الأمر متاح فقط للمسؤولين", action: "describe_table" };
+              } else {
+                currentResult = await this.dbActions.describeTable(actionParams[0] || "");
+              }
               break;
 
             case "SEARCH":
-              currentResult = await this.dbActions.searchInTable(
-                actionParams[0] || "",
-                actionParams[1] || "",
-                actionParams[2] || "",
-                actionParams[3] ? parseInt(actionParams[3]) : undefined
-              );
+              if (scopeIds) {
+                currentResult = { success: false, message: "هذا الأمر متاح فقط للمسؤولين", action: "search_table" };
+              } else {
+                currentResult = await this.dbActions.searchInTable(
+                  actionParams[0] || "",
+                  actionParams[1] || "",
+                  actionParams[2] || "",
+                  actionParams[3] ? parseInt(actionParams[3]) : undefined
+                );
+              }
               break;
 
             case "SQL_SELECT":
-              currentResult = await this.dbActions.executeRawSelect(actionParams.join(":"));
+              if (scopeIds) {
+                currentResult = { success: false, message: "هذا الأمر متاح فقط للمسؤولين", action: "sql_select" };
+              } else {
+                currentResult = await this.dbActions.executeRawSelect(actionParams.join(":"));
+              }
               break;
 
             case "EXPORT_EXCEL":
               if (actionParams[0] === "WORKER_STATEMENT") {
                 currentResult = await this.reportGenerator.generateWorkerStatementExcel(actionParams[1]);
               } else if (actionParams[0] === "PROJECT_FULL") {
-                currentResult = await this.reportGenerator.generateProjectFullExcel(actionParams[1]);
+                if (scopeIds && !scopeIds.includes(actionParams[1])) {
+                  currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا المشروع" };
+                } else {
+                  currentResult = await this.reportGenerator.generateProjectFullExcel(actionParams[1]);
+                }
               } else if (actionParams[0] === "SUPPLIER_STATEMENT") {
                 currentResult = await this.reportGenerator.generateSupplierStatementExcel(actionParams[1]);
               } else if (actionParams[0] === "DASHBOARD") {
@@ -604,61 +630,61 @@ export class AIAgentService {
               break;
 
             case "DASHBOARD":
-              currentResult = await this.dbActions.getDashboardSummary();
+              currentResult = await this.dbActions.getDashboardSummary(scopeIds);
               break;
 
             case "LIST_SUPPLIERS":
-              currentResult = await this.dbActions.getSuppliersList();
+              currentResult = await this.dbActions.getSuppliersList(scopeIds);
               break;
 
             case "SUPPLIER_STATEMENT": {
               let supplierId = actionParams[0] || "";
-              currentResult = await this.dbActions.getSupplierStatement(supplierId);
+              currentResult = await this.dbActions.getSupplierStatement(supplierId, scopeIds);
               break;
             }
 
             case "LIST_EQUIPMENT":
-              currentResult = await this.dbActions.getEquipmentList();
+              currentResult = await this.dbActions.getEquipmentList(scopeIds);
               break;
 
             case "EQUIPMENT_MOVEMENTS":
-              currentResult = await this.dbActions.getEquipmentMovements(actionParams[0] || "");
+              currentResult = await this.dbActions.getEquipmentMovements(actionParams[0] || "", scopeIds);
               break;
 
             case "LIST_WELLS":
-              currentResult = await this.dbActions.getWellsList();
+              currentResult = await this.dbActions.getWellsList(scopeIds);
               break;
 
             case "WELL_DETAILS":
-              currentResult = await this.dbActions.getWellDetails(actionParams[0] || "");
+              currentResult = await this.dbActions.getWellDetails(actionParams[0] || "", scopeIds);
               break;
 
             case "TOP_WORKERS":
-              currentResult = await this.dbActions.getTopWorkers(parseInt(actionParams[0]) || 10);
+              currentResult = await this.dbActions.getTopWorkers(parseInt(actionParams[0]) || 10, scopeIds);
               break;
 
             case "UNPAID_BALANCES":
-              currentResult = await this.dbActions.getWorkersUnpaidBalances();
+              currentResult = await this.dbActions.getWorkersUnpaidBalances(scopeIds);
               break;
 
             case "BUDGET_ANALYSIS":
-              currentResult = await this.dbActions.getBudgetAnalysis();
+              currentResult = await this.dbActions.getBudgetAnalysis(scopeIds);
               break;
 
             case "RECENT_ACTIVITIES":
-              currentResult = await this.dbActions.getRecentActivities(parseInt(actionParams[0]) || 20);
+              currentResult = await this.dbActions.getRecentActivities(parseInt(actionParams[0]) || 20, scopeIds);
               break;
 
             case "MONTHLY_TRENDS":
-              currentResult = await this.dbActions.getMonthlyTrends(actionParams[0] || undefined);
+              currentResult = await this.dbActions.getMonthlyTrends(actionParams[0] || undefined, scopeIds);
               break;
 
             case "GLOBAL_SEARCH":
-              currentResult = await this.dbActions.searchGlobal(actionParams[0] || "");
+              currentResult = await this.dbActions.searchGlobal(actionParams[0] || "", scopeIds);
               break;
 
             case "PROJECT_COMPARISON":
-              currentResult = await this.dbActions.getProjectComparison();
+              currentResult = await this.dbActions.getProjectComparison(scopeIds);
               break;
 
             default:

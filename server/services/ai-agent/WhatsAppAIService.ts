@@ -1,7 +1,7 @@
 import { AIAgentService, getAIAgentService } from "./AIAgentService";
 import { WhatsAppSecurityContext } from "./WhatsAppSecurityContext";
 import { db } from "../../db";
-import { workers, projects, wellExpenses, wells, workerAttendance, whatsappUserLinks, userProjectPermissions, users } from "@shared/schema";
+import { workers, projects, wellExpenses, wells, workerAttendance, whatsappUserLinks, whatsappMessages, whatsappSecurityEvents, userProjectPermissions, users } from "@shared/schema";
 import { eq, ilike, and, sql, inArray } from "drizzle-orm";
 
 export interface WhatsAppContext {
@@ -46,6 +46,22 @@ export class WhatsAppAIService {
         eq(whatsappUserLinks.isActive, true),
         eq(whatsappUserLinks.phoneNumber, senderPhone.replace(/\D/g, ''))
       ));
+
+    try {
+      await db.insert(whatsappMessages).values({
+        from: senderPhone.replace(/\D/g, ''),
+        to: 'bot',
+        body: message.trim(),
+        type: 'incoming',
+        status: 'received',
+        phone_number: senderPhone.replace(/\D/g, ''),
+        user_id: userId,
+        is_authorized: true,
+        security_scope: { role, projectIds: userProjectIds, isAdmin },
+      });
+    } catch (e) {
+      console.error('[WhatsAppAI] Failed to log message:', e);
+    }
 
     const msg = message.trim();
     let context = this.sessions.get(senderPhone) || { step: 'idle' as const, userId, userName, data: {} };
@@ -224,6 +240,23 @@ export class WhatsAppAIService {
         userId,
         securityContext
       );
+
+      try {
+        await db.insert(whatsappMessages).values({
+          from: 'bot',
+          to: senderPhone.replace(/\D/g, ''),
+          body: response.message.substring(0, 5000),
+          type: 'outgoing',
+          status: 'sent',
+          phone_number: senderPhone.replace(/\D/g, ''),
+          user_id: userId,
+          is_authorized: true,
+          security_scope: { role, projectIds: userProjectIds, isAdmin },
+        });
+      } catch (e2) {
+        console.error('[WhatsAppAI] Failed to log outgoing message:', e2);
+      }
+
       return response.message;
     } catch (e) {
       return "عذراً، لم أفهم طلبك. أرسل 'مساعدة' لرؤية الأوامر المتاحة.";

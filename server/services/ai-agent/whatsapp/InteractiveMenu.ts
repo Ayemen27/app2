@@ -59,7 +59,22 @@ const menuRegistry: Record<string, MenuNode> = {
     options: [
       { id: 'report_daily', title: 'تقرير يومي', emoji: '📅' },
       { id: 'report_project', title: 'تقرير مشروع', emoji: '🏢' },
+      { id: 'menu_export', title: 'تصدير كشوفات', emoji: '📤' },
       { id: 'report_ask', title: 'اسأل الذكاء الاصطناعي', emoji: '🤖' },
+      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
+    ],
+  },
+  export_reports: {
+    id: 'export_reports',
+    title: 'تصدير الكشوفات',
+    body: 'اختر نوع الكشف للتصدير:',
+    parentId: 'reports',
+    options: [
+      { id: 'export_daily', title: 'كشف يومي شامل', emoji: '📋' },
+      { id: 'export_worker', title: 'كشف حساب عامل', emoji: '👷' },
+      { id: 'export_period', title: 'تقرير فترة ختامي', emoji: '📊' },
+      { id: 'export_daily_range', title: 'كشف يومي لفترة', emoji: '📅' },
+      { id: 'export_multi_project', title: 'تقرير متعدد المشاريع', emoji: '🏗️' },
       { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
     ],
   },
@@ -213,12 +228,19 @@ const TEXT_MENU_MAP: Record<string, string> = {
   'help': 'help',
   'خدمات': 'main',
   'الخدمات': 'main',
+  'تصدير': 'export_reports',
+  'كشوفات': 'export_reports',
+  'كشف': 'export_reports',
+  'اكسل': 'export_reports',
+  'excel': 'export_reports',
+  'pdf': 'export_reports',
 };
 
 const DIRECT_OPTION_MAP: Record<string, string> = {
   'menu_expenses': 'expenses',
   'menu_projects': 'projects',
   'menu_reports': 'reports',
+  'menu_export': 'export_reports',
   'menu_help': 'help',
 };
 

@@ -240,10 +240,13 @@ export class AIAgentService {
 
       let responseContent = aiResponse.content;
       
-      const detectedAction = this.detectIntentFromUserMessage(userMessage);
-      if (detectedAction) {
-        responseContent = detectedAction;
-        console.log(`🔍 [AIAgentService] تم كشف النية مباشرة: ${detectedAction}`);
+      const conversationalReply = this.detectConversationalQuery(userMessage);
+      if (conversationalReply) {
+        console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون ACTION`);
+        responseContent = conversationalReply;
+      } else if (this.detectIntentFromUserMessage(userMessage)) {
+        responseContent = this.detectIntentFromUserMessage(userMessage)!;
+        console.log(`🔍 [AIAgentService] تم كشف النية مباشرة: ${responseContent}`);
       } else {
         responseContent = responseContent.replace(/(?<!\[)ACTION:([A-Z_]+(?::[^\]]+)?)\]?(?=\s|$)/g, '[ACTION:$1]');
         
@@ -971,6 +974,31 @@ export class AIAgentService {
       if (pattern.test(response)) matchCount++;
     }
     return matchCount >= 2;
+  }
+
+  private detectConversationalQuery(message: string): string | null {
+    const msg = message.trim();
+    const conversationalPatterns: [RegExp, string][] = [
+      [/(?:من\s*(?:أنت|انت|انتي|أنتي)|مين\s*(?:أنت|انت)|ايش\s*(?:أنت|انت)|شو\s*(?:أنت|انت)|انت\s*مين|أنت\s*من)/i,
+        "أنا مساعد إدارة المشاريع الذكي 🤖\nأساعدك في متابعة المشاريع، العمال، المصروفات، والتقارير المالية.\n\nيمكنك سؤالي مثلاً:\n• ملخص المشروع\n• كشف حساب عامل\n• المستحقات غير المدفوعة\n• قائمة العمال"],
+      [/^(?:مرحبا|مرحب|اهلا|أهلاً|هلا|السلام\s*عليكم|سلام|هاي|hi|hello|hey)/i,
+        "أهلاً وسهلاً! 👋\nأنا مساعد إدارة المشاريع. كيف أقدر أساعدك اليوم؟"],
+      [/^(?:شكرا|شكراً|مشكور|يعطيك\s*العافي|الله\s*يعطيك|thank)/i,
+        "العفو! إذا تحتاج أي شيء ثاني لا تتردد 😊"],
+      [/^(?:كيف\s*(?:حالك|الحال)|شلونك|عامل\s*ايش|كيفك)/i,
+        "الحمد لله بخير! 😊 كيف أقدر أساعدك؟"],
+      [/^(?:ايش\s*تقدر\s*تسوي|ايش\s*تعرف|شو\s*بتعرف|ماذا\s*يمكنك|قدراتك|خدماتك|ما\s*هي\s*الأوامر|اعطيني\s*(?:ال)?أوامر|ايش\s*الاوامر|ماذا\s*تستطيع)/i,
+        "أقدر أساعدك في:\n\n📊 *التقارير والملخصات:*\n• ملخص شامل للمشروع\n• تحليل الميزانية\n• اتجاهات المصروفات الشهرية\n\n👷 *العمال:*\n• قائمة العمال\n• كشف حساب عامل (اكتب اسمه)\n• المستحقات غير المدفوعة\n\n📦 *الموردون والمعدات:*\n• قائمة الموردين\n• قائمة المعدات\n\n💧 *الآبار:*\n• قائمة الآبار ونسب الإنجاز\n\nجرّب تسألني بأي طريقة!"],
+      [/^(?:ايوه|ايه|نعم|اوكي|ok|تمام|ماشي|حسناً|طيب)$/i,
+        "تمام! ايش تبي تعرف؟ سألني عن المشاريع، العمال، أو المصروفات."],
+      [/^(?:لا|لأ|ما\s*ابي|ما\s*اريد|خلاص|باي|مع\s*السلامه|وداعاً|bye)/i,
+        "تمام، إذا احتجت أي شيء لا تتردد! 👋"],
+    ];
+
+    for (const [pattern, reply] of conversationalPatterns) {
+      if (pattern.test(msg)) return reply;
+    }
+    return null;
   }
 
   private sanitizeResponseForUser(response: string): string {

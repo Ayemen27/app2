@@ -299,7 +299,11 @@ export class AIAgentService {
       if (!hasAction) {
         const detectedAction = this.detectIntentFromUserMessage(userMessage);
         if (detectedAction) {
-          responseContent = detectedAction + "\n" + responseContent;
+          responseContent = detectedAction;
+          console.log(`🔍 [AIAgentService] النموذج لم يستخدم ACTION، تم كشف النية: ${detectedAction}`);
+        } else if (this.looksLikeHallucinatedData(responseContent)) {
+          console.warn(`⚠️ [AIAgentService] اكتشاف بيانات مُختَلقة محتملة، استبدال بـ DASHBOARD`);
+          responseContent = "[ACTION:DASHBOARD]";
         }
       }
 
@@ -982,6 +986,21 @@ export class AIAgentService {
     }
   }
 
+  private looksLikeHallucinatedData(response: string): boolean {
+    const hallucinationPatterns = [
+      /\d+[\.,]\d+\s*(?:ريال|دينار|دولار|جنيه)/,
+      /المبلغ:\s*\d+/,
+      /تاريخ\s*(?:الشراء|التسجيل|الإضافة):\s*\d{4}/,
+      /\*\*[^*]+\*\*\s*—\s*المبلغ/,
+      /\d+\.\s*\*\*[^*]+\*\*/,
+    ];
+    let matchCount = 0;
+    for (const pattern of hallucinationPatterns) {
+      if (pattern.test(response)) matchCount++;
+    }
+    return matchCount >= 2;
+  }
+
   // ==================== كشف النوايا الذكي (Fallback) ====================
 
   private detectIntentFromUserMessage(message: string): string | null {
@@ -1000,6 +1019,10 @@ export class AIAgentService {
       [/(?:اتجاه|شهري|trends|monthly)/i, "[ACTION:MONTHLY_TRENDS]"],
       [/(?:آخر\s*(?:ال)?عمليا|أحدث\s*(?:ال)?نشاط|recent|أحدث\s*(?:ال)?عمليا|آخر\s*(?:ال)?أحداث)/i, "[ACTION:RECENT_ACTIVITIES]"],
       [/(?:كشف\s*حساب\s*(?:ال)?مورد|بيان\s*(?:ال)?مورد|supplier\s*statement)/i, "[ACTION:SUPPLIER_STATEMENT]"],
+      [/(?:المشتريات|مشتريات|شراء|مواد\s*مشتراة|فواتير\s*الشراء|purchases)/i, "[ACTION:DASHBOARD]"],
+      [/(?:المصروفات|مصروفات|مصاريف|نفقات|expenses)/i, "[ACTION:DASHBOARD]"],
+      [/(?:الحضور|حضور\s*العمال|سجل\s*الحضور|attendance)/i, "[ACTION:DASHBOARD]"],
+      [/(?:التحويلات|تحويلات|حوالات|transfers)/i, "[ACTION:DASHBOARD]"],
     ];
 
     for (const [pattern, action] of patterns) {

@@ -1,4 +1,5 @@
-export function bold(text: string): string {
+export function bold(text: string, enabled?: boolean): string {
+  if (enabled === false) return text;
   return `*${text}*`;
 }
 

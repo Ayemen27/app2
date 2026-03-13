@@ -15,6 +15,7 @@ import { eq, and } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { BotReply } from './whatsapp/InteractiveMenu';
+import { botSettingsService } from './whatsapp/BotSettingsService';
 
 const logger = pino({ level: 'info' });
 
@@ -97,15 +98,16 @@ export class WhatsAppBot {
     return this.needsRelink;
   }
 
-  getProtectionStats(): BotProtectionStats {
+  async getProtectionStats(): Promise<BotProtectionStats> {
+    const settings = await botSettingsService.getSettings();
     return {
       dailyMessageCount: this.dailyMessageCount,
-      dailyLimit: DAILY_MESSAGE_LIMIT,
+      dailyLimit: settings.dailyMessageLimit,
       reconnectAttempts: this.reconnectAttempts,
       connectedAt: this.connectedAt,
       lastError: this.lastError,
-      minDelay: MIN_DELAY_MS,
-      maxDelay: MAX_DELAY_MS,
+      minDelay: settings.responseDelayMin,
+      maxDelay: settings.responseDelayMax,
       sessionExists: this.hasAuthState(),
       needsRelink: this.needsRelink,
     };
@@ -296,6 +298,12 @@ export class WhatsAppBot {
 
   async sendInteractiveReply(jid: string, reply: BotReply): Promise<void> {
     if (!this.sock) return;
+    const settings = await botSettingsService.getSettings();
+    if (settings.deletePreviousMessages) {
+      try {
+        await this.sock.chatModify({ clear: { messages: [] } }, jid);
+      } catch (e) {}
+    }
     const sent = await this.safeSendMessage(jid, { text: reply.body });
   }
 
@@ -410,7 +418,8 @@ export class WhatsAppBot {
         }
         this.lastError = `انقطع الاتصال (كود: ${statusCode})`;
 
-        if (this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        const reconnectSettings = await botSettingsService.getSettings().catch(() => ({ autoReconnect: true }));
+        if (reconnectSettings.autoReconnect && this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           this.reconnectAttempts++;
           const delay = Math.min(
             RECONNECT_BASE_DELAY * Math.pow(1.5, this.reconnectAttempts - 1),
@@ -422,6 +431,10 @@ export class WhatsAppBot {
           const reconnectPhone = isPairingInProgress ? this.pendingPhoneNumber : undefined;
           console.log(`[WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}, pairing=${isPairingInProgress})`);
           this.reconnectTimer = setTimeout(() => this.start(reconnectPhone || undefined), totalDelay);
+        } else if (!reconnectSettings.autoReconnect) {
+          this.pairingCode = null;
+          this.lastError = `انقطع الاتصال. إعادة الاتصال التلقائي معطّلة.`;
+          console.log(`[WhatsAppBot] Auto-reconnect is disabled. Not reconnecting.`);
         } else {
           this.pairingCode = null;
           this.lastError = `فشل الاتصال بعد ${MAX_RECONNECT_ATTEMPTS} محاولات. يرجى إعادة التشغيل يدوياً.`;
@@ -505,8 +518,10 @@ export class WhatsAppBot {
       const displayText = inputId ? `[${inputType}:${inputId}] ${text}` : text;
       console.log(`[WhatsAppBot] Message from ${cleanPhone}${isLid ? ` (LID: ${rawId})` : ''}: ${displayText}`);
 
-      if (this.dailyMessageCount >= DAILY_MESSAGE_LIMIT) {
-        console.warn(`[AntiBot] Daily message limit reached (${DAILY_MESSAGE_LIMIT}). Ignoring message.`);
+      const botSettings = await botSettingsService.getSettings();
+
+      if (this.dailyMessageCount >= botSettings.dailyMessageLimit) {
+        console.warn(`[AntiBot] Daily message limit reached (${botSettings.dailyMessageLimit}). Ignoring message.`);
         return;
       }
 
@@ -647,16 +662,19 @@ export class WhatsAppBot {
 
   async safeSendMessage(jid: string, content: any): Promise<any> {
     if (!this.sock) return;
+
+    const settings = await botSettingsService.getSettings();
+    const minDelay = settings.responseDelayMin;
+    const maxDelay = settings.responseDelayMax;
     
     const now = Date.now();
     const timeSinceLastMessage = now - this.lastMessageTime;
-    const minGap = MIN_DELAY_MS;
-    if (timeSinceLastMessage < minGap) {
-      const extraWait = minGap - timeSinceLastMessage;
+    if (timeSinceLastMessage < minDelay) {
+      const extraWait = minDelay - timeSinceLastMessage;
       await new Promise(resolve => setTimeout(resolve, extraWait));
     }
 
-    const delay = Math.floor(Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS + 1)) + MIN_DELAY_MS;
+    const delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
     await new Promise(resolve => setTimeout(resolve, delay));
     
     if (content.text && typeof content.text === 'string') {

@@ -8,6 +8,7 @@ import { eq, and, sql, ne, desc, inArray, or } from "drizzle-orm";
 import { authenticate } from "../../middleware/auth";
 import { z } from "zod";
 import { projectAccessService } from "../../services/ProjectAccessService";
+import { botSettingsService } from "../../services/ai-agent/whatsapp/BotSettingsService";
 
 const router = Router();
 
@@ -166,7 +167,7 @@ router.get("/qr-image", requireAdminCheck, async (req: Request, res: Response) =
   }
 });
 
-router.get("/status", (req: Request, res: Response) => {
+router.get("/status", async (req: Request, res: Response) => {
   const bot = getWhatsAppBot();
   const isAdmin = req.user?.role === 'admin' || req.user?.role === 'super_admin';
 
@@ -176,7 +177,7 @@ router.get("/status", (req: Request, res: Response) => {
     pairingCode: isAdmin ? bot.getPairingCode() : null,
     lastError: isAdmin ? bot.getLastError() : null,
     needsRelink: isAdmin ? bot.getNeedsRelink() : false,
-    protection: isAdmin ? bot.getProtectionStats() : { dailyMessageCount: 0, dailyLimit: 50 }
+    protection: isAdmin ? await bot.getProtectionStats() : { dailyMessageCount: 0, dailyLimit: 50 }
   });
 });
 
@@ -859,6 +860,90 @@ router.put("/admin/links/:linkId/projects", requireAdminCheck, async (req: Reque
 
     res.json(updatedProjects);
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const updateSettingsSchema = z.object({
+  botName: z.string().max(100).optional(),
+  botDescription: z.string().max(500).optional(),
+  language: z.enum(["ar", "en"]).optional(),
+  timezone: z.string().max(50).optional(),
+  deletePreviousMessages: z.boolean().optional(),
+  boldHeadings: z.boolean().optional(),
+  useEmoji: z.boolean().optional(),
+  welcomeMessage: z.string().optional(),
+  unavailableMessage: z.string().optional(),
+  footerText: z.string().max(200).optional(),
+  menuMainTitle: z.string().max(100).optional(),
+  menuExpensesTitle: z.string().max(100).optional(),
+  menuProjectsTitle: z.string().max(100).optional(),
+  menuReportsTitle: z.string().max(100).optional(),
+  menuExportTitle: z.string().max(100).optional(),
+  menuHelpTitle: z.string().max(100).optional(),
+  menuExpensesEmoji: z.string().max(10).optional(),
+  menuProjectsEmoji: z.string().max(10).optional(),
+  menuReportsEmoji: z.string().max(10).optional(),
+  menuExportEmoji: z.string().max(10).optional(),
+  menuHelpEmoji: z.string().max(10).optional(),
+  protectionLevel: z.enum(["maximum", "balanced", "minimal"]).optional(),
+  responseDelayMin: z.number().int().min(500).max(10000).optional(),
+  responseDelayMax: z.number().int().min(1000).max(30000).optional(),
+  dailyMessageLimit: z.number().int().min(10).max(1000).optional(),
+  notifyNewMessage: z.boolean().optional(),
+  notifyOnError: z.boolean().optional(),
+  notifyOnDisconnect: z.boolean().optional(),
+  debugMode: z.boolean().optional(),
+  messageLogging: z.boolean().optional(),
+  autoReconnect: z.boolean().optional(),
+}).refine((data) => {
+  if (data.responseDelayMin !== undefined && data.responseDelayMax !== undefined) {
+    return data.responseDelayMin <= data.responseDelayMax;
+  }
+  return true;
+}, { message: "تأخير الرد الأدنى يجب أن يكون أقل من أو يساوي الأقصى" });
+
+router.get("/settings", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const settings = await botSettingsService.getSettings();
+    res.json(settings);
+  } catch (error: any) {
+    console.error("[WhatsApp Settings] GET Error:", error?.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put("/settings", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const validation = updateSettingsSchema.safeParse(req.body);
+    if (!validation.success) {
+      const errMsg = validation.error.errors?.[0]?.message || "بيانات غير صالحة";
+      return res.status(400).json({ error: errMsg });
+    }
+
+    if (validation.data.responseDelayMin !== undefined || validation.data.responseDelayMax !== undefined) {
+      const current = await botSettingsService.getSettings();
+      const minVal = validation.data.responseDelayMin ?? current.responseDelayMin;
+      const maxVal = validation.data.responseDelayMax ?? current.responseDelayMax;
+      if (minVal > maxVal) {
+        return res.status(400).json({ error: "تأخير الرد الأدنى يجب أن يكون أقل من أو يساوي الأقصى" });
+      }
+    }
+
+    const updated = await botSettingsService.updateSettings(validation.data, req.user!.id);
+    res.json(updated);
+  } catch (error: any) {
+    console.error("[WhatsApp Settings] PUT Error:", error?.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/settings/reset", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const settings = await botSettingsService.resetSettings(req.user!.id);
+    res.json(settings);
+  } catch (error: any) {
+    console.error("[WhatsApp Settings] Reset Error:", error?.message);
     res.status(500).json({ error: error.message });
   }
 });

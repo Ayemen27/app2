@@ -17,92 +17,119 @@ export interface MenuNode {
   options: MenuOption[];
 }
 
-const menuRegistry: Record<string, MenuNode> = {
-  main: {
-    id: 'main',
-    title: 'القائمة الرئيسية',
-    body: '',
-    options: [
-      { id: 'menu_expenses', title: 'المصروفات', emoji: '💰' },
-      { id: 'menu_projects', title: 'المشاريع', emoji: '🏗️' },
-      { id: 'menu_reports', title: 'التقارير', emoji: '📊' },
-      { id: 'menu_help', title: 'المساعدة', emoji: '❓' },
-    ],
-  },
-  expenses: {
-    id: 'expenses',
-    title: 'المصروفات',
-    body: '',
-    parentId: 'main',
-    options: [
-      { id: 'expense_add', title: 'تسجيل مصروف', emoji: '➕' },
-      { id: 'expense_summary', title: 'ملخص المصروفات', emoji: '📋' },
-      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
-    ],
-  },
-  projects: {
-    id: 'projects',
-    title: 'المشاريع',
-    body: '',
-    parentId: 'main',
-    options: [
-      { id: 'projects_list', title: 'عرض المشاريع', emoji: '📂' },
-      { id: 'projects_status', title: 'الإحصائيات', emoji: '📈' },
-      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
-    ],
-  },
-  reports: {
-    id: 'reports',
-    title: 'التقارير',
-    body: '',
-    parentId: 'main',
-    options: [
-      { id: 'report_daily', title: 'تقرير يومي', emoji: '📅' },
-      { id: 'report_project', title: 'تقرير مشروع', emoji: '🏢' },
-      { id: 'menu_export', title: 'تصدير كشوفات', emoji: '📤' },
-      { id: 'report_ask', title: 'اسأل الذكاء الاصطناعي', emoji: '🤖' },
-      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
-    ],
-  },
-  export_reports: {
-    id: 'export_reports',
-    title: 'تصدير الكشوفات',
-    body: '',
-    parentId: 'reports',
-    options: [
-      { id: 'export_daily', title: 'كشف يومي شامل', emoji: '📋' },
-      { id: 'export_worker', title: 'كشف حساب عامل', emoji: '👷' },
-      { id: 'export_period', title: 'تقرير فترة ختامي', emoji: '📊' },
-      { id: 'export_daily_range', title: 'كشف يومي لفترة', emoji: '📅' },
-      { id: 'export_multi_project', title: 'تقرير متعدد المشاريع', emoji: '🏗️' },
-      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
-    ],
-  },
-  help: {
-    id: 'help',
-    title: 'المساعدة',
-    body: '',
-    parentId: 'main',
-    options: [
-      { id: 'help_commands', title: 'الأوامر المتاحة', emoji: '📖' },
-      { id: 'help_contact', title: 'تواصل مع الدعم', emoji: '📞' },
-      { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
-    ],
-  },
-};
+interface BotSettingsForMenu {
+  menuMainTitle?: string;
+  menuExpensesTitle?: string;
+  menuProjectsTitle?: string;
+  menuReportsTitle?: string;
+  menuExportTitle?: string;
+  menuHelpTitle?: string;
+  menuExpensesEmoji?: string;
+  menuProjectsEmoji?: string;
+  menuReportsEmoji?: string;
+  menuExportEmoji?: string;
+  menuHelpEmoji?: string;
+  footerText?: string;
+}
+
+function getMenuRegistry(settings?: BotSettingsForMenu): Record<string, MenuNode> {
+  const s = settings || {};
+  return {
+    main: {
+      id: 'main',
+      title: s.menuMainTitle || 'القائمة الرئيسية',
+      body: '',
+      options: [
+        { id: 'menu_expenses', title: s.menuExpensesTitle || 'المصروفات', emoji: s.menuExpensesEmoji || '💰' },
+        { id: 'menu_projects', title: s.menuProjectsTitle || 'المشاريع', emoji: s.menuProjectsEmoji || '🏗️' },
+        { id: 'menu_reports', title: s.menuReportsTitle || 'التقارير', emoji: s.menuReportsEmoji || '📊' },
+        { id: 'menu_help', title: s.menuHelpTitle || 'المساعدة', emoji: s.menuHelpEmoji || '❓' },
+      ],
+    },
+    expenses: {
+      id: 'expenses',
+      title: s.menuExpensesTitle || 'المصروفات',
+      body: '',
+      parentId: 'main',
+      options: [
+        { id: 'expense_add', title: 'تسجيل مصروف', emoji: '➕' },
+        { id: 'expense_summary', title: 'ملخص المصروفات', emoji: '📋' },
+        { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
+      ],
+    },
+    projects: {
+      id: 'projects',
+      title: s.menuProjectsTitle || 'المشاريع',
+      body: '',
+      parentId: 'main',
+      options: [
+        { id: 'projects_list', title: 'عرض المشاريع', emoji: '📂' },
+        { id: 'projects_status', title: 'الإحصائيات', emoji: '📈' },
+        { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
+      ],
+    },
+    reports: {
+      id: 'reports',
+      title: s.menuReportsTitle || 'التقارير',
+      body: '',
+      parentId: 'main',
+      options: [
+        { id: 'report_daily', title: 'تقرير يومي', emoji: '📅' },
+        { id: 'report_project', title: 'تقرير مشروع', emoji: '🏢' },
+        { id: 'menu_export', title: 'تصدير كشوفات', emoji: s.menuExportEmoji || '📤' },
+        { id: 'report_ask', title: 'اسأل الذكاء الاصطناعي', emoji: '🤖' },
+        { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
+      ],
+    },
+    export_reports: {
+      id: 'export_reports',
+      title: s.menuExportTitle || 'تصدير الكشوفات',
+      body: '',
+      parentId: 'reports',
+      options: [
+        { id: 'export_daily', title: 'كشف يومي شامل', emoji: '📋' },
+        { id: 'export_worker', title: 'كشف حساب عامل', emoji: '👷' },
+        { id: 'export_period', title: 'تقرير فترة ختامي', emoji: '📊' },
+        { id: 'export_daily_range', title: 'كشف يومي لفترة', emoji: '📅' },
+        { id: 'export_multi_project', title: 'تقرير متعدد المشاريع', emoji: '🏗️' },
+        { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
+      ],
+    },
+    help: {
+      id: 'help',
+      title: s.menuHelpTitle || 'المساعدة',
+      body: '',
+      parentId: 'main',
+      options: [
+        { id: 'help_commands', title: 'الأوامر المتاحة', emoji: '📖' },
+        { id: 'help_contact', title: 'تواصل مع الدعم', emoji: '📞' },
+        { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
+      ],
+    },
+  };
+}
+
+const menuRegistry = getMenuRegistry();
 
 const NAV_HINT = `*0* القائمة | *#* رجوع`;
 
-export function getMenuNode(menuId: string): MenuNode | undefined {
-  return menuRegistry[menuId];
+function getFooterText(settings?: BotSettingsForMenu): string {
+  return settings?.footerText || NAV_HINT;
+}
+
+export function getMenuNode(menuId: string, settings?: BotSettingsForMenu): MenuNode | undefined {
+  const registry = settings ? getMenuRegistry(settings) : menuRegistry;
+  return registry[menuId];
 }
 
 function formatMenuOptions(options: MenuOption[]): string {
   return options.map((opt, i) => `${opt.emoji} *${i + 1}.* ${opt.title}`).join('\n');
 }
 
-export function buildWelcomeReply(userName: string): BotReply {
-  const mainNode = menuRegistry.main;
+export function buildWelcomeReply(userName: string, settings?: BotSettingsForMenu): BotReply {
+  const registry = settings ? getMenuRegistry(settings) : menuRegistry;
+  const mainNode = registry.main;
+  const footer = getFooterText(settings);
   const lines: string[] = [
     `🏗️ *مساعد إدارة المشاريع*`,
     `أهلاً *${userName}*! اختر خدمة:`,
@@ -114,25 +141,29 @@ export function buildWelcomeReply(userName: string): BotReply {
   return { type: 'text', body: lines.join('\n') };
 }
 
-export function buildMenuReply(menuId: string): BotReply {
-  const node = menuRegistry[menuId];
+export function buildMenuReply(menuId: string, settings?: BotSettingsForMenu): BotReply {
+  const registry = settings ? getMenuRegistry(settings) : menuRegistry;
+  const node = registry[menuId];
   if (!node) {
     return { type: 'text', body: '❌ القائمة غير موجودة. أرسل *0* للرئيسية.' };
   }
+  const footer = getFooterText(settings);
   const lines: string[] = [
     `📌 *${node.title}*`,
     ``,
     formatMenuOptions(node.options),
     ``,
-    NAV_HINT,
+    footer,
   ];
   return { type: 'text', body: lines.join('\n') };
 }
 
-export function buildTextWithMenu(header: string, body: string, menuId?: string): BotReply {
+export function buildTextWithMenu(header: string, body: string, menuId?: string, settings?: BotSettingsForMenu): BotReply {
+  const registry = settings ? getMenuRegistry(settings) : menuRegistry;
+  const footer = getFooterText(settings);
   const lines: string[] = [body];
   if (menuId) {
-    const node = menuRegistry[menuId];
+    const node = registry[menuId];
     if (node) {
       lines.push(``);
       lines.push(`📌 *${node.title}*`);
@@ -140,11 +171,12 @@ export function buildTextWithMenu(header: string, body: string, menuId?: string)
     }
   }
   lines.push(``);
-  lines.push(NAV_HINT);
+  lines.push(footer);
   return { type: 'text', body: lines.join('\n') };
 }
 
-export function buildQuickOptions(header: string, body: string, options: { emoji: string; title: string }[]): BotReply {
+export function buildQuickOptions(header: string, body: string, options: { emoji: string; title: string }[], settings?: BotSettingsForMenu): BotReply {
+  const footer = getFooterText(settings);
   const lines: string[] = [
     `📌 *${header}*`,
     body,
@@ -154,7 +186,7 @@ export function buildQuickOptions(header: string, body: string, options: { emoji
     lines.push(`${opt.emoji} *${i + 1}.* ${opt.title}`);
   });
   lines.push(``);
-  lines.push(NAV_HINT);
+  lines.push(footer);
   return { type: 'text', body: lines.join('\n') };
 }
 

@@ -2,6 +2,7 @@ import { AIAgentService, getAIAgentService } from "./AIAgentService";
 import { WhatsAppSecurityContext } from "./WhatsAppSecurityContext";
 import { db } from "../../db";
 import { storage } from "../../storage";
+import { botSettingsService } from "./whatsapp/BotSettingsService";
 import { reportDataService } from "../../services/reports/ReportDataService";
 import { generateDailyReportExcel } from "../../services/reports/templates/DailyReportExcel";
 import { generateWorkerStatementExcel } from "../../services/reports/templates/WorkerStatementExcel";
@@ -90,7 +91,7 @@ export class WhatsAppAIService {
     try {
       const rows = await db.select({
         phone: whatsappUserLinks.phoneNumber,
-        userId: whatsappUserLinks.userId,
+        userId: whatsappUserLinks.user_id,
       }).from(whatsappUserLinks)
         .where(eq(whatsappUserLinks.isActive, true))
         .limit(100);
@@ -175,20 +176,23 @@ export class WhatsAppAIService {
     } catch (e) {}
 
     const cleanPhone = senderPhone.replace(/\D/g, '');
-    try {
-      await storage.createWhatsAppMessage({
-        sender: cleanPhone,
-        wa_id: 'bot',
-        content: inputType === 'image' ? (message || '📷 صورة') : message.trim().substring(0, 5000),
-        status: 'received',
-        phone_number: cleanPhone,
-        user_id: userId,
-        is_authorized: true,
-        security_scope: { role, projectIds: userProjectIds, isAdmin },
-        metadata: messageMetadata || (inputType === 'image' ? { type: 'image' } : undefined),
-      });
-    } catch (e) {
-      console.error('[WhatsAppAI] Failed to log message:', e);
+    const currentSettings = await botSettingsService.getSettings();
+    if (currentSettings.messageLogging) {
+      try {
+        await storage.createWhatsAppMessage({
+          sender: cleanPhone,
+          wa_id: 'bot',
+          content: inputType === 'image' ? (message || '📷 صورة') : message.trim().substring(0, 5000),
+          status: 'received',
+          phone_number: cleanPhone,
+          user_id: userId,
+          is_authorized: true,
+          security_scope: { role, projectIds: userProjectIds, isAdmin },
+          metadata: messageMetadata || (inputType === 'image' ? { type: 'image' } : undefined),
+        });
+      } catch (e) {
+        console.error('[WhatsAppAI] Failed to log message:', e);
+      }
     }
 
     const effectiveInput = inputId || message.trim();
@@ -314,8 +318,13 @@ export class WhatsAppAIService {
     role: string,
     isAdmin: boolean
   ): Promise<BotReply> {
+    const intentSettings = await botSettingsService.getSettings();
+
     switch (intent.type) {
       case 'greeting':
+        if (intentSettings.welcomeMessage && intentSettings.welcomeMessage.trim() !== '') {
+          return buildTextWithMenu('مرحباً', intentSettings.welcomeMessage.replace('{name}', userName), 'main');
+        }
         return buildWelcomeReply(userName);
 
       case 'add_expense':
@@ -1427,20 +1436,23 @@ export class WhatsAppAIService {
         securityContext
       );
 
-      try {
-        const cleanPhoneOut = senderPhone.replace(/\D/g, '');
-        await storage.createWhatsAppMessage({
-          sender: 'bot',
-          wa_id: cleanPhoneOut,
-          content: response.message.substring(0, 5000),
-          status: 'sent',
-          phone_number: cleanPhoneOut,
-          user_id: userId,
-          is_authorized: true,
-          security_scope: { role, projectIds: userProjectIds, isAdmin },
-        });
-      } catch (e2) {
-        console.error('[WhatsAppAI] Failed to log outgoing message:', e2);
+      const outSettings = await botSettingsService.getSettings();
+      if (outSettings.messageLogging) {
+        try {
+          const cleanPhoneOut = senderPhone.replace(/\D/g, '');
+          await storage.createWhatsAppMessage({
+            sender: 'bot',
+            wa_id: cleanPhoneOut,
+            content: response.message.substring(0, 5000),
+            status: 'sent',
+            phone_number: cleanPhoneOut,
+            user_id: userId,
+            is_authorized: true,
+            security_scope: { role, projectIds: userProjectIds, isAdmin },
+          });
+        } catch (e2) {
+          console.error('[WhatsAppAI] Failed to log outgoing message:', e2);
+        }
       }
 
       return textReply(nav(response.message));

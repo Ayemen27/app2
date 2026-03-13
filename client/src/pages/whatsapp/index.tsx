@@ -54,6 +54,7 @@ import { formatDate } from "@/lib/utils";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/AuthProvider";
+import BotSettingsTab from "./BotSettingsTab";
 
 const ANTI_BAN_TIPS = [
   { icon: Clock, title: "تأخير الردود", desc: "يتم إضافة تأخير عشوائي 2-5 ثوانٍ قبل كل رد لمحاكاة السلوك البشري", key: "delay" },
@@ -989,6 +990,9 @@ export default function WhatsAppSetupPage() {
     }
     items.push({ id: "protection", label: "الحماية", icon: Shield, color: "data-[state=active]:bg-amber-500" });
     items.push({ id: "stats", label: "إحصائيات", icon: BarChart3, color: "data-[state=active]:bg-teal-500" });
+    if (isAdmin) {
+      items.push({ id: "settings", label: "الإعدادات", icon: Settings, color: "data-[state=active]:bg-slate-500" });
+    }
     return items;
   }, [isAdmin]);
 
@@ -2754,6 +2758,12 @@ export default function WhatsAppSetupPage() {
               </Card>
             </div>
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="settings" className="mt-6" data-testid="tab-content-settings">
+              <BotSettingsTab />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

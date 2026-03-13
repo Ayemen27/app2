@@ -5,6 +5,7 @@ import { storage } from "../../storage";
 import { db } from "../../db";
 import { whatsappUserLinks, whatsappAllowedNumbers, users } from "@shared/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
+import { authenticate } from "../../middleware/auth";
 
 const router = Router();
 
@@ -12,14 +13,7 @@ function canonicalizePhone(phone: string): string {
   return phone.replace(/\D/g, '');
 }
 
-const requireAuth = (req: Request, res: Response, next: any) => {
-  if (!req.user || !req.user.email) {
-    return res.status(401).json({ error: "غير مخول", message: "يرجى تسجيل الدخول" });
-  }
-  next();
-};
-
-const requireAdmin = (req: Request, res: Response, next: any) => {
+const requireAdminCheck = (req: Request, res: Response, next: any) => {
   if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
     return res.status(403).json({ error: "غير مصرح", message: "هذا الإجراء للمسؤولين فقط" });
   }
@@ -28,7 +22,7 @@ const requireAdmin = (req: Request, res: Response, next: any) => {
 
 const WEBHOOK_SECRET = process.env.WHATSAPP_WEBHOOK_SECRET || "";
 
-router.use(requireAuth);
+router.use(authenticate);
 
 router.get("/my-link", async (req: Request, res: Response) => {
   try {
@@ -110,7 +104,7 @@ router.post("/unlink-phone", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/all-links", requireAdmin, async (req: Request, res: Response) => {
+router.get("/all-links", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const links = await db.select({
       id: whatsappUserLinks.id,
@@ -132,7 +126,7 @@ router.get("/all-links", requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
-router.delete("/admin-unlink/:userId", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin-unlink/:userId", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     await db.delete(whatsappUserLinks).where(eq(whatsappUserLinks.user_id, userId));
@@ -142,7 +136,7 @@ router.delete("/admin-unlink/:userId", requireAdmin, async (req: Request, res: R
   }
 });
 
-router.get("/qr-image", requireAdmin, async (req: Request, res: Response) => {
+router.get("/qr-image", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const bot = getWhatsAppBot();
     const qr = bot.getQR();
@@ -170,14 +164,14 @@ router.get("/status", (req: Request, res: Response) => {
   });
 });
 
-router.post("/restart", requireAdmin, async (req: Request, res: Response) => {
+router.post("/restart", requireAdminCheck, async (req: Request, res: Response) => {
   const { phoneNumber } = req.body;
   const bot = getWhatsAppBot();
   await bot.restart(phoneNumber);
   res.json({ success: true });
 });
 
-router.post("/disconnect", requireAdmin, async (req: Request, res: Response) => {
+router.post("/disconnect", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const bot = getWhatsAppBot();
     if (bot.getStatus() === "open" || bot.getStatus() === "connecting") {
@@ -231,7 +225,7 @@ router.get("/stats", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/allowed-numbers", requireAdmin, async (req: Request, res: Response) => {
+router.get("/allowed-numbers", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const numbers = await db.select({
       id: whatsappAllowedNumbers.id,
@@ -251,7 +245,7 @@ router.get("/allowed-numbers", requireAdmin, async (req: Request, res: Response)
   }
 });
 
-router.post("/allowed-numbers", requireAdmin, async (req: Request, res: Response) => {
+router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const { phoneNumber, label } = req.body;
     if (!phoneNumber || phoneNumber.length < 8) {
@@ -277,7 +271,7 @@ router.post("/allowed-numbers", requireAdmin, async (req: Request, res: Response
   }
 });
 
-router.patch("/allowed-numbers/:id", requireAdmin, async (req: Request, res: Response) => {
+router.patch("/allowed-numbers/:id", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     const { isActive, label } = req.body;
@@ -293,7 +287,7 @@ router.patch("/allowed-numbers/:id", requireAdmin, async (req: Request, res: Res
   }
 });
 
-router.delete("/allowed-numbers/:id", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/allowed-numbers/:id", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
     await db.delete(whatsappAllowedNumbers).where(eq(whatsappAllowedNumbers.id, id));

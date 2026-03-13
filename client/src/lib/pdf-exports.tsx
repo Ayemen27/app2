@@ -136,6 +136,7 @@ export const generateWorkerPDF = async (data: any, worker: any): Promise<boolean
       return false;
     }
 
+    const DOMPurify = (await import('dompurify')).default;
     const html = buildWorkerHTML(data, worker);
 
     const container = document.createElement('div');
@@ -145,7 +146,7 @@ export const generateWorkerPDF = async (data: any, worker: any): Promise<boolean
     container.style.width = '794px';
     container.style.background = '#fff';
     container.style.zIndex = '-1';
-    container.innerHTML = html;
+    container.innerHTML = DOMPurify.sanitize(html, { ADD_TAGS: ['style'], ADD_ATTR: ['dir', 'lang'] });
     document.body.appendChild(container);
 
     await new Promise(r => setTimeout(r, 300));

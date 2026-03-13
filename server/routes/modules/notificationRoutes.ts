@@ -416,15 +416,18 @@ notificationRouter.get('/all', async (req: Request, res: Response) => {
 });
 
 /**
- * 📥 جلب نشاط المستخدمين (للمسؤولين)
+ * 📥 جلب نشاط المستخدمين (للمسؤولين فقط)
  */
-notificationRouter.get('/user-activity', async (req: Request, res: Response) => {
+notificationRouter.get('/user-activity', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService.js');
     const notificationService = new NotificationService();
     
-    // محاكاة نشاط المستخدمين من خلال الإشعارات
-    const result = await notificationService.getUserNotifications('admin', { limit: 10 });
+    const userId = (req as any).user?.user_id || (req as any).user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'معرف المستخدم غير متوفر' });
+    }
+    const result = await notificationService.getUserNotifications(userId, { limit: 10 });
     res.json({ success: true, data: result.notifications });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

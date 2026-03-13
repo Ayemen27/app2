@@ -78,6 +78,13 @@ authRouter.post('/login', async (req: Request, res: Response) => {
             maxAge: 90 * 24 * 60 * 60 * 1000
           });
 
+          res.cookie('accessToken', emergencyResult.data.accessToken, {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000
+          });
+
           return res.json({
             success: true,
             status: "success",
@@ -187,12 +194,18 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       refreshTokenLength: tokenPair.refreshToken?.length || 0
     });
 
-    // تعيين Refresh Token في Cookie محمية (للوقت الحالي ونسخة الويب)
     res.cookie('refreshToken', tokenPair.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 90 * 24 * 60 * 60 * 1000 // 90 يوم
+      maxAge: 90 * 24 * 60 * 60 * 1000
+    });
+
+    res.cookie('accessToken', tokenPair.accessToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000
     });
 
     // هيكلة استجابة متوافقة تماماً مع Android و Web
@@ -536,13 +549,18 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       console.log('✅ [AUTH] تم تجديد الرموز بنجاح:', { user_id: user.id });
 
-      // إذا كان الطلب من الويب (بواسطة الكوكيز)، نقوم بتحديث الكوكي
       if (cookieToken) {
         res.cookie('refreshToken', tokenPair.refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           maxAge: 30 * 24 * 60 * 60 * 1000
+        });
+        res.cookie('accessToken', tokenPair.accessToken, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60 * 1000
         });
       }
 

@@ -1,4 +1,5 @@
 import { downloadFile, isMobileWebView } from '@/utils/webview-download';
+import DOMPurify from 'dompurify';
 
 interface PDFGenerationOptions {
   html: string;
@@ -16,7 +17,7 @@ export async function generatePDF(options: PDFGenerationOptions): Promise<boolea
     container.style.width = '794px';
     container.style.background = '#fff';
     container.style.zIndex = '-1';
-    container.innerHTML = options.html;
+    container.innerHTML = DOMPurify.sanitize(options.html, { ADD_TAGS: ['style'], ADD_ATTR: ['dir', 'lang'] });
     document.body.appendChild(container);
 
     await new Promise(r => setTimeout(r, 300));

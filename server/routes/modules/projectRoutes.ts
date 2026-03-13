@@ -98,13 +98,35 @@ projectRouter.get('/', async (req: Request, res: Response) => {
  * GET /api/projects/with-stats
  * يستخدم ExpenseLedgerService كمصدر موحد للحقيقة
  */
+const statsCache = new Map<string, { data: any; timestamp: number }>();
+const STATS_CACHE_TTL = 120_000;
+
+function getStatsFromCache(key: string): any | null {
+  const entry = statsCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > STATS_CACHE_TTL) {
+    statsCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
 projectRouter.get('/with-stats', async (req: Request, res: Response) => {
   try {
-    console.log('📊 [API] جلب المشاريع مع الإحصائيات باستخدام ExpenseLedgerService');
-
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    
+    const userId = (accessReq.user as any)?.user_id || (accessReq.user as any)?.id || 'anon';
+    const cacheKey = isAdminUser ? 'admin' : `user:${userId}`;
+
+    const cached = getStatsFromCache(cacheKey);
+    if (cached) {
+      return res.json({
+        success: true,
+        data: cached,
+        message: `تم جلب ${cached.length} مشروع مع الإحصائيات بنجاح (cached)`
+      });
+    }
+
     let projectsList;
     if (isAdminUser) {
       projectsList = await db.select().from(projects).orderBy(projects.created_at);
@@ -119,53 +141,50 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
       }
     }
 
-    const projectsWithStats = await Promise.all(projectsList.map(async (project) => {
-      try {
-        const summary = await ExpenseLedgerService.getProjectFinancialSummary(project.id);
+    const BATCH_SIZE = 5;
+    const projectsWithStats: any[] = [];
+    for (let i = 0; i < projectsList.length; i += BATCH_SIZE) {
+      const batch = projectsList.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(async (project) => {
+        try {
+          const summary = await ExpenseLedgerService.getProjectFinancialSummary(project.id);
+          return {
+            ...project,
+            stats: {
+              totalWorkers: summary.workers.totalWorkers,
+              totalExpenses: summary.expenses.totalCashExpenses,
+              totalExpensesAll: summary.expenses.totalAllExpenses,
+              totalIncome: summary.income.totalIncome,
+              currentBalance: summary.cashBalance,
+              totalBalance: summary.totalBalance,
+              activeWorkers: summary.workers.activeWorkers,
+              completedDays: summary.workers.completedDays,
+              materialPurchases: summary.counts?.materialPurchases || 0,
+              materialExpensesCredit: summary.expenses?.materialExpensesCredit || 0,
+              totalTransportation: summary.expenses?.totalTransportation || 0,
+              totalMiscExpenses: summary.expenses?.totalMiscExpenses || 0,
+              totalWorkerWages: summary.expenses?.totalWorkerWages || 0,
+              totalFundTransfers: summary.expenses?.totalFundTransfers || 0,
+              totalWorkerTransfers: summary.expenses?.totalWorkerTransfers || 0,
+              lastActivity: project.created_at.toISOString()
+            }
+          };
+        } catch {
+          return {
+            ...project,
+            stats: {
+              totalWorkers: 0, totalExpenses: 0, totalExpensesAll: 0,
+              totalIncome: 0, currentBalance: 0, totalBalance: 0,
+              activeWorkers: 0, completedDays: 0, materialPurchases: 0,
+              materialExpensesCredit: 0, lastActivity: project.created_at.toISOString()
+            }
+          };
+        }
+      }));
+      projectsWithStats.push(...batchResults);
+    }
 
-        return {
-          ...project,
-          stats: {
-            totalWorkers: summary.workers.totalWorkers,
-            totalExpenses: summary.expenses.totalCashExpenses,
-            totalExpensesAll: summary.expenses.totalAllExpenses,
-            totalIncome: summary.income.totalIncome,
-            currentBalance: summary.cashBalance,
-            totalBalance: summary.totalBalance,
-            activeWorkers: summary.workers.activeWorkers,
-            completedDays: summary.workers.completedDays,
-            materialPurchases: summary.counts?.materialPurchases || 0,
-            materialExpensesCredit: summary.expenses?.materialExpensesCredit || 0,
-            totalTransportation: summary.expenses?.totalTransportation || 0,
-            totalMiscExpenses: summary.expenses?.totalMiscExpenses || 0,
-            totalWorkerWages: summary.expenses?.totalWorkerWages || 0,
-            totalFundTransfers: summary.expenses?.totalFundTransfers || 0,
-            totalWorkerTransfers: summary.expenses?.totalWorkerTransfers || 0,
-            lastActivity: project.created_at.toISOString()
-          }
-        };
-      } catch (error) {
-        console.error(`❌ [API] خطأ في حساب إحصائيات المشروع ${project.name}:`, error);
-        return {
-          ...project,
-          stats: {
-            totalWorkers: 0,
-            totalExpenses: 0,
-            totalExpensesAll: 0,
-            totalIncome: 0,
-            currentBalance: 0,
-            totalBalance: 0,
-            activeWorkers: 0,
-            completedDays: 0,
-            materialPurchases: 0,
-            materialExpensesCredit: 0,
-            lastActivity: project.created_at.toISOString()
-          }
-        };
-      }
-    }));
-
-    console.log(`✅ [API] تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات من ExpenseLedgerService`);
+    statsCache.set(cacheKey, { data: projectsWithStats, timestamp: Date.now() });
 
     res.json({
       success: true,
@@ -173,7 +192,6 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
       message: `تم جلب ${projectsWithStats.length} مشروع مع الإحصائيات بنجاح`
     });
   } catch (error: any) {
-    console.error('❌ [API] خطأ في جلب المشاريع مع الإحصائيات:', error);
     res.status(500).json({
       success: false,
       data: [],
@@ -866,10 +884,32 @@ projectRouter.patch('/:id', requireProjectAccess('edit'), async (req: Request, r
       });
     }
 
-    // تحديث المشروع
+    const allowedFields = [
+      'name', 'description', 'location', 'clientName', 'budget',
+      'startDate', 'endDate', 'status', 'engineerId', 'managerName',
+      'contactPhone', 'notes', 'imageUrl', 'project_type_id', 'is_active'
+    ] as const;
+
+    const sanitizedBody: Record<string, unknown> = {};
+    for (const key of Object.keys(req.body)) {
+      if ((allowedFields as readonly string[]).includes(key)) {
+        sanitizedBody[key] = req.body[key];
+      }
+    }
+
+    if (Object.keys(sanitizedBody).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'لا توجد حقول صالحة للتحديث',
+        processingTime: Date.now() - startTime
+      });
+    }
+
+    sanitizedBody.updated_at = new Date();
+
     const updatedProject = await db
       .update(projects)
-      .set(req.body)
+      .set(sanitizedBody)
       .where(eq(projects.id, project_id))
       .returning();
 

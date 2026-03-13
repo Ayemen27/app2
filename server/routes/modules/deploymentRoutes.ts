@@ -75,7 +75,7 @@ router.post("/deploy", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/list", async (req, res) => {
+router.get("/list", requireAdmin as any, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = parseInt(req.query.offset as string) || 0;
@@ -87,7 +87,7 @@ router.get("/list", async (req, res) => {
   }
 });
 
-router.get("/history", async (req, res) => {
+router.get("/history", requireAdmin as any, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = parseInt(req.query.offset as string) || 0;
@@ -99,7 +99,7 @@ router.get("/history", async (req, res) => {
   }
 });
 
-router.get("/stats", async (req, res) => {
+router.get("/stats", requireAdmin as any, async (req, res) => {
   try {
     const stats = await deploymentEngine.getDeploymentStats();
     res.json(stats);
@@ -126,7 +126,7 @@ router.post("/cleanup", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/status/:id", async (req, res) => {
+router.get("/status/:id", requireAdmin as any, async (req, res) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment) return res.status(404).json({ error: "Deployment not found" });
@@ -136,7 +136,7 @@ router.get("/status/:id", async (req, res) => {
   }
 });
 
-router.get("/:id/events", async (req, res) => {
+router.get("/:id/events", requireAdmin as any, async (req, res) => {
   try {
     const events = await deploymentEngine.getDeploymentEvents(req.params.id);
     res.json(events);
@@ -145,7 +145,7 @@ router.get("/:id/events", async (req, res) => {
   }
 });
 
-router.get("/:id/stream", async (req, res) => {
+router.get("/:id/stream", requireAdmin as any, async (req, res) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -206,7 +206,7 @@ router.post("/:id/rollback", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", requireAdmin as any, async (req, res) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment) return res.status(404).json({ error: "Deployment not found" });

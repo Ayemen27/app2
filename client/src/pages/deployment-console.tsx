@@ -210,38 +210,71 @@ export default function DeploymentConsole() {
   });
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sseConnectedRef = useRef(false);
+  const pollRetryCountRef = useRef(0);
+  const MAX_POLL_RETRIES = 5;
+
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    pollRetryCountRef.current = 0;
+  }, []);
 
   const startPolling = useCallback((deploymentId: string) => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    pollIntervalRef.current = setInterval(async () => {
+    if (sseConnectedRef.current) return;
+    stopPolling();
+    
+    const poll = async () => {
       try {
         const data = await apiRequest(`/api/deployment/${deploymentId}`);
+        pollRetryCountRef.current = 0;
         setLiveDeployment(data);
         setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
         if (data.status === "success" || data.status === "failed") {
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
+          stopPolling();
           refetchHistory();
           queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
         }
-      } catch {}
-    }, 3000);
-  }, [refetchHistory, queryClient]);
+      } catch {
+        pollRetryCountRef.current++;
+        if (pollRetryCountRef.current >= MAX_POLL_RETRIES) {
+          stopPolling();
+        }
+      }
+    };
+
+    poll();
+    const scheduleNext = () => {
+      const delay = Math.min(5000 * Math.pow(1.5, pollRetryCountRef.current), 30000);
+      pollIntervalRef.current = setTimeout(async () => {
+        await poll();
+        if (pollIntervalRef.current !== null) {
+          scheduleNext();
+        }
+      }, delay) as unknown as ReturnType<typeof setInterval>;
+    };
+    scheduleNext();
+  }, [refetchHistory, queryClient, stopPolling]);
 
   const connectSSE = useCallback((deploymentId: string) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
+    sseConnectedRef.current = false;
 
-    startPolling(deploymentId);
-
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
     const apiBase = ENV.getApiBaseUrl();
     
     try {
-      const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream${tokenParam}`);
+      const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream`, { withCredentials: true });
       eventSourceRef.current = es;
+
+      es.onopen = () => {
+        sseConnectedRef.current = true;
+        stopPolling();
+      };
 
       es.onmessage = (event) => {
         try {
@@ -270,16 +303,19 @@ export default function DeploymentConsole() {
               return { ...prev, steps };
             });
           }
-        } catch {}
+        } catch { /* malformed SSE data */ }
       };
 
       es.onerror = () => {
+        sseConnectedRef.current = false;
         es.close();
         eventSourceRef.current = null;
+        startPolling(deploymentId);
       };
     } catch {
+      startPolling(deploymentId);
     }
-  }, [refetchHistory, queryClient, startPolling]);
+  }, [refetchHistory, queryClient, startPolling, stopPolling]);
 
   useEffect(() => {
     if (activeDeploymentId) {
@@ -484,6 +520,17 @@ export default function DeploymentConsole() {
       setLiveDeployment(data);
       setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
       userScrolledUp.current = false;
+      
+      if (data.status === "running") {
+        connectSSE(id);
+      } else {
+        stopPolling();
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
+        sseConnectedRef.current = false;
+      }
     } catch (error: any) {
       toast({ title: "فشل تحميل بيانات العملية", description: error.message, variant: "destructive" });
     }

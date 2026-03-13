@@ -57,3 +57,15 @@ This project is a Node.js application (rest-express v1.0.29) designed as a profe
 - **Reporting:** ExcelJS for Excel generation.
 - **Deployment:** PM2 for process management, SSH for deployment. Professional Deployment & DevOps Console with real-time SSE log streaming, multi-pipeline support (web-deploy, android-build, full-deploy, git-push), deployment history, and statistics. Backend engine: `server/services/deployment-engine.ts`. API routes: `server/routes/modules/deploymentRoutes.ts`. Frontend: `client/src/pages/deployment-console.tsx`. Database tables: `build_deployments` (enhanced with environment, branch, commit, pipeline, artifact fields) and `deployment_events` (real-time event tracking).
 - **QR Code Generation:** `qrcode` package.
+- **XSS Protection:** DOMPurify for sanitizing HTML in PDF generation.
+
+## Security Hardening (Phase 1 - Applied)
+- **Mass Assignment Protection:** PATCH `/api/projects/:id` uses an allowlist of permitted fields instead of passing `req.body` directly to `.set()`.
+- **Authorization Enforcement:** Deployment routes (`/list`, `/stats`, `/history`, `/stream`) require `requireAdmin`. Notification `/user-activity` requires `requireRole('admin')`.
+- **Data Exposure Fix:** `/user-activity` endpoint now uses the authenticated user's ID instead of a hardcoded `'admin'` string.
+- **XSS Mitigation:** All `innerHTML` usage in PDF generators (`pdfGenerator.ts`, `pdf-exports.tsx`) is sanitized with DOMPurify.
+- **Token Security:** SSE deployment stream uses cookie-based auth (`withCredentials: true`) instead of passing access tokens in query strings.
+
+## Performance Optimizations (Phase 1 - Applied)
+- **Polling Storm Fix:** Deployment console uses SSE as primary channel; polling is fallback-only with exponential backoff (5s base, 30s max). Polling stops on SSE connection, terminal states (success/failed), and after 5 consecutive errors. Viewing completed deployments does not start polling.
+- **Projects Stats Caching:** `/api/projects/with-stats` caches results per user for 2 minutes (120s TTL) and processes projects in batches of 5 to reduce database pressure.

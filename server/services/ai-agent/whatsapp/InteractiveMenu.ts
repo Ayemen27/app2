@@ -29,69 +29,65 @@ export interface MenuNode {
   title: string;
   body: string;
   parentId?: string;
-  options: BotReplyButton[] | ListSection[];
-  replyType: 'buttons' | 'list';
+  options: { id: string; title: string; emoji: string }[];
 }
 
 const menuRegistry: Record<string, MenuNode> = {
   main: {
     id: 'main',
     title: 'القائمة الرئيسية',
-    body: 'اختر من القائمة:',
-    replyType: 'buttons',
+    body: 'اختر رقم الخدمة المطلوبة:',
     options: [
-      { id: 'menu_expenses', title: 'إضافة مصروف' },
-      { id: 'menu_projects', title: 'مشاريعي' },
-      { id: 'menu_reports', title: 'تقارير سريعة' },
-    ] as BotReplyButton[],
+      { id: 'menu_expenses', title: 'إدارة المصروفات', emoji: '💰' },
+      { id: 'menu_projects', title: 'المشاريع', emoji: '🏗️' },
+      { id: 'menu_reports', title: 'التقارير', emoji: '📊' },
+      { id: 'menu_help', title: 'المساعدة', emoji: '❓' },
+    ],
   },
   expenses: {
     id: 'expenses',
-    title: 'المصروفات',
-    body: 'اختر نوع العملية:',
+    title: 'إدارة المصروفات',
+    body: 'اختر العملية المطلوبة:',
     parentId: 'main',
-    replyType: 'buttons',
     options: [
-      { id: 'expense_add', title: 'تسجيل مصروف جديد' },
-      { id: 'expense_summary', title: 'ملخص المصروفات' },
-      { id: 'nav_back', title: 'رجوع' },
-    ] as BotReplyButton[],
+      { id: 'expense_add', title: 'تسجيل مصروف جديد', emoji: '➕' },
+      { id: 'expense_summary', title: 'ملخص المصروفات', emoji: '📋' },
+      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+    ],
   },
   projects: {
     id: 'projects',
     title: 'المشاريع',
     body: 'اختر ما تريد:',
     parentId: 'main',
-    replyType: 'buttons',
     options: [
-      { id: 'projects_list', title: 'عرض المشاريع' },
-      { id: 'projects_status', title: 'حالة المشاريع' },
-      { id: 'nav_back', title: 'رجوع' },
-    ] as BotReplyButton[],
+      { id: 'projects_list', title: 'عرض جميع المشاريع', emoji: '📂' },
+      { id: 'projects_status', title: 'إحصائيات المشاريع', emoji: '📈' },
+      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+    ],
   },
   reports: {
     id: 'reports',
     title: 'التقارير',
     body: 'اختر نوع التقرير:',
     parentId: 'main',
-    replyType: 'buttons',
     options: [
-      { id: 'report_daily', title: 'تقرير يومي' },
-      { id: 'report_project', title: 'تقرير مشروع' },
-      { id: 'nav_back', title: 'رجوع' },
-    ] as BotReplyButton[],
+      { id: 'report_daily', title: 'تقرير يومي', emoji: '📅' },
+      { id: 'report_project', title: 'تقرير مشروع', emoji: '🏢' },
+      { id: 'report_ask', title: 'اسأل الذكاء الاصطناعي', emoji: '🤖' },
+      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+    ],
   },
   help: {
     id: 'help',
     title: 'المساعدة',
     body: 'كيف يمكنني مساعدتك؟',
     parentId: 'main',
-    replyType: 'buttons',
     options: [
-      { id: 'help_commands', title: 'الأوامر المتاحة' },
-      { id: 'help_contact', title: 'تواصل مع الدعم' },
-      { id: 'nav_back', title: 'رجوع' },
-    ] as BotReplyButton[],
+      { id: 'help_commands', title: 'الأوامر المتاحة', emoji: '📖' },
+      { id: 'help_contact', title: 'تواصل مع الدعم', emoji: '📞' },
+      { id: 'nav_back', title: 'رجوع للقائمة الرئيسية', emoji: '🔙' },
+    ],
   },
 };
 
@@ -100,67 +96,84 @@ const GLOBAL_COMMANDS: Record<string, string> = {
   'الرئيسية': 'nav_home',
   'إلغاء': 'nav_cancel',
   'القائمة': 'nav_home',
+  'قائمة': 'nav_home',
   'back': 'nav_back',
   'home': 'nav_home',
   'cancel': 'nav_cancel',
   'menu': 'nav_home',
+  '0': 'nav_home',
+  '#': 'nav_back',
 };
 
 export function getMenuNode(menuId: string): MenuNode | undefined {
   return menuRegistry[menuId];
 }
 
-export function buildWelcomeReply(userName: string): BotReply {
-  return {
-    type: 'buttons',
-    header: 'مرحبا بك!',
-    body: `أهلاً ${userName}! أنا مساعدك الذكي.\nكيف يمكنني مساعدتك اليوم؟`,
-    footer: 'اختر من الأزرار أدناه أو اكتب سؤالك',
-    buttons: [
-      { id: 'menu_expenses', title: 'إضافة مصروف' },
-      { id: 'menu_projects', title: 'مشاريعي' },
-      { id: 'menu_help', title: 'مساعدة' },
-    ],
-  };
+export function buildNumberedMenu(node: MenuNode): string {
+  const lines: string[] = [];
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`📌 *${node.title}*`);
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push('');
+  lines.push(node.body);
+  lines.push('');
+  node.options.forEach((opt, i) => {
+    lines.push(`  ${opt.emoji}  *${i + 1}.* ${opt.title}`);
+  });
+  lines.push('');
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`💡 أرسل *رقم* الخدمة | *0* الرئيسية | *#* رجوع`);
+  return lines.join('\n');
 }
 
-export function buildMenuReply(menuId: string, _context?: Record<string, any>): BotReply {
+export function buildWelcomeReply(userName: string): BotReply {
+  const mainNode = menuRegistry.main;
+  const lines: string[] = [];
+  lines.push(`╔═══════════════════╗`);
+  lines.push(`   🏗️ *مساعد المشاريع الذكي*`);
+  lines.push(`╚═══════════════════╝`);
+  lines.push('');
+  lines.push(`مرحباً بك *${userName}*! 👋`);
+  lines.push(`أنا مساعدك الذكي لإدارة المشاريع.`);
+  lines.push(`يمكنني مساعدتك في تسجيل المصروفات،`);
+  lines.push(`متابعة المشاريع، والتقارير.`);
+  lines.push('');
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`📌 *الخدمات المتاحة*`);
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push('');
+  mainNode.options.forEach((opt, i) => {
+    lines.push(`  ${opt.emoji}  *${i + 1}.* ${opt.title}`);
+  });
+  lines.push('');
+  lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`💡 أرسل *رقم* الخدمة للبدء`);
+  lines.push(`💬 أو اكتب سؤالك مباشرة`);
+
+  return { type: 'text', body: lines.join('\n') };
+}
+
+export function buildMenuReply(menuId: string): BotReply {
   const node = menuRegistry[menuId];
   if (!node) {
     return {
       type: 'text',
-      body: 'القائمة غير موجودة. أرسل "الرئيسية" للعودة.',
+      body: '❌ القائمة غير موجودة.\nأرسل *0* للعودة للقائمة الرئيسية.',
     };
   }
-
-  if (node.replyType === 'list') {
-    return {
-      type: 'list',
-      header: node.title,
-      body: node.body,
-      footer: 'اختر من القائمة',
-      listButtonText: 'عرض الخيارات',
-      sections: node.options as ListSection[],
-    };
-  }
-
-  return {
-    type: 'buttons',
-    header: node.title,
-    body: node.body,
-    footer: 'اختر من الأزرار أدناه',
-    buttons: (node.options as BotReplyButton[]).slice(0, 3),
-  };
+  return { type: 'text', body: buildNumberedMenu(node) };
 }
 
 export interface ResolvedInput {
-  action: 'navigate' | 'command' | 'unknown';
+  action: 'navigate' | 'command' | 'menu_select' | 'unknown';
   targetMenuId?: string;
   commandId?: string;
+  selectedOptionId?: string;
 }
 
 export function resolveUserInput(input: string, currentMenuId?: string): ResolvedInput {
   const trimmed = input.trim();
+
   const globalCmd = GLOBAL_COMMANDS[trimmed.toLowerCase()] || GLOBAL_COMMANDS[trimmed];
 
   if (globalCmd === 'nav_back') {
@@ -181,20 +194,50 @@ export function resolveUserInput(input: string, currentMenuId?: string): Resolve
     return { action: 'command', commandId: 'cancel' };
   }
 
-  const menuMap: Record<string, string> = {
+  const numMatch = trimmed.match(/^(\d+)$/);
+  if (numMatch && currentMenuId) {
+    const idx = parseInt(numMatch[1]) - 1;
+    const currentNode = menuRegistry[currentMenuId];
+    if (currentNode && idx >= 0 && idx < currentNode.options.length) {
+      const selectedOption = currentNode.options[idx];
+      if (selectedOption.id === 'nav_back') {
+        return { action: 'navigate', targetMenuId: currentNode.parentId || 'main' };
+      }
+      const menuMap: Record<string, string> = {
+        'menu_expenses': 'expenses',
+        'menu_projects': 'projects',
+        'menu_reports': 'reports',
+        'menu_help': 'help',
+      };
+      if (menuMap[selectedOption.id]) {
+        return { action: 'navigate', targetMenuId: menuMap[selectedOption.id] };
+      }
+      return { action: 'menu_select', selectedOptionId: selectedOption.id };
+    }
+  }
+
+  const directMenuMap: Record<string, string> = {
     'menu_expenses': 'expenses',
     'menu_projects': 'projects',
     'menu_reports': 'reports',
     'menu_help': 'help',
   };
-
-  if (menuMap[trimmed]) {
-    return { action: 'navigate', targetMenuId: menuMap[trimmed] };
+  if (directMenuMap[trimmed]) {
+    return { action: 'navigate', targetMenuId: directMenuMap[trimmed] };
   }
 
-  if (menuRegistry[trimmed]) {
-    return { action: 'navigate', targetMenuId: trimmed };
+  const textMenuMap: Record<string, string> = {
+    'مصروفات': 'expenses',
+    'مصاريف': 'expenses',
+    'مشاريع': 'projects',
+    'مشاريعي': 'projects',
+    'تقارير': 'reports',
+    'مساعدة': 'help',
+    'help': 'help',
+  };
+  if (textMenuMap[trimmed]) {
+    return { action: 'navigate', targetMenuId: textMenuMap[trimmed] };
   }
 
-  return { action: 'command', commandId: trimmed };
+  return { action: 'unknown', commandId: trimmed };
 }

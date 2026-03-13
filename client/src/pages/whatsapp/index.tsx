@@ -626,6 +626,7 @@ export default function WhatsAppSetupPage() {
       items.push({ id: "connection", label: "البوت", icon: QrCode, color: "data-[state=active]:bg-blue-500" });
       items.push({ id: "allowed", label: "الأرقام المسموحة", icon: ShieldCheck, color: "data-[state=active]:bg-orange-500" });
       items.push({ id: "users", label: "المستخدمون", icon: Users, color: "data-[state=active]:bg-purple-500" });
+      items.push({ id: "permissions", label: "الصلاحيات", icon: Shield, color: "data-[state=active]:bg-indigo-500" });
     }
     items.push({ id: "protection", label: "الحماية", icon: Shield, color: "data-[state=active]:bg-amber-500" });
     items.push({ id: "stats", label: "إحصائيات", icon: BarChart3, color: "data-[state=active]:bg-teal-500" });
@@ -1562,6 +1563,129 @@ export default function WhatsAppSetupPage() {
                         </TableBody>
                       </Table>
                     </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Permissions Tab - Admin only */}
+          {isAdmin && (
+            <TabsContent value="permissions" className="mt-6" data-testid="tab-content-permissions">
+              <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-indigo-400 via-purple-500 to-violet-500" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2 font-black">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                      <Shield className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    إدارة الصلاحيات
+                    <Badge variant="secondary" className="text-[9px] font-black">{Array.isArray(allLinks) ? allLinks.length : 0} مستخدم</Badge>
+                  </CardTitle>
+                  <p className="text-xs text-slate-500 mr-10">تحكم في صلاحيات كل مستخدم على حدة — قراءة، إضافة، تعديل، حذف، ونطاق المشاريع</p>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingAllLinks ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                    </div>
+                  ) : !Array.isArray(allLinks) || allLinks.length === 0 ? (
+                    <div className="text-center py-16">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          <Shield className="h-8 w-8 text-slate-300" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-400">لا يوجد مستخدمون مربوطون</p>
+                        <p className="text-xs text-slate-400">يجب ربط المستخدمين أولاً من تبويب "المستخدمون"</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {allLinks.map((link: any) => (
+                        <div
+                          key={link.id}
+                          data-testid={`perm-card-${link.id}`}
+                          className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden"
+                        >
+                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold">
+                                {(link.userName || link.userEmail || "?")?.charAt(0)?.toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{link.userName || link.userEmail?.split("@")[0] || "مستخدم"}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[11px] text-slate-500 font-mono" dir="ltr">+{link.phoneNumber}</span>
+                                  {link.userEmail && <span className="text-[11px] text-slate-400">{link.userEmail}</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={cn(
+                                "text-[9px] font-black",
+                                link.isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-red-100 text-red-700"
+                              )}>
+                                {link.isActive ? "نشط" : "معطل"}
+                              </Badge>
+                              <Badge variant="outline" className={cn(
+                                "text-[9px] font-black",
+                                link.permissionsMode === "custom" ? "text-indigo-600 border-indigo-300" : "text-slate-500"
+                              )}>
+                                {link.permissionsMode === "custom" ? "🔧 مخصص" : "🔗 وراثة"}
+                              </Badge>
+                              <Button
+                                data-testid={`btn-edit-perm-${link.id}`}
+                                size="sm"
+                                className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold gap-1.5 h-8"
+                                onClick={() => handleOpenPermissionsDialog(link)}
+                              >
+                                <Settings className="h-3 w-3" />
+                                تعديل الصلاحيات
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="p-4 space-y-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {[
+                                { key: "canRead", label: "قراءة", icon: Eye, activeClass: "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400", iconClass: "text-blue-500" },
+                                { key: "canAdd", label: "إضافة", icon: CheckCircle, activeClass: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400", iconClass: "text-emerald-500" },
+                                { key: "canEdit", label: "تعديل", icon: Settings2, activeClass: "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400", iconClass: "text-amber-500" },
+                                { key: "canDelete", label: "حذف", icon: Trash2, activeClass: "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400", iconClass: "text-red-500" },
+                              ].map((perm) => {
+                                const isEnabled = link.permissionsMode === "inherit_user" || link[perm.key];
+                                return (
+                                  <div
+                                    key={perm.key}
+                                    data-testid={`perm-${perm.key}-${link.id}`}
+                                    className={cn(
+                                      "flex items-center gap-2 p-2.5 rounded-lg border text-sm font-bold",
+                                      isEnabled
+                                        ? perm.activeClass
+                                        : "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400"
+                                    )}
+                                  >
+                                    {isEnabled ? (
+                                      <CheckCircle className={cn("h-4 w-4", perm.iconClass)} />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 text-slate-400" />
+                                    )}
+                                    {perm.label}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                              <FolderOpen className="h-3.5 w-3.5" />
+                              <span className="font-bold">
+                                نطاق المشاريع: {link.scopeAllProjects ? "جميع المشاريع" : "مشاريع محددة"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>

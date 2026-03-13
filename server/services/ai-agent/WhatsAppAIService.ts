@@ -13,6 +13,7 @@ import { generateWorkerStatementHTML } from "../../services/reports/templates/Wo
 import { generatePeriodFinalHTML } from "../../services/reports/templates/PeriodFinalPDF";
 import { generateDailyRangeHTML } from "../../services/reports/templates/DailyRangePDF";
 import { generateMultiProjectFinalHTML } from "../../services/reports/templates/MultiProjectFinalPDF";
+import { convertHtmlToPdf } from "../../services/reports/HtmlToPdfService";
 import * as fs from "fs";
 import * as path from "path";
 import { workers, projects, workerAttendance, whatsappUserLinks, whatsappMessages, aiChatSessions, fundTransfers, materialPurchases, dailyExpenseSummaries, transportationExpenses, workerMiscExpenses } from "@shared/schema";
@@ -998,39 +999,40 @@ export class WhatsAppAIService {
         }
       }
 
-      const filePath = path.join(reportsDir, fileName);
+      this.sessions.delete(senderPhone);
+
+      let sendBuffer: Buffer;
+      let sendMimetype: string;
+      let sendFileName: string;
 
       if (fileBuffer) {
-        fs.writeFileSync(filePath, Buffer.from(fileBuffer));
+        sendBuffer = Buffer.from(fileBuffer);
+        sendMimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        sendFileName = fileName;
       } else if (htmlContent) {
-        fs.writeFileSync(filePath, htmlContent, 'utf-8');
+        try {
+          sendBuffer = await convertHtmlToPdf(htmlContent);
+          sendMimetype = 'application/pdf';
+          sendFileName = fileName.replace(/\.html$/, '.pdf');
+        } catch (pdfError: any) {
+          console.error('[WhatsAppAI] PDF conversion failed, sending HTML:', pdfError.message);
+          sendBuffer = Buffer.from(htmlContent, 'utf-8');
+          sendMimetype = 'text/html';
+          sendFileName = fileName;
+        }
       } else {
         throw new Error('لم يتم توليد الملف');
       }
 
-      this.sessions.delete(senderPhone);
-
-      const fileData = fs.readFileSync(filePath);
       const jid = senderPhone.includes('@') ? senderPhone : `${senderPhone}@s.whatsapp.net`;
-
       const { getWhatsAppBot } = await import('./WhatsAppBot');
       const bot = getWhatsAppBot();
 
-      if (format === 'xlsx') {
-        await bot.sendMessageSafe(jid, {
-          document: fileData,
-          mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          fileName: fileName,
-        });
-      } else {
-        await bot.sendMessageSafe(jid, {
-          document: fileData,
-          mimetype: 'text/html',
-          fileName: fileName,
-        });
-      }
-
-      try { fs.unlinkSync(filePath); } catch {}
+      await bot.sendMessageSafe(jid, {
+        document: sendBuffer,
+        mimetype: sendMimetype,
+        fileName: sendFileName,
+      });
 
       const formatLabel = format === 'xlsx' ? 'Excel' : 'PDF';
       const lines = [
@@ -1039,7 +1041,7 @@ export class WhatsAppAIService {
         `━━━━━━━━━━━━━━━━━━`,
         ``,
         `✅ تم إرسال ملف *${formatLabel}* بنجاح!`,
-        `📎 الملف: *${fileName}*`,
+        `📎 الملف: *${sendFileName}*`,
         ``,
         `ماذا تريد أن تفعل الآن؟`,
       ];

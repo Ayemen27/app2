@@ -20,22 +20,22 @@ export interface MenuNode {
 const menuRegistry: Record<string, MenuNode> = {
   main: {
     id: 'main',
-    title: 'الخدمات المتاحة',
-    body: 'اختر رقم الخدمة:',
+    title: 'القائمة الرئيسية',
+    body: '',
     options: [
-      { id: 'menu_expenses', title: 'إدارة المصروفات', emoji: '💰' },
+      { id: 'menu_expenses', title: 'المصروفات', emoji: '💰' },
       { id: 'menu_projects', title: 'المشاريع', emoji: '🏗️' },
       { id: 'menu_reports', title: 'التقارير', emoji: '📊' },
-      { id: 'menu_help', title: 'المساعدة والأوامر', emoji: '❓' },
+      { id: 'menu_help', title: 'المساعدة', emoji: '❓' },
     ],
   },
   expenses: {
     id: 'expenses',
-    title: 'إدارة المصروفات',
-    body: 'اختر العملية:',
+    title: 'المصروفات',
+    body: '',
     parentId: 'main',
     options: [
-      { id: 'expense_add', title: 'تسجيل مصروف جديد', emoji: '➕' },
+      { id: 'expense_add', title: 'تسجيل مصروف', emoji: '➕' },
       { id: 'expense_summary', title: 'ملخص المصروفات', emoji: '📋' },
       { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
     ],
@@ -43,18 +43,18 @@ const menuRegistry: Record<string, MenuNode> = {
   projects: {
     id: 'projects',
     title: 'المشاريع',
-    body: 'اختر ما تريد:',
+    body: '',
     parentId: 'main',
     options: [
-      { id: 'projects_list', title: 'عرض جميع المشاريع', emoji: '📂' },
-      { id: 'projects_status', title: 'إحصائيات المشاريع', emoji: '📈' },
+      { id: 'projects_list', title: 'عرض المشاريع', emoji: '📂' },
+      { id: 'projects_status', title: 'الإحصائيات', emoji: '📈' },
       { id: 'nav_back', title: 'رجوع', emoji: '🔙' },
     ],
   },
   reports: {
     id: 'reports',
     title: 'التقارير',
-    body: 'اختر نوع التقرير:',
+    body: '',
     parentId: 'main',
     options: [
       { id: 'report_daily', title: 'تقرير يومي', emoji: '📅' },
@@ -67,7 +67,7 @@ const menuRegistry: Record<string, MenuNode> = {
   export_reports: {
     id: 'export_reports',
     title: 'تصدير الكشوفات',
-    body: 'اختر نوع الكشف للتصدير:',
+    body: '',
     parentId: 'reports',
     options: [
       { id: 'export_daily', title: 'كشف يومي شامل', emoji: '📋' },
@@ -81,7 +81,7 @@ const menuRegistry: Record<string, MenuNode> = {
   help: {
     id: 'help',
     title: 'المساعدة',
-    body: 'كيف أقدر أساعدك؟',
+    body: '',
     parentId: 'main',
     options: [
       { id: 'help_commands', title: 'الأوامر المتاحة', emoji: '📖' },
@@ -91,42 +91,25 @@ const menuRegistry: Record<string, MenuNode> = {
   },
 };
 
-const SEPARATOR = `━━━━━━━━━━━━━━━━━━`;
-const NAV_HINT = `💡 أرسل *رقم* الخيار | *0* القائمة | *#* رجوع`;
+const NAV_HINT = `*0* القائمة | *#* رجوع`;
 
 export function getMenuNode(menuId: string): MenuNode | undefined {
   return menuRegistry[menuId];
 }
 
 function formatMenuOptions(options: MenuOption[]): string {
-  return options.map((opt, i) => `  ${opt.emoji}  *${i + 1}.*  ${opt.title}`).join('\n');
+  return options.map((opt, i) => `${opt.emoji} *${i + 1}.* ${opt.title}`).join('\n');
 }
 
 export function buildWelcomeReply(userName: string): BotReply {
   const mainNode = menuRegistry.main;
   const lines: string[] = [
-    `╔══════════════════╗`,
-    `  🏗️  *مساعد إدارة المشاريع*`,
-    `╚══════════════════╝`,
-    ``,
-    `أهلاً وسهلاً *${userName}*! 👋`,
-    ``,
-    `أنا مساعدك الذكي لإدارة المشاريع`,
-    `أقدر أساعدك في:`,
-    `  ✅ تسجيل المصروفات`,
-    `  ✅ متابعة المشاريع`,
-    `  ✅ التقارير والإحصائيات`,
-    `  ✅ الإجابة على استفساراتك`,
-    ``,
-    SEPARATOR,
-    `📌  *${mainNode.title}*`,
-    SEPARATOR,
+    `🏗️ *مساعد إدارة المشاريع*`,
+    `أهلاً *${userName}*! اختر خدمة:`,
     ``,
     formatMenuOptions(mainNode.options),
     ``,
-    SEPARATOR,
-    `💡 أرسل *رقم* الخدمة للبدء`,
-    `💬 أو اكتب سؤالك مباشرة`,
+    `💡 أرسل *رقم* الخدمة أو اكتب سؤالك`,
   ];
   return { type: 'text', body: lines.join('\n') };
 }
@@ -134,62 +117,43 @@ export function buildWelcomeReply(userName: string): BotReply {
 export function buildMenuReply(menuId: string): BotReply {
   const node = menuRegistry[menuId];
   if (!node) {
-    return { type: 'text', body: '❌ القائمة غير موجودة.\nأرسل *0* للعودة للرئيسية.' };
+    return { type: 'text', body: '❌ القائمة غير موجودة. أرسل *0* للرئيسية.' };
   }
   const lines: string[] = [
-    SEPARATOR,
-    `📌  *${node.title}*`,
-    SEPARATOR,
-    ``,
-    node.body,
+    `📌 *${node.title}*`,
     ``,
     formatMenuOptions(node.options),
     ``,
-    SEPARATOR,
     NAV_HINT,
   ];
   return { type: 'text', body: lines.join('\n') };
 }
 
 export function buildTextWithMenu(header: string, body: string, menuId?: string): BotReply {
-  const lines: string[] = [
-    SEPARATOR,
-    `📌  *${header}*`,
-    SEPARATOR,
-    ``,
-    body,
-  ];
+  const lines: string[] = [body];
   if (menuId) {
     const node = menuRegistry[menuId];
     if (node) {
       lines.push(``);
-      lines.push(SEPARATOR);
-      lines.push(`📌  *${node.title}*`);
-      lines.push(SEPARATOR);
-      lines.push(``);
+      lines.push(`📌 *${node.title}*`);
       lines.push(formatMenuOptions(node.options));
     }
   }
   lines.push(``);
-  lines.push(SEPARATOR);
   lines.push(NAV_HINT);
   return { type: 'text', body: lines.join('\n') };
 }
 
 export function buildQuickOptions(header: string, body: string, options: { emoji: string; title: string }[]): BotReply {
   const lines: string[] = [
-    SEPARATOR,
-    `📌  *${header}*`,
-    SEPARATOR,
-    ``,
+    `📌 *${header}*`,
     body,
     ``,
   ];
   options.forEach((opt, i) => {
-    lines.push(`  ${opt.emoji}  *${i + 1}.*  ${opt.title}`);
+    lines.push(`${opt.emoji} *${i + 1}.* ${opt.title}`);
   });
   lines.push(``);
-  lines.push(SEPARATOR);
   lines.push(NAV_HINT);
   return { type: 'text', body: lines.join('\n') };
 }

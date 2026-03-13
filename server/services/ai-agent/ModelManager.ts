@@ -360,11 +360,11 @@ export class ModelManager {
 
     const lastMessage = messages[messages.length - 1];
     
-    // محاولة استخدام الجسر أولاً لطلبات تحليل البيانات
     if (lastMessage.content.includes("مصروف") || lastMessage.content.includes("تحليل") || lastMessage.content.includes("تضارب")) {
       try {
-        const { execSync } = require("child_process");
-        const result = execSync(`python3 agent_bridge.py "${lastMessage.content.replace(/"/g, '\\"')}"`, { encoding: 'utf8' });
+        const { execFileSync } = require("child_process");
+        const sanitizedInput = lastMessage.content.replace(/[^\u0600-\u06FF\u0750-\u077Fa-zA-Z0-9\s.,؟!?:-]/g, '');
+        const result = execFileSync("python3", ["agent_bridge.py", sanitizedInput], { encoding: 'utf8', timeout: 15000 });
         const parsed = JSON.parse(result);
         if (parsed.message) {
           return {

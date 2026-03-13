@@ -742,9 +742,14 @@ export class WhatsAppAIService {
     context.data.exportType = exportType;
 
     if (exportType === 'worker') {
+      const workerConditions: any[] = [eq(workers.is_active, true)];
+      if (userProjectIds && userProjectIds.length > 0) {
+        const { inArray } = await import("drizzle-orm");
+        workerConditions.push(inArray(workers.projectId, userProjectIds));
+      }
       const allWorkers = await db.select({ id: workers.id, name: workers.name })
         .from(workers)
-        .where(eq(workers.is_active, true))
+        .where(and(...workerConditions))
         .limit(30);
 
       if (allWorkers.length === 0) {

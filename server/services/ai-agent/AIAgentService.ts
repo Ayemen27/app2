@@ -8,7 +8,7 @@ import { getDatabaseActions, ActionResult } from "./DatabaseActions";
 import { getReportGenerator, ReportResult } from "./ReportGenerator";
 import { db } from "../../db";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { aiChatSessions, aiChatMessages, aiUsageStats } from "@shared/schema";
+import { aiChatSessions, aiChatMessages, aiUsageStats, workers } from "@shared/schema";
 
 export interface AgentStep {
   title: string;
@@ -488,6 +488,14 @@ export class AIAgentService {
                   break;
                 }
               }
+              if (scopeIds) {
+                const workerCheck = await db.select({ id: workers.id, projectId: workers.projectId })
+                  .from(workers).where(eq(workers.id, workerId)).limit(1);
+                if (workerCheck.length === 0 || !scopeIds.includes(workerCheck[0].projectId)) {
+                  currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا العامل" };
+                  break;
+                }
+              }
               currentResult = await this.reportGenerator.generateWorkerStatement(workerId);
               break;
             }
@@ -573,6 +581,14 @@ export class AIAgentService {
 
             case "EXPORT_EXCEL":
               if (actionParams[0] === "WORKER_STATEMENT") {
+                if (scopeIds) {
+                  const wCheck = await db.select({ id: workers.id, projectId: workers.projectId })
+                    .from(workers).where(eq(workers.id, actionParams[1])).limit(1);
+                  if (wCheck.length === 0 || !scopeIds.includes(wCheck[0].projectId)) {
+                    currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا العامل" };
+                    break;
+                  }
+                }
                 currentResult = await this.reportGenerator.generateWorkerStatementExcel(actionParams[1]);
               } else if (actionParams[0] === "PROJECT_FULL") {
                 if (scopeIds && !scopeIds.includes(actionParams[1])) {
@@ -583,7 +599,7 @@ export class AIAgentService {
               } else if (actionParams[0] === "SUPPLIER_STATEMENT") {
                 currentResult = await this.reportGenerator.generateSupplierStatementExcel(actionParams[1]);
               } else if (actionParams[0] === "DASHBOARD") {
-                currentResult = await this.reportGenerator.generateDashboardExcel();
+                currentResult = await this.reportGenerator.generateDashboardExcel(scopeIds);
               } else {
                 currentResult = { success: false, message: "نوع التقرير غير مدعوم حالياً" };
               }

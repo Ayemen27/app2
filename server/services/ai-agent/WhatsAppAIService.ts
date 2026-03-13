@@ -39,6 +39,7 @@ import {
 
 export interface WhatsAppContext {
   step: 'idle' | 'awaiting_project' | 'awaiting_days' | 'awaiting_type'
+    | 'expense_awaiting_project_summary'
     | 'export_awaiting_project' | 'export_awaiting_worker' | 'export_awaiting_date'
     | 'export_awaiting_date_range' | 'export_awaiting_format' | 'export_awaiting_projects_select';
   userId: string;
@@ -238,7 +239,7 @@ export class WhatsAppAIService {
     }
 
     if (actionId === 'expense_summary') {
-      return this.showExpenseSummary(userProjectIds);
+      return this.showExpenseSummary(userProjectIds, context, senderPhone);
     }
 
     if (actionId === 'projects_list') {
@@ -308,9 +309,24 @@ export class WhatsAppAIService {
       this.sessions.set(senderPhone, context);
       return buildWelcomeReply(userName);
     }
+    if (resolved.action === 'navigate' && resolved.targetMenuId && resolved.targetMenuId !== 'main') {
+      context.step = 'idle';
+      context.data = {};
+      if (context.menuStack.length > 0) {
+        context.currentMenu = context.menuStack.pop()!;
+      } else {
+        context.currentMenu = 'main';
+      }
+      this.sessions.set(senderPhone, context);
+      return buildMenuReply(context.currentMenu);
+    }
 
     if (context.step === 'awaiting_project') {
       return this.handleProjectSelection(context, effectiveInput, senderPhone, userName, securityContext, userProjectIds);
+    }
+
+    if (context.step === 'expense_awaiting_project_summary') {
+      return this.handleExpenseProjectSummarySelection(context, effectiveInput, senderPhone, userName, userProjectIds);
     }
 
     if (context.step === 'awaiting_days') {
@@ -1035,17 +1051,27 @@ export class WhatsAppAIService {
     }
   }
 
-  private async showExpenseSummary(userProjectIds: string[]): Promise<BotReply> {
+  private async showExpenseSummary(
+    userProjectIds: string[],
+    context?: WhatsAppContext,
+    senderPhone?: string
+  ): Promise<BotReply> {
     if (userProjectIds.length === 0) {
       return textReply(addNavFooter('📋 لا توجد مشاريع مرتبطة بحسابك.'));
     }
 
-    const activeProjects = await db.select().from(projects)
-      .where(and(eq(projects.status, 'active'), inArray(projects.id, userProjectIds)))
-      .limit(10);
+    const userProjects = await db.select().from(projects)
+      .where(inArray(projects.id, userProjectIds))
+      .limit(20);
 
-    if (activeProjects.length === 0) {
-      return textReply(addNavFooter('📋 لا توجد مشاريع نشطة حالياً.'));
+    if (userProjects.length === 0) {
+      return textReply(addNavFooter('📋 لا توجد مشاريع حالياً.'));
+    }
+
+    if (context && senderPhone) {
+      context.step = 'expense_awaiting_project_summary';
+      context.data.activeProjects = userProjects.map(p => ({ id: p.id, name: p.name }));
+      this.sessions.set(senderPhone, context);
     }
 
     const lines = [
@@ -1056,13 +1082,126 @@ export class WhatsAppAIService {
       `اختر رقم المشروع لعرض ملخصه:`,
       ``,
     ];
-    activeProjects.forEach((p, i) => {
-      lines.push(`  🟢  *${i + 1}.*  ${p.name}`);
+    userProjects.forEach((p, i) => {
+      const statusIcon = p.status === 'active' ? '🟢' : p.status === 'completed' ? '✅' : '🟡';
+      lines.push(`  ${statusIcon}  *${i + 1}.*  ${p.name}`);
     });
     lines.push(``);
     lines.push(`━━━━━━━━━━━━━━━━━━`);
     lines.push(`💡 أرسل *رقم* المشروع | *0* القائمة | *#* رجوع`);
     return textReply(lines.join('\n'));
+  }
+
+  private async handleExpenseProjectSummarySelection(
+    context: WhatsAppContext,
+    input: string,
+    senderPhone: string,
+    userName: string,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    const cachedProjects = context.data.activeProjects || [];
+    let selectedProject: { id: string; name: string } | null = null;
+
+    const indexMatch = input.match(/^(\d+)$/);
+    if (indexMatch && cachedProjects.length > 0) {
+      const idx = parseInt(indexMatch[1]) - 1;
+      if (idx >= 0 && idx < cachedProjects.length) {
+        selectedProject = cachedProjects[idx];
+      }
+    }
+
+    if (!selectedProject) {
+      const found = cachedProjects.find(p => p.name.includes(input));
+      if (found) selectedProject = found;
+    }
+
+    if (!selectedProject) {
+      return textReply(addNavFooter(`❌ لم أجد المشروع. أرسل رقمه من القائمة.`));
+    }
+
+    context.step = 'idle';
+    context.currentMenu = 'expenses';
+    this.sessions.set(senderPhone, context);
+
+    try {
+      const fundResult = await db.select({
+        total: sql<string>`COALESCE(SUM(${fundTransfers.amount}::numeric), 0)`,
+        count: sql<string>`COUNT(*)`,
+      }).from(fundTransfers)
+        .where(eq(fundTransfers.project_id, selectedProject.id));
+
+      const expenseResult = await db.select({
+        totalExpenses: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalExpenses}::numeric), 0)`,
+        totalWages: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalWorkerWages}::numeric), 0)`,
+        totalMaterials: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalMaterialCosts}::numeric), 0)`,
+        totalTransport: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalTransportationCosts}::numeric), 0)`,
+        totalMisc: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalWorkerMiscExpenses}::numeric), 0)`,
+        totalTransfers: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalWorkerTransfers}::numeric), 0)`,
+      }).from(dailyExpenseSummaries)
+        .where(eq(dailyExpenseSummaries.project_id, selectedProject.id));
+
+      const workerCount = await db.select({
+        count: sql<string>`COUNT(DISTINCT ${workerAttendance.worker_id})`,
+      }).from(workerAttendance)
+        .where(eq(workerAttendance.project_id, selectedProject.id));
+
+      const projectInfo = await db.select().from(projects)
+        .where(eq(projects.id, selectedProject.id)).limit(1);
+
+      const funds = parseFloat(fundResult[0]?.total || '0');
+      const fundCount = parseInt(fundResult[0]?.count || '0');
+      const totalExp = parseFloat(expenseResult[0]?.totalExpenses || '0');
+      const wages = parseFloat(expenseResult[0]?.totalWages || '0');
+      const materials = parseFloat(expenseResult[0]?.totalMaterials || '0');
+      const transport = parseFloat(expenseResult[0]?.totalTransport || '0');
+      const misc = parseFloat(expenseResult[0]?.totalMisc || '0');
+      const transfers = parseFloat(expenseResult[0]?.totalTransfers || '0');
+      const wCount = parseInt(workerCount[0]?.count || '0');
+      const budget = parseFloat(projectInfo[0]?.budget || '0');
+      const remaining = funds - totalExp;
+
+      const lines = [
+        `━━━━━━━━━━━━━━━━━━`,
+        `📌  *ملخص مشروع: ${selectedProject.name}*`,
+        `━━━━━━━━━━━━━━━━━━`,
+        ``,
+      ];
+
+      if (budget > 0) {
+        const usedPercent = Math.round((totalExp / budget) * 100);
+        const bar = '█'.repeat(Math.min(Math.round(usedPercent / 10), 10)) + '░'.repeat(10 - Math.min(Math.round(usedPercent / 10), 10));
+        lines.push(`💰 *الميزانية:* ${budget.toLocaleString()} ر.س`);
+        lines.push(`   ${bar} ${usedPercent}%`);
+        lines.push(``);
+      }
+
+      lines.push(`📥 *الإيرادات*`);
+      lines.push(`   التحويلات: *${funds.toLocaleString()}* ر.س (${fundCount} حوالة)`);
+      lines.push(``);
+
+      lines.push(`📤 *المصروفات*`);
+      lines.push(`   👷 أجور العمال: *${wages.toLocaleString()}* ر.س`);
+      lines.push(`   🧱 مواد البناء: *${materials.toLocaleString()}* ر.س`);
+      lines.push(`   🚛 مواصلات: *${transport.toLocaleString()}* ر.س`);
+      lines.push(`   💸 تحويلات عمال: *${transfers.toLocaleString()}* ر.س`);
+      lines.push(`   📦 نثريات: *${misc.toLocaleString()}* ر.س`);
+      lines.push(`   ─────────────────`);
+      lines.push(`   📊 الإجمالي: *${totalExp.toLocaleString()}* ر.س`);
+      lines.push(``);
+
+      lines.push(`━━━━━━━━━━━━━━━━━━`);
+      if (remaining >= 0) {
+        lines.push(`💵 *الرصيد المتبقي:* ${remaining.toLocaleString()} ر.س ✅`);
+      } else {
+        lines.push(`💵 *العجز:* ${Math.abs(remaining).toLocaleString()} ر.س ❌`);
+      }
+      lines.push(`👷 *عدد العمال:* ${wCount}`);
+
+      return textReply(addNavFooter(lines.join('\n')));
+    } catch (error: any) {
+      console.error('[WhatsAppAI] Error fetching project summary:', error);
+      return textReply(addNavFooter(`❌ حدث خطأ أثناء جلب البيانات.`));
+    }
   }
 
   private async showProjectsList(userProjectIds: string[]): Promise<BotReply> {

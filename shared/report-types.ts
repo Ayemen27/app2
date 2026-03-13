@@ -258,9 +258,100 @@ export interface PeriodFinalReportData {
   };
 }
 
+export interface ProjectBreakdown {
+  projectId: string;
+  projectName: string;
+  location?: string;
+  managerName?: string;
+  budget?: number;
+  status?: string;
+  totals: {
+    totalIncome: number;
+    totalExpenses: number;
+    totalWages: number;
+    totalMaterials: number;
+    totalTransport: number;
+    totalMisc: number;
+    totalWorkerTransfers: number;
+    totalProjectTransfersOut: number;
+    totalProjectTransfersIn: number;
+    balance: number;
+  };
+  sections: PeriodFinalReportData['sections'];
+}
+
+export interface MultiProjectFinalReportData {
+  reportType: 'multi-project-final';
+  generatedAt: string;
+  projectNames: string[];
+  period: {
+    from: string;
+    to: string;
+  };
+  kpis: ReportKPI[];
+  chartData: ReportChartDataPoint[];
+  projects: ProjectBreakdown[];
+  interProjectTransfers: Array<{
+    date: string;
+    amount: number;
+    fromProjectName: string;
+    toProjectName: string;
+    reason: string;
+  }>;
+  combinedTotals: {
+    totalIncome: number;
+    totalExpenses: number;
+    totalWages: number;
+    totalMaterials: number;
+    totalTransport: number;
+    totalMisc: number;
+    totalWorkerTransfers: number;
+    totalInterProjectTransfers: number;
+    balance: number;
+  };
+  combinedSections: {
+    attendance: {
+      byWorker: Array<{
+        workerId: string;
+        workerName: string;
+        workerType: string;
+        projectName: string;
+        totalDays: number;
+        totalEarned: number;
+        totalDirectPaid: number;
+        totalTransfers: number;
+        totalPaid: number;
+        balance: number;
+      }>;
+    };
+    materials: {
+      total: number;
+      totalPaid: number;
+      items: Array<{
+        materialName: string;
+        totalQuantity: number;
+        totalAmount: number;
+        supplierName: string;
+        projectName: string;
+      }>;
+    };
+    fundTransfers: {
+      total: number;
+      count: number;
+      items: Array<{
+        date: string;
+        amount: number;
+        senderName: string;
+        transferType: string;
+        projectName: string;
+      }>;
+    };
+  };
+}
+
 export interface ReportExportOptions {
   format: 'pdf' | 'xlsx';
-  type: 'daily' | 'worker-statement' | 'period-final';
+  type: 'daily' | 'worker-statement' | 'period-final' | 'daily-range' | 'multi-project-final';
   companyInfo?: {
     name: string;
     subtitle?: string;

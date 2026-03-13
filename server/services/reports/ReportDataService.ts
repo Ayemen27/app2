@@ -16,6 +16,8 @@ import type {
   WorkerStatementData,
   WorkerStatementEntry,
   PeriodFinalReportData,
+  MultiProjectFinalReportData,
+  ProjectBreakdown,
   ReportKPI,
   ReportChartDataPoint,
   AttendanceRecord,
@@ -1008,6 +1010,161 @@ export class ReportDataService {
         totalProjectTransfersIn,
         balance,
         budgetUtilization,
+      },
+    };
+  }
+
+  async getMultiProjectFinalReport(projectIds: string[], dateFrom: string, dateTo: string): Promise<MultiProjectFinalReportData> {
+    const projectReports: PeriodFinalReportData[] = [];
+    for (const pid of projectIds) {
+      const report = await this.getPeriodFinalReport(pid, dateFrom, dateTo);
+      projectReports.push(report);
+    }
+
+    const projectIdSet = new Set(projectIds);
+    const interProjectTransferRows = await db
+      .select({
+        fromProjectId: projectFundTransfers.fromProjectId,
+        toProjectId: projectFundTransfers.toProjectId,
+        amount: projectFundTransfers.amount,
+        transferDate: projectFundTransfers.transferDate,
+        transferReason: projectFundTransfers.transferReason,
+      })
+      .from(projectFundTransfers)
+      .where(
+        and(
+          inArray(projectFundTransfers.fromProjectId, projectIds),
+          inArray(projectFundTransfers.toProjectId, projectIds),
+          gte(projectFundTransfers.transferDate, dateFrom),
+          lte(projectFundTransfers.transferDate, dateTo)
+        )
+      )
+      .orderBy(asc(projectFundTransfers.transferDate));
+
+    const projectNameMap = new Map<string, string>();
+    for (const r of projectReports) {
+      projectNameMap.set(r.project.id, r.project.name);
+    }
+
+    const interProjectTransfers = interProjectTransferRows.map((t) => ({
+      date: t.transferDate || '-',
+      amount: safeNum(t.amount),
+      fromProjectName: projectNameMap.get(t.fromProjectId) || '-',
+      toProjectName: projectNameMap.get(t.toProjectId) || '-',
+      reason: t.transferReason || '-',
+    }));
+
+    const totalInterProjectAmount = interProjectTransfers.reduce((s, t) => s + t.amount, 0);
+
+    const projectBreakdowns: ProjectBreakdown[] = projectReports.map((r) => ({
+      projectId: r.project.id,
+      projectName: r.project.name,
+      location: r.project.location,
+      managerName: r.project.managerName,
+      budget: r.project.budget,
+      status: r.project.status,
+      totals: r.totals,
+      sections: r.sections,
+    }));
+
+    const combinedIncome = projectReports.reduce((s, r) => s + r.totals.totalIncome, 0);
+    const combinedWages = projectReports.reduce((s, r) => s + r.totals.totalWages, 0);
+    const combinedMaterials = projectReports.reduce((s, r) => s + r.totals.totalMaterials, 0);
+    const combinedTransport = projectReports.reduce((s, r) => s + r.totals.totalTransport, 0);
+    const combinedMisc = projectReports.reduce((s, r) => s + r.totals.totalMisc, 0);
+    const combinedWorkerTransfers = projectReports.reduce((s, r) => s + r.totals.totalWorkerTransfers, 0);
+    const combinedExpenses = combinedWages + combinedMaterials + combinedTransport + combinedMisc + combinedWorkerTransfers;
+    const combinedBalance = combinedIncome - combinedExpenses;
+
+    const allWorkers: MultiProjectFinalReportData['combinedSections']['attendance']['byWorker'] = [];
+    for (const r of projectReports) {
+      for (const w of r.sections.attendance.byWorker) {
+        allWorkers.push({ ...w, projectName: r.project.name });
+      }
+    }
+
+    const allMaterials: MultiProjectFinalReportData['combinedSections']['materials']['items'] = [];
+    for (const r of projectReports) {
+      for (const m of r.sections.materials.items) {
+        allMaterials.push({ ...m, projectName: r.project.name });
+      }
+    }
+
+    const allFundTransfers: MultiProjectFinalReportData['combinedSections']['fundTransfers']['items'] = [];
+    for (const r of projectReports) {
+      for (const f of r.sections.fundTransfers.items) {
+        allFundTransfers.push({ ...f, projectName: r.project.name });
+      }
+    }
+    allFundTransfers.sort((a, b) => a.date.localeCompare(b.date));
+
+    const allDates = new Set<string>();
+    for (const r of projectReports) {
+      for (const c of r.chartData) {
+        allDates.add(c.date);
+      }
+    }
+    const sortedDates = Array.from(allDates).sort();
+    const chartData: ReportChartDataPoint[] = sortedDates.map((d) => {
+      let wages = 0, materials = 0, transport = 0, misc = 0, transfers = 0, income = 0;
+      for (const r of projectReports) {
+        const point = r.chartData.find((c) => c.date === d);
+        if (point) {
+          wages += point.wages;
+          materials += point.materials;
+          transport += point.transport;
+          misc += point.misc;
+          transfers += point.transfers;
+          income += point.income;
+        }
+      }
+      return { date: d, wages, materials, transport, misc, transfers, income, total: wages + materials + transport + misc + transfers };
+    });
+
+    const kpis: ReportKPI[] = [
+      { label: 'إجمالي الإيرادات (العهدة)', value: combinedIncome, format: 'currency' },
+      { label: 'إجمالي المصروفات', value: combinedExpenses, format: 'currency' },
+      { label: 'إجمالي الأجور', value: combinedWages, format: 'currency' },
+      { label: 'إجمالي المواد', value: combinedMaterials, format: 'currency' },
+      { label: 'إجمالي النقل', value: combinedTransport, format: 'currency' },
+      { label: 'إجمالي النثريات', value: combinedMisc, format: 'currency' },
+      { label: 'إجمالي حوالات العمال', value: combinedWorkerTransfers, format: 'currency' },
+      { label: 'تحويلات بين المشاريع', value: totalInterProjectAmount, format: 'currency' },
+      { label: 'الرصيد', value: combinedBalance, format: 'currency' },
+    ];
+
+    return {
+      reportType: 'multi-project-final',
+      generatedAt: new Date().toISOString(),
+      projectNames: projectReports.map((r) => r.project.name),
+      period: { from: dateFrom, to: dateTo },
+      kpis,
+      chartData,
+      projects: projectBreakdowns,
+      interProjectTransfers,
+      combinedTotals: {
+        totalIncome: combinedIncome,
+        totalExpenses: combinedExpenses,
+        totalWages: combinedWages,
+        totalMaterials: combinedMaterials,
+        totalTransport: combinedTransport,
+        totalMisc: combinedMisc,
+        totalWorkerTransfers: combinedWorkerTransfers,
+        totalInterProjectTransfers: totalInterProjectAmount,
+        balance: combinedBalance,
+      },
+      combinedSections: {
+        attendance: { byWorker: allWorkers },
+        materials: {
+          total: allMaterials.reduce((s, m) => s + m.totalAmount, 0),
+          totalPaid: projectReports.reduce((s, r) => s + r.sections.materials.totalPaid, 0),
+          items: allMaterials,
+        },
+        fundTransfers: {
+          total: allFundTransfers.reduce((s, f) => s + f.amount, 0),
+          count: allFundTransfers.length,
+          items: allFundTransfers,
+        },
       },
     };
   }

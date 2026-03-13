@@ -33,6 +33,8 @@ import { generateWorkerStatementHTML } from '../../services/reports/templates/Wo
 import { generatePeriodFinalHTML } from '../../services/reports/templates/PeriodFinalPDF';
 import { generateDailyRangeExcel } from '../../services/reports/templates/DailyRangeExcel';
 import { generateDailyRangeHTML } from '../../services/reports/templates/DailyRangePDF';
+import { generateMultiProjectFinalExcel } from '../../services/reports/templates/MultiProjectFinalExcel';
+import { generateMultiProjectFinalHTML } from '../../services/reports/templates/MultiProjectFinalPDF';
 
 export const reportRouter = express.Router();
 
@@ -1197,6 +1199,33 @@ reportRouter.get('/reports/v2/period-final', async (req: Request, res: Response)
   }
 });
 
+reportRouter.get('/reports/v2/multi-project-final', async (req: Request, res: Response) => {
+  try {
+    const { project_ids, dateFrom, dateTo } = req.query;
+    if (!project_ids || !dateFrom || !dateTo) {
+      return res.status(400).json({ success: false, error: 'معرفات المشاريع وفترة التاريخ مطلوبة' });
+    }
+    const ids = (project_ids as string).split(',').filter(Boolean);
+    if (ids.length < 1) {
+      return res.status(400).json({ success: false, error: 'يجب تحديد مشروع واحد على الأقل' });
+    }
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser) {
+      const unauthorized = ids.filter(id => !accessibleIds.includes(id));
+      if (unauthorized.length > 0) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لبعض المشاريع' });
+      }
+    }
+    const data = await reportDataService.getMultiProjectFinalReport(ids, dateFrom as string, dateTo as string);
+    res.json({ success: true, data });
+  } catch (error: any) {
+    console.error('❌ [Reports V2] خطأ في التقرير المجمع:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response) => {
   try {
     const { type } = req.params;
@@ -1307,6 +1336,34 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         return res.send(Buffer.from(buffer));
       } else {
         const html = generatePeriodFinalHTML(data);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      }
+    }
+
+    if (type === 'multi-project-final') {
+      const { project_ids } = req.query;
+      if (!project_ids || !dateFrom || !dateTo) {
+        return res.status(400).json({ success: false, error: 'معرفات المشاريع وفترة التاريخ مطلوبة' });
+      }
+      const ids = (project_ids as string).split(',').filter(Boolean);
+      if (ids.length < 1) {
+        return res.status(400).json({ success: false, error: 'يجب تحديد مشروع واحد على الأقل' });
+      }
+      if (!isAdminUser) {
+        const unauthorized = ids.filter(id => !accessibleIds.includes(id));
+        if (unauthorized.length > 0) {
+          return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+        }
+      }
+      const data = await reportDataService.getMultiProjectFinalReport(ids, dateFrom as string, dateTo as string);
+      if (format === 'xlsx') {
+        const buffer = await generateMultiProjectFinalExcel(data);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="multi-project-report-${dateFrom}-${dateTo}.xlsx"`);
+        return res.send(Buffer.from(buffer));
+      } else {
+        const html = generateMultiProjectFinalHTML(data);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.send(html);
       }

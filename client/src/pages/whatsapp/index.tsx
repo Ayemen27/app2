@@ -602,6 +602,7 @@ export default function WhatsAppSetupPage() {
   });
 
   const [selectedConvPhone, setSelectedConvPhone] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const { data: conversations = [], isLoading: isLoadingConversations } = useQuery({
     queryKey: ["/api/whatsapp-ai/conversations"],
@@ -1741,7 +1742,7 @@ export default function WhatsAppSetupPage() {
                                                 alt="صورة"
                                                 className="w-full max-w-[300px] rounded-t-lg cursor-pointer"
                                                 style={{ minHeight: 120 }}
-                                                onClick={() => window.open(msg.metadata.imageBase64, "_blank")}
+                                                onClick={() => setLightboxImage(msg.metadata.imageBase64)}
                                                 data-testid={`img-msg-${msg.id}`}
                                               />
                                               {msg.content && msg.content !== "📷 صورة" && (
@@ -1788,6 +1789,43 @@ export default function WhatsAppSetupPage() {
                   </div>
                 </div>
               </div>
+
+              {lightboxImage && (
+                <div
+                  className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center"
+                  onClick={() => setLightboxImage(null)}
+                  data-testid="lightbox-overlay"
+                >
+                  <button
+                    className="absolute top-4 right-4 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors z-10"
+                    onClick={() => setLightboxImage(null)}
+                    data-testid="lightbox-close"
+                  >
+                    <X className="h-7 w-7" />
+                  </button>
+                  <button
+                    className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 hover:text-white text-sm flex items-center gap-2 bg-white/10 hover:bg-white/20 rounded-full px-4 py-2 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const a = document.createElement("a");
+                      a.href = lightboxImage;
+                      a.download = `whatsapp-image-${Date.now()}.jpg`;
+                      a.click();
+                    }}
+                    data-testid="lightbox-download"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                    تحميل
+                  </button>
+                  <img
+                    src={lightboxImage}
+                    alt="عرض الصورة"
+                    className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                    data-testid="lightbox-image"
+                  />
+                </div>
+              )}
             </TabsContent>
           )}
 

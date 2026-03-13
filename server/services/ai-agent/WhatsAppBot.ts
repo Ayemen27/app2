@@ -793,28 +793,41 @@ export class WhatsAppBot {
   }
 
   private async deletePreviousBotMessages(jid: string): Promise<void> {
-    if (!this.sock) return;
+    if (!this.sock) {
+      console.log(`[WhatsAppBot][Delete] لا يوجد socket، تخطي الحذف`);
+      return;
+    }
     const prevMessages = this.lastSentMessages.get(jid);
-    if (!prevMessages || prevMessages.length === 0) return;
+    if (!prevMessages || prevMessages.length === 0) {
+      console.log(`[WhatsAppBot][Delete] لا توجد رسائل سابقة مسجلة لـ ${jid}`);
+      return;
+    }
 
+    console.log(`[WhatsAppBot][Delete] حذف ${prevMessages.length} رسالة سابقة من ${jid}`);
     for (const msg of prevMessages) {
       try {
+        console.log(`[WhatsAppBot][Delete] حذف رسالة: ${JSON.stringify(msg.key)}`);
         await this.sock.sendMessage(jid, { delete: msg.key });
+        console.log(`[WhatsAppBot][Delete] ✅ تم حذف الرسالة بنجاح`);
       } catch (e: any) {
-        console.warn(`[WhatsAppBot] فشل حذف رسالة سابقة في ${jid}:`, e?.message);
+        console.error(`[WhatsAppBot][Delete] ❌ فشل حذف رسالة في ${jid}:`, e?.message || e);
       }
     }
     this.lastSentMessages.delete(jid);
   }
 
   private trackSentMessage(jid: string, sentResult: any): void {
-    if (!sentResult?.key) return;
+    if (!sentResult?.key) {
+      console.warn(`[WhatsAppBot][Track] لم يتم تتبع الرسالة - لا يوجد key في النتيجة`);
+      return;
+    }
     const existing = this.lastSentMessages.get(jid) || [];
     existing.push({ key: sentResult.key, timestamp: Date.now() });
-    if (existing.length > 5) {
-      existing.splice(0, existing.length - 5);
+    if (existing.length > 10) {
+      existing.splice(0, existing.length - 10);
     }
     this.lastSentMessages.set(jid, existing);
+    console.log(`[WhatsAppBot][Track] تم تتبع رسالة لـ ${jid} (المجموع: ${existing.length}), key: ${JSON.stringify(sentResult.key)}`);
   }
 
   async safeSendMessage(jid: string, content: any): Promise<any> {
@@ -845,6 +858,7 @@ export class WhatsAppBot {
     }
 
     if (settings.deletePreviousMessages) {
+      console.log(`[WhatsAppBot][SafeSend] deletePreviousMessages مفعّل، بدء حذف الرسائل السابقة لـ ${jid}`);
       await this.deletePreviousBotMessages(jid);
     }
 

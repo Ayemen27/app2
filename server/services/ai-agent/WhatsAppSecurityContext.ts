@@ -110,6 +110,44 @@ export class WhatsAppSecurityContext {
           allowedProjectIds.includes(id)
         );
       }
+    } else if (permissionsMode === "inherit_user") {
+      const isAdminRole = role === "admin" || role === "super_admin";
+
+      if (isAdminRole) {
+        canRead = true;
+        canAdd = true;
+        canEdit = true;
+        canDelete = true;
+      } else {
+        const userPerms = await db
+          .select()
+          .from(userProjectPermissions)
+          .where(eq(userProjectPermissions.user_id, userId));
+
+        if (userPerms.length > 0) {
+          canRead = userPerms.some(p => p.canView === true);
+          canAdd = userPerms.some(p => p.canAdd === true);
+          canEdit = userPerms.some(p => p.canEdit === true);
+          canDelete = userPerms.some(p => p.canDelete === true);
+        } else {
+          const ownedProjects = await db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(eq(projects.engineerId, userId));
+
+          if (ownedProjects.length > 0) {
+            canRead = true;
+            canAdd = true;
+            canEdit = true;
+            canDelete = true;
+          } else {
+            canRead = false;
+            canAdd = false;
+            canEdit = false;
+            canDelete = false;
+          }
+        }
+      }
     }
 
     return new WhatsAppSecurityContext(
@@ -158,6 +196,18 @@ export class WhatsAppSecurityContext {
       this.role,
       projectId,
       "add"
+    );
+  }
+
+  async canReadProject(projectId: string): Promise<boolean> {
+    if (!this.canRead) return false;
+    if (this.isAdmin) return true;
+    if (!this.userId) return false;
+    return projectAccessService.checkProjectAccess(
+      this.userId,
+      this.role,
+      projectId,
+      "view"
     );
   }
 }

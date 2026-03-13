@@ -325,21 +325,36 @@ export class WhatsAppAIService {
         return this.startExpenseFromText(intent.params!, context, senderPhone, userName, securityContext, userProjectIds);
 
       case 'projects_status':
+        if (!securityContext.canRead) {
+          return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
+        }
         return this.showProjectsStatus(userProjectIds);
 
       case 'projects_list':
+        if (!securityContext.canRead) {
+          return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
+        }
         return this.showProjectsList(userProjectIds);
 
       case 'expense_summary':
+        if (!securityContext.canRead) {
+          return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
+        }
         return this.showExpenseSummary(userProjectIds, context, senderPhone);
 
       case 'export':
+        if (!securityContext.canRead) {
+          return textReply(nav(`❌ ليس لديك صلاحية تصدير البيانات.`));
+        }
         context.menuStack.push(context.currentMenu);
         context.currentMenu = 'export_reports';
         this.sessions.set(senderPhone, context);
         return buildMenuReply('export_reports');
 
       case 'reports':
+        if (!securityContext.canRead) {
+          return textReply(nav(`❌ ليس لديك صلاحية عرض التقارير.`));
+        }
         context.menuStack.push(context.currentMenu);
         context.currentMenu = 'reports';
         this.sessions.set(senderPhone, context);
@@ -445,14 +460,23 @@ export class WhatsAppAIService {
     }
 
     if (actionId === 'expense_summary') {
+      if (!securityContext.canRead) {
+        return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
+      }
       return this.showExpenseSummary(userProjectIds, context, senderPhone);
     }
 
     if (actionId === 'projects_list') {
+      if (!securityContext.canRead) {
+        return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
+      }
       return this.showProjectsList(userProjectIds);
     }
 
     if (actionId === 'projects_status') {
+      if (!securityContext.canRead) {
+        return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
+      }
       return this.showProjectsStatus(userProjectIds);
     }
 
@@ -477,6 +501,9 @@ export class WhatsAppAIService {
 
     if (actionId === 'export_daily' || actionId === 'export_worker' || actionId === 'export_period'
       || actionId === 'export_daily_range' || actionId === 'export_multi_project') {
+      if (!securityContext.canRead) {
+        return textReply(nav(`❌ ليس لديك صلاحية تصدير البيانات.`));
+      }
       return this.startExportFlow(actionId, context, senderPhone, userName, userProjectIds);
     }
 

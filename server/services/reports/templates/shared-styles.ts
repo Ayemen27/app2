@@ -236,7 +236,9 @@ body {
 @media print {
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .section-title { break-after: avoid; }
-  table, tr { break-inside: avoid; }
+  tr, thead { break-inside: avoid; }
+  table { break-inside: auto; }
+  thead { display: table-header-group; }
 }
 .report-container { padding: 10px; max-width: 794px; margin: 0 auto; }
 .header-band {

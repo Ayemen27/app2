@@ -23,3 +23,6 @@ www/
 client/www/
 output_apks/
 .npmrc
+
+# WhatsApp auth session
+auth_info_baileys/

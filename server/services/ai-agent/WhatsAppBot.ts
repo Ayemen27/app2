@@ -12,43 +12,73 @@ import { getWhatsAppAIService } from './WhatsAppAIService';
 import { db } from '../../db';
 import { whatsappAllowedNumbers } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+import fs from 'fs';
+import path from 'path';
 
 const logger = pino({ level: 'info' });
 
+const AUTH_DIR = 'auth_info_baileys';
 const DAILY_MESSAGE_LIMIT = 50;
 const MIN_DELAY_MS = 2000;
 const MAX_DELAY_MS = 5000;
 const RECONNECT_BASE_DELAY = 5000;
 const MAX_RECONNECT_DELAY = 120000;
+const PAIRING_CODE_DELAY_MS = 5000;
+const MAX_RECONNECT_ATTEMPTS = 10;
+
+type BotStatus = "idle" | "connecting" | "open" | "close";
+
+interface BotProtectionStats {
+  dailyMessageCount: number;
+  dailyLimit: number;
+  reconnectAttempts: number;
+  connectedAt: Date | null;
+  lastError: string | null;
+  minDelay: number;
+  maxDelay: number;
+  sessionExists: boolean;
+  needsRelink: boolean;
+}
 
 export class WhatsAppBot {
   private sock: any;
   private qr: string | null = null;
   private pairingCode: string | null = null;
-  private status: "idle" | "connecting" | "open" | "close" = "idle";
+  private status: BotStatus = "idle";
   private reconnectAttempts: number = 0;
   private dailyMessageCount: number = 0;
   private lastMessageTime: number = 0;
   private dailyResetTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
   private connectedAt: Date | null = null;
   private lastError: string | null = null;
+  private needsRelink: boolean = false;
+  private pendingPhoneNumber: string | null = null;
   private allowedNumbersCache: Set<string> = new Set();
   private allowedCacheTime: number = 0;
   private static CACHE_TTL = 60_000;
 
-  getStatus() {
+  getStatus(): BotStatus {
     return this.status;
   }
 
-  getQR() {
+  getQR(): string | null {
     return this.qr;
   }
 
-  getPairingCode() {
+  getPairingCode(): string | null {
     return this.pairingCode;
   }
 
-  getProtectionStats() {
+  getLastError(): string | null {
+    return this.lastError;
+  }
+
+  getNeedsRelink(): boolean {
+    return this.needsRelink;
+  }
+
+  getProtectionStats(): BotProtectionStats {
     return {
       dailyMessageCount: this.dailyMessageCount,
       dailyLimit: DAILY_MESSAGE_LIMIT,
@@ -57,10 +87,35 @@ export class WhatsAppBot {
       lastError: this.lastError,
       minDelay: MIN_DELAY_MS,
       maxDelay: MAX_DELAY_MS,
+      sessionExists: this.hasAuthState(),
+      needsRelink: this.needsRelink,
     };
   }
 
-  private resetDailyCounter() {
+  private hasAuthState(): boolean {
+    try {
+      const credsPath = path.join(AUTH_DIR, 'creds.json');
+      return fs.existsSync(credsPath);
+    } catch {
+      return false;
+    }
+  }
+
+  private clearAuthState(): void {
+    try {
+      if (fs.existsSync(AUTH_DIR)) {
+        const files = fs.readdirSync(AUTH_DIR);
+        for (const file of files) {
+          fs.unlinkSync(path.join(AUTH_DIR, file));
+        }
+        console.log(`🗑️ [WhatsAppBot] Auth state cleared (${files.length} files removed)`);
+      }
+    } catch (err) {
+      console.error('❌ [WhatsAppBot] Failed to clear auth state:', err);
+    }
+  }
+
+  private resetDailyCounter(): void {
     if (this.dailyResetTimer) clearInterval(this.dailyResetTimer);
     this.dailyResetTimer = setInterval(() => {
       console.log(`🔄 [AntiBot] إعادة تعيين عداد الرسائل اليومي (كان: ${this.dailyMessageCount})`);
@@ -68,7 +123,27 @@ export class WhatsAppBot {
     }, 24 * 60 * 60 * 1000);
   }
 
-  async disconnect() {
+  private cancelReconnect(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  private async cleanupSocket(): Promise<void> {
+    if (this.sock) {
+      try {
+        this.sock.ev?.removeAllListeners?.('connection.update');
+        this.sock.ev?.removeAllListeners?.('creds.update');
+        this.sock.ev?.removeAllListeners?.('messages.upsert');
+        await this.sock.end(undefined);
+      } catch (e) {}
+      this.sock = null;
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    this.cancelReconnect();
     if (this.sock) {
       try {
         await this.sock.logout();
@@ -78,31 +153,60 @@ export class WhatsAppBot {
         } catch (e2) {}
       }
     }
+    this.sock = null;
     this.status = "close";
     this.qr = null;
     this.pairingCode = null;
     this.connectedAt = null;
+    this.needsRelink = false;
     this.lastError = "تم فصل الاتصال يدوياً";
     console.log('🔌 [WhatsAppBot] Disconnected manually');
   }
 
-  async restart(phoneNumber?: string) {
-    if (this.sock) {
-      try {
-        await this.sock.end(undefined);
-      } catch (e) {}
-    }
+  async restart(phoneNumber?: string): Promise<void> {
+    console.log(`🔄 [WhatsAppBot] Restart requested${phoneNumber ? ` with phone: ${phoneNumber}` : ''}`);
+    this.cancelReconnect();
+    await this.cleanupSocket();
+    
     this.status = "idle";
     this.qr = null;
     this.pairingCode = null;
     this.reconnectAttempts = 0;
     this.lastError = null;
+    this.needsRelink = false;
+    this.pendingPhoneNumber = phoneNumber || null;
+
+    if (phoneNumber) {
+      this.clearAuthState();
+      console.log('🗑️ [WhatsAppBot] Auth cleared for fresh pairing code session');
+    }
+
     return this.start(phoneNumber);
   }
 
-  async start(phoneNumber?: string) {
+  async resetAndRelink(): Promise<void> {
+    console.log('🔑 [WhatsAppBot] Full session reset for re-linking');
+    this.cancelReconnect();
+    await this.cleanupSocket();
+    this.clearAuthState();
+    
+    this.status = "idle";
+    this.qr = null;
+    this.pairingCode = null;
+    this.reconnectAttempts = 0;
+    this.lastError = null;
+    this.needsRelink = false;
+    this.connectedAt = null;
+    this.pendingPhoneNumber = null;
+
+    return this.start();
+  }
+
+  async start(phoneNumber?: string): Promise<void> {
     this.status = "connecting";
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    this.lastError = null;
+    
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
     let version: WAVersion = [2, 3000, 1015901307];
     try {
@@ -112,6 +216,8 @@ export class WhatsAppBot {
     } catch (err) {
       console.log(`⚠️ [WhatsAppBot] Failed to fetch latest version, using fallback: ${version.join('.')}`);
     }
+
+    const shouldRequestPairing = !!phoneNumber && !state.creds.registered;
 
     try {
       this.sock = makeWASocket({
@@ -133,22 +239,25 @@ export class WhatsAppBot {
         markOnlineOnConnect: false,
       });
 
-      if (phoneNumber && !state.creds.registered) {
+      if (shouldRequestPairing) {
         setTimeout(async () => {
           try {
             const code = await this.sock.requestPairingCode(phoneNumber);
             this.pairingCode = code;
-            console.log(`🔢 [WhatsAppBot] Pairing Code generated: ${code}`);
+            this.lastError = null;
+            console.log(`🔢 [WhatsAppBot] Pairing Code generated for ${phoneNumber}: ${code}`);
           } catch (err) {
-            console.error('❌ [WhatsAppBot] Error requesting pairing code:', err);
-            this.lastError = `فشل في إنشاء كود الربط: ${(err as Error).message}`;
+            const errMsg = (err as Error).message;
+            console.error('❌ [WhatsAppBot] Error requesting pairing code:', errMsg);
+            this.lastError = `فشل في إنشاء كود الربط: ${errMsg}`;
+            this.pairingCode = null;
           }
-        }, 5000);
+        }, PAIRING_CODE_DELAY_MS);
       }
     } catch (err) {
       console.error('❌ [WhatsAppBot] Critical error creating socket:', err);
       this.status = "close";
-      this.lastError = `خطأ حرج: ${(err as Error).message}`;
+      this.lastError = `خطأ حرج في إنشاء الاتصال`;
       return;
     }
 
@@ -159,6 +268,7 @@ export class WhatsAppBot {
       
       if (qr) {
         this.qr = qr;
+        this.pairingCode = null;
         this.status = "connecting";
         console.log('📸 [WhatsAppBot] New QR Code generated');
       }
@@ -170,11 +280,20 @@ export class WhatsAppBot {
         this.pairingCode = null;
         this.connectedAt = null;
         
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-        this.lastError = `انقطع الاتصال (كود: ${statusCode})`;
-        console.log(`🔌 [WhatsAppBot] Connection closed. Reason: ${statusCode}, Reconnecting: ${shouldReconnect}`);
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
         
-        if (shouldReconnect) {
+        if (isLoggedOut) {
+          this.clearAuthState();
+          this.needsRelink = true;
+          this.lastError = "انتهت جلسة واتساب — يرجى إعادة ربط الجهاز";
+          console.log('🔒 [WhatsAppBot] Session expired (401/loggedOut). Auth cleared. Needs re-link.');
+          return;
+        }
+
+        this.lastError = `انقطع الاتصال (كود: ${statusCode})`;
+        console.log(`🔌 [WhatsAppBot] Connection closed. Reason: ${statusCode}`);
+
+        if (this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           this.reconnectAttempts++;
           const delay = Math.min(
             RECONNECT_BASE_DELAY * Math.pow(1.5, this.reconnectAttempts - 1),
@@ -183,8 +302,11 @@ export class WhatsAppBot {
           const jitter = Math.floor(Math.random() * 2000);
           const totalDelay = delay + jitter;
           
-          console.log(`🔄 [WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts})`);
-          setTimeout(() => this.start(), totalDelay);
+          console.log(`🔄 [WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+          this.reconnectTimer = setTimeout(() => this.start(), totalDelay);
+        } else {
+          this.lastError = `فشل الاتصال بعد ${MAX_RECONNECT_ATTEMPTS} محاولات. يرجى إعادة التشغيل يدوياً.`;
+          console.log(`❌ [WhatsAppBot] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
         }
       } else if (connection === 'open') {
         this.status = "open";
@@ -193,6 +315,8 @@ export class WhatsAppBot {
         this.reconnectAttempts = 0;
         this.connectedAt = new Date();
         this.lastError = null;
+        this.needsRelink = false;
+        this.pendingPhoneNumber = null;
         this.resetDailyCounter();
         console.log('✅ [WhatsAppBot] Connection opened successfully');
         
@@ -281,12 +405,12 @@ export class WhatsAppBot {
     }
   }
 
-  clearAllowedCache() {
+  clearAllowedCache(): void {
     this.allowedCacheTime = 0;
     this.allowedNumbersCache.clear();
   }
 
-  async safeSendMessage(jid: string, content: any) {
+  async safeSendMessage(jid: string, content: any): Promise<any> {
     if (!this.sock) return;
     
     const now = Date.now();
@@ -317,9 +441,7 @@ export class WhatsAppBot {
       const typingDelay = Math.floor(Math.random() * 1500) + 500;
       await new Promise(resolve => setTimeout(resolve, typingDelay));
       await this.sock.sendPresenceUpdate('paused', jid);
-    } catch (e) {
-      // Presence update failure is non-critical
-    }
+    } catch (e) {}
 
     return await this.sock.sendMessage(jid, content);
   }

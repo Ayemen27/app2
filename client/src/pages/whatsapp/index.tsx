@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { getValidToken } from "@/lib/token-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,15 +71,19 @@ export default function WhatsAppSetupPage() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "connecting" | "open" | "close">("idle");
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [needsRelink, setNeedsRelink] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [linkPhoneNumber, setLinkPhoneNumber] = useState("");
   const [linkCountryCode, setLinkCountryCode] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [isRelinking, setIsRelinking] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [protectionLevel, setProtectionLevel] = useState<ProtectionLevel>("maximum");
   const [activeTab, setActiveTab] = useState("mylink");
   const [pairingCountdown, setPairingCountdown] = useState(0);
+  const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>({
     open: false, title: "", description: "", onConfirm: () => {},
@@ -158,9 +163,38 @@ export default function WhatsAppSetupPage() {
       setStatus(botStatus.status);
       setQrCode(botStatus.qr || null);
       setPairingCode(botStatus.pairingCode || null);
+      setLastError(botStatus.lastError || null);
+      setNeedsRelink(botStatus.needsRelink || false);
       if (botStatus.status === "open") setPhoneNumber("");
     }
   }, [botStatus]);
+
+  useEffect(() => {
+    if (!qrCode) {
+      setQrImageUrl(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchQrImage = async () => {
+      try {
+        const token = getValidToken('accessToken');
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`/api/whatsapp-ai/qr-image?t=${Date.now()}`, {
+          headers,
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("QR fetch failed");
+        const blob = await res.blob();
+        if (!cancelled) {
+          const url = URL.createObjectURL(blob);
+          setQrImageUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
+        }
+      } catch { if (!cancelled) setQrImageUrl(null); }
+    };
+    fetchQrImage();
+    return () => { cancelled = true; };
+  }, [qrCode]);
 
   useEffect(() => {
     if (pairingCode) {
@@ -887,45 +921,115 @@ export default function WhatsAppSetupPage() {
                       {isConnected ? (
                         <div className="text-center space-y-4 py-6">
                           <div className="relative">
-                            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-xl shadow-emerald-500/20">
-                              <CheckCircle2 className="h-12 w-12 text-white" />
+                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-xl shadow-emerald-500/20">
+                              <CheckCircle2 className="h-10 w-10 text-white" />
                             </div>
-                            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-lg">
-                              <SiWhatsapp className="h-4 w-4 text-emerald-500" />
+                            <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center shadow-lg">
+                              <SiWhatsapp className="h-3.5 w-3.5 text-emerald-500" />
                             </div>
                           </div>
                           <div>
-                            <p className="font-black text-emerald-600 text-lg">بوت الشركة متصل</p>
-                            <p className="text-xs text-slate-500 mt-1">جاهز لاستقبال رسائل المستخدمين</p>
+                            <p className="font-black text-emerald-600 text-base">بوت الشركة متصل</p>
+                            <p className="text-[11px] text-slate-500 mt-1">جاهز لاستقبال رسائل المستخدمين</p>
                           </div>
+                        </div>
+                      ) : needsRelink ? (
+                        <div className="text-center space-y-4 py-4 w-full">
+                          <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mx-auto">
+                            <WifiOff className="h-8 w-8 text-red-500" />
+                          </div>
+                          <div>
+                            <p className="font-black text-red-600 text-sm">انتهت جلسة واتساب</p>
+                            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed max-w-xs mx-auto">
+                              يرجى إعادة ربط الجهاز عبر مسح QR جديد أو كود اقتران
+                            </p>
+                          </div>
+                          <Button
+                            data-testid="btn-relink"
+                            className="rounded-xl font-bold gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
+                            disabled={isRelinking}
+                            onClick={async () => {
+                              setIsRelinking(true);
+                              try {
+                                await apiRequest("/api/whatsapp-ai/relink", "POST");
+                                toast({ title: "تم", description: "جاري إنشاء جلسة جديدة..." });
+                                queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/status"] });
+                              } catch {
+                                toast({ title: "خطأ", description: "فشل في إعادة الربط", variant: "destructive" });
+                              } finally {
+                                setIsRelinking(false);
+                              }
+                            }}
+                          >
+                            {isRelinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                            إعادة ربط الجهاز
+                          </Button>
+                          {lastError && (
+                            <p className="text-[10px] text-red-500/80 mt-1">{lastError}</p>
+                          )}
                         </div>
                       ) : qrCode ? (
                         <div className="space-y-4">
                           <div className="relative p-3 bg-white rounded-2xl shadow-inner border-2 border-dashed border-emerald-200 dark:border-emerald-800">
-                            <img
-                              data-testid="img-qr-code"
-                              src={`/api/whatsapp-ai/qr-image?t=${Date.now()}`}
-                              alt="WhatsApp QR"
-                              className="w-56 h-56 rounded-xl"
-                              onError={(e) => {
-                                const target = e.currentTarget as HTMLImageElement;
-                                target.style.display = 'none';
-                              }}
-                            />
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-xl bg-white shadow-lg flex items-center justify-center">
-                              <SiWhatsapp className="h-6 w-6 text-emerald-500" />
+                            {qrImageUrl ? (
+                              <img
+                                data-testid="img-qr-code"
+                                src={qrImageUrl}
+                                alt="WhatsApp QR"
+                                className="w-48 h-48 sm:w-56 sm:h-56 rounded-xl"
+                              />
+                            ) : (
+                              <div className="w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center">
+                                <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+                              </div>
+                            )}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-lg bg-white shadow-lg flex items-center justify-center">
+                              <SiWhatsapp className="h-5 w-5 text-emerald-500" />
                             </div>
                           </div>
-                          <p className="text-center text-xs text-slate-500 font-medium">
+                          <p className="text-center text-[11px] text-slate-500 font-medium">
                             امسح هذا الرمز بهاتف بوت الشركة
                           </p>
                         </div>
-                      ) : (
-                        <div className="text-center space-y-3 py-8">
-                          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto">
-                            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                      ) : status === "close" && lastError ? (
+                        <div className="text-center space-y-3 py-4 w-full">
+                          <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center mx-auto">
+                            <AlertTriangle className="h-7 w-7 text-amber-500" />
                           </div>
-                          <p className="text-sm font-medium text-slate-400">جاري إنشاء رمز QR...</p>
+                          <div>
+                            <p className="font-black text-amber-600 text-sm">فشل الاتصال</p>
+                            <p className="text-[11px] text-slate-500 mt-1">{lastError}</p>
+                          </div>
+                          <Button
+                            data-testid="btn-retry-connect"
+                            variant="outline"
+                            className="rounded-xl font-bold gap-2"
+                            onClick={() => handleRestart()}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> إعادة المحاولة
+                          </Button>
+                        </div>
+                      ) : status === "connecting" ? (
+                        <div className="text-center space-y-3 py-6">
+                          <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center mx-auto">
+                            <Loader2 className="h-7 w-7 animate-spin text-blue-500" />
+                          </div>
+                          <p className="text-sm font-medium text-slate-500">جاري الاتصال...</p>
+                          <p className="text-[10px] text-slate-400">يرجى الانتظار، قد يستغرق بضع ثوانٍ</p>
+                        </div>
+                      ) : (
+                        <div className="text-center space-y-3 py-6">
+                          <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto">
+                            <WifiOff className="h-7 w-7 text-slate-400" />
+                          </div>
+                          <p className="text-sm font-medium text-slate-400">البوت غير نشط</p>
+                          <Button
+                            variant="outline"
+                            className="rounded-xl font-bold gap-2"
+                            onClick={() => handleRestart()}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> تشغيل البوت
+                          </Button>
                         </div>
                       )}
                     </CardContent>

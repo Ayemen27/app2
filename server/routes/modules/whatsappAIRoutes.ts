@@ -160,6 +160,8 @@ router.get("/status", (req: Request, res: Response) => {
     status: bot.getStatus(),
     qr: isAdmin ? bot.getQR() : null,
     pairingCode: isAdmin ? bot.getPairingCode() : null,
+    lastError: isAdmin ? bot.getLastError() : null,
+    needsRelink: isAdmin ? bot.getNeedsRelink() : false,
     protection: isAdmin ? bot.getProtectionStats() : { dailyMessageCount: 0, dailyLimit: 50 }
   });
 });
@@ -169,6 +171,16 @@ router.post("/restart", requireAdminCheck, async (req: Request, res: Response) =
   const bot = getWhatsAppBot();
   await bot.restart(phoneNumber);
   res.json({ success: true });
+});
+
+router.post("/relink", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const bot = getWhatsAppBot();
+    await bot.resetAndRelink();
+    res.json({ success: true, message: "تم حذف الجلسة القديمة وبدء جلسة جديدة" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 router.post("/disconnect", requireAdminCheck, async (req: Request, res: Response) => {
@@ -220,8 +232,15 @@ router.get("/stats", async (req: Request, res: Response) => {
       status: stats?.status || "idle",
       phoneNumber: stats?.phoneNumber || null
     });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch stats" });
+  } catch (error: any) {
+    console.error("❌ [WhatsApp Stats] Error:", error?.message || error);
+    res.json({
+      totalMessages: 0,
+      lastSync: null,
+      accuracy: "0%",
+      status: "idle",
+      phoneNumber: null
+    });
   }
 });
 

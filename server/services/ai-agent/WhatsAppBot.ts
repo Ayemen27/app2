@@ -72,6 +72,15 @@ export class WhatsAppBot {
     return this.status;
   }
 
+  isConnected(): boolean {
+    return this.status === "open" && !!this.sock;
+  }
+
+  async sendMessageSafe(jid: string, content: any) {
+    if (!this.sock) throw new Error("البوت غير متصل");
+    return await this.sock.sendMessage(jid, content);
+  }
+
   getQR(): string | null {
     return this.qr;
   }

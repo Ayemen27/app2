@@ -1,6 +1,7 @@
 import { AIAgentService, getAIAgentService } from "./AIAgentService";
 import { WhatsAppSecurityContext } from "./WhatsAppSecurityContext";
 import { db } from "../../db";
+import { storage } from "../../storage";
 import { workers, projects, workerAttendance, whatsappUserLinks, whatsappMessages, aiChatSessions } from "@shared/schema";
 import { eq, ilike, and, sql, inArray } from "drizzle-orm";
 import {
@@ -99,13 +100,14 @@ export class WhatsAppAIService {
         ));
     } catch (e) {}
 
+    const cleanPhone = senderPhone.replace(/\D/g, '');
     try {
-      await db.insert(whatsappMessages).values({
-        sender: senderPhone.replace(/\D/g, ''),
+      await storage.createWhatsAppMessage({
+        sender: cleanPhone,
         wa_id: 'bot',
         content: message.trim().substring(0, 5000),
         status: 'received',
-        phone_number: senderPhone.replace(/\D/g, ''),
+        phone_number: cleanPhone,
         user_id: userId,
         is_authorized: true,
         security_scope: { role, projectIds: userProjectIds, isAdmin },
@@ -224,6 +226,8 @@ export class WhatsAppAIService {
     }
 
     if (actionId === 'report_daily' || actionId === 'report_project') {
+      context.currentMenu = 'ai_freetext';
+      this.sessions.set(senderPhone, context);
       const lines = [
         `✏️ اكتب سؤالك مباشرة وسأجيبك.`,
         ``,
@@ -237,6 +241,8 @@ export class WhatsAppAIService {
     }
 
     if (actionId === 'report_ask') {
+      context.currentMenu = 'ai_freetext';
+      this.sessions.set(senderPhone, context);
       return textReply(addNavFooter(`🤖 *اسأل الذكاء الاصطناعي*\n\nاكتب سؤالك أو طلبك وسأحاول مساعدتك.\n\n📝 مثال: "كم إجمالي المصروفات؟" أو "أعطني تقرير المشاريع"`));
     }
 
@@ -624,12 +630,13 @@ export class WhatsAppAIService {
       );
 
       try {
-        await db.insert(whatsappMessages).values({
+        const cleanPhoneOut = senderPhone.replace(/\D/g, '');
+        await storage.createWhatsAppMessage({
           sender: 'bot',
-          wa_id: senderPhone.replace(/\D/g, ''),
+          wa_id: cleanPhoneOut,
           content: response.message.substring(0, 5000),
           status: 'sent',
-          phone_number: senderPhone.replace(/\D/g, ''),
+          phone_number: cleanPhoneOut,
           user_id: userId,
           is_authorized: true,
           security_scope: { role, projectIds: userProjectIds, isAdmin },

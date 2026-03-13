@@ -1006,8 +1006,8 @@ export class AIAgentService {
       if (pattern.test(msg)) return action;
     }
 
-    const workerStatementMatch = msg.match(/(?:كشف\s*حساب|بيان)\s*(?:ال)?عامل\s*(\S+)/i);
-    if (workerStatementMatch) return `[ACTION:WORKER_STATEMENT:${workerStatementMatch[1]}]`;
+    const workerStatementMatch = msg.match(/(?:كشف\s*حساب|بيان)\s*(?:ال)?عامل\s+(.+)/i);
+    if (workerStatementMatch) return `[ACTION:WORKER_STATEMENT:${workerStatementMatch[1].trim()}]`;
 
     const searchMatch = msg.match(/(?:ابحث|بحث|find|search)\s+(?:عن\s+)?(.+)/i);
     if (searchMatch) return `[ACTION:GLOBAL_SEARCH:${searchMatch[1].trim()}]`;

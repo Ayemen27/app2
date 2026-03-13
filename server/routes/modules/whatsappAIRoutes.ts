@@ -4,7 +4,7 @@ import { getWhatsAppBot } from "../../services/ai-agent/WhatsAppBot";
 import { storage } from "../../storage";
 import { db } from "../../db";
 import { whatsappUserLinks, whatsappAllowedNumbers, whatsappMessages, whatsappLinkProjects, users, projects } from "@shared/schema";
-import { eq, and, sql, ne, desc, inArray } from "drizzle-orm";
+import { eq, and, sql, ne, desc, inArray, or } from "drizzle-orm";
 import { authenticate } from "../../middleware/auth";
 import { z } from "zod";
 import { projectAccessService } from "../../services/ProjectAccessService";
@@ -246,12 +246,16 @@ router.get("/stats/me", async (req: Request, res: Response) => {
       .limit(1);
 
     const phoneNumber = link.length > 0 ? link[0].phoneNumber : null;
+    const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : null;
 
     let myMessageCount = 0;
-    if (phoneNumber) {
+    if (cleanPhone) {
       const countResult = await db.select({ count: sql<number>`count(*)` })
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.sender, phoneNumber));
+        .where(or(
+          eq(whatsappMessages.sender, cleanPhone),
+          eq(whatsappMessages.phone_number, cleanPhone)
+        ));
       myMessageCount = Number(countResult[0]?.count || 0);
     }
 
@@ -279,8 +283,11 @@ router.get("/stats/me", async (req: Request, res: Response) => {
 router.get("/stats/admin", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const stats = await storage.getWhatsAppStats();
+    const realCountResult = await db.select({ count: sql<number>`count(*)` })
+      .from(whatsappMessages);
+    const realCount = Number(realCountResult[0]?.count || 0);
     res.json({
-      totalMessages: stats?.totalMessages || 0,
+      totalMessages: Math.max(stats?.totalMessages || 0, realCount),
       lastSync: stats?.lastSync || null,
       accuracy: stats?.accuracy || "0%",
       status: stats?.status || "idle",
@@ -303,8 +310,11 @@ router.get("/stats", async (req: Request, res: Response) => {
     const isAdmin = req.user?.role === 'admin' || req.user?.role === 'super_admin';
     if (isAdmin) {
       const stats = await storage.getWhatsAppStats();
+      const realCountResult = await db.select({ count: sql<number>`count(*)` })
+        .from(whatsappMessages);
+      const realCount = Number(realCountResult[0]?.count || 0);
       return res.json({
-        totalMessages: stats?.totalMessages || 0,
+        totalMessages: Math.max(stats?.totalMessages || 0, realCount),
         lastSync: stats?.lastSync || null,
         accuracy: stats?.accuracy || "0%",
         status: stats?.status || "idle",
@@ -317,11 +327,15 @@ router.get("/stats", async (req: Request, res: Response) => {
       .where(eq(whatsappUserLinks.user_id, userId))
       .limit(1);
     const phoneNumber = link.length > 0 ? link[0].phoneNumber : null;
+    const cleanStatsPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : null;
     let myMessageCount = 0;
-    if (phoneNumber) {
+    if (cleanStatsPhone) {
       const countResult = await db.select({ count: sql<number>`count(*)` })
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.sender, phoneNumber));
+        .where(or(
+          eq(whatsappMessages.sender, cleanStatsPhone),
+          eq(whatsappMessages.phone_number, cleanStatsPhone)
+        ));
       myMessageCount = Number(countResult[0]?.count || 0);
     }
     res.json({
@@ -388,21 +402,27 @@ router.get("/messages/me", async (req: Request, res: Response) => {
       return res.json({ messages: [], total: 0, page: 1, pageSize: 20 });
     }
 
-    const phoneNumber = link[0].phoneNumber;
+    const cleanPhone = link[0].phoneNumber.replace(/\D/g, '');
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20));
     const offset = (page - 1) * pageSize;
 
+    const phoneFilter = or(
+      eq(whatsappMessages.sender, cleanPhone),
+      eq(whatsappMessages.phone_number, cleanPhone),
+      and(eq(whatsappMessages.sender, 'bot'), eq(whatsappMessages.wa_id, cleanPhone))
+    );
+
     const [messages, countResult] = await Promise.all([
       db.select()
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.sender, phoneNumber))
+        .where(phoneFilter)
         .orderBy(desc(whatsappMessages.timestamp))
         .limit(pageSize)
         .offset(offset),
       db.select({ count: sql<number>`count(*)` })
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.sender, phoneNumber)),
+        .where(phoneFilter),
     ]);
 
     const total = Number(countResult[0]?.count || 0);
@@ -416,6 +436,133 @@ router.get("/messages/me", async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("[WhatsApp messages/me] Error:", error?.message || error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/conversations", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const conversations = await db.select({
+      id: whatsappUserLinks.id,
+      userId: whatsappUserLinks.user_id,
+      phoneNumber: whatsappUserLinks.phoneNumber,
+      totalMessages: whatsappUserLinks.totalMessages,
+      lastMessageAt: whatsappUserLinks.lastMessageAt,
+      isActive: whatsappUserLinks.isActive,
+      userName: users.full_name,
+      userEmail: users.email,
+    })
+    .from(whatsappUserLinks)
+    .leftJoin(users, eq(whatsappUserLinks.user_id, users.id))
+    .where(eq(whatsappUserLinks.isActive, true))
+    .orderBy(desc(whatsappUserLinks.lastMessageAt));
+
+    const result = await Promise.all(conversations.map(async (conv) => {
+      const cleanPhone = conv.phoneNumber.replace(/\D/g, '');
+      const lastMsg = await db.select({
+        content: whatsappMessages.content,
+        sender: whatsappMessages.sender,
+        timestamp: whatsappMessages.timestamp,
+      })
+      .from(whatsappMessages)
+      .where(eq(whatsappMessages.phone_number, cleanPhone))
+      .orderBy(desc(whatsappMessages.timestamp))
+      .limit(1);
+
+      const unreadCount = await db.select({ count: sql<number>`count(*)` })
+        .from(whatsappMessages)
+        .where(and(
+          eq(whatsappMessages.phone_number, cleanPhone),
+          ne(whatsappMessages.sender, 'bot'),
+          eq(whatsappMessages.status, 'received')
+        ));
+
+      return {
+        ...conv,
+        lastMessage: lastMsg[0] || null,
+        unreadCount: Number(unreadCount[0]?.count || 0),
+      };
+    }));
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WhatsApp Conversations] Error:", error?.message || error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/conversations/:phoneNumber/messages", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const cleanPhone = req.params.phoneNumber.replace(/\D/g, '');
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 50));
+    const offset = (page - 1) * pageSize;
+
+    const phoneFilter = eq(whatsappMessages.phone_number, cleanPhone);
+
+    const [messages, countResult] = await Promise.all([
+      db.select()
+        .from(whatsappMessages)
+        .where(phoneFilter)
+        .orderBy(desc(whatsappMessages.timestamp))
+        .limit(pageSize)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` })
+        .from(whatsappMessages)
+        .where(phoneFilter),
+    ]);
+
+    const link = await db.select({
+      userName: users.full_name,
+      userEmail: users.email,
+    })
+    .from(whatsappUserLinks)
+    .leftJoin(users, eq(whatsappUserLinks.user_id, users.id))
+    .where(eq(whatsappUserLinks.phoneNumber, cleanPhone))
+    .limit(1);
+
+    res.json({
+      messages: messages.reverse(),
+      total: Number(countResult[0]?.count || 0),
+      page,
+      pageSize,
+      totalPages: Math.ceil(Number(countResult[0]?.count || 0) / pageSize),
+      contact: link[0] || { userName: null, userEmail: null },
+    });
+  } catch (error: any) {
+    console.error("[WhatsApp Conv Messages] Error:", error?.message || error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/conversations/:phoneNumber/send", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const cleanPhone = req.params.phoneNumber.replace(/\D/g, '');
+    const { message } = req.body;
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: "الرسالة مطلوبة" });
+    }
+
+    const bot = getWhatsAppBot();
+    if (!bot.isConnected()) {
+      return res.status(503).json({ error: "البوت غير متصل. يرجى الاتصال أولاً." });
+    }
+
+    const jid = `${cleanPhone}@s.whatsapp.net`;
+    await bot.sendMessageSafe(jid, { text: message.trim() });
+
+    await storage.createWhatsAppMessage({
+      wa_id: cleanPhone,
+      sender: "admin",
+      content: message.trim(),
+      status: "sent",
+      phone_number: cleanPhone,
+      timestamp: new Date(),
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[WhatsApp Send] Error:", error?.message || error);
     res.status(500).json({ error: error.message });
   }
 });

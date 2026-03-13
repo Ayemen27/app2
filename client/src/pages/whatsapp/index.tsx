@@ -80,6 +80,53 @@ interface ConfirmDialogState {
   variant?: "destructive" | "default";
 }
 
+function ChatInputBar({ phoneNumber }: { phoneNumber: string }) {
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
+    setSending(true);
+    try {
+      await apiRequest(`/api/whatsapp-ai/conversations/${phoneNumber}/send`, "POST", { message: message.trim() });
+      setMessage("");
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/conversations", phoneNumber, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/conversations"] });
+      inputRef.current?.focus();
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center gap-2">
+      <Button
+        data-testid="btn-send-msg"
+        size="icon"
+        onClick={handleSend}
+        disabled={!message.trim() || sending}
+        className="bg-green-500 hover:bg-green-600 text-white rounded-full h-10 w-10 flex-shrink-0"
+      >
+        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+      </Button>
+      <Input
+        ref={inputRef}
+        data-testid="input-send-msg"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+        placeholder="اكتب رسالة..."
+        className="flex-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-full text-right"
+        dir="rtl"
+      />
+    </div>
+  );
+}
+
 export default function WhatsAppSetupPage() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -182,6 +229,11 @@ export default function WhatsAppSetupPage() {
 
   const { data: realStats } = useQuery({
     queryKey: [isAdmin ? "/api/whatsapp-ai/stats/admin" : "/api/whatsapp-ai/stats/me"],
+  });
+
+  const { data: myMessages, isLoading: isLoadingMessages } = useQuery({
+    queryKey: ["/api/whatsapp-ai/messages/me"],
+    enabled: activeTab === "myscope",
   });
 
   const { data: allProjects = [] } = useQuery({
@@ -454,12 +506,27 @@ export default function WhatsAppSetupPage() {
     },
   });
 
+  const [selectedConvPhone, setSelectedConvPhone] = useState<string | null>(null);
+
+  const { data: conversations = [], isLoading: isLoadingConversations } = useQuery({
+    queryKey: ["/api/whatsapp-ai/conversations"],
+    enabled: isAdmin && activeTab === "chats",
+    refetchInterval: activeTab === "chats" ? 10000 : false,
+  });
+
+  const { data: convMessages, isLoading: isLoadingConvMessages } = useQuery({
+    queryKey: ["/api/whatsapp-ai/conversations", selectedConvPhone, "messages"],
+    enabled: isAdmin && !!selectedConvPhone,
+    refetchInterval: selectedConvPhone ? 5000 : false,
+  });
+
   const tabItems = useMemo(() => {
     const items = [
       { id: "mylink", label: "ربط رقمي", icon: LinkIcon, color: "data-[state=active]:bg-emerald-500" },
       { id: "myscope", label: "نطاق وصولي", icon: Eye, color: "data-[state=active]:bg-cyan-500" },
     ];
     if (isAdmin) {
+      items.push({ id: "chats", label: "المحادثات", icon: MessageSquare, color: "data-[state=active]:bg-green-500" });
       items.push({ id: "connection", label: "البوت", icon: QrCode, color: "data-[state=active]:bg-blue-500" });
       items.push({ id: "allowed", label: "الأرقام المسموحة", icon: ShieldCheck, color: "data-[state=active]:bg-orange-500" });
       items.push({ id: "users", label: "المستخدمون", icon: Users, color: "data-[state=active]:bg-purple-500" });
@@ -1088,6 +1155,78 @@ export default function WhatsAppSetupPage() {
                 )}
               </CardContent>
             </Card>
+
+            {(myScope as any)?.isLinked && (
+              <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden" data-testid="card-conversations">
+                <div className="h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500" />
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2 font-black">
+                    <div className="w-8 h-8 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                      <MessageSquare className="h-4 w-4 text-green-600" />
+                    </div>
+                    آخر المحادثات
+                    {(myMessages as any)?.total > 0 && (
+                      <Badge variant="secondary" className="text-[9px] font-black" data-testid="badge-messages-count">
+                        {(myMessages as any).total} رسالة
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingMessages ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-green-500" />
+                    </div>
+                  ) : (myMessages as any)?.messages?.length > 0 ? (
+                    <ScrollArea className="h-80">
+                      <div className="space-y-3 pr-3">
+                        {(myMessages as any).messages.map((msg: any) => (
+                          <div
+                            key={msg.id}
+                            data-testid={`message-${msg.id}`}
+                            className={cn(
+                              "p-3 rounded-xl max-w-[85%] text-sm leading-relaxed",
+                              msg.sender === 'bot'
+                                ? "bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 ml-auto"
+                                : "bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 mr-auto"
+                            )}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1">
+                              {msg.sender === 'bot' ? (
+                                <SiWhatsapp className="h-3 w-3 text-emerald-600" />
+                              ) : (
+                                <Smartphone className="h-3 w-3 text-slate-500" />
+                              )}
+                              <span className="text-[10px] font-bold text-slate-500">
+                                {msg.sender === 'bot' ? 'البوت' : 'أنت'}
+                              </span>
+                              <span className="text-[9px] text-slate-400 mr-auto" dir="ltr">
+                                {msg.timestamp ? new Date(msg.timestamp).toLocaleString('ar-SA', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : ''}
+                              </span>
+                            </div>
+                            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap text-xs">
+                              {msg.content?.substring(0, 300)}{msg.content?.length > 300 ? '...' : ''}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          <MessageSquare className="h-7 w-7 text-slate-300" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-500" data-testid="text-no-messages">لا توجد محادثات بعد</p>
+                          <p className="text-[11px] text-slate-400 mt-1">أرسل رسالة عبر واتساب لبدء المحادثة</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Allowed Numbers Tab - Admin only */}
@@ -1329,6 +1468,178 @@ export default function WhatsAppSetupPage() {
                     </ScrollArea>
                   )}
                 </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Chats Tab - Admin only - WhatsApp-style */}
+          {isAdmin && (
+            <TabsContent value="chats" className="mt-6" data-testid="tab-content-chats">
+              <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
+                <div className="h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500" />
+                <div className="flex h-[600px]">
+                  {/* Conversations List - Right Side */}
+                  <div className={cn(
+                    "border-l border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-900",
+                    selectedConvPhone ? "hidden md:flex md:w-[320px] lg:w-[360px]" : "w-full md:w-[320px] lg:w-[360px]"
+                  )}>
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-l from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800">
+                      <h3 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 text-green-600" />
+                        المحادثات
+                        {(conversations as any[]).length > 0 && (
+                          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs">
+                            {(conversations as any[]).length}
+                          </Badge>
+                        )}
+                      </h3>
+                    </div>
+                    <ScrollArea className="flex-1">
+                      {isLoadingConversations ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                        </div>
+                      ) : (conversations as any[]).length === 0 ? (
+                        <div className="text-center py-12 px-4">
+                          <MessageSquare className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-400">لا توجد محادثات بعد</p>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {(conversations as any[]).map((conv: any) => (
+                            <button
+                              key={conv.id}
+                              data-testid={`conv-item-${conv.phoneNumber}`}
+                              onClick={() => setSelectedConvPhone(conv.phoneNumber)}
+                              className={cn(
+                                "w-full text-right p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-start gap-3",
+                                selectedConvPhone === conv.phoneNumber && "bg-green-50 dark:bg-green-900/20 border-r-2 border-green-500"
+                              )}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                {(conv.userName || conv.userEmail || conv.phoneNumber)?.charAt(0)?.toUpperCase() || "?"}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">
+                                    {conv.userName || conv.userEmail?.split("@")[0] || conv.phoneNumber}
+                                  </p>
+                                  {conv.lastMessage?.timestamp && (
+                                    <span className="text-[10px] text-slate-400 flex-shrink-0 mr-2">
+                                      {new Date(conv.lastMessage.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between mt-0.5">
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
+                                    {conv.lastMessage?.sender === "bot" ? "🤖 " : conv.lastMessage?.sender === "admin" ? "👤 " : ""}
+                                    {conv.lastMessage?.content?.substring(0, 50) || "لا توجد رسائل"}
+                                  </p>
+                                  {conv.unreadCount > 0 && (
+                                    <Badge className="bg-green-500 text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center rounded-full mr-1">
+                                      {conv.unreadCount}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{conv.phoneNumber}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </div>
+
+                  {/* Chat Window - Left Side */}
+                  <div className={cn(
+                    "flex-1 flex flex-col",
+                    !selectedConvPhone ? "hidden md:flex" : "flex"
+                  )}>
+                    {!selectedConvPhone ? (
+                      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50">
+                        <div className="text-center">
+                          <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+                            <MessageSquare className="h-10 w-10 text-green-500" />
+                          </div>
+                          <p className="text-lg font-semibold text-slate-600 dark:text-slate-300">اختر محادثة للعرض</p>
+                          <p className="text-sm text-slate-400 mt-1">اضغط على أي محادثة من القائمة</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Chat Header */}
+                        <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-l from-green-50 to-white dark:from-slate-800 dark:to-slate-900 flex items-center gap-3">
+                          <button
+                            data-testid="btn-back-to-list"
+                            onClick={() => setSelectedConvPhone(null)}
+                            className="md:hidden p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                          >
+                            <ChevronDown className="h-5 w-5 rotate-90 text-slate-600" />
+                          </button>
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                            {((convMessages as any)?.contact?.userName || selectedConvPhone)?.charAt(0)?.toUpperCase() || "?"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                              {(convMessages as any)?.contact?.userName || (convMessages as any)?.contact?.userEmail?.split("@")[0] || selectedConvPhone}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-mono">{selectedConvPhone}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">
+                            {(convMessages as any)?.total || 0} رسالة
+                          </Badge>
+                        </div>
+
+                        {/* Messages Area */}
+                        <ScrollArea className="flex-1 bg-[#e5ddd5] dark:bg-slate-800/80" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
+                          <div className="p-4 space-y-2 min-h-full">
+                            {isLoadingConvMessages ? (
+                              <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                              </div>
+                            ) : (
+                              ((convMessages as any)?.messages || []).map((msg: any) => {
+                                const isUser = msg.sender !== "bot" && msg.sender !== "admin";
+                                const isAdmin = msg.sender === "admin";
+                                return (
+                                  <div key={msg.id} className={cn("flex", isUser ? "justify-end" : "justify-start")} data-testid={`msg-${msg.id}`}>
+                                    <div className={cn(
+                                      "max-w-[75%] rounded-xl px-3 py-2 shadow-sm relative",
+                                      isUser
+                                        ? "bg-[#dcf8c6] dark:bg-green-800 text-slate-800 dark:text-white rounded-tr-none"
+                                        : isAdmin
+                                          ? "bg-blue-100 dark:bg-blue-900 text-slate-800 dark:text-white rounded-tl-none"
+                                          : "bg-white dark:bg-slate-700 text-slate-800 dark:text-white rounded-tl-none"
+                                    )}>
+                                      {!isUser && (
+                                        <p className={cn("text-[10px] font-bold mb-0.5", isAdmin ? "text-blue-600 dark:text-blue-300" : "text-green-600 dark:text-green-300")}>
+                                          {isAdmin ? "👤 المشرف" : "🤖 البوت"}
+                                        </p>
+                                      )}
+                                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                                      <div className="flex items-center justify-end gap-1 mt-1">
+                                        <span className="text-[9px] text-slate-400">
+                                          {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""}
+                                        </span>
+                                        {!isUser && (
+                                          <CheckCircle className="h-3 w-3 text-blue-400" />
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                            <div ref={(el) => { if (el) el.scrollIntoView({ behavior: "smooth" }); }} />
+                          </div>
+                        </ScrollArea>
+
+                        {/* Send Message Input */}
+                        <ChatInputBar phoneNumber={selectedConvPhone} />
+                      </>
+                    )}
+                  </div>
+                </div>
               </Card>
             </TabsContent>
           )}

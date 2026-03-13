@@ -549,7 +549,8 @@ router.put("/admin/links/:linkId/permissions", requireAdminCheck, async (req: Re
 
     const validation = updatePermissionsSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
+      const errMsg = validation.error.errors?.[0]?.message || "بيانات غير صالحة";
+      return res.status(400).json({ error: errMsg });
     }
 
     const updates: any = {};

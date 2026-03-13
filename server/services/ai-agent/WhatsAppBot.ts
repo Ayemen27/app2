@@ -190,7 +190,7 @@ export class WhatsAppBot {
     }, 60_000);
   }
 
-  private extractMessageContent(msg: any): { text: string; inputType: 'text' | 'button' | 'list'; inputId?: string } {
+  private extractMessageContent(msg: any): { text: string; inputType: 'text' | 'button' | 'list' | 'image'; inputId?: string; imageCaption?: string } {
     const message = msg.message;
 
     if (message?.buttonsResponseMessage) {
@@ -214,6 +214,15 @@ export class WhatsAppBot {
         text: message.templateButtonReplyMessage.selectedDisplayText || '',
         inputType: 'button',
         inputId: message.templateButtonReplyMessage.selectedId,
+      };
+    }
+
+    if (message?.imageMessage) {
+      const caption = message.imageMessage.caption || '';
+      return {
+        text: caption || '📷 صورة',
+        inputType: 'image',
+        imageCaption: caption,
       };
     }
 
@@ -462,7 +471,7 @@ export class WhatsAppBot {
         return;
       }
 
-      const { text, inputType, inputId } = this.extractMessageContent(msg);
+      const { text, inputType, inputId, imageCaption } = this.extractMessageContent(msg);
 
       if (!text && !inputId) return;
 
@@ -503,11 +512,27 @@ export class WhatsAppBot {
       try {
         const whatsappAIService = getWhatsAppAIService();
 
+        let msgMetadata: Record<string, any> | undefined;
+        if (inputType === 'image') {
+          msgMetadata = { type: 'image' };
+          try {
+            const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+            const buffer = await downloadMediaMessage(msg, 'buffer', {});
+            if (buffer) {
+              const b64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+              msgMetadata.imageBase64 = b64;
+            }
+          } catch (dlErr) {
+            console.warn('[WhatsAppBot] Failed to download image:', dlErr);
+          }
+        }
+
         const reply = await whatsappAIService.handleIncomingMessage(
           cleanPhone,
           text || inputId || '',
           inputType,
-          inputId
+          inputId,
+          msgMetadata
         );
 
         if (reply) {

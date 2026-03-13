@@ -76,8 +76,9 @@ export class WhatsAppAIService {
   async handleIncomingMessage(
     senderPhone: string,
     message: string,
-    inputType: 'text' | 'button' | 'list' = 'text',
-    inputId?: string
+    inputType: 'text' | 'button' | 'list' | 'image' = 'text',
+    inputId?: string,
+    messageMetadata?: Record<string, any>
   ): Promise<BotReply> {
     const securityContext = await WhatsAppSecurityContext.fromPhone(senderPhone);
 
@@ -105,12 +106,13 @@ export class WhatsAppAIService {
       await storage.createWhatsAppMessage({
         sender: cleanPhone,
         wa_id: 'bot',
-        content: message.trim().substring(0, 5000),
+        content: inputType === 'image' ? (message || '📷 صورة') : message.trim().substring(0, 5000),
         status: 'received',
         phone_number: cleanPhone,
         user_id: userId,
         is_authorized: true,
         security_scope: { role, projectIds: userProjectIds, isAdmin },
+        metadata: messageMetadata || (inputType === 'image' ? { type: 'image' } : undefined),
       });
     } catch (e) {
       console.error('[WhatsAppAI] Failed to log message:', e);

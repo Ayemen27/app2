@@ -596,6 +596,7 @@ router.post("/conversations/:phoneNumber/send-image", requireAdminCheck, async (
       status: "sent",
       phone_number: cleanPhone,
       timestamp: new Date(),
+      metadata: { type: "image", imageBase64: imageBase64 },
     });
 
     res.json({ success: true });

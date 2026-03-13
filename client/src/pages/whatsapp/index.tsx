@@ -1623,9 +1623,8 @@ export default function WhatsAppSetupPage() {
                               </div>
                               <div className="flex items-center justify-between mt-0.5">
                                 <p className="text-[13px] text-[#667781] dark:text-[#8696a0] truncate">
-                                  {conv.lastMessage?.sender === "bot" && "🤖 "}
-                                  {conv.lastMessage?.sender === "admin" && "أنت: "}
-                                  {conv.lastMessage?.content?.substring(0, 45) || "لا توجد رسائل"}
+                                  {conv.lastMessage?.sender === "bot" ? "🤖 " : conv.lastMessage?.sender === "admin" ? "أنت: " : ""}
+                                  {conv.lastMessage?.content?.startsWith("📷") ? "📷 صورة" : conv.lastMessage?.content?.substring(0, 45) || "لا توجد رسائل"}
                                 </p>
                                 {conv.unreadCount > 0 && (
                                   <span className="bg-[#25d366] text-white text-[11px] rounded-full h-[20px] min-w-[20px] flex items-center justify-center px-1 font-bold mr-1">
@@ -1690,10 +1689,11 @@ export default function WhatsAppSetupPage() {
                             ) : (
                               <>
                                 {((convMessages as any)?.messages || []).map((msg: any, idx: number) => {
-                                  const isOutgoing = msg.sender !== "bot" && msg.sender !== "admin";
+                                  const isOutgoing = msg.sender === "admin";
                                   const isAdminMsg = msg.sender === "admin";
                                   const isBotMsg = msg.sender === "bot";
-                                  const isImageMsg = msg.content?.startsWith("📷");
+                                  const hasImageData = msg.metadata?.type === "image" && msg.metadata?.imageBase64;
+                                  const isImageMsg = msg.content?.startsWith("📷") || hasImageData;
                                   const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "";
 
                                   const prevMsg = ((convMessages as any)?.messages || [])[idx - 1];
@@ -1706,15 +1706,15 @@ export default function WhatsAppSetupPage() {
                                         showTail ? "mt-1" : "",
                                         isOutgoing
                                           ? cn("bg-[#d9fdd3] dark:bg-[#005c4b]", showTail ? "rounded-tl-lg rounded-tr-none rounded-b-lg" : "rounded-lg")
-                                          : isAdminMsg
-                                            ? cn("bg-[#d1e7ff] dark:bg-[#1d3557]", showTail ? "rounded-tr-lg rounded-tl-none rounded-b-lg" : "rounded-lg")
-                                            : cn("bg-white dark:bg-[#202c33]", showTail ? "rounded-tr-lg rounded-tl-none rounded-b-lg" : "rounded-lg"),
+                                          : isBotMsg
+                                            ? cn("bg-white dark:bg-[#202c33]", showTail ? "rounded-tr-lg rounded-tl-none rounded-b-lg" : "rounded-lg")
+                                            : cn("bg-[#fff3e0] dark:bg-[#3d2e1f]", showTail ? "rounded-tr-lg rounded-tl-none rounded-b-lg" : "rounded-lg"),
                                       )}>
-                                        {showTail && (isBotMsg || isAdminMsg) && (
+                                        {showTail && !isOutgoing && (
                                           <div className="absolute top-0 -right-2 w-2 h-3 overflow-hidden" style={{ right: "-8px" }}>
                                             <div className={cn(
                                               "w-4 h-4 rotate-45 origin-bottom-left",
-                                              isAdminMsg ? "bg-[#d1e7ff] dark:bg-[#1d3557]" : "bg-white dark:bg-[#202c33]"
+                                              isBotMsg ? "bg-white dark:bg-[#202c33]" : "bg-[#fff3e0] dark:bg-[#3d2e1f]"
                                             )} />
                                           </div>
                                         )}
@@ -1728,18 +1728,32 @@ export default function WhatsAppSetupPage() {
                                           {showTail && !isOutgoing && (
                                             <p className={cn(
                                               "text-[12.5px] font-medium mb-0.5",
-                                              isAdminMsg ? "text-[#3b78c0]" : "text-[#06cf9c]"
+                                              isBotMsg ? "text-[#06cf9c]" : "text-[#e67e22]"
                                             )}>
-                                              {isAdminMsg ? "أنت (المشرف)" : "🤖 البوت"}
+                                              {isBotMsg ? "🤖 البوت" : ((convMessages as any)?.contact?.userName || (convMessages as any)?.contact?.userEmail?.split("@")[0] || "العميل")}
                                             </p>
                                           )}
 
-                                          {isImageMsg ? (
-                                            <div className="mb-1">
-                                              <div className="bg-[#f0f0f0] dark:bg-[#374a56] rounded-lg p-3 flex items-center gap-2">
-                                                <Image className="h-5 w-5 text-[#8696a0]" />
-                                                <span className="text-[13px] text-[#667781]">{msg.content.replace("📷 ", "") || "صورة"}</span>
-                                              </div>
+                                          {isImageMsg && hasImageData ? (
+                                            <div className="-mx-2 -mt-1 mb-1">
+                                              <img
+                                                src={msg.metadata.imageBase64}
+                                                alt="صورة"
+                                                className="w-full max-w-[300px] rounded-t-lg cursor-pointer"
+                                                style={{ minHeight: 120 }}
+                                                onClick={() => window.open(msg.metadata.imageBase64, "_blank")}
+                                                data-testid={`img-msg-${msg.id}`}
+                                              />
+                                              {msg.content && msg.content !== "📷 صورة" && (
+                                                <p className="text-[14.2px] leading-[19px] text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap break-words px-2 pt-1" dir="rtl">
+                                                  {msg.content.replace(/^📷\s*/, "")}
+                                                </p>
+                                              )}
+                                            </div>
+                                          ) : isImageMsg ? (
+                                            <div className="flex items-center gap-2 bg-[#f0f0f0] dark:bg-[#374a56] rounded-lg p-2.5 mb-1">
+                                              <Image className="h-5 w-5 text-[#8696a0]" />
+                                              <span className="text-[13px] text-[#667781]">{msg.content?.replace(/^📷\s*/, "") || "صورة"}</span>
                                             </div>
                                           ) : (
                                             <p className="text-[14.2px] leading-[19px] text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap break-words pr-1" dir="rtl">
@@ -1748,7 +1762,7 @@ export default function WhatsAppSetupPage() {
                                           )}
 
                                           <div className="flex items-center justify-start gap-1 mt-0.5 -mb-0.5" dir="ltr">
-                                            {(isBotMsg || isAdminMsg) && (
+                                            {isOutgoing && (
                                               <svg viewBox="0 0 16 11" height="11" width="16" className="text-[#53bdeb] fill-current">
                                                 <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 0 0-.336-.153.457.457 0 0 0-.336.153.457.457 0 0 0-.14.335c0 .127.046.237.14.335l2.355 2.46a.496.496 0 0 0 .348.153.467.467 0 0 0 .37-.178L11.21 1.14a.39.39 0 0 0 .102-.254.39.39 0 0 0-.102-.254l-.14-.178z" />
                                                 <path d="M14.757.653a.457.457 0 0 0-.305-.102.493.493 0 0 0-.38.178l-6.19 7.636-0.576-.6-.722.888 1.017 1.063a.496.496 0 0 0 .348.153.467.467 0 0 0 .37-.178L14.896 1.14a.39.39 0 0 0 .102-.254.39.39 0 0 0-.102-.254l-.14-.178z" />

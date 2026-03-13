@@ -40,7 +40,8 @@ import {
   Lock, Unlock, AlertTriangle, Activity, Timer, Send,
   ChevronDown, ChevronUp, Eye, EyeOff, Power, RotateCcw,
   CheckCircle, XCircle, Info, Gauge, TrendingUp, Users,
-  LinkIcon, Unlink, UserCheck, Trash2, Settings, FolderOpen
+  LinkIcon, Unlink, UserCheck, Trash2, Settings, FolderOpen,
+  Paperclip, Image, X
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
@@ -83,10 +84,17 @@ interface ConfirmDialogState {
 function ChatInputBar({ phoneNumber }: { phoneNumber: string }) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageCaption, setImageCaption] = useState("");
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = async () => {
+    if (imagePreview) {
+      await handleSendImage();
+      return;
+    }
     if (!message.trim() || sending) return;
     setSending(true);
     try {
@@ -101,6 +109,79 @@ function ChatInputBar({ phoneNumber }: { phoneNumber: string }) {
       setSending(false);
     }
   };
+
+  const handleSendImage = async () => {
+    if (!imagePreview || sending) return;
+    setSending(true);
+    try {
+      await apiRequest(`/api/whatsapp-ai/conversations/${phoneNumber}/send-image`, "POST", {
+        imageBase64: imagePreview,
+        caption: imageCaption.trim() || undefined,
+      });
+      setImagePreview(null);
+      setImageCaption("");
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/conversations", phoneNumber, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/conversations"] });
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "خطأ", description: "يُسمح بالصور فقط", variant: "destructive" });
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast({ title: "خطأ", description: "الحد الأقصى 4 ميجابايت", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  if (imagePreview) {
+    return (
+      <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+        <div className="relative bg-black/90 flex items-center justify-center" style={{ height: 220 }}>
+          <img src={imagePreview} alt="معاينة" className="max-h-full max-w-full object-contain rounded" />
+          <button
+            data-testid="btn-cancel-image"
+            onClick={() => { setImagePreview(null); setImageCaption(""); }}
+            className="absolute top-2 left-2 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-3 flex items-center gap-2">
+          <Button
+            data-testid="btn-send-image"
+            size="icon"
+            onClick={handleSendImage}
+            disabled={sending}
+            className="bg-green-500 hover:bg-green-600 text-white rounded-full h-10 w-10 flex-shrink-0"
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+          <Input
+            data-testid="input-image-caption"
+            value={imageCaption}
+            onChange={(e) => setImageCaption(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendImage(); } }}
+            placeholder="أضف تعليق..."
+            className="flex-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-full text-right"
+            dir="rtl"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center gap-2">
@@ -123,6 +204,14 @@ function ChatInputBar({ phoneNumber }: { phoneNumber: string }) {
         className="flex-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-full text-right"
         dir="rtl"
       />
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+      <button
+        data-testid="btn-attach-image"
+        onClick={() => fileInputRef.current?.click()}
+        className="p-2 text-slate-400 hover:text-green-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+      >
+        <Paperclip className="h-5 w-5" />
+      </button>
     </div>
   );
 }

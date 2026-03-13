@@ -567,6 +567,44 @@ router.post("/conversations/:phoneNumber/send", requireAdminCheck, async (req: R
   }
 });
 
+router.post("/conversations/:phoneNumber/send-image", requireAdminCheck, async (req: Request, res: Response) => {
+  try {
+    const cleanPhone = req.params.phoneNumber.replace(/\D/g, '');
+    const { imageBase64, caption } = req.body;
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
+      return res.status(400).json({ error: "الصورة مطلوبة" });
+    }
+
+    const bot = getWhatsAppBot();
+    if (!bot.isConnected()) {
+      return res.status(503).json({ error: "البوت غير متصل. يرجى الاتصال أولاً." });
+    }
+
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    const jid = `${cleanPhone}@s.whatsapp.net`;
+    await bot.sendMessageSafe(jid, {
+      image: imageBuffer,
+      caption: caption?.trim() || undefined,
+    });
+
+    await storage.createWhatsAppMessage({
+      wa_id: cleanPhone,
+      sender: "admin",
+      content: caption?.trim() ? `📷 ${caption.trim()}` : "📷 صورة",
+      status: "sent",
+      phone_number: cleanPhone,
+      timestamp: new Date(),
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[WhatsApp SendImage] Error:", error?.message || error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get("/allowed-numbers", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const numbers = await db.select({

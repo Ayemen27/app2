@@ -1441,15 +1441,15 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  private _balanceCache = new Map<string, { data: string; timestamp: number }>();
+
   async getPreviousDayBalance(project_id: string, currentDate: string): Promise<string> {
     const cacheKey = `prev-balance-${project_id}-${currentDate}`;
-    const cached = this.cache.get(cacheKey);
+    const cached = this._balanceCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp < 30000)) {
       return cached.data;
     }
 
-    console.log(`Getting previous day balance for project ${project_id}, date: ${currentDate}`);
-    
     const [result] = await db.select({ remainingBalance: dailyExpenseSummaries.remainingBalance })
       .from(dailyExpenseSummaries)
       .where(and(
@@ -1460,7 +1460,7 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     const balance = result?.remainingBalance || "0";
-    this.cache.set(cacheKey, { data: balance, timestamp: Date.now() });
+    this._balanceCache.set(cacheKey, { data: balance, timestamp: Date.now() });
     return balance;
   }
 
@@ -1508,7 +1508,7 @@ export class DatabaseStorage implements IStorage {
         this.getFundTransfers(project_id, date),
         this.getProjectFundTransfersForDate(project_id, date),
         this.getWorkerAttendance(project_id, date),
-        this.getMaterialPurchases(project_id, date), // جلب جميع المشتريات
+        this.getMaterialPurchases(project_id, date, date),
         this.getTransportationExpenses(project_id, date),
         this.getFilteredWorkerTransfers(project_id, date),
         this.getWorkerMiscExpenses(project_id, date),
@@ -1553,6 +1553,12 @@ export class DatabaseStorage implements IStorage {
         project_id,
         date,
         carriedForwardAmount: carriedForwardAmount.toString(),
+        totalFundTransfers: (totalFundTransfers + incomingTransfers).toString(),
+        totalWorkerWages: totalWorkerWages.toString(),
+        totalMaterialCosts: totalMaterialCosts.toString(),
+        totalTransportationCosts: totalTransportationCosts.toString(),
+        totalWorkerTransfers: totalWorkerTransferCosts.toString(),
+        totalWorkerMiscExpenses: totalWorkerMiscCosts.toString(),
         totalIncome: totalIncome.toString(),
         totalExpenses: totalExpenses.toString(),
         remainingBalance: remainingBalance.toString()
@@ -1577,28 +1583,77 @@ export class DatabaseStorage implements IStorage {
     return date.toISOString().split('T')[0];
   }
 
-  // إعادة حساب جميع الأرصدة لمشروع معين لإصلاح أي أخطاء
   async recalculateAllBalances(project_id: string): Promise<void> {
     console.log(`🔄 Recalculating all balances for project ${project_id}...`);
     
     try {
-      // الحصول على جميع التواريخ التي بها ملخصات يومية
       const existingSummaries = await db.select()
         .from(dailyExpenseSummaries)
         .where(eq(dailyExpenseSummaries.project_id, project_id))
         .orderBy(sql`${dailyExpenseSummaries.date} ASC`);
 
-      // حذف جميع الملخصات الموجودة
-      await db.delete(dailyExpenseSummaries)
-        .where(eq(dailyExpenseSummaries.project_id, project_id));
+      const dates = existingSummaries.map(s => s.date);
+      console.log(`📋 Found ${dates.length} dates to recalculate`);
 
-      // إعادة حساب كل تاريخ بالترتيب الصحيح
-      for (const summary of existingSummaries) {
-        console.log(`📅 Recalculating ${summary.date}...`);
-        await this.updateDailySummaryForDate(project_id, summary.date);
+      for (const date of dates) {
+        console.log(`📅 Recalculating ${date}...`);
+        
+        const [
+          fundTransfers,
+          projectTransfers,
+          workerAttendanceRecords,
+          materialPurchases,
+          transportationExpenses,
+          workerTransfers,
+          workerMiscExpenses,
+          carriedForwardAmount
+        ] = await Promise.all([
+          this.getFundTransfers(project_id, date),
+          this.getProjectFundTransfersForDate(project_id, date),
+          this.getWorkerAttendance(project_id, date),
+          this.getMaterialPurchases(project_id, date, date),
+          this.getTransportationExpenses(project_id, date),
+          this.getFilteredWorkerTransfers(project_id, date),
+          this.getWorkerMiscExpenses(project_id, date),
+          this.getPreviousDayBalance(project_id, date).then(b => parseFloat(b))
+        ]);
+
+        const totalFundTransfers = fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const incomingTransfers = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const outgoingTransfers = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const totalWorkerWages = workerAttendanceRecords.reduce((sum, a) => {
+          const paid = parseFloat(a.paidAmount || '0');
+          return sum + (paid > 0 ? paid : 0);
+        }, 0);
+        const totalMaterialCosts = materialPurchases
+          .filter(p => p.purchaseType === "نقد")
+          .reduce((sum, p) => sum + parseFloat(p.totalAmount), 0);
+        const totalTransportationCosts = transportationExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        const totalWorkerTransferCosts = workerTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        const totalWorkerMiscCosts = workerMiscExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+
+        const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportationCosts + totalWorkerTransferCosts + totalWorkerMiscCosts + outgoingTransfers;
+        const totalIncome = carriedForwardAmount + totalFundTransfers + incomingTransfers;
+        const remainingBalance = totalIncome - totalExpenses;
+
+        await this.createOrUpdateDailyExpenseSummary({
+          project_id,
+          date,
+          carriedForwardAmount: carriedForwardAmount.toString(),
+          totalFundTransfers: (totalFundTransfers + incomingTransfers).toString(),
+          totalWorkerWages: totalWorkerWages.toString(),
+          totalMaterialCosts: totalMaterialCosts.toString(),
+          totalTransportationCosts: totalTransportationCosts.toString(),
+          totalWorkerTransfers: totalWorkerTransferCosts.toString(),
+          totalWorkerMiscExpenses: totalWorkerMiscCosts.toString(),
+          totalIncome: totalIncome.toString(),
+          totalExpenses: totalExpenses.toString(),
+          remainingBalance: remainingBalance.toString()
+        });
       }
 
-      console.log(`✅ All balances recalculated successfully for project ${project_id}`);
+      this._balanceCache.clear();
+      console.log(`✅ All ${dates.length} balances recalculated successfully for project ${project_id}`);
     } catch (error) {
       console.error(`❌ Error recalculating balances:`, error);
       throw error;

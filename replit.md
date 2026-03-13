@@ -61,11 +61,16 @@ This project is a Node.js application (rest-express v1.0.29) designed as a profe
 
 ## Security Hardening (Phase 1 - Applied)
 - **Mass Assignment Protection:** PATCH `/api/projects/:id` uses an allowlist of permitted fields instead of passing `req.body` directly to `.set()`.
-- **Authorization Enforcement:** Deployment routes (`/list`, `/stats`, `/history`, `/stream`) require `requireAdmin`. Notification `/user-activity` requires `requireRole('admin')`.
+- **Authorization Enforcement:** All deployment routes (`/list`, `/stats`, `/history`, `/stream`, `/status/:id`, `/:id/events`, `/:id`) require `requireAdmin`. Notification `/user-activity` requires `requireRole('admin')`.
 - **Data Exposure Fix:** `/user-activity` endpoint now uses the authenticated user's ID instead of a hardcoded `'admin'` string.
 - **XSS Mitigation:** All `innerHTML` usage in PDF generators (`pdfGenerator.ts`, `pdf-exports.tsx`) is sanitized with DOMPurify.
-- **Token Security:** SSE deployment stream uses cookie-based auth (`withCredentials: true`) instead of passing access tokens in query strings.
+- **Token Security:** SSE deployment stream uses cookie-based auth (`withCredentials: true`). Login sets `accessToken` cookie alongside `refreshToken` cookie for SSE compatibility. Auth middleware reads tokens from cookies via `extractTokenFromReq`.
 
 ## Performance Optimizations (Phase 1 - Applied)
-- **Polling Storm Fix:** Deployment console uses SSE as primary channel; polling is fallback-only with exponential backoff (5s base, 30s max). Polling stops on SSE connection, terminal states (success/failed), and after 5 consecutive errors. Viewing completed deployments does not start polling.
+- **Polling Storm Fix:** Deployment console uses SSE as primary channel; polling is fallback-only with true exponential backoff using recursive `setTimeout` (5s base, 30s max, recalculated per retry). Polling stops on SSE connection, terminal states, and after 5 consecutive errors.
 - **Projects Stats Caching:** `/api/projects/with-stats` caches results per user for 2 minutes (120s TTL) and processes projects in batches of 5 to reduce database pressure.
+
+## Accounting Fixes (Applied)
+- **Daily Summary Detail Fields:** `updateDailySummaryForDate()` now saves all detail fields (totalFundTransfers, totalWorkerWages, totalMaterialCosts, totalTransportationCosts, totalWorkerTransfers, totalWorkerMiscExpenses) in addition to the totals.
+- **Material Purchases Date Filter:** Fixed `getMaterialPurchases()` call in summary calculation — was passing only `dateFrom` without `dateTo`, causing it to return all project purchases for every day instead of that day's purchases only.
+- **Recalculate Function:** `recalculateAllBalances()` rewritten to use upsert (no delete-first) with inline calculation logic, preventing data loss on failure. `getPreviousDayBalance()` uses a properly initialized `_balanceCache` Map.

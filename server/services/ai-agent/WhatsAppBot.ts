@@ -374,15 +374,33 @@ export class WhatsAppBot {
 
       if (!text) return;
 
-      const cleanPhone = from.split('@')[0];
+      const rawId = from.split('@')[0];
+      const isLid = from.endsWith('@lid');
+      
+      let cleanPhone = rawId;
+      if (isLid) {
+        const resolvedPhone = await this.resolveLidToPhone(rawId);
+        if (resolvedPhone) {
+          cleanPhone = resolvedPhone;
+          console.log(`🔄 [WhatsAppBot] Resolved LID ${rawId} -> phone ${cleanPhone}`);
+        } else {
+          console.log(`🔄 [WhatsAppBot] Could not resolve LID ${rawId}, trying as-is`);
+        }
+      }
 
       const isAllowed = await this.isPhoneAllowed(cleanPhone);
-      if (!isAllowed) {
+      if (!isAllowed && isLid) {
+        const isAllowedRaw = await this.isPhoneAllowed(rawId);
+        if (!isAllowedRaw) {
+          console.log(`[WhatsAppBot] Blocked message from non-allowed LID: ${rawId} (resolved: ${cleanPhone})`);
+          return;
+        }
+      } else if (!isAllowed) {
         console.log(`[WhatsAppBot] Blocked message from non-allowed number: ${cleanPhone}`);
         return;
       }
 
-      console.log(`📩 [WhatsAppBot] Message from ${cleanPhone}: ${text}`);
+      console.log(`📩 [WhatsAppBot] Message from ${cleanPhone}${isLid ? ` (LID: ${rawId})` : ''}: ${text}`);
 
       if (this.dailyMessageCount >= DAILY_MESSAGE_LIMIT) {
         console.warn(`⚠️ [AntiBot] Daily message limit reached (${DAILY_MESSAGE_LIMIT}). Ignoring message.`);
@@ -402,6 +420,43 @@ export class WhatsAppBot {
         console.error('❌ [WhatsAppBot] Error processing message:', error);
       }
     });
+  }
+
+  private async resolveLidToPhone(lid: string): Promise<string | null> {
+    try {
+      const authDir = path.join(process.cwd(), AUTH_DIR);
+      const reverseFile = path.join(authDir, `lid-mapping-${lid}_reverse.json`);
+      if (fs.existsSync(reverseFile)) {
+        const content = fs.readFileSync(reverseFile, 'utf-8').trim();
+        const phone = JSON.parse(content);
+        if (typeof phone === 'string' && phone.length > 5) {
+          return phone;
+        }
+      }
+      
+      const files = fs.readdirSync(authDir).filter(f => 
+        f.startsWith('lid-mapping-') && !f.includes('_reverse') && f.endsWith('.json')
+      );
+      for (const file of files) {
+        const content = fs.readFileSync(path.join(authDir, file), 'utf-8').trim();
+        const mappedLid = JSON.parse(content);
+        if (typeof mappedLid === 'string' && mappedLid === lid) {
+          const phone = file.replace('lid-mapping-', '').replace('.json', '');
+          return phone;
+        }
+      }
+      
+      if (this.sock?.store?.contacts) {
+        for (const [jid, contact] of Object.entries(this.sock.store.contacts as Record<string, any>)) {
+          if (contact?.lid === `${lid}@lid` || contact?.lid === lid) {
+            return jid.split('@')[0];
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[WhatsAppBot] Error resolving LID ${lid}:`, err);
+    }
+    return null;
   }
 
   async isPhoneAllowed(phone: string): Promise<boolean> {

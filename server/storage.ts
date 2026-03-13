@@ -529,7 +529,7 @@ export class DatabaseStorage implements IStorage {
   async getWhatsAppMessagesByUser(userId: string, limit: number = 50, offset: number = 0): Promise<WhatsAppMessage[]> {
     return await db.select().from(whatsappMessages)
       .where(eq(whatsappMessages.user_id, userId))
-      .orderBy(desc(whatsappMessages.created_at))
+      .orderBy(desc(whatsappMessages.timestamp))
       .limit(limit)
       .offset(offset);
   }
@@ -537,7 +537,7 @@ export class DatabaseStorage implements IStorage {
   async getWhatsAppMessagesByPhone(phoneNumber: string, limit: number = 50, offset: number = 0): Promise<WhatsAppMessage[]> {
     return await db.select().from(whatsappMessages)
       .where(eq(whatsappMessages.phone_number, phoneNumber))
-      .orderBy(desc(whatsappMessages.created_at))
+      .orderBy(desc(whatsappMessages.timestamp))
       .limit(limit)
       .offset(offset);
   }

@@ -251,7 +251,7 @@ router.get("/stats/me", async (req: Request, res: Response) => {
     if (phoneNumber) {
       const countResult = await db.select({ count: sql<number>`count(*)` })
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.from, phoneNumber));
+        .where(eq(whatsappMessages.sender, phoneNumber));
       myMessageCount = Number(countResult[0]?.count || 0);
     }
 
@@ -321,7 +321,7 @@ router.get("/stats", async (req: Request, res: Response) => {
     if (phoneNumber) {
       const countResult = await db.select({ count: sql<number>`count(*)` })
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.from, phoneNumber));
+        .where(eq(whatsappMessages.sender, phoneNumber));
       myMessageCount = Number(countResult[0]?.count || 0);
     }
     res.json({
@@ -396,13 +396,13 @@ router.get("/messages/me", async (req: Request, res: Response) => {
     const [messages, countResult] = await Promise.all([
       db.select()
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.from, phoneNumber))
-        .orderBy(desc(whatsappMessages.created_at))
+        .where(eq(whatsappMessages.sender, phoneNumber))
+        .orderBy(desc(whatsappMessages.timestamp))
         .limit(pageSize)
         .offset(offset),
       db.select({ count: sql<number>`count(*)` })
         .from(whatsappMessages)
-        .where(eq(whatsappMessages.from, phoneNumber)),
+        .where(eq(whatsappMessages.sender, phoneNumber)),
     ]);
 
     const total = Number(countResult[0]?.count || 0);

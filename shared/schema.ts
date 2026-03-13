@@ -1023,11 +1023,11 @@ export type InsertWhatsAppStats = z.infer<typeof insertWhatsAppStatsSchema>;
 // WhatsApp Messages table (جدول رسائل الواتساب)
 export const whatsappMessages = pgTable("whatsapp_messages", {
   id: serial("id").primaryKey(),
-  from: text("from").notNull(),
-  to: text("to").notNull(),
-  body: text("body").notNull(),
-  type: text("type").default("incoming").notNull(), // incoming, outgoing
-  status: text("status").default("received").notNull(), // received, processed, failed
+  wa_id: text("wa_id"),
+  sender: text("sender").notNull(),
+  content: text("content").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+  status: text("status").default("received").notNull(),
   metadata: jsonb("metadata"),
   user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
   project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
@@ -1036,10 +1036,9 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   blocked_reason: text("blocked_reason"),
   intent: text("intent"),
   security_scope: jsonb("security_scope"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertWhatsAppMessageSchema = createInsertSchema(whatsappMessages).omit({ id: true, created_at: true });
+export const insertWhatsAppMessageSchema = createInsertSchema(whatsappMessages).omit({ id: true, timestamp: true });
 export type WhatsAppMessage = typeof whatsappMessages.$inferSelect;
 export type InsertWhatsAppMessage = z.infer<typeof insertWhatsAppMessageSchema>;
 

@@ -14,6 +14,7 @@ import { whatsappAllowedNumbers, whatsappSecurityEvents } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
+import { BotReply } from './whatsapp/InteractiveMenu';
 
 const logger = pino({ level: 'info' });
 
@@ -25,6 +26,8 @@ const RECONNECT_BASE_DELAY = 5000;
 const MAX_RECONNECT_DELAY = 120000;
 const PAIRING_CODE_DELAY_MS = 8000;
 const MAX_RECONNECT_ATTEMPTS = 10;
+const DEDUP_TTL_MS = 5 * 60 * 1000;
+const DEDUP_MAX_SIZE = 100;
 
 type BotStatus = "idle" | "connecting" | "open" | "close";
 
@@ -38,6 +41,11 @@ interface BotProtectionStats {
   maxDelay: number;
   sessionExists: boolean;
   needsRelink: boolean;
+}
+
+interface DedupEntry {
+  messageId: string;
+  timestamp: number;
 }
 
 export class WhatsAppBot {
@@ -57,6 +65,8 @@ export class WhatsAppBot {
   private allowedNumbersCache: Set<string> = new Set();
   private allowedCacheTime: number = 0;
   private static CACHE_TTL = 60_000;
+  private processedMessages: Map<string, number> = new Map();
+  private dedupCleanupTimer: NodeJS.Timeout | null = null;
 
   getStatus(): BotStatus {
     return this.status;
@@ -108,17 +118,17 @@ export class WhatsAppBot {
         for (const file of files) {
           fs.unlinkSync(path.join(AUTH_DIR, file));
         }
-        console.log(`🗑️ [WhatsAppBot] Auth state cleared (${files.length} files removed)`);
+        console.log(`[WhatsAppBot] Auth state cleared (${files.length} files removed)`);
       }
     } catch (err) {
-      console.error('❌ [WhatsAppBot] Failed to clear auth state:', err);
+      console.error('[WhatsAppBot] Failed to clear auth state:', err);
     }
   }
 
   private resetDailyCounter(): void {
     if (this.dailyResetTimer) clearInterval(this.dailyResetTimer);
     this.dailyResetTimer = setInterval(() => {
-      console.log(`🔄 [AntiBot] إعادة تعيين عداد الرسائل اليومي (كان: ${this.dailyMessageCount})`);
+      console.log(`[AntiBot] Daily message counter reset (was: ${this.dailyMessageCount})`);
       this.dailyMessageCount = 0;
     }, 24 * 60 * 60 * 1000);
   }
@@ -142,6 +152,69 @@ export class WhatsAppBot {
     }
   }
 
+  private isDuplicate(messageId: string): boolean {
+    const now = Date.now();
+    if (this.processedMessages.has(messageId)) {
+      return true;
+    }
+    this.processedMessages.set(messageId, now);
+    if (this.processedMessages.size > DEDUP_MAX_SIZE) {
+      const entries = Array.from(this.processedMessages.entries());
+      entries.sort((a, b) => a[1] - b[1]);
+      const toRemove = entries.slice(0, entries.length - DEDUP_MAX_SIZE);
+      for (const [key] of toRemove) {
+        this.processedMessages.delete(key);
+      }
+    }
+    return false;
+  }
+
+  private startDedupCleanup(): void {
+    if (this.dedupCleanupTimer) clearInterval(this.dedupCleanupTimer);
+    this.dedupCleanupTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [key, timestamp] of this.processedMessages.entries()) {
+        if (now - timestamp > DEDUP_TTL_MS) {
+          this.processedMessages.delete(key);
+        }
+      }
+    }, 60_000);
+  }
+
+  private extractMessageContent(msg: any): { text: string; inputType: 'text' | 'button' | 'list'; inputId?: string } {
+    const message = msg.message;
+
+    if (message?.buttonsResponseMessage) {
+      return {
+        text: message.buttonsResponseMessage.selectedDisplayText || '',
+        inputType: 'button',
+        inputId: message.buttonsResponseMessage.selectedButtonId,
+      };
+    }
+
+    if (message?.listResponseMessage) {
+      return {
+        text: message.listResponseMessage.title || '',
+        inputType: 'list',
+        inputId: message.listResponseMessage.singleSelectReply?.selectedRowId,
+      };
+    }
+
+    if (message?.templateButtonReplyMessage) {
+      return {
+        text: message.templateButtonReplyMessage.selectedDisplayText || '',
+        inputType: 'button',
+        inputId: message.templateButtonReplyMessage.selectedId,
+      };
+    }
+
+    const text = message?.conversation ||
+                 message?.extendedTextMessage?.text ||
+                 '';
+
+    return { text, inputType: 'text' };
+  }
+
   async disconnect(): Promise<void> {
     this.cancelReconnect();
     if (this.sock) {
@@ -160,11 +233,11 @@ export class WhatsAppBot {
     this.connectedAt = null;
     this.needsRelink = false;
     this.lastError = "تم فصل الاتصال يدوياً";
-    console.log('🔌 [WhatsAppBot] Disconnected manually');
+    console.log('[WhatsAppBot] Disconnected manually');
   }
 
   async restart(phoneNumber?: string): Promise<void> {
-    console.log(`🔄 [WhatsAppBot] Restart requested${phoneNumber ? ` with phone: ${phoneNumber}` : ''}`);
+    console.log(`[WhatsAppBot] Restart requested${phoneNumber ? ` with phone: ${phoneNumber}` : ''}`);
     this.cancelReconnect();
     await this.cleanupSocket();
     
@@ -178,14 +251,14 @@ export class WhatsAppBot {
 
     if (phoneNumber) {
       this.clearAuthState();
-      console.log('🗑️ [WhatsAppBot] Auth cleared for fresh pairing code session');
+      console.log('[WhatsAppBot] Auth cleared for fresh pairing code session');
     }
 
     return this.start(phoneNumber);
   }
 
   async resetAndRelink(): Promise<void> {
-    console.log('🔑 [WhatsAppBot] Full session reset for re-linking');
+    console.log('[WhatsAppBot] Full session reset for re-linking');
     this.cancelReconnect();
     await this.cleanupSocket();
     this.clearAuthState();
@@ -202,6 +275,63 @@ export class WhatsAppBot {
     return this.start();
   }
 
+  async sendInteractiveReply(jid: string, reply: BotReply): Promise<void> {
+    if (!this.sock) return;
+
+    if (reply.type === 'buttons' && reply.buttons && reply.buttons.length > 0) {
+      const buttonContent: any = {
+        text: reply.body,
+        buttons: reply.buttons.slice(0, 3).map(btn => ({
+          buttonId: btn.id,
+          buttonText: { displayText: btn.title },
+          type: 1,
+        })),
+        headerType: 1,
+      };
+      if (reply.footer) {
+        buttonContent.footer = reply.footer;
+      }
+      if (reply.header) {
+        buttonContent.text = `*${reply.header}*\n\n${reply.body}`;
+      }
+      await this.safeSendMessage(jid, buttonContent);
+      return;
+    }
+
+    if (reply.type === 'list' && reply.sections && reply.sections.length > 0) {
+      const listContent: any = {
+        text: reply.body,
+        buttonText: reply.listButtonText || 'عرض الخيارات',
+        sections: reply.sections.map(section => ({
+          title: section.title,
+          rows: section.rows.map(row => ({
+            title: row.title,
+            rowId: row.id,
+            description: row.description || '',
+          })),
+        })),
+        headerType: 1,
+      };
+      if (reply.footer) {
+        listContent.footer = reply.footer;
+      }
+      if (reply.header) {
+        listContent.text = `*${reply.header}*\n\n${reply.body}`;
+      }
+      await this.safeSendMessage(jid, listContent);
+      return;
+    }
+
+    let textBody = reply.body;
+    if (reply.header) {
+      textBody = `*${reply.header}*\n\n${textBody}`;
+    }
+    if (reply.footer) {
+      textBody = `${textBody}\n\n${reply.footer}`;
+    }
+    await this.safeSendMessage(jid, { text: textBody });
+  }
+
   async start(phoneNumber?: string): Promise<void> {
     this.status = "connecting";
     this.lastError = null;
@@ -212,9 +342,9 @@ export class WhatsAppBot {
     try {
       const { version: latestVersion, isLatest } = await fetchLatestBaileysVersion();
       version = latestVersion;
-      console.log(`📱 [WhatsAppBot] Using WA version v${version.join('.')}, isLatest: ${isLatest}`);
+      console.log(`[WhatsAppBot] Using WA version v${version.join('.')}, isLatest: ${isLatest}`);
     } catch (err) {
-      console.log(`⚠️ [WhatsAppBot] Failed to fetch latest version, using fallback: ${version.join('.')}`);
+      console.log(`[WhatsAppBot] Failed to fetch latest version, using fallback: ${version.join('.')}`);
     }
 
     const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : null;
@@ -249,17 +379,17 @@ export class WhatsAppBot {
             const code = await this.sock.requestPairingCode(cleanPhone!);
             this.pairingCode = code;
             this.lastError = null;
-            console.log(`🔢 [WhatsAppBot] Pairing Code generated for ${cleanPhone}: ${code}`);
+            console.log(`[WhatsAppBot] Pairing Code generated for ${cleanPhone}: ${code}`);
           } catch (err) {
             const errMsg = (err as Error).message;
-            console.error('❌ [WhatsAppBot] Error requesting pairing code:', errMsg);
+            console.error('[WhatsAppBot] Error requesting pairing code:', errMsg);
             this.lastError = `فشل في إنشاء كود الربط: ${errMsg}`;
             this.pairingCode = null;
           }
         }, PAIRING_CODE_DELAY_MS);
       }
     } catch (err) {
-      console.error('❌ [WhatsAppBot] Critical error creating socket:', err);
+      console.error('[WhatsAppBot] Critical error creating socket:', err);
       this.status = "close";
       this.lastError = `خطأ حرج في إنشاء الاتصال`;
       return;
@@ -274,7 +404,7 @@ export class WhatsAppBot {
         this.qr = qr;
         this.pairingCode = null;
         this.status = "connecting";
-        console.log('📸 [WhatsAppBot] New QR Code generated');
+        console.log('[WhatsAppBot] New QR Code generated');
       }
 
       if (connection === 'close') {
@@ -284,7 +414,7 @@ export class WhatsAppBot {
         this.qr = null;
         this.connectedAt = null;
         
-        console.log(`🔌 [WhatsAppBot] Connection closed. Code: ${statusCode}, Reason: ${errorMsg}`);
+        console.log(`[WhatsAppBot] Connection closed. Code: ${statusCode}, Reason: ${errorMsg}`);
         
         const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
         
@@ -293,7 +423,7 @@ export class WhatsAppBot {
           this.clearAuthState();
           this.needsRelink = true;
           this.lastError = "انتهت جلسة واتساب — يرجى إعادة ربط الجهاز";
-          console.log('🔒 [WhatsAppBot] Session expired (401/loggedOut). Auth cleared. Needs re-link.');
+          console.log('[WhatsAppBot] Session expired (401/loggedOut). Auth cleared. Needs re-link.');
           return;
         }
 
@@ -302,7 +432,7 @@ export class WhatsAppBot {
         if (statusCode === DisconnectReason.restartRequired || 
             statusCode === DisconnectReason.connectionClosed ||
             statusCode === DisconnectReason.connectionReplaced) {
-          console.log(`🔄 [WhatsAppBot] Server requested restart (code: ${statusCode}). Reconnecting without phone number to avoid re-pairing...`);
+          console.log(`[WhatsAppBot] Server requested restart (code: ${statusCode}). Reconnecting...`);
           this.pairingCode = null;
           this.reconnectTimer = setTimeout(() => this.start(), 3000);
           return;
@@ -323,12 +453,12 @@ export class WhatsAppBot {
           const totalDelay = delay + jitter;
           
           const reconnectPhone = isPairingInProgress ? this.pendingPhoneNumber : undefined;
-          console.log(`🔄 [WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}, pairing=${isPairingInProgress})`);
+          console.log(`[WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}, pairing=${isPairingInProgress})`);
           this.reconnectTimer = setTimeout(() => this.start(reconnectPhone || undefined), totalDelay);
         } else {
           this.pairingCode = null;
           this.lastError = `فشل الاتصال بعد ${MAX_RECONNECT_ATTEMPTS} محاولات. يرجى إعادة التشغيل يدوياً.`;
-          console.log(`❌ [WhatsAppBot] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
+          console.log(`[WhatsAppBot] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
         }
       } else if (connection === 'open') {
         this.status = "open";
@@ -340,7 +470,8 @@ export class WhatsAppBot {
         this.needsRelink = false;
         this.pendingPhoneNumber = null;
         this.resetDailyCounter();
-        console.log('✅ [WhatsAppBot] Connection opened successfully');
+        this.startDedupCleanup();
+        console.log('[WhatsAppBot] Connection opened successfully');
         
         try {
           const { storage } = await import("../../storage");
@@ -361,6 +492,12 @@ export class WhatsAppBot {
       const msg = m.messages[0];
       if (!msg.message || msg.key.fromMe) return;
 
+      const messageId = msg.key.id;
+      if (messageId && this.isDuplicate(messageId)) {
+        console.log(`[WhatsAppBot] Duplicate message ignored: ${messageId}`);
+        return;
+      }
+
       const from = msg.key.remoteJid;
       if (!from) return;
 
@@ -368,11 +505,9 @@ export class WhatsAppBot {
         return;
       }
 
-      const text = msg.message.conversation || 
-                   msg.message.extendedTextMessage?.text || 
-                   '';
+      const { text, inputType, inputId } = this.extractMessageContent(msg);
 
-      if (!text) return;
+      if (!text && !inputId) return;
 
       const rawId = from.split('@')[0];
       const isLid = from.endsWith('@lid');
@@ -382,9 +517,9 @@ export class WhatsAppBot {
         const resolvedPhone = await this.resolveLidToPhone(rawId);
         if (resolvedPhone) {
           cleanPhone = resolvedPhone;
-          console.log(`🔄 [WhatsAppBot] Resolved LID ${rawId} -> phone ${cleanPhone}`);
+          console.log(`[WhatsAppBot] Resolved LID ${rawId} -> phone ${cleanPhone}`);
         } else {
-          console.log(`🔄 [WhatsAppBot] Could not resolve LID ${rawId}, trying as-is`);
+          console.log(`[WhatsAppBot] Could not resolve LID ${rawId}, trying as-is`);
         }
       }
 
@@ -400,24 +535,34 @@ export class WhatsAppBot {
         return;
       }
 
-      console.log(`📩 [WhatsAppBot] Message from ${cleanPhone}${isLid ? ` (LID: ${rawId})` : ''}: ${text}`);
+      const displayText = inputId ? `[${inputType}:${inputId}] ${text}` : text;
+      console.log(`[WhatsAppBot] Message from ${cleanPhone}${isLid ? ` (LID: ${rawId})` : ''}: ${displayText}`);
 
       if (this.dailyMessageCount >= DAILY_MESSAGE_LIMIT) {
-        console.warn(`⚠️ [AntiBot] Daily message limit reached (${DAILY_MESSAGE_LIMIT}). Ignoring message.`);
+        console.warn(`[AntiBot] Daily message limit reached (${DAILY_MESSAGE_LIMIT}). Ignoring message.`);
         return;
       }
 
       try {
         const whatsappAIService = getWhatsAppAIService();
 
-        const reply = await whatsappAIService.handleIncomingMessage(cleanPhone, text);
+        const reply = await whatsappAIService.handleIncomingMessage(
+          cleanPhone,
+          text || inputId || '',
+          inputType,
+          inputId
+        );
 
         if (reply) {
-          await this.safeSendMessage(from, { text: reply });
+          if (typeof reply === 'string') {
+            await this.safeSendMessage(from, { text: reply });
+          } else {
+            await this.sendInteractiveReply(from, reply);
+          }
           this.dailyMessageCount++;
         }
       } catch (error) {
-        console.error('❌ [WhatsAppBot] Error processing message:', error);
+        console.error('[WhatsAppBot] Error processing message:', error);
       }
     });
   }
@@ -531,7 +676,7 @@ export class WhatsAppBot {
     const delay = Math.floor(Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS + 1)) + MIN_DELAY_MS;
     await new Promise(resolve => setTimeout(resolve, delay));
     
-    if (content.text) {
+    if (content.text && typeof content.text === 'string') {
       const zeroWidthChars = ['\u200B', '\u200C', '\u200D', '\uFEFF'];
       const numChars = Math.floor(Math.random() * 3) + 1;
       let suffix = '';

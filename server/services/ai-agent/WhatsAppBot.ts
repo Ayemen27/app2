@@ -67,6 +67,8 @@ export class WhatsAppBot {
   private static CACHE_TTL = 60_000;
   private processedMessages: Map<string, number> = new Map();
   private dedupCleanupTimer: NodeJS.Timeout | null = null;
+  private lastBotMessages: Map<string, { id: string; fromMe: boolean }[]> = new Map();
+  private static MAX_TRACKED_MESSAGES = 5;
 
   getStatus(): BotStatus {
     return this.status;
@@ -293,9 +295,40 @@ export class WhatsAppBot {
     return this.start();
   }
 
+  async deletePreviousBotMessages(jid: string): Promise<void> {
+    const tracked = this.lastBotMessages.get(jid);
+    if (!tracked || tracked.length === 0) return;
+
+    for (const msgKey of tracked) {
+      try {
+        await this.sock.sendMessage(jid, {
+          delete: {
+            remoteJid: jid,
+            id: msgKey.id,
+            fromMe: true,
+          }
+        });
+      } catch (e) {
+      }
+    }
+    this.lastBotMessages.set(jid, []);
+  }
+
+  private trackSentMessage(jid: string, sentMsg: any): void {
+    if (!sentMsg?.key?.id) return;
+    let tracked = this.lastBotMessages.get(jid) || [];
+    tracked.push({ id: sentMsg.key.id, fromMe: true });
+    if (tracked.length > WhatsAppBot.MAX_TRACKED_MESSAGES) {
+      tracked = tracked.slice(-WhatsAppBot.MAX_TRACKED_MESSAGES);
+    }
+    this.lastBotMessages.set(jid, tracked);
+  }
+
   async sendInteractiveReply(jid: string, reply: BotReply): Promise<void> {
     if (!this.sock) return;
-    await this.safeSendMessage(jid, { text: reply.body });
+    await this.deletePreviousBotMessages(jid);
+    const sent = await this.safeSendMessage(jid, { text: reply.body });
+    this.trackSentMessage(jid, sent);
   }
 
   async start(phoneNumber?: string): Promise<void> {
@@ -537,7 +570,9 @@ export class WhatsAppBot {
 
         if (reply) {
           if (typeof reply === 'string') {
-            await this.safeSendMessage(from, { text: reply });
+            await this.deletePreviousBotMessages(from);
+            const sent = await this.safeSendMessage(from, { text: reply });
+            this.trackSentMessage(from, sent);
           } else {
             await this.sendInteractiveReply(from, reply);
           }

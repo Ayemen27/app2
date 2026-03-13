@@ -35,83 +35,44 @@ export interface ConversationMessage {
   steps?: AgentStep[];
 }
 
-const SYSTEM_PROMPT = `أنت "مساعد المشاريع الذكي" — وكيل ذكاء اصطناعي متقدم لإدارة المشاريع الإنشائية.
-التاريخ الحالي: ${new Date().toLocaleDateString("ar-SA")}
+const SYSTEM_PROMPT = `أنت مساعد إدارة مشاريع البناء. أجب بالعربية فقط.
 
-## ⛔ القاعدة الذهبية — ممنوع اختلاق أي بيانات:
-- ردك يحتوي **فقط** على أوامر [ACTION]. النظام ينفذها ويعرض النتائج الحقيقية تلقائياً.
-- ممنوع كتابة أرقام أو أسماء أو معرّفات من خيالك.
-- إذا لم تجد بيانات: "لا توجد بيانات مسجلة لهذا الطلب".
-- عند السؤال العام (غير مرتبط بالبيانات): أجب مباشرة بدون ACTION.
-- أجب دائماً بالعربية.
+## قواعد صارمة:
+1. لاستخراج بيانات من النظام، اكتب أمر ACTION واحد فقط. النظام سيستبدله بالبيانات الحقيقية.
+2. ممنوع اختلاق أرقام أو أسماء أو تواريخ. لا تكتب أي بيانات من خيالك.
+3. ممنوع ذكر كلمة ACTION أو أي أمر تقني في ردك للمستخدم. هذه أوامر داخلية.
+4. اكتب أمر ACTION واحد فقط في كل رد. لا تجمع أكثر من أمر.
+5. لا تشرح للمستخدم كيف يستخدم الأوامر. أنت من يستخدمها.
 
-## 📊 لوحة المعلومات والتحليلات:
-- [ACTION:DASHBOARD] — ملخص شامل للنظام (مشاريع، عمال، ماليات، موردون، معدات، آبار)
-- [ACTION:BUDGET_ANALYSIS] — تحليل الميزانيات واكتشاف المخاطر (تجاوز/قريب من الحد)
-- [ACTION:MONTHLY_TRENDS] — اتجاهات المصروفات الشهرية (آخر 6 أشهر)
-- [ACTION:MONTHLY_TRENDS:UUID_مشروع] — اتجاهات مشروع محدد
-- [ACTION:PROJECT_COMPARISON] — مقارنة تفصيلية بين جميع المشاريع
-- [ACTION:RECENT_ACTIVITIES] — آخر العمليات في النظام
-- [ACTION:RECENT_ACTIVITIES:عدد] — آخر N عملية
+## الأوامر المتاحة:
+- ملخص/نظرة عامة → [ACTION:DASHBOARD]
+- تحليل ميزانية → [ACTION:BUDGET_ANALYSIS]
+- اتجاهات شهرية → [ACTION:MONTHLY_TRENDS]
+- مقارنة مشاريع → [ACTION:PROJECT_COMPARISON]
+- آخر العمليات → [ACTION:RECENT_ACTIVITIES]
+- تقرير مشاريع → [ACTION:ALL_PROJECTS_REPORT]
+- قائمة مشاريع → [ACTION:LIST_PROJECTS]
+- بحث مشروع → [ACTION:GET_PROJECT:الاسم]
+- مصروفات مشروع → [ACTION:PROJECT_EXPENSES:UUID]
+- قائمة عمال → [ACTION:LIST_WORKERS]
+- بحث عامل → [ACTION:FIND_WORKER:الاسم]
+- كشف حساب عامل → [ACTION:WORKER_STATEMENT:الاسم]
+- أعلى عمال → [ACTION:TOP_WORKERS]
+- مستحقات غير مدفوعة → [ACTION:UNPAID_BALANCES]
+- قائمة موردين → [ACTION:LIST_SUPPLIERS]
+- كشف حساب مورد → [ACTION:SUPPLIER_STATEMENT:الاسم]
+- قائمة معدات → [ACTION:LIST_EQUIPMENT]
+- قائمة آبار → [ACTION:LIST_WELLS]
+- بحث شامل → [ACTION:GLOBAL_SEARCH:كلمة]
+- استعلام SQL → [ACTION:SQL_SELECT:SELECT ...]
 
-## 🏗️ المشاريع:
-- [ACTION:ALL_PROJECTS_REPORT] — تقرير شامل لجميع المشاريع مع الماليات
-- [ACTION:LIST_PROJECTS] — قائمة المشاريع (اسم + معرّف + حالة)
-- [ACTION:GET_PROJECT:اسم_المشروع] — بحث عن مشروع بالاسم
-- [ACTION:PROJECT_EXPENSES:UUID] — ملخص مصروفات مشروع
-- [ACTION:DAILY_EXPENSES:UUID:التاريخ] — مصروفات يومية
+## أمثلة:
+- "كم مصروفات المشروع؟" → [ACTION:DASHBOARD]
+- "أعطني قائمة العمال" → [ACTION:LIST_WORKERS]
+- "كشف حساب أحمد" → [ACTION:WORKER_STATEMENT:أحمد]
+- "ما هو وضع المشاريع؟" → [ACTION:ALL_PROJECTS_REPORT]
 
-## 👷 العمال:
-- [ACTION:LIST_WORKERS] — قائمة جميع العمال
-- [ACTION:FIND_WORKER:الاسم] — بحث عن عامل
-- [ACTION:WORKER_STATEMENT:اسم_أو_معرف] — كشف حساب عامل تفصيلي
-- [ACTION:TOP_WORKERS] — أعلى 10 عمال من حيث المستحقات
-- [ACTION:TOP_WORKERS:عدد] — أعلى N عامل
-- [ACTION:UNPAID_BALANCES] — العمال الذين لديهم مستحقات غير مدفوعة
-
-## 📦 الموردون:
-- [ACTION:LIST_SUPPLIERS] — قائمة الموردين مع ديونهم
-- [ACTION:SUPPLIER_STATEMENT:اسم_أو_معرف] — كشف حساب مورد (مشتريات + مدفوعات + رصيد)
-
-## 🔧 المعدات:
-- [ACTION:LIST_EQUIPMENT] — قائمة المعدات وحالتها
-- [ACTION:EQUIPMENT_MOVEMENTS:معرف] — حركات معدة محددة
-
-## 💧 الآبار:
-- [ACTION:LIST_WELLS] — قائمة الآبار مع نسب الإنجاز
-- [ACTION:WELL_DETAILS:معرف] — تفاصيل بئر (مهام + مصروفات + ملخص)
-
-## 🔍 بحث وقاعدة بيانات:
-- [ACTION:GLOBAL_SEARCH:كلمة_البحث] — بحث شامل في المشاريع والعمال والموردين والمعدات
-- [ACTION:LIST_TABLES] — عرض جداول قاعدة البيانات
-- [ACTION:DESCRIBE_TABLE:اسم_الجدول] — أعمدة جدول
-- [ACTION:SEARCH:جدول:عمود:قيمة] — بحث في جدول
-- [ACTION:SQL_SELECT:SELECT ...] — استعلام SQL مباشر (قراءة فقط)
-
-## 📄 تصدير التقارير:
-- [ACTION:EXPORT_EXCEL:WORKER_STATEMENT:معرف] — تقرير Excel لعامل
-- [ACTION:EXPORT_EXCEL:PROJECT_FULL:معرف] — تقرير Excel لمشروع
-- [ACTION:EXPORT_EXCEL:SUPPLIER_STATEMENT:معرف] — تقرير Excel لمورد
-- [ACTION:EXPORT_EXCEL:DASHBOARD] — تقرير Excel للوحة المعلومات
-
-## ✏️ أدوات التعديل (تتطلب موافقة المسؤول):
-- [PROPOSE:INSERT:جدول:{"عمود":"قيمة"}] — إضافة سجل
-- [PROPOSE:UPDATE:جدول:معرف:{"عمود":"قيمة"}] — تعديل سجل
-- [PROPOSE:DELETE:جدول:معرف] — حذف سجل
-
-## 🚨 التنبيهات:
-- [ALERT:نوع_التنبيه:رسالة:معرف_المشروع] — إرسال تنبيه عاجل للمسؤولين
-
-## 🧠 سلوك ذكي:
-- عند طلب "ملخص" أو "نظرة عامة" → استخدم DASHBOARD
-- عند طلب "مقارنة المشاريع" → استخدم PROJECT_COMPARISON
-- عند طلب "تحليل" أو "مخاطر" أو "ميزانية" → استخدم BUDGET_ANALYSIS
-- عند طلب "من لم يُدفع له" أو "مستحقات" → استخدم UNPAID_BALANCES
-- عند طلب "اتجاهات" أو "تطور الإنفاق" → استخدم MONTHLY_TRENDS
-- عند ذكر اسم عامل → WORKER_STATEMENT:الاسم
-- عند ذكر اسم مورد → SUPPLIER_STATEMENT:الاسم
-- يمكنك دمج عدة أوامر ACTION في رد واحد
-- ممنوع اختراع UUID. كل معرّف يأتي من نتائج ACTION سابقة.`;
+عند السؤال العام غير المرتبط بالبيانات، أجب مباشرة بدون أوامر.`;
 
 export class AIAgentService {
   private modelManager = getModelManager();
@@ -258,25 +219,11 @@ export class AIAgentService {
       .where(eq(aiChatSessions.id, sessionId));
 
     try {
-      // تضمين تاريخ اليوم الفعلي في التوجيه لضمان معرفة الوكيل بالوقت الحالي
       const todayDate = new Date().toISOString().split("T")[0];
       const dynamicSystemPrompt = `${SYSTEM_PROMPT}
 
-## 📅 سياق الوقت الحالي:
-- تاريخ اليوم الفعلي هو: ${todayDate}.
-- عندما يسأل المستخدم عن "البارحة" أو "أمس"، اقصد دائماً تاريخ: ${new Date(Date.now() - 86400000).toISOString().split("T")[0]}.
-
-## ⚠️ قاعدة صارمة لمنع التخمين (Anti-Hallucination):
-- مسموح لك بالتخمين **فقط** في قسم "التحليل التقني" لوصف خطتك.
-- في قسم "الحقائق المستخرجة"، **يمنع منعاً باتاً** ذكر أي رقم أو معلومة لم تظهر في نتائج [ACTION].
-- إذا كانت نتائج [ACTION] فارغة، يجب أن تقول صراحة: "لا توجد بيانات مسجلة في قاعدة البيانات لهذا الطلب".
-- لا تستخدم معلومات من ذاكرتك التدريبية حول أرقام المشاريع أو العمال؛ اعتمد فقط على ما تخرجه الأدوات.
-
-## 🔴 تنسيق الرد الإلزامي عند طلب بيانات:
-- عند طلب تقرير أو بيانات: اكتب أوامر [ACTION] فقط في البداية، بدون أي نص آخر قبلها.
-- لا تكتب جداول أو قوائم أو ملخصات قبل الحصول على نتائج [ACTION].
-- بعد استلام النتائج، قدم تحليلك بناءً على البيانات الحقيقية فقط.
-- إذا لم تجد بيانات، قل ذلك بصراحة ولا تختلق بدائل.`;
+تاريخ اليوم: ${todayDate}. أمس: ${new Date(Date.now() - 86400000).toISOString().split("T")[0]}.
+تذكر: أمر ACTION واحد فقط. لا تذكر ACTION للمستخدم. لا تختلق بيانات.`;
 
       // الحصول على تاريخ المحادثة من قاعدة البيانات
       const history = await this.getSessionMessages(sessionId, userId);
@@ -293,17 +240,26 @@ export class AIAgentService {
 
       let responseContent = aiResponse.content;
       
-      responseContent = responseContent.replace(/(?<!\[)ACTION:([A-Z_]+(?::[^\]]+)?)\]?(?=\s|$)/g, '[ACTION:$1]');
-      
-      const hasAction = /\[ACTION:[^\]]+\]/.test(responseContent);
-      if (!hasAction) {
-        const detectedAction = this.detectIntentFromUserMessage(userMessage);
-        if (detectedAction) {
-          responseContent = detectedAction;
-          console.log(`🔍 [AIAgentService] النموذج لم يستخدم ACTION، تم كشف النية: ${detectedAction}`);
-        } else if (this.looksLikeHallucinatedData(responseContent)) {
-          console.warn(`⚠️ [AIAgentService] اكتشاف بيانات مُختَلقة محتملة، استبدال بـ DASHBOARD`);
-          responseContent = "[ACTION:DASHBOARD]";
+      const detectedAction = this.detectIntentFromUserMessage(userMessage);
+      if (detectedAction) {
+        responseContent = detectedAction;
+        console.log(`🔍 [AIAgentService] تم كشف النية مباشرة: ${detectedAction}`);
+      } else {
+        responseContent = responseContent.replace(/(?<!\[)ACTION:([A-Z_]+(?::[^\]]+)?)\]?(?=\s|$)/g, '[ACTION:$1]');
+        
+        const allActions = responseContent.match(/\[ACTION:([^\]]+)\]/g) || [];
+        if (allActions.length > 3) {
+          console.warn(`⚠️ [AIAgentService] النموذج أرسل ${allActions.length} أمر، تقليص إلى أول 3`);
+          const uniqueActions = [...new Set(allActions)].slice(0, 3);
+          responseContent = uniqueActions.join("\n");
+        }
+        
+        const hasAction = /\[ACTION:[^\]]+\]/.test(responseContent);
+        if (!hasAction) {
+          if (this.looksLikeHallucinatedData(responseContent)) {
+            console.warn(`⚠️ [AIAgentService] اكتشاف بيانات مُختَلقة محتملة، استبدال بـ DASHBOARD`);
+            responseContent = "[ACTION:DASHBOARD]";
+          }
         }
       }
 
@@ -316,18 +272,18 @@ export class AIAgentService {
       steps[1].status = "completed";
       steps[2].status = "in_progress";
 
-      // إضافة خطوات إضافية إذا كان هناك تصدير
       if (action === "EXPORT_EXCEL") {
         steps.push({ title: "توليد ملف Excel الاحترافي", status: "completed" });
       }
 
       steps[2].status = "completed";
 
-      // حفظ رد الوكيل مع الخطوات
+      const cleanedResponse = this.sanitizeResponseForUser(processedResponse);
+
       await db.insert(aiChatMessages).values({
         sessionId,
         role: "assistant",
-        content: processedResponse,
+        content: cleanedResponse,
         model: aiResponse.model,
         provider: aiResponse.provider,
         tokensUsed: aiResponse.tokensUsed,
@@ -349,7 +305,7 @@ export class AIAgentService {
       await this.updateUsageStats(userId, aiResponse);
 
       return {
-        message: processedResponse,
+        message: cleanedResponse,
         data: actionData,
         action,
         model: aiResponse.model,
@@ -999,6 +955,23 @@ export class AIAgentService {
       if (pattern.test(response)) matchCount++;
     }
     return matchCount >= 2;
+  }
+
+  private sanitizeResponseForUser(response: string): string {
+    let cleaned = response;
+    cleaned = cleaned.replace(/\[ACTION:[^\]]*\]/g, "");
+    cleaned = cleaned.replace(/\[PROPOSE:[^\]]*\]/g, "");
+    cleaned = cleaned.replace(/\[ALERT:[^\]]*\]/g, "");
+    cleaned = cleaned.replace(/ACTION:[A-Z_]+(?::[^\s\]]*)?/g, "");
+    cleaned = cleaned.replace(/يرجى استخدام أوامر.*?(?:\n|$)/g, "");
+    cleaned = cleaned.replace(/استخدم? أوامر \[ACTION\].*?(?:\n|$)/g, "");
+    cleaned = cleaned.replace(/أوامر \[?ACTION\]?.*?(?:الموضحة|المتاحة|التالية).*?(?:\n|$)/g, "");
+    cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+    cleaned = cleaned.trim();
+    if (!cleaned || cleaned.length < 5) {
+      cleaned = "لا توجد بيانات مسجلة حالياً. يمكنك سؤالي عن المشاريع، العمال، المصروفات، أو أي معلومة أخرى.";
+    }
+    return cleaned;
   }
 
   // ==================== كشف النوايا الذكي (Fallback) ====================

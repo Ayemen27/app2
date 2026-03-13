@@ -217,7 +217,11 @@ export class WhatsAppBot {
       console.log(`⚠️ [WhatsAppBot] Failed to fetch latest version, using fallback: ${version.join('.')}`);
     }
 
-    const shouldRequestPairing = !!phoneNumber && !state.creds.registered;
+    const cleanPhone = phoneNumber ? phoneNumber.replace(/\D/g, '') : null;
+    if (cleanPhone) {
+      this.pendingPhoneNumber = cleanPhone;
+    }
+    const shouldRequestPairing = !!cleanPhone && !state.creds.registered;
 
     try {
       this.sock = makeWASocket({
@@ -226,14 +230,14 @@ export class WhatsAppBot {
           creds: state.creds,
           keys: makeCacheableSignalKeyStore(state.keys, logger),
         },
-        printQRInTerminal: !phoneNumber,
+        printQRInTerminal: false,
         logger,
-        browser: ["BinarJoin", "Chrome", "121.0.0.0"],
+        browser: ["Ubuntu", "Chrome", "20.0.04"],
         connectTimeoutMs: 60000,
         keepAliveIntervalMs: 30000,
         emitOwnEvents: true,
         retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 60000,
+        defaultQueryTimeoutMs: shouldRequestPairing ? undefined : 60000,
         generateHighQualityLinkPreview: false,
         syncFullHistory: false,
         markOnlineOnConnect: false,
@@ -242,10 +246,10 @@ export class WhatsAppBot {
       if (shouldRequestPairing) {
         setTimeout(async () => {
           try {
-            const code = await this.sock.requestPairingCode(phoneNumber);
+            const code = await this.sock.requestPairingCode(cleanPhone!);
             this.pairingCode = code;
             this.lastError = null;
-            console.log(`🔢 [WhatsAppBot] Pairing Code generated for ${phoneNumber}: ${code}`);
+            console.log(`🔢 [WhatsAppBot] Pairing Code generated for ${cleanPhone}: ${code}`);
           } catch (err) {
             const errMsg = (err as Error).message;
             console.error('❌ [WhatsAppBot] Error requesting pairing code:', errMsg);
@@ -303,7 +307,7 @@ export class WhatsAppBot {
           const totalDelay = delay + jitter;
           
           console.log(`🔄 [WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-          this.reconnectTimer = setTimeout(() => this.start(), totalDelay);
+          this.reconnectTimer = setTimeout(() => this.start(this.pendingPhoneNumber || undefined), totalDelay);
         } else {
           this.lastError = `فشل الاتصال بعد ${MAX_RECONNECT_ATTEMPTS} محاولات. يرجى إعادة التشغيل يدوياً.`;
           console.log(`❌ [WhatsAppBot] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);

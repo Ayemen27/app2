@@ -1744,6 +1744,53 @@ export const insertWhatsappAllowedNumberSchema = createInsertSchema(whatsappAllo
 export type WhatsappAllowedNumber = typeof whatsappAllowedNumbers.$inferSelect;
 export type InsertWhatsappAllowedNumber = z.infer<typeof insertWhatsappAllowedNumberSchema>;
 
+export const whatsappBotSettings = pgTable("whatsapp_bot_settings", {
+  id: serial("id").primaryKey(),
+  botName: varchar("bot_name", { length: 100 }).default("مساعد إدارة المشاريع").notNull(),
+  botDescription: varchar("bot_description", { length: 500 }).default("بوت ذكي لإدارة المشاريع والمصروفات"),
+  language: varchar("language", { length: 10 }).default("ar").notNull(),
+  timezone: varchar("timezone", { length: 50 }).default("Asia/Riyadh").notNull(),
+
+  deletePreviousMessages: boolean("delete_previous_messages").default(false).notNull(),
+  boldHeadings: boolean("bold_headings").default(true).notNull(),
+  useEmoji: boolean("use_emoji").default(true).notNull(),
+  welcomeMessage: text("welcome_message").default(""),
+  unavailableMessage: text("unavailable_message").default("عذراً، الخدمة غير متاحة حالياً. حاول لاحقاً."),
+  footerText: varchar("footer_text", { length: 200 }).default("*0* القائمة | *#* رجوع"),
+
+  menuMainTitle: varchar("menu_main_title", { length: 100 }).default("القائمة الرئيسية"),
+  menuExpensesTitle: varchar("menu_expenses_title", { length: 100 }).default("المصروفات"),
+  menuProjectsTitle: varchar("menu_projects_title", { length: 100 }).default("المشاريع"),
+  menuReportsTitle: varchar("menu_reports_title", { length: 100 }).default("التقارير"),
+  menuExportTitle: varchar("menu_export_title", { length: 100 }).default("تصدير الكشوفات"),
+  menuHelpTitle: varchar("menu_help_title", { length: 100 }).default("المساعدة"),
+  menuExpensesEmoji: varchar("menu_expenses_emoji", { length: 10 }).default("💰"),
+  menuProjectsEmoji: varchar("menu_projects_emoji", { length: 10 }).default("🏗️"),
+  menuReportsEmoji: varchar("menu_reports_emoji", { length: 10 }).default("📊"),
+  menuExportEmoji: varchar("menu_export_emoji", { length: 10 }).default("📤"),
+  menuHelpEmoji: varchar("menu_help_emoji", { length: 10 }).default("❓"),
+
+  protectionLevel: varchar("protection_level", { length: 20 }).default("balanced").notNull(),
+  responseDelayMin: integer("response_delay_min").default(2000).notNull(),
+  responseDelayMax: integer("response_delay_max").default(5000).notNull(),
+  dailyMessageLimit: integer("daily_message_limit").default(50).notNull(),
+
+  notifyNewMessage: boolean("notify_new_message").default(false).notNull(),
+  notifyOnError: boolean("notify_on_error").default(true).notNull(),
+  notifyOnDisconnect: boolean("notify_on_disconnect").default(true).notNull(),
+
+  debugMode: boolean("debug_mode").default(false).notNull(),
+  messageLogging: boolean("message_logging").default(true).notNull(),
+  autoReconnect: boolean("auto_reconnect").default(true).notNull(),
+
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: varchar("updated_by").references(() => users.id, { onDelete: "set null" }),
+});
+
+export const insertWhatsappBotSettingsSchema = createInsertSchema(whatsappBotSettings).omit({ id: true, updatedAt: true });
+export type WhatsappBotSettings = typeof whatsappBotSettings.$inferSelect;
+export type InsertWhatsappBotSettings = z.infer<typeof insertWhatsappBotSettingsSchema>;
+
 export const SYNCABLE_TABLES = [
   'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
   'project_types', 'projects', 'workers', 'wells',

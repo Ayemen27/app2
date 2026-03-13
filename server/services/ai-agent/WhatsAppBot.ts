@@ -23,7 +23,7 @@ const MIN_DELAY_MS = 2000;
 const MAX_DELAY_MS = 5000;
 const RECONNECT_BASE_DELAY = 5000;
 const MAX_RECONNECT_DELAY = 120000;
-const PAIRING_CODE_DELAY_MS = 5000;
+const PAIRING_CODE_DELAY_MS = 8000;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
 type BotStatus = "idle" | "connecting" | "open" | "close";
@@ -279,14 +279,17 @@ export class WhatsAppBot {
 
       if (connection === 'close') {
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+        const errorMsg = (lastDisconnect?.error as Boom)?.message || 'unknown';
         this.status = "close";
         this.qr = null;
-        this.pairingCode = null;
         this.connectedAt = null;
+        
+        console.log(`🔌 [WhatsAppBot] Connection closed. Code: ${statusCode}, Reason: ${errorMsg}`);
         
         const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
         
         if (isLoggedOut) {
+          this.pairingCode = null;
           this.clearAuthState();
           this.needsRelink = true;
           this.lastError = "انتهت جلسة واتساب — يرجى إعادة ربط الجهاز";
@@ -294,8 +297,21 @@ export class WhatsAppBot {
           return;
         }
 
+        const isPairingInProgress = !!this.pendingPhoneNumber;
+        
+        if (statusCode === DisconnectReason.restartRequired || 
+            statusCode === DisconnectReason.connectionClosed ||
+            statusCode === DisconnectReason.connectionReplaced) {
+          console.log(`🔄 [WhatsAppBot] Server requested restart (code: ${statusCode}). Reconnecting without phone number to avoid re-pairing...`);
+          this.pairingCode = null;
+          this.reconnectTimer = setTimeout(() => this.start(), 3000);
+          return;
+        }
+
+        if (!isPairingInProgress) {
+          this.pairingCode = null;
+        }
         this.lastError = `انقطع الاتصال (كود: ${statusCode})`;
-        console.log(`🔌 [WhatsAppBot] Connection closed. Reason: ${statusCode}`);
 
         if (this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           this.reconnectAttempts++;
@@ -306,9 +322,11 @@ export class WhatsAppBot {
           const jitter = Math.floor(Math.random() * 2000);
           const totalDelay = delay + jitter;
           
-          console.log(`🔄 [WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-          this.reconnectTimer = setTimeout(() => this.start(this.pendingPhoneNumber || undefined), totalDelay);
+          const reconnectPhone = isPairingInProgress ? this.pendingPhoneNumber : undefined;
+          console.log(`🔄 [WhatsAppBot] Reconnecting in ${(totalDelay / 1000).toFixed(1)}s (attempt #${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}, pairing=${isPairingInProgress})`);
+          this.reconnectTimer = setTimeout(() => this.start(reconnectPhone || undefined), totalDelay);
         } else {
+          this.pairingCode = null;
           this.lastError = `فشل الاتصال بعد ${MAX_RECONNECT_ATTEMPTS} محاولات. يرجى إعادة التشغيل يدوياً.`;
           console.log(`❌ [WhatsAppBot] Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`);
         }

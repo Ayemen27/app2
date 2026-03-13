@@ -72,6 +72,7 @@ export class WhatsAppBot {
   private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
   private userMinuteRates: Map<string, number[]> = new Map();
   private notificationService: NotificationService = new NotificationService();
+  private lastSentMessages: Map<string, { key: any; timestamp: number }[]> = new Map();
 
   getStatus(): BotStatus {
     return this.status;
@@ -302,13 +303,7 @@ export class WhatsAppBot {
 
   async sendInteractiveReply(jid: string, reply: BotReply): Promise<void> {
     if (!this.sock) return;
-    const settings = await botSettingsService.getSettings();
-    if (settings.deletePreviousMessages) {
-      try {
-        await this.sock.chatModify({ clear: { messages: [] } }, jid);
-      } catch (e) {}
-    }
-    const sent = await this.safeSendMessage(jid, { text: reply.body });
+    await this.safeSendMessage(jid, { text: reply.body });
   }
 
   async start(phoneNumber?: string): Promise<void> {
@@ -797,6 +792,31 @@ export class WhatsAppBot {
     this.allowedNumbersCache.clear();
   }
 
+  private async deletePreviousBotMessages(jid: string): Promise<void> {
+    if (!this.sock) return;
+    const prevMessages = this.lastSentMessages.get(jid);
+    if (!prevMessages || prevMessages.length === 0) return;
+
+    for (const msg of prevMessages) {
+      try {
+        await this.sock.sendMessage(jid, { delete: msg.key });
+      } catch (e: any) {
+        console.warn(`[WhatsAppBot] فشل حذف رسالة سابقة في ${jid}:`, e?.message);
+      }
+    }
+    this.lastSentMessages.delete(jid);
+  }
+
+  private trackSentMessage(jid: string, sentResult: any): void {
+    if (!sentResult?.key) return;
+    const existing = this.lastSentMessages.get(jid) || [];
+    existing.push({ key: sentResult.key, timestamp: Date.now() });
+    if (existing.length > 5) {
+      existing.splice(0, existing.length - 5);
+    }
+    this.lastSentMessages.set(jid, existing);
+  }
+
   async safeSendMessage(jid: string, content: any): Promise<any> {
     if (!this.sock) return;
 
@@ -824,6 +844,10 @@ export class WhatsAppBot {
       content.text = content.text + suffix;
     }
 
+    if (settings.deletePreviousMessages) {
+      await this.deletePreviousBotMessages(jid);
+    }
+
     this.lastMessageTime = Date.now();
     
     if (settings.typingIndicator) {
@@ -835,7 +859,9 @@ export class WhatsAppBot {
       } catch (e) {}
     }
 
-    return await this.sock.sendMessage(jid, content);
+    const result = await this.sock.sendMessage(jid, content);
+    this.trackSentMessage(jid, result);
+    return result;
   }
 }
 

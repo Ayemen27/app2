@@ -876,7 +876,6 @@ const updateSettingsSchema = z.object({
   unavailableMessage: z.string().optional(),
   footerText: z.string().max(200).optional(),
   menuMainTitle: z.string().max(100).optional(),
-  menuMainEmoji: z.string().max(10).optional(),
   menuExpensesTitle: z.string().max(100).optional(),
   menuProjectsTitle: z.string().max(100).optional(),
   menuReportsTitle: z.string().max(100).optional(),
@@ -905,7 +904,7 @@ const updateSettingsSchema = z.object({
   businessHoursEnd: z.string().max(10).optional(),
   businessDays: z.string().max(50).optional(),
   outsideHoursMessage: z.string().max(500).optional(),
-  smartGreeting: z.union([z.boolean(), z.string().max(500)]).optional(),
+  smartGreeting: z.boolean().optional(),
   goodbyeMessage: z.string().max(500).optional(),
   waitingMessage: z.string().max(500).optional(),
   typingIndicator: z.boolean().optional(),
@@ -916,7 +915,7 @@ const updateSettingsSchema = z.object({
   maxRetries: z.number().int().min(0).max(10).optional(),
   adminNotifyPhone: z.string().max(20).optional(),
   mediaEnabled: z.boolean().optional(),
-}).passthrough().refine((data) => {
+}).strict().refine((data) => {
   if (data.responseDelayMin !== undefined && data.responseDelayMax !== undefined) {
     return data.responseDelayMin <= data.responseDelayMax;
   }
@@ -950,8 +949,7 @@ router.put("/settings", requireAdminCheck, async (req: Request, res: Response) =
       }
     }
 
-    const { id, updatedAt, updatedBy, boldHeaders, securityLevel, notifyOnNewMessage, ...cleanData } = validation.data as any;
-    const updated = await botSettingsService.updateSettings(cleanData, req.user!.id);
+    const updated = await botSettingsService.updateSettings(validation.data, req.user!.id);
     res.json(updated);
   } catch (error: any) {
     console.error("[WhatsApp Settings] PUT Error:", error?.message);

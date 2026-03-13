@@ -61,13 +61,12 @@ interface BotSettings {
   language: string;
   timezone: string;
   deletePreviousMessages: boolean;
-  boldHeaders: boolean;
+  boldHeadings: boolean;
   useEmoji: boolean;
   welcomeMessage: string;
   unavailableMessage: string;
   footerText: string;
   menuMainTitle: string;
-  menuMainEmoji: string;
   menuExpensesTitle: string;
   menuExpensesEmoji: string;
   menuProjectsTitle: string;
@@ -97,16 +96,18 @@ interface BotSettings {
   maxRetries: number;
   adminNotifyPhone: string;
   mediaEnabled: boolean;
-  securityLevel: string;
+  protectionLevel: string;
   responseDelayMin: number;
   responseDelayMax: number;
   dailyMessageLimit: number;
-  notifyOnNewMessage: boolean;
+  notifyNewMessage: boolean;
   notifyOnError: boolean;
   notifyOnDisconnect: boolean;
   debugMode: boolean;
   messageLogging: boolean;
   autoReconnect: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 const DEFAULT_SETTINGS: BotSettings = {
@@ -115,13 +116,12 @@ const DEFAULT_SETTINGS: BotSettings = {
   language: "ar",
   timezone: "Asia/Riyadh",
   deletePreviousMessages: false,
-  boldHeaders: true,
+  boldHeadings: true,
   useEmoji: true,
   welcomeMessage: "",
   unavailableMessage: "عذراً، الخدمة غير متاحة حالياً. يرجى المحاولة لاحقاً.",
   footerText: "اكتب رقم الخيار للمتابعة",
   menuMainTitle: "القائمة الرئيسية",
-  menuMainEmoji: "📋",
   menuExpensesTitle: "المصروفات",
   menuExpensesEmoji: "💰",
   menuProjectsTitle: "المشاريع",
@@ -151,11 +151,11 @@ const DEFAULT_SETTINGS: BotSettings = {
   maxRetries: 3,
   adminNotifyPhone: "",
   mediaEnabled: true,
-  securityLevel: "balanced",
+  protectionLevel: "balanced",
   responseDelayMin: 2000,
   responseDelayMax: 5000,
   dailyMessageLimit: 200,
-  notifyOnNewMessage: true,
+  notifyNewMessage: true,
   notifyOnError: true,
   notifyOnDisconnect: true,
   debugMode: false,
@@ -311,7 +311,8 @@ export default function BotSettingsTab() {
       });
       return;
     }
-    saveMutation.mutate(settings);
+    const { id, updatedAt, updatedBy, ...cleanSettings } = settings;
+    saveMutation.mutate(cleanSettings);
   };
 
   const handleExportSettings = () => {
@@ -690,8 +691,8 @@ export default function BotSettingsTab() {
           <SettingsFieldRow label="عناوين بولد" description="عرض العناوين بخط عريض في الرسائل">
             <Switch
               data-testid="switch-bold-headers"
-              checked={settings.boldHeaders}
-              onCheckedChange={(val) => updateField("boldHeaders", val)}
+              checked={settings.boldHeadings}
+              onCheckedChange={(val) => updateField("boldHeadings", val)}
             />
           </SettingsFieldRow>
           <Separator />
@@ -737,7 +738,7 @@ export default function BotSettingsTab() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            { key: "Main", label: "القائمة الرئيسية", titleField: "menuMainTitle" as const, emojiField: "menuMainEmoji" as const },
+            { key: "Main", label: "القائمة الرئيسية", titleField: "menuMainTitle" as const, emojiField: null },
             { key: "Expenses", label: "المصروفات", titleField: "menuExpensesTitle" as const, emojiField: "menuExpensesEmoji" as const },
             { key: "Projects", label: "المشاريع", titleField: "menuProjectsTitle" as const, emojiField: "menuProjectsEmoji" as const },
             { key: "Reports", label: "التقارير", titleField: "menuReportsTitle" as const, emojiField: "menuReportsEmoji" as const },
@@ -750,13 +751,15 @@ export default function BotSettingsTab() {
             >
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{menu.label}</p>
               <div className="flex items-center gap-2">
-                <Input
-                  data-testid={`input-menu-emoji-${menu.key.toLowerCase()}`}
-                  value={settings[menu.emojiField]}
-                  onChange={(e) => updateField(menu.emojiField, e.target.value)}
-                  className="w-14 text-center rounded-lg bg-white dark:bg-slate-800 text-lg"
-                  maxLength={4}
-                />
+                {menu.emojiField && (
+                  <Input
+                    data-testid={`input-menu-emoji-${menu.key.toLowerCase()}`}
+                    value={settings[menu.emojiField]}
+                    onChange={(e) => updateField(menu.emojiField, e.target.value)}
+                    className="w-14 text-center rounded-lg bg-white dark:bg-slate-800 text-lg"
+                    maxLength={4}
+                  />
+                )}
                 <Input
                   data-testid={`input-menu-title-${menu.key.toLowerCase()}`}
                   value={settings[menu.titleField]}
@@ -881,8 +884,8 @@ export default function BotSettingsTab() {
           <div className="space-y-2">
             <Label className="text-sm font-bold text-slate-700 dark:text-slate-300">مستوى الحماية</Label>
             <Select
-              value={settings.securityLevel}
-              onValueChange={(val) => updateField("securityLevel", val)}
+              value={settings.protectionLevel}
+              onValueChange={(val) => updateField("protectionLevel", val)}
             >
               <SelectTrigger data-testid="select-security-level" className="rounded-xl bg-slate-50 dark:bg-slate-800">
                 <SelectValue />
@@ -894,9 +897,9 @@ export default function BotSettingsTab() {
               </SelectContent>
             </Select>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {settings.securityLevel === "maximum"
+              {settings.protectionLevel === "maximum"
                 ? "أقصى حماية: تأخير طويل بين الرسائل، حماية كاملة من الحظر"
-                : settings.securityLevel === "balanced"
+                : settings.protectionLevel === "balanced"
                 ? "توازن بين الحماية والسرعة، مناسب للاستخدام اليومي"
                 : "سرعة أعلى في الرد مع حماية أساسية فقط"}
             </p>
@@ -966,8 +969,8 @@ export default function BotSettingsTab() {
           <SettingsFieldRow label="إشعار عند رسالة جديدة" description="تنبيه عند استقبال رسالة واردة جديدة">
             <Switch
               data-testid="switch-notify-new-message"
-              checked={settings.notifyOnNewMessage}
-              onCheckedChange={(val) => updateField("notifyOnNewMessage", val)}
+              checked={settings.notifyNewMessage}
+              onCheckedChange={(val) => updateField("notifyNewMessage", val)}
             />
           </SettingsFieldRow>
           <Separator />

@@ -148,69 +148,75 @@ function ChatInputBar({ phoneNumber }: { phoneNumber: string }) {
 
   if (imagePreview) {
     return (
-      <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
-        <div className="relative bg-black/90 flex items-center justify-center" style={{ height: 220 }}>
-          <img src={imagePreview} alt="معاينة" className="max-h-full max-w-full object-contain rounded" />
+      <div className="bg-[#1b2b34]">
+        <div className="relative flex items-center justify-center" style={{ height: 260 }}>
+          <img src={imagePreview} alt="معاينة" className="max-h-[240px] max-w-[90%] object-contain rounded-lg" />
           <button
             data-testid="btn-cancel-image"
             onClick={() => { setImagePreview(null); setImageCaption(""); }}
-            className="absolute top-2 left-2 bg-black/60 text-white rounded-full p-1.5 hover:bg-black/80"
+            className="absolute top-3 right-3 bg-[#0000004d] text-white rounded-full p-2 hover:bg-[#00000080]"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-3 flex items-center gap-2">
-          <Button
+        <div className="px-3 py-2 flex items-center gap-2 bg-[#202c33]" dir="rtl">
+          <button
             data-testid="btn-send-image"
-            size="icon"
             onClick={handleSendImage}
             disabled={sending}
-            className="bg-green-500 hover:bg-green-600 text-white rounded-full h-10 w-10 flex-shrink-0"
+            className="bg-[#00a884] hover:bg-[#06cf9c] text-white rounded-full h-[42px] w-[42px] flex items-center justify-center flex-shrink-0 transition-colors"
           >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
-          <Input
-            data-testid="input-image-caption"
-            value={imageCaption}
-            onChange={(e) => setImageCaption(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendImage(); } }}
-            placeholder="أضف تعليق..."
-            className="flex-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-full text-right"
-            dir="rtl"
-          />
+            {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 rotate-180" />}
+          </button>
+          <div className="flex-1 bg-[#2a3942] rounded-lg px-3 py-2">
+            <input
+              data-testid="input-image-caption"
+              value={imageCaption}
+              onChange={(e) => setImageCaption(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendImage(); } }}
+              placeholder="أضف تعليقاً..."
+              className="w-full bg-transparent text-[#d1d7db] placeholder-[#8696a0] outline-none text-[15px] text-right"
+              dir="rtl"
+            />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center gap-2">
-      <Button
+    <div className="h-[62px] px-3 flex items-center gap-2 bg-[#f0f2f5] dark:bg-[#202c33]" dir="rtl">
+      <button
         data-testid="btn-send-msg"
-        size="icon"
         onClick={handleSend}
         disabled={!message.trim() || sending}
-        className="bg-green-500 hover:bg-green-600 text-white rounded-full h-10 w-10 flex-shrink-0"
+        className={cn(
+          "rounded-full h-[42px] w-[42px] flex items-center justify-center flex-shrink-0 transition-colors",
+          message.trim() ? "bg-[#00a884] hover:bg-[#06cf9c] text-white" : "bg-transparent text-[#8696a0]"
+        )}
       >
-        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-      </Button>
-      <Input
-        ref={inputRef}
-        data-testid="input-send-msg"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-        placeholder="اكتب رسالة..."
-        className="flex-1 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-full text-right"
-        dir="rtl"
-      />
+        {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 rotate-180" />}
+      </button>
+      <div className="flex-1 bg-white dark:bg-[#2a3942] rounded-lg flex items-center px-2">
+        <input
+          ref={inputRef}
+          data-testid="input-send-msg"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          placeholder="اكتب رسالة"
+          className="flex-1 bg-transparent text-[#111b21] dark:text-[#d1d7db] placeholder-[#667781] dark:placeholder-[#8696a0] outline-none py-2 px-2 text-[15px] text-right"
+          dir="rtl"
+        />
+      </div>
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
       <button
         data-testid="btn-attach-image"
         onClick={() => fileInputRef.current?.click()}
-        className="p-2 text-slate-400 hover:text-green-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+        className="p-2 text-[#54656f] dark:text-[#8696a0] hover:text-[#00a884] rounded-full transition-colors"
+        title="إرفاق صورة"
       >
-        <Paperclip className="h-5 w-5" />
+        <Paperclip className="h-6 w-6 rotate-45" />
       </button>
     </div>
   );
@@ -1564,172 +1570,210 @@ export default function WhatsAppSetupPage() {
           {/* Chats Tab - Admin only - WhatsApp-style */}
           {isAdmin && (
             <TabsContent value="chats" className="mt-6" data-testid="tab-content-chats">
-              <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
-                <div className="h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500" />
-                <div className="flex h-[600px]">
-                  {/* Conversations List - Right Side */}
+              <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700">
+                <div className="flex h-[calc(100vh-220px)] min-h-[500px] max-h-[750px]" dir="rtl">
+
+                  {/* قائمة المحادثات - يمين */}
                   <div className={cn(
-                    "border-l border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-900",
-                    selectedConvPhone ? "hidden md:flex md:w-[320px] lg:w-[360px]" : "w-full md:w-[320px] lg:w-[360px]"
+                    "border-l border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-[#111b21]",
+                    selectedConvPhone ? "hidden md:flex w-[300px] lg:w-[340px] flex-shrink-0" : "w-full md:w-[300px] lg:w-[340px] flex-shrink-0"
                   )}>
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-l from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800">
-                      <h3 className="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-green-600" />
+                    <div className="h-[60px] px-4 flex items-center bg-[#f0f2f5] dark:bg-[#202c33] border-b border-slate-200 dark:border-slate-700">
+                      <h3 className="text-base font-bold text-[#111b21] dark:text-[#e9edef] flex items-center gap-2">
                         المحادثات
                         {(conversations as any[]).length > 0 && (
-                          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs">
+                          <span className="bg-[#25d366] text-white text-[11px] rounded-full h-5 min-w-[20px] flex items-center justify-center px-1.5 font-bold">
                             {(conversations as any[]).length}
-                          </Badge>
+                          </span>
                         )}
                       </h3>
                     </div>
                     <ScrollArea className="flex-1">
                       {isLoadingConversations ? (
                         <div className="flex items-center justify-center py-12">
-                          <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                          <Loader2 className="h-6 w-6 animate-spin text-[#25d366]" />
                         </div>
                       ) : (conversations as any[]).length === 0 ? (
-                        <div className="text-center py-12 px-4">
-                          <MessageSquare className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                          <p className="text-sm text-slate-400">لا توجد محادثات بعد</p>
+                        <div className="text-center py-16 px-4">
+                          <MessageSquare className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                          <p className="text-sm text-slate-400">لا توجد محادثات</p>
                         </div>
                       ) : (
-                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                          {(conversations as any[]).map((conv: any) => (
-                            <button
-                              key={conv.id}
-                              data-testid={`conv-item-${conv.phoneNumber}`}
-                              onClick={() => setSelectedConvPhone(conv.phoneNumber)}
-                              className={cn(
-                                "w-full text-right p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-start gap-3",
-                                selectedConvPhone === conv.phoneNumber && "bg-green-50 dark:bg-green-900/20 border-r-2 border-green-500"
-                              )}
-                            >
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                {(conv.userName || conv.userEmail || conv.phoneNumber)?.charAt(0)?.toUpperCase() || "?"}
+                        (conversations as any[]).map((conv: any) => (
+                          <button
+                            key={conv.id}
+                            data-testid={`conv-item-${conv.phoneNumber}`}
+                            onClick={() => setSelectedConvPhone(conv.phoneNumber)}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-3 py-3 hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] transition-colors border-b border-slate-100 dark:border-slate-800",
+                              selectedConvPhone === conv.phoneNumber && "bg-[#f0f2f5] dark:bg-[#2a3942]"
+                            )}
+                          >
+                            <div className="w-[49px] h-[49px] rounded-full bg-[#dfe5e7] dark:bg-[#6b7b8d] flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                              {(conv.userName || conv.userEmail || conv.phoneNumber)?.charAt(0)?.toUpperCase() || "?"}
+                            </div>
+                            <div className="flex-1 min-w-0 text-right">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[15px] font-normal text-[#111b21] dark:text-[#e9edef] truncate">
+                                  {conv.userName || conv.userEmail?.split("@")[0] || conv.phoneNumber}
+                                </p>
+                                <span className="text-[12px] text-[#667781] dark:text-[#8696a0] flex-shrink-0 mr-2">
+                                  {conv.lastMessage?.timestamp ? new Date(conv.lastMessage.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""}
+                                </span>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">
-                                    {conv.userName || conv.userEmail?.split("@")[0] || conv.phoneNumber}
-                                  </p>
-                                  {conv.lastMessage?.timestamp && (
-                                    <span className="text-[10px] text-slate-400 flex-shrink-0 mr-2">
-                                      {new Date(conv.lastMessage.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-between mt-0.5">
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[200px]">
-                                    {conv.lastMessage?.sender === "bot" ? "🤖 " : conv.lastMessage?.sender === "admin" ? "👤 " : ""}
-                                    {conv.lastMessage?.content?.substring(0, 50) || "لا توجد رسائل"}
-                                  </p>
-                                  {conv.unreadCount > 0 && (
-                                    <Badge className="bg-green-500 text-white text-[10px] h-5 min-w-[20px] flex items-center justify-center rounded-full mr-1">
-                                      {conv.unreadCount}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{conv.phoneNumber}</p>
+                              <div className="flex items-center justify-between mt-0.5">
+                                <p className="text-[13px] text-[#667781] dark:text-[#8696a0] truncate">
+                                  {conv.lastMessage?.sender === "bot" && "🤖 "}
+                                  {conv.lastMessage?.sender === "admin" && "أنت: "}
+                                  {conv.lastMessage?.content?.substring(0, 45) || "لا توجد رسائل"}
+                                </p>
+                                {conv.unreadCount > 0 && (
+                                  <span className="bg-[#25d366] text-white text-[11px] rounded-full h-[20px] min-w-[20px] flex items-center justify-center px-1 font-bold mr-1">
+                                    {conv.unreadCount}
+                                  </span>
+                                )}
                               </div>
-                            </button>
-                          ))}
-                        </div>
+                            </div>
+                          </button>
+                        ))
                       )}
                     </ScrollArea>
                   </div>
 
-                  {/* Chat Window - Left Side */}
+                  {/* نافذة المحادثة - يسار */}
                   <div className={cn(
-                    "flex-1 flex flex-col",
+                    "flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a]",
                     !selectedConvPhone ? "hidden md:flex" : "flex"
                   )}>
                     {!selectedConvPhone ? (
-                      <div className="flex-1 flex items-center justify-center bg-slate-50 dark:bg-slate-800/50">
-                        <div className="text-center">
-                          <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
-                            <MessageSquare className="h-10 w-10 text-green-500" />
+                      <div className="flex-1 flex items-center justify-center bg-[#f0f2f5] dark:bg-[#222e35]">
+                        <div className="text-center max-w-sm">
+                          <div className="w-[200px] h-[200px] mx-auto mb-6 rounded-full bg-[#e4f4e0] dark:bg-[#1d3831] flex items-center justify-center">
+                            <SiWhatsapp className="h-24 w-24 text-[#25d366]" />
                           </div>
-                          <p className="text-lg font-semibold text-slate-600 dark:text-slate-300">اختر محادثة للعرض</p>
-                          <p className="text-sm text-slate-400 mt-1">اضغط على أي محادثة من القائمة</p>
+                          <h2 className="text-[28px] font-light text-[#41525d] dark:text-[#e9edef]">واتساب ويب</h2>
+                          <p className="text-[14px] text-[#667781] dark:text-[#8696a0] mt-2">اختر محادثة لعرض الرسائل</p>
                         </div>
                       </div>
                     ) : (
                       <>
-                        {/* Chat Header */}
-                        <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-l from-green-50 to-white dark:from-slate-800 dark:to-slate-900 flex items-center gap-3">
+                        {/* رأس المحادثة */}
+                        <div className="h-[60px] px-4 flex items-center gap-3 bg-[#f0f2f5] dark:bg-[#202c33] border-b border-slate-200 dark:border-slate-700">
                           <button
                             data-testid="btn-back-to-list"
                             onClick={() => setSelectedConvPhone(null)}
-                            className="md:hidden p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+                            className="md:hidden p-1.5 hover:bg-[#d9dbdf] dark:hover:bg-[#374a56] rounded-full"
                           >
-                            <ChevronDown className="h-5 w-5 rotate-90 text-slate-600" />
+                            <ChevronDown className="h-5 w-5 rotate-90 text-[#54656f] dark:text-[#aebac1]" />
                           </button>
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                          <div className="w-[40px] h-[40px] rounded-full bg-[#dfe5e7] dark:bg-[#6b7b8d] flex items-center justify-center text-white font-bold flex-shrink-0">
                             {((convMessages as any)?.contact?.userName || selectedConvPhone)?.charAt(0)?.toUpperCase() || "?"}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                            <p className="text-[16px] text-[#111b21] dark:text-[#e9edef] truncate">
                               {(convMessages as any)?.contact?.userName || (convMessages as any)?.contact?.userEmail?.split("@")[0] || selectedConvPhone}
                             </p>
-                            <p className="text-[11px] text-slate-400 font-mono">{selectedConvPhone}</p>
+                            <p className="text-[12px] text-[#667781] dark:text-[#8696a0]" dir="ltr">{selectedConvPhone && `+${selectedConvPhone}`}</p>
                           </div>
-                          <Badge variant="outline" className="text-[10px]">
-                            {(convMessages as any)?.total || 0} رسالة
-                          </Badge>
                         </div>
 
-                        {/* Messages Area */}
-                        <ScrollArea className="flex-1 bg-[#e5ddd5] dark:bg-slate-800/80" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
-                          <div className="p-4 space-y-2 min-h-full">
+                        {/* منطقة الرسائل - خلفية واتساب */}
+                        <div className="flex-1 overflow-y-auto" style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 303.1 295.6' opacity='0.04'%3E%3Cpath d='M55.8 71.4l-2.7.7c.4 1.5.9 3 1.4 4.5l2.6-1C56.6 74.1 56.2 72.7 55.8 71.4zM68 45.5l-2.1 1.8c1 1.2 2 2.4 2.9 3.7l2.2-1.7C70.1 48 69.1 46.7 68 45.5z'/%3E%3C/svg%3E")`,
+                          backgroundColor: "#efeae2",
+                        }}>
+                          <div className="px-[5%] md:px-[8%] py-3 space-y-1" dir="rtl">
                             {isLoadingConvMessages ? (
-                              <div className="flex items-center justify-center py-12">
-                                <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                              <div className="flex items-center justify-center py-20">
+                                <Loader2 className="h-8 w-8 animate-spin text-[#25d366]" />
                               </div>
                             ) : (
-                              ((convMessages as any)?.messages || []).map((msg: any) => {
-                                const isUser = msg.sender !== "bot" && msg.sender !== "admin";
-                                const isAdmin = msg.sender === "admin";
-                                return (
-                                  <div key={msg.id} className={cn("flex", isUser ? "justify-end" : "justify-start")} data-testid={`msg-${msg.id}`}>
-                                    <div className={cn(
-                                      "max-w-[75%] rounded-xl px-3 py-2 shadow-sm relative",
-                                      isUser
-                                        ? "bg-[#dcf8c6] dark:bg-green-800 text-slate-800 dark:text-white rounded-tr-none"
-                                        : isAdmin
-                                          ? "bg-blue-100 dark:bg-blue-900 text-slate-800 dark:text-white rounded-tl-none"
-                                          : "bg-white dark:bg-slate-700 text-slate-800 dark:text-white rounded-tl-none"
-                                    )}>
-                                      {!isUser && (
-                                        <p className={cn("text-[10px] font-bold mb-0.5", isAdmin ? "text-blue-600 dark:text-blue-300" : "text-green-600 dark:text-green-300")}>
-                                          {isAdmin ? "👤 المشرف" : "🤖 البوت"}
-                                        </p>
-                                      )}
-                                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
-                                      <div className="flex items-center justify-end gap-1 mt-1">
-                                        <span className="text-[9px] text-slate-400">
-                                          {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : ""}
-                                        </span>
-                                        {!isUser && (
-                                          <CheckCircle className="h-3 w-3 text-blue-400" />
+                              <>
+                                {((convMessages as any)?.messages || []).map((msg: any, idx: number) => {
+                                  const isOutgoing = msg.sender !== "bot" && msg.sender !== "admin";
+                                  const isAdminMsg = msg.sender === "admin";
+                                  const isBotMsg = msg.sender === "bot";
+                                  const isImageMsg = msg.content?.startsWith("📷");
+                                  const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "";
+
+                                  const prevMsg = ((convMessages as any)?.messages || [])[idx - 1];
+                                  const showTail = !prevMsg || prevMsg.sender !== msg.sender;
+
+                                  return (
+                                    <div key={msg.id} className={cn("flex mb-[2px]", isOutgoing ? "justify-end" : "justify-start")} data-testid={`msg-${msg.id}`}>
+                                      <div className={cn(
+                                        "relative max-w-[65%] min-w-[100px] shadow-sm",
+                                        showTail ? "mt-1" : "",
+                                        isOutgoing
+                                          ? cn("bg-[#d9fdd3] dark:bg-[#005c4b]", showTail ? "rounded-tl-lg rounded-tr-none rounded-b-lg" : "rounded-lg")
+                                          : isAdminMsg
+                                            ? cn("bg-[#d1e7ff] dark:bg-[#1d3557]", showTail ? "rounded-tr-lg rounded-tl-none rounded-b-lg" : "rounded-lg")
+                                            : cn("bg-white dark:bg-[#202c33]", showTail ? "rounded-tr-lg rounded-tl-none rounded-b-lg" : "rounded-lg"),
+                                      )}>
+                                        {showTail && (isBotMsg || isAdminMsg) && (
+                                          <div className="absolute top-0 -right-2 w-2 h-3 overflow-hidden" style={{ right: "-8px" }}>
+                                            <div className={cn(
+                                              "w-4 h-4 rotate-45 origin-bottom-left",
+                                              isAdminMsg ? "bg-[#d1e7ff] dark:bg-[#1d3557]" : "bg-white dark:bg-[#202c33]"
+                                            )} />
+                                          </div>
                                         )}
+                                        {showTail && isOutgoing && (
+                                          <div className="absolute top-0 w-2 h-3 overflow-hidden" style={{ left: "-8px" }}>
+                                            <div className="w-4 h-4 rotate-45 origin-bottom-right bg-[#d9fdd3] dark:bg-[#005c4b]" />
+                                          </div>
+                                        )}
+
+                                        <div className="px-2 pt-1 pb-1">
+                                          {showTail && !isOutgoing && (
+                                            <p className={cn(
+                                              "text-[12.5px] font-medium mb-0.5",
+                                              isAdminMsg ? "text-[#3b78c0]" : "text-[#06cf9c]"
+                                            )}>
+                                              {isAdminMsg ? "أنت (المشرف)" : "🤖 البوت"}
+                                            </p>
+                                          )}
+
+                                          {isImageMsg ? (
+                                            <div className="mb-1">
+                                              <div className="bg-[#f0f0f0] dark:bg-[#374a56] rounded-lg p-3 flex items-center gap-2">
+                                                <Image className="h-5 w-5 text-[#8696a0]" />
+                                                <span className="text-[13px] text-[#667781]">{msg.content.replace("📷 ", "") || "صورة"}</span>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <p className="text-[14.2px] leading-[19px] text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap break-words pr-1" dir="rtl">
+                                              {msg.content}
+                                            </p>
+                                          )}
+
+                                          <div className="flex items-center justify-start gap-1 mt-0.5 -mb-0.5" dir="ltr">
+                                            {(isBotMsg || isAdminMsg) && (
+                                              <svg viewBox="0 0 16 11" height="11" width="16" className="text-[#53bdeb] fill-current">
+                                                <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 0 0-.336-.153.457.457 0 0 0-.336.153.457.457 0 0 0-.14.335c0 .127.046.237.14.335l2.355 2.46a.496.496 0 0 0 .348.153.467.467 0 0 0 .37-.178L11.21 1.14a.39.39 0 0 0 .102-.254.39.39 0 0 0-.102-.254l-.14-.178z" />
+                                                <path d="M14.757.653a.457.457 0 0 0-.305-.102.493.493 0 0 0-.38.178l-6.19 7.636-0.576-.6-.722.888 1.017 1.063a.496.496 0 0 0 .348.153.467.467 0 0 0 .37-.178L14.896 1.14a.39.39 0 0 0 .102-.254.39.39 0 0 0-.102-.254l-.14-.178z" />
+                                              </svg>
+                                            )}
+                                            <span className="text-[11px] text-[#667781] dark:text-[#8696a0]">{timeStr}</span>
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                );
-                              })
+                                  );
+                                })}
+                                <div ref={(el) => { if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth" }), 100); }} />
+                              </>
                             )}
-                            <div ref={(el) => { if (el) el.scrollIntoView({ behavior: "smooth" }); }} />
                           </div>
-                        </ScrollArea>
+                        </div>
 
-                        {/* Send Message Input */}
+                        {/* حقل الإرسال */}
                         <ChatInputBar phoneNumber={selectedConvPhone} />
                       </>
                     )}
                   </div>
                 </div>
-              </Card>
+              </div>
             </TabsContent>
           )}
 

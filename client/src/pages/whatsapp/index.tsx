@@ -150,12 +150,12 @@ export default function WhatsAppSetupPage() {
     },
   });
 
+  const { data: myScope, isLoading: isLoadingMyScope } = useQuery({
+    queryKey: ["/api/whatsapp-ai/my-scope"],
+  });
+
   const { data: realStats } = useQuery({
-    queryKey: ["/api/whatsapp-ai/stats"],
-    queryFn: async () => {
-      const res = await apiRequest("/api/whatsapp-ai/stats", "GET");
-      return res;
-    }
+    queryKey: [isAdmin ? "/api/whatsapp-ai/stats/admin" : "/api/whatsapp-ai/stats/me"],
   });
 
   useEffect(() => {
@@ -290,18 +290,25 @@ export default function WhatsAppSetupPage() {
   const currentStatus = statusConfig[status];
   const StatusIcon = currentStatus.icon;
 
-  const stats = useMemo(() => [
-    {
-      title: "حالة الاتصال",
-      value: currentStatus.label,
-      icon: isConnected ? Wifi : WifiOff,
-      color: isConnected ? "green" as const : "red" as const,
-      status: isConnected ? "normal" as const : "critical" as const
-    },
-    { title: "الرسائل المعالجة", value: realStats?.totalMessages?.toString() || "0", icon: MessageSquare, color: "blue" as const },
-    { title: "مستوى الحماية", value: protectionLevel === "maximum" ? "أقصى" : protectionLevel === "balanced" ? "متوازن" : "أدنى", icon: Shield, color: "purple" as const },
-    { title: "دقة التحليل", value: realStats?.accuracy || "0%", icon: TrendingUp, color: "teal" as const },
-  ], [status, realStats, protectionLevel, currentStatus, isConnected]);
+  const stats = useMemo(() => {
+    const items = [
+      {
+        title: "حالة الاتصال",
+        value: currentStatus.label,
+        icon: isConnected ? Wifi : WifiOff,
+        color: isConnected ? "green" as const : "red" as const,
+        status: isConnected ? "normal" as const : "critical" as const
+      },
+      { title: isAdmin ? "الرسائل المعالجة" : "رسائلي", value: realStats?.totalMessages?.toString() || "0", icon: MessageSquare, color: "blue" as const },
+      { title: "مستوى الحماية", value: protectionLevel === "maximum" ? "أقصى" : protectionLevel === "balanced" ? "متوازن" : "أدنى", icon: Shield, color: "purple" as const },
+    ];
+    if (isAdmin) {
+      items.push({ title: "دقة التحليل", value: realStats?.accuracy || "0%", icon: TrendingUp, color: "teal" as const });
+    } else {
+      items.push({ title: "مشاريعي", value: realStats?.accessibleProjectsCount?.toString() || "0", icon: Activity, color: "teal" as const });
+    }
+    return items;
+  }, [status, realStats, protectionLevel, currentStatus, isConnected, isAdmin]);
 
   const protectionScore = useMemo(() => {
     const scores: Record<ProtectionLevel, number> = { maximum: 95, balanced: 75, minimal: 45 };
@@ -355,6 +362,7 @@ export default function WhatsAppSetupPage() {
   const tabItems = useMemo(() => {
     const items = [
       { id: "mylink", label: "ربط رقمي", icon: LinkIcon, color: "data-[state=active]:bg-emerald-500" },
+      { id: "myscope", label: "نطاق وصولي", icon: Eye, color: "data-[state=active]:bg-cyan-500" },
     ];
     if (isAdmin) {
       items.push({ id: "connection", label: "البوت", icon: QrCode, color: "data-[state=active]:bg-blue-500" });
@@ -684,6 +692,151 @@ export default function WhatsAppSetupPage() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          {/* My Scope Tab */}
+          <TabsContent value="myscope" className="mt-6 space-y-6" data-testid="tab-content-myscope">
+            <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500" />
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2 font-black">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
+                    <Eye className="h-4 w-4 text-cyan-600" />
+                  </div>
+                  نطاق وصولي عبر واتساب
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {isLoadingMyScope ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+                  </div>
+                ) : (
+                  <>
+                    <div className={cn(
+                      "p-4 rounded-xl border",
+                      (myScope as any)?.isLinked
+                        ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+                        : "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                    )} data-testid="scope-link-status">
+                      <div className="flex items-center gap-3">
+                        {(myScope as any)?.isLinked ? (
+                          <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+                        )}
+                        <div>
+                          <p className={cn(
+                            "text-sm font-black",
+                            (myScope as any)?.isLinked ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"
+                          )}>
+                            {(myScope as any)?.isLinked ? "رقمك مربوط" : "رقمك غير مربوط"}
+                          </p>
+                          {(myScope as any)?.linkedPhone && (
+                            <p className="text-xs font-mono text-emerald-600 dark:text-emerald-500 mt-0.5" dir="ltr" data-testid="scope-linked-phone">
+                              +{(myScope as any).linkedPhone}
+                            </p>
+                          )}
+                          {(myScope as any)?.linkedAt && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              تاريخ الربط: {formatDate((myScope as any).linkedAt)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-cyan-600" />
+                        المشاريع المسموح الوصول إليها
+                        <Badge variant="secondary" className="text-[9px] font-black" data-testid="scope-projects-count">
+                          {(myScope as any)?.projects?.length || 0} مشروع
+                        </Badge>
+                      </h3>
+
+                      {(myScope as any)?.projects?.length > 0 ? (
+                        <div className="space-y-3">
+                          {(myScope as any).projects.map((project: any) => (
+                            <div
+                              key={project.projectId}
+                              data-testid={`scope-project-${project.projectId}`}
+                              className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30"
+                            >
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center shrink-0">
+                                    <Activity className="h-4 w-4 text-cyan-600" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate" data-testid={`scope-project-name-${project.projectId}`}>
+                                      {project.projectName}
+                                    </p>
+                                    {project.isOwner && (
+                                      <Badge className="text-[8px] font-black bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 mt-0.5">
+                                        مالك المشروع
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {project.canView && (
+                                    <Badge variant="outline" className="text-[9px] font-bold text-blue-600 border-blue-200 dark:border-blue-800" data-testid={`scope-perm-view-${project.projectId}`}>
+                                      <Eye className="h-2.5 w-2.5 mr-0.5" /> عرض
+                                    </Badge>
+                                  )}
+                                  {project.canAdd && (
+                                    <Badge variant="outline" className="text-[9px] font-bold text-emerald-600 border-emerald-200 dark:border-emerald-800" data-testid={`scope-perm-add-${project.projectId}`}>
+                                      <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> إضافة
+                                    </Badge>
+                                  )}
+                                  {project.canEdit && (
+                                    <Badge variant="outline" className="text-[9px] font-bold text-amber-600 border-amber-200 dark:border-amber-800" data-testid={`scope-perm-edit-${project.projectId}`}>
+                                      <Settings2 className="h-2.5 w-2.5 mr-0.5" /> تعديل
+                                    </Badge>
+                                  )}
+                                  {project.canDelete && (
+                                    <Badge variant="outline" className="text-[9px] font-bold text-red-600 border-red-200 dark:border-red-800" data-testid={`scope-perm-delete-${project.projectId}`}>
+                                      <Trash2 className="h-2.5 w-2.5 mr-0.5" /> حذف
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                              <Lock className="h-7 w-7 text-slate-300" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-500">لا توجد مشاريع متاحة</p>
+                              <p className="text-[11px] text-slate-400 mt-1">تواصل مع المسؤول لإضافتك إلى مشروع</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {!(myScope as any)?.isLinked && (
+                      <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-start gap-2">
+                          <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-xs font-black text-blue-700 dark:text-blue-400">اربط رقمك أولاً</p>
+                            <p className="text-[11px] text-blue-600 dark:text-blue-500 mt-1 leading-relaxed">
+                              لتتمكن من استخدام واتساب مع النظام، اذهب لتبويب "ربط رقمي" واربط رقم واتساب الخاص بك.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Allowed Numbers Tab - Admin only */}
@@ -1362,32 +1515,48 @@ export default function WhatsAppSetupPage() {
           </TabsContent>
 
           {/* Stats Tab */}
-          <TabsContent value="stats" className="mt-6">
+          <TabsContent value="stats" className="mt-6" data-testid="tab-content-stats">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-blue-400 to-cyan-400" />
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2 font-black">
                     <MessageSquare className="h-4 w-4 text-blue-600" />
-                    ملخص النشاط
+                    {isAdmin ? "ملخص النشاط" : "إحصائياتي"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-center">
+                    <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-center" data-testid="stat-total-messages">
                       <p className="text-2xl font-black text-blue-700 dark:text-blue-400">{realStats?.totalMessages || 0}</p>
-                      <p className="text-[10px] font-bold text-blue-500 mt-1">رسالة معالجة</p>
+                      <p className="text-[10px] font-bold text-blue-500 mt-1">{isAdmin ? "رسالة معالجة" : "رسائلي"}</p>
                     </div>
-                    <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center">
-                      <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{realStats?.accuracy || "0%"}</p>
-                      <p className="text-[10px] font-bold text-emerald-500 mt-1">دقة التحليل</p>
-                    </div>
-                    <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-center">
-                      <p className="text-2xl font-black text-purple-700 dark:text-purple-400">
-                        {realStats?.lastSync ? "نشط" : "—"}
-                      </p>
-                      <p className="text-[10px] font-bold text-purple-500 mt-1">آخر نشاط</p>
-                    </div>
+                    {isAdmin ? (
+                      <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center" data-testid="stat-accuracy">
+                        <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{realStats?.accuracy || "0%"}</p>
+                        <p className="text-[10px] font-bold text-emerald-500 mt-1">دقة التحليل</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center" data-testid="stat-projects-count">
+                        <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{realStats?.accessibleProjectsCount || 0}</p>
+                        <p className="text-[10px] font-bold text-emerald-500 mt-1">مشاريعي</p>
+                      </div>
+                    )}
+                    {isAdmin ? (
+                      <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-center">
+                        <p className="text-2xl font-black text-purple-700 dark:text-purple-400">
+                          {realStats?.lastSync ? "نشط" : "—"}
+                        </p>
+                        <p className="text-[10px] font-bold text-purple-500 mt-1">آخر نشاط</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-center" data-testid="stat-link-status">
+                        <p className="text-2xl font-black text-purple-700 dark:text-purple-400">
+                          {realStats?.isLinked ? "مربوط" : "غير مربوط"}
+                        </p>
+                        <p className="text-[10px] font-bold text-purple-500 mt-1">حالة الربط</p>
+                      </div>
+                    )}
                     <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-center">
                       <p className="text-2xl font-black text-amber-700 dark:text-amber-400">
                         {protectionScore}%

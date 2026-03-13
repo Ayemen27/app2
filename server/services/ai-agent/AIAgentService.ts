@@ -227,7 +227,8 @@ export class AIAgentService {
   async processMessage(
     sessionId: string,
     userMessage: string,
-    userId: string
+    userId: string,
+    securityContext?: import("./WhatsAppSecurityContext").WhatsAppSecurityContext
   ): Promise<AgentResponse> {
     const steps: AgentStep[] = [
       { title: "تحليل طلبك", status: "in_progress" },
@@ -304,7 +305,8 @@ export class AIAgentService {
 
       const { processedResponse, action, actionData } = await this.parseAndExecuteActions(
         responseContent,
-        sessionId
+        sessionId,
+        securityContext
       );
       
       steps[1].status = "completed";
@@ -431,7 +433,8 @@ export class AIAgentService {
    */
   private async parseAndExecuteActions(
     response: string,
-    sessionId?: string
+    sessionId?: string,
+    securityContext?: import("./WhatsAppSecurityContext").WhatsAppSecurityContext
   ): Promise<{ processedResponse: string; action?: string; actionData?: any }> {
     
     // التحقق من وجود أوامر قراءة [ACTION]
@@ -483,6 +486,15 @@ export class AIAgentService {
         action = actionType;
 
         try {
+          const ADMIN_ONLY_ACTIONS = ["SQL_SELECT", "LIST_TABLES", "DESCRIBE_TABLE", "ALL_PROJECTS_REPORT"];
+          if (securityContext && !securityContext.isAdmin && ADMIN_ONLY_ACTIONS.includes(actionType)) {
+            results.push({
+              type: actionType,
+              result: { success: false, message: "ليس لديك صلاحية لهذا الأمر. هذا الأمر متاح فقط للمسؤولين.", action: actionType }
+            });
+            continue;
+          }
+
           let currentResult: ActionResult | ReportResult | null = null;
           switch (actionType) {
             case "FIND_WORKER":
@@ -539,15 +551,21 @@ export class AIAgentService {
             }
 
             case "LIST_PROJECTS":
-              currentResult = await this.dbActions.getAllProjects();
+              currentResult = await this.dbActions.getAllProjects(
+                securityContext ? securityContext.accessibleProjectIds : undefined
+              );
               break;
 
             case "ALL_PROJECTS_REPORT":
-              currentResult = await this.dbActions.getAllProjectsWithExpenses();
+              currentResult = await this.dbActions.getAllProjectsWithExpenses(
+                securityContext ? securityContext.accessibleProjectIds : undefined
+              );
               break;
 
             case "LIST_WORKERS":
-              currentResult = await this.dbActions.getAllWorkers();
+              currentResult = await this.dbActions.getAllWorkers(
+                securityContext ? securityContext.accessibleProjectIds : undefined
+              );
               break;
 
             case "LIST_TABLES":

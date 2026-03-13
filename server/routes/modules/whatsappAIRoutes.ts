@@ -3,9 +3,11 @@ import { getWhatsAppAIService } from "../../services/ai-agent/WhatsAppAIService"
 import { getWhatsAppBot } from "../../services/ai-agent/WhatsAppBot";
 import { storage } from "../../storage";
 import { db } from "../../db";
-import { whatsappUserLinks, whatsappAllowedNumbers, users } from "@shared/schema";
-import { eq, and, sql, ne } from "drizzle-orm";
+import { whatsappUserLinks, whatsappAllowedNumbers, whatsappMessages, users } from "@shared/schema";
+import { eq, and, sql, ne, desc } from "drizzle-orm";
 import { authenticate } from "../../middleware/auth";
+import { z } from "zod";
+import { projectAccessService } from "../../services/ProjectAccessService";
 
 const router = Router();
 
@@ -19,6 +21,15 @@ const requireAdminCheck = (req: Request, res: Response, next: any) => {
   }
   next();
 };
+
+const linkPhoneSchema = z.object({
+  phoneNumber: z.string().min(8, "رقم هاتف غير صالح").max(20, "رقم هاتف طويل جداً"),
+});
+
+const allowedNumberSchema = z.object({
+  phoneNumber: z.string().min(8, "رقم هاتف غير صالح").max(20, "رقم هاتف طويل جداً"),
+  label: z.string().max(100).optional().nullable(),
+});
 
 const WEBHOOK_SECRET = process.env.WHATSAPP_WEBHOOK_SECRET || "";
 
@@ -45,12 +56,13 @@ router.get("/my-link", async (req: Request, res: Response) => {
 router.post("/link-phone", async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { phoneNumber } = req.body;
 
-    if (!phoneNumber || phoneNumber.length < 8) {
-      return res.status(400).json({ error: "رقم هاتف غير صالح" });
+    const validation = linkPhoneSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
     }
 
+    const { phoneNumber } = validation.data;
     const canonical = canonicalizePhone(phoneNumber);
 
     if (canonical.length < 8) {
@@ -222,7 +234,47 @@ router.post("/webhook", async (req: Request, res: Response) => {
   res.sendStatus(200);
 });
 
-router.get("/stats", async (req: Request, res: Response) => {
+router.get("/stats/me", async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+
+    const link = await db.select()
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.user_id, userId))
+      .limit(1);
+
+    const phoneNumber = link.length > 0 ? link[0].phoneNumber : null;
+
+    let myMessageCount = 0;
+    if (phoneNumber) {
+      const countResult = await db.select({ count: sql<number>`count(*)` })
+        .from(whatsappMessages)
+        .where(eq(whatsappMessages.from, phoneNumber));
+      myMessageCount = Number(countResult[0]?.count || 0);
+    }
+
+    const accessibleProjects = await projectAccessService.getAccessibleProjectIds(userId, req.user!.role);
+
+    res.json({
+      totalMessages: myMessageCount,
+      linkedPhone: phoneNumber,
+      isLinked: !!phoneNumber,
+      accessibleProjectsCount: accessibleProjects.length,
+      lastMessageAt: link.length > 0 ? link[0].lastMessageAt : null,
+    });
+  } catch (error: any) {
+    console.error("[WhatsApp Stats/me] Error:", error?.message || error);
+    res.json({
+      totalMessages: 0,
+      linkedPhone: null,
+      isLinked: false,
+      accessibleProjectsCount: 0,
+      lastMessageAt: null,
+    });
+  }
+});
+
+router.get("/stats/admin", requireAdminCheck, async (req: Request, res: Response) => {
   try {
     const stats = await storage.getWhatsAppStats();
     res.json({
@@ -233,7 +285,7 @@ router.get("/stats", async (req: Request, res: Response) => {
       phoneNumber: stats?.phoneNumber || null
     });
   } catch (error: any) {
-    console.error("❌ [WhatsApp Stats] Error:", error?.message || error);
+    console.error("[WhatsApp Stats/admin] Error:", error?.message || error);
     res.json({
       totalMessages: 0,
       lastSync: null,
@@ -241,6 +293,128 @@ router.get("/stats", async (req: Request, res: Response) => {
       status: "idle",
       phoneNumber: null
     });
+  }
+});
+
+router.get("/stats", async (req: Request, res: Response) => {
+  try {
+    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'super_admin';
+    if (isAdmin) {
+      const stats = await storage.getWhatsAppStats();
+      return res.json({
+        totalMessages: stats?.totalMessages || 0,
+        lastSync: stats?.lastSync || null,
+        accuracy: stats?.accuracy || "0%",
+        status: stats?.status || "idle",
+        phoneNumber: stats?.phoneNumber || null
+      });
+    }
+    const userId = req.user!.id;
+    const link = await db.select()
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.user_id, userId))
+      .limit(1);
+    const phoneNumber = link.length > 0 ? link[0].phoneNumber : null;
+    let myMessageCount = 0;
+    if (phoneNumber) {
+      const countResult = await db.select({ count: sql<number>`count(*)` })
+        .from(whatsappMessages)
+        .where(eq(whatsappMessages.from, phoneNumber));
+      myMessageCount = Number(countResult[0]?.count || 0);
+    }
+    res.json({
+      totalMessages: myMessageCount,
+      lastSync: null,
+      accuracy: "0%",
+      status: "idle",
+      phoneNumber: phoneNumber
+    });
+  } catch (error: any) {
+    console.error("[WhatsApp Stats] Error:", error?.message || error);
+    res.json({
+      totalMessages: 0,
+      lastSync: null,
+      accuracy: "0%",
+      status: "idle",
+      phoneNumber: null
+    });
+  }
+});
+
+router.get("/my-scope", async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    const link = await db.select()
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.user_id, userId))
+      .limit(1);
+
+    const projectPermissions = await projectAccessService.getUserPermissionsForAllProjects(userId, role);
+
+    res.json({
+      isLinked: link.length > 0,
+      linkedPhone: link.length > 0 ? link[0].phoneNumber : null,
+      linkedAt: link.length > 0 ? link[0].linkedAt : null,
+      projects: projectPermissions.map(p => ({
+        projectId: p.projectId,
+        projectName: p.projectName,
+        canView: p.canView,
+        canAdd: p.canAdd,
+        canEdit: p.canEdit,
+        canDelete: p.canDelete,
+        isOwner: p.isOwner,
+      })),
+    });
+  } catch (error: any) {
+    console.error("[WhatsApp my-scope] Error:", error?.message || error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/messages/me", async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+
+    const link = await db.select()
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.user_id, userId))
+      .limit(1);
+
+    if (link.length === 0) {
+      return res.json({ messages: [], total: 0, page: 1, pageSize: 20 });
+    }
+
+    const phoneNumber = link[0].phoneNumber;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string) || 20));
+    const offset = (page - 1) * pageSize;
+
+    const [messages, countResult] = await Promise.all([
+      db.select()
+        .from(whatsappMessages)
+        .where(eq(whatsappMessages.from, phoneNumber))
+        .orderBy(desc(whatsappMessages.created_at))
+        .limit(pageSize)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)` })
+        .from(whatsappMessages)
+        .where(eq(whatsappMessages.from, phoneNumber)),
+    ]);
+
+    const total = Number(countResult[0]?.count || 0);
+
+    res.json({
+      messages,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
+  } catch (error: any) {
+    console.error("[WhatsApp messages/me] Error:", error?.message || error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -266,10 +440,11 @@ router.get("/allowed-numbers", requireAdminCheck, async (req: Request, res: Resp
 
 router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Response) => {
   try {
-    const { phoneNumber, label } = req.body;
-    if (!phoneNumber || phoneNumber.length < 8) {
-      return res.status(400).json({ error: "رقم هاتف غير صالح" });
+    const validation = allowedNumberSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
     }
+    const { phoneNumber, label } = validation.data;
     const canonical = canonicalizePhone(phoneNumber);
     const existing = await db.select()
       .from(whatsappAllowedNumbers)

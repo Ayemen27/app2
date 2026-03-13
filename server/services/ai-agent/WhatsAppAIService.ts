@@ -1,4 +1,5 @@
 import { AIAgentService, getAIAgentService } from "./AIAgentService";
+import { WhatsAppSecurityContext } from "./WhatsAppSecurityContext";
 import { db } from "../../db";
 import { workers, projects, wellExpenses, wells, workerAttendance, whatsappUserLinks, userProjectPermissions, users } from "@shared/schema";
 import { eq, ilike, and, sql, inArray } from "drizzle-orm";
@@ -26,73 +27,26 @@ export class WhatsAppAIService {
     this.aiAgent = getAIAgentService();
   }
 
-  async findUserByPhone(phone: string): Promise<{ userId: string; userName: string; role: string } | null> {
-    const cleanPhone = phone.replace(/\D/g, '');
+  async handleIncomingMessage(senderPhone: string, message: string) {
+    const securityContext = await WhatsAppSecurityContext.fromPhone(senderPhone);
 
-    const link = await db.select()
-      .from(whatsappUserLinks)
-      .where(and(
-        eq(whatsappUserLinks.isActive, true),
-        eq(whatsappUserLinks.phoneNumber, cleanPhone)
-      ))
-      .limit(1);
+    if (!securityContext.userId) {
+      return "رقمك غير مسجل في النظام.\nيرجى ربط رقم الواتساب من حسابك في التطبيق أولاً.";
+    }
 
-    if (link.length === 0) return null;
-
-    const user = await db.select()
-      .from(users)
-      .where(eq(users.id, link[0].user_id))
-      .limit(1);
-
-    if (user.length === 0) return null;
+    const { userId, userName, role, isAdmin } = securityContext;
+    const userProjectIds = securityContext.accessibleProjectIds;
 
     await db.update(whatsappUserLinks)
       .set({
         lastMessageAt: new Date(),
         totalMessages: sql`${whatsappUserLinks.totalMessages} + 1`
       })
-      .where(eq(whatsappUserLinks.id, link[0].id));
-
-    return {
-      userId: user[0].id,
-      userName: user[0].full_name || user[0].first_name || user[0].email,
-      role: user[0].role
-    };
-  }
-
-  async getUserProjectIds(userId: string, role: string): Promise<string[]> {
-    if (role === 'admin' || role === 'super_admin') {
-      const allProjects = await db.select({ id: projects.id }).from(projects);
-      return allProjects.map(p => p.id);
-    }
-
-    const perms = await db.select({ project_id: userProjectPermissions.project_id })
-      .from(userProjectPermissions)
       .where(and(
-        eq(userProjectPermissions.user_id, userId),
-        eq(userProjectPermissions.canView, true)
+        eq(whatsappUserLinks.isActive, true),
+        eq(whatsappUserLinks.phoneNumber, senderPhone.replace(/\D/g, ''))
       ));
 
-    const permProjectIds = perms.map(p => p.project_id);
-
-    const engineerProjects = await db.select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.engineerId, userId));
-
-    const engineerProjectIds = engineerProjects.map(p => p.id);
-
-    const allIds = new Set([...permProjectIds, ...engineerProjectIds]);
-    return Array.from(allIds);
-  }
-
-  async handleIncomingMessage(senderPhone: string, message: string) {
-    const userInfo = await this.findUserByPhone(senderPhone);
-
-    if (!userInfo) {
-      return "⛔ رقمك غير مسجل في النظام.\nيرجى ربط رقم الواتساب من حسابك في التطبيق أولاً.";
-    }
-
-    const { userId, userName, role } = userInfo;
     const msg = message.trim();
     let context = this.sessions.get(senderPhone) || { step: 'idle' as const, userId, userName, data: {} };
 
@@ -105,10 +59,8 @@ export class WhatsAppAIService {
       return `تم إلغاء العملية الحالية يا ${userName}. يمكنك البدء من جديد بإرسال المصروف (مثلاً: 5000 مصاريف عبدالله).`;
     }
 
-    const userProjectIds = await this.getUserProjectIds(userId, role);
-
     if (userProjectIds.length === 0) {
-      return `⚠️ مرحباً ${userName}، لا توجد مشاريع مرتبطة بحسابك حالياً.\nيرجى التواصل مع المسؤول لإضافتك إلى المشاريع.`;
+      return `مرحباً ${userName}، لا توجد مشاريع مرتبطة بحسابك حالياً.\nيرجى التواصل مع المسؤول لإضافتك إلى المشاريع.`;
     }
 
     if (context.step === 'idle') {
@@ -121,7 +73,7 @@ export class WhatsAppAIService {
           .where(and(
             ilike(workers.name, `%${workerName}%`),
             userProjectIds.length > 0
-              ? inArray(workers.projectId, userProjectIds)
+              ? sql`${workers.id} IN (SELECT DISTINCT worker_id FROM worker_attendance WHERE project_id IN (${sql.join(userProjectIds.map(id => sql`${id}`), sql`, `)}))`
               : sql`false`
           ))
           .limit(1);
@@ -139,13 +91,13 @@ export class WhatsAppAIService {
           context.data = { amount, workerId: worker.id, workerName: worker.name };
           this.sessions.set(senderPhone, context);
 
-          let reply = `✅ مرحباً ${userName}\nوجدنا العامل: ${worker.name}\nالمبلغ: ${amount} ريال.\n\nيرجى اختيار المشروع:`;
+          let reply = `مرحباً ${userName}\nوجدنا العامل: ${worker.name}\nالمبلغ: ${amount} ريال.\n\nيرجى اختيار المشروع:`;
           if (activeProjects.length > 0) {
             reply += `\n` + activeProjects.map((p, i) => `${i+1}. ${p.name}`).join('\n');
           }
           return reply;
         } else {
-          return `❌ لم أجد عامل باسم "${workerName}" في مشاريعك. يرجى التأكد من الاسم.`;
+          return `لم أجد عامل باسم "${workerName}" في مشاريعك. يرجى التأكد من الاسم.`;
         }
       }
 
@@ -158,21 +110,21 @@ export class WhatsAppAIService {
           return `لا توجد مشاريع مرتبطة بحسابك حالياً.`;
         }
 
-        let reply = `📋 مشاريعك (${userProjects.length}):\n\n`;
+        let reply = `مشاريعك (${userProjects.length}):\n\n`;
         userProjects.forEach((p, i) => {
-          const statusEmoji = p.status === 'active' ? '🟢' : p.status === 'completed' ? '✅' : '🔴';
-          reply += `${i+1}. ${statusEmoji} ${p.name}\n`;
+          const statusText = p.status === 'active' ? 'نشط' : p.status === 'completed' ? 'مكتمل' : 'متوقف';
+          reply += `${i+1}. [${statusText}] ${p.name}\n`;
         });
         return reply;
       }
 
       if (msg === 'مساعدة' || msg === 'help') {
-        return `🤖 مرحباً ${userName}!\n\nالأوامر المتاحة:\n` +
-          `📝 تسجيل مصروف: أرسل "المبلغ مصاريف اسم_العامل"\n` +
+        return `مرحباً ${userName}!\n\nالأوامر المتاحة:\n` +
+          `- تسجيل مصروف: أرسل "المبلغ مصاريف اسم_العامل"\n` +
           `   مثال: 5000 مصاريف أحمد\n\n` +
-          `📋 عرض مشاريعك: أرسل "مشاريعي"\n` +
-          `❌ إلغاء عملية: أرسل "إلغاء"\n\n` +
-          `💬 أو اكتب أي سؤال وسأحاول مساعدتك.`;
+          `- عرض مشاريعك: أرسل "مشاريعي"\n` +
+          `- إلغاء عملية: أرسل "إلغاء"\n\n` +
+          `أو اكتب أي سؤال وسأحاول مساعدتك.`;
       }
     }
 
@@ -204,13 +156,19 @@ export class WhatsAppAIService {
       }
 
       if (projectResult && projectResult.length > 0) {
-        context.data.projectId = projectResult[0].id;
-        context.data.projectName = projectResult[0].name;
+        const selectedProject = projectResult[0];
+        const canAdd = await securityContext.canAddToProject(selectedProject.id);
+        if (!canAdd) {
+          return `ليس لديك صلاحية إضافة مصروفات على مشروع "${selectedProject.name}". يرجى التواصل مع المسؤول.`;
+        }
+
+        context.data.projectId = selectedProject.id;
+        context.data.projectName = selectedProject.name;
         context.step = 'awaiting_days';
         this.sessions.set(senderPhone, context);
-        return `👍 تم تحديد مشروع: ${projectResult[0].name}\n\nكم عدد الأيام؟ (مثلاً: 1 أو 0.5)`;
+        return `تم تحديد مشروع: ${selectedProject.name}\n\nكم عدد الأيام؟ (مثلاً: 1 أو 0.5)`;
       }
-      return "❌ لم أجد المشروع في مشاريعك. يرجى كتابة اسم المشروع بشكل أدق أو رقمه من القائمة، أو إرسال 'إلغاء'.";
+      return "لم أجد المشروع في مشاريعك. يرجى كتابة اسم المشروع بشكل أدق أو رقمه من القائمة، أو إرسال 'إلغاء'.";
     }
 
     if (context.step === 'awaiting_days') {
@@ -221,7 +179,7 @@ export class WhatsAppAIService {
         this.sessions.set(senderPhone, context);
         return `تم تسجيل ${days} يوم. \n\nأخيراً، ما هو نوع المصروف؟\n1. أجور\n2. مواد\n3. تحويلة\n4. أخرى`;
       }
-      return "⚠️ يرجى إدخال رقم صحيح لعدد الأيام.";
+      return "يرجى إدخال رقم صحيح لعدد الأيام.";
     }
 
     if (context.step === 'awaiting_type') {
@@ -242,25 +200,30 @@ export class WhatsAppAIService {
           notes: `قيد آلي عبر واتساب - ${userName} - ${msg}`
         }).returning();
 
-        const summary = `✅ تم اعتماد وحفظ المصروف في النظام:\n\n` +
-                        `👤 المستخدم: ${userName}\n` +
-                        `👷 العامل: ${context.data.workerName}\n` +
-                        `🏗️ المشروع: ${context.data.projectName}\n` +
-                        `💰 المبلغ: ${context.data.amount} ريال\n` +
-                        `📅 الأيام: ${context.data.workDays}\n` +
-                        `🏷️ النوع: ${msg}\n\n` +
+        const summary = `تم اعتماد وحفظ المصروف في النظام:\n\n` +
+                        `المستخدم: ${userName}\n` +
+                        `العامل: ${context.data.workerName}\n` +
+                        `المشروع: ${context.data.projectName}\n` +
+                        `المبلغ: ${context.data.amount} ريال\n` +
+                        `الأيام: ${context.data.workDays}\n` +
+                        `النوع: ${msg}\n\n` +
                         `رقم السجل: ${attendance.id}`;
         
         this.sessions.delete(senderPhone);
         return summary;
       } catch (error: any) {
-        console.error('❌ [WhatsAppAI] Error saving expense:', error);
-        return `❌ حدث خطأ أثناء حفظ البيانات: ${error.message}. يرجى المحاولة لاحقاً أو إرسال 'إلغاء'.`;
+        console.error('[WhatsAppAI] Error saving expense:', error);
+        return `حدث خطأ أثناء حفظ البيانات: ${error.message}. يرجى المحاولة لاحقاً أو إرسال 'إلغاء'.`;
       }
     }
 
     try {
-      const response = await this.aiAgent.processMessage(`wa_${userId}_${senderPhone}`, msg, userId);
+      const response = await this.aiAgent.processMessage(
+        `wa_${userId}_${senderPhone}`,
+        msg,
+        userId,
+        securityContext
+      );
       return response.message;
     } catch (e) {
       return "عذراً، لم أفهم طلبك. أرسل 'مساعدة' لرؤية الأوامر المتاحة.";

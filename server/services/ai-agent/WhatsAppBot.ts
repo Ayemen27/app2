@@ -10,7 +10,7 @@ import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import { getWhatsAppAIService } from './WhatsAppAIService';
 import { db } from '../../db';
-import { whatsappAllowedNumbers } from '@shared/schema';
+import { whatsappAllowedNumbers, whatsappSecurityEvents } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
@@ -356,7 +356,7 @@ export class WhatsAppBot {
 
       const isAllowed = await this.isPhoneAllowed(cleanPhone);
       if (!isAllowed) {
-        console.log(`🚫 [WhatsAppBot] Blocked message from non-allowed number: ${cleanPhone}`);
+        console.log(`[WhatsAppBot] Blocked message from non-allowed number: ${cleanPhone}`);
         return;
       }
 
@@ -386,22 +386,52 @@ export class WhatsAppBot {
     try {
       const now = Date.now();
       if (now - this.allowedCacheTime < WhatsAppBot.CACHE_TTL && this.allowedNumbersCache.size > 0) {
-        return this.allowedNumbersCache.has(phone);
+        const allowed = this.allowedNumbersCache.has(phone);
+        if (!allowed) {
+          this.logSecurityEvent(phone, null, "whitelist_rejected", "الرقم غير موجود في القائمة المسموحة");
+        }
+        return allowed;
       }
       const rows = await db.select({ phoneNumber: whatsappAllowedNumbers.phoneNumber })
         .from(whatsappAllowedNumbers)
         .where(eq(whatsappAllowedNumbers.isActive, true));
 
       if (rows.length === 0) {
-        return true;
+        this.logSecurityEvent(phone, null, "whitelist_rejected", "القائمة المسموحة فارغة - رفض الكل (fail-closed)");
+        return false;
       }
 
       this.allowedNumbersCache = new Set(rows.map(r => r.phoneNumber));
       this.allowedCacheTime = now;
-      return this.allowedNumbersCache.has(phone);
+      const allowed = this.allowedNumbersCache.has(phone);
+      if (!allowed) {
+        this.logSecurityEvent(phone, null, "whitelist_rejected", "الرقم غير موجود في القائمة المسموحة");
+      }
+      return allowed;
     } catch (error) {
-      console.error('❌ [WhatsAppBot] Error checking allowed numbers:', error);
-      return true;
+      console.error('[WhatsAppBot] Error checking allowed numbers:', error);
+      this.logSecurityEvent(phone, null, "blocked", "خطأ في التحقق من القائمة المسموحة - رفض احترازي");
+      return false;
+    }
+  }
+
+  private async logSecurityEvent(
+    phoneNumber: string,
+    userId: string | null,
+    eventType: string,
+    reason: string,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    try {
+      await db.insert(whatsappSecurityEvents).values({
+        phone_number: phoneNumber,
+        user_id: userId,
+        event_type: eventType,
+        reason,
+        metadata: metadata || null,
+      });
+    } catch (err) {
+      console.error('[WhatsAppBot] Failed to log security event:', err);
     }
   }
 

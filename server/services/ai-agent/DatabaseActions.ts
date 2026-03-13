@@ -5,7 +5,7 @@
  */
 
 import { db, pool } from "../../db";
-import { eq, and, sql, desc, like, gte, lte } from "drizzle-orm";
+import { eq, and, sql, desc, like, gte, lte, inArray } from "drizzle-orm";
 import {
   projects,
   workers,
@@ -95,9 +95,17 @@ export class DatabaseActions {
     }
   }
 
-  async getAllProjects(): Promise<ActionResult> {
+  async getAllProjects(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const result = await db.select().from(projects);
+      let result;
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        result = await db.select().from(projects)
+          .where(inArray(projects.id, allowedProjectIds));
+      } else if (allowedProjectIds && allowedProjectIds.length === 0) {
+        result = [];
+      } else {
+        result = await db.select().from(projects);
+      }
       return {
         success: true,
         data: result,
@@ -113,9 +121,17 @@ export class DatabaseActions {
     }
   }
 
-  async getAllProjectsWithExpenses(): Promise<ActionResult> {
+  async getAllProjectsWithExpenses(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const allProjects = await db.select().from(projects);
+      let allProjects;
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        allProjects = await db.select().from(projects)
+          .where(inArray(projects.id, allowedProjectIds));
+      } else if (allowedProjectIds && allowedProjectIds.length === 0) {
+        allProjects = [];
+      } else {
+        allProjects = await db.select().from(projects);
+      }
       const projectSummaries = [];
 
       for (const project of allProjects) {
@@ -188,9 +204,23 @@ export class DatabaseActions {
     }
   }
 
-  async getAllWorkers(): Promise<ActionResult> {
+  async getAllWorkers(allowedProjectIds?: string[]): Promise<ActionResult> {
     try {
-      const result = await db.select().from(workers);
+      let result;
+      if (allowedProjectIds && allowedProjectIds.length > 0) {
+        result = await db.select().from(workers)
+          .where(sql`${workers.id} IN (
+            SELECT DISTINCT worker_id FROM worker_attendance WHERE project_id IN (${sql.join(allowedProjectIds.map(id => sql`${id}`), sql`, `)})
+          ) OR ${workers.id} IN (
+            SELECT id FROM workers WHERE created_by IN (
+              SELECT user_id FROM user_project_permissions WHERE project_id IN (${sql.join(allowedProjectIds.map(id => sql`${id}`), sql`, `)})
+            )
+          )`);
+      } else if (allowedProjectIds && allowedProjectIds.length === 0) {
+        result = [];
+      } else {
+        result = await db.select().from(workers);
+      }
       return {
         success: true,
         data: result,

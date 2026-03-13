@@ -27,6 +27,7 @@ import {
   type Task, type InsertTask,
   type Device, type InsertDevice, type Crash, type InsertCrash, type Metric, type InsertMetric,
   type WhatsAppStats, type InsertWhatsAppStats, type WhatsAppMessage, type InsertWhatsAppMessage,
+  type WhatsAppSecurityEvent, type InsertWhatsAppSecurityEvent,
   type WebAuthnCredential, type InsertWebAuthnCredential, type WebAuthnChallenge, type InsertWebAuthnChallenge,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
@@ -40,6 +41,7 @@ import {
   metrics,
   whatsappStats,
   whatsappMessages,
+  whatsappSecurityEvents,
   webauthnCredentials,
   webauthnChallenges,
   userPreferences,
@@ -72,6 +74,12 @@ export interface IStorage {
   getWhatsAppMessagesCount(): Promise<number>;
   getWhatsAppLastSync(): Promise<Date | null>;
   createWhatsAppMessage(message: InsertWhatsAppMessage): Promise<WhatsAppMessage>;
+  getWhatsAppMessagesByUser(userId: string, limit?: number, offset?: number): Promise<WhatsAppMessage[]>;
+  getWhatsAppMessagesByPhone(phoneNumber: string, limit?: number, offset?: number): Promise<WhatsAppMessage[]>;
+
+  // WhatsApp Security Events
+  createWhatsAppSecurityEvent(event: InsertWhatsAppSecurityEvent): Promise<WhatsAppSecurityEvent>;
+  getWhatsAppSecurityEvents(filters?: { phone_number?: string; event_type?: string; limit?: number }): Promise<WhatsAppSecurityEvent[]>;
 
   // Projects
   getProjects(): Promise<Project[]>;
@@ -516,6 +524,42 @@ export class DatabaseStorage implements IStorage {
   async getWhatsAppLastSync(): Promise<Date | null> {
     const stats = await this.getWhatsAppStats();
     return stats?.lastSync || null;
+  }
+
+  async getWhatsAppMessagesByUser(userId: string, limit: number = 50, offset: number = 0): Promise<WhatsAppMessage[]> {
+    return await db.select().from(whatsappMessages)
+      .where(eq(whatsappMessages.user_id, userId))
+      .orderBy(desc(whatsappMessages.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getWhatsAppMessagesByPhone(phoneNumber: string, limit: number = 50, offset: number = 0): Promise<WhatsAppMessage[]> {
+    return await db.select().from(whatsappMessages)
+      .where(eq(whatsappMessages.phone_number, phoneNumber))
+      .orderBy(desc(whatsappMessages.created_at))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async createWhatsAppSecurityEvent(event: InsertWhatsAppSecurityEvent): Promise<WhatsAppSecurityEvent> {
+    const [inserted] = await db.insert(whatsappSecurityEvents).values(event).returning();
+    return inserted;
+  }
+
+  async getWhatsAppSecurityEvents(filters?: { phone_number?: string; event_type?: string; limit?: number }): Promise<WhatsAppSecurityEvent[]> {
+    const conditions = [];
+    if (filters?.phone_number) {
+      conditions.push(eq(whatsappSecurityEvents.phone_number, filters.phone_number));
+    }
+    if (filters?.event_type) {
+      conditions.push(eq(whatsappSecurityEvents.event_type, filters.event_type));
+    }
+    const query = db.select().from(whatsappSecurityEvents)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(whatsappSecurityEvents.created_at))
+      .limit(filters?.limit || 100);
+    return await query;
   }
 
   async getProjects(): Promise<Project[]> {

@@ -1029,12 +1029,34 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   type: text("type").default("incoming").notNull(), // incoming, outgoing
   status: text("status").default("received").notNull(), // received, processed, failed
   metadata: jsonb("metadata"),
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  phone_number: varchar("phone_number", { length: 20 }),
+  is_authorized: boolean("is_authorized").default(false),
+  blocked_reason: text("blocked_reason"),
+  intent: text("intent"),
+  security_scope: jsonb("security_scope"),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertWhatsAppMessageSchema = createInsertSchema(whatsappMessages).omit({ id: true, created_at: true });
 export type WhatsAppMessage = typeof whatsappMessages.$inferSelect;
 export type InsertWhatsAppMessage = z.infer<typeof insertWhatsAppMessageSchema>;
+
+// WhatsApp Security Events table (جدول أحداث أمان الواتساب)
+export const whatsappSecurityEvents = pgTable("whatsapp_security_events", {
+  id: serial("id").primaryKey(),
+  phone_number: varchar("phone_number", { length: 20 }).notNull(),
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  event_type: varchar("event_type").notNull(), // blocked, denied, sql_blocked, whitelist_rejected, unauthorized
+  reason: text("reason"),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertWhatsAppSecurityEventSchema = createInsertSchema(whatsappSecurityEvents).omit({ id: true, created_at: true });
+export type WhatsAppSecurityEvent = typeof whatsappSecurityEvents.$inferSelect;
+export type InsertWhatsAppSecurityEvent = z.infer<typeof insertWhatsAppSecurityEventSchema>;
 
 export type DailyExpenseSummary = typeof dailyExpenseSummaries.$inferSelect;
 export type WorkerType = typeof workerTypes.$inferSelect;

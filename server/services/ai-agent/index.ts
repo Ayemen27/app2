@@ -9,3 +9,4 @@ export { ModelManager, getModelManager, type ChatMessage, type ModelResponse } f
 export { AIAgentService, getAIAgentService, type AgentResponse, type ConversationMessage } from './AIAgentService';
 export { DatabaseActions, getDatabaseActions, type ActionResult } from './DatabaseActions';
 export { ReportGenerator, getReportGenerator, type ReportResult, type ReportOptions } from './ReportGenerator';
+export { WhatsAppSecurityContext } from './WhatsAppSecurityContext';

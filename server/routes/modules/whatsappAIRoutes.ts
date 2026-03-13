@@ -3,7 +3,7 @@ import { getWhatsAppAIService } from "../../services/ai-agent/WhatsAppAIService"
 import { getWhatsAppBot } from "../../services/ai-agent/WhatsAppBot";
 import { storage } from "../../storage";
 import { db } from "../../db";
-import { whatsappUserLinks, users } from "@shared/schema";
+import { whatsappUserLinks, whatsappAllowedNumbers, users } from "@shared/schema";
 import { eq, and, sql, ne } from "drizzle-orm";
 
 const router = Router();
@@ -228,6 +228,78 @@ router.get("/stats", async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+router.get("/allowed-numbers", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const numbers = await db.select({
+      id: whatsappAllowedNumbers.id,
+      phoneNumber: whatsappAllowedNumbers.phoneNumber,
+      label: whatsappAllowedNumbers.label,
+      isActive: whatsappAllowedNumbers.isActive,
+      addedBy: whatsappAllowedNumbers.addedBy,
+      createdAt: whatsappAllowedNumbers.createdAt,
+      addedByName: users.full_name,
+    })
+    .from(whatsappAllowedNumbers)
+    .leftJoin(users, eq(whatsappAllowedNumbers.addedBy, users.id))
+    .orderBy(whatsappAllowedNumbers.createdAt);
+    res.json(numbers);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/allowed-numbers", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { phoneNumber, label } = req.body;
+    if (!phoneNumber || phoneNumber.length < 8) {
+      return res.status(400).json({ error: "رقم هاتف غير صالح" });
+    }
+    const canonical = canonicalizePhone(phoneNumber);
+    const existing = await db.select()
+      .from(whatsappAllowedNumbers)
+      .where(eq(whatsappAllowedNumbers.phoneNumber, canonical))
+      .limit(1);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: "هذا الرقم مضاف بالفعل" });
+    }
+    const [inserted] = await db.insert(whatsappAllowedNumbers).values({
+      phoneNumber: canonical,
+      label: label || null,
+      isActive: true,
+      addedBy: req.user!.id,
+    }).returning();
+    res.json({ success: true, number: inserted });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.patch("/allowed-numbers/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { isActive, label } = req.body;
+    const updates: any = {};
+    if (typeof isActive === 'boolean') updates.isActive = isActive;
+    if (typeof label === 'string') updates.label = label;
+    await db.update(whatsappAllowedNumbers)
+      .set(updates)
+      .where(eq(whatsappAllowedNumbers.id, id));
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/allowed-numbers/:id", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    await db.delete(whatsappAllowedNumbers).where(eq(whatsappAllowedNumbers.id, id));
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

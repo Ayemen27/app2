@@ -1688,6 +1688,21 @@ export const insertWhatsappUserLinkSchema = createInsertSchema(whatsappUserLinks
 export type WhatsappUserLink = typeof whatsappUserLinks.$inferSelect;
 export type InsertWhatsappUserLink = z.infer<typeof insertWhatsappUserLinkSchema>;
 
+export const whatsappAllowedNumbers = pgTable("whatsapp_allowed_numbers", {
+  id: serial("id").primaryKey(),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+  label: varchar("label", { length: 100 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  addedBy: varchar("added_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueAllowedPhone: sql`UNIQUE (phone_number)`,
+}));
+
+export const insertWhatsappAllowedNumberSchema = createInsertSchema(whatsappAllowedNumbers).omit({ id: true, createdAt: true });
+export type WhatsappAllowedNumber = typeof whatsappAllowedNumbers.$inferSelect;
+export type InsertWhatsappAllowedNumber = z.infer<typeof insertWhatsappAllowedNumberSchema>;
+
 export const SYNCABLE_TABLES = [
   'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
   'project_types', 'projects', 'workers', 'wells',

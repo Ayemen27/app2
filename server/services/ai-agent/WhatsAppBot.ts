@@ -9,6 +9,9 @@ import makeWASocket, {
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import { getWhatsAppAIService } from './WhatsAppAIService';
+import { db } from '../../db';
+import { whatsappAllowedNumbers } from '@shared/schema';
+import { eq, and } from 'drizzle-orm';
 
 const logger = pino({ level: 'info' });
 
@@ -29,6 +32,9 @@ export class WhatsAppBot {
   private dailyResetTimer: NodeJS.Timeout | null = null;
   private connectedAt: Date | null = null;
   private lastError: string | null = null;
+  private allowedNumbersCache: Set<string> = new Set();
+  private allowedCacheTime: number = 0;
+  private static CACHE_TTL = 60_000;
 
   getStatus() {
     return this.status;
@@ -212,13 +218,25 @@ export class WhatsAppBot {
       const from = msg.key.remoteJid;
       if (!from) return;
 
+      if (from.endsWith('@g.us') || from.endsWith('@broadcast') || from === 'status@broadcast') {
+        return;
+      }
+
       const text = msg.message.conversation || 
                    msg.message.extendedTextMessage?.text || 
                    '';
 
       if (!text) return;
 
-      console.log(`📩 [WhatsAppBot] Message from ${from}: ${text}`);
+      const cleanPhone = from.split('@')[0];
+
+      const isAllowed = await this.isPhoneAllowed(cleanPhone);
+      if (!isAllowed) {
+        console.log(`🚫 [WhatsAppBot] Blocked message from non-allowed number: ${cleanPhone}`);
+        return;
+      }
+
+      console.log(`📩 [WhatsAppBot] Message from ${cleanPhone}: ${text}`);
 
       if (this.dailyMessageCount >= DAILY_MESSAGE_LIMIT) {
         console.warn(`⚠️ [AntiBot] Daily message limit reached (${DAILY_MESSAGE_LIMIT}). Ignoring message.`);
@@ -227,7 +245,6 @@ export class WhatsAppBot {
 
       try {
         const whatsappAIService = getWhatsAppAIService();
-        const cleanPhone = from.split('@')[0];
 
         const reply = await whatsappAIService.handleIncomingMessage(cleanPhone, text);
 
@@ -239,6 +256,34 @@ export class WhatsAppBot {
         console.error('❌ [WhatsAppBot] Error processing message:', error);
       }
     });
+  }
+
+  async isPhoneAllowed(phone: string): Promise<boolean> {
+    try {
+      const now = Date.now();
+      if (now - this.allowedCacheTime < WhatsAppBot.CACHE_TTL && this.allowedNumbersCache.size > 0) {
+        return this.allowedNumbersCache.has(phone);
+      }
+      const rows = await db.select({ phoneNumber: whatsappAllowedNumbers.phoneNumber })
+        .from(whatsappAllowedNumbers)
+        .where(eq(whatsappAllowedNumbers.isActive, true));
+
+      if (rows.length === 0) {
+        return true;
+      }
+
+      this.allowedNumbersCache = new Set(rows.map(r => r.phoneNumber));
+      this.allowedCacheTime = now;
+      return this.allowedNumbersCache.has(phone);
+    } catch (error) {
+      console.error('❌ [WhatsAppBot] Error checking allowed numbers:', error);
+      return true;
+    }
+  }
+
+  clearAllowedCache() {
+    this.allowedCacheTime = 0;
+    this.allowedNumbersCache.clear();
   }
 
   async safeSendMessage(jid: string, content: any) {

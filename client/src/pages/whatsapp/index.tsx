@@ -274,12 +274,55 @@ export default function WhatsAppSetupPage() {
     return scores[protectionLevel];
   }, [protectionLevel]);
 
+  const [newAllowedPhone, setNewAllowedPhone] = useState("");
+  const [newAllowedLabel, setNewAllowedLabel] = useState("");
+
+  const { data: allowedNumbers = [], isLoading: isLoadingAllowed } = useQuery({
+    queryKey: ["/api/whatsapp-ai/allowed-numbers"],
+    enabled: isAdmin,
+  });
+
+  const addAllowedMutation = useMutation({
+    mutationFn: async (data: { phoneNumber: string; label: string }) => {
+      return await apiRequest("/api/whatsapp-ai/allowed-numbers", "POST", data);
+    },
+    onSuccess: () => {
+      toast({ title: "تمت الإضافة", description: "تم إضافة الرقم للقائمة المسموحة" });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/allowed-numbers"] });
+      setNewAllowedPhone("");
+      setNewAllowedLabel("");
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في إضافة الرقم", variant: "destructive" });
+    }
+  });
+
+  const toggleAllowedMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      return await apiRequest(`/api/whatsapp-ai/allowed-numbers/${id}`, "PATCH", { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/allowed-numbers"] });
+    },
+  });
+
+  const deleteAllowedMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/whatsapp-ai/allowed-numbers/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      toast({ title: "تم الحذف", description: "تم حذف الرقم من القائمة" });
+      queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/allowed-numbers"] });
+    },
+  });
+
   const tabItems = useMemo(() => {
     const items = [
       { id: "mylink", label: "ربط رقمي", icon: LinkIcon, color: "data-[state=active]:bg-emerald-500" },
     ];
     if (isAdmin) {
       items.push({ id: "connection", label: "البوت", icon: QrCode, color: "data-[state=active]:bg-blue-500" });
+      items.push({ id: "allowed", label: "الأرقام المسموحة", icon: ShieldCheck, color: "data-[state=active]:bg-orange-500" });
       items.push({ id: "users", label: "المستخدمون", icon: Users, color: "data-[state=active]:bg-purple-500" });
     }
     items.push({ id: "protection", label: "الحماية", icon: Shield, color: "data-[state=active]:bg-amber-500" });
@@ -618,6 +661,132 @@ export default function WhatsAppSetupPage() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Allowed Numbers Tab - Admin only */}
+          {isAdmin && (
+            <TabsContent value="allowed" className="mt-6">
+              <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-orange-400 via-amber-500 to-yellow-500" />
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2 font-black">
+                    <div className="w-8 h-8 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                      <ShieldCheck className="h-4 w-4 text-orange-600" />
+                    </div>
+                    الأرقام المسموح لها بالتواصل مع البوت
+                    <Badge variant="secondary" className="text-[9px] font-black">{Array.isArray(allowedNumbers) ? allowedNumbers.length : 0} رقم</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                        فقط الأرقام المضافة هنا يمكنها إرسال رسائل للبوت والحصول على رد. إذا كانت القائمة فارغة سيرد البوت على جميع الأرقام.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                    <div className="flex-1">
+                      <Input
+                        data-testid="input-allowed-phone"
+                        placeholder="رقم الهاتف (مثل: 967777123456)"
+                        value={newAllowedPhone}
+                        onChange={(e) => setNewAllowedPhone(e.target.value.replace(/[^\d+]/g, ""))}
+                        className="rounded-xl text-sm font-mono h-10"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        data-testid="input-allowed-label"
+                        placeholder="اسم تعريفي (اختياري)"
+                        value={newAllowedLabel}
+                        onChange={(e) => setNewAllowedLabel(e.target.value)}
+                        className="rounded-xl text-sm h-10"
+                      />
+                    </div>
+                    <Button
+                      data-testid="btn-add-allowed"
+                      className="rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold gap-1.5 h-10 px-6"
+                      disabled={!newAllowedPhone || newAllowedPhone.length < 8 || addAllowedMutation.isPending}
+                      onClick={() => addAllowedMutation.mutate({ phoneNumber: newAllowedPhone, label: newAllowedLabel })}
+                    >
+                      {addAllowedMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                      إضافة
+                    </Button>
+                  </div>
+
+                  {isLoadingAllowed ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                    </div>
+                  ) : (
+                    <ScrollArea className="max-h-[500px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent border-b-2">
+                            <TableHead className="font-black text-[11px]">الرقم</TableHead>
+                            <TableHead className="font-black text-[11px]">الاسم التعريفي</TableHead>
+                            <TableHead className="font-black text-[11px]">الحالة</TableHead>
+                            <TableHead className="font-black text-[11px]">أُضيف بواسطة</TableHead>
+                            <TableHead className="font-black text-[11px]">تاريخ الإضافة</TableHead>
+                            <TableHead className="font-black text-[11px]">إجراءات</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Array.isArray(allowedNumbers) && allowedNumbers.length > 0 ? allowedNumbers.map((num: any) => (
+                            <TableRow key={num.id} data-testid={`row-allowed-${num.id}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                              <TableCell className="text-xs font-mono font-bold" dir="ltr">+{num.phoneNumber}</TableCell>
+                              <TableCell className="text-xs text-slate-700 dark:text-slate-300">{num.label || '—'}</TableCell>
+                              <TableCell>
+                                <Switch
+                                  data-testid={`switch-allowed-${num.id}`}
+                                  checked={num.isActive}
+                                  onCheckedChange={(checked) => toggleAllowedMutation.mutate({ id: num.id, isActive: checked })}
+                                />
+                              </TableCell>
+                              <TableCell className="text-xs text-slate-500">{num.addedByName || '—'}</TableCell>
+                              <TableCell className="text-xs text-slate-500">{num.createdAt ? formatDate(num.createdAt) : '—'}</TableCell>
+                              <TableCell>
+                                <Button
+                                  data-testid={`btn-delete-allowed-${num.id}`}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg gap-1"
+                                  onClick={() => showConfirm(
+                                    "حذف الرقم",
+                                    `هل تريد حذف الرقم +${num.phoneNumber}${num.label ? ` (${num.label})` : ''} من القائمة المسموحة؟`,
+                                    () => deleteAllowedMutation.mutate(num.id)
+                                  )}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-16">
+                                <div className="flex flex-col items-center gap-3">
+                                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                                    <ShieldCheck className="h-8 w-8 text-slate-300" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-500">لا توجد أرقام مسموحة</p>
+                                    <p className="text-[11px] text-slate-400 mt-1">البوت يرد حالياً على جميع الأرقام. أضف أرقام لتقييد الوصول.</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
 
           {/* Users Tab - Admin only */}
           {isAdmin && (

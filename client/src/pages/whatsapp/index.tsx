@@ -280,6 +280,8 @@ export default function WhatsAppSetupPage() {
   const { data: allowedNumbers = [], isLoading: isLoadingAllowed } = useQuery({
     queryKey: ["/api/whatsapp-ai/allowed-numbers"],
     enabled: isAdmin,
+    refetchOnMount: "always",
+    staleTime: 0,
   });
 
   const addAllowedMutation = useMutation({
@@ -361,80 +363,68 @@ export default function WhatsAppSetupPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Connection Status Banner */}
+        {/* Connection Status Strip */}
         <div className={cn(
-          "relative overflow-hidden rounded-2xl border p-4 transition-all duration-500",
+          "flex items-center justify-between rounded-xl border px-3 py-2 transition-all duration-500",
           currentStatus.bg, currentStatus.border
         )}>
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `radial-gradient(circle at 20% 50%, currentColor 1px, transparent 1px)`,
-              backgroundSize: '20px 20px'
-            }} />
-          </div>
-          <div className="relative flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4">
-              <div className={cn("relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg", isConnected ? "bg-emerald-500" : isConnecting ? "bg-amber-500" : "bg-slate-400")}>
-                <SiWhatsapp className="h-7 w-7 text-white" />
-                <span className={cn("absolute -top-1 -right-1 flex h-4 w-4")}>
-                  <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", currentStatus.pulse)} />
-                  <span className={cn("relative inline-flex rounded-full h-4 w-4 border-2 border-white dark:border-slate-900", currentStatus.pulse)} />
-                </span>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className={cn("text-lg font-black", currentStatus.color)}>
-                    <StatusIcon className={cn("inline h-4 w-4 mr-1", isConnecting && "animate-spin")} />
-                    {currentStatus.label}
-                  </h2>
-                  <Badge variant="outline" className={cn("text-[10px] font-bold", currentStatus.color, currentStatus.border)}>
-                    {isConnected ? "مباشر" : "غير نشط"}
-                  </Badge>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {isConnected ? "الاتصال مستقر — جميع الخدمات تعمل بشكل طبيعي" :
-                   isConnecting ? "جاري محاولة الاتصال، يرجى الانتظار..." :
-                   "يرجى ربط الجهاز لبدء استقبال الرسائل"}
-                </p>
-              </div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={cn("relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0", isConnected ? "bg-emerald-500" : isConnecting ? "bg-amber-500" : "bg-slate-400")}>
+              <SiWhatsapp className="h-4 w-4 text-white" />
+              <span className={cn("absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-slate-900", currentStatus.pulse)} />
             </div>
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                {isConnected && (
-                  <Button
-                    data-testid="btn-disconnect"
-                    variant="outline"
-                    size="sm"
-                    className="rounded-xl text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30 font-bold gap-1.5"
-                    onClick={() => showConfirm(
-                      "فصل الاتصال",
-                      "هل تريد فصل الاتصال بواتساب؟ سيتوقف البوت عن استقبال الرسائل.",
-                      () => {
-                        apiRequest("/api/whatsapp-ai/disconnect", "POST").then(() => {
-                          toast({ title: "تم فصل الاتصال", description: "تم فصل واتساب بنجاح" });
-                          setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/status"] }), 1000);
-                        }).catch(() => toast({ title: "خطأ", description: "فشل في فصل الاتصال", variant: "destructive" }));
-                      }
-                    )}
-                  >
-                    <Power className="h-3.5 w-3.5" /> فصل
-                  </Button>
-                )}
-                <Button
-                  data-testid="btn-restart"
-                  variant={isConnected ? "outline" : "default"}
-                  size="sm"
-                  className={cn("rounded-xl font-bold gap-1.5", !isConnected && "bg-emerald-600 hover:bg-emerald-700 text-white")}
-                  onClick={() => handleRestart()}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" /> إعادة تشغيل
-                </Button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className={cn("text-sm font-black", currentStatus.color)}>
+                  {currentStatus.label}
+                </span>
+                <Badge variant="outline" className={cn("text-[9px] font-bold px-1.5 py-0", currentStatus.color, currentStatus.border)}>
+                  {isConnected ? "مباشر" : "غير نشط"}
+                </Badge>
               </div>
-            )}
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                {isConnected ? "الاتصال مستقر" :
+                 isConnecting ? "جاري الاتصال..." :
+                 "يرجى ربط الجهاز"}
+              </p>
+            </div>
           </div>
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isConnected && (
+                <Button
+                  data-testid="btn-disconnect"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30 font-bold h-7 px-2 text-[11px]"
+                  onClick={() => showConfirm(
+                    "فصل الاتصال",
+                    "هل تريد فصل الاتصال بواتساب؟ سيتوقف البوت عن استقبال الرسائل.",
+                    () => {
+                      apiRequest("/api/whatsapp-ai/disconnect", "POST").then(() => {
+                        toast({ title: "تم فصل الاتصال", description: "تم فصل واتساب بنجاح" });
+                        setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/status"] }), 1000);
+                      }).catch(() => toast({ title: "خطأ", description: "فشل في فصل الاتصال", variant: "destructive" }));
+                    }
+                  )}
+                >
+                  <Power className="h-3 w-3" />
+                </Button>
+              )}
+              <Button
+                data-testid="btn-restart"
+                variant={isConnected ? "outline" : "default"}
+                size="sm"
+                className={cn("rounded-lg font-bold gap-1 h-7 px-2.5 text-[11px]", !isConnected && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => handleRestart()}
+              >
+                <RotateCcw className="h-3 w-3" /> تشغيل
+              </Button>
+            </div>
+          )}
         </div>
 
-        <UnifiedStats stats={stats} columns={4} hideHeader />
+        <UnifiedStats stats={stats} columns={2} hideHeader />
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -721,67 +711,63 @@ export default function WhatsAppSetupPage() {
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
                     </div>
+                  ) : Array.isArray(allowedNumbers) && allowedNumbers.length > 0 ? (
+                    <div className="space-y-3">
+                      {allowedNumbers.map((num: any) => (
+                        <div
+                          key={num.id}
+                          data-testid={`row-allowed-${num.id}`}
+                          className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-mono font-bold text-slate-900 dark:text-slate-100" dir="ltr">+{num.phoneNumber}</span>
+                                {num.label && (
+                                  <Badge variant="outline" className="text-[10px] font-semibold shrink-0">{num.label}</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400">
+                                {num.addedByName && <span>{num.addedByName}</span>}
+                                {num.createdAt && <span>{formatDate(num.createdAt)}</span>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Switch
+                                data-testid={`switch-allowed-${num.id}`}
+                                checked={num.isActive}
+                                onCheckedChange={(checked) => toggleAllowedMutation.mutate({ id: num.id, isActive: checked })}
+                              />
+                              <Button
+                                data-testid={`btn-delete-allowed-${num.id}`}
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg h-8 w-8 p-0"
+                                onClick={() => showConfirm(
+                                  "حذف الرقم",
+                                  `هل تريد حذف الرقم +${num.phoneNumber}${num.label ? ` (${num.label})` : ''} من القائمة المسموحة؟`,
+                                  () => deleteAllowedMutation.mutate(num.id)
+                                )}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
-                    <ScrollArea className="max-h-[500px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="hover:bg-transparent border-b-2">
-                            <TableHead className="font-black text-[11px]">الرقم</TableHead>
-                            <TableHead className="font-black text-[11px]">الاسم التعريفي</TableHead>
-                            <TableHead className="font-black text-[11px]">الحالة</TableHead>
-                            <TableHead className="font-black text-[11px]">أُضيف بواسطة</TableHead>
-                            <TableHead className="font-black text-[11px]">تاريخ الإضافة</TableHead>
-                            <TableHead className="font-black text-[11px]">إجراءات</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {Array.isArray(allowedNumbers) && allowedNumbers.length > 0 ? allowedNumbers.map((num: any) => (
-                            <TableRow key={num.id} data-testid={`row-allowed-${num.id}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                              <TableCell className="text-xs font-mono font-bold" dir="ltr">+{num.phoneNumber}</TableCell>
-                              <TableCell className="text-xs text-slate-700 dark:text-slate-300">{num.label || '—'}</TableCell>
-                              <TableCell>
-                                <Switch
-                                  data-testid={`switch-allowed-${num.id}`}
-                                  checked={num.isActive}
-                                  onCheckedChange={(checked) => toggleAllowedMutation.mutate({ id: num.id, isActive: checked })}
-                                />
-                              </TableCell>
-                              <TableCell className="text-xs text-slate-500">{num.addedByName || '—'}</TableCell>
-                              <TableCell className="text-xs text-slate-500">{num.createdAt ? formatDate(num.createdAt) : '—'}</TableCell>
-                              <TableCell>
-                                <Button
-                                  data-testid={`btn-delete-allowed-${num.id}`}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg gap-1"
-                                  onClick={() => showConfirm(
-                                    "حذف الرقم",
-                                    `هل تريد حذف الرقم +${num.phoneNumber}${num.label ? ` (${num.label})` : ''} من القائمة المسموحة؟`,
-                                    () => deleteAllowedMutation.mutate(num.id)
-                                  )}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )) : (
-                            <TableRow>
-                              <TableCell colSpan={6} className="text-center py-16">
-                                <div className="flex flex-col items-center gap-3">
-                                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                                    <ShieldCheck className="h-8 w-8 text-slate-300" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-bold text-slate-500">لا توجد أرقام مسموحة</p>
-                                    <p className="text-[11px] text-slate-400 mt-1">البوت يرد حالياً على جميع الأرقام. أضف أرقام لتقييد الوصول.</p>
-                                  </div>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </ScrollArea>
+                    <div className="text-center py-16">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          <ShieldCheck className="h-8 w-8 text-slate-300" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-500">لا توجد أرقام مسموحة</p>
+                          <p className="text-[11px] text-slate-400 mt-1">البوت يرد حالياً على جميع الأرقام. أضف أرقام لتقييد الوصول.</p>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>

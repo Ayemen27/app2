@@ -1067,13 +1067,16 @@ export class ReportDataService {
       sections: r.sections,
     }));
 
-    const combinedIncome = projectReports.reduce((s, r) => s + r.totals.totalIncome, 0);
+    const combinedFundTransfers = projectReports.reduce((s, r) => s + r.totals.totalIncome, 0);
+    const combinedProjectTransfersIn = projectReports.reduce((s, r) => s + r.totals.totalProjectTransfersIn, 0);
+    const combinedProjectTransfersOut = projectReports.reduce((s, r) => s + r.totals.totalProjectTransfersOut, 0);
+    const combinedIncome = combinedFundTransfers + combinedProjectTransfersIn;
     const combinedWages = projectReports.reduce((s, r) => s + r.totals.totalWages, 0);
     const combinedMaterials = projectReports.reduce((s, r) => s + r.totals.totalMaterials, 0);
     const combinedTransport = projectReports.reduce((s, r) => s + r.totals.totalTransport, 0);
     const combinedMisc = projectReports.reduce((s, r) => s + r.totals.totalMisc, 0);
     const combinedWorkerTransfers = projectReports.reduce((s, r) => s + r.totals.totalWorkerTransfers, 0);
-    const combinedExpenses = combinedWages + combinedMaterials + combinedTransport + combinedMisc + combinedWorkerTransfers;
+    const combinedExpenses = combinedWages + combinedMaterials + combinedTransport + combinedMisc + combinedWorkerTransfers + combinedProjectTransfersOut;
     const combinedBalance = combinedIncome - combinedExpenses;
 
     const allWorkers: MultiProjectFinalReportData['combinedSections']['attendance']['byWorker'] = [];
@@ -1122,13 +1125,15 @@ export class ReportDataService {
     });
 
     const kpis: ReportKPI[] = [
-      { label: 'إجمالي الإيرادات (العهدة)', value: combinedIncome, format: 'currency' },
+      { label: 'إجمالي العهدة', value: combinedFundTransfers, format: 'currency' },
+      { label: 'ترحيل وارد', value: combinedProjectTransfersIn, format: 'currency' },
+      { label: 'إجمالي الإيرادات', value: combinedIncome, format: 'currency' },
       { label: 'إجمالي المصروفات', value: combinedExpenses, format: 'currency' },
+      { label: 'ترحيل صادر', value: combinedProjectTransfersOut, format: 'currency' },
       { label: 'إجمالي الأجور', value: combinedWages, format: 'currency' },
       { label: 'إجمالي المواد', value: combinedMaterials, format: 'currency' },
       { label: 'إجمالي النقل', value: combinedTransport, format: 'currency' },
-      { label: 'إجمالي النثريات', value: combinedMisc, format: 'currency' },
-      { label: 'إجمالي حوالات العمال', value: combinedWorkerTransfers, format: 'currency' },
+      { label: 'حوالات العمال', value: combinedWorkerTransfers, format: 'currency' },
       { label: 'تحويلات بين المشاريع', value: totalInterProjectAmount, format: 'currency' },
       { label: 'الرصيد', value: combinedBalance, format: 'currency' },
     ];
@@ -1144,6 +1149,9 @@ export class ReportDataService {
       interProjectTransfers,
       combinedTotals: {
         totalIncome: combinedIncome,
+        totalFundTransfers: combinedFundTransfers,
+        totalProjectTransfersIn: combinedProjectTransfersIn,
+        totalProjectTransfersOut: combinedProjectTransfersOut,
         totalExpenses: combinedExpenses,
         totalWages: combinedWages,
         totalMaterials: combinedMaterials,

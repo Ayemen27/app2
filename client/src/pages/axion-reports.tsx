@@ -1817,6 +1817,18 @@ function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) 
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-3 rounded-md bg-blue-50 dark:bg-blue-950/30" data-testid="stat-combined-fund-transfers">
+                    <p className="text-xs text-muted-foreground">العهدة</p>
+                    <p className="font-bold text-sm mt-1 text-blue-600 dark:text-blue-400">{formatCurrency(multiReport.combinedTotals.totalFundTransfers)}</p>
+                  </div>
+                  <div className="text-center p-3 rounded-md bg-green-50 dark:bg-green-950/30" data-testid="stat-combined-transfers-in">
+                    <p className="text-xs text-muted-foreground">ترحيل وارد</p>
+                    <p className="font-bold text-sm mt-1 text-green-600 dark:text-green-400">{formatCurrency(multiReport.combinedTotals.totalProjectTransfersIn)}</p>
+                  </div>
+                  <div className="text-center p-3 rounded-md bg-orange-50 dark:bg-orange-950/30" data-testid="stat-combined-transfers-out">
+                    <p className="text-xs text-muted-foreground">ترحيل صادر</p>
+                    <p className="font-bold text-sm mt-1 text-orange-600 dark:text-orange-400">{formatCurrency(multiReport.combinedTotals.totalProjectTransfersOut)}</p>
+                  </div>
                   <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-wages">
                     <p className="text-xs text-muted-foreground">الأجور</p>
                     <p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalWages)}</p>
@@ -1832,6 +1844,10 @@ function MultiProjectFinalTab({ onStatsReady }: { onStatsReady?: (stats: any[]) 
                   <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-misc">
                     <p className="text-xs text-muted-foreground">النثريات</p>
                     <p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalMisc)}</p>
+                  </div>
+                  <div className="text-center p-3 rounded-md bg-muted/30" data-testid="stat-combined-worker-transfers">
+                    <p className="text-xs text-muted-foreground">حوالات العمال</p>
+                    <p className="font-bold text-sm mt-1">{formatCurrency(multiReport.combinedTotals.totalWorkerTransfers)}</p>
                   </div>
                 </div>
               </CardContent>

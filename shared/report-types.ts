@@ -300,6 +300,9 @@ export interface MultiProjectFinalReportData {
   }>;
   combinedTotals: {
     totalIncome: number;
+    totalFundTransfers: number;
+    totalProjectTransfersIn: number;
+    totalProjectTransfersOut: number;
     totalExpenses: number;
     totalWages: number;
     totalMaterials: number;

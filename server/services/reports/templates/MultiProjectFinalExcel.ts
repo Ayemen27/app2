@@ -209,13 +209,16 @@ export async function generateMultiProjectFinalExcel(data: MultiProjectFinalRepo
 
   row = xlSectionHeader(ws, row, 'الملخص المالي الشامل المجمع', COL_COUNT);
   const grandSummary = [
-    ['إجمالي الإيرادات (العهدة)', formatNum(data.combinedTotals.totalIncome)],
+    ['إجمالي العهدة (التحويلات المالية)', formatNum(data.combinedTotals.totalFundTransfers)],
+    ['ترحيل وارد من مشاريع أخرى', formatNum(data.combinedTotals.totalProjectTransfersIn)],
+    ['إجمالي الإيرادات', formatNum(data.combinedTotals.totalIncome)],
     ['إجمالي الأجور', formatNum(data.combinedTotals.totalWages)],
     ['إجمالي المواد', formatNum(data.combinedTotals.totalMaterials)],
     ['إجمالي النقل', formatNum(data.combinedTotals.totalTransport)],
     ['إجمالي النثريات', formatNum(data.combinedTotals.totalMisc)],
     ['حوالات العمال', formatNum(data.combinedTotals.totalWorkerTransfers)],
-    ['تحويلات بين المشاريع', formatNum(data.combinedTotals.totalInterProjectTransfers)],
+    ['ترحيل صادر لمشاريع أخرى', formatNum(data.combinedTotals.totalProjectTransfersOut)],
+    ['تحويلات بين المشاريع المحددة', formatNum(data.combinedTotals.totalInterProjectTransfers)],
   ];
   grandSummary.forEach(([label, val], idx) => {
     const r = ws.getRow(row);

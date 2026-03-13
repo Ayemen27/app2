@@ -143,13 +143,16 @@ export function generateMultiProjectFinalHTML(data: MultiProjectFinalReportData)
 
   body += pdfSectionTitle('الملخص المالي الشامل المجمع');
   const grandSummary = [
-    ['إجمالي الإيرادات (العهدة)', `${formatNum(data.combinedTotals.totalIncome)} YER`],
+    ['إجمالي العهدة (التحويلات المالية)', `${formatNum(data.combinedTotals.totalFundTransfers)} YER`],
+    ['ترحيل وارد من مشاريع أخرى', `${formatNum(data.combinedTotals.totalProjectTransfersIn)} YER`],
+    ['إجمالي الإيرادات', `${formatNum(data.combinedTotals.totalIncome)} YER`],
     ['إجمالي الأجور', `${formatNum(data.combinedTotals.totalWages)} YER`],
     ['إجمالي المواد', `${formatNum(data.combinedTotals.totalMaterials)} YER`],
     ['إجمالي النقل', `${formatNum(data.combinedTotals.totalTransport)} YER`],
     ['النثريات', `${formatNum(data.combinedTotals.totalMisc)} YER`],
     ['حوالات العمال', `${formatNum(data.combinedTotals.totalWorkerTransfers)} YER`],
-    ['تحويلات بين المشاريع', `${formatNum(data.combinedTotals.totalInterProjectTransfers)} YER`],
+    ['ترحيل صادر لمشاريع أخرى', `${formatNum(data.combinedTotals.totalProjectTransfersOut)} YER`],
+    ['تحويلات بين المشاريع المحددة', `${formatNum(data.combinedTotals.totalInterProjectTransfers)} YER`],
   ];
   body += `<table class="summary-table" style="width:100%;">
     ${grandSummary.map(([l, v]) => `<tr><td class="label-cell">${l}</td><td class="value-cell">${v}</td></tr>`).join('')}

@@ -387,6 +387,7 @@ export class NotificationQueueWorker {
         .set({
           status: 'pending',
           retryCount: newRetryCount,
+          nextRetry: nextRetry,
           lastAttemptAt: now,
           errorMessage: error
         })

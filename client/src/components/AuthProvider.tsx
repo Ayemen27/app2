@@ -81,20 +81,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
     const initAuth = async () => {
-      console.log('🔐 [AuthProvider] بدء تهيئة المصادقة...', new Date().toISOString());
+      if (import.meta.env.DEV) console.log('[AuthProvider] Initializing auth...');
       clearInvalidTokens();
       try {
         const accessToken = getValidToken('accessToken');
         const savedUser = localStorage.getItem('user');
 
         if (!savedUser) {
-          console.log('ℹ️ [AuthProvider] لا توجد بيانات مستخدم محفوظة');
+          if (import.meta.env.DEV) console.log('[AuthProvider] No saved user data');
           setIsLoading(false);
           return;
         }
 
         if (!accessToken && !isOfflineMode()) {
-          console.log('ℹ️ [AuthProvider] لا يوجد توكن صالح والتطبيق ليس في وضع أوفلاين');
+          if (import.meta.env.DEV) console.log('[AuthProvider] No valid token and not in offline mode');
           setIsLoading(false);
           return;
         }
@@ -110,12 +110,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 const verifiedRole = emergencyUser.role || parsedUser.role;
                 const trustedUser = { ...parsedUser, role: verifiedRole };
                 setUser(trustedUser);
-                console.log('📴 [AuthProvider] وضع أوفلاين - بيانات اعتماد مُتحقق منها مسبقاً');
+                if (import.meta.env.DEV) console.log('[AuthProvider] Offline mode - pre-verified credentials');
               } else {
-                console.log('⚠️ [AuthProvider] لا توجد بيانات اعتماد أوفلاين مُتحقق منها');
+                if (import.meta.env.DEV) console.log('[AuthProvider] No verified offline credentials');
               }
             } catch {
-              console.log('⚠️ [AuthProvider] فشل فحص بيانات الأوفلاين');
+              if (import.meta.env.DEV) console.log('[AuthProvider] Failed to check offline data');
             }
             setIsLoading(false);
             return;
@@ -125,11 +125,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setIsLoading(false);
           
           if (!accessToken) {
-            console.log('📴 [AuthProvider] وضع أوفلاين - تخطي التحقق من السيرفر');
+            if (import.meta.env.DEV) console.log('[AuthProvider] Offline mode - skipping server verification');
             return;
           }
 
-          console.log('🛡️ [AuthProvider] جاري التحقق الصامت من الجلسة...');
+          if (import.meta.env.DEV) console.log('[AuthProvider] Silent session verification...');
           fetch(`${API_BASE_URL}/auth/me`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
           }).then(async (res) => {
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 localStorage.setItem('user', JSON.stringify(updatedUser));
               }
             } else if (res.status === 401) {
-              console.warn('⚠️ [AuthProvider] فشل التحقق الصامت (401) - مسح الجلسة');
+              if (import.meta.env.DEV) console.warn('[AuthProvider] Silent verification failed (401)');
               setUser(null);
               localStorage.removeItem('user');
               localStorage.removeItem('accessToken');
@@ -173,11 +173,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }).catch(() => {});
 
         } catch (e) {
-          console.error('❌ [AuthProvider] خطأ في قراءة بيانات المستخدم:', e);
+          if (import.meta.env.DEV) console.error('[AuthProvider] Error reading user data:', e);
           await logout();
         }
       } catch (error) {
-        console.error('❌ [AuthProvider] خطأ عام:', error);
+        if (import.meta.env.DEV) console.error('[AuthProvider] General error:', error);
       } finally {
         setIsLoading(false);
       }
@@ -189,7 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'accessToken' && !e.newValue) {
-        console.log('[AuthProvider] Token cleared externally');
+        if (import.meta.env.DEV) console.log('[AuthProvider] Token cleared externally');
         setUser(null);
       }
     };
@@ -236,7 +236,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setAuthMode('online');
           }
         } else if (res.status === 401) {
-          console.warn('[AuthProvider] Session invalid on revalidation, logging out');
+          if (import.meta.env.DEV) console.warn('[AuthProvider] Session invalid on revalidation, logging out');
           await logout();
         }
       } catch {
@@ -253,13 +253,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // تسجيل الدخول
   const login = async (email: string, password: string) => {
-    console.log('🔑 [AuthProvider.login] بدء تسجيل الدخول:', email, new Date().toISOString());
+    if (import.meta.env.DEV) console.log('[AuthProvider.login] Starting login...');
 
     let result: any = null;
     let response: Response | null = null;
 
     try {
-      console.log(`📡 [AuthProvider.login] إرسال طلب لـ ${API_BASE_URL}/auth/login...`);
+      if (import.meta.env.DEV) console.log(`[AuthProvider.login] Sending request to ${API_BASE_URL}/auth/login...`);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -275,17 +275,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         result = await response.json();
       } else if (response.status === 503 || response.status === 500) {
-        console.warn(`📡 [AuthProvider] السيرفر أو قاعدة البيانات غير متاحة (${response.status})، تفعيل وضع الطوارئ فوراً...`);
-        // لا نضبط result هنا لنسمح لمنطق الطوارئ بالعمل أدناه
+        if (import.meta.env.DEV) console.warn(`[AuthProvider] Server unavailable (${response.status}), activating emergency mode...`);
       } else {
-        console.warn(`📡 [AuthProvider] السيرفر استجاب بخطأ ${response.status}، محاولة تسجيل الدخول أوفلاين...`);
+        if (import.meta.env.DEV) console.warn(`[AuthProvider] Server responded with error ${response.status}, trying offline login...`);
       }
     } catch (networkError) {
-      console.warn('📡 [AuthProvider] فشل الاتصال بالسيرفر، محاولة تسجيل الدخول أوفلاين...', networkError);
+      if (import.meta.env.DEV) console.warn('[AuthProvider] Failed to connect to server, trying offline login...', networkError);
     }
 
     if (!result && (!response || response.status === 503 || response.status === 500 || !navigator.onLine)) {
-      console.log('🔍 [AuthProvider] السيرفر غير متاح، محاولة تسجيل الدخول أوفلاين...');
+      if (import.meta.env.DEV) console.log('[AuthProvider] Server unavailable, trying offline login...');
       
       try {
         const { smartGetAll } = await import('../offline/storage-factory');
@@ -293,7 +292,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const localUsers = await smartGetAll('users');
         const emergencyUsers = await smartGetAll('emergencyUsers');
         const allUsers = [...localUsers, ...emergencyUsers];
-        console.log(`📱 [AuthProvider] فحص ${allUsers.length} مستخدم محلي`);
+        if (import.meta.env.DEV) console.log(`[AuthProvider] Checking ${allUsers.length} local users`);
         
         const localUser = allUsers.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase());
         
@@ -305,16 +304,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
               const { verifyOfflinePassword } = await import('../offline/crypto-utils');
               passwordVerified = await verifyOfflinePassword(password, localUser.passwordHash);
               if (passwordVerified) {
-                console.log('✅ [AuthProvider] تسجيل دخول أوفلاين ناجح بعد التحقق من كلمة المرور');
+                if (import.meta.env.DEV) console.log('[AuthProvider] Offline login successful');
               } else {
-                console.log('❌ [AuthProvider] كلمة المرور غير صحيحة (أوفلاين)');
+                if (import.meta.env.DEV) console.log('[AuthProvider] Incorrect password (offline)');
               }
             } catch (hashErr) {
-              console.warn('⚠️ [AuthProvider] فشل التحقق من كلمة المرور أوفلاين:', hashErr);
+              if (import.meta.env.DEV) console.warn('[AuthProvider] Failed offline password verification:', hashErr);
               passwordVerified = false;
             }
           } else {
-            console.log('⚠️ [AuthProvider] لا يوجد hash محلي - رفض الدخول أوفلاين');
+            if (import.meta.env.DEV) console.log('[AuthProvider] No local hash - rejecting offline login');
             passwordVerified = false;
           }
 
@@ -330,7 +329,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
         }
       } catch (offlineError) {
-        console.error('❌ [AuthProvider] خطأ في منطق الأوفلاين:', offlineError);
+        if (import.meta.env.DEV) console.error('[AuthProvider] Offline logic error:', offlineError);
       }
     }
 
@@ -399,10 +398,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
        }
     }
 
-    console.log('🛡️ [AuthProvider.login] فحص البيانات المستخرجة:', { 
+    if (import.meta.env.DEV) console.log('[AuthProvider.login] Extracted data check:', { 
       hasUser: !!userData, 
-      hasToken: !!tokenData,
-      tokenType: typeof tokenData
+      hasToken: !!tokenData
     });
 
     if (!result) {
@@ -410,7 +408,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     if (!tokenData && getAuthMode() !== 'offline') {
-      console.error('❌ [AuthProvider.login] التوكن مفقود من الاستجابة');
+      if (import.meta.env.DEV) console.error('[AuthProvider.login] Token missing from response');
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 
@@ -441,7 +439,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('emailVerified', 'true');
     }
 
-    console.log('💾 [AuthProvider.login] حفظ البيانات في localStorage...');
+    if (import.meta.env.DEV) console.log('[AuthProvider.login] Saving data to localStorage...');
     localStorage.setItem('user', JSON.stringify(userToSave));
     if (tokenData && isValidJwt(tokenData)) {
       localStorage.setItem('accessToken', tokenData);
@@ -465,29 +463,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
           name: userToSave.name,
           role: userToSave.role
         });
-        console.log('✅ [AuthProvider] تم حفظ بيانات الدخول الأوفلاين بنجاح');
+        if (import.meta.env.DEV) console.log('[AuthProvider] Offline credentials saved successfully');
       } catch (offlineHashErr) {
-        console.warn('⚠️ [AuthProvider] فشل حفظ بيانات الدخول الأوفلاين:', offlineHashErr);
+        if (import.meta.env.DEV) console.warn('[AuthProvider] Failed to save offline credentials:', offlineHashErr);
       }
     }
 
     // 3. بدء مزامنة البيانات (دون انتظار انتهاء العملية وبحماية شاملة)
     const performInitialDataPull = async () => {
       try {
-        console.log('🔄 [AuthProvider] محاولة بدء المزامنة...');
+        if (import.meta.env.DEV) console.log('[AuthProvider] Starting sync...');
         const syncModule = await import('../offline/sync');
         const startSync = (syncModule as any).startSync || (syncModule as any).default?.startSync;
         if (typeof startSync === 'function') {
           await startSync();
         }
       } catch (err) {
-        console.warn('⚠️ [AuthProvider] فشل المزامنة الأولية، سيتم المتابعة:', err);
+        if (import.meta.env.DEV) console.warn('[AuthProvider] Initial sync failed, continuing:', err);
       }
     };
 
     // تشغيل المزامنة في الخلفية
     performInitialDataPull().then(() => {
-      console.log('✅ [AuthProvider] اكتملت محاولة المزامنة');
+      if (import.meta.env.DEV) console.log('[AuthProvider] Sync attempt completed');
       const coreKeys = [
         ["/api/projects"], ["/api/projects/with-stats"],
         ["/api/workers"], ["/api/materials"],
@@ -501,7 +499,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await new Promise(resolve => setTimeout(resolve, 50));
     prefetchCoreData().catch(console.warn);
 
-    console.log('🎉 [AuthProvider.login] اكتمل تسجيل الدخول بنجاح');
+    if (import.meta.env.DEV) console.log('[AuthProvider.login] Login completed successfully');
 
     promptBiometricRegistration();
 
@@ -509,7 +507,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const promptBiometricRegistration = async () => {
-    console.log('ℹ️ [AuthProvider] تفعيل البصمة متاح من الإعدادات > الأمان');
+    if (import.meta.env.DEV) console.log('[AuthProvider] Biometric available in Settings > Security');
   };
 
   const loginWithBiometric = async (email?: string) => {
@@ -585,7 +583,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if ('caches' in window) {
           try { await caches.delete('api-data-v2'); } catch {}
         }
-        console.log('🧹 [AuthProvider] تم تنظيف بيانات الأوفلاين عند الخروج');
+        if (import.meta.env.DEV) console.log('[AuthProvider] Offline data cleaned on logout');
       } catch {}
     }
   };
@@ -606,11 +604,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // تجديد الرمز المميز مع backoff strategy وتحسينات شاملة
   const refreshToken = async (forceRetry: boolean = false): Promise<boolean> => {
-    console.log('🔄 [AuthProvider.refreshToken] بدء عملية تجديد الرمز...');
+    if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Starting token refresh...');
 
     // تجنب محاولات متزامنة متعددة
     if (isRefreshing && !forceRetry) {
-      console.log('⏳ [AuthProvider.refreshToken] تجديد جارٍ بالفعل، انتظار...');
+      if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Refresh already in progress, waiting...');
       // انتظار حتى انتهاء التجديد الجاري
       while (isRefreshing) {
         await sleep(100);
@@ -626,7 +624,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const refreshTokenValue = localStorage.getItem('refreshToken');
       if (!refreshTokenValue) {
-        console.log('❌ [AuthProvider.refreshToken] لا يوجد refresh token');
+        if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] No refresh token');
         return false;
       }
 
@@ -635,14 +633,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const attemptStartTime = Date.now();
-        console.log(`🔄 [AuthProvider.refreshToken] محاولة ${attempt + 1}/${maxAttempts}...`);
+        if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Attempt ${attempt + 1}/${maxAttempts}...`);
 
         try {
           // إنشاء AbortController للتحكم في timeout
           const controller = new AbortController();
           const timeoutId = setTimeout(() => {
             controller.abort();
-            console.log(`⏰ [AuthProvider.refreshToken] timeout للمحاولة ${attempt + 1}`);
+            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Timeout for attempt ${attempt + 1}`);
           }, 10000); // 10 ثواني timeout
 
           const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -657,7 +655,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // ✅ فحص استباقي لنوع المحتوى قبل المعالجة
           const contentType = response.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
-            console.error('❌ [AuthProvider.refreshToken] رد غير صالح من السيرفر (ليس JSON):', contentType);
+            if (import.meta.env.DEV) console.error('[AuthProvider.refreshToken] Invalid server response (not JSON):', contentType);
             // محاولة انتظار قصيرة في حالة وجود ضغط على السيرفر
             await sleep(2000);
             continue; 
@@ -665,12 +663,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           clearTimeout(timeoutId);
           const attemptDuration = Date.now() - attemptStartTime;
-          console.log(`📊 [AuthProvider.refreshToken] محاولة ${attempt + 1} استغرقت ${attemptDuration}ms`);
+          if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Attempt ${attempt + 1} took ${attemptDuration}ms`);
 
           const data = await response.json();
 
           if (response.ok && data.success && data.tokens) {
-            console.log('📦 [AuthProvider.refreshToken] استجابة ناجحة:', { success: data.success, hasTokens: !!data.tokens });
+            if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Successful response');
 
             // نجحت العملية - حفظ الرموز الجديدة
             localStorage.setItem('accessToken', data.tokens.accessToken);
@@ -680,17 +678,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setRefreshAttempts(0);
 
             const totalDuration = Date.now() - startTime;
-            console.log(`✅ [AuthProvider.refreshToken] نجح التجديد في ${totalDuration}ms بعد ${attempt + 1} محاولة`);
+            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Refresh succeeded in ${totalDuration}ms after ${attempt + 1} attempts`);
 
             return true;
           } else {
             // فشل HTTP أو بيانات غير صحيحة
-            console.log(`❌ [AuthProvider.refreshToken] فشل ${response.status}:`, data.message || 'خطأ غير معروف');
+            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Failed ${response.status}:`, data.message || 'unknown error');
           }
 
           // إذا كان 401 أو 403، فالـ refresh token منتهي الصلاحية
           if (response.status === 401 || response.status === 403) {
-            console.log('🚫 [AuthProvider.refreshToken] refresh token منتهي الصلاحية - لا فائدة من إعادة المحاولة');
+            if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Refresh token expired - no point retrying');
             break; // خروج من حلقة المحاولات
           }
 
@@ -698,20 +696,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const attemptDuration = Date.now() - attemptStartTime;
 
           if (error instanceof Error) {
-            if (error.name === 'AbortError') {
-              console.log(`⏰ [AuthProvider.refreshToken] timeout في المحاولة ${attempt + 1} بعد ${attemptDuration}ms`);
-            } else {
-              console.log(`🌐 [AuthProvider.refreshToken] خطأ شبكة في المحاولة ${attempt + 1}:`, error.message);
+            if (import.meta.env.DEV) {
+              if (error.name === 'AbortError') {
+                console.log(`[AuthProvider.refreshToken] Timeout in attempt ${attempt + 1} after ${attemptDuration}ms`);
+              } else {
+                console.log(`[AuthProvider.refreshToken] Network error in attempt ${attempt + 1}:`, error.message);
+              }
             }
           } else {
-            console.log(`❓ [AuthProvider.refreshToken] خطأ غير معروف في المحاولة ${attempt + 1}:`, error);
+            if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Unknown error in attempt ${attempt + 1}:`, error);
           }
         }
 
         // إذا لم تكن هذه المحاولة الأخيرة، انتظر قبل المحاولة التالية
         if (attempt < maxAttempts - 1) {
           const delay = calculateBackoffDelay(attempt);
-          console.log(`⏰ [AuthProvider.refreshToken] انتظار ${delay}ms قبل المحاولة التالية...`);
+          if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Waiting ${delay}ms before next attempt...`);
           await sleep(delay);
         }
       }
@@ -719,12 +719,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // فشل جميع المحاولات
       setRefreshAttempts(prev => prev + 1);
       const totalDuration = Date.now() - startTime;
-      console.log(`❌ [AuthProvider.refreshToken] فشل التجديد مؤقتاً بعد ${totalDuration}ms و${maxAttempts} محاولات`);
+      if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Refresh failed after ${totalDuration}ms and ${maxAttempts} attempts`);
 
       // ✅ تعديل: عدم تسجيل الخروج القسري للسماح بالعمل في وضع Offline أو المحاولة لاحقاً
       // فقط نقوم بتمكين وضع الأوفلاين في حالة وجود بيانات مستخدم محفوظة
       if (localStorage.getItem('user')) {
-        console.warn('⚠️ [AuthProvider] فشل التجديد، ولكن سيتم الحفاظ على الجلسة المحلية لدعم وضع Offline');
+        if (import.meta.env.DEV) console.warn('[AuthProvider] Refresh failed, but keeping local session for offline support');
         return false;
       }
 
@@ -736,7 +736,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     } catch (error) {
       const totalDuration = Date.now() - startTime;
-      console.error(`💥 [AuthProvider.refreshToken] خطأ عام بعد ${totalDuration}ms:`, error);
+      if (import.meta.env.DEV) console.error(`[AuthProvider.refreshToken] General error after ${totalDuration}ms:`, error);
       setRefreshAttempts(prev => prev + 1);
       return false;
     } finally {

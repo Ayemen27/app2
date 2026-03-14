@@ -23,16 +23,18 @@ export class FcmService {
           }
           const messaging = admin.messaging();
           console.log("✅ [FCM] Firebase Admin Initialized Successfully");
+          this.isInitialized = true;
         } catch (e: any) {
           console.error("❌ [FCM] Failed to initialize Firebase Admin:", e.message);
+          this.isInitialized = false;
         }
-        console.log("✅ [FCM] Firebase Service Account Key Loaded");
       } else {
         console.warn("⚠️ [FCM] FIREBASE_SERVICE_ACCOUNT_KEY not found in environment variables");
+        this.isInitialized = false;
       }
-      this.isInitialized = true;
     } catch (error) {
       console.error("❌ [FCM] Error initializing Firebase:", error);
+      this.isInitialized = false;
     }
   }
 

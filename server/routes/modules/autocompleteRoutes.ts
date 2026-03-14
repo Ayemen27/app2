@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { requireAuth } from '../../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../../middleware/auth.js';
 import { db } from '../../db.js';
 import { autocompleteData, transportationExpenses } from '../../../shared/schema.js';
 import { eq, desc, and, sql, inArray, or } from 'drizzle-orm';
@@ -870,7 +870,7 @@ export function registerAutocompleteAdminRoutes(app: any) {
   /**
    * GET /api/autocomplete-admin/stats - إحصائيات الإكمال التلقائي
    */
-  app.get('/api/autocomplete-admin/stats', async (req: Request, res: Response) => {
+  app.get('/api/autocomplete-admin/stats', requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const allData = await db.select().from(autocompleteData);
       
@@ -906,7 +906,7 @@ export function registerAutocompleteAdminRoutes(app: any) {
   /**
    * POST /api/autocomplete-admin/maintenance - صيانة الإكمال التلقائي
    */
-  app.post('/api/autocomplete-admin/maintenance', async (req: Request, res: Response) => {
+  app.post('/api/autocomplete-admin/maintenance', requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       res.json({
         success: true,
@@ -929,7 +929,7 @@ export function registerAutocompleteAdminRoutes(app: any) {
   /**
    * POST /api/autocomplete-admin/cleanup - تنظيف البيانات
    */
-  app.post('/api/autocomplete-admin/cleanup', async (req: Request, res: Response) => {
+  app.post('/api/autocomplete-admin/cleanup', requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       res.json({
         success: true,
@@ -948,7 +948,7 @@ export function registerAutocompleteAdminRoutes(app: any) {
   /**
    * POST /api/autocomplete-admin/enforce-limits - تطبيق حدود الفئات
    */
-  app.post('/api/autocomplete-admin/enforce-limits', async (req: Request, res: Response) => {
+  app.post('/api/autocomplete-admin/enforce-limits', requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const { category } = req.body;
       

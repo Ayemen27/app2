@@ -13,12 +13,20 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 
 const router = Router();
 
-// 🌐 تطبيق CORS على مستوى الراوتر الخاص بالـ AI بشكل صريح وشامل
+const ALLOWED_ORIGINS = [
+  process.env.APP_URL,
+  process.env.VITE_APP_URL,
+  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : undefined,
+  process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : undefined,
+].filter(Boolean) as string[];
+
 router.use((req: Request, res: Response, next: NextFunction): void => {
   const origin = req.headers.origin;
-  res.header('Access-Control-Allow-Origin', origin || '*');
+  if (origin && ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-User-Id, user-id, x-user-id, x-requested-with, x-auth-token, x-access-token');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
   
@@ -335,11 +343,31 @@ router.post("/sessions/bulk-restore", requireAdmin, async (req: AuthenticatedReq
   }
 });
 
-/**
- * إرسال رسالة للوكيل الذكي
- * POST /api/ai/chat
- */
-router.post("/chat", requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+const chatRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const CHAT_RATE_LIMIT = 20;
+const CHAT_RATE_WINDOW_MS = 60_000;
+
+function chatRateLimit(req: any, res: Response, next: NextFunction) {
+  const userId = req.user?.user_id;
+  if (!userId) return res.status(401).json({ error: "غير مصرح" });
+
+  const now = Date.now();
+  const entry = chatRateLimitMap.get(userId);
+
+  if (!entry || now > entry.resetAt) {
+    chatRateLimitMap.set(userId, { count: 1, resetAt: now + CHAT_RATE_WINDOW_MS });
+    return next();
+  }
+
+  if (entry.count >= CHAT_RATE_LIMIT) {
+    return res.status(429).json({ error: "تم تجاوز الحد الأقصى للرسائل. يرجى الانتظار قليلاً." });
+  }
+
+  entry.count++;
+  next();
+}
+
+router.post("/chat", requireAdmin, chatRateLimit, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { sessionId, message } = req.body;
 

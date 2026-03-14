@@ -29,9 +29,15 @@ interface Message {
   operationHandled?: boolean;
 }
 
+function escapeHtml(str: string): string {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
 function generatePrintPDF(content: string, tableData: any[] | null, title?: string) {
-  const reportTitle = title || "تقرير من الوكيل الذكي";
-  const dateStr = new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  const reportTitle = escapeHtml(title || "تقرير من الوكيل الذكي");
+  const dateStr = escapeHtml(new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }));
 
   let tableHTML = "";
   if (tableData && tableData.length > 0) {
@@ -39,59 +45,78 @@ function generatePrintPDF(content: string, tableData: any[] | null, title?: stri
     tableHTML = `
       <table>
         <thead>
-          <tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr>
+          <tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr>
         </thead>
         <tbody>
-          ${tableData.map(row => `<tr>${cols.map(c => `<td>${row[c] != null ? String(row[c]) : "-"}</td>`).join("")}</tr>`).join("")}
+          ${tableData.map(row => `<tr>${cols.map(c => `<td>${row[c] != null ? escapeHtml(String(row[c])) : "-"}</td>`).join("")}</tr>`).join("")}
         </tbody>
       </table>`;
   }
 
-  const contentHTML = content
+  const safeContent = escapeHtml(content);
+  const contentHTML = safeContent
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/━+/g, "<hr/>")
     .replace(/\n/g, "<br/>");
 
-  const html = `<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-<meta charset="UTF-8"/>
-<title>${reportTitle}</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; font-size: 12pt; color: #1a1a2e; background: #fff; padding: 20px; }
-  .header { background: linear-gradient(135deg, #1E3A5F, #2E86AB); color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px; }
-  .header h1 { font-size: 16pt; font-weight: 700; }
-  .header .date { font-size: 10pt; opacity: 0.85; margin-top: 4px; }
-  .content { line-height: 1.8; color: #333; white-space: pre-wrap; padding: 0 4px; }
-  .content strong { color: #1E3A5F; font-weight: 700; }
-  .content hr { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-  th { background: #1E3A5F; color: white; padding: 8px 10px; font-size: 10pt; text-align: right; }
-  td { padding: 7px 10px; font-size: 10pt; border-bottom: 1px solid #eee; text-align: right; }
-  tr:nth-child(even) td { background: #f8f9fb; }
-  .footer { margin-top: 24px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
-  @media print { body { padding: 0; } .no-print { display: none; } }
-</style>
-</head>
-<body>
-<div class="header">
-  <h1>${reportTitle}</h1>
-  <div class="date">${dateStr}</div>
-</div>
-<div class="content">${contentHTML}</div>
-${tableHTML}
-<div class="footer">نظام إدارة المشاريع الإنشائية — تم إنشاء هذا التقرير تلقائياً</div>
-<script>window.onload = function(){ window.print(); window.onafterprint = function(){ window.close(); }; }</script>
-</body>
-</html>`;
-
   const win = window.open("", "_blank", "width=900,height=700");
-  if (win) {
-    win.document.write(html);
-    win.document.close();
+  if (!win) return;
+
+  const doc = win.document;
+  doc.open();
+  doc.write('<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/></head><body></body></html>');
+  doc.close();
+
+  const style = doc.createElement('style');
+  style.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; font-size: 12pt; color: #1a1a2e; background: #fff; padding: 20px; }
+    .header { background: linear-gradient(135deg, #1E3A5F, #2E86AB); color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px; }
+    .header h1 { font-size: 16pt; font-weight: 700; }
+    .header .date { font-size: 10pt; opacity: 0.85; margin-top: 4px; }
+    .content { line-height: 1.8; color: #333; white-space: pre-wrap; padding: 0 4px; }
+    .content strong { color: #1E3A5F; font-weight: 700; }
+    .content hr { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th { background: #1E3A5F; color: white; padding: 8px 10px; font-size: 10pt; text-align: right; }
+    td { padding: 7px 10px; font-size: 10pt; border-bottom: 1px solid #eee; text-align: right; }
+    tr:nth-child(even) td { background: #f8f9fb; }
+    .footer { margin-top: 24px; text-align: center; font-size: 9pt; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+    @media print { body { padding: 0; } .no-print { display: none; } }
+  `;
+  doc.head.appendChild(style);
+
+  doc.title = reportTitle;
+
+  const header = doc.createElement('div');
+  header.className = 'header';
+  const h1 = doc.createElement('h1');
+  h1.textContent = title || "تقرير من الوكيل الذكي";
+  header.appendChild(h1);
+  const dateDiv = doc.createElement('div');
+  dateDiv.className = 'date';
+  dateDiv.textContent = new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  header.appendChild(dateDiv);
+  doc.body.appendChild(header);
+
+  const contentDiv = doc.createElement('div');
+  contentDiv.className = 'content';
+  contentDiv.innerHTML = contentHTML;
+  doc.body.appendChild(contentDiv);
+
+  if (tableHTML) {
+    const tableContainer = doc.createElement('div');
+    tableContainer.innerHTML = tableHTML;
+    doc.body.appendChild(tableContainer);
   }
+
+  const footer = doc.createElement('div');
+  footer.className = 'footer';
+  footer.textContent = 'نظام إدارة المشاريع الإنشائية — تم إنشاء هذا التقرير تلقائياً';
+  doc.body.appendChild(footer);
+
+  win.onload = function() { win.print(); win.onafterprint = function() { win.close(); }; };
 }
 
 function formatRelativeTime(date: string | Date | null | undefined): string {

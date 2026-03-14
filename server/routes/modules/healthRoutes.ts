@@ -53,7 +53,7 @@ healthRouter.get('/health', async (req: Request, res: Response) => {
 /**
  * فحص صحة متقدم للتطبيقات
  */
-healthRouter.get('/health/full', async (req: Request, res: Response) => {
+healthRouter.get('/health/full', requireAuth, async (req: Request, res: Response) => {
   try {
     const healthStatus = await healthMonitor.runHealthCheck();
     const metrics = healthMonitor.getMetrics();
@@ -118,7 +118,7 @@ healthRouter.get('/health/integrity', requireAuth, async (req: Request, res: Res
 /**
  * تاريخ حالة الصحة
  */
-healthRouter.get('/health/history', (req: Request, res: Response): void => {
+healthRouter.get('/health/history', requireAuth, (req: Request, res: Response): void => {
   const limit = parseInt(req.query.limit as string) || 20;
   const history = healthMonitor.getHistory(limit);
   
@@ -133,7 +133,7 @@ healthRouter.get('/health/history', (req: Request, res: Response): void => {
 /**
  * حالة Circuit Breakers
  */
-healthRouter.get('/health/circuits', (req: Request, res: Response): void => {
+healthRouter.get('/health/circuits', requireAuth, (req: Request, res: Response): void => {
   const report = circuitBreaker.getHealthReport();
   const states = circuitBreaker.getAllStates();
   
@@ -221,7 +221,7 @@ healthRouter.post('/health/reconnect', requireAuth, async (req: Request, res: Re
  * فحص الاتصال بقاعدة البيانات
  * Database connection verification
  */
-healthRouter.get('/db/info', async (req: Request, res: Response) => {
+healthRouter.get('/db/info', requireAuth, async (req: Request, res: Response) => {
   try {
     const result = await db.execute(`
       SELECT 

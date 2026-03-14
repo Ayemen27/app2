@@ -38,6 +38,23 @@ export interface ActionResult {
 
 export class DatabaseActions {
 
+  private static readonly SENSITIVE_TABLES = [
+    'users',
+    'auth_user_sessions',
+    'password_reset_tokens',
+    'emergency_users',
+    'webauthn_credentials',
+    'whatsapp_user_links',
+    'whatsapp_allowed_numbers',
+    'refresh_tokens',
+  ];
+
+  private static readonly DANGEROUS_PG_FUNCTIONS = /\b(pg_read_file|pg_ls_dir|lo_import|lo_export|lo_create|COPY|pg_sleep|pg_stat_file|pg_read_binary_file|pg_write_file|dblink|dblink_exec)\b/i;
+
+  private isSensitiveTable(tableName: string): boolean {
+    return DatabaseActions.SENSITIVE_TABLES.includes(tableName.toLowerCase());
+  }
+
   private isProjectAllowed(projectId: string, allowedProjectIds?: string[]): boolean {
     if (allowedProjectIds === undefined) return true;
     return allowedProjectIds.includes(projectId);
@@ -1010,6 +1027,14 @@ export class DatabaseActions {
 
   async insertIntoTable(tableName: string, data: Record<string, any>): Promise<ActionResult> {
     try {
+      if (this.isSensitiveTable(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" محمي ولا يمكن الكتابة إليه عبر واجهة الذكاء الاصطناعي`,
+          action: "insert_table",
+        };
+      }
+
       const validTables = await this.getValidTables();
       if (!validTables.includes(tableName)) {
         return {
@@ -1074,6 +1099,14 @@ export class DatabaseActions {
 
   async updateInTable(tableName: string, id: string, data: Record<string, any>): Promise<ActionResult> {
     try {
+      if (this.isSensitiveTable(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" محمي ولا يمكن التعديل عليه عبر واجهة الذكاء الاصطناعي`,
+          action: "update_table",
+        };
+      }
+
       const validTables = await this.getValidTables();
       if (!validTables.includes(tableName)) {
         return {
@@ -1154,6 +1187,14 @@ export class DatabaseActions {
 
   async deleteFromTable(tableName: string, id: string, confirmed: boolean = false): Promise<ActionResult> {
     try {
+      if (this.isSensitiveTable(tableName)) {
+        return {
+          success: false,
+          message: `الجدول "${tableName}" محمي ولا يمكن الحذف منه عبر واجهة الذكاء الاصطناعي`,
+          action: "delete_table",
+        };
+      }
+
       const validTables = await this.getValidTables();
       if (!validTables.includes(tableName)) {
         return {
@@ -1243,7 +1284,7 @@ export class DatabaseActions {
         };
       }
 
-      const forbidden = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE)\b/i;
+      const forbidden = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE|INTO)\b/i;
       if (forbidden.test(normalized)) {
         return {
           success: false,
@@ -1252,10 +1293,19 @@ export class DatabaseActions {
         };
       }
 
+      if (DatabaseActions.DANGEROUS_PG_FUNCTIONS.test(normalized)) {
+        return {
+          success: false,
+          message: "الاستعلام يحتوي على دوال PostgreSQL غير مسموحة لأسباب أمنية.",
+          action: "raw_select",
+        };
+      }
+
       const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? trimmed : `${trimmed} LIMIT 500`;
       const client = await pool.connect();
       try {
         await client.query('SET statement_timeout = 10000');
+        await client.query('SET TRANSACTION READ ONLY');
         const result = await client.query(limitedQuery);
         return {
           success: true,
@@ -1278,29 +1328,44 @@ export class DatabaseActions {
 
   // ==================== استعلام SQL مخصص (للمسؤول فقط) ====================
 
-  async executeCustomQuery(query: string, confirmed: boolean = false): Promise<ActionResult> {
-    const lowerQuery = query.toLowerCase().trim();
-    const isDestructive = lowerQuery.startsWith("delete") || 
-                          lowerQuery.startsWith("drop") || 
-                          lowerQuery.startsWith("truncate") ||
-                          lowerQuery.startsWith("update");
+  async executeCustomQuery(query: string, _confirmed: boolean = false): Promise<ActionResult> {
+    const normalized = query.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
 
-    if (isDestructive && !confirmed) {
+    if (!/^SELECT\s/i.test(normalized)) {
       return {
         success: false,
-        requiresConfirmation: true,
-        confirmationMessage: `⚠️ هذا استعلام تعديلي! الاستعلام: "${query}"\nهل أنت متأكد؟ اكتب "موافق" للتأكيد.`,
-        message: "يتطلب تأكيد",
+        message: "لأسباب أمنية، يُسمح فقط باستعلامات SELECT للقراءة عبر واجهة الذكاء الاصطناعي.",
         action: "execute_sql",
       };
     }
 
+    const forbidden = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE|INTO)\b/i;
+    if (forbidden.test(normalized)) {
+      return {
+        success: false,
+        message: "الاستعلام يحتوي على أوامر غير مسموحة. استخدم فقط SELECT للقراءة.",
+        action: "execute_sql",
+      };
+    }
+
+    if (DatabaseActions.DANGEROUS_PG_FUNCTIONS.test(normalized)) {
+      return {
+        success: false,
+        message: "الاستعلام يحتوي على دوال PostgreSQL غير مسموحة لأسباب أمنية.",
+        action: "execute_sql",
+      };
+    }
+
+    const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? query.trim() : `${query.trim()} LIMIT 500`;
+    const client = await pool.connect();
     try {
-      const result = await pool.query(query);
+      await client.query('SET statement_timeout = 10000');
+      await client.query('SET TRANSACTION READ ONLY');
+      const result = await client.query(limitedQuery);
       return {
         success: true,
-        data: result,
-        message: `تم تنفيذ الاستعلام بنجاح`,
+        data: result.rows,
+        message: `تم تنفيذ الاستعلام بنجاح - ${result.rows.length} نتيجة`,
         action: "execute_sql",
       };
     } catch (error: any) {
@@ -1309,6 +1374,9 @@ export class DatabaseActions {
         message: `خطأ في تنفيذ الاستعلام: ${error.message}`,
         action: "execute_sql",
       };
+    } finally {
+      await client.query('RESET statement_timeout');
+      client.release();
     }
   }
   // ==================== أدوات ذكية متقدمة ====================

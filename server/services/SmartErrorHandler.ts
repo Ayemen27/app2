@@ -79,6 +79,7 @@ export interface AnalyzedError {
  * خدمة النظام الذكي لكشف وتحليل الأخطاء
  */
 export class SmartErrorHandler {
+  private static tablesVerified = false;
   private notificationService: NotificationService;
   private errorCache: Map<string, { count: number; lastSeen: Date; suppressUntil?: Date }> = new Map();
   
@@ -444,6 +445,9 @@ export class SmartErrorHandler {
    * التأكد من وجود جداول الأخطاء
    */
   private async ensureErrorTablesExist(): Promise<void> {
+    if (SmartErrorHandler.tablesVerified) {
+      return;
+    }
     try {
       await db.execute(sql`
         CREATE TABLE IF NOT EXISTS error_logs (
@@ -485,6 +489,7 @@ export class SmartErrorHandler {
       await db.execute(sql`CREATE INDEX IF NOT EXISTS error_logs_table_name_idx ON error_logs (table_name)`);
       await db.execute(sql`CREATE INDEX IF NOT EXISTS error_logs_created_at_idx ON error_logs (created_at DESC)`);
       
+      SmartErrorHandler.tablesVerified = true;
     } catch (error) {
       console.error('❌ خطأ في إنشاء جداول الأخطاء:', error);
     }

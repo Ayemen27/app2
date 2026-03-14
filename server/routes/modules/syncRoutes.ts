@@ -484,7 +484,10 @@ syncRouter.get('/stats', async (req: Request, res: Response) => {
  * 📋 الحصول على قائمة الجداول المدعومة
  * GET /api/sync/tables
  */
-syncRouter.get('/tables', async (_req: Request, res: Response) => {
+syncRouter.get('/tables', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   return res.status(200).json({
     success: true,
     tables: ALL_DATABASE_TABLES,

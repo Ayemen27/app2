@@ -204,10 +204,17 @@ export class AIAgentService {
       throw new Error("الجلسة غير موجودة أو لا تملك صلاحية الوصول إليها");
     }
 
+    const sanitizedMessage = userMessage
+      .replace(/\[ACTION:[^\]]*\]/g, '')
+      .replace(/\[PROPOSE:[^\]]*\]/g, '')
+      .replace(/\[CONFIRM:[^\]]*\]/g, '')
+      .replace(/\[ALERT:[^\]]*\]/g, '')
+      .trim();
+
     await db.insert(aiChatMessages).values({
       sessionId,
       role: "user",
-      content: userMessage,
+      content: sanitizedMessage,
     });
 
     await db.update(aiChatSessions)
@@ -240,12 +247,12 @@ export class AIAgentService {
 
       let responseContent = aiResponse.content;
       
-      const conversationalReply = this.detectConversationalQuery(userMessage);
+      const conversationalReply = this.detectConversationalQuery(sanitizedMessage);
       if (conversationalReply) {
         console.log(`💬 [AIAgentService] سؤال محادثاتي، رد مباشر بدون ACTION`);
         responseContent = conversationalReply;
-      } else if (this.detectIntentFromUserMessage(userMessage)) {
-        responseContent = this.detectIntentFromUserMessage(userMessage)!;
+      } else if (this.detectIntentFromUserMessage(sanitizedMessage)) {
+        responseContent = this.detectIntentFromUserMessage(sanitizedMessage)!;
         console.log(`🔍 [AIAgentService] تم كشف النية مباشرة: ${responseContent}`);
       } else {
         responseContent = responseContent.replace(/(?<!\[)ACTION:([A-Z_]+(?::[^\]]+)?)\]?(?=\s|$)/g, '[ACTION:$1]');

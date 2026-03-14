@@ -94,6 +94,10 @@ export class DeploymentEngine {
   }
 
   async startDeployment(config: DeploymentConfig): Promise<string> {
+    if (!config.triggeredBy) {
+      throw new Error("Deployment requires an authenticated user (triggeredBy is required)");
+    }
+
     const buildNumber = await this.getNextBuildNumber();
     const steps: StepEntry[] = PIPELINE_STEPS[config.pipeline].map(name => ({
       name,
@@ -249,18 +253,24 @@ export class DeploymentEngine {
     }
   }
 
+  private sanitizeShellArg(value: string): string {
+    return value.replace(/['"\\$`!#&|;(){}<>\n\r]/g, '');
+  }
+
   private buildSSHCommand(): string {
-    const host = process.env.SSH_HOST || "93.127.142.144";
-    const user = process.env.SSH_USER || "administrator";
-    const port = process.env.SSH_PORT || "22";
-    return `sshpass -p "${process.env.SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p ${port} ${user}@${host}`;
+    const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
+    const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
+    const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+    const password = (process.env.SSH_PASSWORD || "").replace(/'/g, "'\\''");
+    return `sshpass -p '${password}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p ${port} ${user}@${host}`;
   }
 
   private buildSCPCommand(src: string, dest: string): string {
-    const host = process.env.SSH_HOST || "93.127.142.144";
-    const user = process.env.SSH_USER || "administrator";
-    const port = process.env.SSH_PORT || "22";
-    return `sshpass -p "${process.env.SSH_PASSWORD}" scp -o StrictHostKeyChecking=no -P ${port} ${src} ${user}@${host}:${dest}`;
+    const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
+    const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
+    const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+    const password = (process.env.SSH_PASSWORD || "").replace(/'/g, "'\\''");
+    return `sshpass -p '${password}' scp -o StrictHostKeyChecking=no -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
   private maskSecrets(text: string): string {
@@ -509,9 +519,10 @@ export class DeploymentEngine {
     await execAsync("mkdir -p /home/runner/workspace/output_apks");
 
     try {
+      const password = (process.env.SSH_PASSWORD || "").replace(/'/g, "'\\''");
       await this.execWithLog(
         deploymentId,
-        `sshpass -p "${process.env.SSH_PASSWORD}" scp -o StrictHostKeyChecking=no -P ${port} ${user}@${host}:${remoteDir}/AXION_LATEST.apk ${localPath}`,
+        `sshpass -p '${password}' scp -o StrictHostKeyChecking=no -P ${port} ${user}@${host}:${remoteDir}/AXION_LATEST.apk ${localPath}`,
         "Retrieve APK",
         60000
       );

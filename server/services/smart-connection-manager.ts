@@ -78,8 +78,16 @@ export class SmartConnectionManager {
   private lastReconnectAttempt = 0;
   private readonly MIN_RECONNECT_INTERVAL = 5000;
 
+  private _readyPromise: Promise<void>;
+  private _isReady = false;
+
   private constructor() {
-    this.initialize();
+    this._readyPromise = this.initialize().then(() => {
+      this._isReady = true;
+    }).catch((err) => {
+      console.error('❌ [Smart Connection Manager] Initialization failed:', err);
+      this._isReady = false;
+    });
   }
 
   static getInstance(): SmartConnectionManager {
@@ -87,6 +95,14 @@ export class SmartConnectionManager {
       SmartConnectionManager.instance = new SmartConnectionManager();
     }
     return SmartConnectionManager.instance;
+  }
+
+  async waitUntilReady(): Promise<void> {
+    return this._readyPromise;
+  }
+
+  get isReady(): boolean {
+    return this._isReady;
   }
 
   /**
@@ -321,9 +337,9 @@ export class SmartConnectionManager {
           ssl: sslConfig,
           max: 10,
           idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 300000, // 5 دقائق
-          statement_timeout: 300000,
-          query_timeout: 300000,
+          connectionTimeoutMillis: 30000, // 30 ثانية
+          statement_timeout: 30000,
+          query_timeout: 30000,
           keepAlive: true,
           keepAliveInitialDelayMillis: 10000
         });

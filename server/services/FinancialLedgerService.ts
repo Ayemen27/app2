@@ -44,8 +44,8 @@ export class FinancialLedgerService {
     }>;
     createdBy?: string;
   }): Promise<string> {
-    const totalDebit = params.lines.reduce((sum, l) => sum + l.debitAmount, 0);
-    const totalCredit = params.lines.reduce((sum, l) => sum + l.creditAmount, 0);
+    const totalDebit = params.lines.reduce((sum, l) => sum + Math.round(l.debitAmount * 100), 0) / 100;
+    const totalCredit = params.lines.reduce((sum, l) => sum + Math.round(l.creditAmount * 100), 0) / 100;
 
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
       throw new Error(`قيد غير متوازن: مدين=${totalDebit}, دائن=${totalCredit}`);
@@ -226,8 +226,8 @@ export class FinancialLedgerService {
       createdBy,
       lines: originalLines.map((line: any) => ({
         accountCode: line.accountCode,
-        debitAmount: parseFloat(String(line.creditAmount || '0')),
-        creditAmount: parseFloat(String(line.debitAmount || '0')),
+        debitAmount: Math.round(parseFloat(String(line.creditAmount || '0')) * 100) / 100,
+        creditAmount: Math.round(parseFloat(String(line.debitAmount || '0')) * 100) / 100,
         description: `عكس: ${line.description || ''}`,
       }))
     });
@@ -324,7 +324,7 @@ export class FinancialLedgerService {
       WHERE je.project_id = $1 AND je.entry_date <= $2 AND je.status = 'posted'
         AND jl.account_code = '1100'
     `, [project_id, date]);
-    const ledgerBalance = parseFloat(String(ledgerResult.rows[0]?.balance || '0'));
+    const ledgerBalance = Math.round(parseFloat(String(ledgerResult.rows[0]?.balance || '0')) * 100) / 100;
 
     const computedResult = await pool.query(`
       WITH income AS (
@@ -355,9 +355,9 @@ export class FinancialLedgerService {
       SELECT 
         COALESCE((SELECT SUM(total) FROM income), 0) - COALESCE((SELECT SUM(total) FROM expenses), 0) as balance
     `, [project_id, date]);
-    const computedBalance = parseFloat(String(computedResult.rows[0]?.balance || '0'));
+    const computedBalance = Math.round(parseFloat(String(computedResult.rows[0]?.balance || '0')) * 100) / 100;
 
-    const discrepancy = Math.abs(ledgerBalance - computedBalance);
+    const discrepancy = Math.round(Math.abs(ledgerBalance - computedBalance) * 100) / 100;
     const status = discrepancy < 0.01 ? 'matched' : 'discrepancy';
 
     await db.insert(reconciliationRecords).values({
@@ -388,7 +388,7 @@ export class FinancialLedgerService {
         ${dateFilter}
     `, params);
 
-    return parseFloat(String(result.rows[0]?.balance || '0'));
+    return Math.round(parseFloat(String(result.rows[0]?.balance || '0')) * 100) / 100;
   }
 
   static async getProjectJournalEntries(project_id: string, fromDate?: string, toDate?: string) {

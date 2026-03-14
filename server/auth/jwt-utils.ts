@@ -114,10 +114,8 @@ export async function generateTokenPair(
   const accessPayload = { userId, email, role, sessionId, type: 'access' as const };
   const refreshPayload = { userId, email, sessionId, type: 'refresh' as const };
 
-  const accessTokenExpiry = role === 'admin' ? '4h' : '15m';
-  
   const accessToken = jwt.sign(accessPayload, JWT_ACCESS_SECRET, {
-    expiresIn: accessTokenExpiry,
+    expiresIn: JWT_CONFIG.accessTokenExpiry,
     issuer: JWT_CONFIG.issuer
   } as jwt.SignOptions);
   
@@ -181,7 +179,6 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
 
     const payload = jwt.verify(cleanToken, JWT_ACCESS_SECRET, {
       issuer: JWT_CONFIG.issuer,
-      ignoreExpiration: process.env.NODE_ENV === 'development',
     }) as JWTPayload;
 
     // التحقق من نوع الرمز
@@ -297,16 +294,10 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
     try {
       payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
         issuer: JWT_CONFIG.issuer,
-        ignoreExpiration: true,
       }) as JWTPayload;
     } catch (verifyError: unknown) {
-      console.warn(`⚠️ [JWT-DEV] فشل التحقق (${verifyError instanceof Error ? verifyError.message : verifyError})، محاولة فك التشفير الصامت...`);
-      payload = jwt.decode(refreshToken) as JWTPayload | null;
-      
-      if (!payload || !payload.userId) {
-        console.error('❌ [JWT-DEV] فشل فك التشفير الصامت أو البيانات ناقصة');
-        return null;
-      }
+      console.warn(`⚠️ [JWT-DEV] فشل التحقق من refresh token: ${verifyError instanceof Error ? verifyError.message : verifyError}`);
+      return null;
     }
 
     console.log('🔄 [JWT-DEV] Payload processing:', { userId: payload.userId, type: payload.type });
@@ -411,10 +402,8 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
   try {
     const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
       issuer: JWT_CONFIG.issuer,
-      ignoreExpiration: true,
     }) as JWTPayload;
 
-    // التحقق من نوع الرمز
     if (payload.type !== 'refresh') {
       return null;
     }

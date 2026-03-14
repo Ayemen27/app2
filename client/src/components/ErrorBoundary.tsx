@@ -16,13 +16,16 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    console.error('🚨 [ErrorBoundary] تم التقاط خطأ:', error);
+    if (import.meta.env.DEV) {
+      console.error('[ErrorBoundary] Caught error:', error);
+    }
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('❌ [ErrorBoundary] تفاصيل الخطأ:', error, errorInfo);
-    console.error('📍 [ErrorBoundary] Stack trace:', error.stack);
+    if (import.meta.env.DEV) {
+      console.error('[ErrorBoundary] Error details:', error, errorInfo);
+    }
   }
 
   public render() {
@@ -46,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
               <button
                 onClick={() => {
-                  localStorage.clear();
+                  this.setState({ hasError: false, error: undefined });
                   window.location.href = '/login';
                 }}
                 className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"

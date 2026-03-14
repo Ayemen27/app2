@@ -1543,11 +1543,10 @@ export class DatabaseStorage implements IStorage {
 
       // إذا كان هناك أكثر من ملخص، احذف الأقدم واحتفظ بالأحدث
       if (duplicates.length > 1) {
-        const toDelete = duplicates.slice(0, -1); // جميع الملخصات عدا الأحدث
-        for (const summary of toDelete) {
-          await db.delete(dailyExpenseSummaries)
-            .where(eq(dailyExpenseSummaries.id, summary.id));
-        }
+        const toDelete = duplicates.slice(0, -1);
+        const idsToDelete = toDelete.map(s => s.id);
+        await db.delete(dailyExpenseSummaries)
+          .where(inArray(dailyExpenseSummaries.id, idsToDelete));
         console.log(`🗑️ Removed ${toDelete.length} duplicate summaries for ${project_id} on ${date}`);
       }
     } catch (error) {
@@ -1580,30 +1579,39 @@ export class DatabaseStorage implements IStorage {
         this.getPreviousDayBalance(project_id, date).then(balance => parseFloat(balance))
       ]);
 
-      const totalFundTransfers = fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const tocents = (val: string) => Math.round(parseFloat(val || '0') * 100);
+      const totalFundTransfersCents = fundTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
       
-      // حساب عمليات ترحيل الأموال منفصلة (الواردة والصادرة)
-      const incomingTransfers = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      const outgoingTransfers = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const incomingTransfersCents = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
+      const outgoingTransfersCents = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
       
-      // استخدام المبلغ المدفوع بدلاً من إجمالي الأجر اليومي
-      // تم التعديل لضمان عدم احتساب المبالغ غير المدفوعة (0) في المصاريف النقدية
-      const totalWorkerWages = workerAttendanceRecords.reduce((sum, a) => {
-        const paid = parseFloat(a.paidAmount || '0');
+      const totalWorkerWagesCents = workerAttendanceRecords.reduce((sum, a) => {
+        const paid = Math.round(parseFloat(a.paidAmount || '0') * 100);
         return sum + (paid > 0 ? paid : 0);
       }, 0);
-      // فقط المشتريات النقدية تُحسب في مصروفات اليوم - المشتريات الآجلة لا تُحسب
-      const totalMaterialCosts = materialPurchases
+      const totalMaterialCostsCents = materialPurchases
         .filter(p => p.purchaseType === "نقد")
-        .reduce((sum, p) => sum + parseFloat(p.totalAmount), 0);
-      const totalTransportationCosts = transportationExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-      const totalWorkerTransferCosts = workerTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      const totalWorkerMiscCosts = workerMiscExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        .reduce((sum, p) => sum + tocents(p.totalAmount), 0);
+      const totalTransportationCostsCents = transportationExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
+      const totalWorkerTransferCostsCents = workerTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
+      const totalWorkerMiscCostsCents = workerMiscExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
 
-      // للملخص اليومي: التحويلات الصادرة تُحسب كمصروف نقدى خارج من المشروع
-      const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportationCosts + totalWorkerTransferCosts + totalWorkerMiscCosts + outgoingTransfers;
-      const totalIncome = carriedForwardAmount + totalFundTransfers + incomingTransfers;
-      const remainingBalance = totalIncome - totalExpenses;
+      const carriedForwardCents = Math.round(carriedForwardAmount * 100);
+      const totalExpensesCents = totalWorkerWagesCents + totalMaterialCostsCents + totalTransportationCostsCents + totalWorkerTransferCostsCents + totalWorkerMiscCostsCents + outgoingTransfersCents;
+      const totalIncomeCents = carriedForwardCents + totalFundTransfersCents + incomingTransfersCents;
+      const remainingBalanceCents = totalIncomeCents - totalExpensesCents;
+
+      const totalFundTransfers = totalFundTransfersCents / 100;
+      const incomingTransfers = incomingTransfersCents / 100;
+      const outgoingTransfers = outgoingTransfersCents / 100;
+      const totalWorkerWages = totalWorkerWagesCents / 100;
+      const totalMaterialCosts = totalMaterialCostsCents / 100;
+      const totalTransportationCosts = totalTransportationCostsCents / 100;
+      const totalWorkerTransferCosts = totalWorkerTransferCostsCents / 100;
+      const totalWorkerMiscCosts = totalWorkerMiscCostsCents / 100;
+      const totalExpenses = totalExpensesCents / 100;
+      const totalIncome = totalIncomeCents / 100;
+      const remainingBalance = remainingBalanceCents / 100;
 
       // معلومات مختصرة للتشخيص
       console.log(`📊 ${date}: Income=${totalIncome} (Fund:${totalFundTransfers}, IncTrans:${incomingTransfers}), Expenses=${totalExpenses} (OutTrans:${outgoingTransfers}), Balance=${remainingBalance}`);
@@ -1683,23 +1691,37 @@ export class DatabaseStorage implements IStorage {
           this.getPreviousDayBalance(project_id, date).then(b => parseFloat(b))
         ]);
 
-        const totalFundTransfers = fundTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const incomingTransfers = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const outgoingTransfers = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const totalWorkerWages = workerAttendanceRecords.reduce((sum, a) => {
-          const paid = parseFloat(a.paidAmount || '0');
+        const tocents = (val: string) => Math.round(parseFloat(val || '0') * 100);
+        const totalFundTransfersCents = fundTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
+        const incomingTransfersCents = projectTransfers.filter(t => t.toProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
+        const outgoingTransfersCents = projectTransfers.filter(t => t.fromProjectId === project_id).reduce((sum, t) => sum + tocents(t.amount), 0);
+        const totalWorkerWagesCents = workerAttendanceRecords.reduce((sum, a) => {
+          const paid = Math.round(parseFloat(a.paidAmount || '0') * 100);
           return sum + (paid > 0 ? paid : 0);
         }, 0);
-        const totalMaterialCosts = materialPurchases
+        const totalMaterialCostsCents = materialPurchases
           .filter(p => p.purchaseType === "نقد")
-          .reduce((sum, p) => sum + parseFloat(p.totalAmount), 0);
-        const totalTransportationCosts = transportationExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-        const totalWorkerTransferCosts = workerTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-        const totalWorkerMiscCosts = workerMiscExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+          .reduce((sum, p) => sum + tocents(p.totalAmount), 0);
+        const totalTransportationCostsCents = transportationExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
+        const totalWorkerTransferCostsCents = workerTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
+        const totalWorkerMiscCostsCents = workerMiscExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
 
-        const totalExpenses = totalWorkerWages + totalMaterialCosts + totalTransportationCosts + totalWorkerTransferCosts + totalWorkerMiscCosts + outgoingTransfers;
-        const totalIncome = carriedForwardAmount + totalFundTransfers + incomingTransfers;
-        const remainingBalance = totalIncome - totalExpenses;
+        const carriedForwardCents = Math.round(carriedForwardAmount * 100);
+        const totalExpensesCents = totalWorkerWagesCents + totalMaterialCostsCents + totalTransportationCostsCents + totalWorkerTransferCostsCents + totalWorkerMiscCostsCents + outgoingTransfersCents;
+        const totalIncomeCents = carriedForwardCents + totalFundTransfersCents + incomingTransfersCents;
+        const remainingBalanceCents = totalIncomeCents - totalExpensesCents;
+
+        const totalFundTransfers = totalFundTransfersCents / 100;
+        const incomingTransfers = incomingTransfersCents / 100;
+        const outgoingTransfers = outgoingTransfersCents / 100;
+        const totalWorkerWages = totalWorkerWagesCents / 100;
+        const totalMaterialCosts = totalMaterialCostsCents / 100;
+        const totalTransportationCosts = totalTransportationCostsCents / 100;
+        const totalWorkerTransferCosts = totalWorkerTransferCostsCents / 100;
+        const totalWorkerMiscCosts = totalWorkerMiscCostsCents / 100;
+        const totalExpenses = totalExpensesCents / 100;
+        const totalIncome = totalIncomeCents / 100;
+        const remainingBalance = remainingBalanceCents / 100;
 
         await this.createOrUpdateDailyExpenseSummary({
           project_id,
@@ -1885,12 +1907,12 @@ export class DatabaseStorage implements IStorage {
 
       // جلب بيانات المشاريع المرتبطة بالحضور
       const projectsMap = new Map();
-      const uniqueProjectIds = Array.from(new Set(attendanceData.map((record: any) => record.project_id)));
+      const uniqueProjectIds = Array.from(new Set(attendanceData.map((record: any) => record.project_id))).filter(Boolean) as string[];
       
-      for (const pId of uniqueProjectIds) {
-        const [project] = await db.select().from(projects).where(eq(projects.id, pId as string));
-        if (project) {
-          projectsMap.set(pId, project);
+      if (uniqueProjectIds.length > 0) {
+        const projectsList = await db.select().from(projects).where(inArray(projects.id, uniqueProjectIds));
+        for (const project of projectsList) {
+          projectsMap.set(project.id, project);
         }
       }
       
@@ -2008,12 +2030,11 @@ export class DatabaseStorage implements IStorage {
         .where(and(...attendanceConditions))
         .orderBy(workerAttendance.date);
       
-      // إضافة بيانات المشروع لكل سجل حضور
       const projectsMap = new Map();
-      for (const project_id of project_ids) {
-        const project = await this.getProject(project_id);
-        if (project) {
-          projectsMap.set(project_id, project);
+      if (project_ids.length > 0) {
+        const projectsList = await db.select().from(projects).where(inArray(projects.id, project_ids));
+        for (const project of projectsList) {
+          projectsMap.set(project.id, project);
         }
       }
       
@@ -2041,13 +2062,17 @@ export class DatabaseStorage implements IStorage {
         .where(and(...transfersConditions))
         .orderBy(workerTransfers.transferDate);
       
-      // حساب الرصيد الإجمالي من جميع المشاريع
       let totalBalance = 0;
-      for (const project_id of project_ids) {
-        const workerBalance = await this.getWorkerBalance(worker_id, project_id);
-        if (workerBalance) {
-          totalBalance += parseFloat(workerBalance.currentBalance);
+      if (project_ids.length > 0) {
+        const balances = await db.select().from(workerBalances)
+          .where(and(
+            eq(workerBalances.worker_id, worker_id),
+            inArray(workerBalances.project_id, project_ids)
+          ));
+        for (const bal of balances) {
+          totalBalance += Math.round(parseFloat(bal.currentBalance) * 100) / 100;
         }
+        totalBalance = Math.round(totalBalance * 100) / 100;
       }
       
       const balance: WorkerBalance = {
@@ -2132,70 +2157,66 @@ export class DatabaseStorage implements IStorage {
       let totalTransferred = 0;
       let totalBalance = 0;
       
-      // لكل مشروع، احسب التفاصيل
+      const distinctProjectIds = distinctProjects.map(dp => dp.project_id).filter(Boolean) as string[];
+
+      const [allProjectsData, allAttendanceData, allTransfersData, allBalancesData] = await Promise.all([
+        distinctProjectIds.length > 0
+          ? db.select().from(projects).where(inArray(projects.id, distinctProjectIds))
+          : Promise.resolve([]),
+        (() => {
+          let conditions: any[] = [eq(workerAttendance.worker_id, worker_id)];
+          if (distinctProjectIds.length > 0) conditions.push(inArray(workerAttendance.project_id, distinctProjectIds));
+          if (dateFrom) conditions.push(gte(workerAttendance.date, dateFrom));
+          if (dateTo) conditions.push(lte(workerAttendance.date, dateTo));
+          return db.select().from(workerAttendance).where(and(...conditions)).orderBy(workerAttendance.date);
+        })(),
+        (() => {
+          let conditions: any[] = [eq(workerTransfers.worker_id, worker_id)];
+          if (distinctProjectIds.length > 0) conditions.push(inArray(workerTransfers.project_id, distinctProjectIds));
+          if (dateFrom) conditions.push(gte(workerTransfers.transferDate, dateFrom));
+          if (dateTo) conditions.push(lte(workerTransfers.transferDate, dateTo));
+          return db.select().from(workerTransfers).where(and(...conditions)).orderBy(workerTransfers.transferDate);
+        })(),
+        distinctProjectIds.length > 0
+          ? db.select().from(workerBalances).where(and(
+              eq(workerBalances.worker_id, worker_id),
+              inArray(workerBalances.project_id, distinctProjectIds)
+            ))
+          : Promise.resolve([]),
+      ]);
+
+      const projectsMapLocal = new Map(allProjectsData.map(p => [p.id, p]));
+      const balancesMap = new Map(allBalancesData.map(b => [b.project_id, b]));
+
       for (const { project_id } of distinctProjects) {
-        const [project] = await db.select().from(projects).where(eq(projects.id, project_id));
+        const project = projectsMapLocal.get(project_id);
         if (!project) continue;
-        
-        // جلب الحضور لهذا المشروع
-        let attendanceConditions = [
-          eq(workerAttendance.worker_id, worker_id),
-          eq(workerAttendance.project_id, project_id)
-        ];
-        
-        if (dateFrom) {
-          attendanceConditions.push(gte(workerAttendance.date, dateFrom));
-        }
-        
-        if (dateTo) {
-          attendanceConditions.push(lte(workerAttendance.date, dateTo));
-        }
-        
-        const attendance = await db.select().from(workerAttendance)
-          .where(and(...attendanceConditions))
-          .orderBy(workerAttendance.date);
-        
-        // جلب التحويلات لهذا المشروع
-        let transfersConditions = [
-          eq(workerTransfers.worker_id, worker_id),
-          eq(workerTransfers.project_id, project_id)
-        ];
-        
-        if (dateFrom) {
-          transfersConditions.push(gte(workerTransfers.transferDate, dateFrom));
-        }
-        
-        if (dateTo) {
-          transfersConditions.push(lte(workerTransfers.transferDate, dateTo));
-        }
-        
-        const transfers = await db.select().from(workerTransfers)
-          .where(and(...transfersConditions))
-          .orderBy(workerTransfers.transferDate);
-        
-        // حساب الإحصائيات لهذا المشروع
+
+        const attendance = allAttendanceData.filter((a: any) => a.project_id === project_id);
+        const transfers = allTransfersData.filter((t: any) => t.project_id === project_id);
+
         const projectEarned = attendance.reduce((sum: number, record: any) => {
           const dailyWage = Number(record.dailyWage) || Number(worker.dailyWage) || 0;
           const workDays = Number(record.workDays) || 1;
-          return sum + (dailyWage * workDays);
+          return sum + Math.round(dailyWage * workDays * 100) / 100;
         }, 0);
         
-        const projectPaid = attendance.reduce((sum: number, record: any) => sum + (Number(record.paidAmount) || 0), 0);
-        const projectTransferred = transfers.reduce((sum: number, transfer: any) => sum + (Number(transfer.amount) || 0), 0);
+        const projectPaid = attendance.reduce((sum: number, record: any) => sum + (Math.round((Number(record.paidAmount) || 0) * 100) / 100), 0);
+        const projectTransferred = transfers.reduce((sum: number, transfer: any) => sum + (Math.round((Number(transfer.amount) || 0) * 100) / 100), 0);
         
-        const balance = await this.getWorkerBalance(worker_id, project_id);
+        const balance = balancesMap.get(project_id) || null;
         
         projectsList.push({
           project,
           attendance,
-          balance: balance || null,
+          balance,
           transfers
         });
         
         totalEarned += projectEarned;
         totalPaid += projectPaid;
         totalTransferred += projectTransferred;
-        totalBalance += balance ? Number(balance.currentBalance) : 0;
+        totalBalance += balance ? Math.round(Number(balance.currentBalance) * 100) / 100 : 0;
       }
       
       return {

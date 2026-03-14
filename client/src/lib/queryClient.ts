@@ -90,7 +90,7 @@ async function refreshAuthToken(): Promise<boolean> {
   }
 
   // fallback للتوافق المؤقت
-  console.warn('⚠️ AuthProvider helpers غير مسجلة - استخدام fallback');
+  if (import.meta.env.DEV) console.warn('AuthProvider helpers not registered - using fallback');
   return false;
 }
 
@@ -113,7 +113,7 @@ export async function apiRequest(
   const token = typeof window !== 'undefined' ? getValidToken('accessToken') : null;
   
   if (!token) {
-    console.warn(`⚠️ [apiRequest] لا يوجد توكن للطلب: ${method} ${endpoint}`);
+    if (import.meta.env.DEV) console.warn(`[apiRequest] No token for request: ${method} ${endpoint}`);
     // إذا لم يكن هناك توكن ولسنا في صفحة تسجيل الدخول، نطلب تسجيل الدخول
     if (typeof window !== 'undefined' && !window.location.pathname.includes('/login') && !endpoint.includes('/auth/login')) {
        // بدلاً من التوجيه الفوري، سنسمح للـ fetch بالفشل بـ 401 أو نلقي خطأ
@@ -142,7 +142,7 @@ export async function apiRequest(
   try {
     if (!navigator.onLine && method !== 'GET') {
       if (isOfflineSupportedEndpoint(endpoint)) {
-        console.log(`📴 [apiRequest] بدون اتصال - تحويل لحفظ محلي: ${method} ${endpoint}`);
+        if (import.meta.env.DEV) console.log(`[apiRequest] Offline - saving locally: ${method} ${endpoint}`);
         try {
           const offlineResult = await offlineApiInterceptor(endpoint, method, data);
           if (offlineResult.success) {
@@ -152,16 +152,16 @@ export async function apiRequest(
             return { ...offlineResult.data, isOffline: true, pendingSync: true };
           }
         } catch (offErr) {
-          console.warn('⚠️ [apiRequest] فشل الحفظ المحلي:', offErr);
+          if (import.meta.env.DEV) console.warn('[apiRequest] Local save failed:', offErr);
           return { success: false, data: null, message: 'لا يمكن حفظ البيانات محلياً بدون اتصال', isOffline: true };
         }
       } else {
-        console.warn(`📴 [apiRequest] نقطة نهاية غير مدعومة أوفلاين: ${endpoint}`);
+        if (import.meta.env.DEV) console.warn(`[apiRequest] Endpoint not supported offline: ${endpoint}`);
         return { success: false, data: null, message: 'هذه العملية غير متاحة بدون اتصال بالإنترنت', isOffline: true };
       }
     }
 
-    console.log(`🔄 API Request: ${method} ${endpoint}`, data || '');
+    if (import.meta.env.DEV) console.log(`API Request: ${method} ${endpoint}`);
 
     const response = await fetch(url, config);
 
@@ -169,7 +169,7 @@ export async function apiRequest(
     const contentType = response.headers.get("content-type");
 
     if (response.status === 401) {
-      console.log('🔄 [apiRequest] 401 Unauthorized - Checking tokens...');
+      if (import.meta.env.DEV) console.log('[apiRequest] 401 Unauthorized - Checking tokens...');
       
       const refreshTokenValue = getValidToken("refreshToken");
       if (refreshTokenValue && isValidJwt(refreshTokenValue) && retryCount === 0) {
@@ -177,7 +177,7 @@ export async function apiRequest(
           const apiBase = ENV.getApiBaseUrl();
           const refreshUrl = `${apiBase}/api/auth/refresh`;
           
-          console.log('🔄 [apiRequest] Attempting silent refresh...');
+          if (import.meta.env.DEV) console.log('[apiRequest] Attempting silent refresh...');
           const refreshResponse = await fetch(refreshUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -190,7 +190,7 @@ export async function apiRequest(
             const newRefreshToken = refreshData.data?.refreshToken || refreshData.refreshToken;
             
             if (newAccessToken) {
-              console.log('✅ [apiRequest] Refresh successful, retrying request');
+              if (import.meta.env.DEV) console.log('[apiRequest] Refresh successful, retrying request');
               localStorage.setItem("accessToken", newAccessToken);
               if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
               
@@ -210,16 +210,16 @@ export async function apiRequest(
               return await retryResponse.json();
             }
           } else {
-            console.error('❌ [apiRequest] Refresh response not OK:', refreshResponse.status);
+            if (import.meta.env.DEV) console.error('[apiRequest] Refresh response not OK:', refreshResponse.status);
           }
         } catch (e) {
-          console.error('❌ [apiRequest] Refresh failed:', e);
+          if (import.meta.env.DEV) console.error('[apiRequest] Refresh failed:', e);
         }
       }
 
       // إذا وصلنا هنا، يعني فشل التجديد أو لا يوجد توكن
       if (!window.location.pathname.includes('/login')) {
-        console.warn('🚫 [apiRequest] Session expired, but staying in-place for offline support.');
+        if (import.meta.env.DEV) console.warn('[apiRequest] Session expired, but staying in-place for offline support.');
         // ✅ منع التوجيه القسري لضمان استمرارية العمل أوفلاين
         return null; 
       }
@@ -235,12 +235,10 @@ export async function apiRequest(
           errorMessage = errorData.message || errorMessage;
         } else {
           const errorText = await response.text();
-          console.error('❌ [apiRequest] الخادم أرسل text/html; charset=UTF-8 بدلاً من JSON:', {
+          if (import.meta.env.DEV) console.error('[apiRequest] Server sent non-JSON response:', {
             url: endpoint,
-            method,
             status: response.status,
-            contentType,
-            responsePreview: errorText.substring(0, 200)
+            contentType
           });
         }
       } catch (e) {
@@ -252,24 +250,22 @@ export async function apiRequest(
     // تحقق من أن الاستجابة هي JSON
     if (!contentType || !contentType.includes("application/json")) {
       const responseText = await response.text();
-      console.error('❌ [apiRequest] الخادم أرسل text/html; charset=UTF-8 بدلاً من JSON:', {
+      if (import.meta.env.DEV) console.error('[apiRequest] Server sent non-JSON response:', {
         url: endpoint,
-        method,
         status: response.status,
-        contentType,
-        responsePreview: responseText.substring(0, 200)
+        contentType
       });
       throw new Error(`خطأ في نوع الاستجابة: متوقع JSON لكن تم استلام ${contentType}`);
     }
 
     const result = await response.json();
-    console.log(`✅ API Response: ${method} ${endpoint}`, result);
+    if (import.meta.env.DEV) console.log(`API Response: ${method} ${endpoint}`);
     return result;
   } catch (error) {
     if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed'))) {
       if (method !== 'GET') {
         if (isOfflineSupportedEndpoint(endpoint)) {
-          console.log(`📴 [apiRequest] خطأ شبكة - تحويل لحفظ محلي: ${method} ${endpoint}`);
+          if (import.meta.env.DEV) console.log(`[apiRequest] Network error - saving locally: ${method} ${endpoint}`);
           try {
             const offlineResult = await offlineApiInterceptor(endpoint, method, data);
             if (offlineResult.success) {
@@ -279,7 +275,7 @@ export async function apiRequest(
               return { ...offlineResult.data, isOffline: true, pendingSync: true };
             }
           } catch (offErr) {
-            console.warn('⚠️ [apiRequest] فشل الحفظ المحلي:', offErr);
+            if (import.meta.env.DEV) console.warn('[apiRequest] Local save failed:', offErr);
             return { success: false, data: null, message: 'لا يمكن حفظ البيانات بدون اتصال', isOffline: true };
           }
         } else {
@@ -287,11 +283,11 @@ export async function apiRequest(
         }
       }
       if (method === 'GET') {
-        console.warn(`📴 [apiRequest] GET request failed offline: ${endpoint}`);
+        if (import.meta.env.DEV) console.warn(`[apiRequest] GET request failed offline: ${endpoint}`);
         return { success: true, data: [], message: 'بدون اتصال', isOffline: true };
       }
     }
-    console.error(`❌ API Error: ${method} ${endpoint}`, error);
+    if (import.meta.env.DEV) console.error(`API Error: ${method} ${endpoint}`, error);
     throw error;
   }
 }
@@ -331,25 +327,20 @@ export const getQueryFn: <T>(options: {
         try {
           // ✅ فحص الاتصال قبل البدء
           const online = isOnline();
-          console.log(`🌐 [QueryClient] حالة الاتصال: ${online ? 'متصل' : 'غير متصل'}`);
 
           if (!online && useLocalFallback) {
-            console.log(`📡 [QueryClient] بدون إنترنت - محاولة جلب البيانات محلياً لـ: ${(queryKey as any[]).join("/")}`);
+            if (import.meta.env.DEV) console.log(`[QueryClient] Offline - fetching local data for: ${(queryKey as any[]).join("/")}`);
             try {
               const storeName = resolveStoreForQueryKey(queryKey);
               if (storeName) {
                 const localData = await smartGetAll(storeName);
                 if (localData && Array.isArray(localData) && localData.length > 0) {
-                  console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً من ${storeName}`);
                   return localData as any;
                 }
-                console.log(`📭 [QueryClient] لا توجد بيانات محلية في ${storeName}`);
-              } else {
-                console.log(`⚠️ [QueryClient] لا يوجد مخزن محلي لـ: ${(queryKey as any[]).join("/")}`);
               }
               return [] as any;
             } catch (localError) {
-              console.error(`❌ [QueryClient] فشل جلب البيانات المحلية:`, localError);
+              if (import.meta.env.DEV) console.error('[QueryClient] Failed to fetch local data:', localError);
               return [] as any;
             }
           }
@@ -358,7 +349,7 @@ export const getQueryFn: <T>(options: {
         let accessToken = getStoredAccessToken();
 
         if (accessToken && isTokenExpired(accessToken)) {
-          console.log('[QueryClient] Access token expired/expiring, attempting proactive refresh...');
+          if (import.meta.env.DEV) console.log('[QueryClient] Access token expired, attempting proactive refresh...');
           const refreshed = await refreshAuthToken();
           if (refreshed) {
             accessToken = getStoredAccessToken();
@@ -371,10 +362,7 @@ export const getQueryFn: <T>(options: {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
 
-        console.log(`🔍 [QueryClient] إرسال طلب: ${url}`, {
-          hasToken: !!accessToken,
-          online: isOnline()
-        });
+        if (import.meta.env.DEV) console.log(`[QueryClient] Sending request: ${url}`);
 
         const res = await fetch(url, {
           headers,
@@ -386,7 +374,7 @@ export const getQueryFn: <T>(options: {
 
         if (!res.ok) {
           if (res.status === 401 && retryCount === 0) {
-            console.log('🔄 [QueryClient] 401 - محاولة تجديد التوكن...');
+            if (import.meta.env.DEV) console.log('[QueryClient] 401 - attempting token refresh...');
             const refreshTokenValue = getValidToken("refreshToken");
             if (refreshTokenValue && isValidJwt(refreshTokenValue)) {
               try {
@@ -402,17 +390,17 @@ export const getQueryFn: <T>(options: {
                   const newToken = refreshData.data?.accessToken || refreshData.accessToken;
                   const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
                   if (newToken) {
-                    console.log('✅ [QueryClient] تم تجديد التوكن بنجاح، إعادة الطلب...');
+                    if (import.meta.env.DEV) console.log('[QueryClient] Token refreshed successfully, retrying...');
                     localStorage.setItem("accessToken", newToken);
                     if (newRefresh) localStorage.setItem("refreshToken", newRefresh);
                     return makeQueryRequest(retryCount + 1);
                   }
                 }
               } catch (refreshErr) {
-                console.error('❌ [QueryClient] فشل تجديد التوكن:', refreshErr);
+                if (import.meta.env.DEV) console.error('[QueryClient] Token refresh failed:', refreshErr);
               }
             }
-            console.error('❌ [QueryClient] Unauthorized (401) - فشل التجديد');
+            if (import.meta.env.DEV) console.error('[QueryClient] Unauthorized (401) - refresh failed');
             throw new Error(`Authentication Error (401)`);
           }
           if (res.status === 401) {
@@ -424,35 +412,7 @@ export const getQueryFn: <T>(options: {
 
         const data = await res.json();
 
-        console.log(`✅ [QueryClient] استجابة ناجحة لـ ${queryKey.join("/")}:`, {
-          hasData: !!data,
-          dataType: typeof data
-        });
-
-        // تسجيل مبسط في بيئة التطوير فقط
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`📊 ${queryKey[0]} - تم استلام البيانات بنجاح`);
-
-          // إضافة debugging خاص للإشعارات - مع guard للأمان
-          if (typeof queryKey[0] === 'string' && queryKey[0].includes('notifications')) {
-            console.log('🔍 [DEBUG] تفاصيل استجابة الإشعارات:', {
-              dataType: typeof data,
-              isArray: Array.isArray(data),
-              dataKeys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
-              dataContent: data
-            });
-          }
-        }
-
-        // 🔍 تشخيص مفصل للبيانات المستلمة
-        console.log(`📊 [QueryClient] تحليل البيانات لـ ${queryKey.join("/")}:`, {
-          dataType: typeof data,
-          isObject: data && typeof data === 'object',
-          hasSuccess: data?.success !== undefined,
-          hasDataProperty: data?.data !== undefined,
-          actualDataValue: data?.data,
-          rawData: data
-        });
+        if (import.meta.env.DEV) console.log(`[QueryClient] Response received for ${queryKey.join("/")}`);
 
         // استخراج البيانات الفعلية دون إجبار على مصفوفة فارغة
         if (data && typeof data === 'object') {
@@ -461,11 +421,6 @@ export const getQueryFn: <T>(options: {
 
           // إذا كانت البيانات في الشكل { success, data, count } (شكل API)
           if (data.success !== undefined && data.hasOwnProperty('data')) {
-            console.log(`✅ [QueryClient] بيانات API صحيحة لـ ${queryKey.join("/")}:`, {
-              success: data.success,
-              dataExists: data.data !== undefined,
-              dataType: typeof data.data
-            });
 
             // لنقاط النهاية الخاصة بالهجرة، نُرجع البيانات كما هي
             if (isMigrationEndpoint) {
@@ -512,13 +467,12 @@ export const getQueryFn: <T>(options: {
           fetchError.name === 'AbortError' ||
           fetchError.name === 'TypeError'
         )) {
-          console.log(`📴 [QueryClient] خطأ شبكة - محاولة جلب بيانات محلية لـ: ${(queryKey as any[]).join("/")}`);
+          if (import.meta.env.DEV) console.log(`[QueryClient] Network error - fetching local data for: ${(queryKey as any[]).join("/")}`);
           try {
             const storeName = resolveStoreForQueryKey(queryKey);
             if (storeName) {
               const localData = await smartGetAll(storeName);
               if (localData && Array.isArray(localData) && localData.length > 0) {
-                console.log(`✅ [QueryClient] تم استعادة ${localData.length} سجل محلياً بعد خطأ شبكة`);
                 return localData as any;
               }
             }
@@ -578,7 +532,7 @@ export const QUERY_KEYS = UNIFIED_KEYS;
 
 // ⚡ دالة لتحميل البيانات مسبقاً عند تسجيل الدخول
 export async function prefetchCoreData() {
-  console.log('🚀 [Prefetch] بدء تحميل البيانات الأساسية مسبقاً...');
+  if (import.meta.env.DEV) console.log('[Prefetch] Prefetching core data...');
   const startTime = Date.now();
   
   const prefetchPromises = [
@@ -617,20 +571,20 @@ export async function prefetchCoreData() {
   try {
     await Promise.all(prefetchPromises);
     const duration = Date.now() - startTime;
-    console.log(`✅ [Prefetch] تم تحميل جميع البيانات الأساسية في ${duration}ms`);
+    if (import.meta.env.DEV) console.log(`[Prefetch] Core data loaded in ${duration}ms`);
   } catch (error) {
-    console.warn('⚠️ [Prefetch] فشل تحميل بعض البيانات:', error);
+    if (import.meta.env.DEV) console.warn('[Prefetch] Failed to load some data:', error);
   }
 }
 
 // ⚡ دالة لمسح الكاش عند تسجيل الخروج
 export function clearAllCache() {
-  console.log('🧹 [Cache] مسح جميع البيانات المخزنة...');
+  if (import.meta.env.DEV) console.log('[Cache] Clearing all cached data...');
   queryClient.clear();
 }
 
 export async function invalidateAllProjectData(project_id?: string) {
-  console.log('⚡ [QueryClient] تحديث فوري لجميع بيانات المشروع:', project_id);
+  if (import.meta.env.DEV) console.log('[QueryClient] Invalidating all project data:', project_id);
   
   const startTime = Date.now();
   
@@ -680,11 +634,11 @@ export async function invalidateAllProjectData(project_id?: string) {
   });
 
   const duration = Date.now() - startTime;
-  console.log(`✅ [QueryClient] تم تحديث جميع البيانات في ${duration}ms`);
+  if (import.meta.env.DEV) console.log(`[QueryClient] All data invalidated in ${duration}ms`);
 }
 
 export function invalidateDateRelatedData(project_id: string, date: string) {
-  console.log('🔄 [QueryClient] تحديث فوري لبيانات التاريخ:', { project_id, date });
+  if (import.meta.env.DEV) console.log('[QueryClient] Invalidating date-related data:', { project_id, date });
   
   queryClient.invalidateQueries({ 
     queryKey: QUERY_KEYS.dailyExpenses(project_id, date),

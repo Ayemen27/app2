@@ -115,44 +115,12 @@ export function extractTokenFromReq(req: Request): string | null {
       }
     }
 
-  // 2. التحقق من الترويسات المخصصة الشائعة (مهم جداً لتوافق الأندرويد)
-  const customHeaders = ['x-auth-token', 'x-access-token', 'token', 'Authorization', 'authorization'];
-  for (const header of customHeaders) {
-    const value = req.headers[header] || req.headers[header.toLowerCase()];
-    if (value && typeof value === 'string') {
-      let cleanValue = value.trim();
-      // تنظيف علامات الاقتباس
-      if (cleanValue.startsWith('"') && cleanValue.endsWith('"')) {
-        cleanValue = cleanValue.slice(1, -1);
-      }
-      
-      if (cleanValue.toLowerCase().startsWith('bearer ')) {
-        const subValue = cleanValue.substring(7).trim();
-        if (subValue.toLowerCase().startsWith('bearer ')) {
-          return subValue.substring(7).trim();
-        }
-        return subValue;
-      }
-      return cleanValue;
-    }
-  }
-  
-  // 3. التحقق من الكوكيز (للمتصفحات)
+  // 2. التحقق من الكوكيز (للمتصفحات)
   if (req.cookies) {
-    const cookieNames = ['accessToken', 'accessToken', 'token', 'jwt'];
+    const cookieNames = ['accessToken', 'token', 'jwt'];
     for (const name of cookieNames) {
       if (req.cookies[name]) return req.cookies[name];
     }
-  }
-  
-  // 4. التحقق من الجسم (Body) أو الاستعلام (Query) - كحل أخير
-  const fromParams = (req.query?.token as string) || (req.body?.token as string) || (req.body?.accessToken as string);
-  if (fromParams && typeof fromParams === 'string') {
-    let cleanParam = fromParams.trim();
-    if (cleanParam.startsWith('"') && cleanParam.endsWith('"')) {
-      cleanParam = cleanParam.slice(1, -1);
-    }
-    return cleanParam;
   }
   
   return null;

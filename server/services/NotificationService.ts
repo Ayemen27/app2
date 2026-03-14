@@ -636,19 +636,36 @@ export class NotificationService {
 
     console.log(`🎯 عدد الإشعارات المُفلترة: ${userNotifications.length}`);
 
-    // تعليم كل إشعار كمقروء بشكل متتالي لضمان عدم حدوث تضارب
-    let markedCount = 0;
-    for (const notification of userNotifications) {
-      try {
-        await this.markAsRead(notification.id, user_id);
-        markedCount++;
-        console.log(`✅ تم تعليم الإشعار ${notification.id} كمقروء`);
-      } catch (error) {
-        console.error(`❌ خطأ في تعليم الإشعار ${notification.id} كمقروء:`, error);
-      }
+    if (userNotifications.length === 0) {
+      console.log(`✅ لا توجد إشعارات لتعليمها كمقروءة`);
+      return;
     }
 
-    console.log(`✅ تم تعليم ${markedCount} إشعار كمقروء`);
+    const notificationIds = userNotifications.map(n => n.id);
+
+    try {
+      await db.delete(notificationReadStates)
+        .where(
+          and(
+            eq(notificationReadStates.user_id, user_id),
+            inArray(notificationReadStates.notificationId, notificationIds)
+          )
+        );
+
+      await db.insert(notificationReadStates)
+        .values(
+          notificationIds.map(notificationId => ({
+            user_id,
+            notificationId,
+            isRead: true,
+            readAt: new Date(),
+          }))
+        );
+
+      console.log(`✅ تم تعليم ${notificationIds.length} إشعار كمقروء`);
+    } catch (error) {
+      console.error(`❌ خطأ في تعليم الإشعارات كمقروءة:`, error);
+    }
   }
 
   /**

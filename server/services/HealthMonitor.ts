@@ -68,7 +68,7 @@ class HealthMonitor {
     
     const memoryCheck = this.checkMemory();
     const circuitBreakerCheck = this.checkCircuitBreakers();
-    const dbCheck = { status: true, latency: 0 };
+    const dbCheck = await this.checkDatabase();
     
     let overallStatus: 'healthy' | 'degraded' | 'critical' = 'healthy';
     
@@ -100,10 +100,11 @@ class HealthMonitor {
       platform: process.env.PLATFORM === 'android' ? 'android' : 'server'
     };
 
+    const previousStatus = this.lastHealthStatus?.status;
     this.lastHealthStatus = healthStatus;
     this.addToHistory(healthStatus);
 
-    if (this.lastHealthStatus?.status !== overallStatus) {
+    if (previousStatus !== overallStatus) {
       this.notifyHealthChange(healthStatus);
     }
 

@@ -991,6 +991,7 @@ export class WhatsAppAIService {
       });
 
       const htmlContent = generateWorkerStatementHTML(data);
+      let pdfSent = false;
       try {
         const pdfBuffer = await convertHtmlToPdf(htmlContent);
         await bot.sendMessageSafe(jid, {
@@ -998,7 +999,9 @@ export class WhatsAppAIService {
           mimetype: 'application/pdf',
           fileName: `كشف-عامل-${workerName}.pdf`,
         });
-      } catch {
+        pdfSent = true;
+      } catch (pdfErr: any) {
+        console.error('[WhatsAppAI] PDF conversion failed:', pdfErr.message);
         await bot.sendMessageSafe(jid, {
           document: Buffer.from(htmlContent, 'utf-8'),
           mimetype: 'text/html',
@@ -1007,7 +1010,8 @@ export class WhatsAppAIService {
       }
 
       const projLabel = context.data.projectName ? ` (${context.data.projectName})` : '';
-      return buildTextWithMenu('تم', `✅ تم إرسال كشف حساب *${workerName}*${projLabel} بصيغتي Excel و PDF`, 'main');
+      const formatLabel = pdfSent ? 'Excel و PDF' : 'Excel و HTML';
+      return buildTextWithMenu('تم', `✅ تم إرسال كشف حساب *${workerName}*${projLabel} بصيغتي ${formatLabel}`, 'main');
     } catch (err: any) {
       console.error('[WhatsAppAI] Worker export error:', err);
       return textReply(nav(`❌ خطأ: ${err.message}`));

@@ -55,7 +55,13 @@ export class FcmService {
         isRead: false,
       };
 
-      await storage.createNotification(dbNotification as any);
+      await storage.createNotification({
+        title: data.title,
+        body: data.message,
+        type: data.type,
+        priority: data.priority,
+        targetPlatform: data.targetPlatform,
+      });
     }
 
     // 2. إرسال عبر Firebase (لأندرويد)
@@ -86,7 +92,7 @@ export class FcmService {
           topic: data.targetPlatform === 'android' ? 'android_users' : 'all_users'
         };
 
-        const response = await admin.messaging().send(message as any);
+        const response = await admin.messaging().send(message as Parameters<ReturnType<typeof admin.messaging>['send']>[0]);
         console.log(`✅ [FCM] Successfully sent message:`, response);
         return { success: true, messageId: response };
       } catch (error: any) {

@@ -25,7 +25,8 @@ function extractSchemaTableNames(): string[] {
 
   for (const key of Object.keys(schema)) {
     try {
-      const val = (schema as any)[key];
+      // Schema introspection requires dynamic access to exported table objects
+      const val = (schema as Record<string, unknown>)[key] as Record<symbol, unknown> | undefined;
       if (
         val &&
         typeof val === 'object' &&
@@ -48,7 +49,8 @@ async function fetchDbTableNames(): Promise<string[]> {
   const result = await db.execute(
     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name"
   );
-  return ((result as any).rows || []).map((r: any) => r.table_name);
+  // Drizzle execute() returns raw query result; rows access needed for schema introspection
+  return ((result as { rows?: Array<{ table_name: string }> }).rows || []).map((r) => r.table_name);
 }
 
 export async function validateSchemaIntegrity(): Promise<SchemaValidationResult> {

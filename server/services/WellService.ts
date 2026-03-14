@@ -59,7 +59,7 @@ export class WellService {
       let query = db.select().from(wells);
 
       if (project_id) {
-        query = query.where(eq(wells.project_id, project_id)) as any;
+        query = query.where(eq(wells.project_id, project_id)) as typeof query; // Drizzle dynamic query builder limitation
       }
 
       const wellsList = await query.orderBy(wells.wellNumber);
@@ -310,7 +310,7 @@ export class WellService {
 
       if (project_id) {
         query = query.innerJoin(wells, eq(wellTasks.well_id, wells.id))
-          .where(eq(wells.project_id, project_id)) as any;
+          .where(eq(wells.project_id, project_id)) as typeof query; // Drizzle dynamic query builder limitation
       }
 
       const tasks = await query.orderBy(asc(wellTasks.created_at));

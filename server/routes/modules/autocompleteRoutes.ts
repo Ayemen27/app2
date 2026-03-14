@@ -426,7 +426,8 @@ autocompleteRouter.get('/worker-types', requireAuth, async (req: Request, res: R
           .from(workersTable)
           .where(
             or(
-              inArray((workersTable as any).project_id, accessibleProjectIds),
+              // Dynamic schema access: workersTable loaded dynamically, project_id column exists at runtime
+              inArray((workersTable as unknown as Record<string, typeof workersTable.created_by>).project_id, accessibleProjectIds),
               eq(workersTable.created_by, userId)
             )
           );

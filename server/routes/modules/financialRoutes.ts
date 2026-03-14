@@ -1027,7 +1027,7 @@ financialRouter.get('/worker-transfers', async (req: Request, res: Response) => 
     let query = db.select().from(workerTransfers);
     
     if (project_id && project_id !== 'all') {
-      query = query.where(eq(workerTransfers.project_id, project_id)) as any;
+      query = query.where(eq(workerTransfers.project_id, project_id)) as typeof query; // Drizzle dynamic query builder limitation
     }
     
     const transfers = await query.orderBy(desc(workerTransfers.transferDate));
@@ -1968,7 +1968,7 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
       .leftJoin(projects, eq(materialPurchases.project_id, projects.id));
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions)) as typeof query; // Drizzle dynamic query builder limitation
     }
     
     const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
@@ -3108,7 +3108,7 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
 
     let purchasesQuery = db.select().from(materialPurchases);
     if (conditions.length > 0) {
-      purchasesQuery = purchasesQuery.where(and(...conditions)) as any;
+      purchasesQuery = purchasesQuery.where(and(...conditions)) as typeof purchasesQuery; // Drizzle dynamic query builder limitation
     }
     const purchasesList = await purchasesQuery;
     

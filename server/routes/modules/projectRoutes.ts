@@ -811,7 +811,7 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
             materialPurchases: Math.max(0, materialPurchases),
             lastActivity: project.created_at.toISOString()
           }
-        } as any;
+        } as typeof project & { stats: Record<string, number | string> };
 
         console.log('✅ [API] تم حساب إحصائيات المشروع بنجاح');
       } catch (statsError) {
@@ -1481,7 +1481,7 @@ projectRouter.get('/:project_id/material-purchases', requireProjectAccess('view'
         .leftJoin(projects, eq(materialPurchases.project_id, projects.id));
       
       if (date) {
-        query = query.where(eq(materialPurchases.purchaseDate, date as string)) as any;
+        query = query.where(eq(materialPurchases.purchaseDate, date as string)) as typeof query; // Drizzle dynamic query builder limitation
       }
       
       purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
@@ -1593,7 +1593,7 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions)) as typeof query; // Drizzle dynamic query builder limitation
     }
 
     const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));

@@ -51,6 +51,15 @@ import {
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
 
+interface SqlAggregateRow {
+  count?: string;
+  total?: string;
+  total_wages?: string;
+  completed_days?: string;
+  cash_total?: string;
+  credit_total?: string;
+}
+
 const projects = projectsTable;
 
 export interface IStorage {
@@ -506,7 +515,7 @@ export class DatabaseStorage implements IStorage {
       return updated;
     } else {
       const [inserted] = await db.insert(whatsappStats)
-        .values(stats as any)
+        .values(stats as InsertWhatsAppStats)
         .returning();
       return inserted;
     }
@@ -2382,18 +2391,28 @@ export class DatabaseStorage implements IStorage {
       ]);
 
       // حساب الإجماليات
-      const totalWorkers = parseInt((workers.rows[0] as any)?.count || '0');
-      const totalFundTransfers = parseFloat((fundTransfers.rows[0] as any)?.total || '0');
-      const totalProjectIn = parseFloat((projectTransfersIn.rows[0] as any)?.total || '0');
-      const totalProjectOut = parseFloat((projectTransfersOut.rows[0] as any)?.total || '0');
-      const totalWages = parseFloat((attendance.rows[0] as any)?.total_wages || '0');
-      const completedDays = parseInt((attendance.rows[0] as any)?.completed_days || '0');
-      const totalMaterialsCash = parseFloat((materials.rows[0] as any)?.cash_total || '0');
-      const totalMaterialsCredit = parseFloat((materials.rows[0] as any)?.credit_total || '0');
-      const materialCount = parseInt((materials.rows[0] as any)?.count || '0');
-      const totalTransport = parseFloat((transport.rows[0] as any)?.total || '0');
-      const totalMisc = parseFloat((miscExpenses.rows[0] as any)?.total || '0');
-      const totalWorkerTransfers = parseFloat((workerTransfers.rows[0] as any)?.total || '0');
+      const workersRow = workers.rows[0] as SqlAggregateRow | undefined;
+      const fundTransfersRow = fundTransfers.rows[0] as SqlAggregateRow | undefined;
+      const projectTransfersInRow = projectTransfersIn.rows[0] as SqlAggregateRow | undefined;
+      const projectTransfersOutRow = projectTransfersOut.rows[0] as SqlAggregateRow | undefined;
+      const attendanceRow = attendance.rows[0] as SqlAggregateRow | undefined;
+      const materialsRow = materials.rows[0] as SqlAggregateRow | undefined;
+      const transportRow = transport.rows[0] as SqlAggregateRow | undefined;
+      const miscExpensesRow = miscExpenses.rows[0] as SqlAggregateRow | undefined;
+      const workerTransfersRow = workerTransfers.rows[0] as SqlAggregateRow | undefined;
+
+      const totalWorkers = parseInt(workersRow?.count || '0');
+      const totalFundTransfers = parseFloat(fundTransfersRow?.total || '0');
+      const totalProjectIn = parseFloat(projectTransfersInRow?.total || '0');
+      const totalProjectOut = parseFloat(projectTransfersOutRow?.total || '0');
+      const totalWages = parseFloat(attendanceRow?.total_wages || '0');
+      const completedDays = parseInt(attendanceRow?.completed_days || '0');
+      const totalMaterialsCash = parseFloat(materialsRow?.cash_total || '0');
+      const totalMaterialsCredit = parseFloat(materialsRow?.credit_total || '0');
+      const materialCount = parseInt(materialsRow?.count || '0');
+      const totalTransport = parseFloat(transportRow?.total || '0');
+      const totalMisc = parseFloat(miscExpensesRow?.total || '0');
+      const totalWorkerTransfers = parseFloat(workerTransfersRow?.total || '0');
 
       // الإجمالي الكلي للدخل والمصروفات - مع تصحيح منطق التحويلات الصادرة
       const totalIncome = totalFundTransfers + totalProjectIn;
@@ -4378,8 +4397,9 @@ export class DatabaseStorage implements IStorage {
   // Daily Activity Logs Implementation
   async getDailyLogs(project_id?: string, date?: string): Promise<DailyActivityLog[]> {
     let query = db.select().from(dailyActivityLogs).orderBy(desc(dailyActivityLogs.logDate));
-    if (project_id) query = query.where(eq(dailyActivityLogs.project_id, project_id)) as any;
-    if (date) query = query.where(eq(dailyActivityLogs.logDate, date)) as any;
+    // Drizzle dynamic query builder limitation
+    if (project_id) query = query.where(eq(dailyActivityLogs.project_id, project_id)) as typeof query; // Drizzle dynamic query builder limitation
+    if (date) query = query.where(eq(dailyActivityLogs.logDate, date)) as typeof query; // Drizzle dynamic query builder limitation
     return await query;
   }
 

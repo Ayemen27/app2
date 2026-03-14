@@ -534,7 +534,8 @@ class ProjectAccessService {
     }
 
     if (conditions.length > 0) {
-      return await (query as any).where(and(...conditions));
+      // Drizzle ORM limitation: dynamic .where() on pre-built query requires type assertion
+      return await (query as typeof query).where(and(...conditions));
     }
 
     return await query;

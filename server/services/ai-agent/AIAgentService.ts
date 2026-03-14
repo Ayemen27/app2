@@ -292,8 +292,7 @@ export class AIAgentService {
         tokensUsed: aiResponse.tokensUsed,
         action,
         actionData,
-        steps, // تخزين الخطوات في قاعدة البيانات إذا كان الحقل موجوداً، أو تجاهله
-      } as any);
+      });
 
       // تحديث عدد الرسائل
       await db.update(aiChatSessions)

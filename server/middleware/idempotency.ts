@@ -49,12 +49,12 @@ async function handleIdempotency(key: string, req: Request, res: Response, next:
     }
 
     return originalJson(body);
-  } as any;
+  } as typeof res.json;
 
   next();
 }
 
 export async function cleanupExpiredKeys(): Promise<number> {
   const result = await db.delete(idempotencyKeys).where(lt(idempotencyKeys.expiresAt, new Date()));
-  return (result as any).rowCount || 0;
+  return (result as { rowCount?: number }).rowCount || 0;
 }

@@ -438,7 +438,7 @@ export class ModelManager {
       throw new Error(`Hugging Face API error (${response.status}): ${errorText}`);
     }
 
-    const data = await response.json() as any;
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }>; usage?: { total_tokens?: number } };
     
     const content = data.choices?.[0]?.message?.content || "لم أتمكن من توليد رد.";
 

@@ -6,7 +6,11 @@
 import type { ErrorLog, InsertErrorLog } from "@shared/schema";
 import { storage } from "../storage";
 
-const storageAny = storage as any;
+interface ErrorTrackingStorage {
+  createErrorLog(data: InsertErrorLog): Promise<ErrorLog>;
+  getErrorLogs(limit: number, timeRange?: string): Promise<ErrorLog[]>;
+}
+const storageAny = storage as unknown as ErrorTrackingStorage;
 
 export interface NetlifyErrorContext {
   deploymentId?: string;

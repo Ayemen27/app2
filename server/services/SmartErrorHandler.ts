@@ -130,9 +130,10 @@ export class SmartErrorHandler {
       
       // رمي الخطأ إذا كان مطلوباً (للحفاظ على سلوك التطبيق الطبيعي)
       if (throwError) {
-        const enhancedError = new Error(analyzedError.arabicMessage);
-        (enhancedError as any).originalError = error;
-        (enhancedError as any).analyzedError = analyzedError;
+        const enhancedError = Object.assign(new Error(analyzedError.arabicMessage), {
+          originalError: error,
+          analyzedError: analyzedError
+        });
         throw enhancedError;
       }
       

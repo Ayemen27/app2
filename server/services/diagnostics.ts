@@ -1,7 +1,12 @@
 import type { DiagnosticCheck, InsertDiagnosticCheck } from "@shared/schema";
 import { storage } from "../storage";
 
-const storageAny = storage as any;
+interface DiagnosticStorage {
+  createDiagnosticCheck(data: Partial<InsertDiagnosticCheck>): Promise<DiagnosticCheck>;
+  updateDiagnosticCheck(id: number, status: string, message: string, duration?: number): Promise<DiagnosticCheck>;
+  getDiagnosticChecks(): Promise<DiagnosticCheck[]>;
+}
+const storageAny = storage as unknown as DiagnosticStorage;
 
 export class DiagnosticsService {
   private diagnosticChecks = [

@@ -258,7 +258,7 @@ const io = new Server(server, {
 });
 
 // Store io instance globally for mutations
-(global as any).io = io;
+globalThis.io = io;
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
@@ -381,7 +381,7 @@ app.post("/api/connection/reconnect", requireAuth, async (req: Request, res: Res
     
     console.log(`🔄 [API] Manual reconnection requested for: ${reconnectTarget}`);
     
-    await smartConnectionManager.reconnect(reconnectTarget as any);
+    await smartConnectionManager.reconnect(reconnectTarget as 'local' | 'supabase' | 'both');
     
     const status = smartConnectionManager.getConnectionStatus();
     
@@ -476,20 +476,21 @@ function generateRecommendations(connectionStatus: any, metrics: any): string[] 
 // ✅ **Schema Status Endpoint**
 app.get("/api/schema-status", requireAuth, (req: Request, res: Response): void => {
   try {
-    const status = getAutoPushStatus() as any;
+    const status = getAutoPushStatus() as Record<string, unknown>;
+    const lastCheck = status.lastCheck as Record<string, unknown> | null | undefined;
     res.json({
       success: true,
       data: {
         enabled: status.enabled,
         autoFixEnabled: status.autoFixEnabled,
         lastRun: status.lastRun,
-        hoursSinceLastRun: status.hoursSinceLastRun ? Math.round(status.hoursSinceLastRun * 10) / 10 : null,
-        lastCheck: status.lastCheck ? {
-          isConsistent: status.lastCheck.isConsistent,
-          missingTables: (status.lastCheck.missingTables || []).length,
-          missingColumns: (status.lastCheck.missingColumns || []).length,
-          fixableIssues: status.lastCheck.fixableIssues,
-          criticalIssues: status.lastCheck.criticalIssues
+        hoursSinceLastRun: status.hoursSinceLastRun ? Math.round((status.hoursSinceLastRun as number) * 10) / 10 : null,
+        lastCheck: lastCheck ? {
+          isConsistent: lastCheck.isConsistent,
+          missingTables: ((lastCheck.missingTables as unknown[]) || []).length,
+          missingColumns: ((lastCheck.missingColumns as unknown[]) || []).length,
+          fixableIssues: lastCheck.fixableIssues,
+          criticalIssues: lastCheck.criticalIssues
         } : null
       }
     });
@@ -505,20 +506,20 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response): void =
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       // منع إعادة التوجيه التلقائي لطلبات API (التي قد ترسل HTML)
       const oldRedirect = res.redirect;
-      res.redirect = function(url: string) {
+      res.redirect = function(this: Response, url: string | number) {
         if (typeof url === 'number') {
           return res.status(url).json({ success: false, message: 'Redirect blocked for API' });
         }
         return res.status(302).json({ success: false, message: 'Redirect blocked for API', target: url });
-      } as any;
+      } as Response['redirect'];
     }
     const start = Date.now();
     const path = req.path;
     let resBody: any;
     const oldJson = res.json;
-    res.json = function(body) {
+    res.json = function(body: unknown) {
       resBody = body;
-      return oldJson.apply(res, arguments as any);
+      return oldJson.call(res, body);
     };
 
     res.on("finish", () => {
@@ -544,9 +545,9 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response): void =
 import { registerOrganizedRoutes } from "./routes/modules/index.js";
 registerOrganizedRoutes(app);
 
-// Register telemetry/monitoring routes from routes.ts
+// Initialize external services (Telegram, Google Drive)
 import { registerRoutes } from "./routes.js";
-registerRoutes(app).catch(err => console.error("Failed to register telemetry routes:", err));
+registerRoutes(app).catch(err => console.error("Failed to initialize services:", err));
 
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
 app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
@@ -560,7 +561,7 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
       role: users.role,
     }).from(users).orderBy(users.first_name);
     
-    const usersWithName = usersList.map((user: any) => ({
+    const usersWithName = usersList.map((user: { id: string; first_name: string | null; last_name: string | null; email: string; role: string }) => ({
       id: user.id,
       name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
       email: user.email,

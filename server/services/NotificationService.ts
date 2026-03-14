@@ -710,7 +710,7 @@ export class NotificationService {
               inArray(notifications.type, allowedTypes),
               or(
                 sql`notifications.recipients::text LIKE '%' || ${user_id} || '%'`,
-                eq(notifications.recipients, user_id as any),
+                eq(notifications.recipients, [user_id]),
                 isNull(notifications.recipients)
               )
             )
@@ -813,7 +813,8 @@ export class NotificationService {
     let query = db.select().from(notifications);
     
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      // Drizzle ORM limitation: dynamic .where() on pre-built query requires type assertion
+      query = query.where(and(...conditions)) as typeof query;
     }
     
     const allNotifications = await query
@@ -849,7 +850,8 @@ export class NotificationService {
     // عدد إجمالي الإشعارات
     const countQuery = db.select({ count: sql`count(*)` }).from(notifications);
     if (conditions.length > 0) {
-      (countQuery as any).where(and(...conditions));
+      // Drizzle ORM limitation: dynamic .where() on pre-built query requires type assertion
+      (countQuery as typeof countQuery).where(and(...conditions));
     }
     const countResult = await countQuery;
     const total = Number(countResult[0]?.count || 0);

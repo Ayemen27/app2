@@ -237,7 +237,7 @@ if (!isAndroid && !isEmergencyMode && rawDbUrl) {
 }
 
 // إضافة متغير عالمي لحالة تكامل البيانات
-(global as any).lastIntegrityCheck = {
+globalThis.lastIntegrityCheck = {
   status: "pending",
   lastChecked: null,
   issues: []
@@ -262,11 +262,11 @@ pool.on('error', (err: any) => {
 
 // دالة مساعدة للتحقق من حالة الاتصال مع تحسينات ذكية
 export async function checkDBConnection() {
-  if (isAndroid || (global as any).isEmergencyMode) return true; 
+  if (isAndroid || globalThis.isEmergencyMode) return true; 
   
   // إذا كنا في وضع الطوارئ، نقلل وتيرة المحاولات لتجنب البطء
-  if ((global as any).inConnectionRetry) return false;
-  (global as any).inConnectionRetry = true;
+  if (globalThis.inConnectionRetry) return false;
+  globalThis.inConnectionRetry = true;
 
   const startTime = Date.now();
   
@@ -276,7 +276,7 @@ export async function checkDBConnection() {
     client.release();
     
     const latency = Date.now() - startTime;
-    (global as any).inConnectionRetry = false;
+    globalThis.inConnectionRetry = false;
     
     // Log successful connection
     if (latency > 1000) {
@@ -286,15 +286,15 @@ export async function checkDBConnection() {
     }
     
     // إذا كان في وضع طوارئ، نقوم بتعطيله فوراً
-    if ((global as any).isEmergencyMode) {
+    if (globalThis.isEmergencyMode) {
       console.log("🔄 [Emergency] Connection restored, disabling emergency mode.");
-      (global as any).isEmergencyMode = false;
+      globalThis.isEmergencyMode = false;
       isEmergencyMode = false;
     }
     return true;
   } catch (err: any) {
     const latency = Date.now() - startTime;
-    (global as any).inConnectionRetry = false;
+    globalThis.inConnectionRetry = false;
     
     // تسجيل مفصل للخطأ
     console.error("❌ [PostgreSQL] Connection failed:", {
@@ -305,9 +305,9 @@ export async function checkDBConnection() {
     });
     
     // تفعيل وضع الطوارئ فوراً عند فشل الاتصال
-    if (!(global as any).isEmergencyMode) {
+    if (!globalThis.isEmergencyMode) {
       console.error("🚨 [Emergency] Activating emergency mode protocol immediately.");
-      (global as any).isEmergencyMode = true;
+      globalThis.isEmergencyMode = true;
       isEmergencyMode = true;
       
       // محاولة استعادة أحدث نسخة احتياطية حقيقية فوراً عند تفعيل وضع الطوارئ
@@ -333,8 +333,8 @@ export async function checkDBConnection() {
              try {
                // Fix: Cast BackupService to any to bypass type check for missing method during development
                // or ensure restoreBackup is used if restoreFromFile is not defined
-               if (typeof (BackupService as any).restoreFromFile === 'function') {
-                 await (BackupService as any).restoreFromFile(emergencyFile);
+               if ("restoreFromFile" in BackupService && typeof (BackupService as Record<string, unknown>).restoreFromFile === "function") {
+                 await (BackupService as Record<string, (...args: unknown[]) => Promise<void>>).restoreFromFile(emergencyFile);
                } else {
                  console.warn("⚠️ [Emergency] restoreFromFile not implemented, skipping auto-restore");
                }
@@ -344,7 +344,7 @@ export async function checkDBConnection() {
                if (sqliteInstance) {
                  const { drizzle: drizzleSqlite } = await import("drizzle-orm/better-sqlite3");
                  dbInstance = drizzleSqlite(sqliteInstance, { schema });
-                 (global as any).db = dbInstance; // التأكد من التحديث العالمي
+                 globalThis.db = dbInstance; // التأكد من التحديث العالمي
                  console.log("🔄 [Emergency] dbInstance updated to SQLite effectively.");
                }
              } catch (e: any) {

@@ -498,8 +498,9 @@ CREATE TABLE IF NOT EXISTS "well_audit_logs" (
 
 // ضمان إضافة أي جداول أخرى من المخطط بهيكل مبسط إذا لم تكن معرفة أعلاه
 Object.entries(schema).forEach(([key, value]) => {
-  if (typeof value === 'object' && value !== null && 'pgConfig' in (value as any)) {
-    const table = value as any;
+  // Schema introspection: dynamically detect Drizzle table objects by checking pgConfig
+  if (typeof value === 'object' && value !== null && 'pgConfig' in (value as Record<string, unknown>)) {
+    const table = value as Parameters<typeof getTableConfig>[0];
     const config = getTableConfig(table);
     if (!DATABASE_DDL[config.name]) {
        DATABASE_DDL[config.name] = `CREATE TABLE IF NOT EXISTS "${config.name}" (id serial PRIMARY KEY)`;

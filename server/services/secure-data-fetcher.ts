@@ -299,7 +299,7 @@ export class SecureDataFetcher {
       console.log(`💾 حفظ ${data.length} صف من ${tableName} في قاعدة البيانات المحلية...`);
 
       // استخدام المدير الذكي للحصول على الاتصال المحلي للكتابة
-      const localPool = (smartConnectionManager as any).getPool?.('write') || null;
+      const localPool = (smartConnectionManager as unknown as { getPool?: (mode: string) => { query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }> } | null }).getPool?.('write') || null;
       
       if (!localPool) {
         console.error('❌ لا يمكن الحصول على اتصال محلي للحفظ');

@@ -118,11 +118,11 @@ function generateDayPage(report: DailyReportData, carryForward: number, dayIndex
   html += pdfInfoBar(
     [
       `<b>المشروع:</b> ${escapeHtml(report.project?.name || '-')}`,
-      (report.project as any)?.engineerName ? `<b>المهندس:</b> ${escapeHtml((report.project as any).engineerName)}` : '',
+      (report.project as Record<string, unknown> | undefined)?.engineerName ? `<b>المهندس:</b> ${escapeHtml(String((report.project as Record<string, unknown>).engineerName))}` : '',
     ].filter(Boolean),
     [
       `<b>التاريخ:</b> ${dateLabel}`,
-      (report.project as any)?.managerName ? `<b>المدير:</b> ${escapeHtml((report.project as any).managerName)}` : '',
+      (report.project as Record<string, unknown> | undefined)?.managerName ? `<b>المدير:</b> ${escapeHtml(String((report.project as Record<string, unknown>).managerName))}` : '',
     ].filter(Boolean)
   );
 

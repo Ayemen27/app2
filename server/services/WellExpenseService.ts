@@ -7,7 +7,8 @@ import { db } from '../db';
 import { eq, and, sql, desc, gte, lte } from 'drizzle-orm';
 import {
   wellExpenses, wells, workerAttendance, materialPurchases,
-  transportationExpenses, workers, materials
+  transportationExpenses, workers, materials,
+  type WellExpense
 } from '../../shared/schema';
 
 export interface WellExpenseDTO {
@@ -219,15 +220,18 @@ export class WellExpenseService {
         .where(eq(wellExpenses.well_id, well_id));
 
       if (filters?.expenseType) {
-        query = query.where(eq(wellExpenses.expenseType, filters.expenseType)) as any;
+        // Drizzle ORM limitation: chained .where() on dynamic queries requires type assertion
+        query = query.where(eq(wellExpenses.expenseType, filters.expenseType)) as typeof query;
       }
 
       if (filters?.startDate) {
-        query = query.where(gte(wellExpenses.expenseDate, filters.startDate)) as any;
+        // Drizzle ORM limitation: chained .where() on dynamic queries requires type assertion
+        query = query.where(gte(wellExpenses.expenseDate, filters.startDate)) as typeof query;
       }
 
       if (filters?.endDate) {
-        query = query.where(lte(wellExpenses.expenseDate, filters.endDate)) as any;
+        // Drizzle ORM limitation: chained .where() on dynamic queries requires type assertion
+        query = query.where(lte(wellExpenses.expenseDate, filters.endDate)) as typeof query;
       }
 
       const expenses = await query.orderBy(desc(wellExpenses.expenseDate));
@@ -256,13 +260,13 @@ export class WellExpenseService {
           serviceCost: 0
         },
         details: {
-          labor: [] as any[],
-          operationalMaterial: [] as any[],
-          consumableMaterial: [] as any[],
-          transport: [] as any[],
-          service: [] as any[]
+          labor: [] as WellExpense[],
+          operationalMaterial: [] as WellExpense[],
+          consumableMaterial: [] as WellExpense[],
+          transport: [] as WellExpense[],
+          service: [] as WellExpense[]
         },
-        breakdown: {} as any
+        breakdown: {} as Record<string, { amount: number; percentage: number }>
       };
 
       // تجميع المصاريف
@@ -343,7 +347,7 @@ export class WellExpenseService {
         project_id,
         totalWells: projectWells.length,
         totalProjectCost: 0,
-        costPerWell: {} as any,
+        costPerWell: {} as Record<number, { totalCost: number; laborCost: number; operationalMaterialCost: number; consumableMaterialCost: number; transportCost: number; serviceCost: number }>,
         averageCostPerWell: 0
       };
 

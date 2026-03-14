@@ -332,8 +332,8 @@ export class NotificationQueueWorker {
           status: status,
           errorMessage: message,
           lastAttemptAt: new Date()
-        } as any)
-        .where(eq(notificationQueue.id, itemId as any));
+        } as typeof notificationQueue.$inferInsert)
+        .where(eq(notificationQueue.id, parseInt(itemId, 10)));
     } catch (error) {
       console.error(`خطأ في تحديث حالة العنصر ${itemId}:`, error);
     }

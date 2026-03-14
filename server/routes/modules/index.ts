@@ -36,6 +36,8 @@ import permissionRouter from './permissionRoutes.js';
 import deploymentRouter from './deploymentRoutes.js';
 import recordTransferRouter from './recordTransferRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
+import { telemetryRouter } from './telemetryRoutes.js';
+import { monitoringRouter } from '../../monitoring/routes.js';
 
 /**
  * تسجيل جميع الـ routers المنظمة
@@ -107,6 +109,11 @@ export function registerOrganizedRoutes(app: Express) {
   // مسارات آخر الإجراءات
   app.use('/api', activityRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات الإجراءات: /api/recent-activities');
+
+  // مسارات القياس والمراقبة (Telemetry & Monitoring)
+  app.use('/api', telemetryRouter);
+  app.use('/api/monitoring', monitoringRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات القياس والمراقبة: /api (telemetry) + /api/monitoring');
 
   // مسارات الإشعارات
   app.use('/api/notifications', notificationRouter);
@@ -200,12 +207,14 @@ const REGISTERED_ROUTE_FILES = new Set([
   'notificationRoutes', 'reportRoutes', 'activityRoutes', 'aiRoutes',
   'syncRoutes', 'tasks', 'securityRoutes', 'backupRoutes',
   'downloadProxyRoutes', 'ledgerRoutes', 'equipmentRoutes', 'syncAuditRoutes', 'index',
-  'authRoutes',       // مسجّل في server/index.ts مباشرة (خارج النظام الموحّد لأسباب ترتيب)
-  'systemRoutes',     // helper functions فقط - ليس router كامل
+  'authRoutes',
+  'systemRoutes',
   'webauthnRoutes',
   'preferencesRoutes',
   'permissionRoutes',
   'deploymentRoutes',
+  'telemetryRoutes',
+  'recordTransferRoutes',
 ]);
 
 export async function checkForUnregisteredRouters() {
@@ -276,6 +285,7 @@ export {
   tasksRouter,
   ledgerRouter,
   equipmentRouter,
+  telemetryRouter,
 };
 
 export default {

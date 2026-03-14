@@ -50,7 +50,7 @@ export const globalErrorHandler = (err: any, req: Request, res: Response, next: 
   };
 
   if (process.env.NODE_ENV === 'development' && err.stack) {
-    (response.metadata as any).stack = err.stack;
+    response.metadata = { ...response.metadata!, stack: err.stack };
   }
 
   console.error(`❌ [API-ERROR] ${req.method} ${req.path}:`, err);

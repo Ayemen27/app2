@@ -208,7 +208,7 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
     row = xlCompanyHeader(ws, row, COL_COUNT);
     row = xlTitleRow(ws, row, 'التقرير اليومي المختصر', COL_COUNT);
     row = xlInfoRow(ws, row,
-      `المشروع: ${report.project?.name || '-'}  |  التاريخ: ${dateLabel}  |  المهندس: ${(report.project as any)?.engineerName || '-'}`,
+      `المشروع: ${report.project?.name || '-'}  |  التاريخ: ${dateLabel}  |  المهندس: ${(report.project as Record<string, unknown> | undefined)?.engineerName || '-'}`,
       COL_COUNT
     );
 

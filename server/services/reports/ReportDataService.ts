@@ -739,14 +739,15 @@ export class ReportDataService {
       const transfer = transfersByWorkerMap.get(wId) || 0;
 
       if (att) {
-        const earned = safeNum((att as any).totalEarned);
-        const directPaid = safeNum((att as any).totalPaid);
+        const attData = att as { totalEarned?: number; totalPaid?: number; workerName?: string; workerType?: string; totalDays?: number };
+        const earned = safeNum(attData.totalEarned);
+        const directPaid = safeNum(attData.totalPaid);
         const totalPaid = directPaid + transfer;
         return {
           workerId: wId,
-          workerName: (att as any).workerName || '-',
-          workerType: (att as any).workerType || '-',
-          totalDays: safeNum((att as any).totalDays),
+          workerName: attData.workerName || '-',
+          workerType: attData.workerType || '-',
+          totalDays: safeNum(attData.totalDays),
           totalEarned: earned,
           totalDirectPaid: directPaid,
           totalTransfers: transfer,
@@ -908,7 +909,7 @@ export class ReportDataService {
 
     const chartData: ReportChartDataPoint[] = sortedDates.map((d) => {
       const attDay = attendanceSummary.find((a: any) => a.date === d);
-      const wages = attDay ? (attDay as any).totalPaid : 0;
+      const wages = attDay ? (attDay as { totalPaid?: number }).totalPaid || 0 : 0;
       const materialsAmt = matByDate.get(d) || 0;
       const transportAmt = transByDate.get(d) || 0;
       const miscAmt = miscByDate.get(d) || 0;

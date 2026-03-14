@@ -16,6 +16,7 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { requireAuth, requireRole } from '../../middleware/auth';
 import { getAuthUser } from '../../internal/auth-user.js';
+import { safeErrorMessage } from '../../middleware/api-response';
 
 export const notificationRouter = express.Router();
 
@@ -104,7 +105,7 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
       data: [],
       count: 0,
       unreadCount: 0,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في جلب الإشعارات"
     });
   }
@@ -210,7 +211,7 @@ notificationRouter.patch('/:id', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'فشل في تحديث الإشعار',
-      message: error instanceof Error ? error.message : String(error),
+      message: safeErrorMessage(error, 'حدث خطأ داخلي'),
       processingTime: duration
     });
   }
@@ -249,7 +250,7 @@ notificationRouter.post('/:id/read', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في تعليم الإشعار كمقروء:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في تعليم الإشعار كمقروء"
     });
   }
@@ -288,7 +289,7 @@ notificationRouter.post('/:id/mark-read', async (req: Request, res: Response) =>
     console.error('❌ [API] خطأ في تعليم الإشعار كمقروء (مسار بديل):', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في تعليم الإشعار كمقروء"
     });
   }
@@ -328,7 +329,7 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
     console.error('❌ [API] خطأ في تعليم الإشعارات كمقروءة:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في تعليم الإشعارات كمقروءة"
     });
   }
@@ -366,7 +367,7 @@ notificationRouter.get('/stats', requireRole('admin'), async (req: Request, res:
     res.status(500).json({
       success: false,
       message: "فشل في جلب الإحصائيات",
-      error: error instanceof Error ? error.message : String(error)
+      error: safeErrorMessage(error, 'حدث خطأ داخلي')
     });
   }
 });
@@ -396,7 +397,7 @@ notificationRouter.get('/monitoring/stats', requireRole('admin'), async (req: Re
     res.status(500).json({
       success: false,
       message: "فشل في جلب إحصائيات النشاط",
-      error: error instanceof Error ? error.message : String(error)
+      error: safeErrorMessage(error, 'حدث خطأ داخلي')
     });
   }
 });
@@ -421,7 +422,7 @@ notificationRouter.get('/all', async (req: Request, res: Response) => {
       ...result 
     });
   } catch (error: unknown) {
-    res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ success: false, message: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -440,7 +441,7 @@ notificationRouter.get('/user-activity', requireRole('admin'), async (req: Reque
     const result = await notificationService.getUserNotifications(userId, { limit: 10 });
     res.json({ success: true, data: result.notifications });
   } catch (error: unknown) {
-    res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) });
+    res.status(500).json({ success: false, message: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -493,7 +494,7 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في إنشاء الإشعار:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في إنشاء الإشعار",
       processingTime: Date.now() - startTime
     });
@@ -546,7 +547,7 @@ notificationRouter.post('/', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في إنشاء الإشعار (المسار الرئيسي):', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في إنشاء الإشعار",
       processingTime: Date.now() - startTime
     });
@@ -589,7 +590,7 @@ notificationRouter.post('/test/create', requireRole('admin'), async (req: Reques
     console.error('❌ [TEST] خطأ في إنشاء الإشعار:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في إنشاء الإشعار"
     });
   }
@@ -628,7 +629,7 @@ notificationRouter.get('/test/stats', requireRole('admin'), async (req: Request,
     console.error('❌ [TEST] خطأ في جلب الإحصائيات:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "فشل في جلب الإحصائيات"
     });
   }

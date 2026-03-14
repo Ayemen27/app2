@@ -9,6 +9,7 @@ import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
+import { safeErrorMessage } from '../../middleware/api-response';
 
 export const ledgerRouter = express.Router();
 
@@ -43,7 +44,7 @@ ledgerRouter.get('/trial-balance/:project_id', async (req: Request, res: Respons
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -69,7 +70,7 @@ ledgerRouter.get('/balance/:project_id', async (req: Request, res: Response) => 
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -96,7 +97,7 @@ ledgerRouter.get('/journal/:project_id', async (req: Request, res: Response) => 
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -123,7 +124,7 @@ ledgerRouter.get('/journal-entry/:entryId/lines', async (req: Request, res: Resp
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -156,7 +157,7 @@ ledgerRouter.post('/reconcile/:project_id', async (req: Request, res: Response) 
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -185,7 +186,7 @@ ledgerRouter.get('/audit-log/:project_id', async (req: Request, res: Response) =
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -212,7 +213,7 @@ ledgerRouter.get('/reconciliation-history/:project_id', async (req: Request, res
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -250,7 +251,7 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message, processingTime: Date.now() - startTime });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي'), processingTime: Date.now() - startTime });
   }
 });
 
@@ -271,7 +272,7 @@ ledgerRouter.get('/summary/:project_id', async (req: Request, res: Response) => 
 
     res.json({ success: true, data: summary, message: 'تم جلب الملخص المالي بنجاح' });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -291,7 +292,7 @@ ledgerRouter.get('/projects-stats', async (_req: Request, res: Response) => {
       message: `تم جلب إحصائيات ${summaries.length} مشروع بنجاح`
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -309,7 +310,7 @@ ledgerRouter.get('/daily-summary/:project_id/:date', async (req: Request, res: R
 
     res.json({ success: true, data: summary, message: 'تم جلب الملخص اليومي بنجاح' });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 

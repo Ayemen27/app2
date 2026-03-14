@@ -9,6 +9,7 @@ import { authenticate } from "../../middleware/auth";
 import { z } from "zod";
 import { projectAccessService } from "../../services/ProjectAccessService";
 import { botSettingsService } from "../../services/ai-agent/whatsapp/BotSettingsService";
+import { safeErrorMessage } from '../../middleware/api-response';
 
 const router = Router();
 
@@ -50,7 +51,7 @@ router.get("/my-link", async (req: Request, res: Response) => {
       res.json({ linked: false });
     }
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -103,7 +104,7 @@ router.post("/link-phone", async (req: Request, res: Response) => {
     res.json({ success: true, message: "تم ربط رقم الواتساب بنجاح" });
   } catch (error: any) {
     console.error("[WhatsApp] Link phone error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -113,7 +114,7 @@ router.post("/unlink-phone", async (req: Request, res: Response) => {
     await db.delete(whatsappUserLinks).where(eq(whatsappUserLinks.user_id, userId));
     res.json({ success: true, message: "تم إلغاء ربط الواتساب" });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -137,7 +138,7 @@ router.get("/all-links", requireAdminCheck, async (req: Request, res: Response) 
 
     res.json(links);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -147,7 +148,7 @@ router.delete("/admin-unlink/:userId", requireAdminCheck, async (req: Request, r
     await db.delete(whatsappUserLinks).where(eq(whatsappUserLinks.user_id, userId));
     res.json({ success: true, message: "تم إلغاء ربط المستخدم" });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -194,7 +195,7 @@ router.post("/relink", requireAdminCheck, async (req: Request, res: Response) =>
     await bot.resetAndRelink();
     res.json({ success: true, message: "تم حذف الجلسة القديمة وبدء جلسة جديدة" });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -208,7 +209,7 @@ router.post("/disconnect", requireAdminCheck, async (req: Request, res: Response
       res.json({ success: true, message: "الاتصال غير نشط بالفعل" });
     }
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -386,7 +387,7 @@ router.get("/my-scope", async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("[WhatsApp my-scope] Error:", error?.message || error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -437,7 +438,7 @@ router.get("/messages/me", async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("[WhatsApp messages/me] Error:", error?.message || error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -488,7 +489,7 @@ router.get("/conversations", requireAdminCheck, async (req: Request, res: Respon
     res.json(result);
   } catch (error: any) {
     console.error("[WhatsApp Conversations] Error:", error?.message || error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -532,7 +533,7 @@ router.get("/conversations/:phoneNumber/messages", requireAdminCheck, async (req
     });
   } catch (error: any) {
     console.error("[WhatsApp Conv Messages] Error:", error?.message || error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -563,7 +564,7 @@ router.post("/conversations/:phoneNumber/send", requireAdminCheck, async (req: R
     res.json({ success: true });
   } catch (error: any) {
     console.error("[WhatsApp Send] Error:", error?.message || error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -601,7 +602,7 @@ router.post("/conversations/:phoneNumber/send-image", requireAdminCheck, async (
     res.json({ success: true });
   } catch (error: any) {
     console.error("[WhatsApp SendImage] Error:", error?.message || error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -621,7 +622,7 @@ router.get("/allowed-numbers", requireAdminCheck, async (req: Request, res: Resp
     .orderBy(whatsappAllowedNumbers.createdAt);
     res.json(numbers);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -648,7 +649,7 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
     }).returning();
     res.json({ success: true, number: inserted });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -664,7 +665,7 @@ router.patch("/allowed-numbers/:id", requireAdminCheck, async (req: Request, res
       .where(eq(whatsappAllowedNumbers.id, id));
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -674,7 +675,7 @@ router.delete("/allowed-numbers/:id", requireAdminCheck, async (req: Request, re
     await db.delete(whatsappAllowedNumbers).where(eq(whatsappAllowedNumbers.id, id));
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -703,7 +704,7 @@ router.get("/admin/links/:linkId/permissions", requireAdminCheck, async (req: Re
 
     res.json(link[0]);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -767,7 +768,7 @@ router.put("/admin/links/:linkId/permissions", requireAdminCheck, async (req: Re
 
     res.json(updated[0]);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -801,7 +802,7 @@ router.get("/admin/links/:linkId/projects", requireAdminCheck, async (req: Reque
 
     res.json(linkProjects);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -858,7 +859,7 @@ router.put("/admin/links/:linkId/projects", requireAdminCheck, async (req: Reque
 
     res.json(updatedProjects);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -926,7 +927,7 @@ router.get("/settings", requireAdminCheck, async (req: Request, res: Response) =
     res.json(settings);
   } catch (error: any) {
     console.error("[WhatsApp Settings] GET Error:", error?.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -951,7 +952,7 @@ router.put("/settings", requireAdminCheck, async (req: Request, res: Response) =
     res.json(updated);
   } catch (error: any) {
     console.error("[WhatsApp Settings] PUT Error:", error?.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -961,7 +962,7 @@ router.post("/settings/reset", requireAdminCheck, async (req: Request, res: Resp
     res.json(settings);
   } catch (error: any) {
     console.error("[WhatsApp Settings] Reset Error:", error?.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 

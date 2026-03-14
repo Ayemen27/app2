@@ -80,9 +80,6 @@ function safeFormatDate(dateStr: string | null | undefined, fmt: string, options
   }
 }
 
-function getAuthToken(): string {
-  return getAccessToken() || "";
-}
 
 function buildExportUrl(type: string, fmt: string, params: Record<string, string>): string {
   const searchParams = new URLSearchParams({ format: fmt, ...params });

@@ -5,6 +5,7 @@ import { eq, and, ilike, sql, desc, inArray, or, isNull } from 'drizzle-orm';
 import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
+import { safeErrorMessage } from '../../middleware/api-response';
 
 const VALID_EQUIPMENT_TYPES = ['heavy_machinery', 'light_tool', 'vehicle', 'electrical', 'plumbing', 'safety', 'measuring', 'hand_tool', 'power_tool', 'other'] as const;
 const VALID_EQUIPMENT_STATUSES = ['available', 'assigned', 'maintenance', 'lost', 'consumed'] as const;
@@ -79,7 +80,7 @@ equipmentRouter.get('/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ خطأ في جلب المعدات:', error);
-    res.status(500).json({ success: false, message: 'فشل في جلب المعدات', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب المعدات', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -107,7 +108,7 @@ equipmentRouter.get('/:id', async (req: Request, res: Response) => {
     res.json({ success: true, data: item });
   } catch (error: any) {
     console.error('❌ خطأ في جلب المعدة:', error);
-    res.status(500).json({ success: false, message: 'فشل في جلب المعدة', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب المعدة', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -173,7 +174,7 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ خطأ في إضافة المعدة:', error);
-    res.status(500).json({ success: false, message: 'فشل في إضافة المعدة', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل في إضافة المعدة', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -252,7 +253,7 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ خطأ في تحديث المعدة:', error);
-    res.status(500).json({ success: false, message: 'فشل في تحديث المعدة', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل في تحديث المعدة', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -290,7 +291,7 @@ equipmentRouter.delete('/:id', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ خطأ في حذف المعدة:', error);
-    res.status(500).json({ success: false, message: 'فشل في حذف المعدة', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل في حذف المعدة', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -362,7 +363,7 @@ equipmentRouter.post('/:id/transfer', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ خطأ في نقل المعدة:', error);
-    res.status(500).json({ success: false, message: 'فشل في نقل المعدة', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل في نقل المعدة', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -396,7 +397,7 @@ equipmentRouter.get('/:id/movements', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('❌ خطأ في جلب سجل الحركات:', error);
-    res.status(500).json({ success: false, message: 'فشل في جلب سجل الحركات', error: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب سجل الحركات', error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 

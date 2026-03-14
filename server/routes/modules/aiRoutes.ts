@@ -39,6 +39,7 @@ router.use((req: Request, res: Response, next: NextFunction): void => {
 
 // ✅ إضافة middleware المصادقة العام قبل التحقق من الأدوار
 import authenticate from "../../middleware/auth.js";
+import { safeErrorMessage } from '../../middleware/api-response';
 router.use(authenticate);
 
 /**
@@ -110,7 +111,7 @@ router.get("/status", async (req: AuthenticatedRequest, res: Response) => {
       models: modelsStatus,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -135,7 +136,7 @@ router.get("/access", async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error(`❌ [AI/Access] Error: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -159,7 +160,7 @@ router.post("/sessions", requireAdmin, async (req: AuthenticatedRequest, res: Re
     res.json({ sessionId });
   } catch (error: any) {
     console.error("❌ [AI/Sessions] Error creating session:", error);
-    res.status(500).json({ error: error.message || "حدث خطأ داخلي أثناء إنشاء الجلسة" });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') || "حدث خطأ داخلي أثناء إنشاء الجلسة" });
   }
 });
 
@@ -175,7 +176,7 @@ router.get("/sessions", requireAdmin, async (req: AuthenticatedRequest, res: Res
     res.json(sessions);
   } catch (error: any) {
     console.error("Error fetching sessions:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -189,7 +190,7 @@ router.get("/sessions/archived", requireAdmin, async (req: AuthenticatedRequest,
     const sessions = await aiService.getArchivedSessions(req.user!.user_id);
     res.json(sessions);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -203,7 +204,7 @@ router.get("/stats", requireAdmin, async (req: AuthenticatedRequest, res: Respon
     const stats = await aiService.getChatStats(req.user!.user_id);
     res.json(stats);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -220,7 +221,7 @@ router.get("/sessions/:id/messages", requireAdmin, async (req: AuthenticatedRequ
     res.json(messages);
   } catch (error: any) {
     console.error("Error fetching messages:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -241,7 +242,7 @@ router.delete("/sessions/:id", requireAdmin, async (req: AuthenticatedRequest, r
     res.json({ success: true });
   } catch (error: any) {
     console.error("Error deleting session:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -257,7 +258,7 @@ router.patch("/sessions/:id/archive", requireAdmin, async (req: AuthenticatedReq
     if (!archived) return res.status(404).json({ error: "الجلسة غير موجودة" });
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -273,7 +274,7 @@ router.patch("/sessions/:id/restore", requireAdmin, async (req: AuthenticatedReq
     if (!restored) return res.status(404).json({ error: "الجلسة غير موجودة" });
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -295,7 +296,7 @@ router.post("/sessions/bulk-delete", requireAdmin, async (req: AuthenticatedRequ
     }
     res.json({ success: true, deleted });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -317,7 +318,7 @@ router.post("/sessions/bulk-archive", requireAdmin, async (req: AuthenticatedReq
     }
     res.json({ success: true, archived });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -339,7 +340,7 @@ router.post("/sessions/bulk-restore", requireAdmin, async (req: AuthenticatedReq
     }
     res.json({ success: true, restored });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -385,7 +386,7 @@ router.post("/chat", requireAdmin, chatRateLimit, async (req: AuthenticatedReque
     });
   } catch (error: any) {
     console.error("Error processing message:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -402,7 +403,7 @@ router.get("/sessions/:id/pending-operations", requireAdmin, async (req: Authent
     res.json({ operations });
   } catch (error: any) {
     console.error("Error fetching pending operations:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -424,7 +425,7 @@ router.post("/execute-operation", requireAdmin, async (req: AuthenticatedRequest
     res.json(result);
   } catch (error: any) {
     console.error("Error executing operation:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -451,7 +452,7 @@ router.delete("/operations/:id", requireAdmin, async (req: AuthenticatedRequest,
     res.json({ success: true, message: "تم إلغاء العملية" });
   } catch (error: any) {
     console.error("Error cancelling operation:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -470,7 +471,7 @@ router.get("/huggingface/models", requireAdmin, async (req: AuthenticatedRequest
     });
   } catch (error: any) {
     console.error("Error fetching HuggingFace models:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -496,7 +497,7 @@ router.post("/huggingface/switch", requireAdmin, async (req: AuthenticatedReques
     res.json({ success: true, message: `تم التبديل إلى نموذج ${modelKey}` });
   } catch (error: any) {
     console.error("Error switching HuggingFace model:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -517,7 +518,7 @@ router.get("/models", requireAdmin, async (req: AuthenticatedRequest, res: Respo
     });
   } catch (error: any) {
     console.error("Error fetching models:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -539,7 +540,7 @@ router.post("/models/select", requireAdmin, async (req: AuthenticatedRequest, re
     });
   } catch (error: any) {
     console.error("Error selecting model:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -553,7 +554,7 @@ router.get("/analyze-events", requireAdmin, async (req: AuthenticatedRequest, re
     res.json(analysis);
   } catch (error: any) {
     console.error("Error analyzing events:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -571,7 +572,7 @@ router.post("/suggest-actions", requireAdmin, async (req: AuthenticatedRequest, 
     res.json({ actions });
   } catch (error: any) {
     console.error("Error suggesting actions:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 

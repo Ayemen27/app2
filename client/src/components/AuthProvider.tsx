@@ -467,8 +467,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error('فشل تسجيل الدخول. لا يمكن الوصول للخادم ولا يوجد بيانات أوفلاين صالحة.');
     }
 
-    if (!tokenData && getAuthMode() !== 'offline') {
-      if (import.meta.env.DEV) console.error('[AuthProvider.login] Token missing from response');
+    if (!tokenData && getAuthMode() !== 'offline' && !isWebCookieMode()) {
+      if (import.meta.env.DEV) console.error('[AuthProvider.login] Token missing from response (native mode)');
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 

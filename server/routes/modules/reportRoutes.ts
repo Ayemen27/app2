@@ -35,6 +35,7 @@ import { generateDailyRangeExcel } from '../../services/reports/templates/DailyR
 import { generateDailyRangeHTML } from '../../services/reports/templates/DailyRangePDF';
 import { generateMultiProjectFinalExcel } from '../../services/reports/templates/MultiProjectFinalExcel';
 import { generateMultiProjectFinalHTML } from '../../services/reports/templates/MultiProjectFinalPDF';
+import { safeErrorMessage } from '../../middleware/api-response';
 
 export const reportRouter = express.Router();
 
@@ -600,7 +601,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       }
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -695,7 +696,7 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
       }
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -1015,7 +1016,7 @@ reportRouter.get('/reports/v2/daily', async (req: Request, res: Response) => {
     res.json({ success: true, data });
   } catch (error: any) {
     console.error('❌ [Reports V2] خطأ في التقرير اليومي:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -1041,7 +1042,7 @@ reportRouter.get('/reports/v2/worker-statement', async (req: Request, res: Respo
     res.json({ success: true, data });
   } catch (error: any) {
     console.error('❌ [Reports V2] خطأ في كشف حساب العامل:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -1061,7 +1062,7 @@ reportRouter.get('/reports/v2/period-final', async (req: Request, res: Response)
     res.json({ success: true, data });
   } catch (error: any) {
     console.error('❌ [Reports V2] خطأ في التقرير الختامي:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -1088,7 +1089,7 @@ reportRouter.get('/reports/v2/multi-project-final', async (req: Request, res: Re
     res.json({ success: true, data });
   } catch (error: any) {
     console.error('❌ [Reports V2] خطأ في التقرير المجمع:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -1238,6 +1239,6 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
     return res.status(400).json({ success: false, error: 'نوع التقرير غير صالح' });
   } catch (error: any) {
     console.error('❌ [Reports V2] خطأ في التصدير:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });

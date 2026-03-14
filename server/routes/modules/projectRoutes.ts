@@ -69,6 +69,7 @@ projectRouter.use(attachAccessibleProjects);
  */
 import { sendSuccess, sendError } from '../../middleware/api-response.js';
 import { inArray } from 'drizzle-orm';
+import { safeErrorMessage } from '../../middleware/api-response';
 
 projectRouter.get('/', async (req: Request, res: Response) => {
   try {
@@ -90,7 +91,7 @@ projectRouter.get('/', async (req: Request, res: Response) => {
     }
     return sendSuccess(res, projectsList, `تم جلب ${projectsList.length} مشروع بنجاح`);
   } catch (error: any) {
-    return sendError(res, "فشل في جلب قائمة المشاريع", 500, [{ message: error.message }]);
+    return sendError(res, "فشل في جلب قائمة المشاريع", 500, [{ message: safeErrorMessage(error, 'حدث خطأ داخلي') }]);
   }
 });
 
@@ -643,7 +644,7 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
     });
   } catch (error: any) {
     console.error('❌ [API] خطأ في إضافة مشترية مواد:', error);
-    res.status(500).json({ success: false, message: "فشل في حفظ شراء المواد", error: error.message });
+    res.status(500).json({ success: false, message: "فشل في حفظ شراء المواد", error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -1539,7 +1540,7 @@ projectRouter.get('/:project_id/material-purchases', requireProjectAccess('view'
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message || error,
+      error: safeErrorMessage(error, 'حدث خطأ داخلي') || error,
       processingTime: duration
     });
   }
@@ -1605,7 +1606,7 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -1648,7 +1649,7 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
       } catch (error: any) {
         res.status(500).json({
           success: false,
-          error: error.message,
+          error: safeErrorMessage(error, 'حدث خطأ داخلي'),
           processingTime: Date.now() - startTime
         });
       }

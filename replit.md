@@ -93,6 +93,12 @@ The system features a consistent design with a professional navy/blue palette, E
 - **T005 ✅** Equipment enum validation (type/status/condition) + transactional delete (movements + equipment atomic)
 - **T006 ✅** HSTS header (production) + CSP unsafe-eval removed + backup endpoints rate-limited (download/analyze/test-connection/logs/status)
 
+### Audit Round 4
+- **T001 ✅** Token migration: Platform-aware `auth-token-store.ts` (cookies for web, localStorage for native/Capacitor). `cookie-parser` registered. All 20+ client files migrated to centralized token store. Zero direct `localStorage.getItem('accessToken')` outside store.
+- **T002 ✅** Auth transport hardening: `isNativeClient()` requires UA match (not just header). Login/refresh responses strip tokens from JSON body for web clients. Cookies handle web auth. `AuthProvider.tsx` updated with `isWebCookieMode()` check.
+- **T003 ✅** Error message sanitization: `api-error-normalizer.ts` middleware wraps `res.json()` on `/api` path. All 8 route files (113 instances) replaced raw `error.message` with `safeErrorMessage()`. Defense-in-depth: middleware + route-level sanitization.
+- **T004 ✅** Auth routes conditional token delivery: `tokenDelivery: 'bearer'|'cookie'` field. Socket.IO cookie-based auth fallback. Dead code cleanup (`getAuthToken` removed from `axion-reports.tsx`).
+
 ### Known Recommendations (Deferred)
-- **localStorage token storage**: Tokens still in localStorage (XSS risk). Migration to cookie-only auth requires coordinated frontend+backend refactor.
-- **Error message sanitization**: Some routes still return raw error.message to clients. Needs systematic standardization across all route modules.
+- **Native client attestation**: `isNativeClient()` relies on User-Agent heuristics. Ideal: signed device attestation or mTLS. Low risk since web default is cookie-only (most secure).
+- **CI guard for error leakage**: Add grep-based CI test to fail if `res.json({error: error.message})` appears in route handlers.

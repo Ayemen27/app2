@@ -46,10 +46,12 @@ declare global {
 }
 
 function isNativeClient(req: Request): boolean {
-  const platform = req.headers['x-client-platform'];
-  if (platform === 'native') return true;
   const ua = req.headers['user-agent'] || '';
-  return /capacitor|android|ionic/i.test(ua);
+  const hasNativeUA = /capacitor|android.*wv|ionic/i.test(ua);
+  const platformHeader = req.headers['x-client-platform'];
+  if (hasNativeUA && platformHeader === 'native') return true;
+  if (hasNativeUA) return true;
+  return false;
 }
 
 const authRouter = express.Router();
@@ -212,46 +214,43 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
     setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
     const nativeClient = isNativeClient(req);
-    const responseData = {
-      success: true,
-      status: "success",
-      message: 'تم تسجيل الدخول بنجاح',
-      tokenDelivery: nativeClient ? 'bearer' : 'cookie',
-      token: tokenPair.accessToken, 
-      accessToken: tokenPair.accessToken,
-      user: {
-        id: user.id,
-        user_id: user.id,
-        email: user.email,
-        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-        role: user.role || 'user',
-        emailVerified: !!user.email_verified_at
-      },
+    const userInfo = {
+      id: user.id,
       user_id: user.id,
       email: user.email,
       name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
       role: user.role || 'user',
-      tokens: {
-        accessToken: tokenPair.accessToken
-      },
+      emailVerified: !!user.email_verified_at
+    };
+
+    const responseData: Record<string, any> = {
+      success: true,
+      status: "success",
+      message: 'تم تسجيل الدخول بنجاح',
+      tokenDelivery: nativeClient ? 'bearer' : 'cookie',
+      user: userInfo,
+      user_id: user.id,
+      email: user.email,
+      name: userInfo.name,
+      role: user.role || 'user',
       expiresIn: 900,
       expires_in: 900,
       token_type: "Bearer",
       emailVerified: !!user.email_verified_at,
       data: {
-        token: tokenPair.accessToken,
-        accessToken: tokenPair.accessToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-          role: user.role || 'user',
-          emailVerified: !!user.email_verified_at
-        },
+        user: userInfo,
         triggerSync: true,
         initialSyncDelay: 1000
       }
     };
+
+    if (nativeClient) {
+      responseData.token = tokenPair.accessToken;
+      responseData.accessToken = tokenPair.accessToken;
+      responseData.tokens = { accessToken: tokenPair.accessToken };
+      responseData.data.token = tokenPair.accessToken;
+      responseData.data.accessToken = tokenPair.accessToken;
+    }
 
     console.log('📤 [AUTH-DEBUG] إرسال الاستجابة النهائية:', {
       user_id: user.id,
@@ -520,11 +519,10 @@ authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) =
       setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
       const nativeClient = isNativeClient(req);
-      const responseData = {
+      const responseData: Record<string, any> = {
         success: true,
         message: 'تم تجديد الرموز بنجاح',
         tokenDelivery: nativeClient ? 'bearer' : 'cookie',
-        accessToken: tokenPair.accessToken,
         expiresIn: 900,
         user: {
           id: user.id,
@@ -533,6 +531,14 @@ authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) =
           role: user.role || 'user'
         }
       };
+
+      if (nativeClient) {
+        responseData.accessToken = tokenPair.accessToken;
+        responseData.data = {
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken
+        };
+      }
 
       return res.json(responseData);
 

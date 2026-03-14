@@ -69,7 +69,7 @@ healthRouter.get('/health/full', requireAuth, async (req: Request, res: Response
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       emergencyMode: globalThis.isEmergencyMode || false
     });
   }
@@ -161,7 +161,7 @@ healthRouter.post('/health/circuits/:name/reset', requireAuth, (req: Request, re
   } catch (error: any) {
     res.status(400).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'حدث خطأ داخلي')
     });
   }
 });
@@ -184,7 +184,7 @@ healthRouter.get('/health/connections', requireAuth, async (req: Request, res: R
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'حدث خطأ داخلي')
     });
   }
 });
@@ -212,7 +212,7 @@ healthRouter.post('/health/reconnect', requireAuth, async (req: Request, res: Re
   } catch (error: any) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'حدث خطأ داخلي')
     });
   }
 });
@@ -237,7 +237,7 @@ healthRouter.get('/db/info', requireAuth, async (req: Request, res: Response) =>
   } catch (error: any) {
     res.status(500).json({ 
       success: false, 
-      error: error.message,
+      error: safeErrorMessage(error, 'حدث خطأ داخلي'),
       message: "Database connection failed" 
     });
   }
@@ -298,7 +298,7 @@ healthRouter.get('/schema-check', requireAuth, requireRole('admin'), async (req:
     console.error('❌ Schema check error:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: safeErrorMessage(error, 'حدث خطأ داخلي')
     });
   }
 });
@@ -392,13 +392,14 @@ healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, r
  */
 
 import { DbMetricsService } from '../../services/db-metrics';
+import { safeErrorMessage } from '../../middleware/api-response';
 
 healthRouter.get('/db/connections', requireAuth, requireRole('admin'), async (_req: Request, res: Response) => {
   try {
     const connections = await DbMetricsService.getConnectedDatabases();
     res.json({ success: true, data: connections });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -408,7 +409,7 @@ healthRouter.get('/db/overview', requireAuth, requireRole('admin'), async (req: 
     const overview = await DbMetricsService.getDatabaseOverview(source);
     res.json({ success: true, data: overview });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -418,7 +419,7 @@ healthRouter.get('/db/tables', requireAuth, requireRole('admin'), async (req: Re
     const tables = await DbMetricsService.getTablesMetrics(source);
     res.json({ success: true, data: tables });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -451,7 +452,7 @@ healthRouter.get('/db/tables/:name', requireAuth, async (req: Request, res: Resp
     const details = await DbMetricsService.getTableDetails(name, source);
     res.json({ success: true, data: details });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -461,7 +462,7 @@ healthRouter.get('/db/performance', requireAuth, requireRole('admin'), async (re
     const metrics = await DbMetricsService.getPerformanceMetrics(source);
     res.json({ success: true, data: metrics });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -471,7 +472,7 @@ healthRouter.get('/db/integrity', requireAuth, requireRole('admin'), async (req:
     const report = await DbMetricsService.checkDataIntegrity(source);
     res.json({ success: true, data: report });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -485,7 +486,7 @@ healthRouter.get('/db/compare', requireAuth, requireRole('admin'), async (req: R
     }
     res.json({ success: true, data: report });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -501,7 +502,7 @@ healthRouter.post('/db/maintenance', requireAuth, requireRole('admin'), async (r
     const result = await DbMetricsService.runMaintenance(action, tableName);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 
@@ -514,7 +515,7 @@ healthRouter.post('/db/test-connection', requireAuth, requireRole('admin'), asyn
     const result = await DbMetricsService.testConnection(connectionString);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: safeErrorMessage(error, 'حدث خطأ داخلي') });
   }
 });
 

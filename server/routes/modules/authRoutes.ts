@@ -17,11 +17,13 @@ import {
   JWT_CONFIG 
 } from '../../auth/jwt-utils.js';
 import { hashPassword, verifyPassword } from '../../auth/crypto-utils.js';
+import { extractClientContext } from '../../auth/client-context.js';
 import { setAuthCookies, clearAuthCookies, REFRESH_TOKEN_COOKIE_OPTIONS } from '../../auth/cookie-config.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 import * as schema from '@shared/schema';
 import { users } from '@shared/schema';
 import { requireAuth, AuthenticatedRequest, authRateLimit } from '../../middleware/auth.js';
+import { requireFreshRequest } from '../../middleware/replay-protection.js';
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 import { storage } from '../../storage.js';
 import { getAuthUser } from '../../internal/auth-user.js';
@@ -195,14 +197,13 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
       });
     }
 
-    // إنشاء JWT tokens مع حفظ الجلسة
+    const clientContext = extractClientContext(req);
+
     const tokenPair = await generateTokenPair(
       String(user.id),
       String(user.email),
       String(user.role || 'user'),
-      req.ip,
-      req.get('user-agent'),
-      { deviceId: 'mobile-diagnostic' }
+      clientContext
     );
 
     console.log('✅ [AUTH-DEBUG] تم توليد زوج الرموز بنجاح:', {
@@ -375,7 +376,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
  * 🔑 تحديث دور المستخدم
  * PATCH /api/users/:id/role
  */
-authRouter.patch('/users/:id/role', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+authRouter.patch('/users/:id/role', requireAuth, requireFreshRequest({ windowSec: 60 }), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
@@ -427,11 +428,19 @@ authRouter.patch('/users/:id/role', requireAuth, async (req: AuthenticatedReques
  */
 authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    console.log('🚪 [AUTH] تسجيل خروج المستخدم');
+    const sessionId = req.user?.sessionId;
+    const userId = req.user?.user_id;
+    console.log('🚪 [AUTH] تسجيل خروج المستخدم:', { userId, sessionId: sessionId?.substring(0, 8) + '...' });
 
-    // في المستقبل يمكن إضافة blacklist للـ tokens
-    // أو إلغاء refresh token من قاعدة البيانات
-    
+    if (sessionId) {
+      const revoked = await revokeToken(sessionId, 'logout');
+      if (revoked) {
+        console.log('✅ [AUTH] تم إبطال الجلسة في قاعدة البيانات بنجاح');
+      } else {
+        console.warn('⚠️ [AUTH] لم يتم العثور على جلسة لإبطالها أو فشل الإبطال');
+      }
+    }
+
     clearAuthCookies(res);
 
     res.json({
@@ -441,6 +450,7 @@ authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: R
 
   } catch (error: any) {
     console.error('❌ [AUTH] خطأ في تسجيل الخروج:', error);
+    clearAuthCookies(res);
     res.status(500).json({
       success: false,
       message: 'خطأ في تسجيل الخروج',
@@ -504,8 +514,8 @@ authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) =
         return res.status(403).json({ success: false, message: 'الحساب معطل' });
       }
 
-      // تجديد الرموز باستخدام النظام المركزي (jwt-utils) لضمان تدوير الجلسات بشكل صحيح
-      const tokenPair = await refreshAccessToken(refreshToken);
+      const clientContext = extractClientContext(req);
+      const tokenPair = await refreshAccessToken(refreshToken, clientContext);
 
       if (!tokenPair) {
         return res.status(401).json({
@@ -1142,7 +1152,7 @@ authRouter.post('/forgot-password', authRateLimit, async (req: Request, res: Res
  * 🔐 إعادة تعيين كلمة المرور
  * POST /api/auth/reset-password
  */
-authRouter.post('/reset-password', authRateLimit, async (req: Request, res: Response) => {
+authRouter.post('/reset-password', authRateLimit, requireFreshRequest({ windowSec: 60 }), async (req: Request, res: Response) => {
   try {
     const { token, newPassword } = req.body;
     

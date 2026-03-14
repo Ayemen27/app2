@@ -6,6 +6,7 @@ import { eq, and, gt } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
 import { JWT_ACCESS_SECRET } from '../auth/jwt-utils';
 import { envConfig } from '../utils/unified-env';
+import { extractClientContext, validateSessionBinding, type ClientContext } from '../auth/client-context';
 
 // تم إزالة express-slow-down لأنه غير مستخدم حالياً
 
@@ -128,6 +129,27 @@ export function extractTokenFromReq(req: Request): string | null {
 
 import { storage } from '../storage';
 
+export type SessionBindingPolicy = 'strict' | 'relaxed';
+
+const STRICT_POLICY_PATHS: string[] = [
+  '/api/auth/change-password',
+  '/api/auth/update-profile',
+  '/api/users/role',
+  '/api/permissions',
+  '/api/financial',
+  '/api/fund-transfers',
+  '/api/backup',
+  '/api/admin',
+];
+
+function getBindingPolicy(path: string, method: string): SessionBindingPolicy {
+  if (method === 'GET') return 'relaxed';
+  for (const prefix of STRICT_POLICY_PATHS) {
+    if (path.startsWith(prefix)) return 'strict';
+  }
+  return 'relaxed';
+}
+
 // التحقق من صحة الـ Token مع دعم Argon2-based Session
 interface DecodedToken {
   userId?: string;
@@ -159,8 +181,7 @@ const verifyToken = async (token: string): Promise<DecodedToken> => {
   }) as DecodedToken;
 };
 
-// التحقق من الجلسة في قاعدة البيانات
-const verifySession = async (user_id: string, sessionId: string) => {
+const verifySession = async (user_id: string, sessionId: string, clientContext?: ClientContext, policy?: SessionBindingPolicy) => {
   try {
     const session = await db
       .select()
@@ -175,28 +196,41 @@ const verifySession = async (user_id: string, sessionId: string) => {
       )
       .limit(1);
 
-    if (session.length > 0) {
-      return session[0];
+    const found = session.length > 0 ? session[0] : null;
+
+    if (!found) {
+      return { session: null, bindingResult: null };
     }
-    
-    // Fallback: Check with userId if user_id failed (for schema compatibility)
-    const fallbackSession = await db
-      .select()
-      .from(authUserSessions)
-      .where(
-        and(
-          eq(authUserSessions.user_id, user_id),
-          eq(authUserSessions.sessionToken, sessionId),
-          eq(authUserSessions.isRevoked, false),
-          gt(authUserSessions.expiresAt, new Date())
-        )
-      )
-      .limit(1);
-      
-    return fallbackSession.length > 0 ? fallbackSession[0] : null;
+
+    if (clientContext) {
+      const secFlags = (found.securityFlags || {}) as Record<string, unknown>;
+      const storedContext = {
+        deviceHash: found.deviceFingerprint || undefined,
+        platform: (secFlags.platform as string) || undefined,
+        ipRange: (secFlags.ipRange as string) || undefined,
+        deviceId: found.deviceId || undefined,
+        hasStableDeviceId: secFlags.hasStableDeviceId === true,
+      };
+
+      const strictMode = policy === 'strict';
+      const bindingResult = validateSessionBinding(storedContext, clientContext, strictMode);
+
+      if (bindingResult.action === 'block') {
+        console.warn(`🚫 [SESSION-BINDING] Blocked: user=${user_id} reason=${bindingResult.reason}`);
+        return { session: null, bindingResult };
+      }
+
+      if (bindingResult.action === 'step_up') {
+        console.warn(`⚠️ [SESSION-BINDING] Step-up required: user=${user_id} reason=${bindingResult.reason}`);
+      }
+
+      return { session: found, bindingResult };
+    }
+
+    return { session: found, bindingResult: null };
   } catch (error: unknown) {
     console.error('❌ خطأ في التحقق من الجلسة:', error instanceof Error ? error.message : error);
-    return null;
+    return { session: null, bindingResult: null };
   }
 };
 
@@ -332,12 +366,36 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         code: 'SESSION_MISSING'
       });
     }
-    const session = await verifySession(user_id, sessionId);
+
+    const clientContext = extractClientContext(req);
+    const requestPath = req.originalUrl?.split('?')[0] || req.path;
+    const bindingPolicy = getBindingPolicy(requestPath, req.method);
+
+    const { session, bindingResult } = await verifySession(user_id, sessionId, clientContext, bindingPolicy);
     if (!session) {
+      if (bindingResult && bindingResult.action === 'block') {
+        console.warn(`🚫 [AUTH] Session binding blocked for user ${user_id}: ${bindingResult.reason}`);
+        return res.status(403).json({
+          success: false,
+          message: 'تم رفض الوصول - الجهاز أو المنصة غير متطابقة مع الجلسة الأصلية',
+          code: 'SESSION_BINDING_FAILED',
+          reason: bindingResult.reason,
+        });
+      }
       return res.status(401).json({
         success: false,
         message: 'الجلسة منتهية أو ملغاة - يرجى تسجيل الدخول مجدداً',
         code: 'SESSION_REVOKED'
+      });
+    }
+
+    if (bindingResult && bindingResult.action === 'step_up' && bindingPolicy === 'strict') {
+      console.warn(`⚠️ [AUTH] Step-up required for sensitive route: user=${user_id} path=${requestPath} reason=${bindingResult.reason}`);
+      return res.status(403).json({
+        success: false,
+        message: 'يرجى إعادة تسجيل الدخول للوصول إلى هذا المورد الحساس',
+        code: 'STEP_UP_REQUIRED',
+        reason: bindingResult.reason,
       });
     }
 
@@ -421,7 +479,8 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
       const decodedUserId = decoded.userId || decoded.sub || decoded.user_id || decoded.id;
       const decodedSessionId = decoded.sessionId;
       if (!decodedUserId) return next();
-      const session = decodedSessionId ? await verifySession(decodedUserId, decodedSessionId) : true;
+      const sessionResult = decodedSessionId ? await verifySession(decodedUserId, decodedSessionId) : { session: true, bindingResult: null };
+      const session = typeof sessionResult === 'object' && sessionResult !== null && 'session' in sessionResult ? sessionResult.session : sessionResult;
 
       if (session) {
         const user = await db

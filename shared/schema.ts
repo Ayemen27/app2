@@ -190,6 +190,26 @@ export const authUserSessions = pgTable("auth_user_sessions", {
   revokedReason: varchar("revoked_reason"),
 });
 
+// Auth Request Nonces table (جدول حماية إعادة التشغيل)
+export const authRequestNonces = pgTable("auth_request_nonces", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  nonce: varchar("nonce", { length: 128 }).notNull().unique(),
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  method: varchar("method", { length: 10 }).notNull(),
+  ipAddress: text("ip_address"),
+  requestTimestamp: timestamp("request_timestamp").notNull(),
+  receivedAt: timestamp("received_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  idxNonce: index("idx_auth_request_nonces_nonce").on(table.nonce),
+  idxExpiresAt: index("idx_auth_request_nonces_expires").on(table.expiresAt),
+}));
+
+export const insertAuthRequestNonceSchema = createInsertSchema(authRequestNonces).omit({ id: true, receivedAt: true });
+export type AuthRequestNonce = typeof authRequestNonces.$inferSelect;
+export type InsertAuthRequestNonce = z.infer<typeof insertAuthRequestNonceSchema>;
+
 // Notifications table (جدول الإشعارات)
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1881,6 +1901,7 @@ export const SERVER_TO_IDB_TABLE_MAP: Record<string, string> = {
   'well_audit_logs': 'wellAuditLogs',
   'material_categories': 'materialCategories',
   'equipment_movements': 'equipmentMovements',
+  'auth_request_nonces': 'authRequestNonces',
 };
 
 export interface ErrorLog {

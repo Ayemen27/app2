@@ -9,6 +9,7 @@ import { eq, and, lt, or, ne, gte } from 'drizzle-orm';
 import { db } from '../db.js';
 import { users, authUserSessions } from '../../shared/schema.js';
 import { hashToken } from './crypto-utils.js';
+import type { ClientContext } from './client-context.js';
 
 // ملاحظة: تم تفعيل نظام الجلسات مع جدول authUserSessions
 
@@ -100,17 +101,13 @@ export async function generateTokenPair(
   userId: string,
   email: string,
   role: string,
-  ipAddress?: string,
-  userAgent?: string,
-  deviceInfo?: { deviceId?: string; [key: string]: unknown }
+  clientContext?: ClientContext
 ): Promise<TokenPair> {
   const sessionId = crypto.randomUUID();
-  const deviceId = deviceInfo?.deviceId || crypto.randomUUID();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 ساعة
-  const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 يوم
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-  // إنشاء JWT payload مع sessionId
   const accessPayload = { userId, email, role, sessionId, type: 'access' as const };
   const refreshPayload = { userId, email, sessionId, type: 'refresh' as const };
 
@@ -124,27 +121,46 @@ export async function generateTokenPair(
     issuer: JWT_CONFIG.issuer
   } as jwt.SignOptions);
 
-  // إنشاء hash للرموز للحفظ الآمن
   const accessTokenHash = hashToken(accessToken);
   const refreshTokenHash = hashToken(refreshToken);
 
   try {
-    const sessionData = {
+    const sessionData: Record<string, unknown> = {
       user_id: userId,
       sessionToken: sessionId,
       accessTokenHash,
       refresh_token_hash: refreshTokenHash,
       expiresAt: refreshExpiresAt,
       isTrustedDevice: false,
+      loginMethod: 'password',
+      securityFlags: { status: 'active', createdAt: now.toISOString() },
     };
+
+    if (clientContext) {
+      sessionData.deviceId = clientContext.deviceId;
+      sessionData.deviceFingerprint = clientContext.deviceHash;
+      sessionData.userAgent = clientContext.userAgent;
+      sessionData.ipAddress = clientContext.ip;
+      sessionData.osName = clientContext.osName;
+      sessionData.osVersion = clientContext.osVersion;
+      sessionData.browserName = clientContext.browserName;
+      sessionData.browserVersion = clientContext.browserVersion;
+      sessionData.deviceType = clientContext.deviceType;
+      sessionData.securityFlags = {
+        platform: clientContext.platform,
+        ipRange: clientContext.ipRange,
+        appVersion: clientContext.appVersion,
+        hasStableDeviceId: clientContext.hasStableDeviceId,
+        status: 'active',
+        boundAt: now.toISOString(),
+      };
+    }
     
     try {
-      // ✅ محاولة استباقية للتأكد من وجود جدول الجلسات وتوافق البيانات
       await db.insert(authUserSessions).values(sessionData);
-      console.log('✅ [JWT] تم حفظ الجلسة بنجاح في قاعدة البيانات:', { userId, sessionId: sessionId.substring(0, 8) + '...' });
+      console.log('✅ [JWT] تم حفظ الجلسة بنجاح في قاعدة البيانات:', { userId, sessionId: sessionId.substring(0, 8) + '...', deviceId: clientContext?.deviceId?.substring(0, 8) });
     } catch (sessionError: unknown) {
       console.error('❌ [JWT] فشل في حفظ الجلسة في DB:', sessionError instanceof Error ? sessionError.message : sessionError);
-      // في ريبليت أو التطوير، سنسمح بالاستمرار حتى لو فشل الحفظ لضمان عدم توقف النظام
       const isFlexibleEnv = process.env.NODE_ENV !== 'production' || process.env.REPL_ID !== undefined;
       if (isFlexibleEnv) {
         console.warn('⚠️ [JWT] استمرار العمل في وضع المصادقة المرن رغم فشل حفظ الجلسة');
@@ -283,11 +299,11 @@ export async function verifyRefreshToken(token: string): Promise<JWTPayload | nu
  * تجديد Access Token باستخدام Refresh Token مع تدوير الرموز
  */
 /**
- * تجديد Access Token مبسط للتطوير (أسرع وأقل عمليات قاعدة بيانات)
+ * تجديد Access Token للتطوير مع تدوير كامل للرموز وكشف إعادة الاستخدام
  */
-async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | null> {
+async function refreshAccessTokenDev(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
   const startTime = Date.now();
-  console.log('🔄 [JWT-DEV] بدء تجديد مبسط للتطوير...');
+  console.log('🔄 [JWT-DEV] بدء تجديد مع تدوير كامل...');
 
   try {
     let payload: JWTPayload | null;
@@ -307,9 +323,8 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
       return null;
     }
 
-    // استعلام مدمج واحد للمستخدم والجلسة
-    // بحث عن الجلسة باستخدام sessionId بدلاً من refreshTokenHash
-    // لأن الـ refresh token الجديد سيحصل على hash مختلف
+    const refreshTokenHash = hashToken(refreshToken);
+
     const userWithSession = await db
       .select({
         user: users,
@@ -319,7 +334,6 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
       .leftJoin(authUserSessions, and(
           eq(authUserSessions.user_id, users.id),
         eq(authUserSessions.sessionToken, payload.sessionId),
-        eq(authUserSessions.isRevoked, false),
         gte(authUserSessions.expiresAt, new Date())
       ))
       .where(eq(users.id, payload.userId))
@@ -330,24 +344,40 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
       return null;
     }
 
-    // إذا لم تُوجد جلسة في الجدول، هذا طبيعي في بيئة التطوير حيث قد تُحفظ الجلسة بطريقة مختلفة
-    // استمر المحاولة حتى وإن لم تُوجد جلسة في الجدول
-    if (!userWithSession[0].session) {
-      console.log('⚠️ [JWT-DEV] لم تُوجد جلسة في قاعدة البيانات - استمرار التجديد بدون تحديث الجلسة');
-      // بدلاً من الفشل، استمر بإنشاء رموز جديدة بدون الاعتماد على الجلسة المحفوظة
-    }
-
     const user = userWithSession[0].user;
     const session = userWithSession[0].session;
 
-    // إنشاء رموز جديدة - بدون تدوير معقد في التطوير
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 ساعة
-    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 يوم
+    if (session) {
+      if (session.isRevoked) {
+        console.warn('🚨 [JWT-DEV] كشف إعادة استخدام refresh token لجلسة ملغاة! إبطال جميع جلسات المستخدم:', {
+          userId: payload.userId,
+          sessionId: payload.sessionId?.substring(0, 8) + '...',
+        });
+        await revokeAllUserSessions(payload.userId);
+        return null;
+      }
 
-    // استخدام نفس sessionId لتجنب تعقيدات التدوير في التطوير
-    const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: payload.sessionId, type: 'access' as const };
-    const refreshPayload = { userId: payload.userId, email: user.email, sessionId: payload.sessionId, type: 'refresh' as const };
+      if (session.refresh_token_hash && session.refresh_token_hash !== refreshTokenHash) {
+        console.warn('🚨 [JWT-DEV] كشف إعادة استخدام refresh token قديم! إبطال جميع جلسات المستخدم:', {
+          userId: payload.userId,
+          sessionId: payload.sessionId?.substring(0, 8) + '...',
+        });
+        await revokeAllUserSessions(payload.userId);
+        return null;
+      }
+    }
+
+    if (!session) {
+      console.log('⚠️ [JWT-DEV] لم تُوجد جلسة في قاعدة البيانات - استمرار التجديد بدون تحديث الجلسة');
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const newSessionId = crypto.randomUUID();
+    const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: newSessionId, type: 'access' as const };
+    const refreshPayload = { userId: payload.userId, email: user.email, sessionId: newSessionId, type: 'refresh' as const };
 
     const newAccessToken = jwt.sign(accessPayload, JWT_ACCESS_SECRET, {
       expiresIn: JWT_CONFIG.accessTokenExpiry,
@@ -360,14 +390,31 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
     } as jwt.SignOptions);
 
     if (session) {
+      const newAccessTokenHash = hashToken(newAccessToken);
       const newRefreshTokenHash = hashToken(newRefreshToken);
+      const updateData: Record<string, unknown> = {
+        sessionToken: newSessionId,
+        accessTokenHash: newAccessTokenHash,
+        refresh_token_hash: newRefreshTokenHash,
+        expiresAt: refreshExpiresAt,
+        lastActivity: now,
+        securityFlags: {
+          ...(typeof session.securityFlags === 'object' && session.securityFlags !== null ? session.securityFlags : {}),
+          status: 'active',
+          lastRotatedAt: now.toISOString(),
+          previousSessionId: payload.sessionId,
+        },
+      };
+
+      if (clientContext) {
+        updateData.ipAddress = clientContext.ip;
+        updateData.userAgent = clientContext.userAgent;
+      }
+
       try {
         await db
           .update(authUserSessions)
-          .set({
-            lastActivity: new Date(),
-            refresh_token_hash: newRefreshTokenHash,
-          })
+          .set(updateData)
           .where(eq(authUserSessions.id, session.id));
       } catch (updateError) {
         console.warn('⚠️ [JWT-DEV] تحذير: فشل تحديث الجلسة (لكن سيتم الاستمرار):', updateError);
@@ -375,12 +422,16 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
     }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [JWT-DEV] تجديد مبسط مكتمل في ${duration}ms`);
+    console.log(`✅ [JWT-DEV] تدوير كامل مكتمل في ${duration}ms:`, {
+      userId: payload.userId,
+      oldSessionId: payload.sessionId?.substring(0, 8) + '...',
+      newSessionId: newSessionId.substring(0, 8) + '...',
+    });
 
     return {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
-      sessionId: payload.sessionId,
+      sessionId: newSessionId,
       expiresAt,
       refreshExpiresAt,
     };
@@ -393,9 +444,9 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
 }
 
 /**
- * تجديد Access Token باستخدام Refresh Token (النسخة الكاملة للإنتاج)
+ * تجديد Access Token باستخدام Refresh Token (النسخة الكاملة للإنتاج مع كشف إعادة الاستخدام)
  */
-async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair | null> {
+async function refreshAccessTokenProd(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
   const startTime = Date.now();
   console.log('🔄 [JWT-PROD] بدء تجديد كامل للإنتاج...');
 
@@ -408,7 +459,6 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       return null;
     }
 
-    // التحقق من وجود المستخدم
     const user = await db
       .select()
       .from(users)
@@ -420,9 +470,9 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       return null;
     }
 
-    // التحقق من صحة refresh token في قاعدة البيانات
     const refreshTokenHash = hashToken(refreshToken);
-    const session = await db
+
+    const sessionByHash = await db
       .select()
       .from(authUserSessions)
       .where(
@@ -435,15 +485,36 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       )
       .limit(1);
 
-    if (session.length === 0) {
-      // الجلسة غير موجودة أو ملغاة أو منتهية الصلاحية
+    if (sessionByHash.length === 0) {
+      const revokedSession = await db
+        .select()
+        .from(authUserSessions)
+        .where(
+          and(
+            eq(authUserSessions.user_id, payload.userId),
+            eq(authUserSessions.sessionToken, payload.sessionId)
+          )
+        )
+        .limit(1);
+
+      if (revokedSession.length > 0 && (revokedSession[0].isRevoked || revokedSession[0].refresh_token_hash !== refreshTokenHash)) {
+        console.warn('🚨 [JWT-PROD] كشف إعادة استخدام refresh token! إبطال جميع جلسات المستخدم:', {
+          userId: payload.userId,
+          sessionId: payload.sessionId?.substring(0, 8) + '...',
+          wasRevoked: revokedSession[0].isRevoked,
+          hashMismatch: revokedSession[0].refresh_token_hash !== refreshTokenHash,
+        });
+        await revokeAllUserSessions(payload.userId);
+      }
+
       return null;
     }
 
-    // إنشاء رموز جديدة
+    const session = sessionByHash[0];
+
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 ساعة
-    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 يوم
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
     const newSessionId = crypto.randomUUID();
     const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: 'access' as const };
@@ -459,26 +530,37 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
       issuer: JWT_CONFIG.issuer
     } as jwt.SignOptions);
 
-    // إنشاء hash للرموز الجديدة
     const newAccessTokenHash = hashToken(newAccessToken);
     const newRefreshTokenHash = hashToken(newRefreshToken);
 
-    // تحديث الجلسة بالرموز الجديدة (تدوير الرموز)
+    const updateData: Record<string, unknown> = {
+      sessionToken: newSessionId,
+      accessTokenHash: newAccessTokenHash,
+      refresh_token_hash: newRefreshTokenHash,
+      expiresAt: refreshExpiresAt,
+      lastActivity: now,
+      securityFlags: {
+        ...(typeof session.securityFlags === 'object' && session.securityFlags !== null ? session.securityFlags : {}),
+        status: 'active',
+        lastRotatedAt: now.toISOString(),
+        previousSessionId: session.sessionToken,
+      },
+    };
+
+    if (clientContext) {
+      updateData.ipAddress = clientContext.ip;
+      updateData.userAgent = clientContext.userAgent;
+    }
+
     await db
       .update(authUserSessions)
-      .set({
-        sessionToken: newSessionId,
-        accessTokenHash: newAccessTokenHash,
-        refresh_token_hash: newRefreshTokenHash,
-        expiresAt: refreshExpiresAt,
-        lastActivity: new Date(),
-      })
-      .where(eq(authUserSessions.id, session[0].id));
+      .set(updateData)
+      .where(eq(authUserSessions.id, session.id));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [JWT-PROD] تم تدوير الرموز بنجاح في ${duration}ms:`, { 
       userId: payload.userId, 
-      oldSessionId: session[0].sessionToken?.substring(0, 8) + '...',
+      oldSessionId: session.sessionToken?.substring(0, 8) + '...',
       newSessionId: newSessionId.substring(0, 8) + '...'
     });
 
@@ -500,13 +582,13 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
 /**
  * تجديد Access Token - يختار النسخة المناسبة حسب البيئة
  */
-export async function refreshAccessToken(refreshToken: string): Promise<TokenPair | null> {
+export async function refreshAccessToken(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   if (isDevelopment) {
-    return await refreshAccessTokenDev(refreshToken);
+    return await refreshAccessTokenDev(refreshToken, clientContext);
   } else {
-    return await refreshAccessTokenProd(refreshToken);
+    return await refreshAccessTokenProd(refreshToken, clientContext);
   }
 }
 
@@ -515,25 +597,22 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenPai
  */
 export async function revokeToken(tokenOrSessionId: string, reason?: string): Promise<boolean> {
   try {
-    // محاولة إبطال الجلسة بناءً على sessionId أولاً
+    const revokeData = {
+      isRevoked: true,
+      revokedAt: new Date(),
+      revokedReason: reason || 'manual_revoke',
+      securityFlags: { status: 'revoked', revokedAt: new Date().toISOString(), reason: reason || 'manual_revoke' },
+    };
+
     let updated = await db
       .update(authUserSessions)
-      .set({
-        isRevoked: true,
-        revokedAt: new Date(),
-        revokedReason: reason || 'manual_revoke',
-      })
+      .set(revokeData)
       .where(eq(authUserSessions.sessionToken, tokenOrSessionId));
 
-    // إذا لم تنجح، جرب بناءً على token hashes
     if ((updated.rowCount || 0) === 0) {
       updated = await db
         .update(authUserSessions)
-        .set({
-          isRevoked: true,
-          revokedAt: new Date(),
-          revokedReason: reason || 'manual_revoke',
-        })
+        .set(revokeData)
         .where(
           or(
             eq(authUserSessions.accessTokenHash, tokenOrSessionId),
@@ -569,7 +648,7 @@ export async function revokeAllUserSessions(userId: string, exceptSessionId?: st
     ];
 
     if (exceptSessionId) {
-      conditions.push(ne(authUserSessions.deviceId, exceptSessionId));
+      conditions.push(ne(authUserSessions.sessionToken, exceptSessionId));
     }
 
     const updated = await db
@@ -578,6 +657,7 @@ export async function revokeAllUserSessions(userId: string, exceptSessionId?: st
         isRevoked: true,
         revokedAt: new Date(),
         revokedReason: 'logout_all_devices',
+        securityFlags: { status: 'revoked', revokedAt: new Date().toISOString(), reason: 'logout_all_devices' },
       })
       .where(and(...conditions));
 

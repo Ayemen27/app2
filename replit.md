@@ -99,6 +99,16 @@ The system features a consistent design with a professional navy/blue palette, E
 - **T003 ✅** Error message sanitization: `api-error-normalizer.ts` middleware wraps `res.json()` on `/api` path. All 8 route files (113 instances) replaced raw `error.message` with `safeErrorMessage()`. Defense-in-depth: middleware + route-level sanitization.
 - **T004 ✅** Auth routes conditional token delivery: `tokenDelivery: 'bearer'|'cookie'` field. Socket.IO cookie-based auth fallback. Dead code cleanup (`getAuthToken` removed from `axion-reports.tsx`).
 
+### Audit Round 5 — Session Security Hardening
+- **T001 ✅** Client context extraction: `server/auth/client-context.ts` — `extractClientContext(req)` returns `{deviceId, platform, ip, ipRange, userAgent, appVersion, browserName, osName, deviceType, deviceHash}`. `validateSessionBinding()` compares stored vs current context (block/step-up/allow).
+- **T002 ✅** Session binding at login: `generateTokenPair` now persists full device context (deviceId, deviceFingerprint, userAgent, ipAddress, osName, browserName, deviceType, securityFlags with platform/ipRange/appVersion). Static `deviceId: 'mobile-diagnostic'` replaced with `extractClientContext(req)`. WebAuthn routes also updated.
+- **T003 ✅** Session verification with device binding: `verifySession` in auth.ts now validates client context against stored session. Platform mismatch → block (403). Device hash mismatch on strict routes → step-up required. IP range change on relaxed routes → warning logged. Endpoint risk classification via `getBindingPolicy()`.
+- **T004 ✅** Session lifecycle fix: Logout now calls `revokeToken(sessionId, 'logout')` before clearing cookies. Fixed `revokeAllUserSessions` bug (`ne(deviceId)` → `ne(sessionToken)`). Session status tracked in securityFlags (active/revoked).
+- **T005 ✅** Refresh token rotation: Dev mode now generates new sessionId on every refresh (was reusing). Detects refresh token reuse → revokes all user sessions (theft indicator). Session context updated on refresh. Both dev/prod modes unified with reuse detection.
+- **T006 ✅** Replay protection: `auth_request_nonces` table + `requireFreshRequest({windowSec})` middleware. Applied to: `/auth/refresh` (120s), password reset (60s), role changes (60s), all financial write operations (60s). Periodic nonce cleanup via `startNonceCleanup()`.
+
 ### Known Recommendations (Deferred)
-- **Native client attestation**: `isNativeClient()` relies on User-Agent heuristics. Ideal: signed device attestation or mTLS. Low risk since web default is cookie-only (most secure).
+- **Play Integrity (Android)**: Phase 1 of attestation plan — replace UA heuristics with cryptographic device verification. Requires Google Play Console setup.
+- **iOS App Attest**: Deferred until iOS client reaches production.
+- **SIEM/KMS/HSM**: Deferred until compliance requirements or incident volume justify.
 - **CI guard for error leakage**: Add grep-based CI test to fail if `res.json({error: error.message})` appears in route handlers.

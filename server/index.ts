@@ -28,6 +28,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import compression from "compression"; 
 import { smartConnectionManager } from './services/smart-connection-manager';
+import { startNonceCleanup } from './middleware/replay-protection';
 import { healthMonitor } from './services/HealthMonitor';
 import { FcmService } from "./services/FcmService";
 
@@ -759,6 +760,8 @@ const activeIntervals: NodeJS.Timeout[] = [];
 (async () => {
   try {
     getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
+
+    startNonceCleanup();
 
     const serverInstance = server.listen(FINAL_PORT, "0.0.0.0", async () => {
       log(`serving on port ${FINAL_PORT}`);

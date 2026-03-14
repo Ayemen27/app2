@@ -14,6 +14,7 @@ import type {
 } from '@simplewebauthn/server';
 import { requireAuth, AuthenticatedRequest, authRateLimit } from '../../middleware/auth.js';
 import { generateTokenPair } from '../../auth/jwt-utils.js';
+import { extractClientContext } from '../../auth/client-context.js';
 import { setAuthCookies } from '../../auth/cookie-config.js';
 import { storage } from '../../storage.js';
 import { db } from '../../db.js';
@@ -371,13 +372,12 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
       return res.status(403).json({ success: false, message: 'الحساب معطل' });
     }
 
+    const clientContext = extractClientContext(req);
     const tokenPair = await generateTokenPair(
       String(user.id),
       String(user.email),
       String(user.role || 'user'),
-      req.ip,
-      req.get('user-agent'),
-      { deviceId: 'biometric-login' }
+      clientContext
     );
 
     setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);

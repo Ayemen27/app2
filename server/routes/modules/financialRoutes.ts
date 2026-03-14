@@ -13,6 +13,7 @@ import {
   insertDailyExpenseSummarySchema
 } from '@shared/schema';
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
+import { requireFreshRequest } from '../../middleware/replay-protection.js';
 import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 import { FinancialLedgerService } from '../../services/FinancialLedgerService';
 import { storage } from '../../storage';
@@ -25,6 +26,14 @@ export const financialRouter = express.Router();
 // تطبيق المصادقة وتحميل المشاريع المتاحة على جميع المسارات المالية
 financialRouter.use(requireAuth);
 financialRouter.use(attachAccessibleProjects);
+
+const financialReplayProtection = requireFreshRequest({ windowSec: 60 });
+financialRouter.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
+    return financialReplayProtection(req, res, next);
+  }
+  next();
+});
 
 /**
  * 📊 الملخص المالي الموحد

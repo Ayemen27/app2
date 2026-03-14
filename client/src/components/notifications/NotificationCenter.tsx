@@ -100,7 +100,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                       n.priority === 'high' || n.priority === 4 || n.priority === 2 ? 2 :
                       n.priority === 'medium' || n.priority === 3 ? 3 :
                       n.priority === 'low' || n.priority === 2 || n.priority === 4 ? 4 : 5,
-            createdAt: n.createdAt,
+            createdAt: n.createdAt || n.created_at,
             isRead: n.status === 'read' || n.isRead === true,
             actionRequired: n.actionRequired || false
           }));
@@ -238,19 +238,21 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   }, []);
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "غير محدد";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "غير محدد";
     const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    const diffMs = now.getTime() - date.getTime();
+    if (diffMs < 0) return "الآن";
+    const diffInMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffInHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffInHours < 1) {
-      const diffInMinutes = Math.floor(diffInHours * 60);
-      return `منذ ${diffInMinutes} دقيقة`;
-    } else if (diffInHours < 24) {
-      return `منذ ${Math.floor(diffInHours)} ساعة`;
-    } else {
-      const diffInDays = Math.floor(diffInHours / 24);
-      return `منذ ${diffInDays} يوم`;
-    }
+    if (diffInMinutes < 1) return "الآن";
+    if (diffInMinutes < 60) return `منذ ${diffInMinutes} دقيقة`;
+    if (diffInHours < 24) return `منذ ${diffInHours} ساعة`;
+    if (diffInDays < 30) return `منذ ${diffInDays} يوم`;
+    return date.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -260,7 +262,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           variant="outline"
           size="icon"
           className={cn(
-            "relative h-9 w-9 rounded-xl transition-all duration-300 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800",
+            "relative h-9 w-9 rounded-xl transition-all duration-300 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 overflow-visible",
             className
           )}
           data-testid="notification-bell"
@@ -271,7 +273,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           )} />
           {unreadCount > 0 && (
             <Badge
-              className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full p-0 text-[10px] flex items-center justify-center font-bold bg-red-500 text-white border-white dark:border-slate-900 border-2 shadow-sm z-10"
+              className="absolute -top-2 -right-2 min-w-[20px] h-5 rounded-full px-1 text-[11px] flex items-center justify-center font-bold bg-red-500 text-white border-white dark:border-slate-900 border-2 shadow-md z-20 animate-pulse"
               data-testid="notification-badge"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -281,8 +283,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
       </PopoverTrigger>
 
       <PopoverContent className="w-80 sm:w-96 p-0 border-0 shadow-2xl rounded-2xl bg-white dark:bg-slate-900" align="end" data-testid="notification-popover">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 rounded-t-2xl">
-          <div className="flex items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-t-2xl overflow-hidden">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                 <Bell className="h-4 w-4" />
@@ -294,21 +296,21 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 flex-shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs h-8 text-white hover:bg-white/20 rounded-lg"
-                onClick={() => setLocation('/settings?tab=notifications')}
+                className="text-xs h-7 px-2 text-white hover:bg-white/20 rounded-lg"
+                onClick={() => { setIsOpen(false); setLocation('/settings?tab=notifications'); }}
                 title="إعدادات الإشعارات"
               >
-                <Settings className="h-3 w-3 mr-1" />
-                الإعدادات
+                <Settings className="h-3 w-3 ml-0.5" />
+                <span className="hidden sm:inline">الإعدادات</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-xs h-8 text-white hover:bg-white/20 rounded-lg"
+                className="text-xs h-7 px-2 text-white hover:bg-white/20 rounded-lg"
                 onClick={async () => {
                   if (confirm("هل أنت متأكد من حذف الإشعارات المشبوهة؟")) {
                     await bulkDeleteSuspicious();
@@ -316,30 +318,21 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
                 }}
                 title="حذف الإشعارات المشبوهة/الغريبة"
               >
-                <Zap className="h-3 w-3 mr-1" />
-                تصفية
+                <Zap className="h-3 w-3 ml-0.5" />
+                <span className="hidden sm:inline">تصفية</span>
               </Button>
               {unreadCount > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs h-8 text-white hover:bg-white/20 rounded-lg"
+                  className="text-xs h-7 px-2 text-white hover:bg-white/20 rounded-lg"
                   onClick={markAllAsRead}
                   data-testid="mark-all-read-button"
                 >
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  تعليم الكل
+                  <CheckCircle className="h-3 w-3 ml-0.5" />
+                  <span className="hidden sm:inline">تعليم الكل</span>
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 text-white hover:bg-white/20 rounded-lg"
-                onClick={() => setIsOpen(false)}
-                data-testid="close-notification-button"
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>

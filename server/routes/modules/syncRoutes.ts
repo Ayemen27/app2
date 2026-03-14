@@ -11,7 +11,8 @@ import { db, pool } from '../../db.js';
 import { requireAuth, syncRateLimit } from '../../middleware/auth.js';
 import { SyncAuditService } from '../../services/SyncAuditService.js';
 import { SYNCABLE_TABLES } from '../../../shared/schema.js';
-import { getAuthUser } from '../../internal/auth-user.js';
+import { getAuthUser, isAdmin } from '../../internal/auth-user.js';
+import { projectAccessService } from '../../services/ProjectAccessService.js';
 
 export const syncRouter = express.Router();
 
@@ -23,7 +24,7 @@ const ALL_DATABASE_TABLES: readonly string[] = SYNCABLE_TABLES;
 const MAX_BATCH_SIZE = 5;
 
 function getEffectiveBatchSize(): number {
-  const poolMax = (pool as any).options?.max || (pool as any)._max || 10;
+  const poolMax = 10;
   return Math.min(MAX_BATCH_SIZE, Math.max(1, poolMax - 2));
 }
 
@@ -35,17 +36,17 @@ async function getTableDateColumns(table: string): Promise<string[]> {
     `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name IN ('updated_at', 'created_at')`,
     [table]
   );
-  const cols = result.rows.map((r: any) => r.column_name as string);
+  const cols = result.rows.map((r: { column_name: string }) => r.column_name);
   TABLE_COLUMN_CACHE.set(table, cols);
   return cols;
 }
 
-async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: any[]; error?: string; deltaApplied?: boolean }> {
+async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: Record<string, unknown>[]; error?: string; deltaApplied?: boolean }> {
   if (!ALL_DATABASE_TABLES.includes(table)) {
     return { table, rows: [], error: 'Invalid table name' };
   }
   try {
-    const params: any[] = [];
+    const params: unknown[] = [];
     let query = `SELECT * FROM "${table}"`;
     let deltaApplied = false;
 
@@ -80,7 +81,7 @@ async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ t
 }
 
 async function fetchTablesInBatches(tables: string[], lastSyncTime?: string) {
-  const results: Record<string, any[]> = {};
+  const results: Record<string, Record<string, unknown>[]> = {};
   let successCount = 0;
   let errorCount = 0;
   let deltaTablesCount = 0;
@@ -116,6 +117,9 @@ async function fetchTablesInBatches(tables: string[], lastSyncTime?: string) {
  * يدعم 68 جدول للمزامنة الكاملة
  */
 syncRouter.get('/full-backup', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const startTime = Date.now();
   try {
     const { lastSyncTime } = req.query;
@@ -127,7 +131,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
     );
 
     const duration = Date.now() - startTime;
-    const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
+    const totalRecords = Object.values(results).reduce((sum, rows) => sum + rows.length, 0);
     console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي${lastSyncTime ? `, ${deltaTablesCount} تفاضلي، ${fullTablesCount} كامل` : ''})`);
 
 
@@ -194,6 +198,9 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
  * POST /api/sync/full-backup
  */
 syncRouter.post('/full-backup', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const startTime = Date.now();
   try {
     const { lastSyncTime } = req.body;
@@ -205,7 +212,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     );
 
     const duration = Date.now() - startTime;
-    const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
+    const totalRecords = Object.values(results).reduce((sum, rows) => sum + rows.length, 0);
     console.log(`✅ [Sync] POST اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
     SyncAuditService.logBulkSync({
@@ -270,6 +277,9 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
  * مزامنة فورية لجداول محددة
  */
 syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   const startTime = Date.now();
   try {
     const { tables: requestedTables, lastSyncTime } = req.body;
@@ -283,7 +293,7 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
     const syncTime = lastSyncTime ? new Date(lastSyncTime).toISOString() : undefined;
     const { results, successCount, errorCount } = await fetchTablesInBatches(tablesToSync, syncTime);
 
-    const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
+    const totalRecords = Object.values(results).reduce((sum, rows) => sum + rows.length, 0);
     const duration = Date.now() - startTime;
     console.log(`⚡ [Sync] اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
@@ -343,6 +353,9 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
  * مقارنة عدد السجلات بين الخادم والعميل
  */
 syncRouter.post('/verify-sync', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   try {
     const startTime = Date.now();
     const { clientCounts } = req.body;
@@ -424,6 +437,9 @@ syncRouter.post('/verify-sync', async (req: Request, res: Response) => {
  * GET /api/sync/stats
  */
 syncRouter.get('/stats', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
   try {
     const startTime = Date.now();
     const stats: Record<string, number> = {};
@@ -521,6 +537,8 @@ const ALLOWED_BATCH_TABLES: Record<string, string> = {
   'autocomplete': 'autocomplete',
 };
 
+const TABLES_WITHOUT_PROJECT_ID = new Set(['project_types', 'autocomplete']);
+
 syncRouter.post('/batch', async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
@@ -533,12 +551,17 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       });
     }
 
+    const authUser = getAuthUser(req);
+    const userId = authUser?.user_id;
+    const userIsAdmin = isAdmin(req);
+
     console.log(`[Sync-Batch] بدء معالجة دفعة ذرية (${operations.length} عملية)...`);
     const startTime = Date.now();
 
     await client.query('BEGIN');
 
-    const results: any[] = [];
+    const results: unknown[] = [];
+    const projectAccessCache = new Map<string, boolean>();
 
     for (let i = 0; i < operations.length; i++) {
       const op = operations[i];
@@ -560,6 +583,24 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       if (!tableName) {
         throw new Error(`عملية ${i}: جدول غير مسموح به: ${rawTableName}`);
       }
+
+      if (!userIsAdmin && !TABLES_WITHOUT_PROJECT_ID.has(tableName)) {
+        const projectId = payload?.project_id;
+        if (!projectId) {
+          throw new Error(`عملية ${i}: project_id مطلوب للجدول ${tableName}`);
+        }
+        if (!projectAccessCache.has(projectId)) {
+          const hasAccess = userId
+            ? await projectAccessService.checkProjectAccess(userId, authUser!.role, projectId, 'edit')
+            : false;
+          projectAccessCache.set(projectId, hasAccess);
+        }
+        if (!projectAccessCache.get(projectId)) {
+          throw new Error(`عملية ${i}: ليس لديك صلاحية تعديل بيانات المشروع ${projectId}`);
+        }
+      }
+
+      const requiresProjectScope = !userIsAdmin && !TABLES_WITHOUT_PROJECT_ID.has(tableName);
 
       if (action === 'POST') {
         if (!payload || !payload.id) {
@@ -587,6 +628,22 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
           throw new Error(`عملية ${i}: payload.id مطلوب للتعديل`);
         }
         const { id, _metadata, ...updateFields } = payload;
+
+        if (requiresProjectScope) {
+          const existing = await client.query(`SELECT "project_id" FROM "${tableName}" WHERE id = $1`, [id]);
+          if (existing.rows.length > 0) {
+            const actualProjectId = (existing.rows[0] as Record<string, unknown>).project_id as string;
+            if (actualProjectId && !projectAccessCache.get(actualProjectId)) {
+              const hasAccess = userId
+                ? await projectAccessService.checkProjectAccess(userId, authUser!.role, actualProjectId, 'edit')
+                : false;
+              if (!hasAccess) {
+                throw new Error(`عملية ${i}: ليس لديك صلاحية تعديل سجل ينتمي للمشروع ${actualProjectId}`);
+              }
+            }
+          }
+        }
+
         const clientTimestamp = _metadata?.clientTimestamp || op._metadata?.clientTimestamp;
         const { columns, values: colValues } = sanitizeColumns(updateFields);
         if (columns.length === 0) {
@@ -620,10 +677,10 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         const result = await client.query(query, values);
 
         if (result.rowCount === 0 && hasUpdatedAt && clientTimestamp) {
-          const existing = await client.query(`SELECT * FROM "${tableName}" WHERE id = $1`, [id]);
-          if (existing.rows.length > 0) {
+          const existingRow = await client.query(`SELECT * FROM "${tableName}" WHERE id = $1`, [id]);
+          if (existingRow.rows.length > 0) {
             console.log(`[Sync-Batch] LWW conflict resolved (server wins) for ${tableName} id=${id}`);
-            results.push({ index: i, success: true, conflictResolved: true, resolution: 'server_wins', data: existing.rows[0] });
+            results.push({ index: i, success: true, conflictResolved: true, resolution: 'server_wins', data: existingRow.rows[0] });
           } else {
             results.push({ index: i, success: true, data: payload });
           }
@@ -635,6 +692,22 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         if (!id) {
           throw new Error(`عملية ${i}: id مطلوب للحذف`);
         }
+
+        if (requiresProjectScope) {
+          const existing = await client.query(`SELECT "project_id" FROM "${tableName}" WHERE id = $1`, [id]);
+          if (existing.rows.length > 0) {
+            const actualProjectId = (existing.rows[0] as Record<string, unknown>).project_id as string;
+            if (actualProjectId && !projectAccessCache.get(actualProjectId)) {
+              const hasAccess = userId
+                ? await projectAccessService.checkProjectAccess(userId, authUser!.role, actualProjectId, 'edit')
+                : false;
+              if (!hasAccess) {
+                throw new Error(`عملية ${i}: ليس لديك صلاحية حذف سجل ينتمي للمشروع ${actualProjectId}`);
+              }
+            }
+          }
+        }
+
         await client.query(`DELETE FROM "${tableName}" WHERE id = $1`, [id]);
         results.push({ index: i, success: true });
       } else {

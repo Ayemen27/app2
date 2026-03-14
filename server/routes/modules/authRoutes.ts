@@ -18,11 +18,31 @@ import {
 } from '../../auth/jwt-utils.js';
 import { hashPassword, verifyPassword } from '../../auth/crypto-utils.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
-import * as schema from '@shared/schema'; // استيراد المخطط بالكامل
-import { users } from '@shared/schema'; // استيراد جدول المستخدمين للمرجع المباشر
-import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js'; // استيراد middleware المصادقة
+import * as schema from '@shared/schema';
+import { users } from '@shared/schema';
+import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 import { storage } from '../../storage.js';
+import { getAuthUser } from '../../internal/auth-user.js';
+
+interface DbUserRow {
+  id: string;
+  email: string;
+  role: string;
+  password: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  is_active: boolean | string | number;
+  mfa_enabled: boolean | null;
+  email_verified_at: Date | string | null;
+  last_login: Date | string | null;
+  created_at: Date | string | null;
+}
+
+declare global {
+  var isEmergencyMode: boolean | undefined;
+}
 
 const authRouter = express.Router();
 
@@ -120,7 +140,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    const user = userResult.rows[0] as any;
+    const user = userResult.rows[0] as DbUserRow;
 
     // 🚫 التحقق من حالة الحساب (نشط أم معطل)
     if (user.is_active === false || user.is_active === 0 || user.is_active === 'false') {
@@ -325,7 +345,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       values: [email, hashedPassword, first_name, last_name, full_name, phone || null, birth_date || null, birth_place || null, gender || null]
     });
 
-    const newUser = newUserResult.rows[0] as any;
+    const newUser = newUserResult.rows[0] as DbUserRow;
 
     console.log('✅ [AUTH] تم إنشاء حساب جديد:', { 
       user_id: newUser.id, 
@@ -623,7 +643,7 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
         text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
         values: [user_id]
       });
-      const user = userResult.rows[0] as any;
+      const user = userResult.rows[0] as DbUserRow;
 
       res.json({
         success: true,
@@ -644,12 +664,13 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
       });
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     console.error('❌ [AUTH] خطأ في التحقق من البريد:', error);
     res.status(500).json({
       success: false,
       message: 'خطأ في الخادم أثناء التحقق',
-      error: error.message
+      error: errMsg
     });
   }
 });
@@ -682,7 +703,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
         text: 'SELECT id, email, role, first_name, last_name FROM users WHERE id = $1',
         values: [user_id]
       });
-      const user = userResult.rows[0] as any;
+      const user = userResult.rows[0] as DbUserRow;
 
       res.json({
         success: true,
@@ -866,14 +887,15 @@ authRouter.get('/users', requireAuth, async (req: any, res: Response) => {
     if (verified === 'unverified') conditions.push(sql`${users.email_verified_at} IS NULL`);
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     console.log('📊 [AUTH/users] تنفيذ الاستعلام...');
     const usersList = await query.orderBy(desc(users.created_at));
     console.log(`✅ [AUTH/users] تم جلب ${usersList.length} مستخدم من قاعدة البيانات`);
 
-    const sanitizedUsers = usersList.map((u: any) => ({
+    type UserRow = typeof usersList[number];
+    const sanitizedUsers = usersList.map((u: UserRow) => ({
       id: u.id,
       email: u.email,
       first_name: u.first_name,
@@ -1038,7 +1060,7 @@ authRouter.post('/emergency/login', async (req: Request, res: Response) => {
  */
 authRouter.get('/emergency/status', async (req: Request, res: Response) => {
   try {
-    const isEmergencyMode = (global as any).isEmergencyMode || false;
+    const isEmergencyMode = globalThis.isEmergencyMode || false;
     const adminCreds = EmergencyAuthService.getEmergencyAdminCredentials();
 
     res.json({

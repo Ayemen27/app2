@@ -21,6 +21,7 @@ import { requireAuth, AuthenticatedRequest } from '../../middleware/auth';
 import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const projectRouter = express.Router();
 
@@ -115,7 +116,8 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
   try {
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    const userId = (accessReq.user as any)?.user_id || (accessReq.user as any)?.id || 'anon';
+    const authUser = getAuthUser(req);
+    const userId = authUser?.user_id || 'anon';
     const cacheKey = isAdminUser ? 'admin' : `user:${userId}`;
 
     const cached = getStatsFromCache(cacheKey);
@@ -281,13 +283,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     };
 
     // تصفية المشاريع والبيانات حسب الصلاحيات
-    const filteredProjectsList = filterByAccess(projectsList as any[]);
-    const filteredFundTransfers = filterByAccess(fundTransfersResult as any[]);
-    const filteredWorkerAttendance = filterByAccess(workerAttendanceResult as any[]);
-    const filteredMaterialPurchases = filterByAccess(materialPurchasesResult as any[]);
-    const filteredTransportation = filterByAccess(transportationResult as any[]);
-    const filteredWorkerTransfers = filterByAccess(workerTransfersResult as any[]);
-    const filteredMiscExpenses = filterByAccess(miscExpensesResult as any[]);
+    const filteredProjectsList = filterByAccess(projectsList as Array<typeof projectsList[number] & { project_id?: string | null }>);
+    const filteredFundTransfers = filterByAccess(fundTransfersResult);
+    const filteredWorkerAttendance = filterByAccess(workerAttendanceResult);
+    const filteredMaterialPurchases = filterByAccess(materialPurchasesResult);
+    const filteredTransportation = filterByAccess(transportationResult);
+    const filteredWorkerTransfers = filterByAccess(workerTransfersResult);
+    const filteredMiscExpenses = filterByAccess(miscExpensesResult);
 
     // إنشاء خريطة أسماء المشاريع
     const projectsMap = new Map(filteredProjectsList.map(p => [p.id, p.name]));
@@ -532,10 +534,10 @@ projectRouter.post('/', async (req: Request, res: Response) => {
     console.log('✅ [API] نجح validation المشروع');
 
     const projectData = { ...validationResult.data };
-    const currentUser = req.user as any;
-    if (!projectData.engineerId && currentUser?.id) {
-      projectData.engineerId = currentUser.id;
-      console.log('🔧 [API] تعيين engineerId تلقائياً للمستخدم الحالي:', currentUser.id);
+    const currentUser = getAuthUser(req);
+    if (!projectData.engineerId && currentUser?.user_id) {
+      projectData.engineerId = currentUser.user_id;
+      console.log('🔧 [API] تعيين engineerId تلقائياً للمستخدم الحالي:', currentUser.user_id);
     }
 
     console.log('💾 [API] حفظ المشروع في قاعدة البيانات...');
@@ -945,7 +947,7 @@ projectRouter.get('/:id/deletion-stats', requireProjectAccess('view'), async (re
   const startTime = Date.now();
   try {
     const project_id = req.params.id;
-    const user = req.user as any;
+    const user = getAuthUser(req);
 
     console.log('📊 [API] طلب إحصائيات الحذف للمشروع:', project_id);
     console.log('👤 [API] المستخدم:', user?.email, 'الصلاحية:', user?.role);
@@ -973,13 +975,13 @@ projectRouter.get('/:id/deletion-stats', requireProjectAccess('view'), async (re
     const project = existingProject[0];
 
     // التحقق من الصلاحيات - يجب أن يكون مسؤول أو مالك المشروع
-    const isAdmin = user?.role === 'admin';
-    const isOwner = project.engineerId === user?.id;
+    const isAdminForDeletion = user?.role === 'admin';
+    const isOwner = project.engineerId === user?.user_id;
 
     // رفض الوصول للمستخدمين غير المصرح لهم
-    if (!isAdmin && !isOwner) {
+    if (!isAdminForDeletion && !isOwner) {
       const duration = Date.now() - startTime;
-      console.warn('🚫 [API] رفض الوصول - المستخدم ليس مسؤول أو مالك:', { user_id: user?.id, projectOwner: project.engineerId });
+      console.warn('🚫 [API] رفض الوصول - المستخدم ليس مسؤول أو مالك:', { user_id: user?.user_id, projectOwner: project.engineerId });
       return res.status(403).json({
         success: false,
         error: 'غير مصرح',
@@ -1036,7 +1038,7 @@ projectRouter.get('/:id/deletion-stats', requireProjectAccess('view'), async (re
     let canDelete = false;
     let deleteBlockReason = '';
 
-    if (isAdmin) {
+    if (isAdminForDeletion) {
       canDelete = true; // المسؤول يمكنه حذف أي مشروع
     } else if (isOwner && !hasLinkedData) {
       canDelete = true; // المالك يمكنه حذف مشروعه فقط إذا لم تكن هناك بيانات مرتبطة
@@ -1093,7 +1095,7 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
   const startTime = Date.now();
   try {
     const project_id = req.params.id;
-    const user = req.user as any;
+    const user = getAuthUser(req);
     const { confirmDeletion } = req.body || {};
 
     console.log('❌ [API] طلب حذف المشروع من المستخدم:', user?.email, 'الصلاحية:', user?.role);
@@ -1126,13 +1128,13 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
     const projectToDelete = existingProject[0];
 
     // التحقق من الصلاحيات
-    const isAdmin = user?.role === 'admin';
-    const isOwner = projectToDelete.engineerId === user?.id;
+    const isAdminDel = user?.role === 'admin';
+    const isOwnerDel = projectToDelete.engineerId === user?.user_id;
 
     // التحقق أولاً: هل المستخدم مالك أو مسؤول؟
-    if (!isAdmin && !isOwner) {
+    if (!isAdminDel && !isOwnerDel) {
       const duration = Date.now() - startTime;
-      console.error('❌ [API] محاولة حذف مشروع من غير مالكه:', { user_id: user?.id, projectOwner: projectToDelete.engineerId });
+      console.error('❌ [API] محاولة حذف مشروع من غير مالكه:', { user_id: user?.user_id, projectOwner: projectToDelete.engineerId });
       return res.status(403).json({
         success: false,
         error: 'غير مصرح',
@@ -1169,7 +1171,7 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
     const hasLinkedData = totalLinked > 0;
 
     // للمستخدم العادي: رفض الحذف إذا كانت هناك بيانات مرتبطة
-    if (!isAdmin && hasLinkedData) {
+    if (!isAdminDel && hasLinkedData) {
       const duration = Date.now() - startTime;
       console.error('❌ [API] محاولة حذف مشروع يحتوي على بيانات من مستخدم عادي:', { totalLinked });
       return res.status(403).json({
@@ -1181,7 +1183,7 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
     }
 
     // للمسؤول: التحقق من تأكيد الحذف إذا كانت هناك بيانات مرتبطة
-    if (isAdmin && hasLinkedData && !confirmDeletion) {
+    if (isAdminDel && hasLinkedData && !confirmDeletion) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -1198,7 +1200,7 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
       name: projectToDelete.name,
       status: projectToDelete.status,
       deletedBy: user?.email,
-      isAdmin
+      isAdmin: isAdminDel
     });
 
     // حذف المشروع من قاعدة البيانات (CASCADE سيحذف البيانات المرتبطة تلقائياً)

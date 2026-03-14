@@ -7,61 +7,74 @@ import { insertCrashSchema, insertMetricSchema, insertDeviceSchema } from "@shar
 
 import { FcmService } from "./services/FcmService";
 import { monitoringRouter } from "./monitoring/routes";
+import { requireAuth } from "./middleware/auth";
+import { requireAdmin } from "./middleware/authz";
+
+interface NotificationRecord {
+  read?: boolean;
+  priority?: number | string | null;
+  type?: string;
+}
+
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await monitoringRouter(app).catch(err => {
     console.error("Failed to initialize monitoring router:", err);
   });
 
-  app.post("/api/devices", async (req, res) => {
+  app.post("/api/devices", requireAuth, async (req, res) => {
     try {
       const data = insertDeviceSchema.parse(req.body);
       const device = await storage.upsertDevice(data);
       res.json(device);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
+    } catch (e: unknown) {
+      res.status(400).json({ error: getErrorMessage(e) });
     }
   });
 
-  app.post("/api/crashes", async (req, res) => {
+  app.post("/api/crashes", requireAuth, async (req, res) => {
     try {
       const data = insertCrashSchema.parse(req.body);
       const crash = await storage.createCrash(data);
       res.status(201).json(crash);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
+    } catch (e: unknown) {
+      res.status(400).json({ error: getErrorMessage(e) });
     }
   });
 
-  app.post("/api/metrics", async (req, res) => {
+  app.post("/api/metrics", requireAuth, async (req, res) => {
     try {
       const data = insertMetricSchema.parse(req.body);
       const metric = await storage.createMetric(data);
       res.status(201).json(metric);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
+    } catch (e: unknown) {
+      res.status(400).json({ error: getErrorMessage(e) });
     }
   });
 
-  app.get("/api/notifications/monitoring/stats", async (_req, res) => {
+  app.get("/api/notifications/monitoring/stats", requireAuth, requireAdmin(), async (_req, res) => {
     try {
       const devices = await storage.getDevices ? await storage.getDevices() : [];
       const recentCrashes = await storage.getRecentCrashes ? await storage.getRecentCrashes(10) : [];
       
-      const notifications = await storage.getAdminNotifications ? await storage.getAdminNotifications() : [];
+      const notifications: NotificationRecord[] = await storage.getAdminNotifications ? await storage.getAdminNotifications() : [];
       
       res.json({
         total: notifications.length || 0,
-        unread: notifications.filter((n: any) => !n.read).length || 0,
-        critical: notifications.filter((n: any) => n.priority === 1 || n.priority === 'critical').length || 0,
+        unread: notifications.filter((n) => !n.read).length || 0,
+        critical: notifications.filter((n) => n.priority === 1 || n.priority === 'critical').length || 0,
         deviceCount: devices.length || 0,
         recentCrashes: recentCrashes || [],
         userStats: [], 
         typeStats: {
-          safety: notifications.filter((n: any) => n.type === 'safety').length || 0
+          safety: notifications.filter((n) => n.type === 'safety').length || 0
         }
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[API Error] /api/notifications/monitoring/stats:", e);
       res.json({
         total: 0,
@@ -75,20 +88,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/monitoring/crashes", async (req, res) => {
+  app.get("/api/monitoring/crashes", requireAuth, requireAdmin(), async (_req, res) => {
     try {
       const recentCrashes = await storage.getRecentCrashes(50);
       res.json({
         success: true,
         data: recentCrashes
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[API Error] /api/monitoring/crashes:", e);
-      res.status(500).json({ error: e.message || "Internal Server Error" });
+      res.status(500).json({ error: getErrorMessage(e) });
     }
   });
 
-  app.get("/api/monitoring/stats", async (req, res) => {
+  app.get("/api/monitoring/stats", requireAuth, requireAdmin(), async (_req, res) => {
     try {
       const devicesList = await storage.getDevices();
       const deviceCount = devicesList.length;
@@ -105,17 +118,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recentCrashes
         }
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[API Error] /api/monitoring/stats:", e);
-      res.status(500).json({ error: e.message || "Internal Server Error" });
+      res.status(500).json({ error: getErrorMessage(e) });
     }
   });
 
-  app.post("/api/v1/traces", async (req, res) => {
+  app.post("/api/v1/traces", async (_req, res) => {
     res.status(202).json({ status: "disabled", message: "OTLP proxy is currently disabled" });
   });
 
-  app.post("/api/notifications/announcement", async (req, res) => {
+  app.post("/api/notifications/announcement", requireAuth, requireAdmin(), async (req, res) => {
     try {
       const { title, body, priority, targetPlatform, recipients } = req.body;
       const result = await FcmService.sendNotification({
@@ -127,8 +140,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recipients
       });
       res.json(result);
-    } catch (e: any) {
-      res.status(400).json({ error: e.message });
+    } catch (e: unknown) {
+      res.status(400).json({ error: getErrorMessage(e) });
     }
   });
 

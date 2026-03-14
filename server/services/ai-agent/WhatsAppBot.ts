@@ -72,6 +72,7 @@ export class WhatsAppBot {
   private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
   private userMinuteRates: Map<string, number[]> = new Map();
   private notificationService: NotificationService = new NotificationService();
+  private conflictReconnectCount: number = 0;
   private lastSentMessages: Map<string, { key: any; timestamp: number }[]> = new Map();
 
   getStatus(): BotStatus {
@@ -427,9 +428,24 @@ export class WhatsAppBot {
 
         const isPairingInProgress = !!this.pendingPhoneNumber;
         
+        if (statusCode === DisconnectReason.connectionReplaced) {
+          this.conflictReconnectCount++;
+          if (this.conflictReconnectCount > 3) {
+            this.pairingCode = null;
+            this.lastError = "جلسة أخرى نشطة - تم إيقاف إعادة الاتصال لتجنب التكرار";
+            console.warn(`[WhatsAppBot] Connection replaced ${this.conflictReconnectCount} times. Another session is active. Stopping reconnect.`);
+            return;
+          }
+          const conflictDelays = [5000, 15000, 30000];
+          const delay = conflictDelays[this.conflictReconnectCount - 1] || 30000;
+          console.log(`[WhatsAppBot] Connection replaced (440). Reconnecting in ${delay / 1000}s (attempt ${this.conflictReconnectCount}/3)`);
+          this.pairingCode = null;
+          this.reconnectTimer = setTimeout(() => this.start(), delay);
+          return;
+        }
+
         if (statusCode === DisconnectReason.restartRequired || 
-            statusCode === DisconnectReason.connectionClosed ||
-            statusCode === DisconnectReason.connectionReplaced) {
+            statusCode === DisconnectReason.connectionClosed) {
           console.log(`[WhatsAppBot] Server requested restart (code: ${statusCode}). Reconnecting...`);
           this.pairingCode = null;
           this.reconnectTimer = setTimeout(() => this.start(), 3000);
@@ -468,6 +484,7 @@ export class WhatsAppBot {
         this.qr = null;
         this.pairingCode = null;
         this.reconnectAttempts = 0;
+        this.conflictReconnectCount = 0;
         this.connectedAt = new Date();
         this.lastError = null;
         this.needsRelink = false;
@@ -479,7 +496,7 @@ export class WhatsAppBot {
         try {
           const { storage } = await import("../../storage");
           await storage.createAuditLog?.({
-            user_id: "system",
+            user_id: null,
             action: "whatsapp_connection",
             meta: { module: "whatsapp", description: "تم ربط حساب واتساب بنجاح", status: "success" },
           });

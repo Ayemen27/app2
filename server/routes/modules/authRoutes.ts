@@ -215,9 +215,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       message: 'تم تسجيل الدخول بنجاح',
       token: tokenPair.accessToken, 
       accessToken: tokenPair.accessToken,
-      accessToken: tokenPair.accessToken, 
       refreshToken: tokenPair.refreshToken,
-      refreshToken: tokenPair.refreshToken, 
       user: {
         id: user.id,
         user_id: user.id,
@@ -232,8 +230,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       role: user.role || 'user',
       tokens: {
         accessToken: tokenPair.accessToken,
-        accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken,
         refreshToken: tokenPair.refreshToken
       },
       expiresIn: 900,
@@ -242,7 +238,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       emailVerified: !!user.email_verified_at,
       data: {
         token: tokenPair.accessToken,
-        accessToken: tokenPair.accessToken,
         accessToken: tokenPair.accessToken,
         user: {
           id: user.id,
@@ -865,8 +860,8 @@ authRouter.get('/users', requireAuth, async (req: any, res: Response) => {
       );
     }
     if (role) conditions.push(eq(users.role, role as string));
-    if (status === 'active') conditions.push(eq(users.is_active, true));
-    if (status === 'inactive') conditions.push(eq(users.is_active, false));
+    if (status === 'active') conditions.push(eq(users.is_active, 'true'));
+    if (status === 'inactive') conditions.push(eq(users.is_active, 'false'));
     if (verified === 'verified') conditions.push(sql`${users.email_verified_at} IS NOT NULL`);
     if (verified === 'unverified') conditions.push(sql`${users.email_verified_at} IS NULL`);
 

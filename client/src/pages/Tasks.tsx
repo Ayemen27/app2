@@ -83,7 +83,7 @@ export default function Tasks() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-task-desc" /></FormControl>
+                    <FormControl><Input {...field} value={field.value ?? ""} data-testid="input-task-desc" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

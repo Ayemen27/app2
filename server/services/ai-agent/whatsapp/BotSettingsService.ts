@@ -77,8 +77,8 @@ class BotSettingsService {
       const rows = await db.select().from(whatsappBotSettings).where(eq(whatsappBotSettings.id, 1)).limit(1);
 
       if (rows.length > 0) {
-        this.cache = rows[0];
-        return this.cache;
+        this.cache = rows[0] as any;
+        return this.cache!;
       }
 
       const [inserted] = await db.insert(whatsappBotSettings).values({
@@ -86,8 +86,8 @@ class BotSettingsService {
         updatedBy: null,
       }).returning();
 
-      this.cache = inserted;
-      return this.cache;
+      this.cache = inserted as any;
+      return this.cache!;
     } catch (error: any) {
       console.error("[BotSettingsService] Error getting settings:", error?.message);
       return {
@@ -113,8 +113,8 @@ class BotSettingsService {
       .where(eq(whatsappBotSettings.id, 1))
       .returning();
 
-    this.cache = updated;
-    return this.cache;
+    this.cache = updated as any;
+    return this.cache!;
   }
 
   async resetSettings(userId: string): Promise<WhatsappBotSettings> {
@@ -129,8 +129,8 @@ class BotSettingsService {
       .where(eq(whatsappBotSettings.id, 1))
       .returning();
 
-    this.cache = updated;
-    return this.cache;
+    this.cache = updated as any;
+    return this.cache!;
   }
 
   isWithinBusinessHours(settings: WhatsappBotSettings): boolean {
@@ -150,19 +150,19 @@ class BotSettingsService {
     });
 
     const timeParts = formatter.formatToParts(now);
-    const hour = parseInt(timeParts.find(p => p.type === "hour")?.value || "0");
-    const minute = parseInt(timeParts.find(p => p.type === "minute")?.value || "0");
+    const hour = parseInt(timeParts.find((p: Intl.DateTimeFormatPart) => p.type === "hour")?.value || "0");
+    const minute = parseInt(timeParts.find((p: Intl.DateTimeFormatPart) => p.type === "minute")?.value || "0");
     const currentMinutes = hour * 60 + minute;
 
     const dayStr = dayFormatter.format(now);
     const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
     const currentDay = dayMap[dayStr] ?? 0;
 
-    const allowedDays = settings.businessDays.split(",").map(d => parseInt(d.trim()));
+    const allowedDays = settings.businessDays.split(",").map((d: string) => parseInt(d.trim()));
     if (!allowedDays.includes(currentDay)) return false;
 
-    const [startH, startM] = settings.businessHoursStart.split(":").map(Number);
-    const [endH, endM] = settings.businessHoursEnd.split(":").map(Number);
+    const [startH, startM] = settings.businessHoursStart.split(":").map((v: string) => Number(v));
+    const [endH, endM] = settings.businessHoursEnd.split(":").map((v: string) => Number(v));
     const startMinutes = startH * 60 + startM;
     const endMinutes = endH * 60 + endM;
 

@@ -561,7 +561,7 @@ const SmartErrorsPage: React.FC = () => {
                   <Label className="text-sm font-medium block">فترة التهدئة للإشعارات (ثانية)</Label>
                   <Select 
                     value={settings.notificationCooldown} 
-                    onValueChange={(value) => setSettings(prev => ({ ...prev, notificationCooldown: value }))}
+                    onValueChange={(value: any) => setSettings((prev: any) => ({ ...prev, notificationCooldown: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -580,7 +580,7 @@ const SmartErrorsPage: React.FC = () => {
                   <Label className="text-sm font-medium block">مدة الاحتفاظ بالأخطاء (يوم)</Label>
                   <Select 
                     value={settings.errorRetention} 
-                    onValueChange={(value) => setSettings(prev => ({ ...prev, errorRetention: value }))}
+                    onValueChange={(value: any) => setSettings((prev: any) => ({ ...prev, errorRetention: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue />

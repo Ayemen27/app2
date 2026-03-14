@@ -196,7 +196,7 @@ export default function DailyExpensesBulkExport() {
     const headers = ['المبلغ', 'نوع الحساب', 'نوع', 'المتبقي', 'ملاحظات'];
     const headerRow = worksheet.addRow(headers);
     
-    headerRow.eachCell((cell, index) => {
+    headerRow.eachCell((cell: any, index: any) => {
       cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
@@ -233,7 +233,7 @@ export default function DailyExpensesBulkExport() {
       
 
       
-      carryForwardRow.eachCell((cell) => {
+      carryForwardRow.eachCell((cell: any) => {
         cell.font = { name: 'Arial Unicode MS', size: 10, bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         
@@ -273,7 +273,7 @@ export default function DailyExpensesBulkExport() {
             `مرحلة من مشروع: ${projectName} بتاريخ ${transferDate}`
           ]);
           
-          transferRow.eachCell((cell) => {
+          transferRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10, bold: true };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCC99' } }; // لون مميز للمبالغ المرحلة من مشاريع أخرى
@@ -318,7 +318,7 @@ export default function DailyExpensesBulkExport() {
           ]);
           
           transferRow.height = 20; // زيادة ارتفاع الصف لاحتواء النص الملتف
-          transferRow.eachCell((cell) => {
+          transferRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB8E6B8' } }; // أخضر فاتح للحوالات
@@ -389,7 +389,7 @@ export default function DailyExpensesBulkExport() {
           ]);
           
           workerRow.height = 20; // زيادة ارتفاع الصف لاحتواء النص الملتف
-          workerRow.eachCell((cell, index) => {
+          workerRow.eachCell((cell: any, index: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; // إضافة التفاف النص
             
@@ -452,7 +452,7 @@ export default function DailyExpensesBulkExport() {
             [expense.notes, expense.description, expense.destination, expense.expenseType].filter(Boolean).join(' - ') || 'مواصلات'
           ]);
           
-          expenseRow.eachCell((cell) => {
+          expenseRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             cell.border = {
@@ -486,7 +486,7 @@ export default function DailyExpensesBulkExport() {
             `${material.materialName || material.material?.name || 'مواد'}`
           ]);
           
-          materialRow.eachCell((cell) => {
+          materialRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             cell.border = {
@@ -542,7 +542,7 @@ export default function DailyExpensesBulkExport() {
             transferNotes // الملاحظات المحسنة
           ]);
           
-          transferRow.eachCell((cell) => {
+          transferRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
             cell.border = {
@@ -569,7 +569,7 @@ export default function DailyExpensesBulkExport() {
             `دفع إلى ${payment.supplierName || 'مورد'} - ${payment.notes || payment.description || 'دفعة'}`
           ]);
           
-          paymentRow.eachCell((cell) => {
+          paymentRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             cell.border = {
@@ -604,7 +604,7 @@ export default function DailyExpensesBulkExport() {
             misc.notes || misc.description || 'مصروف متنوع'
           ]);
           
-          miscRow.eachCell((cell) => {
+          miscRow.eachCell((cell: any) => {
             cell.font = { name: 'Arial Unicode MS', size: 10 };
             cell.alignment = { horizontal: 'center', vertical: 'middle' };
             cell.border = {
@@ -623,7 +623,7 @@ export default function DailyExpensesBulkExport() {
     // دمج الخلايا A إلى C لنص "المبلغ المتبقي النهائي"
     worksheet.mergeCells(`A${finalBalanceRow.number}:C${finalBalanceRow.number}`);
     
-    finalBalanceRow.eachCell((cell, index) => {
+    finalBalanceRow.eachCell((cell: any, index: any) => {
       cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } };
@@ -649,7 +649,7 @@ export default function DailyExpensesBulkExport() {
       const purchasesHeaders = ['المشروع', 'محل التوريد', 'المبلغ', 'نوع الدفع', 'الملاحظات'];
       const purchasesHeaderRow = worksheet.addRow(purchasesHeaders);
       
-      purchasesHeaderRow.eachCell((cell) => {
+      purchasesHeaderRow.eachCell((cell: any) => {
         cell.font = { name: 'Arial Unicode MS', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E5090' } };
@@ -685,7 +685,7 @@ export default function DailyExpensesBulkExport() {
           purchaseDescription
         ]);
         
-        purchaseRow.eachCell((cell, index) => {
+        purchaseRow.eachCell((cell: any, index: any) => {
           cell.font = { name: 'Arial Unicode MS', size: 10 };
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
           
@@ -725,7 +725,7 @@ export default function DailyExpensesBulkExport() {
         row.height = 22; // زيادة الارتفاع إلى 22 لراحة أكبر
         
         // تطبيق التفاف النص وتوسيط المحتوى على جميع الخلايا
-        row.eachCell((cell) => {
+        row.eachCell((cell: any) => {
           cell.alignment = { 
             horizontal: 'center', 
             vertical: 'middle', 

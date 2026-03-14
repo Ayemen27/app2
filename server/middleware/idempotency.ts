@@ -41,7 +41,7 @@ async function handleIdempotency(key: string, req: Request, res: Response, next:
         statusCode,
         responseBody: body,
         expiresAt,
-      }).catch(err => {
+      }).catch((err: any) => {
         if (!String(err).includes('duplicate key')) {
           console.error('[Idempotency] فشل حفظ المفتاح:', err);
         }

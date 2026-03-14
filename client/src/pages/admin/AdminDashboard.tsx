@@ -46,9 +46,9 @@ export default function AdminDashboard() {
     refetchInterval: 15000,
   });
 
-  const stats = monitoringStats?.data || { activeDevices: 0, crashRate: 0 };
-  const health = healthData?.health || { status: 'healthy', metrics: { averageLatency: 0 } };
-  const crashes = crashesData?.data || [];
+  const stats = (monitoringStats as any)?.data || { activeDevices: 0, crashRate: 0 };
+  const health = (healthData as any)?.health || { status: 'healthy', metrics: { averageLatency: 0 } };
+  const crashes = (crashesData as any)?.data || [];
 
   if (healthLoading || monitoringLoading || crashesLoading) {
     return (
@@ -148,7 +148,6 @@ export default function AdminDashboard() {
               value: stats.activeDevices || "0",
               icon: Smartphone,
               color: "blue",
-              description: "أجهزة متصلة حالياً"
             },
             {
               title: "معدل الانهيارات",
@@ -156,7 +155,6 @@ export default function AdminDashboard() {
               icon: ShieldAlert,
               color: "red",
               status: (stats.crashRate || 0) > 1 ? "critical" : "normal",
-              description: "آخر 24 ساعة"
             },
             {
               title: "زمن استجابة API",
@@ -164,14 +162,12 @@ export default function AdminDashboard() {
               icon: Zap,
               color: "green",
               status: (health?.metrics?.averageLatency || 0) > 500 ? "warning" : "normal",
-              description: "متوسط الاستجابة"
             },
             {
               title: "حالة الخادم",
               value: health?.status === 'healthy' ? "ممتازة" : "تحتاج فحص",
               icon: Server,
               color: "purple",
-              description: "صحة النظام المركزية"
             }
           ]}
           columns={4}

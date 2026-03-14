@@ -19,16 +19,15 @@ export function WellDetailCard({ well_id, onEdit, onDelete, onViewCosts }: WellD
 
   // جلب تفاصيل البئر
   const { data: well, isLoading: wellLoading } = useQuery({
-    queryKey: QUERY_KEYS.wellById(well_id),
+    queryKey: QUERY_KEYS.wellById(String(well_id)),
     queryFn: async () => {
       const response = await apiRequest(`/wells/${well_id}`);
       return response.data;
     }
   });
 
-  // جلب مصاريف البئر
   const { data: expenses = [] } = useQuery({
-    queryKey: QUERY_KEYS.wellExpenses(well_id),
+    queryKey: QUERY_KEYS.wellExpenses(String(well_id)),
     queryFn: async () => {
       const response = await apiRequest(`/well-expenses/${well_id}`);
       return response.data || [];
@@ -37,7 +36,7 @@ export function WellDetailCard({ well_id, onEdit, onDelete, onViewCosts }: WellD
 
   // جلب تقرير التكاليف
   const { data: costReport } = useQuery({
-    queryKey: QUERY_KEYS.wellCostReport(well_id),
+    queryKey: QUERY_KEYS.wellCostReport(String(well_id)),
     queryFn: async () => {
       const response = await apiRequest(`/well-expenses/cost-report/${well_id}`);
       return response.data;

@@ -62,7 +62,7 @@ projectTypeRouter.get('/', async (req: Request, res: Response) => {
     let filteredList = typesList;
     if (search && typeof search === 'string' && search.trim()) {
       const searchLower = search.toLowerCase().trim();
-      filteredList = typesList.filter(t => 
+      filteredList = typesList.filter((t: any) => 
         t.name.toLowerCase().includes(searchLower) ||
         (t.description && t.description.toLowerCase().includes(searchLower))
       );

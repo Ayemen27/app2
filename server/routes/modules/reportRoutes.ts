@@ -181,18 +181,18 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
       );
 
     // حساب الإجماليات - باستخدام الأجر الحالي للعامل × عدد أيام العمل
-    const totalWorkerWages = attendanceData.reduce((sum, a) => {
+    const totalWorkerWages = attendanceData.reduce((sum: any, a: any) => {
       const currentDailyWage = parseFloat(a.dailyWage || '0');
       const workDays = parseFloat(a.workDays || '0');
       return sum + (currentDailyWage * workDays);
     }, 0);
-    const totalPaidWages = attendanceData.reduce((sum, a) => sum + parseFloat(a.paidAmount || '0'), 0);
-    const totalWorkDays = attendanceData.reduce((sum, a) => sum + parseFloat(a.workDays || '0'), 0);
-    const totalMaterials = materialsData.reduce((sum, m) => sum + parseFloat(m.totalAmount || '0'), 0);
-    const totalTransport = transportData.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-    const totalMiscExpenses = miscExpensesData.reduce((sum, e) => sum + parseFloat(e.amount || '0'), 0);
-    const totalTransfers = transfersData.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
-    const totalFundTransfers = fundTransfersData.reduce((sum, f) => sum + parseFloat(f.amount || '0'), 0);
+    const totalPaidWages = attendanceData.reduce((sum: any, a: any) => sum + parseFloat(a.paidAmount || '0'), 0);
+    const totalWorkDays = attendanceData.reduce((sum: any, a: any) => sum + parseFloat(a.workDays || '0'), 0);
+    const totalMaterials = materialsData.reduce((sum: any, m: any) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const totalTransport = transportData.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const totalMiscExpenses = miscExpensesData.reduce((sum: any, e: any) => sum + parseFloat(e.amount || '0'), 0);
+    const totalTransfers = transfersData.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
+    const totalFundTransfers = fundTransfersData.reduce((sum: any, f: any) => sum + parseFloat(f.amount || '0'), 0);
 
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalTransfers;
     const balance = totalFundTransfers - totalExpenses;
@@ -365,14 +365,14 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .orderBy(asc(workerMiscExpenses.date));
 
     // حساب الإجماليات الكلية
-    const totalWorkDays = attendanceSummary.reduce((sum, a) => sum + Number(a.totalWorkDays), 0);
-    const totalWages = attendanceSummary.reduce((sum, a) => sum + Number(a.totalWages), 0);
-    const totalPaidWages = attendanceSummary.reduce((sum, a) => sum + Number(a.totalPaid), 0);
-    const totalMaterials = materialsSummary.reduce((sum, m) => sum + Number(m.totalAmount), 0);
-    const totalTransport = transportSummary.reduce((sum, t) => sum + Number(t.totalAmount), 0);
-    const totalFundTransfers = fundTransfersSummary.reduce((sum, f) => sum + Number(f.totalAmount), 0);
-    const totalMiscExpenses = miscExpensesSummary.reduce((sum, e) => sum + Number(e.totalAmount), 0);
-    const uniqueWorkers = Math.max(...attendanceSummary.map(a => Number(a.workerCount)), 0);
+    const totalWorkDays = attendanceSummary.reduce((sum: any, a: any) => sum + Number(a.totalWorkDays), 0);
+    const totalWages = attendanceSummary.reduce((sum: any, a: any) => sum + Number(a.totalWages), 0);
+    const totalPaidWages = attendanceSummary.reduce((sum: any, a: any) => sum + Number(a.totalPaid), 0);
+    const totalMaterials = materialsSummary.reduce((sum: any, m: any) => sum + Number(m.totalAmount), 0);
+    const totalTransport = transportSummary.reduce((sum: any, t: any) => sum + Number(t.totalAmount), 0);
+    const totalFundTransfers = fundTransfersSummary.reduce((sum: any, f: any) => sum + Number(f.totalAmount), 0);
+    const totalMiscExpenses = miscExpensesSummary.reduce((sum: any, e: any) => sum + Number(e.totalAmount), 0);
+    const uniqueWorkers = Math.max(...attendanceSummary.map((a: any) => Number(a.workerCount)), 0);
     const activeDays = attendanceSummary.length;
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses;
     const balance = totalFundTransfers - totalExpenses;
@@ -395,11 +395,11 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const projectInfo = await db.select().from(projects).where(eq(projects.id, project_id as string)).limit(1);
 
     // بناء بيانات الرسم البياني
-    const chartData = attendanceSummary.map(day => {
-      const materialDay = materialsSummary.find(m => m.date === day.date);
-      const transportDay = transportSummary.find(t => t.date === day.date);
-      const fundDay = fundTransfersSummary.find(f => f.date === day.date);
-      const miscDay = miscExpensesSummary.find(e => e.date === day.date);
+    const chartData = attendanceSummary.map((day: any) => {
+      const materialDay = materialsSummary.find((m: any) => m.date === day.date);
+      const transportDay = transportSummary.find((t: any) => t.date === day.date);
+      const fundDay = fundTransfersSummary.find((f: any) => f.date === day.date);
+      const miscDay = miscExpensesSummary.find((e: any) => e.date === day.date);
 
       const miscAmount = miscDay ? Number(miscDay.totalAmount) : 0;
       const materialAmount = materialDay ? Number(materialDay.totalAmount) : 0;
@@ -543,13 +543,13 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
     // تجميع الحركات في كشف واحد مع تصفية السجلات الفارغة وغير المكتملة
     const statement = [
       ...attendance
-        .filter(a => {
+        .filter((a: any) => {
           const days = parseFloat(a.workDays || '0');
           const paid = parseFloat(a.paidAmount || '0');
           // الاحتفاظ بالسجل فقط إذا كان هناك عمل (أيام > 0) أو مبلغ مدفوع (دفعة)
           return days > 0 || paid > 0;
         })
-        .map(a => {
+        .map((a: any) => {
           const days = parseFloat(a.workDays || '0');
           const wage = parseFloat(a.dailyWage || '0');
           const earnedAmount = days * wage;
@@ -565,7 +565,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
             reference: 'حضور'
           };
         }),
-      ...transfers.map(t => ({
+      ...transfers.map((t: any) => ({
         date: t.transferDate,
         type: 'حوالة',
         description: `حوالة لـ ${t.recipientName}`,
@@ -943,14 +943,14 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
 
     // حساب الإجماليات - باستخدام الأجر الحالي للعامل
     const currentDailyWage = parseFloat(workerInfo[0].dailyWage || '0');
-    const totalWorkDays = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.workDays || '0'), 0);
+    const totalWorkDays = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.workDays || '0'), 0);
     const totalEarned = currentDailyWage * totalWorkDays;
-    const totalPaid = attendanceRecords.reduce((sum, r) => sum + parseFloat(r.paidAmount || '0'), 0);
-    const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const totalPaid = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.paidAmount || '0'), 0);
+    const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
     const remainingBalance = totalEarned - totalPaid - totalTransfers;
 
     // بيانات الرسم البياني - باستخدام الأجر الحالي
-    const chartData = attendanceRecords.map(r => {
+    const chartData = attendanceRecords.map((r: any) => {
       const workDays = parseFloat(r.workDays || '0');
       return {
         date: r.date,

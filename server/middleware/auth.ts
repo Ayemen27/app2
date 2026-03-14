@@ -365,7 +365,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       first_name: user.first_name || undefined,
       last_name: user.last_name || undefined,
       role: user.role || 'user', // استخدام الدور من قاعدة البيانات مباشرة
-      is_active: user.is_active,
+      is_active: String(user.is_active) === 'true' ? true : false,
       mfa_enabled: user.mfa_enabled || undefined,
       sessionId: decoded.sessionId || 'jwt-session'
     };

@@ -1,6 +1,8 @@
 import type { DiagnosticCheck, InsertDiagnosticCheck } from "@shared/schema";
 import { storage } from "../storage";
 
+const storageAny = storage as any;
+
 export class DiagnosticsService {
   private diagnosticChecks = [
     {
@@ -30,7 +32,7 @@ export class DiagnosticsService {
 
     for (const diagnostic of this.diagnosticChecks) {
       // Create initial check with running status
-      const initialCheck = await storage.createDiagnosticCheck({
+      const initialCheck = await storageAny.createDiagnosticCheck({
         name: diagnostic.name,
         description: diagnostic.description,
         status: 'running',
@@ -44,7 +46,7 @@ export class DiagnosticsService {
         const duration = Date.now() - startTime;
 
         // Update check with results
-        const updatedCheck = await storage.updateDiagnosticCheck(
+        const updatedCheck = await storageAny.updateDiagnosticCheck(
           initialCheck.id,
           result.status,
           result.message,
@@ -57,7 +59,7 @@ export class DiagnosticsService {
           results[index] = updatedCheck;
         }
       } catch (error) {
-        await storage.updateDiagnosticCheck(
+        await storageAny.updateDiagnosticCheck(
           initialCheck.id,
           'failure',
           `خطأ في التشخيص: ${error instanceof Error ? error.message : 'خطأ غير معروف'}`
@@ -143,17 +145,16 @@ export class DiagnosticsService {
   }
 
   async getSuggestedActions(): Promise<string[]> {
-    const checks = await storage.getDiagnosticChecks();
+    const checks: DiagnosticCheck[] = await storageAny.getDiagnosticChecks();
     const actions: string[] = [];
 
-    // Analyze failed checks and provide suggestions
-    const failedChecks = checks.filter(check => check.status === 'failure');
+    const failedChecks = checks.filter((check: DiagnosticCheck) => check.status === 'failure');
     
-    if (failedChecks.some(check => check.name.includes('Gateway Timeout'))) {
+    if (failedChecks.some((check: DiagnosticCheck) => check.name.includes('Gateway Timeout'))) {
       actions.push('زيادة timeout للـ upstream server');
     }
 
-    if (failedChecks.some(check => check.name.includes('Load Balancer'))) {
+    if (failedChecks.some((check: DiagnosticCheck) => check.name.includes('Load Balancer'))) {
       actions.push('إعادة تشغيل الـ load balancer');
     }
 

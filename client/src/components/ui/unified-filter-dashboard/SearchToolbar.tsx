@@ -154,7 +154,7 @@ export function SearchToolbar({
             <div className="border-2 border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
               <Select
                 value={String(value || filter.defaultValue || 'all')}
-                onValueChange={(v) => onFilterChange?.(filter.key, v)}
+                onValueChange={(v: any) => onFilterChange?.(filter.key, v)}
               >
                 <SelectTrigger className="h-14 border-0 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm font-medium">
                   <SelectValue placeholder={filter.placeholder || filter.label} />

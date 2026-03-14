@@ -135,6 +135,10 @@ export const emergencyUsers = pgTable("emergency_users", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const insertEmergencyUserSchema = createInsertSchema(emergencyUsers);
+export type EmergencyUser = typeof emergencyUsers.$inferSelect;
+export type InsertEmergencyUser = z.infer<typeof insertEmergencyUserSchema>;
+
 // Tasks table (جدول المهام)
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
@@ -933,9 +937,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
     .max(100, "اسم العائلة طويل جداً")
     .regex(/^[a-zA-Zا-ي0-9\s\-']*$/, "اسم العائلة يحتوي على أحرف غير مسموحة")
     .optional(),
-  role: z.enum(['admin', 'manager', 'user'], {
-    errorMap: () => ({ message: "الدور يجب أن يكون admin أو manager أو user" })
-  })
+  role: z.enum(['admin', 'manager', 'user']).describe("الدور يجب أن يكون admin أو manager أو user")
 });
 
 // 🛡️ **Enhanced Worker Input Validation**
@@ -966,9 +968,7 @@ export const enhancedInsertProjectSchema = createInsertSchema(projects).omit({
     .min(2, "اسم المشروع قصير جداً")
     .max(200, "اسم المشروع طويل جداً")
     .regex(/^[a-zA-Zا-ي0-9\s\-_().]+$/, "اسم المشروع يحتوي على أحرف غير مسموحة"),
-  status: z.enum(['active', 'completed', 'paused'], {
-    errorMap: () => ({ message: "حالة المشروع يجب أن تكون active أو completed أو paused" })
-  }),
+  status: z.enum(['active', 'completed', 'paused']),
   imageUrl: z.string()
     .url("رابط الصورة غير صحيح")
     .optional()
@@ -1872,4 +1872,41 @@ export const SERVER_TO_IDB_TABLE_MAP: Record<string, string> = {
   'material_categories': 'materialCategories',
   'equipment_movements': 'equipmentMovements',
 };
+
+export interface ErrorLog {
+  id: number;
+  timestamp: string;
+  type: string;
+  path: string;
+  error: string;
+  status: string;
+  statusCode: number;
+  userAgent?: string | null;
+  ip?: string | null;
+  stack?: string | null;
+}
+
+export type InsertErrorLog = Omit<ErrorLog, 'id'>;
+
+export interface DiagnosticCheck {
+  id: number;
+  name: string;
+  description: string;
+  status: 'running' | 'success' | 'failure' | 'warning';
+  message?: string | null;
+  duration?: number | null;
+  created_at?: Date | null;
+}
+
+export type InsertDiagnosticCheck = Omit<DiagnosticCheck, 'id' | 'created_at' | 'message' | 'duration'>;
+
+export interface Incident {
+  id: string;
+  title: string;
+  description?: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: 'open' | 'investigating' | 'resolved' | 'closed';
+  created_at: string;
+  resolved_at?: string | null;
+}
 

@@ -345,7 +345,7 @@ export default function SettingsPage() {
                       <Label className="text-base">لغة النظام</Label>
                       <p className="text-sm text-muted-foreground">اختر اللغة المفضلة لواجهة المستخدم</p>
                     </div>
-                    <Select value={prefs.language} onValueChange={(v) => updatePref('language', v)}>
+                    <Select value={prefs.language} onValueChange={(v: string) => updatePref('language', v)}>
                       <SelectTrigger className="w-[140px] rounded-xl" data-testid="select-language">
                         <SelectValue placeholder="اختر اللغة" />
                       </SelectTrigger>
@@ -454,7 +454,7 @@ export default function SettingsPage() {
                       <Label className="text-base">حجم الخط</Label>
                       <p className="text-sm text-muted-foreground">تعديل حجم خط النصوص في التطبيق</p>
                     </div>
-                    <Select value={prefs.font_size} onValueChange={(v) => updatePref('font_size', v)}>
+                    <Select value={prefs.font_size} onValueChange={(v: string) => updatePref('font_size', v)}>
                       <SelectTrigger className="w-[140px] rounded-xl" data-testid="select-font-size">
                         <SelectValue placeholder="اختر الحجم" />
                       </SelectTrigger>

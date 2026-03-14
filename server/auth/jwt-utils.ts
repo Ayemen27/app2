@@ -629,7 +629,7 @@ export async function getUserActiveSessions(userId: string) {
       ipAddress: authUserSessions.ipAddress,
       userAgent: authUserSessions.browserName,
       deviceInfo: authUserSessions.deviceType,
-      issuedAt: authUserSessions.createdAt,
+      issuedAt: authUserSessions.created_at,
       lastUsedAt: authUserSessions.lastActivity,
       expiresAt: authUserSessions.expiresAt,
     })

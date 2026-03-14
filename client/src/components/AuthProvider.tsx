@@ -476,7 +476,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         console.log('🔄 [AuthProvider] محاولة بدء المزامنة...');
         const syncModule = await import('../offline/sync');
-        const startSync = syncModule.startSync || (syncModule as any).default?.startSync;
+        const startSync = (syncModule as any).startSync || (syncModule as any).default?.startSync;
         if (typeof startSync === 'function') {
           await startSync();
         }

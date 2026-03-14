@@ -904,7 +904,7 @@ function ComparisonResults({ data, onRefresh }: { data: any; onRefresh: () => vo
                 >
                   <TableCell className="font-mono text-xs">{t.name}</TableCell>
                   <TableCell className="text-center">
-                    <CompareStatusBadge status={t.status} s1Name={s1Name} s2Name={s2Name} />
+                    <CompareStatusBadge status={t.status} />
                   </TableCell>
                   <TableCell className="text-center font-mono text-xs">
                     {t.source1Rows !== null && t.source1Rows !== undefined ? t.source1Rows.toLocaleString() : <span className="text-muted-foreground">-</span>}

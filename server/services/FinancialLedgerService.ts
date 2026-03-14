@@ -10,7 +10,7 @@
  */
 
 import { db, pool } from '../db';
-import { journalEntries, journalLines, financialAuditLog, reconciliationRecords, summaryInvalidations } from '@shared/schema';
+import { journalEntries, journalLines, financialAuditLog, reconciliationRecords, summaryInvalidations, projects } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 
 const ACCOUNT_CODES = {
@@ -224,7 +224,7 @@ export class FinancialLedgerService {
       entryType: 'reversal',
       reversalOfId: entryId,
       createdBy,
-      lines: originalLines.map(line => ({
+      lines: originalLines.map((line: any) => ({
         accountCode: line.accountCode,
         debitAmount: parseFloat(String(line.creditAmount || '0')),
         creditAmount: parseFloat(String(line.debitAmount || '0')),

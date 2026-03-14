@@ -20,12 +20,12 @@ const workerSettlementSchema = z.object({
   worker_id: z.string().min(1, "معرّف العامل مطلوب"),
   project_id: z.string().min(1, "معرّف المشروع مطلوب"),
   amount: z.number().positive("المبلغ يجب أن يكون أكبر من صفر"),
-  settlementType: z.enum(["full", "partial", "advance"], {
-    errorMap: () => ({ message: "نوع التسوية غير صحيح" })
-  }),
-  paymentMethod: z.enum(["cash", "transfer", "check"], {
-    errorMap: () => ({ message: "طريقة الدفع غير صحيحة" })
-  }),
+  settlementType: z.union([z.literal("full"), z.literal("partial"), z.literal("advance")], {
+    error: "نوع التسوية غير صحيح"
+  } as any),
+  paymentMethod: z.union([z.literal("cash"), z.literal("transfer"), z.literal("check")], {
+    error: "طريقة الدفع غير صحيحة"
+  } as any),
   settlementDate: z.string().min(1, "تاريخ التسوية مطلوب"),
   notes: z.string().optional(),
   workerName: z.string().optional()
@@ -67,7 +67,7 @@ export function useWorkersSettlementValidation() {
     } catch (error) {
       if (error instanceof z.ZodError) {
         // تحويل أخطاء Zod إلى كائن errors
-        error.errors.forEach((err) => {
+        error.issues.forEach((err: any) => {
           const path = err.path.join('.');
           newErrors[path] = err.message;
         });

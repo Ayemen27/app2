@@ -1,6 +1,5 @@
 import { Client } from "pg";
 import fs from "fs";
-import { getSmartPool } from "../db";
 import * as schema from "@shared/schema";
 import { smartConnectionManager } from "./smart-connection-manager";
 
@@ -300,7 +299,7 @@ export class SecureDataFetcher {
       console.log(`💾 حفظ ${data.length} صف من ${tableName} في قاعدة البيانات المحلية...`);
 
       // استخدام المدير الذكي للحصول على الاتصال المحلي للكتابة
-      const localPool = getSmartPool('write');
+      const localPool = (smartConnectionManager as any).getPool?.('write') || null;
       
       if (!localPool) {
         console.error('❌ لا يمكن الحصول على اتصال محلي للحفظ');

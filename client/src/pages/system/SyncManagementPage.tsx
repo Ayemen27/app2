@@ -221,7 +221,7 @@ export default function SyncManagementPage() {
           <UnifiedSearchFilter
             searchValue={searchValue}
             onSearchChange={onSearchChange}
-            placeholder="بحث في العمليات، العناوين، أو رسائل الأخطاء..."
+            searchPlaceholder="بحث في العمليات، العناوين، أو رسائل الأخطاء..."
             filters={[
               {
                 key: 'action',
@@ -542,7 +542,7 @@ function ServerAuditTab() {
                 data-testid="input-audit-search"
               />
             </div>
-            <Select value={auditModule} onValueChange={(v) => { setAuditModule(v); setAuditPage(1); }}>
+            <Select value={auditModule} onValueChange={(v: string) => { setAuditModule(v); setAuditPage(1); }}>
               <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-audit-module">
                 <SelectValue placeholder="القسم" />
               </SelectTrigger>
@@ -553,7 +553,7 @@ function ServerAuditTab() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={auditStatus} onValueChange={(v) => { setAuditStatus(v); setAuditPage(1); }}>
+            <Select value={auditStatus} onValueChange={(v: string) => { setAuditStatus(v); setAuditPage(1); }}>
               <SelectTrigger className="w-full sm:w-[120px]" data-testid="select-audit-status">
                 <SelectValue placeholder="الحالة" />
               </SelectTrigger>
@@ -566,7 +566,7 @@ function ServerAuditTab() {
                 <SelectItem value="conflict">تعارض</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={auditAction} onValueChange={(v) => { setAuditAction(v); setAuditPage(1); }}>
+            <Select value={auditAction} onValueChange={(v: string) => { setAuditAction(v); setAuditPage(1); }}>
               <SelectTrigger className="w-full sm:w-[140px]" data-testid="select-audit-action">
                 <SelectValue placeholder="نوع العملية" />
               </SelectTrigger>

@@ -28,7 +28,7 @@ export function WellSelector({
 }: WellSelectorProps) {
   // جلب الآبار
   const { data: wells = [], isLoading } = useQuery({
-    queryKey: QUERY_KEYS.wellsByProject(project_id),
+    queryKey: QUERY_KEYS.wellsByProject(project_id ?? ''),
     queryFn: async () => {
       if (!project_id) return [];
       try {

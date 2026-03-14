@@ -232,7 +232,6 @@ export default function AdminNotificationsPage() {
         <UnifiedStats 
           stats={stats} 
           columns={3} 
-          className="mb-6"
         />
 
         <UnifiedFilterDashboard

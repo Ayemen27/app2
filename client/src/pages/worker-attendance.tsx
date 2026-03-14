@@ -149,7 +149,7 @@ export default function WorkerAttendance() {
 
   // Get today's attendance records
   const { data: todayAttendance = [] } = useQuery({
-    queryKey: QUERY_KEYS.workerAttendance(selectedProjectId, selectedDate),
+    queryKey: QUERY_KEYS.workerAttendance(selectedProjectId, selectedDate ?? undefined),
     queryFn: async () => {
       try {
         // إذا كان "جميع المشاريع" محدد، نجلب من جميع المشاريع
@@ -216,7 +216,7 @@ export default function WorkerAttendance() {
 
   // Fetch specific attendance record for editing
   const { data: attendanceToEdit } = useQuery({
-    queryKey: QUERY_KEYS.workerAttendanceEdit(editId),
+    queryKey: QUERY_KEYS.workerAttendanceEdit(editId || ''),
     queryFn: async () => {
       try {
         const response = await apiRequest(`/api/worker-attendance/${editId}`, "GET");
@@ -263,8 +263,8 @@ export default function WorkerAttendance() {
       // حفظ المفاتيح الحالية للاستخدام في onError و onSettled
       const project_id = selectedProjectId;
       const date = selectedDate;
-      const allKey = QUERY_KEYS.workerAttendanceAll(project_id);
-      const dateKey = QUERY_KEYS.workerAttendance(project_id, date);
+      const allKey = QUERY_KEYS.workerAttendanceAll(project_id ?? undefined);
+      const dateKey = QUERY_KEYS.workerAttendance(project_id, date ?? undefined);
 
       // إلغاء كلا الـ queries
       await queryClient.cancelQueries({ queryKey: allKey });
@@ -411,7 +411,7 @@ export default function WorkerAttendance() {
             console.log(`💳 سحب مقدم - فرض workDays = 0`);
           } else if (record.workDays !== undefined) {
             // تحويل workDays إلى string لتجنب خطأ الـ validation في السيرفر
-            record.workDays = record.workDays.toString();
+            record.workDays = record.workDays!.toString();
           }
 
           // إذا كان هناك recordId (من التعديل)، قم بالتعديل مباشرة
@@ -1285,7 +1285,7 @@ export default function WorkerAttendance() {
                           <Label className="text-xs text-muted-foreground">نوع الدفع</Label>
                           <Select
                             value={bulkSettings.paymentType}
-                            onValueChange={(value) => setBulkSettings(prev => ({ ...prev, paymentType: value }))}
+                            onValueChange={(value: string) => setBulkSettings(prev => ({ ...prev, paymentType: value }))}
                           >
                             <SelectTrigger className="mt-1">
                               <SelectValue />

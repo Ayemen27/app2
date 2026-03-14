@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { storage } from "../../storage";
 import { insertTaskSchema } from "@shared/schema";
 import { requireAuth, requireAdmin } from '../../middleware/auth';
@@ -12,7 +12,7 @@ router.get("/", async (_req, res) => {
   res.json(tasks);
 });
 
-router.post("/", async (req, res) => {
+router.post("/", async (req: Request, res: Response) => {
   const parsed = insertTaskSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error });
@@ -21,14 +21,14 @@ router.post("/", async (req, res) => {
   res.status(201).json(task);
 });
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   const task = await storage.updateTask(id, req.body);
   if (!task) return res.status(404).send("Task not found");
   res.json(task);
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id);
   await storage.deleteTask(id);
   res.sendStatus(204);

@@ -479,11 +479,9 @@ export class WhatsAppBot {
         try {
           const { storage } = await import("../../storage");
           await storage.createAuditLog?.({
-            userId: "system",
+            user_id: "system",
             action: "whatsapp_connection",
-            module: "whatsapp",
-            description: "تم ربط حساب واتساب بنجاح",
-            status: "success"
+            meta: { module: "whatsapp", description: "تم ربط حساب واتساب بنجاح", status: "success" },
           });
         } catch (e) {
           console.error("Failed to log whatsapp connection:", e);
@@ -688,7 +686,7 @@ export class WhatsAppBot {
           title: `💬 رسالة واتساب من ${phone}`,
           body: bodyText || 'رسالة جديدة',
           priority: 3,
-          createdAt: notification.createdAt,
+          createdAt: (notification as any).created_at,
         });
         io.emit('entity:update', { entity: 'notifications', type: 'NEW' });
       }
@@ -755,7 +753,7 @@ export class WhatsAppBot {
         return false;
       }
 
-      this.allowedNumbersCache = new Set(rows.map(r => r.phoneNumber));
+      this.allowedNumbersCache = new Set(rows.map((r: any) => r.phoneNumber));
       this.allowedCacheTime = now;
       const allowed = this.allowedNumbersCache.has(phone);
       if (!allowed) {

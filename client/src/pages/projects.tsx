@@ -890,7 +890,7 @@ export default function ProjectsPage() {
         options: [
           { value: 'all', label: 'جميع المهندسين' },
           { value: 'none', label: 'بدون مهندس' },
-          ...usersData.map(u => ({ value: u.id, label: u.name })),
+          ...usersData.map((u: any) => ({ value: u.id, label: u.name })),
         ],
       });
     }
@@ -1002,7 +1002,7 @@ export default function ProjectsPage() {
                     render={({ field }) => {
                       const engineerOptions: SelectOption[] = [
                         { value: "none", label: "بدون مهندس" },
-                        ...usersData.map((u) => ({
+                        ...usersData.map((u: any) => ({
                           value: u.id,
                           label: `${u.name} (${u.role})`,
                         }))
@@ -1417,7 +1417,7 @@ export default function ProjectsPage() {
                     label: "الترحيل (صادر)",
                     value: formatCurrency(projectStats?.outgoingProjectTransfers || 0),
                     icon: ArrowUpCircle,
-                    color: "red",
+                    color: "danger",
                   },
                   {
                     label: "الترحيل (وارد)",
@@ -1429,12 +1429,12 @@ export default function ProjectsPage() {
                     label: "حوالات العمال",
                     value: formatCurrency(projectStats?.totalWorkerTransfers || 0),
                     icon: DollarSign,
-                    color: "orange",
+                    color: "warning",
                   },
                   {
                     label: "المهندس",
                     value: project.engineerId 
-                      ? usersData.find(u => u.id === project.engineerId)?.name || "غير معروف"
+                      ? usersData.find((u: any) => u.id === project.engineerId)?.name || "غير معروف"
                       : "بدون مهندس",
                     icon: UserCog,
                     color: project.engineerId ? "info" : "muted",

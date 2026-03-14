@@ -821,7 +821,7 @@ export function EquipmentManagement() {
       />
 
       <EquipmentMovementHistoryDialog
-        equipment={selectedEquipment}
+        equipment={selectedEquipment as any}
         open={showMovementHistoryDialog}
         onOpenChange={setShowMovementHistoryDialog}
         projects={projects}

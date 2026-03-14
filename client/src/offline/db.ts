@@ -42,7 +42,7 @@ export async function getSafeTransaction(storeNames: string | string[], mode: 'r
     return null;
   }
   const db = await initializeDB();
-  return db.transaction(storeNames, mode);
+  return db.transaction(storeNames as any, mode);
 }
 
 type StoreValue = Record<string, any> & { _isLocal?: boolean; _pendingSync?: boolean; synced?: boolean };

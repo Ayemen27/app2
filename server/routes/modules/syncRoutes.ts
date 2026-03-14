@@ -115,19 +115,20 @@ async function fetchTablesInBatches(tables: string[], lastSyncTime?: string) {
  * يدعم 68 جدول للمزامنة الكاملة
  */
 syncRouter.get('/full-backup', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const startTime = Date.now();
     const { lastSyncTime } = req.query;
     console.log(`🔄 [Sync] طلب نسخة احتياطية${lastSyncTime ? ' تفاضلية منذ ' + lastSyncTime : ' كاملة'} (${ALL_DATABASE_TABLES.length} جدول، parallel batches)`);
 
     const { results, successCount, errorCount, deltaTablesCount, fullTablesCount } = await fetchTablesInBatches(
-      ALL_DATABASE_TABLES,
+      ALL_DATABASE_TABLES as unknown as string[],
       lastSyncTime as string | undefined
     );
 
     const duration = Date.now() - startTime;
     const totalRecords = Object.values(results).reduce((sum, rows) => sum + (rows as any[]).length, 0);
     console.log(`✅ [Sync] تم تجهيز ${totalRecords} سجل في ${duration}ms (${successCount} ناجح، ${errorCount} تخطي${lastSyncTime ? `, ${deltaTablesCount} تفاضلي، ${fullTablesCount} كامل` : ''})`);
+
 
     SyncAuditService.logBulkSync({
       user_id: (req as any).user?.id,
@@ -192,13 +193,13 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
  * POST /api/sync/full-backup
  */
 syncRouter.post('/full-backup', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const startTime = Date.now();
     const { lastSyncTime } = req.body;
     console.log(`🔄 [Sync] POST نسخة${lastSyncTime ? ' تفاضلية' : ' كاملة'} (parallel batches)`);
 
     const { results, successCount, errorCount, deltaTablesCount, fullTablesCount } = await fetchTablesInBatches(
-      ALL_DATABASE_TABLES,
+      ALL_DATABASE_TABLES as unknown as string[],
       lastSyncTime
     );
 
@@ -268,15 +269,15 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
  * مزامنة فورية لجداول محددة
  */
 syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
-    const startTime = Date.now();
     const { tables: requestedTables, lastSyncTime } = req.body;
 
     console.log(`⚡ [Sync] مزامنة فورية${lastSyncTime ? ' تفاضلية' : ''}`);
 
-    const tablesToSync = requestedTables && Array.isArray(requestedTables) && requestedTables.length > 0
-      ? requestedTables.filter((t: string) => ALL_DATABASE_TABLES.includes(t))
-      : ALL_DATABASE_TABLES;
+    const tablesToSync: string[] = requestedTables && Array.isArray(requestedTables) && requestedTables.length > 0
+      ? requestedTables.filter((t: string) => (ALL_DATABASE_TABLES as readonly string[]).includes(t))
+      : [...ALL_DATABASE_TABLES];
 
     const syncTime = lastSyncTime ? new Date(lastSyncTime).toISOString() : undefined;
     const { results, successCount, errorCount } = await fetchTablesInBatches(tablesToSync, syncTime);

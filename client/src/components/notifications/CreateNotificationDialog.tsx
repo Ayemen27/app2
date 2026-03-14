@@ -276,7 +276,7 @@ export function CreateNotificationDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>الأولوية</FormLabel>
-                        <Select onValueChange={(val) => field.onChange(parseInt(val))} defaultValue={field.value.toString()}>
+                        <Select onValueChange={(val: any) => field.onChange(parseInt(val))} defaultValue={field.value.toString()}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="اختر الأولوية" />

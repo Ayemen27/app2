@@ -836,7 +836,7 @@ function WorkerStatementTab({ onStatsReady }: { onStatsReady?: (stats: any[]) =>
       key: "worker_id",
       label: "العامل",
       type: "select",
-      showSearch: true,
+      
       options: [
         { label: "جميع العمال", value: "all" },
         ...workersList.map((w: any) => ({

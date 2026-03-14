@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { getWhatsAppAIService } from "../../services/ai-agent/WhatsAppAIService";
 import { getWhatsAppBot } from "../../services/ai-agent/WhatsAppBot";
 import { storage } from "../../storage";
@@ -16,7 +16,7 @@ function canonicalizePhone(phone: string): string {
   return phone.replace(/\D/g, '');
 }
 
-const requireAdminCheck = (req: Request, res: Response, next: any) => {
+const requireAdminCheck = (req: Request, res: Response, next: NextFunction): any => {
   if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'super_admin')) {
     return res.status(403).json({ error: "غير مصرح", message: "هذا الإجراء للمسؤولين فقط" });
   }
@@ -38,7 +38,7 @@ router.use(authenticate);
 
 router.get("/my-link", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.id as string;
     const link = await db.select()
       .from(whatsappUserLinks)
       .where(eq(whatsappUserLinks.user_id, userId))
@@ -56,11 +56,11 @@ router.get("/my-link", async (req: Request, res: Response) => {
 
 router.post("/link-phone", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.id as string;
 
     const validation = linkPhoneSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
+      return res.status(400).json({ error: validation.error.issues[0]?.message || "بيانات غير صالحة" });
     }
 
     const { phoneNumber } = validation.data;
@@ -74,7 +74,7 @@ router.post("/link-phone", async (req: Request, res: Response) => {
       .from(whatsappUserLinks)
       .where(and(
         eq(whatsappUserLinks.phoneNumber, canonical),
-        ne(whatsappUserLinks.user_id, userId)
+        ne(whatsappUserLinks.user_id, userId!)
       ))
       .limit(1);
 
@@ -84,18 +84,18 @@ router.post("/link-phone", async (req: Request, res: Response) => {
 
     const existing = await db.select()
       .from(whatsappUserLinks)
-      .where(eq(whatsappUserLinks.user_id, userId))
+      .where(eq(whatsappUserLinks.user_id, userId!))
       .limit(1);
 
     if (existing.length > 0) {
       await db.update(whatsappUserLinks)
         .set({ phoneNumber: canonical, isActive: true })
-        .where(eq(whatsappUserLinks.user_id, userId));
+        .where(eq(whatsappUserLinks.user_id, userId!));
       return res.json({ success: true, message: "تم تحديث رقم الواتساب بنجاح" });
     }
 
     await db.insert(whatsappUserLinks).values({
-      user_id: userId,
+      user_id: userId!,
       phoneNumber: canonical,
       isActive: true
     });
@@ -109,7 +109,7 @@ router.post("/link-phone", async (req: Request, res: Response) => {
 
 router.post("/unlink-phone", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.id as string;
     await db.delete(whatsappUserLinks).where(eq(whatsappUserLinks.user_id, userId));
     res.json({ success: true, message: "تم إلغاء ربط الواتساب" });
   } catch (error: any) {
@@ -239,7 +239,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
 
 router.get("/stats/me", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.id as string;
 
     const link = await db.select()
       .from(whatsappUserLinks)
@@ -260,7 +260,7 @@ router.get("/stats/me", async (req: Request, res: Response) => {
       myMessageCount = Number(countResult[0]?.count || 0);
     }
 
-    const accessibleProjects = await projectAccessService.getAccessibleProjectIds(userId, req.user!.role);
+    const accessibleProjects = await projectAccessService.getAccessibleProjectIds(userId, req.user!.role as string);
 
     res.json({
       totalMessages: myMessageCount,
@@ -322,7 +322,7 @@ router.get("/stats", async (req: Request, res: Response) => {
         phoneNumber: stats?.phoneNumber || null
       });
     }
-    const userId = req.user!.id;
+    const userId = req.user!.id as string;
     const link = await db.select()
       .from(whatsappUserLinks)
       .where(eq(whatsappUserLinks.user_id, userId))
@@ -360,8 +360,8 @@ router.get("/stats", async (req: Request, res: Response) => {
 
 router.get("/my-scope", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const role = req.user!.role;
+    const userId = req.user!.id as string;
+    const role = req.user!.role as string;
 
     const link = await db.select()
       .from(whatsappUserLinks)
@@ -392,7 +392,7 @@ router.get("/my-scope", async (req: Request, res: Response) => {
 
 router.get("/messages/me", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.id as string;
 
     const link = await db.select()
       .from(whatsappUserLinks)
@@ -458,7 +458,7 @@ router.get("/conversations", requireAdminCheck, async (req: Request, res: Respon
     .where(eq(whatsappUserLinks.isActive, true))
     .orderBy(desc(whatsappUserLinks.lastMessageAt));
 
-    const result = await Promise.all(conversations.map(async (conv) => {
+    const result = await Promise.all(conversations.map(async (conv: any) => {
       const cleanPhone = conv.phoneNumber.replace(/\D/g, '');
       const lastMsg = await db.select({
         content: whatsappMessages.content,
@@ -558,7 +558,6 @@ router.post("/conversations/:phoneNumber/send", requireAdminCheck, async (req: R
       content: message.trim(),
       status: "sent",
       phone_number: cleanPhone,
-      timestamp: new Date(),
     });
 
     res.json({ success: true });
@@ -596,7 +595,6 @@ router.post("/conversations/:phoneNumber/send-image", requireAdminCheck, async (
       content: caption?.trim() ? `📷 ${caption.trim()}` : "📷 صورة",
       status: "sent",
       phone_number: cleanPhone,
-      timestamp: new Date(),
       metadata: { type: "image", imageBase64: imageBase64 },
     });
 
@@ -631,7 +629,7 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
   try {
     const validation = allowedNumberSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
+      return res.status(400).json({ error: validation.error.issues[0]?.message || "بيانات غير صالحة" });
     }
     const { phoneNumber, label } = validation.data;
     const canonical = canonicalizePhone(phoneNumber);
@@ -736,7 +734,7 @@ router.put("/admin/links/:linkId/permissions", requireAdminCheck, async (req: Re
 
     const validation = updatePermissionsSchema.safeParse(req.body);
     if (!validation.success) {
-      const errMsg = validation.error.errors?.[0]?.message || "بيانات غير صالحة";
+      const errMsg = validation.error.issues?.[0]?.message || "بيانات غير صالحة";
       return res.status(400).json({ error: errMsg });
     }
 
@@ -829,7 +827,7 @@ router.put("/admin/links/:linkId/projects", requireAdminCheck, async (req: Reque
 
     const validation = updateLinkProjectsSchema.safeParse(req.body);
     if (!validation.success) {
-      return res.status(400).json({ error: validation.error.errors[0]?.message || "بيانات غير صالحة" });
+      return res.status(400).json({ error: validation.error.issues[0]?.message || "بيانات غير صالحة" });
     }
 
     const { projectIds } = validation.data;
@@ -936,7 +934,7 @@ router.put("/settings", requireAdminCheck, async (req: Request, res: Response) =
   try {
     const validation = updateSettingsSchema.safeParse(req.body);
     if (!validation.success) {
-      const errMsg = validation.error.errors?.[0]?.message || "بيانات غير صالحة";
+      const errMsg = validation.error.issues?.[0]?.message || "بيانات غير صالحة";
       return res.status(400).json({ error: errMsg });
     }
 
@@ -949,7 +947,7 @@ router.put("/settings", requireAdminCheck, async (req: Request, res: Response) =
       }
     }
 
-    const updated = await botSettingsService.updateSettings(validation.data, req.user!.id);
+    const updated = await botSettingsService.updateSettings(validation.data, req.user!.id as string);
     res.json(updated);
   } catch (error: any) {
     console.error("[WhatsApp Settings] PUT Error:", error?.message);
@@ -959,7 +957,7 @@ router.put("/settings", requireAdminCheck, async (req: Request, res: Response) =
 
 router.post("/settings/reset", requireAdminCheck, async (req: Request, res: Response) => {
   try {
-    const settings = await botSettingsService.resetSettings(req.user!.id);
+    const settings = await botSettingsService.resetSettings(req.user!.id as string);
     res.json(settings);
   } catch (error: any) {
     console.error("[WhatsApp Settings] Reset Error:", error?.message);

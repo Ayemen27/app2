@@ -21,7 +21,7 @@ export function AdminRoute({ children, requiredRole = "admin" }: AdminRouteProps
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <AxionLoader />
+        <AxionLoader isLoading={true} />
       </div>
     );
   }
@@ -32,7 +32,7 @@ export function AdminRoute({ children, requiredRole = "admin" }: AdminRouteProps
   }
 
   const adminRoles = ["admin", "super_admin"];
-  const hasRole = requiredRole === "admin" ? adminRoles.includes(user?.role) : user?.role === requiredRole;
+  const hasRole = requiredRole === "admin" ? adminRoles.includes(user?.role || '') : user?.role === requiredRole;
   if (!user || !hasRole) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20">

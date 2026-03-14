@@ -133,19 +133,19 @@ export default function NotificationsPage() {
   });
 
   const notifications = useMemo(() => {
-    let result = notificationsData?.notifications || [];
-    result = result.map(n => ({ ...n, priority: getPriorityNumber(n.priority), status: n.status || (n.isRead ? 'read' : 'unread') }));
+    let result: Notification[] = (notificationsData as any)?.notifications || [];
+    result = result.map((n: Notification) => ({ ...n, priority: getPriorityNumber(n.priority), status: n.status || (n.isRead ? 'read' : 'unread') }));
     if (searchValue) {
       const s = searchValue.toLowerCase();
-      result = result.filter(n => n.title.toLowerCase().includes(s) || (n.body || n.message || '').toLowerCase().includes(s));
+      result = result.filter((n: Notification) => n.title.toLowerCase().includes(s) || (n.body || n.message || '').toLowerCase().includes(s));
     }
-    if (filterValues.status !== 'all') result = result.filter(n => n.status === filterValues.status);
-    if (filterValues.type !== 'all') result = result.filter(n => n.type === filterValues.type);
-    if (filterValues.priority !== 'all') result = result.filter(n => n.priority === parseInt(filterValues.priority));
+    if (filterValues.status !== 'all') result = result.filter((n: Notification) => n.status === filterValues.status);
+    if (filterValues.type !== 'all') result = result.filter((n: Notification) => n.type === filterValues.type);
+    if (filterValues.priority !== 'all') result = result.filter((n: Notification) => n.priority === parseInt(filterValues.priority));
     if (filterValues.dateRange?.from) {
       const from = filterValues.dateRange.from;
       const to = filterValues.dateRange.to || new Date();
-      result = result.filter(n => { if (!n.created_at) return false; const d = parseISO(n.created_at); return d >= from && d <= to; });
+      result = result.filter((n: Notification) => { if (!n.created_at) return false; const d = parseISO(n.created_at); return d >= from && d <= to; });
     }
     return result;
   }, [notificationsData, searchValue, filterValues]);
@@ -153,9 +153,9 @@ export default function NotificationsPage() {
   const groupedNotifications = useMemo(() => groupNotificationsByDate(notifications), [notifications]);
   const stats = useMemo(() => ({
     total: notifications.length,
-    unread: notifications.filter(n => n.status === 'unread').length,
-    critical: notifications.filter(n => n.priority === 1).length,
-    high: notifications.filter(n => n.priority === 2).length,
+    unread: notifications.filter((n: Notification) => n.status === 'unread').length,
+    critical: notifications.filter((n: Notification) => n.priority === 1).length,
+    high: notifications.filter((n: Notification) => n.priority === 2).length,
   }), [notifications]);
 
   const markAsReadMutation = useMutation({
@@ -191,7 +191,7 @@ export default function NotificationsPage() {
   });
 
   const toggleSelection = useCallback((id: string) => setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }), []);
-  const toggleSelectAll = useCallback(() => { if (selectedIds.size === notifications.length) setSelectedIds(new Set()); else setSelectedIds(new Set(notifications.map(n => n.id))); }, [notifications, selectedIds.size]);
+  const toggleSelectAll = useCallback(() => { if (selectedIds.size === notifications.length) setSelectedIds(new Set()); else setSelectedIds(new Set(notifications.map((n: Notification) => n.id))); }, [notifications, selectedIds.size]);
   const toggleGroup = useCallback((k: string) => setExpandedGroups(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n; }), []);
   const handleFilterChange = useCallback((k: string, v: any) => setFilterValues(p => ({ ...p, [k]: v })), []);
   const handleResetFilters = useCallback(() => { setSearchValue(""); setFilterValues({ status: "all", type: "all", priority: "all", dateRange: undefined }); }, []);
@@ -310,12 +310,23 @@ export default function NotificationsPage() {
           isRefreshing={isLoading}
           searchPlaceholder="بحث في الإشعارات..."
           title=""
-          actions={
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold px-4" onClick={() => markAllAsReadMutation.mutate()} disabled={stats.unread === 0}>تعليم الكل كمقروء</Button>
-              <Button variant="ghost" size="sm" className="h-10 rounded-xl font-bold px-4" onClick={toggleSelectAll}>{selectedIds.size === notifications.length ? 'إلغاء التحديد' : 'تحديد الكل'}</Button>
-            </div>
-          }
+          actions={[
+            {
+              key: 'mark-all-read',
+              icon: CheckCheck,
+              label: 'تعليم الكل كمقروء',
+              onClick: () => markAllAsReadMutation.mutate(),
+              variant: 'outline' as const,
+              disabled: stats.unread === 0,
+            },
+            {
+              key: 'select-all',
+              icon: Check,
+              label: selectedIds.size === notifications.length ? 'إلغاء التحديد' : 'تحديد الكل',
+              onClick: toggleSelectAll,
+              variant: 'ghost' as const,
+            },
+          ]}
         />
 
         <ScrollArea className="flex-1 -mx-4 px-4">

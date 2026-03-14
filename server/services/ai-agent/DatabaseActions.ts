@@ -350,7 +350,7 @@ export class DatabaseActions {
         .orderBy(desc(workerAttendance.attendanceDate));
 
       if (projectId) {
-        result = result.filter((r) => r.project_id === projectId);
+        result = result.filter((r: any) => r.project_id === projectId);
       }
 
       const totalDays = result.reduce((sum: number, r: any) => sum + parseFloat(r.workDays || "0"), 0);
@@ -1368,7 +1368,7 @@ export class DatabaseActions {
         const supplierIdsInScope = await db.selectDistinct({ id: materialPurchases.supplier_id })
           .from(materialPurchases)
           .where(inArray(materialPurchases.project_id, allowedProjectIds!));
-        const ids = supplierIdsInScope.map(s => s.id).filter(Boolean) as string[];
+        const ids = supplierIdsInScope.map((s: any) => s.id).filter(Boolean) as string[];
         if (ids.length > 0) {
           [supplierStats] = await db.select({
             totalSuppliers: sql<number>`count(*)`,
@@ -1435,7 +1435,7 @@ export class DatabaseActions {
         const supplierIdsInScope = await db.selectDistinct({ id: materialPurchases.supplier_id })
           .from(materialPurchases)
           .where(inArray(materialPurchases.project_id, allowedProjectIds));
-        const ids = supplierIdsInScope.map(s => s.id).filter(Boolean) as string[];
+        const ids = supplierIdsInScope.map((s: any) => s.id).filter(Boolean) as string[];
         if (ids.length === 0) {
           return { success: true, data: [], message: "لا يوجد موردون مرتبطون بمشاريعك", action: "list_suppliers" };
         }
@@ -1472,7 +1472,7 @@ export class DatabaseActions {
         else if (results.length > 1) {
           return {
             success: true,
-            data: results.map(s => ({ id: s.id, name: s.name, totalDebt: s.totalDebt })),
+            data: results.map((s: any) => ({ id: s.id, name: s.name, totalDebt: s.totalDebt })),
             message: `تم العثور على ${results.length} مورد. يرجى التحديد:`,
             action: "supplier_statement",
           };
@@ -1499,8 +1499,8 @@ export class DatabaseActions {
         .where(paymentConditions)
         .orderBy(desc(supplierPayments.paymentDate));
 
-      const totalPurchases = purchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0);
-      const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+      const totalPurchases = purchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0);
+      const totalPayments = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0);
 
       return {
         success: true,
@@ -1602,10 +1602,10 @@ export class DatabaseActions {
       const tasks = await db.select().from(wellTasks).where(eq(wellTasks.well_id, wId)).orderBy(wellTasks.taskOrder);
       const expenses = await db.select().from(wellExpenses).where(eq(wellExpenses.well_id, wId));
 
-      const totalEstimated = tasks.reduce((s, t) => s + parseFloat(t.estimatedCost || '0'), 0);
-      const totalActual = tasks.reduce((s, t) => s + parseFloat(t.actualCost || '0'), 0);
-      const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.totalAmount || '0'), 0);
-      const completedTasks = tasks.filter(t => t.status === 'completed').length;
+      const totalEstimated = tasks.reduce((s: number, t: any) => s + parseFloat(t.estimatedCost || '0'), 0);
+      const totalActual = tasks.reduce((s: number, t: any) => s + parseFloat(t.actualCost || '0'), 0);
+      const totalExpenses = expenses.reduce((s: number, e: any) => s + parseFloat(e.totalAmount || '0'), 0);
+      const completedTasks = tasks.filter((t: any) => t.status === 'completed').length;
 
       return {
         success: true,
@@ -1860,7 +1860,7 @@ export class DatabaseActions {
         const supplierIdsInScope = await db.selectDistinct({ id: materialPurchases.supplier_id })
           .from(materialPurchases)
           .where(inArray(materialPurchases.project_id, allowedProjectIds!));
-        const sIds = supplierIdsInScope.map(s => s.id).filter(Boolean) as string[];
+        const sIds = supplierIdsInScope.map((s: any) => s.id).filter(Boolean) as string[];
         supplierResults = sIds.length > 0
           ? await db.select({ id: suppliers.id, name: suppliers.name, type: sql<string>`'مورد'` })
               .from(suppliers).where(and(sql`${suppliers.name} ILIKE ${searchTerm}`, inArray(suppliers.id, sIds))).limit(5)
@@ -1914,7 +1914,7 @@ export class DatabaseActions {
       .having(sql`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0) - coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0) > 0`)
       .orderBy(sql`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0) - coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0) desc`);
 
-      const totalUnpaid = result.reduce((s, r) => s + parseFloat(r.balance || '0'), 0);
+      const totalUnpaid = result.reduce((s: number, r: any) => s + parseFloat(r.balance || '0'), 0);
 
       return {
         success: true,

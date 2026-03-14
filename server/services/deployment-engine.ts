@@ -895,7 +895,7 @@ export class DeploymentEngine {
       .limit(10);
 
     const avgDuration = recentDeployments.length > 0
-      ? Math.round(recentDeployments.reduce((sum, d) => sum + (d.duration || 0), 0) / recentDeployments.length)
+      ? Math.round(recentDeployments.reduce((sum: number, d: any) => sum + (d.duration || 0), 0) / recentDeployments.length)
       : 0;
 
     return {

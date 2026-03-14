@@ -5,11 +5,36 @@
 
 import { db } from "../db";
 import { sql, eq, and, lte } from "drizzle-orm";
+import { pgTable, serial, text, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { 
-  notificationQueue, 
-  notificationSettings,
   notifications 
 } from "@shared/schema";
+
+const notificationQueue = pgTable("notification_queue", {
+  id: serial("id").primaryKey(),
+  user_id: text("user_id"),
+  channel: text("channel"),
+  title: text("title"),
+  body: text("body"),
+  payload: jsonb("payload"),
+  status: text("status").default("pending"),
+  retryCount: integer("retry_count").default(0),
+  maxRetries: integer("max_retries").default(3),
+  nextRetry: timestamp("next_retry"),
+  lastError: text("last_error"),
+  errorMessage: text("error_message"),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  processed_at: timestamp("processed_at"),
+});
+
+const notificationSettings = pgTable("notification_settings", {
+  id: serial("id").primaryKey(),
+  user_id: text("user_id").notNull(),
+  notificationType: text("notification_type"),
+  enabled: boolean("enabled").default(true),
+  channel: text("channel"),
+});
 
 export interface QueueWorkerConfig {
   maxRetries: number;
@@ -192,7 +217,7 @@ export class NotificationQueueWorker {
         .from(notificationSettings)
         .where(eq(notificationSettings.user_id, user_id));
 
-      return settings.find(s => this.channelMatches(s.notificationType, channel)) || null;
+      return settings.find((s: any) => this.channelMatches(s.notificationType, channel)) || null;
     } catch (error) {
       console.error(`خطأ في جلب إعدادات المستخدم ${user_id}:`, error);
       return null;
@@ -307,8 +332,8 @@ export class NotificationQueueWorker {
           status: status,
           errorMessage: message,
           lastAttemptAt: new Date()
-        })
-        .where(eq(notificationQueue.id, itemId));
+        } as any)
+        .where(eq(notificationQueue.id, itemId as any));
     } catch (error) {
       console.error(`خطأ في تحديث حالة العنصر ${itemId}:`, error);
     }

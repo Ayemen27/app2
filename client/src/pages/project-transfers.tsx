@@ -110,18 +110,17 @@ export default function ProjectTransfers() {
 
     if (searchValue) {
       const search = searchValue.toLowerCase();
-      filtered = filtered.filter(t => 
+      filtered = filtered.filter((t: any) => 
         t.transferReason?.toLowerCase().includes(search) ||
         t.description?.toLowerCase().includes(search) ||
-        projects.find(p => p.id === t.fromProjectId)?.name.toLowerCase().includes(search) ||
-        projects.find(p => p.id === t.toProjectId)?.name.toLowerCase().includes(search)
+        projects.find((p: any) => p.id === t.fromProjectId)?.name.toLowerCase().includes(search) ||
+        projects.find((p: any) => p.id === t.toProjectId)?.name.toLowerCase().includes(search)
       );
     }
 
     if (filterValues.reason) {
-      filtered = filtered.filter(t => {
+      filtered = filtered.filter((t: any) => {
         if (!t.transferReason) return false;
-        // Search in the display label or the value itself
         const option = filterConfigs.find(c => c.key === 'reason')?.options?.find(opt => opt.value === filterValues.reason);
         return t.transferReason === filterValues.reason || t.transferReason === option?.label;
       });
@@ -130,7 +129,7 @@ export default function ProjectTransfers() {
     if (filterValues.dateRange?.from || filterValues.dateRange?.to) {
       const from = filterValues.dateRange.from ? new Date(filterValues.dateRange.from).getTime() : 0;
       const to = filterValues.dateRange.to ? new Date(filterValues.dateRange.to).getTime() : Infinity;
-      filtered = filtered.filter(t => {
+      filtered = filtered.filter((t: any) => {
         const date = new Date(t.transferDate).getTime();
         return date >= from && date <= to;
       });
@@ -144,10 +143,10 @@ export default function ProjectTransfers() {
     const transfers = Array.isArray(allTransfers) ? allTransfers : [];
     return {
       total: transfers.length,
-      totalAmount: transfers.reduce((sum, t) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
+      totalAmount: transfers.reduce((sum: number, t: any) => sum + (parseFloat(t.amount?.toString() || '0') || 0), 0),
       filtered: filteredTransfers.length,
-      outgoing: filteredTransfers.filter(t => !filteredTransfers.some(other => other.fromProjectId === other.toProjectId)).length,
-      incoming: filteredTransfers.filter(t => filteredTransfers.some(other => other.toProjectId === other.fromProjectId)).length,
+      outgoing: filteredTransfers.filter((t: any) => !filteredTransfers.some((other: any) => other.fromProjectId === other.toProjectId)).length,
+      incoming: filteredTransfers.filter((t: any) => filteredTransfers.some((other: any) => other.toProjectId === other.fromProjectId)).length,
     };
   }, [allTransfers, filteredTransfers]);
 
@@ -338,7 +337,7 @@ export default function ProjectTransfers() {
         {
           key: 'today',
           label: "عمليات اليوم",
-          value: filteredTransfers.filter(t => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
+          value: filteredTransfers.filter((t: any) => new Date(t.transferDate).toDateString() === new Date().toDateString()).length,
           icon: TrendingUp,
           color: "purple"
         },
@@ -456,7 +455,7 @@ export default function ProjectTransfers() {
                 </Card>
               ) : (
                 <UnifiedCardGrid columns={2}>
-                  {filteredTransfers.map(transfer => (
+                  {filteredTransfers.map((transfer: any) => (
                     <UnifiedCard
                       key={transfer.id}
                       title={formatCurrency(parseFloat(transfer.amount?.toString() || '0'))}
@@ -624,7 +623,8 @@ export default function ProjectTransfers() {
                               <Textarea 
                                 placeholder="اكتب سبب التحويل بالتفصيل..." 
                                 className="min-h-[60px] text-xs md:text-sm border-2"
-                                {...field} 
+                                {...field}
+                                value={field.value ?? ""}
                               />
                             </FormControl>
                             <FormMessage className="text-xs" />
@@ -643,7 +643,8 @@ export default function ProjectTransfers() {
                               <Textarea 
                                 placeholder="أدخل أي ملاحظات إضافية..." 
                                 className="min-h-[100px] text-xs md:text-sm border-2"
-                                {...field} 
+                                {...field}
+                                value={field.value ?? ""}
                               />
                             </FormControl>
                             <FormMessage className="text-xs" />

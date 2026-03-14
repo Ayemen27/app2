@@ -1,6 +1,9 @@
+import { db } from './db';
+import * as schema from '../shared/schema';
+
 export async function syncData(payload: any) {
   const { table, data } = payload;
-  const targetTable = getTable(table);
+  const targetTable = (schema as any)[table];
   
   if (!targetTable) throw new Error("Table " + table + " not found");
 

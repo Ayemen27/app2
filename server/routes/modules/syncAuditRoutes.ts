@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { SyncAuditService } from '../../services/SyncAuditService.js';
 import { authenticate, requireAdmin } from '../../middleware/auth.js';
 
@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requireAdmin);
 
-router.get('/logs', async (req, res) => {
+router.get('/logs', async (req: Request, res: Response) => {
   try {
     const { page, limit, module, status, action, user_id, project_id, search, dateFrom, dateTo } = req.query;
     const result = await SyncAuditService.getLogs({
@@ -30,7 +30,7 @@ router.get('/logs', async (req, res) => {
   }
 });
 
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (req: Request, res: Response) => {
   try {
     const stats = await SyncAuditService.getStats();
     res.json({ success: true, data: stats });

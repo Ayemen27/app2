@@ -48,7 +48,7 @@ class ProjectAccessService {
   async getAccessibleProjectIds(userId: string, role: string): Promise<string[]> {
     if (this.isAdmin(role)) {
       const allProjects = await db.select({ id: projects.id }).from(projects);
-      return allProjects.map((p) => p.id);
+      return allProjects.map((p: { id: string }) => p.id);
     }
 
     const ownedProjects = await db
@@ -67,8 +67,8 @@ class ProjectAccessService {
       );
 
     const ids = new Set<string>();
-    ownedProjects.forEach((p) => ids.add(p.id));
-    permittedProjects.forEach((p) => ids.add(p.project_id));
+    ownedProjects.forEach((p: { id: string }) => ids.add(p.id));
+    permittedProjects.forEach((p: { project_id: string }) => ids.add(p.project_id));
 
     return Array.from(ids);
   }
@@ -149,7 +149,7 @@ class ProjectAccessService {
   ): Promise<ProjectPermissionInfo[]> {
     if (this.isAdmin(role)) {
       const allProjects = await db.select().from(projects);
-      return allProjects.map((p) => ({
+      return allProjects.map((p: any) => ({
         projectId: p.id,
         projectName: p.name,
         canView: true,
@@ -442,7 +442,6 @@ class ProjectAccessService {
           type: "system",
           priority: 2,
           recipients: [targetUserId],
-          targetPlatform: "all",
         });
 
         if (ownerId && ownerId !== actorId && ownerId !== targetUserId) {
@@ -452,7 +451,6 @@ class ProjectAccessService {
             type: "system",
             priority: 2,
             recipients: [ownerId],
-            targetPlatform: "all",
           });
         }
       } else if (action === "update") {
@@ -462,7 +460,6 @@ class ProjectAccessService {
           type: "system",
           priority: 2,
           recipients: [targetUserId],
-          targetPlatform: "all",
         });
 
         if (ownerId && ownerId !== actorId && ownerId !== targetUserId) {
@@ -472,7 +469,6 @@ class ProjectAccessService {
             type: "system",
             priority: 1,
             recipients: [ownerId],
-            targetPlatform: "all",
           });
         }
       } else if (action === "revoke") {
@@ -482,7 +478,6 @@ class ProjectAccessService {
           type: "system",
           priority: 3,
           recipients: [targetUserId],
-          targetPlatform: "all",
         });
 
         if (ownerId && ownerId !== actorId && ownerId !== targetUserId) {
@@ -492,7 +487,6 @@ class ProjectAccessService {
             type: "system",
             priority: 2,
             recipients: [ownerId],
-            targetPlatform: "all",
           });
         }
       }

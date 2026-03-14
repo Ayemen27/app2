@@ -61,7 +61,7 @@ export function useOfflineMutation<TData = any, TVariables = any>(
       }
 
       options.onSuccess?.(data, variables);
-      options.mutationOptions?.onSuccess?.(data, variables, context);
+      (options.mutationOptions?.onSuccess as any)?.(data, variables, context);
     },
     onError: (error: Error, variables: TVariables, context: any) => {
       toast({
@@ -70,7 +70,7 @@ export function useOfflineMutation<TData = any, TVariables = any>(
         variant: 'destructive',
       });
       options.onError?.(error, variables);
-      options.mutationOptions?.onError?.(error, variables, context);
+      (options.mutationOptions?.onError as any)?.(error, variables, context);
     },
   });
 

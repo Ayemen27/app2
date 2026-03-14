@@ -3,7 +3,7 @@
  * متاح لجميع المسؤولين (role === "admin")
  */
 
-import { Router, Response, NextFunction } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { getAIAgentService } from "../../services/ai-agent";
 import { brainService } from "../../services/brain";
 import { db } from "../../db";
@@ -14,7 +14,7 @@ import { AuthenticatedRequest } from "../../middleware/auth";
 const router = Router();
 
 // 🌐 تطبيق CORS على مستوى الراوتر الخاص بالـ AI بشكل صريح وشامل
-router.use((req, res, next) => {
+router.use((req: Request, res: Response, next: NextFunction): void => {
   const origin = req.headers.origin;
   res.header('Access-Control-Allow-Origin', origin || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
@@ -23,7 +23,8 @@ router.use((req, res, next) => {
   res.header('Access-Control-Max-Age', '86400');
   
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    res.sendStatus(200);
+    return;
   }
   next();
 });

@@ -34,9 +34,9 @@ export default function AdminMonitoring() {
     </div>
   );
 
-  const stats = statsData?.data || statsData || {};
-  const health = healthData?.health || healthData || {};
-  const metrics = healthData?.metrics || stats?.metrics || {};
+  const stats = (statsData as any)?.data || statsData || {};
+  const health = (healthData as any)?.health || healthData || {};
+  const metrics = (healthData as any)?.metrics || (stats as any)?.metrics || {};
 
   const formatUptime = (seconds: number) => {
     if (!seconds) return "0 ثانية";
@@ -105,7 +105,7 @@ export default function AdminMonitoring() {
           </CardHeader>
           <CardContent className="h-[350px] pt-6">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={healthData?.health?.history || []}>
+              <AreaChart data={(healthData as any)?.health?.history || []}>
                 <defs>
                   <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15}/>

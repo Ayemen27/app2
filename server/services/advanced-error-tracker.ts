@@ -6,6 +6,8 @@
 import type { ErrorLog, InsertErrorLog } from "@shared/schema";
 import { storage } from "../storage";
 
+const storageAny = storage as any;
+
 export interface NetlifyErrorContext {
   deploymentId?: string;
   buildId?: string;
@@ -147,7 +149,7 @@ export class AdvancedErrorTracker {
     };
 
     // حفظ الخطأ في قاعدة البيانات
-    const savedError = await storage.createErrorLog(errorLogData);
+    const savedError = await storageAny.createErrorLog(errorLogData);
 
     // تسجيل تفصيلي في الكونسول
     this.logDetailedError(savedError, analysis, context);
@@ -250,23 +252,23 @@ export class AdvancedErrorTracker {
    * الحصول على إحصائيات الأخطاء
    */
   async getErrorStatistics(timeRange: string = '24h') {
-    const errorLogs = await storage.getErrorLogs(1000, timeRange);
+    const errorLogs: ErrorLog[] = await storageAny.getErrorLogs(1000, timeRange);
     
     const stats = {
       totalErrors: errorLogs.length,
-      error502Count: errorLogs.filter(log => log.statusCode === 502).length,
-      error504Count: errorLogs.filter(log => log.statusCode === 504).length,
-      criticalErrors: errorLogs.filter(log => {
+      error502Count: errorLogs.filter((log: ErrorLog) => log.statusCode === 502).length,
+      error504Count: errorLogs.filter((log: ErrorLog) => log.statusCode === 504).length,
+      criticalErrors: errorLogs.filter((log: ErrorLog) => {
         const analysis = this.analyzeError(log.error, log.statusCode);
         return analysis.priority === 'critical';
       }).length,
-      resolvedErrors: errorLogs.filter(log => log.status === 'resolved').length,
-      activeErrors: errorLogs.filter(log => log.status === 'active').length,
+      resolvedErrors: errorLogs.filter((log: ErrorLog) => log.status === 'resolved').length,
+      activeErrors: errorLogs.filter((log: ErrorLog) => log.status === 'active').length,
       errorsByCategory: {} as Record<string, number>
     };
 
     // تصنيف الأخطاء حسب الفئة
-    errorLogs.forEach(log => {
+    errorLogs.forEach((log: ErrorLog) => {
       const analysis = this.analyzeError(log.error, log.statusCode);
       const category = analysis.category;
       stats.errorsByCategory[category] = (stats.errorsByCategory[category] || 0) + 1;
@@ -275,22 +277,17 @@ export class AdvancedErrorTracker {
     return stats;
   }
 
-  /**
-   * تحليل ذكي للاتجاهات والأنماط
-   */
   async generateTrendAnalysis(timeRange: string = '24h') {
-    const errorLogs = await storage.getErrorLogs(1000, timeRange);
+    const errorLogs: ErrorLog[] = await storageAny.getErrorLogs(1000, timeRange);
     
-    // تحليل التوقيت
     const hourlyDistribution = new Array(24).fill(0);
-    errorLogs.forEach(log => {
+    errorLogs.forEach((log: ErrorLog) => {
       const hour = new Date(log.timestamp).getHours();
       hourlyDistribution[hour]++;
     });
 
-    // أكثر المسارات تأثراً
     const pathFrequency: Record<string, number> = {};
-    errorLogs.forEach(log => {
+    errorLogs.forEach((log: ErrorLog) => {
       pathFrequency[log.path] = (pathFrequency[log.path] || 0) + 1;
     });
 

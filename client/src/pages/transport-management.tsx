@@ -50,7 +50,7 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import { UnifiedStats, type UnifiedStatItem } from "@/components/ui/unified-stats";
+import { UnifiedStats } from "@/components/ui/unified-stats";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TransportationExpense, Worker } from "@shared/schema";
 import { QUERY_KEYS } from "@/constants/queryKeys";
@@ -187,7 +187,7 @@ export default function TransportManagement() {
 
   const allCategories = useMemo(() => {
     const catMap = new Map<string, string>();
-    dynamicCategories.forEach(cat => catMap.set(cat.value, cat.label));
+    dynamicCategories.forEach((cat: any) => catMap.set(cat.value, cat.label));
     const expenseData = expensesResponse?.data || [];
     expenseData.forEach((e: any) => {
       if (e.category && !catMap.has(e.category)) {
@@ -241,7 +241,7 @@ export default function TransportManagement() {
     const totalAmount = data.reduce((sum, e) => sum + Number(e.amount), 0);
     const count = data.length;
 
-    const summaryStats: UnifiedStatItem[] = [
+    const summaryStats: any[] = [
       {
         title: "إجمالي تكلفة النقل",
         value: formatCurrency(totalAmount),
@@ -262,7 +262,7 @@ export default function TransportManagement() {
       }
     ];
 
-    const categoryStats: UnifiedStatItem[] = allCategories
+    const categoryStats: any[] = allCategories
       .map((cat, idx) => {
         const catTotal = data.filter(e => e.category === cat.value).reduce((sum, e) => sum + Number(e.amount), 0);
         return {
@@ -350,7 +350,7 @@ export default function TransportManagement() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
-      if (data.category && !dynamicCategories.some(c => c.value === data.category)) {
+      if (data.category && !dynamicCategories.some((c: any) => c.value === data.category)) {
         try {
           await apiRequest("/api/autocomplete", "POST", {
             category: "transport-categories",

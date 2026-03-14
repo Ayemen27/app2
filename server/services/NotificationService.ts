@@ -288,7 +288,7 @@ export class NotificationService {
         }
       });
       
-      const user_ids = users.map(user => user.id);
+      const user_ids = users.map((user: { id: string }) => user.id);
       console.log(`📋 تم جلب ${user_ids.length} مستخدم نشط للإشعارات`);
       return user_ids;
     } catch (error) {
@@ -297,7 +297,7 @@ export class NotificationService {
       try {
         const defaultUser = await db.query.users.findFirst({
           columns: { id: true },
-          where: (users, { eq, or }) => or(
+          where: (users: any, { eq, or }: any) => or(
             eq(users.role, 'admin'),
             eq(users.email, 'admin')
           )
@@ -322,7 +322,7 @@ export class NotificationService {
 
       // التحقق من قاعدة البيانات
       const user = await db.query.users.findFirst({
-        where: (users, { eq, or }) => or(
+        where: (users: any, { eq, or }: any) => or(
           eq(users.id, user_id),
           eq(users.email, user_id)
         )
@@ -351,7 +351,7 @@ export class NotificationService {
   private async getAllowedNotificationTypes(user_id: string): Promise<string[]> {
     try {
       const user = await db.query.users.findFirst({
-        where: (users, { eq, or }) => or(
+        where: (users: any, { eq, or }: any) => or(
           eq(users.id, user_id),
           eq(users.email, user_id)
         )
@@ -622,7 +622,7 @@ export class NotificationService {
       .limit(10);
 
     console.log(`📊 إجمالي الإشعارات في قاعدة البيانات: ${allNotifications.length}`);
-    console.log(`📋 عينة من الإشعارات:`, allNotifications.map(n => ({
+    console.log(`📋 عينة من الإشعارات:`, allNotifications.map((n: any) => ({
       id: n.id,
       recipients: n.recipients,
       type: n.type,
@@ -723,7 +723,7 @@ export class NotificationService {
               inArray(notifications.type, allowedTypes),
               or(
                 sql`notifications.recipients::text LIKE '%' || ${user_id} || '%'`,
-                eq(notifications.recipients, user_id),
+                eq(notifications.recipients, user_id as any),
                 isNull(notifications.recipients)
               )
             )
@@ -733,16 +733,16 @@ export class NotificationService {
 
       const readStates = await db.select().from(notificationReadStates)
         .where(eq(notificationReadStates.user_id, user_id));
-      const readIds = new Set(readStates.filter(rs => rs.isRead).map(rs => rs.notificationId));
+      const readIds = new Set(readStates.filter((rs: any) => rs.isRead).map((rs: any) => rs.notificationId));
 
-      const unreadCount = allNotifications.filter(n => !readIds.has(n.id)).length;
-      const criticalCount = allNotifications.filter(n => 
+      const unreadCount = allNotifications.filter((n: any) => !readIds.has(n.id)).length;
+      const criticalCount = allNotifications.filter((n: any) => 
         n.priority === NotificationPriority.EMERGENCY || n.priority === NotificationPriority.HIGH
       ).length;
 
       const byType: Record<string, number> = {};
       const byPriority: Record<number, number> = {};
-      allNotifications.forEach(n => {
+      allNotifications.forEach((n: any) => {
         byType[n.type] = (byType[n.type] || 0) + 1;
         byPriority[n.priority || 3] = (byPriority[n.priority || 3] || 0) + 1;
       });
@@ -751,11 +751,11 @@ export class NotificationService {
       if (isAdmin) {
         const allUsers = await db.select().from(users).limit(10);
         const allReadStates = await db.select().from(notificationReadStates);
-        userStats = allUsers.map(u => {
-          const userSpecificReads = allReadStates.filter(rs => rs.user_id === u.id);
+        userStats = allUsers.map((u: any) => {
+          const userSpecificReads = allReadStates.filter((rs: any) => rs.user_id === u.id);
           const lastRead = userSpecificReads
-            .filter(rs => rs.readAt)
-            .sort((a, b) => {
+            .filter((rs: any) => rs.readAt)
+            .sort((a: any, b: any) => {
               const da = a.readAt ? new Date(a.readAt).getTime() : 0;
               const db_val = b.readAt ? new Date(b.readAt).getTime() : 0;
               return db_val - da;
@@ -765,7 +765,7 @@ export class NotificationService {
             userName: u.name || u.full_name || u.username || "مستخدم",
             userEmail: u.email,
             totalNotifications: allNotifications.length,
-            readNotifications: userSpecificReads.filter(rs => rs.isRead).length,
+            readNotifications: userSpecificReads.filter((rs: any) => rs.isRead).length,
             lastReadAt: lastRead ? lastRead.readAt : null
           };
         });
@@ -885,7 +885,7 @@ export class NotificationService {
     const allUsers = await db.select({
       id: users.id,
       email: users.email,
-      name: users.name,
+      name: users.full_name,
       role: users.role
     }).from(users);
     

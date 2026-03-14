@@ -1,5 +1,5 @@
 
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { db } from '../../db.js';
 import { 
   fundTransfers, 
@@ -19,7 +19,7 @@ import { projectAccessService } from '../../services/ProjectAccessService';
 const router = express.Router();
 
 // جلب آخر الإجراءات
-router.get('/recent-activities', authenticate, attachAccessibleProjects, async (req, res) => {
+router.get('/recent-activities', authenticate, attachAccessibleProjects, async (req: Request, res: Response) => {
   console.log('🔍 [API] تم استقبال طلب: GET /api/recent-activities');
   try {
     const { project_id } = req.query;
@@ -52,7 +52,7 @@ router.get('/recent-activities', authenticate, attachAccessibleProjects, async (
       .orderBy(desc(fundTransfers.created_at))
       .limit(limit);
 
-    activities.push(...transfers.map(t => ({
+    activities.push(...transfers.map((t: any) => ({
       ...t,
       actionType: 'fund_transfer',
       actionLabel: 'تحويل للصندوق',
@@ -79,7 +79,7 @@ router.get('/recent-activities', authenticate, attachAccessibleProjects, async (
         )
       : await projectTransfersQuery;
 
-    activities.push(...projectTransfers.map(t => ({
+    activities.push(...projectTransfers.map((t: any) => ({
       ...t,
       actionType: 'project_transfer',
       actionLabel: 'تحويل بين المشاريع',
@@ -105,7 +105,7 @@ router.get('/recent-activities', authenticate, attachAccessibleProjects, async (
       ? await workerExpensesQuery.where(eq(workerMiscExpenses.project_id, project_id as string))
       : await workerExpensesQuery;
 
-    activities.push(...workerExpenses.map(e => ({
+    activities.push(...workerExpenses.map((e: any) => ({
       ...e,
       actionType: 'worker_expense',
       actionLabel: 'مصروف عامل',
@@ -131,7 +131,7 @@ router.get('/recent-activities', authenticate, attachAccessibleProjects, async (
       ? await materialsQuery.where(eq(materialPurchases.project_id, project_id as string))
       : await materialsQuery;
 
-    activities.push(...materials.map(m => ({
+    activities.push(...materials.map((m: any) => ({
       ...m,
       actionType: 'material',
       actionLabel: 'شراء مواد',
@@ -157,7 +157,7 @@ router.get('/recent-activities', authenticate, attachAccessibleProjects, async (
       ? await workerTransfersQuery.where(eq(workerTransfers.project_id, project_id as string))
       : await workerTransfersQuery;
 
-    activities.push(...transfers2.map(t => ({
+    activities.push(...transfers2.map((t: any) => ({
       ...t,
       actionType: 'worker_transfer',
       actionLabel: 'تحويل لعامل',
@@ -185,7 +185,7 @@ router.get('/recent-activities', authenticate, attachAccessibleProjects, async (
       ? await dailyLogsQuery.where(eq(dailyActivityLogs.project_id, project_id as string))
       : await dailyLogsQuery;
 
-    activities.push(...dailyLogs.map(l => ({
+    activities.push(...dailyLogs.map((l: any) => ({
       ...l,
       actionType: 'daily_log',
       actionLabel: 'نشاط يومي',

@@ -6,7 +6,7 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const Select = (props: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Root>) => (
+const Select = (props: any) => (
   <SelectPrimitive.Root modal={false} {...props} />
 )
 

@@ -186,7 +186,7 @@ financialRouter.post('/daily-expense-summaries', async (req: Request, res: Respo
     // التحقق من صحة البيانات باستخدام Zod schema
     const result = insertDailyExpenseSummarySchema.safeParse(body);
     if (!result.success) {
-      return sendError(res, 'بيانات الملخص غير صحيحة', 400, result.error.errors);
+      return sendError(res, 'بيانات الملخص غير صحيحة', 400, result.error.issues);
     }
 
     const accessReq = req as ProjectAccessRequest;
@@ -238,7 +238,7 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
 
     const filteredTransfers = isAdminUser
       ? transfers
-      : transfers.filter(t => t.project_id && accessibleIds.includes(t.project_id));
+      : transfers.filter((t: any) => t.project_id && accessibleIds.includes(t.project_id));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${filteredTransfers.length} تحويل عهدة في ${duration}ms`);
@@ -820,9 +820,12 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
 
     const record = newTransfer[0];
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.recordProjectTransfer(
-        record.fromProjectId, record.toProjectId, parseFloat(record.amount), record.transferDate, record.id, (req as any).user?.id
-      ),
+      async () => {
+        await FinancialLedgerService.recordProjectTransfer(
+          record.fromProjectId, record.toProjectId, parseFloat(record.amount), record.transferDate, record.id, (req as any).user?.id
+        );
+        return '';
+      },
       'project-fund-transfers/POST'
     );
 
@@ -985,9 +988,10 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
     const t = updatedTransfer[0];
     FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'تعديل تحويل مشروع', (req as any).user?.id);
-      return FinancialLedgerService.recordProjectTransfer(
+      await FinancialLedgerService.recordProjectTransfer(
         t.fromProjectId, t.toProjectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
       );
+      return '';
     }, 'project-fund-transfers/PATCH');
 
     res.json({
@@ -1031,7 +1035,7 @@ financialRouter.get('/worker-transfers', async (req: Request, res: Response) => 
 
     const filteredTransfers = isAdminUser
       ? transfers
-      : transfers.filter(t => t.project_id && accessibleIds.includes(t.project_id));
+      : transfers.filter((t: any) => t.project_id && accessibleIds.includes(t.project_id));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${filteredTransfers.length} تحويل عامل في ${duration}ms`);
@@ -1348,7 +1352,7 @@ financialRouter.get('/worker-misc-expenses', async (req: Request, res: Response)
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
     const filteredExpenses = isAdminUser
       ? expenses
-      : expenses.filter(e => e.project_id && accessibleIds.includes(e.project_id));
+      : expenses.filter((e: any) => e.project_id && accessibleIds.includes(e.project_id));
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${filteredExpenses.length} مصروف متنوع في ${duration}ms`);
@@ -2010,7 +2014,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       return res.status(400).json({
         success: false,
         error: 'بيانات غير صحيحة',
-        message: validationResult.error.errors[0]?.message || 'بيانات غير صحيحة',
+        message: validationResult.error.issues[0]?.message || 'بيانات غير صحيحة',
         details: validationResult.error.flatten().fieldErrors,
         processingTime: duration
       });
@@ -2674,7 +2678,7 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
         )
       );
 
-    const totalWorkDays = attendanceRecords.reduce((sum, record) => sum + (parseFloat(record.workDays || '0')), 0);
+    const totalWorkDays = attendanceRecords.reduce((sum: any, record: any) => sum + (parseFloat(record.workDays || '0')), 0);
 
     if (summary.length === 0) {
       return res.json({
@@ -2765,7 +2769,7 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
       .orderBy(workers.name);
 
     // حساب المتبقي لكل سجل
-    const detailedRecords = attendanceRecords.map(record => {
+    const detailedRecords = attendanceRecords.map((record: any) => {
       const actualWage = parseFloat(record.actualWage || '0');
       const paidAmount = parseFloat(record.paidAmount || '0');
       const remainingAmount = actualWage - paidAmount;
@@ -2833,21 +2837,21 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
     
     // فلترة يدوية حسب التاريخ
     if (dateFrom && dateFrom !== '') {
-      transfers = transfers.filter(t => t.transferDate >= (dateFrom as string));
+      transfers = transfers.filter((t: any) => t.transferDate >= (dateFrom as string));
       console.log(`📌 [Transfers] بعد dateFrom: ${transfers.length}`);
     }
     if (dateTo && dateTo !== '') {
-      transfers = transfers.filter(t => t.transferDate <= (dateTo as string));
+      transfers = transfers.filter((t: any) => t.transferDate <= (dateTo as string));
       console.log(`📌 [Transfers] بعد dateTo: ${transfers.length}`);
     }
 
     // حساب الإجمالي
-    const totalTransfers = transfers.reduce((sum, t) => sum + parseFloat(t.amount || '0'), 0);
+    const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
 
     res.json({
       success: true,
       data: {
-        transfers: transfers.map(t => ({
+        transfers: transfers.map((t: any) => ({
           id: t.id,
           date: t.transferDate,
           amount: parseFloat(t.amount || '0'),
@@ -2933,11 +2937,11 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     
     // فلترة يدوية حسب التاريخ على مستوى التطبيق
     if (dateFrom && dateFrom !== '') {
-      attendanceRecords = attendanceRecords.filter(r => r.date && r.date >= (dateFrom as string));
+      attendanceRecords = attendanceRecords.filter((r: any) => r.date && r.date >= (dateFrom as string));
       console.log(`🔍 [WorkerStatement] بعد فلترة dateFrom (${dateFrom}): ${attendanceRecords.length} سجل`);
     }
     if (dateTo && dateTo !== '') {
-      attendanceRecords = attendanceRecords.filter(r => r.date && r.date <= (dateTo as string));
+      attendanceRecords = attendanceRecords.filter((r: any) => r.date && r.date <= (dateTo as string));
       console.log(`🔍 [WorkerStatement] بعد فلترة dateTo (${dateTo}): ${attendanceRecords.length} سجل`);
     }
 
@@ -2981,16 +2985,16 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     
     // فلترة يدوية حسب التاريخ على مستوى التطبيق
     if (dateFrom && dateFrom !== '') {
-      transferRecords = transferRecords.filter(t => t.transferDate >= (dateFrom as string));
+      transferRecords = transferRecords.filter((t: any) => t.transferDate >= (dateFrom as string));
       console.log(`🔍 [WorkerStatement] بعد فلترة dateFrom (${dateFrom}): ${transferRecords.length} حوالة`);
     }
     if (dateTo && dateTo !== '') {
-      transferRecords = transferRecords.filter(t => t.transferDate <= (dateTo as string));
+      transferRecords = transferRecords.filter((t: any) => t.transferDate <= (dateTo as string));
       console.log(`🔍 [WorkerStatement] بعد فلترة dateTo (${dateTo}): ${transferRecords.length} حوالة`);
     }
 
     let totalTransfers = 0;
-    transferRecords.forEach(t => {
+    transferRecords.forEach((t: any) => {
       totalTransfers += parseFloat(t.amount || '0');
     });
 
@@ -3137,7 +3141,7 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
         totalDebt: totalDebt.toFixed(2),
         totalPaid: totalPaid.toFixed(2),
         remainingDebt: totalDebt.toFixed(2),
-        activeSuppliers: suppliersList.filter(s => parseFloat(s.totalDebt || '0') > 0).length
+        activeSuppliers: suppliersList.filter((s: any) => parseFloat(s.totalDebt || '0') > 0).length
       },
       processingTime: duration
     });
@@ -3167,7 +3171,7 @@ financialRouter.get('/material-purchases/date-range', async (req: Request, res: 
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
     const filteredPurchases = isAdminUser
       ? purchases
-      : purchases.filter(p => p.project_id && accessibleIds.includes(p.project_id));
+      : purchases.filter((p: any) => p.project_id && accessibleIds.includes(p.project_id));
 
     const duration = Date.now() - startTime;
     return res.json({

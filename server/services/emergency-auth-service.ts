@@ -178,15 +178,14 @@ export class EmergencyAuthService {
           if (adminCreds.password === password) {
             this.clearAttempts(email);
             const token = generateAccessToken({
-              user_id: 'emergency-admin',
+              userId: 'emergency-admin',
               email: adminCreds.email,
               role: 'admin',
             });
 
             const refreshToken = await generateRefreshToken({
-              user_id: 'emergency-admin',
+              userId: 'emergency-admin',
               email: adminCreds.email,
-              role: 'admin',
             });
 
             console.log('✅ [EMERGENCY] تم تسجيل دخول المسؤول الطارئ بنجاح');
@@ -242,15 +241,14 @@ export class EmergencyAuthService {
 
       // إنشاء رموز الوصول
       const accessToken = generateAccessToken({
-        user_id: String(user.id),
+        userId: String(user.id),
         email: String(user.email),
         role: String(user.role),
       });
 
       const refreshToken = await generateRefreshToken({
-        user_id: String(user.id),
+        userId: String(user.id),
         email: String(user.email),
-        role: String(user.role),
       });
 
       console.log('✅ [EMERGENCY] تم تسجيل دخول المستخدم الطارئ بنجاح:', {

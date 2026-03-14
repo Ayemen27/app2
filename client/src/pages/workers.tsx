@@ -54,7 +54,7 @@ const WorkerDialog = ({ worker, onClose, isOpen, projectId }: {
         </DialogHeader>
         <div className="mt-4">
           <AddWorkerForm
-            worker={worker}
+            worker={worker as any}
             projectId={projectId}
             onSuccess={onClose}
             onCancel={onClose}
@@ -142,7 +142,7 @@ const WorkerCardWrapper = ({
   const project_idForApi = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
   
   const { data: statsData, isLoading: statsLoading } = useQuery<{ success: boolean; data: WorkerStats }>({
-    queryKey: QUERY_KEYS.workerStats(worker.id, selectedProjectId),
+    queryKey: QUERY_KEYS.workerStats(worker.id, selectedProjectId ?? undefined),
     queryFn: async () => {
       const url = project_idForApi 
         ? `/api/workers/${worker.id}/stats?project_id=${project_idForApi}`

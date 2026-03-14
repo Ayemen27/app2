@@ -289,8 +289,8 @@ export default function SuppliersPage() {
                 name: s.name,
                 phone: s.phone || '-',
                 contactPerson: s.contactPerson || '-',
-                totalPurchases: parseFloat(s.totalDebt?.toString() || '0') + parseFloat(s.totalPaid?.toString() || '0'),
-                totalPaid: parseFloat(s.totalPaid?.toString() || '0'),
+                totalPurchases: parseFloat(s.totalDebt?.toString() || '0') + parseFloat((s as any).totalPaid?.toString() || '0'),
+                totalPaid: parseFloat((s as any).totalPaid?.toString() || '0'),
                 totalDebt: parseFloat(s.totalDebt?.toString() || '0'),
                 address: s.address || '-',
               }));

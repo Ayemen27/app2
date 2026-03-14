@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { db, checkDBConnection } from '../../db.js';
 import { healthMonitor } from '../../services/HealthMonitor';
 import { circuitBreaker } from '../../services/CircuitBreaker';
@@ -13,7 +13,7 @@ import { smartConnectionManager } from '../../services/smart-connection-manager'
 import { requireAuth } from '../../middleware/auth.js';
 
 // دالة تحقق من الصلاحيات للمسارات المحمية
-const requireRole = (role: string) => (req: Request, res: Response, next: Function) => {
+const requireRole = (role: string) => (req: Request, res: Response, next: NextFunction): any => {
   const user = (req as any).user;
   if (!user) {
     return res.status(401).json({ success: false, message: 'غير مصرح' });
@@ -113,7 +113,7 @@ healthRouter.get('/health/integrity', requireAuth, async (req: Request, res: Res
 /**
  * تاريخ حالة الصحة
  */
-healthRouter.get('/health/history', (req: Request, res: Response) => {
+healthRouter.get('/health/history', (req: Request, res: Response): void => {
   const limit = parseInt(req.query.limit as string) || 20;
   const history = healthMonitor.getHistory(limit);
   
@@ -128,7 +128,7 @@ healthRouter.get('/health/history', (req: Request, res: Response) => {
 /**
  * حالة Circuit Breakers
  */
-healthRouter.get('/health/circuits', (req: Request, res: Response) => {
+healthRouter.get('/health/circuits', (req: Request, res: Response): void => {
   const report = circuitBreaker.getHealthReport();
   const states = circuitBreaker.getAllStates();
   
@@ -143,7 +143,7 @@ healthRouter.get('/health/circuits', (req: Request, res: Response) => {
 /**
  * إعادة تعيين Circuit Breaker معين
  */
-healthRouter.post('/health/circuits/:name/reset', requireAuth, (req: Request, res: Response) => {
+healthRouter.post('/health/circuits/:name/reset', requireAuth, (req: Request, res: Response): void => {
   const { name } = req.params;
   
   try {
@@ -242,7 +242,7 @@ healthRouter.get('/db/info', async (req: Request, res: Response) => {
  * فحص حالة النظام التفصيلية
  * Detailed system status
  */
-healthRouter.get('/status', (req: Request, res: Response) => {
+healthRouter.get('/status', (req: Request, res: Response): void => {
   const memoryUsage = process.memoryUsage();
   res.json({
     success: true,

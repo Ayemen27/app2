@@ -247,7 +247,7 @@ export default function Dashboard() {
                       <div className="flex flex-col gap-1">
                         <span className="font-bold text-base leading-tight group-hover:text-primary transition-colors">{incident.title}</span>
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[9px] font-black py-0 h-4 rounded-md uppercase">{incident.appVersion}</Badge>
+                          <Badge variant="secondary" className="text-[9px] font-black py-0 h-4 rounded-md uppercase">{(incident as any).appVersion}</Badge>
                           <span className="text-[10px] text-muted-foreground font-medium">Production Node • EU-West-1</span>
                         </div>
                       </div>
@@ -257,7 +257,7 @@ export default function Dashboard() {
                         className={`capitalize text-[10px] px-3 py-0 h-6 font-black border-none shadow-sm ${
                           incident.severity === 'critical' 
                           ? 'bg-red-500 text-white' 
-                          : incident.severity === 'warning'
+                          : (incident.severity as string) === 'warning'
                           ? 'bg-amber-500 text-white'
                           : 'bg-blue-500 text-white'
                         }`}
@@ -267,11 +267,11 @@ export default function Dashboard() {
                     </TableCell>
                     <TableCell className="py-6">
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-black italic">{incident.affectedDevices.toLocaleString()}</span>
+                        <span className="text-sm font-black italic">{((incident as any).affectedDevices || 0).toLocaleString()}</span>
                         <div className="w-24 h-2 bg-muted rounded-full overflow-hidden shadow-inner">
                           <div 
                             className={`h-full transition-all duration-1000 ${incident.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500'}`} 
-                            style={{ width: `${Math.min((incident.affectedDevices/2000)*100, 100)}%` }}
+                            style={{ width: `${Math.min(((incident as any).affectedDevices || 0)/2000*100, 100)}%` }}
                           />
                         </div>
                       </div>

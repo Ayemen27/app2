@@ -24,7 +24,7 @@ const defaultOptions: CircuitBreakerOptions = {
 
 class DatabaseCircuitBreaker {
   private static instance: DatabaseCircuitBreaker;
-  private breakers: Map<string, CircuitBreaker<any[], any>> = new Map();
+  private breakers: Map<string, InstanceType<typeof CircuitBreaker>> = new Map();
   private states: Map<string, CircuitState> = new Map();
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private onStateChangeCallbacks: ((name: string, state: string) => void)[] = [];
@@ -44,7 +44,7 @@ class DatabaseCircuitBreaker {
     name: string,
     action: (...args: any[]) => Promise<T>,
     options: Partial<CircuitBreakerOptions> = {}
-  ): CircuitBreaker<any[], T> {
+  ): InstanceType<typeof CircuitBreaker> {
     if (this.breakers.has(name)) {
       return this.breakers.get(name)!;
     }

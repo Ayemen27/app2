@@ -28,7 +28,7 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { downloadExcelFile } from "@/utils/webview-download";
 import { useToast } from "@/hooks/use-toast";
@@ -241,11 +241,11 @@ export default function SupplierAccountsPage() {
 
   const overallStats = {
     totalSuppliers: suppliers.length,
-    totalCashPurchases: isFiltered ? (Array.isArray(purchases) ? purchases.filter(p => p.purchaseType === 'نقد').reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0).toString() : "0") : (summary?.totalCashMaterials || "0").toString(),
-    totalCreditPurchases: isFiltered ? (Array.isArray(purchases) ? purchases.filter(p => p.purchaseType === 'آجل' || p.purchaseType === 'أجل').reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0).toString() : "0") : (summary?.totalCreditMaterials || "0").toString(),
-    totalDebt: summary?.totalSuppliersDebt || "0",
-    totalPaid: summary?.totalSuppliersPaid || "0",
-    remainingDebt: summary?.totalSuppliersDebt || "0",
+    totalCashPurchases: isFiltered ? (Array.isArray(purchases) ? purchases.filter(p => p.purchaseType === 'نقد').reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0).toString() : "0") : ((summary as any)?.totalCashMaterials || "0").toString(),
+    totalCreditPurchases: isFiltered ? (Array.isArray(purchases) ? purchases.filter(p => p.purchaseType === 'آجل' || p.purchaseType === 'أجل').reduce((sum, p) => sum + parseFloat(p.totalAmount || "0"), 0).toString() : "0") : ((summary as any)?.totalCreditMaterials || "0").toString(),
+    totalDebt: (summary as any)?.totalSuppliersDebt || "0",
+    totalPaid: (summary as any)?.totalSuppliersPaid || "0",
+    remainingDebt: (summary as any)?.totalSuppliersDebt || "0",
     activeSuppliers: suppliers.filter(s => parseFloat(s.totalDebt || '0') > 0).length,
     totalPurchases: Array.isArray(purchases) ? purchases.length : 0
   };

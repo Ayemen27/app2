@@ -146,7 +146,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       name: name.trim(),
       type,
       dailyWage,
-      isActive: true,
+      is_active: true,
     });
   };
 

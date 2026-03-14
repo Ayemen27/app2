@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { db } from "../../db.js";
 import { 
@@ -260,7 +260,7 @@ function formatRecord(table: string, record: any) {
   };
 }
 
-router.get("/review", requireAdmin as any, async (req, res) => {
+router.get("/review", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const { projectId, date } = req.query;
     if (!projectId || !date) {
@@ -331,7 +331,7 @@ router.get("/review", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.post("/preview", requireAdmin as any, async (req, res) => {
+router.post("/preview", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const { sourceProjectId, targetProjectId, date, selections } = req.body;
     if (!sourceProjectId || !targetProjectId || !selections?.length) {
@@ -569,7 +569,7 @@ router.post("/preview", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.post("/confirm", requireAdmin as any, async (req, res) => {
+router.post("/confirm", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const { sourceProjectId, targetProjectId, selections, force } = req.body;
     if (!sourceProjectId || !targetProjectId || !selections?.length) {
@@ -585,7 +585,7 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
     const movedItems: { table: string; id: string }[] = [];
     const affectedDates = new Set<string>();
 
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       for (const sel of selections) {
         const isFundTransfer = sel.table === "fundTransferOut" || sel.table === "fundTransferIn";
 
@@ -731,7 +731,7 @@ router.post("/confirm", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.post("/delete", requireAdmin as any, async (req, res) => {
+router.post("/delete", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const { projectId, selections } = req.body;
     if (!projectId || !selections?.length) {
@@ -742,7 +742,7 @@ router.post("/delete", requireAdmin as any, async (req, res) => {
     const errors: string[] = [];
     const affectedDates = new Set<string>();
 
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: any) => {
       for (const sel of selections) {
         const isFundTransfer = sel.table === "fundTransferOut" || sel.table === "fundTransferIn";
 

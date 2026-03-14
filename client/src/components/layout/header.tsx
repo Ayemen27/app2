@@ -183,7 +183,7 @@ export default function Header() {
                 <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64 max-h-80" dir="rtl">
+            <DropdownMenuContent align="start" className="w-64 max-h-80">
               <DropdownMenuLabel className="text-right text-xs text-muted-foreground font-medium">اختيار المشروع</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {projectsLoading ? (

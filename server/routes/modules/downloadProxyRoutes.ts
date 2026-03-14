@@ -92,7 +92,7 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
   }
 });
 
-router.get('/temp-download/:id', requireAuth, (req: Request, res: Response) => {
+router.get('/temp-download/:id', requireAuth, (req: Request, res: Response): any => {
   const { id } = req.params;
   const requestUserId = (req as any).user?.id || (req as any).user?.user_id;
 

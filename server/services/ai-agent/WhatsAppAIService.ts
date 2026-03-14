@@ -569,7 +569,7 @@ export class WhatsAppAIService {
         amount,
         workerId: worker.id,
         workerName: worker.name,
-        activeProjects: activeProjects.map(p => ({ id: p.id, name: p.name })),
+        activeProjects: activeProjects.map((p: any) => ({ id: p.id, name: p.name })),
       };
       this.sessions.set(senderPhone, context);
 
@@ -592,7 +592,7 @@ export class WhatsAppAIService {
         ].join('\n'));
       }
 
-      const projectLines = activeProjects.map((p, i) => `*${i + 1}.* ${p.name}`).join('\n');
+      const projectLines = activeProjects.map((p: any, i: number) => `*${i + 1}.* ${p.name}`).join('\n');
       return textReply([
         `👷 *${worker.name}* | 💰 *${amount}* ر.س`,
         ``,
@@ -965,8 +965,8 @@ export class WhatsAppAIService {
       const attendanceWorkers = await db.selectDistinct({ workerId: workerAttendance.worker_id })
         .from(workerAttendance)
         .where(inArray(workerAttendance.project_id, userProjectIds));
-      scopedWorkerIds = attendanceWorkers.map(r => r.workerId);
-      if (scopedWorkerIds.length === 0) return [];
+      scopedWorkerIds = attendanceWorkers.map((r: any) => r.workerId);
+      if (scopedWorkerIds!.length === 0) return [];
     }
 
     const runSearch = async (variant: string) => {
@@ -1426,7 +1426,7 @@ export class WhatsAppAIService {
         const attendanceWorkers = await db.selectDistinct({ workerId: workerAttendance.worker_id })
           .from(workerAttendance)
           .where(inArray(workerAttendance.project_id, userProjectIds));
-        const scopedWorkerIds = attendanceWorkers.map(r => r.workerId);
+        const scopedWorkerIds = attendanceWorkers.map((r: any) => r.workerId);
         if (scopedWorkerIds.length > 0) {
           allWorkers = await db.select({ id: workers.id, name: workers.name })
             .from(workers)
@@ -1470,12 +1470,12 @@ export class WhatsAppAIService {
       }
 
       context.step = 'export_awaiting_projects_select';
-      context.data.activeProjects = userProjects.map(p => ({ id: p.id, name: p.name }));
+      context.data.activeProjects = userProjects.map((p: any) => ({ id: p.id, name: p.name }));
       context.data.exportProjectIds = [];
       context.data.exportProjectNames = [];
       this.sessions.set(senderPhone, context);
 
-      const projLines = userProjects.map((p, i) => `*${i + 1}.* ${p.name}`).join('\n');
+      const projLines = userProjects.map((p: any, i: number) => `*${i + 1}.* ${p.name}`).join('\n');
       return textReply([
         `📌 *تقرير متعدد المشاريع*`,
         `اختر المشاريع (أرقام بفواصل أو *الكل*):`,
@@ -1496,7 +1496,7 @@ export class WhatsAppAIService {
     }
 
     context.step = 'export_awaiting_project';
-    context.data.activeProjects = userProjects.map(p => ({ id: p.id, name: p.name }));
+    context.data.activeProjects = userProjects.map((p: any) => ({ id: p.id, name: p.name }));
     this.sessions.set(senderPhone, context);
 
     const typeNames: Record<string, string> = {
@@ -1505,7 +1505,7 @@ export class WhatsAppAIService {
       daily_range: 'كشف يومي لفترة',
     };
 
-    const projLines = userProjects.map((p, i) => `*${i + 1}.* ${p.name}`).join('\n');
+    const projLines = userProjects.map((p: any, i: number) => `*${i + 1}.* ${p.name}`).join('\n');
     return textReply([
       `📌 *${typeNames[exportType] || 'تصدير'}*`,
       `اختر المشروع:`,
@@ -1933,11 +1933,11 @@ export class WhatsAppAIService {
 
     if (context && senderPhone) {
       context.step = 'expense_awaiting_project_summary';
-      context.data.activeProjects = userProjects.map(p => ({ id: p.id, name: p.name }));
+      context.data.activeProjects = userProjects.map((p: any) => ({ id: p.id, name: p.name }));
       this.sessions.set(senderPhone, context);
     }
 
-    const projLines = userProjects.map((p, i) => {
+    const projLines = userProjects.map((p: any, i: number) => {
       const icon = p.status === 'active' ? '🟢' : p.status === 'completed' ? '✅' : '🟡';
       return `${icon} *${i + 1}.* ${p.name}`;
     }).join('\n');
@@ -2062,7 +2062,7 @@ export class WhatsAppAIService {
       .where(inArray(projects.id, userProjectIds))
       .limit(20);
 
-    const baseText = formatProjectList(userProjects.map(p => ({
+    const baseText = formatProjectList(userProjects.map((p: any) => ({
       name: p.name,
       status: p.status || 'active',
       id: p.id,
@@ -2080,9 +2080,9 @@ export class WhatsAppAIService {
       .where(inArray(projects.id, userProjectIds))
       .limit(20);
 
-    const active = userProjects.filter(p => p.status === 'active').length;
-    const completed = userProjects.filter(p => p.status === 'completed').length;
-    const paused = userProjects.filter(p => p.status !== 'active' && p.status !== 'completed').length;
+    const active = userProjects.filter((p: any) => p.status === 'active').length;
+    const completed = userProjects.filter((p: any) => p.status === 'completed').length;
+    const paused = userProjects.filter((p: any) => p.status !== 'active' && p.status !== 'completed').length;
 
     const fundResults = await db.select({
       projectId: fundTransfers.project_id,
@@ -2105,9 +2105,9 @@ export class WhatsAppAIService {
       .where(inArray(workerAttendance.project_id, userProjectIds))
       .groupBy(workerAttendance.project_id);
 
-    const fundMap = Object.fromEntries(fundResults.map(r => [r.projectId, parseFloat(r.total)]));
-    const expenseMap = Object.fromEntries(expenseResults.map(r => [r.projectId, parseFloat(r.totalExpenses)]));
-    const workerMap = Object.fromEntries(workerCountResults.map(r => [r.projectId, parseInt(r.count)]));
+    const fundMap = Object.fromEntries(fundResults.map((r: any) => [r.projectId, parseFloat(r.total)]));
+    const expenseMap = Object.fromEntries(expenseResults.map((r: any) => [r.projectId, parseFloat(r.totalExpenses)]));
+    const workerMap = Object.fromEntries(workerCountResults.map((r: any) => [r.projectId, parseInt(r.count)]));
 
     let totalFunds = 0;
     let totalExpenses = 0;
@@ -2119,7 +2119,7 @@ export class WhatsAppAIService {
       ``,
     ];
 
-    userProjects.forEach((p, i) => {
+    userProjects.forEach((p: any, i: number) => {
       const funds = fundMap[p.id] || 0;
       const expenses = expenseMap[p.id] || 0;
       const wCount = workerMap[p.id] || 0;
@@ -2158,7 +2158,7 @@ export class WhatsAppAIService {
         .where(inArray(workerAttendance.project_id, userProjectIds))
         .groupBy(workerAttendance.project_id);
 
-      const countMap = Object.fromEntries(workerCounts.map(r => [r.projectId, parseInt(r.workerCount)]));
+      const countMap = Object.fromEntries(workerCounts.map((r: any) => [r.projectId, parseInt(r.workerCount)]));
 
       let totalWorkers = 0;
       const lines: string[] = [`👷 *عدد العمال في المشاريع*`, ``];
@@ -2276,15 +2276,15 @@ export class WhatsAppAIService {
         return textReply(nav(`📭 لا توجد بيانات عمال في مشاريعك.`));
       }
 
-      const workerIds = topWorkers.map(w => w.workerId);
+      const workerIds = topWorkers.map((w: any) => w.workerId);
       const workerNames = await db.select({ id: workers.id, name: workers.name })
         .from(workers)
         .where(inArray(workers.id, workerIds));
-      const nameMap = Object.fromEntries(workerNames.map(w => [w.id, w.name]));
+      const nameMap = Object.fromEntries(workerNames.map((w: any) => [w.id, w.name]));
 
       const lines: string[] = [`🏆 *أكثر العمال استلاماً للمبالغ*`, ``];
 
-      topWorkers.forEach((w, i) => {
+      topWorkers.forEach((w: any, i: number) => {
         const name = nameMap[w.workerId] || 'غير معروف';
         const paid = parseFloat(w.totalPaid);
         const days = parseInt(w.daysCount);

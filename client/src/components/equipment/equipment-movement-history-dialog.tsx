@@ -34,7 +34,7 @@ export function EquipmentMovementHistoryDialog({
 }: EquipmentMovementHistoryDialogProps) {
   
   const { data: movements = [], isLoading } = useQuery({
-    queryKey: QUERY_KEYS.equipmentMovementsById(equipment?.id ?? ''),
+    queryKey: QUERY_KEYS.equipmentMovementsById(String(equipment?.id ?? '')),
     queryFn: async () => {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/equipment/${equipment?.id}/movements`, {
@@ -112,7 +112,7 @@ export function EquipmentMovementHistoryDialog({
                     <div className="min-w-0 flex-1">
                       <div className="text-xs text-gray-600">المشروع الحالي</div>
                       <div className="font-bold text-gray-900 truncate">
-                        {getProjectName(equipment?.currentProjectId || null)}
+                        {getProjectName((equipment as any)?.currentProjectId || null)}
                       </div>
                     </div>
                   </div>

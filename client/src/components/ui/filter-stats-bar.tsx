@@ -378,7 +378,7 @@ export function FilterStatsBar({
           <div onClick={(e) => e.stopPropagation()}>
             <Select 
               value={value || filter.defaultValue || 'all'} 
-              onValueChange={(v) => onFilterChange?.(filter.key, v)}
+              onValueChange={(v: any) => onFilterChange?.(filter.key, v)}
             >
               <SelectTrigger className="h-9">
                 <SelectValue placeholder={filter.placeholder || filter.label} />

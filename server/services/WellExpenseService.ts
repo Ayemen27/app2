@@ -223,11 +223,11 @@ export class WellExpenseService {
       }
 
       if (filters?.startDate) {
-        query = query.where(gte(wellExpenses.expenseDate, new Date(filters.startDate))) as any;
+        query = query.where(gte(wellExpenses.expenseDate, filters.startDate)) as any;
       }
 
       if (filters?.endDate) {
-        query = query.where(lte(wellExpenses.expenseDate, new Date(filters.endDate))) as any;
+        query = query.where(lte(wellExpenses.expenseDate, filters.endDate)) as any;
       }
 
       const expenses = await query.orderBy(desc(wellExpenses.expenseDate));
@@ -266,7 +266,7 @@ export class WellExpenseService {
       };
 
       // تجميع المصاريف
-      expenses.forEach(expense => {
+      expenses.forEach((expense: any) => {
         const amount = parseFloat(expense.totalAmount as string) || 0;
         
         switch (expense.expenseType) {

@@ -468,7 +468,7 @@ export default function WorkerAccountsPage() {
 
     return {
       totalTransfers: filteredTransfers.length,
-      totalAmount: isFiltered ? totalAmount : (summary?.totalWorkerTransfers || totalAmount),
+      totalAmount: isFiltered ? totalAmount : ((summary as any)?.totalWorkerTransfers || totalAmount),
       cashAmount,
       bankAmount,
       hawalehAmount,

@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { deploymentEngine } from "../../services/deployment-engine.js";
 
@@ -14,7 +14,7 @@ function sanitizeShellArg(input: string): string {
 
 router.use(requireAuth as any);
 
-router.post("/start", requireAdmin as any, async (req, res) => {
+router.post("/start", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage } = req.body;
 
@@ -47,7 +47,7 @@ router.post("/start", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.post("/deploy", requireAdmin as any, async (req, res) => {
+router.post("/deploy", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage } = req.body;
 
@@ -75,7 +75,7 @@ router.post("/deploy", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/list", requireAdmin as any, async (req, res) => {
+router.get("/list", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = parseInt(req.query.offset as string) || 0;
@@ -87,7 +87,7 @@ router.get("/list", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/history", requireAdmin as any, async (req, res) => {
+router.get("/history", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = parseInt(req.query.offset as string) || 0;
@@ -99,7 +99,7 @@ router.get("/history", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/stats", requireAdmin as any, async (req, res) => {
+router.get("/stats", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const stats = await deploymentEngine.getDeploymentStats();
     res.json(stats);
@@ -108,7 +108,7 @@ router.get("/stats", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/health", requireAdmin as any, async (req, res) => {
+router.get("/health", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const health = await deploymentEngine.checkServerHealth();
     res.json(health);
@@ -117,7 +117,7 @@ router.get("/health", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.post("/cleanup", requireAdmin as any, async (req, res) => {
+router.post("/cleanup", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const result = await deploymentEngine.runCleanup();
     res.json(result);
@@ -126,7 +126,7 @@ router.post("/cleanup", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/status/:id", requireAdmin as any, async (req, res) => {
+router.get("/status/:id", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment) return res.status(404).json({ error: "Deployment not found" });
@@ -136,7 +136,7 @@ router.get("/status/:id", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/:id/events", requireAdmin as any, async (req, res) => {
+router.get("/:id/events", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const events = await deploymentEngine.getDeploymentEvents(req.params.id);
     res.json(events);
@@ -145,7 +145,7 @@ router.get("/:id/events", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/:id/stream", requireAdmin as any, async (req, res) => {
+router.get("/:id/stream", requireAdmin as any, async (req: Request, res: Response) => {
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -184,7 +184,7 @@ router.get("/:id/stream", requireAdmin as any, async (req, res) => {
   });
 });
 
-router.post("/:id/cancel", requireAdmin as any, async (req, res) => {
+router.post("/:id/cancel", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment) return res.status(404).json({ error: "Deployment not found" });
@@ -197,7 +197,7 @@ router.post("/:id/cancel", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.post("/:id/rollback", requireAdmin as any, async (req, res) => {
+router.post("/:id/rollback", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id);
     res.json({ id: rollbackId, message: "Rollback started" });
@@ -206,7 +206,7 @@ router.post("/:id/rollback", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.get("/:id", requireAdmin as any, async (req, res) => {
+router.get("/:id", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment) return res.status(404).json({ error: "Deployment not found" });
@@ -216,7 +216,7 @@ router.get("/:id", requireAdmin as any, async (req, res) => {
   }
 });
 
-router.delete("/:id", requireAdmin as any, async (req, res) => {
+router.delete("/:id", requireAdmin as any, async (req: Request, res: Response) => {
   try {
     await deploymentEngine.deleteDeployment(req.params.id);
     res.json({ success: true, message: "تم حذف العملية" });

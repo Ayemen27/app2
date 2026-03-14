@@ -667,7 +667,9 @@ export default function SystemCheckPage() {
         });
         
         try {
-          await db.put(tableName, record);
+          const { getDB } = await import('@/offline/db');
+          const dbInstance = await getDB();
+          await (dbInstance as any).put(tableName, record);
         } catch (e) {
           console.warn(`[SQL Import] تخطي:`, e);
         }
@@ -1010,7 +1012,7 @@ export default function SystemCheckPage() {
                 {isRequesting ? <><Loader2 className="w-4 h-4 animate-spin ml-2" />جاري الفحص والتفعيل...</> : <><Shield className="w-4 h-4 ml-2" />تفعيل الصلاحيات وبدء الإعداد</>}
               </Button>
               
-              <Input
+              <input
                 ref={fileInputRef}
                 type="file"
                 accept=".sql,.json,.gz,.gzip,.backup"

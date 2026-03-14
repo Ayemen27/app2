@@ -21,7 +21,8 @@ import {
   type InsertMaterial, type InsertMaterialPurchase, type InsertTransportationExpense, type InsertDailyExpenseSummary,
   type InsertWorkerTransfer, type InsertWorkerBalance, type InsertAutocompleteData, type InsertWorkerType, type InsertWorkerMiscExpense, type InsertUser,
   type InsertSupplier, type InsertSupplierPayment, type InsertPrintSettings, type InsertProjectFundTransfer,
-  type InsertReportTemplate, type EmergencyUser, type InsertEmergencyUser, type User as SchemaUser, type InsertUser as SchemaInsertUser,
+  type InsertReportTemplate, type EmergencyUser, type InsertEmergencyUser,
+  type DailyActivityLog, type InsertDailyActivityLog,
   type Equipment, type InsertEquipment, type EquipmentMovement, type InsertEquipmentMovement,
   type RefreshToken, type InsertRefreshToken, type AuditLog, type InsertAuditLog,
   type Task, type InsertTask,
@@ -31,6 +32,7 @@ import {
   type WebAuthnCredential, type InsertWebAuthnCredential, type WebAuthnChallenge, type InsertWebAuthnChallenge,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
+  dailyActivityLogs,
   refreshTokens, auditLogs,
   wells, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs,
   equipment, equipmentMovements,
@@ -48,6 +50,8 @@ import {
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
+
+const projects = projectsTable;
 
 export interface IStorage {
   // Monitoring
@@ -985,7 +989,7 @@ export class DatabaseStorage implements IStorage {
     const existingAttendance = await db.select().from(workerAttendance)
       .where(and(
         eq(workerAttendance.worker_id, attendance.worker_id),
-        eq(workerAttendance.date, attendance.date),
+        eq(workerAttendance.date, attendance.date ?? ''),
         eq(workerAttendance.project_id, attendance.project_id)
       ));
     
@@ -994,7 +998,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // حساب الأجر الفعلي بناءً على عدد أيام العمل
-    const workDays = attendance.workDays || 1.0;
+    const workDays = parseFloat(attendance.workDays?.toString() || '1.0');
     const dailyWage = parseFloat(attendance.dailyWage.toString());
     const actualWage = dailyWage * workDays;
     
@@ -1019,7 +1023,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // تحديث الملخص اليومي في الخلفية (دون انتظار)
-      this.updateDailySummaryForDate(attendance.project_id, attendance.date).catch(console.error);
+      this.updateDailySummaryForDate(attendance.project_id, attendance.date ?? attendance.attendanceDate).catch(console.error);
       
       return newAttendance;
     } catch (error: any) {
@@ -1109,6 +1113,11 @@ export class DatabaseStorage implements IStorage {
     return newMaterial;
   }
 
+  async updateMaterial(id: string, material: Partial<InsertMaterial>): Promise<Material | undefined> {
+    const [updated] = await db.update(materials).set(material).where(eq(materials.id, id)).returning();
+    return updated || undefined;
+  }
+
   async findMaterialByNameAndUnit(name: string, unit: string): Promise<Material | undefined> {
     const [material] = await db.select().from(materials)
       .where(and(eq(materials.name, name), eq(materials.unit, unit)));
@@ -1156,7 +1165,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(materialPurchases.created_at);
 
     // تحويل البيانات للشكل المطلوب
-    return purchases.map(purchase => ({
+    return purchases.map((purchase: any) => ({
       id: purchase.id,
       project_id: purchase.project_id,
       quantity: purchase.quantity,
@@ -1281,7 +1290,7 @@ export class DatabaseStorage implements IStorage {
 
     console.log(`🔍 إرجاع ${purchases.length} مشترى بعد التطبيق الفلاتر`);
     
-    return purchases.map(purchase => ({
+    return purchases.map((purchase: any) => ({
       id: purchase.id,
       project_id: purchase.project_id,
       material_id: purchase.material_id,
@@ -1337,10 +1346,10 @@ export class DatabaseStorage implements IStorage {
     const purchaseData = {
       ...purchase,
       quantity: purchase.quantity.toString(),
-      unitPrice: purchase.unitPrice.toString(),
-      totalAmount: purchase.totalAmount.toString(),
-      paidAmount: purchase.paidAmount.toString(),
-      remainingAmount: purchase.remainingAmount.toString()
+      unitPrice: (purchase.unitPrice ?? 0).toString(),
+      totalAmount: (purchase.totalAmount ?? 0).toString(),
+      paidAmount: (purchase.paidAmount ?? 0).toString(),
+      remainingAmount: (purchase.remainingAmount ?? 0).toString()
     };
     
     const [newPurchase] = await db
@@ -1450,7 +1459,10 @@ export class DatabaseStorage implements IStorage {
     return summary || undefined;
   }
 
-
+  async updateDailyExpenseSummary(id: string, summary: Partial<InsertDailyExpenseSummary>): Promise<DailyExpenseSummary | undefined> {
+    const [updated] = await db.update(dailyExpenseSummaries).set(summary).where(eq(dailyExpenseSummaries.id, id)).returning();
+    return updated || undefined;
+  }
 
   async createOrUpdateDailyExpenseSummary(summary: InsertDailyExpenseSummary): Promise<DailyExpenseSummary> {
     try {
@@ -1636,7 +1648,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(dailyExpenseSummaries.project_id, project_id))
         .orderBy(sql`${dailyExpenseSummaries.date} ASC`);
 
-      const dates = existingSummaries.map(s => s.date);
+      const dates = existingSummaries.map((s: any) => s.date);
       console.log(`📋 Found ${dates.length} dates to recalculate`);
 
       for (const date of dates) {
@@ -1713,8 +1725,7 @@ export class DatabaseStorage implements IStorage {
     let totalEarned = 0;
     let totalPaid = 0;
     
-    attendanceRecords.forEach(record => {
-      // استخدام actualWage بدلاً من dailyWage لضمان الدقة في الأجور الجزئية
+    attendanceRecords.forEach((record: any) => {
       totalEarned += parseFloat(record.actualWage || '0');
       totalPaid += parseFloat(record.paidAmount || '0');
     });
@@ -1723,7 +1734,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id)));
     
     let totalTransferred = 0;
-    transferRecords.forEach(transfer => {
+    transferRecords.forEach((transfer: any) => {
       totalTransferred += parseFloat(transfer.amount || '0');
     });
     
@@ -1865,10 +1876,10 @@ export class DatabaseStorage implements IStorage {
 
       // جلب بيانات المشاريع المرتبطة بالحضور
       const projectsMap = new Map();
-      const uniqueProjectIds = Array.from(new Set(attendanceData.map(record => record.project_id)));
+      const uniqueProjectIds = Array.from(new Set(attendanceData.map((record: any) => record.project_id)));
       
       for (const pId of uniqueProjectIds) {
-        const [project] = await db.select().from(projects).where(eq(projects.id, pId));
+        const [project] = await db.select().from(projects).where(eq(projects.id, pId as string));
         if (project) {
           projectsMap.set(pId, project);
         }
@@ -1907,15 +1918,14 @@ export class DatabaseStorage implements IStorage {
       }
       
       // حساب الإحصائيات الإجمالية
-      const totalWorkDays = attendance.reduce((sum, record) => sum + (Number(record.workDays) || 0), 0);
-      const totalWagesEarned = attendance.reduce((sum, record) => {
-        // استخدام dailyWage من سجل الحضور نفسه لأنه الأدق
+      const totalWorkDays = attendance.reduce((sum: number, record: any) => sum + (Number(record.workDays) || 0), 0);
+      const totalWagesEarned = attendance.reduce((sum: number, record: any) => {
         const dailyWage = Number(record.dailyWage) || 0;
         const workDays = Number(record.workDays) || 0;
         return sum + (dailyWage * workDays);
       }, 0);
-      const totalPaidAmount = attendance.reduce((sum, record) => sum + (Number(record.paidAmount) || 0), 0);
-      const totalTransfers = transfers.reduce((sum, transfer) => sum + (Number(transfer.amount) || 0), 0);
+      const totalPaidAmount = attendance.reduce((sum: number, record: any) => sum + (Number(record.paidAmount) || 0), 0);
+      const totalTransfers = transfers.reduce((sum: number, transfer: any) => sum + (Number(transfer.amount) || 0), 0);
       const remainingBalance = totalWagesEarned - totalPaidAmount;
 
       const summary = {
@@ -2155,14 +2165,14 @@ export class DatabaseStorage implements IStorage {
           .orderBy(workerTransfers.transferDate);
         
         // حساب الإحصائيات لهذا المشروع
-        const projectEarned = attendance.reduce((sum, record) => {
+        const projectEarned = attendance.reduce((sum: number, record: any) => {
           const dailyWage = Number(record.dailyWage) || Number(worker.dailyWage) || 0;
           const workDays = Number(record.workDays) || 1;
           return sum + (dailyWage * workDays);
         }, 0);
         
-        const projectPaid = attendance.reduce((sum, record) => sum + (Number(record.paidAmount) || 0), 0);
-        const projectTransferred = transfers.reduce((sum, transfer) => sum + (Number(transfer.amount) || 0), 0);
+        const projectPaid = attendance.reduce((sum: number, record: any) => sum + (Number(record.paidAmount) || 0), 0);
+        const projectTransferred = transfers.reduce((sum: number, transfer: any) => sum + (Number(transfer.amount) || 0), 0);
         
         const balance = await this.getWorkerBalance(worker_id, project_id);
         
@@ -2218,7 +2228,7 @@ export class DatabaseStorage implements IStorage {
       const projectsList = await db
         .select()
         .from(projects)
-        .where(inArray(projects.id, project_ids.map(p => p.project_id)));
+        .where(inArray(projects.id, project_ids.map((p: any) => p.project_id)));
       
       return projectsList;
     } catch (error) {
@@ -2530,7 +2540,7 @@ export class DatabaseStorage implements IStorage {
           await db
             .delete(autocompleteData)
             .where(
-              sql`id IN (${recordsToDelete.map(r => `'${r.id}'`).join(',')})`
+              sql`id IN (${recordsToDelete.map((r: any) => `'${r.id}'`).join(',')})`
             );
         }
       }
@@ -2840,7 +2850,7 @@ export class DatabaseStorage implements IStorage {
     const project = await this.getProject(project_id);
     const projectName = project?.name || 'غير محدد';
 
-    return income.map(inc => ({
+    return income.map((inc: any) => ({
       ...inc,
       projectName,
       amount: parseFloat(inc.amount?.toString() || '0'),
@@ -2986,7 +2996,6 @@ export class DatabaseStorage implements IStorage {
       .set({ revoked: true })
       .where(or(
         eq(refreshTokens.id, rootId),
-        eq(refreshTokens.parentId, rootId),
         eq(refreshTokens.replacedBy, rootId)
       ));
   }
@@ -3219,24 +3228,24 @@ export class DatabaseStorage implements IStorage {
         .orderBy(supplierPayments.paymentDate);
 
       // فصل المشتريات حسب نوع الدفع (مع إزالة علامات التنصيص وتطبيع الأحرف العربية)
-      const cashPurchasesList = purchases.filter(p => {
+      const cashPurchasesList = purchases.filter((p: any) => {
         const cleanType = p.purchaseType?.replace(/['"]/g, '') || '';
         return cleanType === 'نقد';
       });
-      const creditPurchasesList = purchases.filter(p => {
+      const creditPurchasesList = purchases.filter((p: any) => {
         const cleanType = p.purchaseType?.replace(/['"]/g, '') || '';
         // البحث عن جميع أشكال "أجل": مع الألف العادية والمد
         return cleanType === 'أجل' || cleanType === 'آجل' || cleanType.includes('جل');
       });
 
       // حساب الإجماليات منفصلة
-      const cashTotal = cashPurchasesList.reduce((sum, purchase) => 
+      const cashTotal = cashPurchasesList.reduce((sum: number, purchase: any) => 
         sum + parseFloat(purchase.totalAmount || '0'), 0);
-      const creditTotal = creditPurchasesList.reduce((sum, purchase) => 
+      const creditTotal = creditPurchasesList.reduce((sum: number, purchase: any) => 
         sum + parseFloat(purchase.totalAmount || '0'), 0);
       
       const totalDebt = cashTotal + creditTotal;
-      const totalPaid = payments.reduce((sum, payment) => 
+      const totalPaid = payments.reduce((sum: number, payment: any) => 
         sum + parseFloat(payment.amount || '0'), 0);
       const remainingDebt = totalDebt - totalPaid;
 
@@ -3361,7 +3370,7 @@ export class DatabaseStorage implements IStorage {
       if (purchases.length > 0) {
         console.log('🔍 عينة من البيانات:', {
           total: purchases.length,
-          first3: purchases.slice(0, 3).map(p => ({
+          first3: purchases.slice(0, 3).map((p: any) => ({
             id: p.id,
             purchaseType: p.purchaseType,
             purchaseTypeType: typeof p.purchaseType,
@@ -3370,18 +3379,18 @@ export class DatabaseStorage implements IStorage {
         });
         
         // عرض جميع القيم الفريدة لـ purchaseType
-        const uniqueTypes = Array.from(new Set(purchases.map(p => p.purchaseType)));
+        const uniqueTypes = Array.from(new Set(purchases.map((p: any) => p.purchaseType)));
         console.log('🏷️ جميع قيم purchaseType الموجودة:', uniqueTypes);
       }
       
       // فصل المشتريات حسب نوع الدفع أولاً (مع إزالة علامات التنصيص وتطبيع الأحرف العربية)
-      const allCashPurchases = purchases.filter(p => {
+      const allCashPurchases = purchases.filter((p: any) => {
         const cleanType = p.purchaseType?.replace(/['"]/g, '') || '';
         const isCash = cleanType === 'نقد';
         console.log(`💳 فحص: "${p.purchaseType}" -> "${cleanType}" -> نقد؟ ${isCash}`);
         return isCash;
       });
-      const allCreditPurchases = purchases.filter(p => {
+      const allCreditPurchases = purchases.filter((p: any) => {
         const cleanType = p.purchaseType?.replace(/['"]/g, '') || '';
         // البحث عن جميع أشكال "أجل": مع الألف العادية والمد
         const isCredit = cleanType === 'أجل' || cleanType === 'آجل' || cleanType.includes('جل');
@@ -3411,12 +3420,12 @@ export class DatabaseStorage implements IStorage {
       });
 
       // حساب الإجماليات
-      const totalCashPurchases = cashPurchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0);
-      const totalCreditPurchases = creditPurchases.reduce((sum, p) => sum + parseFloat(p.totalAmount || '0'), 0);
+      const totalCashPurchases = cashPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0);
+      const totalCreditPurchases = creditPurchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0);
       
       // المديونية = فقط المشتريات الآجلة (ليس النقدية)
       const totalDebt = totalCreditPurchases;
-      const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount || '0'), 0);
+      const totalPaid = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0);
       const remainingDebt = totalDebt - totalPaid;
       
       console.log('💰 تفاصيل حساب المديونية:', {
@@ -3429,7 +3438,7 @@ export class DatabaseStorage implements IStorage {
       });
       
       // حساب عدد الموردين النشطين (الذين لديهم مشتريات)
-      const activeSupplierNames = Array.from(new Set(purchases.map(p => p.supplierName).filter(name => name !== null)));
+      const activeSupplierNames = Array.from(new Set(purchases.map((p: any) => p.supplierName).filter((name: any) => name !== null)));
       
       return {
         totalSuppliers: filters?.supplier_id ? 1 : allSuppliers.length,
@@ -3687,7 +3696,7 @@ export class DatabaseStorage implements IStorage {
   async getEquipmentById(id: string): Promise<Equipment | undefined> {
     try {
       const [foundEquipment] = await db.select().from(equipment)
-        .where(eq(equipment.id, id));
+        .where(eq(equipment.id, parseInt(id)));
       return foundEquipment || undefined;
     } catch (error) {
       console.error('Error getting equipment:', error);
@@ -3718,7 +3727,7 @@ export class DatabaseStorage implements IStorage {
         code: equipment.code,
         name: equipment.name,
         status: equipment.status,
-        currentProjectId: equipment.currentProjectId,
+        currentProjectId: equipment.project_id,
         type: equipment.type,
         imageUrl: equipment.imageUrl,
         description: equipment.description,
@@ -3797,7 +3806,7 @@ export class DatabaseStorage implements IStorage {
   async getEquipmentByProject(project_id: string): Promise<Equipment[]> {
     try {
       return await db.select().from(equipment)
-        .where(eq(equipment.currentProjectId, project_id))
+        .where(eq(equipment.project_id, project_id))
         .orderBy(equipment.code);
     } catch (error) {
       console.error('Error getting equipment by project:', error);
@@ -3840,8 +3849,8 @@ export class DatabaseStorage implements IStorage {
       
       const [updatedEquipment] = await db
         .update(equipment)
-        .set({ ...equipmentData, updated_at: sql`CURRENT_TIMESTAMP` })
-        .where(eq(equipment.id, id))
+        .set({ ...equipmentData })
+        .where(eq(equipment.id, parseInt(id)))
         .returning();
       
       console.timeEnd('updateEquipment');
@@ -3858,7 +3867,7 @@ export class DatabaseStorage implements IStorage {
     try {
       console.time('deleteEquipment');
       
-      await db.delete(equipment).where(eq(equipment.id, id));
+      await db.delete(equipment).where(eq(equipment.id, parseInt(id)));
       
       console.timeEnd('deleteEquipment');
       console.log(`🗑️ تم حذف المعدة: ${id}`);
@@ -3872,7 +3881,7 @@ export class DatabaseStorage implements IStorage {
   async getEquipmentMovements(equipmentId: string): Promise<EquipmentMovement[]> {
     try {
       return await db.select().from(equipmentMovements)
-        .where(eq(equipmentMovements.equipmentId, equipmentId))
+        .where(eq(equipmentMovements.equipmentId, parseInt(equipmentId)))
         .orderBy(desc(equipmentMovements.movementDate));
     } catch (error) {
       console.error('Error getting equipment movements:', error);
@@ -3895,6 +3904,20 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error creating equipment movement:', error);
       throw error;
+    }
+  }
+
+  async updateEquipmentMovement(id: string, movement: Partial<InsertEquipmentMovement>): Promise<EquipmentMovement | undefined> {
+    try {
+      const [updated] = await db
+        .update(equipmentMovements)
+        .set(movement)
+        .where(eq(equipmentMovements.id, parseInt(id)))
+        .returning();
+      return updated || undefined;
+    } catch (error) {
+      console.error('Error updating equipment movement:', error);
+      return undefined;
     }
   }
 
@@ -3928,7 +3951,6 @@ export class DatabaseStorage implements IStorage {
         notificationId: notificationReadStates.notificationId,
         isRead: notificationReadStates.isRead,
         readAt: notificationReadStates.readAt,
-        actionTaken: notificationReadStates.actionTaken,
         created_at: notificationReadStates.created_at
       }).from(notificationReadStates)
         .where(and(
@@ -3988,7 +4010,6 @@ export class DatabaseStorage implements IStorage {
         notificationId: notificationReadStates.notificationId,
         isRead: notificationReadStates.isRead,
         readAt: notificationReadStates.readAt,
-        actionTaken: notificationReadStates.actionTaken,
         created_at: notificationReadStates.created_at
       }).from(notificationReadStates)
         .where(and(...conditions))
@@ -4002,26 +4023,6 @@ export class DatabaseStorage implements IStorage {
   // =====================================================
   // Wells Management System Implementation (تنفيذ نظام إدارة الآبار)
   // =====================================================
-
-  // Notifications
-  async createNotification(notif: InsertNotification): Promise<Notification> {
-    const [newNotif] = await db.insert(notifications).values({
-      ...notif,
-      targetPlatform: notif.targetPlatform || 'all'
-    }).returning();
-    return newNotif;
-  }
-
-  async getNotifications(user_id?: string): Promise<Notification[]> {
-    if (user_id) {
-      return await db.select().from(notifications).where(eq(notifications.user_id, user_id)).orderBy(desc(notifications.created_at));
-    }
-    return await db.select().from(notifications).orderBy(desc(notifications.created_at));
-  }
-
-  async getAdminNotifications(): Promise<Notification[]> {
-    return await db.select().from(notifications).orderBy(desc(notifications.created_at));
-  }
 
   // Well Tasks
   async getWellTasks(well_id: number): Promise<WellTask[]> {
@@ -4141,7 +4142,7 @@ export class DatabaseStorage implements IStorage {
         .from(wellTaskAccounts)
         .innerJoin(wellTasks, eq(wellTaskAccounts.taskId, wellTasks.id))
         .where(eq(wellTasks.well_id, well_id))
-        .then(results => results.map(r => r.well_task_accounts));
+        .then((results: any) => results.map((r: any) => r.well_task_accounts));
     } catch (error) {
       console.error('Error getting well task accounts by well:', error);
       return [];
@@ -4394,42 +4395,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDailyLog(id: string): Promise<void> {
     await db.delete(dailyActivityLogs).where(eq(dailyActivityLogs.id, id));
-  }
-
-  // Refresh Tokens Implementation
-  async getRefreshToken(id: string): Promise<RefreshToken | undefined> {
-    const [token] = await db.select().from(refreshTokens).where(eq(refreshTokens.id, id));
-    return token || undefined;
-  }
-
-  async getRefreshTokenByHash(hash: string): Promise<RefreshToken | undefined> {
-    const [token] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, hash));
-    return token || undefined;
-  }
-
-  async getRefreshTokensByUser(user_id: string): Promise<RefreshToken[]> {
-    return await db.select().from(refreshTokens).where(eq(refreshTokens.user_id, user_id));
-  }
-
-  async createRefreshToken(token: InsertRefreshToken): Promise<RefreshToken> {
-    const [newToken] = await db.insert(refreshTokens).values(token).returning();
-    return newToken;
-  }
-
-  async updateRefreshToken(id: string, token: Partial<InsertRefreshToken>): Promise<RefreshToken | undefined> {
-    const [updated] = await db.update(refreshTokens).set(token).where(eq(refreshTokens.id, id)).returning();
-    return updated || undefined;
-  }
-
-  async revokeAllUserTokens(user_id: string): Promise<void> {
-    await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.user_id, user_id));
-  }
-
-  async revokeTokenFamily(rootId: string): Promise<void> {
-    const token = await this.getRefreshToken(rootId);
-    if (token) {
-      await this.revokeAllUserTokens(token.user_id);
-    }
   }
 
   async analyzeSecurityThreats(): Promise<any> {

@@ -542,7 +542,7 @@ export default function BotSettingsTab() {
               <Label className="text-sm font-bold text-slate-700 dark:text-slate-300">اللغة</Label>
               <Select
                 value={settings.language}
-                onValueChange={(val) => updateField("language", val)}
+                onValueChange={(val: string) => updateField("language", val)}
               >
                 <SelectTrigger data-testid="select-language" className="rounded-xl bg-slate-50 dark:bg-slate-800">
                   <SelectValue />
@@ -557,7 +557,7 @@ export default function BotSettingsTab() {
               <Label className="text-sm font-bold text-slate-700 dark:text-slate-300">المنطقة الزمنية</Label>
               <Select
                 value={settings.timezone}
-                onValueChange={(val) => updateField("timezone", val)}
+                onValueChange={(val: string) => updateField("timezone", val)}
               >
                 <SelectTrigger data-testid="select-timezone" className="rounded-xl bg-slate-50 dark:bg-slate-800">
                   <SelectValue />
@@ -885,7 +885,7 @@ export default function BotSettingsTab() {
             <Label className="text-sm font-bold text-slate-700 dark:text-slate-300">مستوى الحماية</Label>
             <Select
               value={settings.protectionLevel}
-              onValueChange={(val) => updateField("protectionLevel", val)}
+              onValueChange={(val: string) => updateField("protectionLevel", val)}
             >
               <SelectTrigger data-testid="select-security-level" className="rounded-xl bg-slate-50 dark:bg-slate-800">
                 <SelectValue />

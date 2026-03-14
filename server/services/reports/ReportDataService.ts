@@ -170,7 +170,7 @@ export class ReportDataService {
 
     const proj = projectInfo[0];
 
-    const attendance: AttendanceRecord[] = attendanceData.map((a) => {
+    const attendance: AttendanceRecord[] = attendanceData.map((a: any) => {
       const dw = safeNum(a.dailyWage);
       const wd = safeNum(a.workDays);
       const totalWage = dw * wd;
@@ -188,7 +188,7 @@ export class ReportDataService {
       };
     });
 
-    const materials: MaterialRecord[] = materialsData.map((m) => ({
+    const materials: MaterialRecord[] = materialsData.map((m: any) => ({
       id: typeof m.id === 'string' ? parseInt(m.id, 10) || 0 : (m.id as number),
       materialName: m.materialName || '-',
       category: m.materialCategory || '-',
@@ -202,21 +202,21 @@ export class ReportDataService {
       purchaseType: m.purchaseType || '-',
     }));
 
-    const transport: TransportRecord[] = transportData.map((t) => ({
+    const transport: TransportRecord[] = transportData.map((t: any) => ({
       id: typeof t.id === 'string' ? parseInt(t.id, 10) || 0 : (t.id as number),
       amount: safeNum(t.amount),
       description: t.description || '',
       workerName: t.workerName || '-',
     }));
 
-    const miscExpenses: MiscExpenseRecord[] = miscExpensesData.map((e) => ({
+    const miscExpenses: MiscExpenseRecord[] = miscExpensesData.map((e: any) => ({
       id: typeof e.id === 'string' ? parseInt(e.id, 10) || 0 : (e.id as number),
       amount: safeNum(e.amount),
       description: e.description || '',
       notes: e.notes || '',
     }));
 
-    const workerTransfersList: WorkerTransferRecord[] = transfersData.map((t) => ({
+    const workerTransfersList: WorkerTransferRecord[] = transfersData.map((t: any) => ({
       id: typeof t.id === 'string' ? parseInt(t.id, 10) || 0 : (t.id as number),
       workerName: t.workerName || '-',
       amount: safeNum(t.amount),
@@ -225,14 +225,14 @@ export class ReportDataService {
     }));
 
     const fundTransfersList: FundTransferRecord[] = [
-      ...fundTransfersData.map((f) => ({
+      ...fundTransfersData.map((f: any) => ({
         id: typeof f.id === 'string' ? parseInt(f.id, 10) || 0 : (f.id as number),
         amount: safeNum(f.amount),
         senderName: f.senderName || '-',
         transferType: f.transferType || '-',
         transferNumber: f.transferNumber || '-',
       })),
-      ...projectFundTransfersData.map((pf) => ({
+      ...projectFundTransfersData.map((pf: any) => ({
         id: typeof pf.id === 'string' ? parseInt(pf.id, 10) || 0 : 0,
         amount: safeNum(pf.amount),
         senderName: pf.fromProjectName || 'مشروع آخر',
@@ -249,7 +249,7 @@ export class ReportDataService {
     const totalMiscExpenses = miscExpenses.reduce((s, e) => s + e.amount, 0);
     const totalWorkerTransfers = workerTransfersList.reduce((s, t) => s + t.amount, 0);
     const totalFundTransfers = fundTransfersList.reduce((s, f) => s + f.amount, 0);
-    const totalProjectTransfersOut = projectFundTransfersOutData.reduce((s, f) => s + safeNum(f.amount), 0);
+    const totalProjectTransfersOut = projectFundTransfersOutData.reduce((s: number, f: any) => s + safeNum(f.amount), 0);
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut;
     const balance = totalFundTransfers - totalExpenses;
 
@@ -285,7 +285,7 @@ export class ReportDataService {
       miscExpenses,
       workerTransfers: workerTransfersList,
       fundTransfers: fundTransfersList,
-      projectTransfersOut: projectFundTransfersOutData.map((pf) => ({
+      projectTransfersOut: projectFundTransfersOutData.map((pf: any) => ({
         id: typeof pf.id === 'string' ? parseInt(pf.id, 10) || 0 : 0,
         amount: safeNum(pf.amount),
         toProjectName: pf.toProjectName || 'مشروع آخر',
@@ -483,7 +483,7 @@ export class ReportDataService {
     const totalWorkDays = statement.reduce((s, i) => s + i.workDays, 0);
     const totalEarned = statement.reduce((s, i) => s + i.debit, 0);
     const totalPaid = statement.reduce((s, i) => s + i.credit, 0);
-    const totalTransfers = transferRows.reduce((s, t) => s + safeNum(t.amount), 0);
+    const totalTransfers = transferRows.reduce((s: number, t: any) => s + safeNum(t.amount), 0);
     const finalBalance = totalEarned - totalPaid;
 
     const kpis: ReportKPI[] = [
@@ -715,7 +715,7 @@ export class ReportDataService {
 
     const proj = projectInfo[0];
 
-    const attendanceSummary = attendanceSummaryRows.map((r) => ({
+    const attendanceSummary = attendanceSummaryRows.map((r: any) => ({
       date: r.date,
       workerCount: safeNum(r.workerCount),
       totalWorkDays: safeNum(r.totalWorkDays),
@@ -729,24 +729,24 @@ export class ReportDataService {
     }
 
     const allWorkerIds = new Set<string>();
-    attendanceByWorkerRows.forEach((r) => allWorkerIds.add(r.workerId));
-    transfersByWorkerRows.forEach((r) => allWorkerIds.add(r.workerId));
+    attendanceByWorkerRows.forEach((r: any) => allWorkerIds.add(r.workerId));
+    transfersByWorkerRows.forEach((r: any) => allWorkerIds.add(r.workerId));
 
-    const attendanceMap = new Map(attendanceByWorkerRows.map((r) => [r.workerId, r]));
+    const attendanceMap = new Map(attendanceByWorkerRows.map((r: any) => [r.workerId, r]));
 
     const attendanceByWorker = Array.from(allWorkerIds).map((wId) => {
       const att = attendanceMap.get(wId);
       const transfer = transfersByWorkerMap.get(wId) || 0;
 
       if (att) {
-        const earned = safeNum(att.totalEarned);
-        const directPaid = safeNum(att.totalPaid);
+        const earned = safeNum((att as any).totalEarned);
+        const directPaid = safeNum((att as any).totalPaid);
         const totalPaid = directPaid + transfer;
         return {
           workerId: wId,
-          workerName: att.workerName || '-',
-          workerType: att.workerType || '-',
-          totalDays: safeNum(att.totalDays),
+          workerName: (att as any).workerName || '-',
+          workerType: (att as any).workerType || '-',
+          totalDays: safeNum((att as any).totalDays),
           totalEarned: earned,
           totalDirectPaid: directPaid,
           totalTransfers: transfer,
@@ -754,7 +754,7 @@ export class ReportDataService {
           balance: earned - totalPaid,
         };
       } else {
-        const tw = transfersByWorkerRows.find((t) => t.workerId === wId);
+        const tw = transfersByWorkerRows.find((t: any) => t.workerId === wId);
         return {
           workerId: wId,
           workerName: tw?.workerName || '-',
@@ -769,15 +769,15 @@ export class ReportDataService {
       }
     });
 
-    const materialItems = materialsRows.map((r) => ({
+    const materialItems = materialsRows.map((r: any) => ({
       materialName: r.materialName || '-',
       totalQuantity: safeNum(r.totalQuantity),
       totalAmount: safeNum(r.totalAmount),
       supplierName: r.supplierName || '-',
     }));
 
-    const totalMaterialsAmount = materialItems.reduce((s, m) => s + m.totalAmount, 0);
-    const totalMaterialsPaid = materialsRows.reduce((s, r) => s + safeNum(r.totalPaid), 0);
+    const totalMaterialsAmount = materialItems.reduce((s: number, m: any) => s + m.totalAmount, 0);
+    const totalMaterialsPaid = materialsRows.reduce((s: number, r: any) => s + safeNum(r.totalPaid), 0);
 
     const transportTotal = safeNum(transportRows[0]?.totalAmount);
     const transportTripCount = safeNum(transportRows[0]?.tripCount);
@@ -785,19 +785,19 @@ export class ReportDataService {
     const miscTotal = safeNum(miscRows[0]?.totalAmount);
     const miscCount = safeNum(miscRows[0]?.count);
 
-    const fundTransferItems = fundTransfersRows.map((f) => ({
+    const fundTransferItems = fundTransfersRows.map((f: any) => ({
       date: f.date || '-',
       amount: safeNum(f.amount),
       senderName: f.senderName || '-',
       transferType: f.transferType || '-',
     }));
-    const totalFundTransfersAmount = fundTransferItems.reduce((s, f) => s + f.amount, 0);
+    const totalFundTransfersAmount = fundTransferItems.reduce((s: number, f: any) => s + f.amount, 0);
 
     const workerTransfersTotal = safeNum(workerTransfersRows[0]?.totalAmount);
     const workerTransfersCount = safeNum(workerTransfersRows[0]?.count);
 
     const projectTransferItems = [
-      ...projectTransferOutRows.map((r) => ({
+      ...projectTransferOutRows.map((r: any) => ({
         date: r.transferDate || '-',
         amount: safeNum(r.amount),
         fromProjectName: proj?.name || '-',
@@ -805,7 +805,7 @@ export class ReportDataService {
         reason: r.transferReason || '-',
         direction: 'outgoing' as const,
       })),
-      ...projectTransferInRows.map((r) => ({
+      ...projectTransferInRows.map((r: any) => ({
         date: r.transferDate || '-',
         amount: safeNum(r.amount),
         fromProjectName: r.fromProjectName || '-',
@@ -815,12 +815,12 @@ export class ReportDataService {
       })),
     ].sort((a, b) => a.date.localeCompare(b.date));
 
-    const totalProjectTransfersOut = projectTransferOutRows.reduce((s, r) => s + safeNum(r.amount), 0);
-    const totalProjectTransfersIn = projectTransferInRows.reduce((s, r) => s + safeNum(r.amount), 0);
+    const totalProjectTransfersOut = projectTransferOutRows.reduce((s: number, r: any) => s + safeNum(r.amount), 0);
+    const totalProjectTransfersIn = projectTransferInRows.reduce((s: number, r: any) => s + safeNum(r.amount), 0);
     const projectTransfersNet = totalProjectTransfersIn - totalProjectTransfersOut;
 
-    const totalWages = attendanceSummary.reduce((s, a) => s + a.totalWages, 0);
-    const totalPaidWages = attendanceSummary.reduce((s, a) => s + a.totalPaid, 0);
+    const totalWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalWages, 0);
+    const totalPaidWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalPaid, 0);
     const totalExpenses = totalPaidWages + totalMaterialsAmount + transportTotal + miscTotal + workerTransfersTotal + totalProjectTransfersOut;
     const balance = (totalFundTransfersAmount + totalProjectTransfersIn) - totalExpenses;
 
@@ -887,28 +887,28 @@ export class ReportDataService {
       )
       .groupBy(workerTransfers.transferDate);
 
-    const matByDate = new Map(materialsByDateQuery.map((r) => [r.date, safeNum(r.totalAmount)]));
-    const transByDate = new Map(transportByDateQuery.map((r) => [r.date, safeNum(r.totalAmount)]));
-    const miscByDate = new Map(miscByDateQuery.map((r) => [r.date, safeNum(r.totalAmount)]));
-    const wTransByDate = new Map(transfersByDateQuery.map((r) => [r.date, safeNum(r.totalAmount)]));
+    const matByDate = new Map(materialsByDateQuery.map((r: any) => [r.date, safeNum(r.totalAmount)]));
+    const transByDate = new Map(transportByDateQuery.map((r: any) => [r.date, safeNum(r.totalAmount)]));
+    const miscByDate = new Map(miscByDateQuery.map((r: any) => [r.date, safeNum(r.totalAmount)]));
+    const wTransByDate = new Map(transfersByDateQuery.map((r: any) => [r.date, safeNum(r.totalAmount)]));
     const fundByDate = new Map<string, number>();
     for (const f of fundTransferItems) {
       fundByDate.set(f.date, (fundByDate.get(f.date) || 0) + f.amount);
     }
 
     const allDates = new Set<string>();
-    attendanceSummary.forEach((a) => allDates.add(a.date));
-    materialsByDateQuery.forEach((m) => allDates.add(m.date));
-    transportByDateQuery.forEach((t) => allDates.add(t.date));
-    miscByDateQuery.forEach((e) => allDates.add(e.date));
-    transfersByDateQuery.forEach((t) => allDates.add(t.date));
-    fundTransferItems.forEach((f) => { if (f.date !== '-') allDates.add(f.date); });
+    attendanceSummary.forEach((a: any) => allDates.add(a.date));
+    materialsByDateQuery.forEach((m: any) => allDates.add(m.date));
+    transportByDateQuery.forEach((t: any) => allDates.add(t.date));
+    miscByDateQuery.forEach((e: any) => allDates.add(e.date));
+    transfersByDateQuery.forEach((t: any) => allDates.add(t.date));
+    fundTransferItems.forEach((f: any) => { if (f.date !== '-') allDates.add(f.date); });
 
     const sortedDates = Array.from(allDates).sort();
 
     const chartData: ReportChartDataPoint[] = sortedDates.map((d) => {
-      const attDay = attendanceSummary.find((a) => a.date === d);
-      const wages = attDay ? attDay.totalPaid : 0;
+      const attDay = attendanceSummary.find((a: any) => a.date === d);
+      const wages = attDay ? (attDay as any).totalPaid : 0;
       const materialsAmt = matByDate.get(d) || 0;
       const transportAmt = transByDate.get(d) || 0;
       const miscAmt = miscByDate.get(d) || 0;
@@ -916,13 +916,13 @@ export class ReportDataService {
       const income = fundByDate.get(d) || 0;
       return {
         date: d,
-        wages,
-        materials: materialsAmt,
-        transport: transportAmt,
-        misc: miscAmt,
-        transfers: transfersAmt,
-        income,
-        total: wages + materialsAmt + transportAmt + miscAmt + transfersAmt,
+        wages: Number(wages),
+        materials: Number(materialsAmt),
+        transport: Number(transportAmt),
+        misc: Number(miscAmt),
+        transfers: Number(transfersAmt),
+        income: Number(income),
+        total: Number(wages) + Number(materialsAmt) + Number(transportAmt) + Number(miscAmt) + Number(transfersAmt),
       };
     });
 
@@ -937,7 +937,7 @@ export class ReportDataService {
       { label: 'ترحيل صادر', value: totalProjectTransfersOut, format: 'currency' },
       { label: 'ترحيل وارد', value: totalProjectTransfersIn, format: 'currency' },
       { label: 'الرصيد', value: balance, format: 'currency' },
-      { label: 'عدد أيام العمل', value: attendanceSummary.reduce((s, a) => s + a.totalWorkDays, 0), format: 'number' },
+      { label: 'عدد أيام العمل', value: attendanceSummary.reduce((s: any, a: any) => s + a.totalWorkDays, 0), format: 'number' },
       { label: 'أيام النشاط', value: attendanceSummary.length, format: 'days' },
     ];
 
@@ -1046,7 +1046,7 @@ export class ReportDataService {
       projectNameMap.set(r.project.id, r.project.name);
     }
 
-    const interProjectTransfers = interProjectTransferRows.map((t) => ({
+    const interProjectTransfers = interProjectTransferRows.map((t: any) => ({
       date: t.transferDate || '-',
       amount: safeNum(t.amount),
       fromProjectName: projectNameMap.get(t.fromProjectId) || '-',
@@ -1054,7 +1054,7 @@ export class ReportDataService {
       reason: t.transferReason || '-',
     }));
 
-    const totalInterProjectAmount = interProjectTransfers.reduce((s, t) => s + t.amount, 0);
+    const totalInterProjectAmount = interProjectTransfers.reduce((s: any, t: any) => s + t.amount, 0);
 
     const projectBreakdowns: ProjectBreakdown[] = projectReports.map((r) => ({
       projectId: r.project.id,

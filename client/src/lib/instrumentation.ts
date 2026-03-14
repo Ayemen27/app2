@@ -23,17 +23,15 @@ async function initializeInstrumentation() {
       'device.version': (deviceInfo as any).osVersion || 'unknown',
       'app.version': (appInfo as any).version || 'unknown',
       'app.build': (appInfo as any).build || 'unknown',
-    }),
+    }) as any,
   });
 
-  // For mobile, we might need a non-localhost endpoint if testing on a real device
-  // but for hybrid apps, they often talk to the same backend.
   const exporter = new OTLPTraceExporter({
-    url: '/api/v1/traces', // Proxy through backend or use full URL if known
+    url: '/api/v1/traces',
   });
 
-  if (typeof provider.addSpanProcessor === 'function') {
-    provider.addSpanProcessor(new BatchSpanProcessor(exporter));
+  if (typeof (provider as any).addSpanProcessor === 'function') {
+    (provider as any).addSpanProcessor(new BatchSpanProcessor(exporter as any));
   } else {
     console.warn('addSpanProcessor is not available on provider, skipping BatchSpanProcessor registration.');
   }

@@ -85,7 +85,7 @@ export default function WellAccounting() {
 
   // جلب مهام البئر
   const { data: tasks = [] } = useQuery({
-    queryKey: QUERY_KEYS.wellTasks(selectedWellId),
+    queryKey: QUERY_KEYS.wellTasks(selectedWellId != null ? String(selectedWellId) : ''),
     queryFn: async () => {
       if (!selectedWellId) return [];
       const response = await apiRequest(`/api/wells/${selectedWellId}/tasks`);
@@ -111,7 +111,7 @@ export default function WellAccounting() {
       toast({ title: "نجاح", description: "تم إنشاء المهمة بنجاح (محلياً)" });
       setTaskForm({ description: '', amount: '', status: 'pending' });
       setShowTaskDialog(false);
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId != null ? String(selectedWellId) : '') });
     },
     onError: (error: any) => {
       toast({
@@ -122,7 +122,6 @@ export default function WellAccounting() {
     }
   });
 
-  // تحديث حالة المهمة
   const updateTaskStatusMutation = useMutation({
     mutationFn: async ({ taskId, status }: any) => {
       return performLocalOperation('wellTasks', 'update', {
@@ -132,7 +131,7 @@ export default function WellAccounting() {
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم تحديث حالة المهمة (محلياً)" });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId != null ? String(selectedWellId) : '') });
     },
     onError: (error: any) => {
       toast({
@@ -155,7 +154,7 @@ export default function WellAccounting() {
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم محاسبة المهمة (محلياً)" });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId != null ? String(selectedWellId) : '') });
     },
     onError: (error: any) => {
       toast({

@@ -75,7 +75,7 @@ function Calendar({
             return (
               <Select
                 value={value?.toString()}
-                onValueChange={(value) => handleChange(value)}
+                onValueChange={(value: any) => handleChange(value)}
               >
                 <SelectTrigger className="h-7 pr-2 pl-2 border-none bg-transparent hover:bg-accent hover:text-accent-foreground focus:ring-0">
                   <SelectValue>{selected?.props?.children}</SelectValue>

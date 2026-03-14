@@ -266,7 +266,7 @@ export default function MaterialPurchase() {
 
   // Fetch purchase data for editing
   const { data: purchaseToEdit, isLoading: isLoadingEdit } = useQuery({
-    queryKey: QUERY_KEYS.materialPurchaseEdit(editId),
+    queryKey: QUERY_KEYS.materialPurchaseEdit(editId ?? ""),
     queryFn: async () => {
       if (!editId) return null;
 
@@ -1534,7 +1534,7 @@ export default function MaterialPurchase() {
                   badges={[
                     {
                       label: purchaseType,
-                      variant: isCash ? 'success' : isCredit ? 'warning' : isStorage ? 'info' : 'default',
+                      variant: (isCash ? 'success' : isCredit ? 'warning' : isStorage ? 'default' : 'default') as "success" | "warning" | "default",
                     }
                   ]}
                   fields={[

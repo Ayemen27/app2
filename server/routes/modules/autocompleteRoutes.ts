@@ -176,14 +176,14 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
 /**
  * HEAD request للتحقق من وجود الـ endpoint
  */
-autocompleteRouter.head('/', (req: Request, res: Response) => {
+autocompleteRouter.head('/', (req: Request, res: Response): void => {
   res.status(200).end();
 });
 
 /**
  * HEAD /transferTypes - للتحقق
  */
-autocompleteRouter.head('/transferTypes', (req: Request, res: Response) => {
+autocompleteRouter.head('/transferTypes', (req: Request, res: Response): void => {
   res.status(200).end();
 });
 
@@ -412,7 +412,7 @@ autocompleteRouter.get('/worker-types', requireAuth, async (req: Request, res: R
         .orderBy(desc(autocompleteData.usageCount));
     }
     
-    const autocompleteValues = new Set(data.map(item => item.value));
+    const autocompleteValues = new Set(data.map((item: any) => item.value));
     
     try {
       const { workers: workersTable } = await import('../../../shared/schema.js');
@@ -425,7 +425,7 @@ autocompleteRouter.get('/worker-types', requireAuth, async (req: Request, res: R
           .from(workersTable)
           .where(
             or(
-              inArray(workersTable.project_id, accessibleProjectIds),
+              inArray((workersTable as any).project_id, accessibleProjectIds),
               eq(workersTable.created_by, userId)
             )
           );
@@ -469,7 +469,7 @@ autocompleteRouter.get('/worker-types', requireAuth, async (req: Request, res: R
     
     res.json({
       success: true,
-      data: data.map(item => ({ value: item.value, label: item.value })),
+      data: data.map((item: any) => ({ value: item.value, label: item.value })),
       message: 'تم جلب أنواع العمال بنجاح'
     });
   } catch (error: any) {
@@ -591,9 +591,9 @@ autocompleteRouter.get('/project-types', requireAuth, async (req: Request, res: 
 
     const { projectTypes: projectTypesTable } = await import('../../../shared/schema.js');
     const allProjectTypes = await db.select().from(projectTypesTable);
-    const typeNameToId = new Map(allProjectTypes.map(t => [t.name, t.id]));
+    const typeNameToId = new Map(allProjectTypes.map((t: any) => [t.name, t.id]));
 
-    const result = data.map(item => {
+    const result = data.map((item: any) => {
       const existingId = typeNameToId.get(item.value);
       return {
         value: existingId ? existingId.toString() : item.value,
@@ -761,7 +761,7 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
         .orderBy(desc(autocompleteData.usageCount));
     }
     
-    const autocompleteValues = new Set(data.map(item => item.value));
+    const autocompleteValues = new Set(data.map((item: any) => item.value));
     
     try {
       const userRole = (req as any).user?.role || '';
@@ -808,7 +808,7 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
     
     res.json({
       success: true,
-      data: data.map(item => ({ value: item.value, label: item.value })),
+      data: data.map((item: any) => ({ value: item.value, label: item.value })),
       message: 'تم جلب فئات النقل بنجاح'
     });
   } catch (error: any) {
@@ -872,7 +872,7 @@ export function registerAutocompleteAdminRoutes(app: any) {
     try {
       const allData = await db.select().from(autocompleteData);
       
-      const categories = new Set(allData.map(d => d.category));
+      const categories = new Set(allData.map((d: any) => d.category));
       const totalEntries = allData.length;
       
       res.json({
@@ -881,12 +881,12 @@ export function registerAutocompleteAdminRoutes(app: any) {
           totalRecords: totalEntries,
           categoriesCount: categories.size,
           lastUpdated: new Date(),
-          categoryBreakdown: Array.from(categories).map(cat => ({
+          categoryBreakdown: Array.from(categories).map((cat: any) => ({
             category: cat,
-            count: allData.filter(d => d.category === cat).length,
-            avgUsage: allData.filter(d => d.category === cat)
-              .reduce((sum, d) => sum + (d.usageCount || 1), 0) / 
-              allData.filter(d => d.category === cat).length
+            count: allData.filter((d: any) => d.category === cat).length,
+            avgUsage: allData.filter((d: any) => d.category === cat)
+              .reduce((sum: any, d: any) => sum + (d.usageCount || 1), 0) / 
+              allData.filter((d: any) => d.category === cat).length
           })),
           oldRecordsCount: 0
         },

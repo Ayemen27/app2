@@ -136,7 +136,7 @@ export default function AddSupplierForm({
       address: (address && typeof address === 'string') ? address.trim() || null : null,
       paymentTerms: (paymentTerms && typeof paymentTerms === 'string') ? paymentTerms.trim() || "نقد" : "نقد",
       notes: (notes && typeof notes === 'string') ? notes.trim() || null : null,
-      isActive,
+      is_active: isActive,
       totalDebt: "0",
     };
 

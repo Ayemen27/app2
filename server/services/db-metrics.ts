@@ -287,9 +287,10 @@ export class DbMetricsService {
       const s1Label = name1.rows[0]?.name || s1;
       const s2Label = name2.rows[0]?.name || s2;
 
-      for (const name of allTableNames) {
-        const d1 = map1.get(name);
-        const d2 = map2.get(name);
+      for (const tblName of allTableNames) {
+        const name: string = tblName as string;
+        const d1: any = map1.get(name);
+        const d2: any = map2.get(name);
 
         if (d1 && !d2) {
           onlyS1++;

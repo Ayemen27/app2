@@ -139,9 +139,9 @@ export class AIAgentService {
 
   async getChatStats(userId: string) {
     const allSessions = await db.select().from(aiChatSessions).where(eq(aiChatSessions.user_id, userId));
-    const activeSessions = allSessions.filter(s => s.is_active);
-    const archivedSessions = allSessions.filter(s => !s.is_active);
-    const totalMessages = allSessions.reduce((sum, s) => sum + (s.messagesCount || 0), 0);
+    const activeSessions = allSessions.filter((s: any) => s.is_active);
+    const archivedSessions = allSessions.filter((s: any) => !s.is_active);
+    const totalMessages = allSessions.reduce((sum: number, s: any) => sum + (s.messagesCount || 0), 0);
     return {
       totalSessions: allSessions.length,
       activeSessions: activeSessions.length,
@@ -227,7 +227,7 @@ export class AIAgentService {
 
       // الحصول على تاريخ المحادثة من قاعدة البيانات
       const history = await this.getSessionMessages(sessionId, userId);
-      const messages: ChatMessage[] = history.map((m) => ({
+      const messages: ChatMessage[] = history.map((m: any) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
@@ -423,7 +423,7 @@ export class AIAgentService {
           type: "system",
           title: `تنبيه ذكي: ${alertType}`,
           body: alertMsg,
-          projectId: projectId,
+          project_id: projectId,
           priority: 4, // High
           recipients: "admin"
         });
@@ -494,8 +494,8 @@ export class AIAgentService {
               if (scopeIds) {
                 const workerProjects = await db.select({ projectId: workerAttendance.project_id })
                   .from(workerAttendance).where(eq(workerAttendance.worker_id, workerId));
-                const workerProjectIds = [...new Set(workerProjects.map(r => r.projectId))];
-                const hasAccess = workerProjectIds.some(pid => scopeIds.includes(pid));
+                const workerProjectIds = [...new Set(workerProjects.map((r: any) => r.projectId))];
+                const hasAccess = workerProjectIds.some((pid: any) => scopeIds.includes(pid as string));
                 if (!hasAccess) {
                   currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا العامل" };
                   break;
@@ -589,8 +589,8 @@ export class AIAgentService {
                 if (scopeIds) {
                   const wProjects = await db.select({ projectId: workerAttendance.project_id })
                     .from(workerAttendance).where(eq(workerAttendance.worker_id, actionParams[1]));
-                  const wPids = [...new Set(wProjects.map(r => r.projectId))];
-                  if (!wPids.some(pid => scopeIds.includes(pid))) {
+                  const wPids = [...new Set(wProjects.map((r: any) => r.projectId))];
+                  if (!wPids.some((pid: any) => scopeIds.includes(pid as string))) {
                     currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا العامل" };
                     break;
                   }
@@ -605,7 +605,7 @@ export class AIAgentService {
               } else if (actionParams[0] === "SUPPLIER_STATEMENT") {
                 currentResult = await this.reportGenerator.generateSupplierStatementExcel(actionParams[1]);
               } else if (actionParams[0] === "DASHBOARD") {
-                currentResult = await this.reportGenerator.generateDashboardExcel(scopeIds);
+                currentResult = await this.reportGenerator.generateDashboardExcel();
               } else {
                 currentResult = { success: false, message: "نوع التقرير غير مدعوم حالياً" };
               }
@@ -1297,7 +1297,7 @@ export class AIAgentService {
    * التحقق من توفر الخدمة (نماذج اللغة)
    */
   isAvailable(): boolean {
-    return this.modelManager.isAvailable();
+    return this.modelManager.hasAvailableModel();
   }
 
   /**
@@ -1318,14 +1318,14 @@ export class AIAgentService {
    * الحصول على النموذج المحدد حالياً
    */
   getSelectedModel() {
-    return this.modelManager.getSelectedModel();
+    return (this.modelManager as any).getSelectedModel?.() ?? null;
   }
 
   /**
    * تحديد نموذج معين للاستخدام
    */
   setSelectedModel(modelKey: string | null) {
-    this.modelManager.setSelectedModel(modelKey);
+    (this.modelManager as any).setSelectedModel?.(modelKey);
   }
 }
 

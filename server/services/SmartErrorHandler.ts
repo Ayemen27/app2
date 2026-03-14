@@ -594,9 +594,9 @@ export class SmartErrorHandler {
       
       return {
         totalErrors: Number(totalResult.rows[0]?.count || 0),
-        errorsByType: Object.fromEntries(typeResult.rows.map(r => [r.error_type, Number(r.count)])),
-        errorsBySeverity: Object.fromEntries(severityResult.rows.map(r => [r.severity, Number(r.count)])),
-        errorsByTable: Object.fromEntries(tableResult.rows.map(r => [r.table_name, Number(r.count)])),
+        errorsByType: Object.fromEntries(typeResult.rows.map((r: any) => [r.error_type, Number(r.count)])),
+        errorsBySeverity: Object.fromEntries(severityResult.rows.map((r: any) => [r.severity, Number(r.count)])),
+        errorsByTable: Object.fromEntries(tableResult.rows.map((r: any) => [r.table_name, Number(r.count)])),
         recentErrors: Number(recentResult.rows[0]?.count || 0),
         resolvedErrors: Number(resolvedResult.rows[0]?.count || 0)
       };

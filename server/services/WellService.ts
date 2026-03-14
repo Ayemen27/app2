@@ -304,7 +304,7 @@ export class WellService {
         .where(
           and(
             eq(wellTasks.status, 'completed'),
-            eq(wellTasks.isAccounted, false)
+            sql`${wellTasks}.is_accounted = false`
           )
         );
 

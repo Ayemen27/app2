@@ -40,7 +40,7 @@ export default function WellCostReport() {
 
   // جلب تقرير البئر المحددة
   const { data: wellReport } = useQuery({
-    queryKey: QUERY_KEYS.wellCostReport(selectedWellId),
+    queryKey: QUERY_KEYS.wellCostReport(selectedWellId != null ? String(selectedWellId) : ''),
     queryFn: async () => {
       if (!selectedWellId) return null;
       const response = await apiRequest(`/well-expenses/cost-report/${selectedWellId}`);

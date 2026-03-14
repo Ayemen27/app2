@@ -377,13 +377,13 @@ export default function Dashboard() {
               title: "عناصر حرجة",
               value: "1 عنصر حرج",
               icon: AlertCircle,
-              color: "critical"
+              color: "red"
             },
             {
               title: "تحذيرات",
               value: "1 تحذير",
               icon: Zap,
-              color: "warning"
+              color: "amber"
             }
           ]}
           columns={3}

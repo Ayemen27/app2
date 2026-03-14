@@ -4,15 +4,15 @@ import { randomUUID } from "crypto";
 
 export const logger = pino({
   level: process.env.LOG_LEVEL || "info",
-  base: undefined, // لا تُضمّن pid/hostname لتقليل الضوضاء
+  base: undefined,
 });
 
 export const httpLogger = pinoHttp({
   logger,
-  genReqId: (req) => req.headers["x-request-id"]?.toString() || randomUUID(),
-  customLogLevel: (res, err) => (err ? "error" : (res.statusCode || 200) >= 500 ? "error" : (res.statusCode || 200) >= 400 ? "warn" : "info"),
+  genReqId: (req: any) => req.headers["x-request-id"]?.toString() || randomUUID(),
+  customLogLevel: (res: any, err: any) => (err ? "error" : (res.statusCode || 200) >= 500 ? "error" : (res.statusCode || 200) >= 400 ? "warn" : "info"),
   serializers: {
-    req(req) { return { id: req.id, method: req.method, url: req.url }; },
-    res(res) { return { statusCode: res.statusCode || 200 }; },
+    req(req: any) { return { id: req.id, method: req.method, url: req.url }; },
+    res(res: any) { return { statusCode: res.statusCode || 200 }; },
   },
 });

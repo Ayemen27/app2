@@ -147,7 +147,7 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
     try {
       const activeProjects = await db.execute(sql`SELECT id FROM projects WHERE status = 'active' OR status = 'in_progress'`);
       if (activeProjects.rows.length > 0) {
-        const balanceEntries = activeProjects.rows.map(p => ({
+        const balanceEntries = activeProjects.rows.map((p: any) => ({
           worker_id: newWorker[0].id,
           project_id: p.id,
           totalEarned: '0',
@@ -231,7 +231,7 @@ workerRouter.get('/workers/search/:query', async (req: Request, res: Response) =
     if (!isAdminUser) {
       const accessibleIds = accessReq.accessibleProjectIds ?? [];
       const idSet = new Set(accessibleIds);
-      searchResults = searchResults.filter(w => w.project_id && idSet.has(w.project_id));
+      searchResults = searchResults.filter((w: any) => w.project_id && idSet.has(w.project_id));
     }
 
     if (searchResults.length === 0) {
@@ -1595,7 +1595,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     // حساب actualWage و totalPay = dailyWage * workDays وتحويل workDays إلى string
     const attendanceDate = req.body.attendanceDate || req.body.date;
     const dailyWage = parseFloat(validationResult.data.dailyWage || "0");
-    const workDays = validationResult.data.workDays || 0;
+    const workDays = Number(validationResult.data.workDays) || 0;
     const actualWageValue = dailyWage * workDays;
     
     const dataWithCalculatedFields = {

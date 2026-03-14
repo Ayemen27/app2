@@ -246,7 +246,7 @@ export function UnifiedSearchFilter({
           <div onClick={(e) => e.stopPropagation()}>
             <Select 
               value={String(value || filter.defaultValue || 'all')}
-              onValueChange={(val) => handleFilterChange(filter.key, val)}
+              onValueChange={(val: any) => handleFilterChange(filter.key, val)}
             >
               <SelectTrigger className="h-14 border-0 focus:ring-0 shadow-none bg-transparent px-4 text-right font-medium">
                 <SelectValue placeholder={filter.placeholder || `اختر ${filter.label}`} />

@@ -183,7 +183,7 @@ export default function AddWorkerForm({ worker, projectId, onSuccess, onCancel, 
       dailyWage: parsedWage.toString(),
       phone: phone.trim() || undefined,
       hireDate: hireDate || undefined,
-      isActive: worker?.isActive ?? true,
+      is_active: worker?.isActive ?? true,
       ...(!worker && projectId && projectId !== 'all' ? { project_id: projectId } : {}),
     });
   };

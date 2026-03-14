@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { db } from "../../db";
 import { securityPolicies, securityPolicySuggestions, securityPolicyViolations } from "../../../shared/schema";
 import { eq, desc } from "drizzle-orm";
@@ -8,7 +8,7 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireAdmin);
 
-router.get("/policies", async (req, res) => {
+router.get("/policies", async (req: Request, res: Response) => {
   try {
     const policies = await db.select().from(securityPolicies).orderBy(desc(securityPolicies.created_at));
     res.json({ success: true, data: policies });
@@ -17,7 +17,7 @@ router.get("/policies", async (req, res) => {
   }
 });
 
-router.get("/suggestions", async (req, res) => {
+router.get("/suggestions", async (req: Request, res: Response) => {
   try {
     const suggestions = await db.select().from(securityPolicySuggestions).orderBy(desc(securityPolicySuggestions.created_at));
     res.json({ success: true, data: suggestions });
@@ -26,7 +26,7 @@ router.get("/suggestions", async (req, res) => {
   }
 });
 
-router.get("/violations", async (req, res) => {
+router.get("/violations", async (req: Request, res: Response) => {
   try {
     const rows = await db
       .select({

@@ -145,7 +145,7 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
     const projectsWithStats: any[] = [];
     for (let i = 0; i < projectsList.length; i += BATCH_SIZE) {
       const batch = projectsList.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(batch.map(async (project) => {
+      const batchResults = await Promise.all(batch.map(async (project: any) => {
         try {
           const summary = await ExpenseLedgerService.getProjectFinancialSummary(project.id);
           return {
@@ -615,7 +615,7 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
       return res.status(400).json({
         success: false,
         message: "بيانات المشتريات غير صحيحة",
-        details: validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        details: validation.error.issues.map((e: any) => `${e.path.join('.')}: ${e.message}`)
       });
     }
 
@@ -624,7 +624,7 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
     try {
       await ExpenseLedgerService.recordExpense({
         project_id,
-        amount: validation.data.totalAmount,
+        amount: validation.data.totalAmount as string,
         category: 'material',
         referenceId: newPurchase.id,
         description: `شراء مواد: ${validation.data.materialName}`,
@@ -664,7 +664,7 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
       
       // جلب إحصائيات جميع المشاريع لهذا اليوم
       const projectsList = await db.select().from(projects);
-      const summaries = await Promise.all(projectsList.map(async (p) => {
+      const summaries = await Promise.all(projectsList.map(async (p: any) => {
         try {
           return await ExpenseLedgerService.getProjectFinancialSummary(p.id, date as string);
         } catch (e) {
@@ -1982,8 +1982,8 @@ projectRouter.get('/:project_id/actual-transfers', requireProjectAccess('view'),
         summary: {
           totalIncoming: incomingTransfers.length,
           totalOutgoing: outgoingTransfers.length,
-          incomingAmount: incomingTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0),
-          outgoingAmount: outgoingTransfers.reduce((sum, t) => sum + parseFloat(t.amount), 0)
+          incomingAmount: incomingTransfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount), 0),
+          outgoingAmount: outgoingTransfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount), 0)
         }
       },
       message: `تم جلب ${incomingTransfers.length + outgoingTransfers.length} تحويل حقيقي للمشروع`,
@@ -2679,12 +2679,12 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
       remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
 
       // البيانات المسطحة (للتوافق مع الكود القديم)
-      fundTransfers: fundTransfersResult.map(t => ({ ...t, projectName })),
-      workerAttendance: workerAttendanceResult.map(a => ({ ...a, projectName })),
-      materialPurchases: materialPurchasesResult.map(m => ({ ...m, projectName })),
-      transportationExpenses: transportationResult.map(t => ({ ...t, projectName })),
-      workerTransfers: workerTransfersResult.map(w => ({ ...w, projectName })),
-      miscExpenses: miscExpensesResult.map(m => ({ ...m, projectName })),
+      fundTransfers: fundTransfersResult.map((t: any) => ({ ...t, projectName })),
+      workerAttendance: workerAttendanceResult.map((a: any) => ({ ...a, projectName })),
+      materialPurchases: materialPurchasesResult.map((m: any) => ({ ...m, projectName })),
+      transportationExpenses: transportationResult.map((t: any) => ({ ...t, projectName })),
+      workerTransfers: workerTransfersResult.map((w: any) => ({ ...w, projectName })),
+      miscExpenses: miscExpensesResult.map((m: any) => ({ ...m, projectName })),
 
       // إحصائيات
       totalCards: groupedByProjectDate.length,

@@ -539,7 +539,7 @@ export default function PermissionManagementPage() {
                 <Label>مستوى الصلاحيات</Label>
                 <Select
                   value={getPresetFromPermissions(selectedUser)}
-                  onValueChange={(val) => {
+                  onValueChange={(val: string) => {
                     const preset = PRESET_LEVELS.find((p) => p.value === val);
                     if (preset) {
                       setSelectedUser({

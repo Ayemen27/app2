@@ -53,7 +53,7 @@ function sanitizeLogData(data: any): any {
 const app = express();
 
 
-app.get('/favicon.ico', (req, res) => {
+app.get('/favicon.ico', (req: Request, res: Response): void => {
   const faviconPath = path.resolve(process.cwd(), 'client', 'public', 'favicon.ico');
   if (fs.existsSync(faviconPath)) {
     res.setHeader('Content-Type', 'image/x-icon');
@@ -63,7 +63,7 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
-app.get('/favicon.svg', (req, res) => {
+app.get('/favicon.svg', (req: Request, res: Response): void => {
   const svgPath = path.resolve(process.cwd(), 'client', 'public', 'favicon.svg');
   if (fs.existsSync(svgPath)) {
     res.setHeader('Content-Type', 'image/svg+xml');
@@ -73,7 +73,7 @@ app.get('/favicon.svg', (req, res) => {
   res.status(204).end();
 });
 
-app.get(['/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'], (req, res) => {
+app.get(['/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'], (req: Request, res: Response): void => {
   const iconPath = path.resolve(process.cwd(), 'client', 'public', req.path.slice(1));
   if (fs.existsSync(iconPath)) {
     res.setHeader('Content-Type', 'image/png');
@@ -83,7 +83,7 @@ app.get(['/icon-192.png', '/icon-512.png', '/apple-touch-icon.png'], (req, res) 
   res.status(204).end();
 });
 
-app.get('/manifest.json', (req, res) => {
+app.get('/manifest.json', (req: Request, res: Response): void => {
   const manifestPath = path.resolve(process.cwd(), 'client', 'public', 'manifest.json');
   if (fs.existsSync(manifestPath)) {
     res.setHeader('Content-Type', 'application/json');
@@ -94,7 +94,7 @@ app.get('/manifest.json', (req, res) => {
 });
 
 // 🛡️ Relax security headers for production/deployment stability (Cloudflare Compatible)
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction): void => {
   res.removeHeader('X-Frame-Options');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -219,13 +219,14 @@ app.use(cors({
 }));
 
 // ✅ Handle preflight requests explicitly
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction): void => {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    return res.sendStatus(200);
+    res.sendStatus(200);
+    return;
   }
   next();
 });
@@ -269,7 +270,7 @@ io.on('connection', (socket) => {
 });
 
 // ✅ **Routes Registration**
-app.get("/api/health", (req: Request, res: Response) => {
+app.get("/api/health", (req: Request, res: Response): void => {
   const connectionStatus = getConnectionHealthStatus();
   
   res.json({
@@ -289,7 +290,7 @@ app.get("/api/health", (req: Request, res: Response) => {
 /**
  * 📊 نقطة نهاية صحة الاتصال المفصلة
  */
-app.get("/api/connection-health", requireAuth, (req: Request, res: Response) => {
+app.get("/api/connection-health", requireAuth, (req: Request, res: Response): void => {
   try {
     const connectionStatus = getConnectionHealthStatus();
     const metrics = connectionStatus.metrics;
@@ -322,7 +323,7 @@ app.get("/api/connection-health", requireAuth, (req: Request, res: Response) => 
 /**
  * 🏥 نقطة نهاية مراقب الصحة الشامل
  */
-app.get("/api/health-monitor", requireAuth, (req: Request, res: Response) => {
+app.get("/api/health-monitor", requireAuth, (req: Request, res: Response): void => {
   try {
     const lastStatus = healthMonitor.getLastStatus();
     const metrics = healthMonitor.getMetrics();
@@ -473,7 +474,7 @@ function generateRecommendations(connectionStatus: any, metrics: any): string[] 
 }
 
 // ✅ **Schema Status Endpoint**
-app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
+app.get("/api/schema-status", requireAuth, (req: Request, res: Response): void => {
   try {
     const status = getAutoPushStatus() as any;
     res.json({
@@ -498,7 +499,7 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response) => {
 });
 
 
-  app.use((req, res, next) => {
+  app.use((req: Request, res: Response, next: NextFunction): void => {
     // ضمان رد JSON لطلبات API حتى في حالة الأخطاء غير المتوقعة
     if (req.path.startsWith('/api')) {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -559,7 +560,7 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
       role: users.role,
     }).from(users).orderBy(users.first_name);
     
-    const usersWithName = usersList.map(user => ({
+    const usersWithName = usersList.map((user: any) => ({
       id: user.id,
       name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
       email: user.email,
@@ -594,14 +595,13 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
   }
 
 // ✅ **Error Handler Middleware** - Moved after static/vite
-if (Sentry.Handlers) {
-  app.use(Sentry.Handlers.errorHandler());
+if ((Sentry as any).Handlers) {
+  app.use((Sentry as any).Handlers.errorHandler());
 }
-app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+app.use((err: any, req: Request, res: Response, _next: NextFunction): any => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";
 
-  // ضمان إرجاع JSON لمسارات API دائماً
   if (req.path.startsWith('/api/')) {
     return res.status(status).json({ 
       success: false, 
@@ -614,16 +614,17 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 });
 
 // ✅ **404 Handler for API**
-app.use('/api', (req, res, next) => {
+app.use('/api', (req: Request, res: Response, _next: NextFunction): void => {
   res.status(404).json({ 
     success: false, 
     message: `المسار غير موجود: ${req.originalUrl}` 
   });
 });
 
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction): void => {
   if (req.path.startsWith('/api/')) {
-    return next();
+    next();
+    return;
   }
   
   // Serve index.html for SPA routing
@@ -634,7 +635,8 @@ app.use((req, res, next) => {
   for (const p of distPaths) {
     const indexPath = path.join(p, "index.html");
     if (fs.existsSync(indexPath)) {
-      return res.sendFile(indexPath);
+      res.sendFile(indexPath);
+      return;
     }
   }
   next();

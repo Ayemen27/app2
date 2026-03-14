@@ -5,7 +5,7 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import { sql } from 'drizzle-orm';
 import * as schema from "@shared/schema";
-import { getCredential, isSupabaseConfigured } from '../config/credentials';
+import { getCredential } from '../config/credentials';
 import { envConfig } from '../utils/unified-env';
 import fs from 'fs';
 import path from 'path';
@@ -393,7 +393,7 @@ export class SmartConnectionManager {
    * ☁️ تهيئة اتصال Supabase
    */
   private async initializeSupabaseConnection(): Promise<void> {
-    const supabaseUrl = getCredential('SUPABASE_URL') || process.env.SUPABASE_URL;
+    const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseDbPassword = process.env.SUPABASE_DATABASE_PASSWORD || process.env.SSH_PASSWORD;
 
     // التحقق من تكوين Supabase قبل المحاولة
@@ -427,8 +427,8 @@ export class SmartConnectionManager {
         console.log('🔒 [Supabase] تم تحميل شهادة SSL');
       }
 
-      let connectionString = getCredential('DATABASE_URL_SUPABASE') || process.env.DATABASE_URL_SUPABASE;
-      const supabaseKey = getCredential('SUPABASE_SECRET_KEY') || getCredential('SUPABASE_ANON_KEY') || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
+      let connectionString = process.env.DATABASE_URL_SUPABASE;
+      const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
 
       if (connectionString) {
         // 🛠️ تحسين رابط Supabase لتجاوز مشاكل DNS (تطبيق نفس منطق db.ts)

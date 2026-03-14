@@ -84,41 +84,48 @@ export default function ProjectTransactionsSimple() {
       };
     }, [financialTotals]);
 
-    const statsRow: StatsRowConfig[] = [
-      { 
-        title: "التوريد", 
-        value: stats.totalIncome, 
-        icon: UnifiedTrendingUp, 
-        color: "green",
-        formatter: (val: number) => formatCurrency(val)
-      },
-      { 
-        title: "المنصرف (نقدي)", 
-        value: stats.totalExpenses, 
-        icon: UnifiedTrendingDown, 
-        color: "red",
-        formatter: (val: number) => formatCurrency(val)
-      },
-      { 
-        title: "الرصيد المتبقي", 
-        value: stats.currentBalance, 
-        icon: UnifiedDollarSign, 
-        color: stats.currentBalance >= 0 ? "blue" : "red",
-        formatter: (val: number) => formatCurrency(val)
-      },
-      { 
-        title: "المواد الآجلة", 
-        value: stats.deferredExpenses, 
-        icon: Clock, 
-        color: "orange",
-        formatter: (val: number) => formatCurrency(val)
-      }
-    ];
+    const statsRow: StatsRowConfig[] = [{
+      items: [
+        { 
+          key: "income",
+          label: "التوريد", 
+          value: stats.totalIncome, 
+          icon: UnifiedTrendingUp, 
+          color: "green" as const,
+          formatter: (val: number) => formatCurrency(val)
+        },
+        { 
+          key: "expenses",
+          label: "المنصرف (نقدي)", 
+          value: stats.totalExpenses, 
+          icon: UnifiedTrendingDown, 
+          color: "red" as const,
+          formatter: (val: number) => formatCurrency(val)
+        },
+        { 
+          key: "balance",
+          label: "الرصيد المتبقي", 
+          value: stats.currentBalance, 
+          icon: UnifiedDollarSign, 
+          color: stats.currentBalance >= 0 ? "blue" as const : "red" as const,
+          formatter: (val: number) => formatCurrency(val)
+        },
+        { 
+          key: "deferred",
+          label: "المواد الآجلة", 
+          value: stats.deferredExpenses, 
+          icon: Clock, 
+          color: "orange" as const,
+          formatter: (val: number) => formatCurrency(val)
+        }
+      ],
+      columns: 4,
+    }];
 
   // تحسين عرض شبكة الإحصائيات لتصبح 3*2 مع تصغير الخط
   const customStatsGrid = (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
-      {statsRow.map((stat, idx) => (
+      {statsRow[0]?.items.map((stat, idx) => (
         <Card key={idx} className="overflow-hidden">
           <CardContent className="p-3">
             <div className="flex items-center gap-2">
@@ -127,10 +134,10 @@ export default function ProjectTransactionsSimple() {
               </div>
               <div className="space-y-0.5">
                 <p className="text-[10px] font-medium text-muted-foreground leading-none">
-                  {stat.title}
+                  {stat.label}
                 </p>
                 <p className={`text-xs font-bold arabic-numbers leading-none ${stat.color === 'red' ? 'text-red-600' : stat.color === 'green' ? 'text-green-600' : ''}`}>
-                  {stat.formatter(stat.value)}
+                  {stat.formatter ? stat.formatter(stat.value as number) : stat.value}
                 </p>
               </div>
             </div>

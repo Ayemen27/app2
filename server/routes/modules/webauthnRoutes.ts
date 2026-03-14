@@ -365,7 +365,7 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
       return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
     }
 
-    if (user.is_active === 'false' || user.is_active === false) {
+    if (String(user.is_active) === 'false') {
       return res.status(403).json({ success: false, message: 'الحساب معطل' });
     }
 

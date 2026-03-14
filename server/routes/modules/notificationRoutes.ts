@@ -121,7 +121,7 @@ notificationRouter.delete('/:id', async (req: Request, res: Response) => {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
 
-    const isAdmin = await notificationService.isAdmin(user_id);
+    const isAdmin = await (notificationService as any).isAdmin(user_id);
     if (!isAdmin) {
       return res.status(403).json({ success: false, message: "حذف الإشعارات متاح للمسؤولين فقط" });
     }
@@ -407,7 +407,6 @@ notificationRouter.get('/all', async (req: Request, res: Response) => {
     res.json({ 
       success: true, 
       data: result.notifications,
-      notifications: result.notifications,
       ...result 
     });
   } catch (error: any) {

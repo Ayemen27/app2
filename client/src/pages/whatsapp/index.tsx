@@ -295,7 +295,7 @@ function PermissionsTabContent({ allLinks, isLoadingAllLinks, allProjects, toast
                   </div>
                   <Select
                     value={form.permissionsMode}
-                    onValueChange={(val) => updateField(link.id, "permissionsMode", val)}
+                    onValueChange={(val: string) => updateField(link.id, "permissionsMode", val)}
                     data-testid={`select-perm-mode-${link.id}`}
                   >
                     <SelectTrigger className="rounded-xl bg-white dark:bg-slate-800" data-testid={`select-perm-mode-trigger-${link.id}`}>
@@ -633,10 +633,11 @@ export default function WhatsAppSetupPage() {
     queryKey: ["/api/whatsapp-ai/my-link"],
   });
 
-  const { data: allLinks = [], isLoading: isLoadingAllLinks } = useQuery({
+  const { data: allLinksData = [], isLoading: isLoadingAllLinks } = useQuery({
     queryKey: ["/api/whatsapp-ai/all-links"],
     enabled: isAdmin,
   });
+  const allLinks = allLinksData as any[];
 
   const linkPhoneMutation = useMutation({
     mutationFn: async (phone: string) => {
@@ -708,13 +709,14 @@ export default function WhatsAppSetupPage() {
 
   useEffect(() => {
     if (linkPermissions) {
+      const perms = linkPermissions as any;
       setPermForm({
-        permissionsMode: linkPermissions.permissionsMode || "inherit_user",
-        canRead: linkPermissions.canRead ?? true,
-        canAdd: linkPermissions.canAdd ?? true,
-        canEdit: linkPermissions.canEdit ?? true,
-        canDelete: linkPermissions.canDelete ?? true,
-        scopeAllProjects: linkPermissions.scopeAllProjects ?? true,
+        permissionsMode: perms.permissionsMode || "inherit_user",
+        canRead: perms.canRead ?? true,
+        canAdd: perms.canAdd ?? true,
+        canEdit: perms.canEdit ?? true,
+        canDelete: perms.canDelete ?? true,
+        scopeAllProjects: perms.scopeAllProjects ?? true,
       });
     }
   }, [linkPermissions]);
@@ -727,12 +729,13 @@ export default function WhatsAppSetupPage() {
 
   useEffect(() => {
     if (botStatus) {
-      setStatus(botStatus.status);
-      setQrCode(botStatus.qr || null);
-      setPairingCode(botStatus.pairingCode || null);
-      setLastError(botStatus.lastError || null);
-      setNeedsRelink(botStatus.needsRelink || false);
-      if (botStatus.status === "open") setPhoneNumber("");
+      const bs = botStatus as any;
+      setStatus(bs.status);
+      setQrCode(bs.qr || null);
+      setPairingCode(bs.pairingCode || null);
+      setLastError(bs.lastError || null);
+      setNeedsRelink(bs.needsRelink || false);
+      if (bs.status === "open") setPhoneNumber("");
     }
   }, [botStatus]);
 
@@ -901,13 +904,13 @@ export default function WhatsAppSetupPage() {
         color: isConnected ? "green" as const : "red" as const,
         status: isConnected ? "normal" as const : "critical" as const
       },
-      { title: isAdmin ? "الرسائل المعالجة" : "رسائلي", value: realStats?.totalMessages?.toString() || "0", icon: MessageSquare, color: "blue" as const },
+      { title: isAdmin ? "الرسائل المعالجة" : "رسائلي", value: (realStats as any)?.totalMessages?.toString() || "0", icon: MessageSquare, color: "blue" as const },
       { title: "مستوى الحماية", value: protectionLevel === "maximum" ? "أقصى" : protectionLevel === "balanced" ? "متوازن" : "أدنى", icon: Shield, color: "purple" as const },
     ];
     if (isAdmin) {
-      items.push({ title: "دقة التحليل", value: realStats?.accuracy || "0%", icon: TrendingUp, color: "teal" as const });
+      items.push({ title: "دقة التحليل", value: (realStats as any)?.accuracy || "0%", icon: TrendingUp, color: "blue" as const });
     } else {
-      items.push({ title: "مشاريعي", value: realStats?.accessibleProjectsCount?.toString() || "0", icon: Activity, color: "teal" as const });
+      items.push({ title: "مشاريعي", value: (realStats as any)?.accessibleProjectsCount?.toString() || "0", icon: Activity, color: "blue" as const });
     }
     return items;
   }, [status, realStats, protectionLevel, currentStatus, isConnected, isAdmin]);
@@ -1057,7 +1060,7 @@ export default function WhatsAppSetupPage() {
                   <Select
                     data-testid="select-permissions-mode"
                     value={permForm.permissionsMode}
-                    onValueChange={(val) => setPermForm(prev => ({ ...prev, permissionsMode: val }))}
+                    onValueChange={(val: string) => setPermForm(prev => ({ ...prev, permissionsMode: val }))}
                   >
                     <SelectTrigger data-testid="select-permissions-mode-trigger" className="rounded-xl">
                       <SelectValue />
@@ -1936,9 +1939,9 @@ export default function WhatsAppSetupPage() {
           {isAdmin && (
             <TabsContent value="permissions" className="mt-6" data-testid="tab-content-permissions">
               <PermissionsTabContent
-                allLinks={allLinks}
+                allLinks={allLinks as any[]}
                 isLoadingAllLinks={isLoadingAllLinks}
-                allProjects={allProjects}
+                allProjects={allProjects as any[]}
                 toast={toast}
               />
             </TabsContent>
@@ -2681,31 +2684,31 @@ export default function WhatsAppSetupPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 text-center" data-testid="stat-total-messages">
-                      <p className="text-2xl font-black text-blue-700 dark:text-blue-400">{realStats?.totalMessages || 0}</p>
+                      <p className="text-2xl font-black text-blue-700 dark:text-blue-400">{(realStats as any)?.totalMessages || 0}</p>
                       <p className="text-[10px] font-bold text-blue-500 mt-1">{isAdmin ? "رسالة معالجة" : "رسائلي"}</p>
                     </div>
                     {isAdmin ? (
                       <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center" data-testid="stat-accuracy">
-                        <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{realStats?.accuracy || "0%"}</p>
+                        <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{(realStats as any)?.accuracy || "0%"}</p>
                         <p className="text-[10px] font-bold text-emerald-500 mt-1">دقة التحليل</p>
                       </div>
                     ) : (
                       <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center" data-testid="stat-projects-count">
-                        <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{realStats?.accessibleProjectsCount || 0}</p>
+                        <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{(realStats as any)?.accessibleProjectsCount || 0}</p>
                         <p className="text-[10px] font-bold text-emerald-500 mt-1">مشاريعي</p>
                       </div>
                     )}
                     {isAdmin ? (
                       <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-center">
                         <p className="text-2xl font-black text-purple-700 dark:text-purple-400">
-                          {realStats?.lastSync ? "نشط" : "—"}
+                          {(realStats as any)?.lastSync ? "نشط" : "—"}
                         </p>
                         <p className="text-[10px] font-bold text-purple-500 mt-1">آخر نشاط</p>
                       </div>
                     ) : (
                       <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/20 text-center" data-testid="stat-link-status">
                         <p className="text-2xl font-black text-purple-700 dark:text-purple-400">
-                          {realStats?.isLinked ? "مربوط" : "غير مربوط"}
+                          {(realStats as any)?.isLinked ? "مربوط" : "غير مربوط"}
                         </p>
                         <p className="text-[10px] font-bold text-purple-500 mt-1">حالة الربط</p>
                       </div>

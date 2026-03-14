@@ -54,7 +54,7 @@ export default function DataHealthPage() {
     );
   }
 
-  const stats = health?.data;
+  const stats = (health as any)?.data;
   
   // دمج بيانات المقارنة الحقيقية إذا وجدت
   const tableComparisonData = comparison?.differences?.slice(0, 5).map((d: any) => ({

@@ -60,7 +60,7 @@ import type {
 function DailyExpensesContent() {
   const { toast } = useToast();
   const { selectedProjectId, selectProject, isAllProjects } = useSelectedProject();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
   const [searchValue, setSearchValue] = useState<string>("");
@@ -80,12 +80,12 @@ function DailyExpensesContent() {
         const day = String(value.getDate()).padStart(2, '0');
         setSelectedDate(`${year}-${month}-${day}`);
       } else {
-        setSelectedDate(null);
+        setSelectedDate(undefined);
       }
     } else if (key === 'dateRange') {
       setFilterValues(prev => ({ ...prev, [key]: value }));
       if (value?.from) {
-        setSelectedDate(null);
+        setSelectedDate(undefined);
       }
     } else {
       setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -1885,9 +1885,8 @@ function DailyExpensesContent() {
       senderName: senderName.trim() || "غير محدد",
       transferNumber: transferNumber.trim() || null,
       transferType: transferType,
-      transferDate: selectedDate,
+      transferDate: selectedDate || new Date().toISOString().split('T')[0],
       notes: "",
-      well_id: fundTransferWellId || null,
     };
 
     if (editingFundTransferId) {
@@ -2645,7 +2644,7 @@ function DailyExpensesContent() {
                   <DatePickerField
                     label="التاريخ"
                     value={selectedDate || ""}
-                    onChange={(date) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : null)}
+                    onChange={(date: Date | undefined) => setSelectedDate(date ? format(date, "yyyy-MM-dd") : undefined)}
                   />
                 </div>
                   <div className="flex-1">
@@ -3032,7 +3031,7 @@ function DailyExpensesContent() {
                 <Label className="text-[10px] font-bold text-foreground mb-1 block">العامل *</Label>
                 <Select 
                   value={selectedWorkerId || "none"} 
-                  onValueChange={(val) => setSelectedWorkerId(val === "none" ? "" : val)}
+                  onValueChange={(val: string) => setSelectedWorkerId(val === "none" ? "" : val)}
                 >
                   <SelectTrigger className="h-9 text-xs" data-testid="select-worker">
                     <SelectValue placeholder="اختر العامل" />

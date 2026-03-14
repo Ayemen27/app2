@@ -159,7 +159,7 @@ export default function UsersManagementPage() {
           label: "غير محققين",
           value: Array.isArray(allUsers) ? allUsers.filter(u => u.email_verified_at === null || u.email_verified_at === undefined).length : 0,
           icon: Mail,
-          color: "slate"
+          color: "gray"
         }
       ]
     }
@@ -243,7 +243,7 @@ export default function UsersManagementPage() {
                   label: "البريد",
                   value: user.email,
                   icon: Mail,
-                  color: "purple"
+                  color: "default"
                 },
                 {
                   label: "رقم الهاتف",
@@ -255,7 +255,7 @@ export default function UsersManagementPage() {
                   label: "تاريخ الانضمام",
                   value: user.created_at ? new Date(user.created_at).toLocaleDateString('ar-YE') : '-',
                   icon: UserCheck,
-                  color: "blue"
+                  color: "info"
                 }
               ]}
               actions={[
@@ -284,7 +284,7 @@ export default function UsersManagementPage() {
                   <label className="text-xs font-bold text-slate-500">تغيير الصلاحية السريع</label>
                   <Select
                     defaultValue={user.role}
-                    onValueChange={(value) => updateRoleMutation.mutate({ user_id: user.id, role: value })}
+                    onValueChange={(value: string) => updateRoleMutation.mutate({ user_id: user.id, role: value })}
                     disabled={updateRoleMutation.isPending || user.id === currentUser?.id}
                   >
                     <SelectTrigger className="w-full h-9 rounded-xl font-bold border-slate-200 dark:border-slate-700">

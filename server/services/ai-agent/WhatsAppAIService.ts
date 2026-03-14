@@ -291,6 +291,17 @@ export class WhatsAppAIService {
       return { type: 'expense_summary' };
     }
 
+    const workerExportMatch = input.match(/(?:تصدير|صدر|ابي|ارسل)\s*(?:كشف\s*(?:حساب)?|تقرير)\s*(?:العامل|عامل|لـ?لعامل)?\s+([\u0600-\u06FF][\u0600-\u06FF\s]+)/i);
+    if (workerExportMatch) {
+      const excludeWords = ['يومي', 'شامل', 'عام', 'فترة', 'ختامي', 'المشاريع', 'مشاريع', 'المصروفات', 'مصروفات', 'بيانات', 'ملف'];
+      let workerName = workerExportMatch[1].trim()
+        .replace(/\s*(?:ال[يى]|الى|إلى|في|ب|ك)?\s*(?:ملف\s*)?(?:اكسل|excel|xlsx|pdf|بي دي اف|و\s*ملف).*$/i, '')
+        .trim();
+      if (workerName.length >= 2 && !excludeWords.includes(workerName)) {
+        return { type: 'export_worker_direct', params: { workerName } };
+      }
+    }
+
     if (/(?:تصدير|صدر|ابي|ارسل)\s*(?:كشف|تقرير|ملف|بيانات)/i.test(lower) ||
         /(?:اكسل|excel|pdf|بي دي اف)/i.test(lower)) {
       return { type: 'export' };
@@ -350,6 +361,12 @@ export class WhatsAppAIService {
           return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
         }
         return this.showExpenseSummary(userProjectIds, context, senderPhone);
+
+      case 'export_worker_direct':
+        if (!securityContext.canRead) {
+          return textReply(nav(`❌ ليس لديك صلاحية تصدير البيانات.`));
+        }
+        return this.handleDirectWorkerExport(intent.params!.workerName, context, senderPhone, userName, userProjectIds);
 
       case 'export':
         if (!securityContext.canRead) {
@@ -728,6 +745,75 @@ export class WhatsAppAIService {
     } catch (error: any) {
       console.error('[WhatsAppAI] Error saving expense:', error);
       return textReply(nav(`❌ خطأ أثناء الحفظ: ${error.message}\nأرسل *إلغاء* وحاول مرة أخرى.`));
+    }
+  }
+
+  private async handleDirectWorkerExport(
+    workerName: string,
+    context: WhatsAppContext,
+    senderPhone: string,
+    userName: string,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    try {
+      let workerConditions: any[] = [eq(workers.is_active, true)];
+      let matchedWorkers: { id: string; name: string }[];
+
+      if (userProjectIds && userProjectIds.length > 0) {
+        const attendanceWorkers = await db.selectDistinct({ workerId: workerAttendance.worker_id })
+          .from(workerAttendance)
+          .where(inArray(workerAttendance.project_id, userProjectIds));
+        const scopedWorkerIds = attendanceWorkers.map(r => r.workerId);
+        if (scopedWorkerIds.length === 0) {
+          return textReply(nav(`❌ لا يوجد عمال مسجلون في مشاريعك.`));
+        }
+        matchedWorkers = await db.select({ id: workers.id, name: workers.name })
+          .from(workers)
+          .where(and(eq(workers.is_active, true), inArray(workers.id, scopedWorkerIds), ilike(workers.name, `%${workerName}%`)))
+          .limit(10);
+      } else {
+        matchedWorkers = await db.select({ id: workers.id, name: workers.name })
+          .from(workers)
+          .where(and(eq(workers.is_active, true), ilike(workers.name, `%${workerName}%`)))
+          .limit(10);
+      }
+
+      if (matchedWorkers.length === 0) {
+        return textReply(nav(`❌ لم يتم العثور على عامل باسم "${workerName}".`));
+      }
+
+      if (matchedWorkers.length === 1) {
+        context.data.exportType = 'worker';
+        context.data.workerId = matchedWorkers[0].id;
+        context.data.workerName = matchedWorkers[0].name;
+        context.step = 'export_awaiting_format';
+        this.sessions.set(senderPhone, context);
+
+        return textReply([
+          `✅ *${matchedWorkers[0].name}*`,
+          ``,
+          `اختر صيغة الملف:`,
+          `*1.* Excel`,
+          `*2.* PDF`,
+        ].join('\n'));
+      }
+
+      context.data.exportType = 'worker';
+      context.data.availableWorkers = matchedWorkers;
+      context.step = 'export_awaiting_worker';
+      this.sessions.set(senderPhone, context);
+
+      const workerList = matchedWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
+      return textReply([
+        `🔍 تم العثور على ${matchedWorkers.length} عامل:`,
+        ``,
+        workerList,
+        ``,
+        `أرسل رقم العامل المطلوب:`,
+      ].join('\n'));
+    } catch (error: any) {
+      console.error('[WhatsAppAI] Error in direct worker export:', error);
+      return textReply(nav(`❌ خطأ: ${error.message}`));
     }
   }
 

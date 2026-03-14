@@ -166,7 +166,7 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
         fullTablesCount
       }
     }));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [Sync] خطأ فادح في المزامنة:', error);
     SyncAuditService.logBulkSync({
       user_id: getAuthUser(req)?.user_id,
@@ -176,14 +176,14 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
       totalRecords: 0,
       durationMs: Date.now() - startTime,
       status: 'failed',
-      errorMessage: error.message,
+      errorMessage: error instanceof Error ? error.message : String(error),
       ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
       userAgent: req.headers['user-agent'],
     }).catch(() => {});
     res.setHeader('Content-Type', 'application/json');
     return res.status(500).send(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "حدث خطأ غير متوقع في الخادم"
     }));
   }
@@ -242,7 +242,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
         fullTablesCount
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [Sync] خطأ فادح:', error);
     SyncAuditService.logBulkSync({
       user_id: getAuthUser(req)?.user_id,
@@ -252,13 +252,13 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
       totalRecords: 0,
       durationMs: Date.now() - startTime,
       status: 'failed',
-      errorMessage: error.message,
+      errorMessage: error instanceof Error ? error.message : String(error),
       ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
       userAgent: req.headers['user-agent'],
     }).catch(() => {});
     return res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "حدث خطأ غير متوقع في الخادم"
     });
   }
@@ -315,7 +315,7 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
         version: '3.1-instant'
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [Sync] خطأ في المزامنة الفورية:', error);
     SyncAuditService.logBulkSync({
       user_id: getAuthUser(req)?.user_id,
@@ -325,13 +325,13 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
       totalRecords: 0,
       durationMs: Date.now() - startTime,
       status: 'failed',
-      errorMessage: error.message,
+      errorMessage: error instanceof Error ? error.message : String(error),
       ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
       userAgent: req.headers['user-agent'],
     }).catch(() => {});
     return res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشلت المزامنة الفورية"
     });
   }
@@ -409,11 +409,11 @@ syncRouter.post('/verify-sync', async (req: Request, res: Response) => {
         version: '2.0-verify'
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [Sync] خطأ في التحقق:', error);
     return res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل التحقق من التطابق"
     });
   }
@@ -455,11 +455,11 @@ syncRouter.get('/stats', async (req: Request, res: Response) => {
         version: '2.0-stats'
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [Sync] خطأ في جلب الإحصائيات:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 });
@@ -657,13 +657,13 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         timestamp: Date.now(),
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     await client.query('ROLLBACK');
-    console.error('[Sync-Batch] فشل الدفعة - تم التراجع:', error.message);
+    console.error('[Sync-Batch] فشل الدفعة - تم التراجع:', error instanceof Error ? error.message : String(error));
     return res.status(500).json({
       success: false,
-      message: `فشل تنفيذ الدفعة: ${error.message}`,
-      error: error.message,
+      message: `فشل تنفيذ الدفعة: ${error instanceof Error ? error.message : String(error)}`,
+      error: error instanceof Error ? error.message : String(error),
     });
   } finally {
     client.release();

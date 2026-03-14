@@ -227,8 +227,8 @@ const verifySession = async (user_id: string, sessionId: string) => {
       .limit(1);
       
     return fallbackSession.length > 0 ? fallbackSession[0] : null;
-  } catch (error) {
-    console.error('❌ خطأ في التحقق من الجلسة:', error);
+  } catch (error: unknown) {
+    console.error('❌ خطأ في التحقق من الجلسة:', error instanceof Error ? error.message : error);
     return null;
   }
 };
@@ -328,30 +328,19 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       const errorName = (error as { name?: string })?.name;
       console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${errorObj.message}`);
 
-      const tempDecoded = jwt.decode(token) as DecodedToken | null;
-      if (errorName === 'TokenExpiredError' && tempDecoded?.role === 'admin') {
-         const drift = (Date.now() / 1000) - (tempDecoded.exp || 0);
-         if (drift < 300) { // 5 minutes grace period for admins
-            console.log('🛡️ [AUTH] منح مهلة إضافية (Grace Period) لمسؤول النظام');
-            decoded = tempDecoded;
-         }
-      }
-
-      if (!decoded) {
-        if (errorName === 'TokenExpiredError' || errorObj.message?.includes('expired')) {
-          return res.status(401).json({
-            success: false,
-            message: 'انتهت الجلسة - يرجى تجديد الدخول',
-            code: 'TOKEN_EXPIRED'
-          });
-        }
-
+      if (errorName === 'TokenExpiredError' || errorObj.message?.includes('expired')) {
         return res.status(401).json({
           success: false,
-          message: 'رمز المصادقة غير صالح',
-          code: 'INVALID_TOKEN'
+          message: 'انتهت الجلسة - يرجى تجديد الدخول',
+          code: 'TOKEN_EXPIRED'
         });
       }
+
+      return res.status(401).json({
+        success: false,
+        message: 'رمز المصادقة غير صالح',
+        code: 'INVALID_TOKEN'
+      });
     }
 
     const user_id = decoded.userId || decoded.sub || decoded.user_id || decoded.id;
@@ -368,6 +357,18 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       });
     }
 
+    const sessionId = decoded.sessionId || 'jwt-session';
+    if (sessionId !== 'jwt-session') {
+      const session = await verifySession(user_id, sessionId);
+      if (!session) {
+        return res.status(401).json({
+          success: false,
+          message: 'الجلسة منتهية أو ملغاة - يرجى تسجيل الدخول مجدداً',
+          code: 'SESSION_REVOKED'
+        });
+      }
+    }
+
     // إضافة بيانات المستخدم للـ request مع ضمان تحديث الدور من قاعدة البيانات مباشرة
     req.user = {
       id: user.id,
@@ -378,15 +379,15 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       role: user.role || 'user', // استخدام الدور من قاعدة البيانات مباشرة
       is_active: String(user.is_active) === 'true' ? true : false,
       mfa_enabled: user.mfa_enabled || undefined,
-      sessionId: decoded.sessionId || 'jwt-session'
+      sessionId: sessionId
     };
 
     const duration = Date.now() - startTime;
     console.log(`✅ [AUTH] مصادقة ناجحة للمستخدم: ${user.email} | ${req.method} ${req.originalUrl} | ${duration}ms`);
 
     next();
-  } catch (error) {
-    console.error('❌ [AUTH] خطأ في المصادقة:', error);
+  } catch (error: unknown) {
+    console.error('❌ [AUTH] خطأ في المصادقة:', error instanceof Error ? error.message : error);
     res.status(500).json({
       success: false,
       message: 'خطأ في خادم المصادقة',

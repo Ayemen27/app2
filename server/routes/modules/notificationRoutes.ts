@@ -53,7 +53,7 @@ notificationRouter.post('/push/token', async (req: Request, res: Response) => {
       .where(eq(users.id, user_id));
 
     res.json({ success: true, message: "تم تسجيل التوكن وتفعيل الإشعارات بنجاح" });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في تسجيل توكن الإشعارات:', error);
     res.status(500).json({ success: false, message: "فشل في تسجيل التوكن" });
   }
@@ -97,14 +97,14 @@ notificationRouter.get('/', async (req: Request, res: Response) => {
       unreadCount: result.unreadCount,
       message: result.notifications.length > 0 ? 'تم جلب الإشعارات بنجاح' : 'لا توجد إشعارات'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في جلب الإشعارات:', error);
     res.status(500).json({
       success: false,
       data: [],
       count: 0,
       unreadCount: 0,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في جلب الإشعارات"
     });
   }
@@ -131,7 +131,7 @@ notificationRouter.delete('/:id', async (req: Request, res: Response) => {
     await notificationService.deleteNotification(notificationId, user_id);
 
     res.json({ success: true, message: "تم حذف الإشعار بنجاح" });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في حذف الإشعار:', error);
     res.status(500).json({ success: false, message: "فشل في حذف الإشعار" });
   }
@@ -165,7 +165,7 @@ notificationRouter.delete('/bulk-delete-suspicious', async (req: Request, res: R
       );
 
     res.json({ success: true, message: "تم تنظيف الإشعارات المشبوهة بنجاح" });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في الحذف الجماعي المشبوه:', error);
     res.status(500).json({ success: true, message: "فشل في عملية الحذف" });
   }
@@ -203,14 +203,14 @@ notificationRouter.patch('/:id', async (req: Request, res: Response) => {
       processingTime: Date.now() - startTime
     });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     const duration = Date.now() - startTime;
     console.error('❌ [API] خطأ في تحديث الإشعار:', error);
     
     res.status(500).json({
       success: false,
       error: 'فشل في تحديث الإشعار',
-      message: error.message,
+      message: error instanceof Error ? error.message : String(error),
       processingTime: duration
     });
   }
@@ -245,11 +245,11 @@ notificationRouter.post('/:id/read', async (req: Request, res: Response) => {
       success: true,
       message: "تم تعليم الإشعار كمقروء"
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في تعليم الإشعار كمقروء:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في تعليم الإشعار كمقروء"
     });
   }
@@ -284,11 +284,11 @@ notificationRouter.post('/:id/mark-read', async (req: Request, res: Response) =>
       success: true,
       message: "تم تعليم الإشعار كمقروء"
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في تعليم الإشعار كمقروء (مسار بديل):', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في تعليم الإشعار كمقروء"
     });
   }
@@ -324,11 +324,11 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
       success: true,
       message: "تم تعليم جميع الإشعارات كمقروءة"
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في تعليم الإشعارات كمقروءة:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في تعليم الإشعارات كمقروءة"
     });
   }
@@ -361,12 +361,12 @@ notificationRouter.get('/stats', async (req: Request, res: Response) => {
       ...stats,
       message: "تم جلب الإحصائيات بنجاح"
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في جلب الإحصائيات:', error);
     res.status(500).json({
       success: false,
       message: "فشل في جلب الإحصائيات",
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 });
@@ -391,12 +391,12 @@ notificationRouter.get('/monitoring/stats', async (req: Request, res: Response) 
       ...stats,
       message: "تم جلب إحصائيات النشاط بنجاح"
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في جلب إحصائيات النشاط:', error);
     res.status(500).json({
       success: false,
       message: "فشل في جلب إحصائيات النشاط",
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 });
@@ -420,8 +420,8 @@ notificationRouter.get('/all', async (req: Request, res: Response) => {
       data: result.notifications,
       ...result 
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) });
   }
 });
 
@@ -439,8 +439,8 @@ notificationRouter.get('/user-activity', requireRole('admin'), async (req: Reque
     }
     const result = await notificationService.getUserNotifications(userId, { limit: 10 });
     res.json({ success: true, data: result.notifications });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (error: unknown) {
+    res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) });
   }
 });
 
@@ -482,11 +482,11 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
       message: `تم إنشاء إشعار ${type} بنجاح`,
       processingTime: Date.now() - startTime
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في إنشاء الإشعار:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في إنشاء الإشعار",
       processingTime: Date.now() - startTime
     });
@@ -528,11 +528,11 @@ notificationRouter.post('/', async (req: Request, res: Response) => {
       message: `تم إنشاء إشعار ${finalType} بنجاح`,
       processingTime: Date.now() - startTime
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [API] خطأ في إنشاء الإشعار (المسار الرئيسي):', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في إنشاء الإشعار",
       processingTime: Date.now() - startTime
     });
@@ -571,11 +571,11 @@ notificationRouter.post('/test/create', requireRole('admin'), async (req: Reques
       data: notification,
       message: "تم إنشاء الإشعار بنجاح"
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [TEST] خطأ في إنشاء الإشعار:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في إنشاء الإشعار"
     });
   }
@@ -610,11 +610,11 @@ notificationRouter.get('/test/stats', requireRole('admin'), async (req: Request,
       data: stats,
       message: "تم جلب الإحصائيات بنجاح"
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ [TEST] خطأ في جلب الإحصائيات:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       message: "فشل في جلب الإحصائيات"
     });
   }

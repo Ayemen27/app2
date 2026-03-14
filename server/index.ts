@@ -291,12 +291,39 @@ const io = new Server(server, {
 // Store io instance globally for mutations
 globalThis.io = io;
 
+// Socket.IO authentication middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    if (!token || typeof token !== 'string') {
+      return next(new Error('Authentication required'));
+    }
+
+    const { verifyAccessToken } = await import('./auth/jwt-utils.js');
+    const result = await verifyAccessToken(token);
+    if (!result || !result.success || !result.user) {
+      return next(new Error('Invalid or expired token'));
+    }
+
+    (socket as any).user = result.user;
+    next();
+  } catch (err) {
+    next(new Error('Authentication failed'));
+  }
+});
+
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-  console.log('🔌 [WebSocket] عميل متصل:', socket.id);
+  const user = (socket as any).user;
+  console.log(`🔌 [WebSocket] Authenticated client connected: ${socket.id} (user: ${user?.userId})`);
+
+  socket.join('authenticated');
+  if (user?.role === 'admin' || user?.role === 'مدير') {
+    socket.join('admin');
+  }
 
   socket.on('disconnect', () => {
-    console.log('🔌 [WebSocket] عميل قطع الاتصال:', socket.id);
+    console.log(`🔌 [WebSocket] Client disconnected: ${socket.id}`);
   });
 });
 
@@ -700,21 +727,24 @@ console.log('🔧 بيئة التشغيل:', NODE_ENV);
 
 import { BackupService } from "./services/BackupService";
 import { FinancialLedgerService } from "./services/FinancialLedgerService";
+import { closePdfBrowser } from "./services/reports/HtmlToPdfService";
 
 import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ [UnhandledRejection] Unhandled promise rejection:', reason);
+});
+
+const activeIntervals: NodeJS.Timeout[] = [];
 
 (async () => {
   try {
     getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
 
-    // await BackupService.initialize();
-    
-    // ✅ تشغيل الخادم أولاً لضمان فتح المنفذ فوراً
     const serverInstance = server.listen(FINAL_PORT, "0.0.0.0", async () => {
       log(`serving on port ${FINAL_PORT}`);
       console.log('✅ Socket.IO server متشغل');
       
-      // ✅ فحص الاتصال بقاعدة البيانات في الخلفية (بدون حظر)
       setTimeout(async () => {
         try {
           const isConnected = await checkDBConnection();
@@ -728,8 +758,6 @@ import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
         }
       }, 1000);
 
-      // ✅ تشغيل نظام النسخ الاحتياطي التلقائي
-      // تعديل: تشغيل النسخ الاحتياطي بعد فترة أطول لتقليل الحمل عند بدء التشغيل
       setTimeout(() => {
         try {
           console.log("⏰ بدء جدولة النسخ الاحتياطي التلقائي (كل 6 ساعات)");
@@ -737,19 +765,20 @@ import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
         } catch (e) {
           console.error("❌ Failed to start scheduler:", e);
         }
-      }, 60000); // الانتظار دقيقة كاملة قبل بدء الجدولة
+      }, 60000);
 
-      setInterval(() => {
+      const reconciliationInterval = setInterval(() => {
         const now = new Date();
         if (now.getHours() === 2 && now.getMinutes() === 0) {
           console.log("🔄 [Reconciliation] بدء المطابقة اليومية التلقائية...");
-          FinancialLedgerService.runDailyReconciliation();
+          FinancialLedgerService.runDailyReconciliation()
+            .catch(err => console.error('❌ [Reconciliation] Error during daily reconciliation:', err));
         }
       }, 60000);
+      activeIntervals.push(reconciliationInterval);
 
-      // ✅ نظام فحص المخطط - يعمل بوضع القراءة فقط مع timeout
       setTimeout(async () => {
-        const SCHEMA_CHECK_TIMEOUT = 15000; // 15 ثانية كحد أقصى
+        const SCHEMA_CHECK_TIMEOUT = 15000;
         console.log('🔍 [Schema Check] فحص إضافي بعد اتصال قاعدة البيانات...');
         try {
           const { validateSchemaIntegrity } = await import('./services/schema-guard');
@@ -766,14 +795,62 @@ import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
       }, 3000);
     });
 
-    // Handle graceful shutdown
-    process.on('SIGTERM', () => {
-      console.log('SIGTERM signal received: closing HTTP server');
-      serverInstance.close(() => {
-        console.log('HTTP server closed');
-        process.exit(0);
-      });
-    });
+    async function gracefulShutdown(signal: string) {
+      console.log(`${signal} signal received: starting graceful shutdown`);
+
+      for (const interval of activeIntervals) {
+        clearInterval(interval);
+      }
+      activeIntervals.length = 0;
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          serverInstance.close((err) => {
+            if (err) {
+              console.error('❌ [Shutdown] Error closing HTTP server:', err);
+              reject(err);
+            } else {
+              console.log('✅ [Shutdown] HTTP server closed');
+              resolve();
+            }
+          });
+        });
+      } catch {}
+
+      try {
+        io.close();
+        console.log('✅ [Shutdown] Socket.IO closed');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error closing Socket.IO:', err);
+      }
+
+      try {
+        await getWhatsAppBot().disconnect();
+        console.log('✅ [Shutdown] WhatsApp bot stopped');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error stopping WhatsApp bot:', err);
+      }
+
+      try {
+        await closePdfBrowser();
+        console.log('✅ [Shutdown] PDF browser closed');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error closing PDF browser:', err);
+      }
+
+      try {
+        await pool.end();
+        console.log('✅ [Shutdown] Database pool closed');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error closing database pool:', err);
+      }
+
+      console.log('✅ [Shutdown] Graceful shutdown complete');
+      process.exit(0);
+    }
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   } catch (error) {
     console.error('❌ خطأ في بدء الخادم:', error);
     process.exit(1);

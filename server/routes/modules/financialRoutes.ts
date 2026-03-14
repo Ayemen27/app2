@@ -3032,32 +3032,6 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
   }
 });
 
-financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
-  try {
-    const accessReq = req as ProjectAccessRequest;
-    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    if (!isAdminUser) {
-      return res.status(403).json({ success: false, message: 'هذا التقرير متاح للمسؤولين فقط' });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        totalFundTransfers: 0,
-        totalWorkerTransfers: 0,
-        totalWorkerExpenses: 0,
-        totalProjectFunds: 0
-      },
-      message: 'ملخص التقارير المالية'
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في جلب ملخص التقارير المالية'
-    });
-  }
-});
-
 /**
  * 📊 إحصائيات الموردين
  * Suppliers Statistics

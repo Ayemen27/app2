@@ -1544,7 +1544,7 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     );
 
     if (globalThis.io && deletedAttendance[0]) {
-      globalThis.io.emit('entity:update', {
+      (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
         project_id: deletedAttendance[0].project_id,
@@ -1736,7 +1736,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     );
 
     if (globalThis.io) {
-      globalThis.io.emit('entity:update', {
+      (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
         project_id: newAttendance[0].project_id,
@@ -1874,7 +1874,7 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     }, 'worker-attendance/PATCH');
 
     if (globalThis.io && updated_attendance[0]) {
-      globalThis.io.emit('entity:update', {
+      (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
         project_id: updated_attendance[0].project_id,
@@ -1908,224 +1908,6 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     } else if (error.code === '23505') { // unique violation
       errorMessage = 'تم تسجيل حضور هذا العامل مسبقاً لهذا التاريخ';
       statusCode = 409;
-    }
-
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-      data: null,
-      processingTime: duration
-    });
-  }
-});
-
-// ===========================================
-// Worker Transfers Routes (تحويلات العمال)
-// ===========================================
-
-/**
- * 🔄 تحديث تحويل عامل موجود
- * PATCH /worker-transfers/:id
- */
-workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const transferId = req.params.id;
-    console.log('🔄 [API] طلب تحديث تحويل العامل من المستخدم:', req.user?.email);
-    console.log('📋 [API] ID تحويل العامل:', transferId);
-    console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
-
-    if (!transferId) {
-      const duration = Date.now() - startTime;
-      return res.status(400).json({
-        success: false,
-        error: 'معرف تحويل العامل مطلوب',
-        message: 'لم يتم توفير معرف تحويل العامل للتحديث',
-        processingTime: duration
-      });
-    }
-
-    // التحقق من وجود تحويل العامل أولاً
-    const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
-
-    if (existingTransfer.length === 0) {
-      const duration = Date.now() - startTime;
-      return res.status(404).json({
-        success: false,
-        error: 'تحويل العامل غير موجود',
-        message: `لم يتم العثور على تحويل عامل بالمعرف: ${transferId}`,
-        processingTime: duration
-      });
-    }
-
-    const { allowed: transferPatch2Allowed } = checkProjectAccess(req, existingTransfer[0].project_id);
-    if (!transferPatch2Allowed) {
-      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا التحويل' });
-    }
-
-    // Map old frontend fields to schema fields if necessary
-    const body = { ...req.body };
-    if (body.fundAmount !== undefined && body.amount === undefined) {
-      body.amount = body.fundAmount;
-    }
-    if (body.selectedDate !== undefined && body.transferDate === undefined) {
-      body.transferDate = body.selectedDate;
-    }
-
-    // Validation باستخدام insert schema - نسمح بتحديث جزئي
-    const validationResult = insertWorkerTransferSchema.partial().safeParse(body);
-
-    if (!validationResult.success) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] فشل في validation تحديث تحويل العامل:', validationResult.error.flatten());
-
-      const errorMessages = validationResult.error.flatten().fieldErrors;
-      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث تحويل العامل غير صحيحة';
-
-      return res.status(400).json({
-        success: false,
-        error: 'بيانات تحديث تحويل العامل غير صحيحة',
-        message: firstError,
-        details: errorMessages,
-        processingTime: duration
-      });
-    }
-
-    const sanitizedTransferData2 = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_TRANSFER_PATCH_FIELDS);
-
-    // تحديث تحويل العامل
-    const updatedTransfer = await db
-      .update(workerTransfers)
-      .set(sanitizedTransferData2)
-      .where(eq(workerTransfers.id, transferId))
-      .returning();
-
-    const t = updatedTransfer[0];
-    FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', getAuthUser(req)?.user_id);
-      return FinancialLedgerService.recordWorkerTransfer(
-        t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
-      );
-    }, 'worker-transfers/PATCH');
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
-
-    res.json({
-      success: true,
-      data: updatedTransfer[0],
-      message: `تم تحديث تحويل العامل بقيمة ${updatedTransfer[0].amount} بنجاح`,
-      processingTime: duration
-    });
-
-  } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('❌ [API] خطأ في تحديث تحويل العامل:', error);
-
-    let errorMessage = 'فشل في تحديث تحويل العامل';
-    let statusCode = 500;
-
-    if (error.code === '23503') { // foreign key violation
-      errorMessage = 'العامل المحدد غير موجود';
-      statusCode = 400;
-    } else if (error.code === '23502') { // not null violation
-      errorMessage = 'بيانات تحويل العامل ناقصة';
-      statusCode = 400;
-    }
-
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-      data: null,
-      processingTime: duration
-    });
-  }
-});
-
-/**
- * 🗑️ حذف تحويل عامل
- * DELETE /worker-transfers/:id
- */
-workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const transferId = req.params.id;
-    console.log('🗑️ [API] طلب حذف حوالة العامل:', transferId);
-    console.log('👤 [API] المستخدم:', req.user?.email);
-
-    if (!transferId) {
-      const duration = Date.now() - startTime;
-      return res.status(400).json({
-        success: false,
-        error: 'معرف حوالة العامل مطلوب',
-        message: 'لم يتم توفير معرف الحوالة للحذف',
-        processingTime: duration
-      });
-    }
-
-    // التحقق من وجود الحوالة أولاً
-    const existingTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
-
-    if (existingTransfer.length === 0) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] حوالة العامل غير موجودة:', transferId);
-      return res.status(404).json({
-        success: false,
-        error: 'حوالة العامل غير موجودة',
-        message: `لم يتم العثور على حوالة بالمعرف: ${transferId}`,
-        processingTime: duration
-      });
-    }
-
-    const { allowed: transferDel2Allowed } = checkProjectAccess(req, existingTransfer[0].project_id);
-    if (!transferDel2Allowed) {
-      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا التحويل' });
-    }
-
-    const transferToDelete = existingTransfer[0];
-    console.log('🗑️ [API] سيتم حذف حوالة العامل:', {
-      id: transferToDelete.id,
-      worker_id: transferToDelete.worker_id,
-      amount: transferToDelete.amount,
-      recipientName: transferToDelete.recipientName
-    });
-
-    FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
-      'worker-transfers/DELETE'
-    );
-
-    // حذف حوالة العامل من قاعدة البيانات
-    console.log('🗑️ [API] حذف حوالة العامل من قاعدة البيانات...');
-    const deletedTransfer = await db
-      .delete(workerTransfers)
-      .where(eq(workerTransfers.id, transferId))
-      .returning();
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
-      id: deletedTransfer[0].id,
-      amount: deletedTransfer[0].amount,
-      recipientName: deletedTransfer[0].recipientName
-    });
-
-    res.json({
-      success: true,
-      data: deletedTransfer[0],
-      message: `تم حذف حوالة العامل بقيمة ${deletedTransfer[0].amount} بنجاح`,
-      processingTime: duration
-    });
-
-  } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('❌ [API] خطأ في حذف حوالة العامل:', error);
-
-    let errorMessage = 'فشل في حذف حوالة العامل';
-    let statusCode = 500;
-
-    if (error.code === '22P02') { // invalid input syntax
-      errorMessage = 'معرف الحوالة غير صحيح';
-      statusCode = 400;
     }
 
     res.status(statusCode).json({
@@ -2188,125 +1970,6 @@ workerRouter.get('/projects/:project_id/worker-misc-expenses', async (req: Reque
       data: [],
       message: 'حدث خطأ داخلي',
 
-      processingTime: duration
-    });
-  }
-});
-
-/**
- * 🔄 تحديث مصروف متنوع للعامل
- * PATCH /worker-misc-expenses/:id
- */
-workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const expenseId = req.params.id;
-    console.log('🔄 [API] طلب تحديث المصروف المتنوع للعامل من المستخدم:', req.user?.email);
-    console.log('📋 [API] ID المصروف المتنوع:', expenseId);
-    console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
-
-    if (!expenseId) {
-      const duration = Date.now() - startTime;
-      return res.status(400).json({
-        success: false,
-        error: 'معرف المصروف المتنوع للعامل مطلوب',
-        message: 'لم يتم توفير معرف المصروف المتنوع للعامل للتحديث',
-        processingTime: duration
-      });
-    }
-
-    // التحقق من وجود المصروف المتنوع أولاً
-    const existingExpense = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, expenseId)).limit(1);
-
-    if (existingExpense.length === 0) {
-      const duration = Date.now() - startTime;
-      return res.status(404).json({
-        success: false,
-        error: 'المصروف المتنوع للعامل غير موجود',
-        message: `لم يتم العثور على مصروف متنوع للعامل بالمعرف: ${expenseId}`,
-        processingTime: duration
-      });
-    }
-
-    const { allowed: expPatch2Allowed } = checkProjectAccess(req, existingExpense[0].project_id);
-    if (!expPatch2Allowed) {
-      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا المصروف' });
-    }
-
-    // Map old frontend fields to schema fields if necessary
-    const body = { ...req.body };
-    if (body.fundAmount !== undefined && body.amount === undefined) {
-      body.amount = body.fundAmount;
-    }
-    if (body.selectedDate !== undefined && body.date === undefined) {
-      body.date = body.selectedDate;
-    }
-
-    // Validation باستخدام insert schema - نسمح بتحديث جزئي
-    const validationResult = insertWorkerMiscExpenseSchema.partial().safeParse(body);
-
-    if (!validationResult.success) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] فشل في validation تحديث المصروف المتنوع للعامل:', validationResult.error.flatten());
-
-      const errorMessages = validationResult.error.flatten().fieldErrors;
-      const firstError = Object.values(errorMessages)[0]?.[0] || 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة';
-
-      return res.status(400).json({
-        success: false,
-        error: 'بيانات تحديث المصروف المتنوع للعامل غير صحيحة',
-        message: firstError,
-        details: errorMessages,
-        processingTime: duration
-      });
-    }
-
-    const sanitizedExpenseData2 = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_MISC_EXPENSE_PATCH_FIELDS);
-
-    // تحديث المصروف المتنوع للعامل
-    const updatedExpense = await db
-      .update(workerMiscExpenses)
-      .set(sanitizedExpenseData2)
-      .where(eq(workerMiscExpenses.id, expenseId))
-      .returning();
-
-    const t = updatedExpense[0];
-    FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', getAuthUser(req)?.user_id);
-      return FinancialLedgerService.recordMiscExpense(
-        t.project_id, parseFloat(t.amount), t.date, t.id, getAuthUser(req)?.user_id
-      );
-    }, 'worker-misc-expenses/PATCH');
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);
-
-    res.json({
-      success: true,
-      data: updatedExpense[0],
-      message: `تم تحديث المصروف المتنوع بقيمة ${updatedExpense[0].amount} بنجاح`,
-      processingTime: duration
-    });
-
-  } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('❌ [API] خطأ في تحديث المصروف المتنوع للعامل:', error);
-
-    let errorMessage = 'فشل في تحديث المصروف المتنوع للعامل';
-    let statusCode = 500;
-
-    if (error.code === '23503') { // foreign key violation
-      errorMessage = 'العامل أو المشروع المحدد غير موجود';
-      statusCode = 400;
-    } else if (error.code === '23502') { // not null violation
-      errorMessage = 'بيانات المصروف المتنوع ناقصة';
-      statusCode = 400;
-    }
-
-    res.status(statusCode).json({
-      success: false,
-      message: errorMessage,
-      data: null,
       processingTime: duration
     });
   }

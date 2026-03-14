@@ -14,6 +14,7 @@ import type {
 } from '@simplewebauthn/server';
 import { requireAuth, AuthenticatedRequest, authRateLimit } from '../../middleware/auth.js';
 import { generateTokenPair } from '../../auth/jwt-utils.js';
+import { setAuthCookies } from '../../auth/cookie-config.js';
 import { storage } from '../../storage.js';
 import { db } from '../../db.js';
 import { users } from '@shared/schema';
@@ -379,12 +380,7 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
       { deviceId: 'biometric-login' }
     );
 
-    res.cookie('refreshToken', tokenPair.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 90 * 24 * 60 * 60 * 1000,
-    });
+    setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
     const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
 

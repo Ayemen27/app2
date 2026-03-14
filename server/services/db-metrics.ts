@@ -168,16 +168,16 @@ export class DbMetricsService {
     const metrics = status.metrics;
 
     if (status.local) {
+      let localClient: any;
       try {
         const { pool: p } = this.getPoolForSource('local');
-        const client = await p.connect();
+        localClient = await p.connect();
         const [dbInfo, sizeResult, tableCount, rowsResult] = await Promise.all([
-          client.query('SELECT current_database() as name, version() as version'),
-          client.query('SELECT pg_database_size(current_database()) as size_bytes'),
-          client.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
-          client.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
+          localClient.query('SELECT current_database() as name, version() as version'),
+          localClient.query('SELECT pg_database_size(current_database()) as size_bytes'),
+          localClient.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
+          localClient.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
         ]);
-        client.release();
         connections.push({
           id: 'local',
           label: 'القاعدة المحلية (VPS)',
@@ -191,6 +191,8 @@ export class DbMetricsService {
         });
       } catch {
         connections.push({ id: 'local', label: 'القاعدة المحلية (VPS)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
+      } finally {
+        localClient?.release();
       }
     } else {
       connections.push({ id: 'local', label: 'القاعدة المحلية (VPS)', connected: false, dbName: null, version: null, size: null, tables: 0, rows: 0, latency: null });
@@ -209,15 +211,15 @@ export class DbMetricsService {
           try {
             const queryWithTimeout = new Promise<ConnectionInfo>(async (resolve, reject) => {
               const timer = setTimeout(() => reject(new Error('timeout')), 8000);
+              let dynClient: any;
               try {
-                const client = await dynConn.pool!.connect();
+                dynClient = await dynConn.pool!.connect();
                 const [dbInfo, sizeResult, tableCount, rowsResult] = await Promise.all([
-                  client.query('SELECT current_database() as name, version() as version'),
-                  client.query('SELECT pg_database_size(current_database()) as size_bytes'),
-                  client.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
-                  client.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
+                  dynClient.query('SELECT current_database() as name, version() as version'),
+                  dynClient.query('SELECT pg_database_size(current_database()) as size_bytes'),
+                  dynClient.query("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"),
+                  dynClient.query('SELECT SUM(n_live_tup) as total FROM pg_stat_user_tables'),
                 ]);
-                client.release();
                 clearTimeout(timer);
                 resolve({
                   id: dynConn.key, label: dynConn.label, connected: true,
@@ -228,7 +230,7 @@ export class DbMetricsService {
                   rows: parseInt(rowsResult.rows[0]?.total || '0'),
                   latency: dynConn.latency ? `${dynConn.latency}ms` : null,
                 });
-              } catch (e) { clearTimeout(timer); reject(e); }
+              } catch (e) { clearTimeout(timer); reject(e); } finally { dynClient?.release(); }
             });
             return await queryWithTimeout;
           } catch {
@@ -276,10 +278,16 @@ export class DbMetricsService {
 
     const dbNameQuery = 'SELECT current_database() as name';
 
-    const [client1, client2] = await Promise.all([
-      pool1.connect(),
-      pool2.connect(),
-    ]);
+    let client1: any;
+    let client2: any;
+    try {
+      client1 = await pool1.connect();
+      client2 = await pool2.connect();
+    } catch (connectErr) {
+      client1?.release();
+      client2?.release();
+      throw connectErr;
+    }
 
     try {
     const [tables1Result, tables2Result, name1, name2] = await Promise.all([
@@ -789,23 +797,24 @@ export class DbMetricsService {
     const { Pool } = await import('pg');
     const testPool = new Pool({ connectionString, connectionTimeoutMillis: 5000 });
     const startTime = Date.now();
+    let testClient: any;
     try {
-      const client = await testPool.connect();
-      const result = await client.query('SELECT version()');
-      client.release();
-      await testPool.end();
+      testClient = await testPool.connect();
+      const result = await testClient.query('SELECT version()');
       return {
         success: true,
         latency: Date.now() - startTime,
         version: (result.rows[0]?.version || '').split(' ').slice(0, 2).join(' '),
       };
     } catch (e: any) {
-      try { await testPool.end(); } catch { }
       return {
         success: false,
         latency: Date.now() - startTime,
         error: e.message,
       };
+    } finally {
+      testClient?.release();
+      try { await testPool.end(); } catch { }
     }
   }
 }

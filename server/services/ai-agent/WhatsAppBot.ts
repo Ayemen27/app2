@@ -747,17 +747,17 @@ export class WhatsAppBot {
         },
       });
 
-      const io = (globalThis as Record<string, unknown>).io as { emit: (event: string, data: unknown) => void } | undefined;
+      const io = (globalThis as Record<string, unknown>).io as { to: (room: string) => { emit: (event: string, data: unknown) => void } } | undefined;
       if (io) {
-        io.emit('notification:new', {
+        io.to('admin').emit('notification:new', {
           id: notification.id,
           type: 'whatsapp',
-          title: `💬 رسالة واتساب من ${phone}`,
+          title: `رسالة واتساب جديدة`,
           body: bodyText || 'رسالة جديدة',
           priority: 3,
           createdAt: notification.created_at,
         });
-        io.emit('entity:update', { entity: 'notifications', type: 'NEW' });
+        io.to('admin').emit('entity:update', { entity: 'notifications', type: 'NEW' });
       }
 
       console.log(`🔔 [WhatsAppBot] تم إنشاء إشعار لرسالة واتساب من ${phone}`);

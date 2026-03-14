@@ -236,10 +236,10 @@ export async function withTransaction<T>(fn: (client: pg.PoolClient) => Promise<
 
 if (!isAndroid && !isEmergencyMode && rawDbUrl) {
   (async () => {
+    let client: pg.PoolClient | undefined;
     try {
-      const client = await pool.connect();
+      client = await pool.connect();
       const result = await client.query('SELECT current_database(), now()');
-      client.release();
       console.log(`✅ [DB Startup Health Check] Connection verified: ${result.rows[0].current_database}`);
     } catch (err: any) {
       console.error(`🚨 [DB Startup Health Check] Failed to verify database connection: ${err.message}`);
@@ -247,6 +247,8 @@ if (!isAndroid && !isEmergencyMode && rawDbUrl) {
         console.error('🚨 [DB FATAL] Cannot connect to database in production. Exiting.');
         process.exit(1);
       }
+    } finally {
+      client?.release();
     }
   })();
 }
@@ -285,22 +287,20 @@ export async function checkDBConnection() {
 
   const startTime = Date.now();
   
+  let client: pg.PoolClient | undefined;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     const result = await client.query('SELECT current_database(), current_user, now()');
-    client.release();
     
     const latency = Date.now() - startTime;
     globalThis.inConnectionRetry = false;
     
-    // Log successful connection
     if (latency > 1000) {
       console.warn(`⚠️ [PostgreSQL] Connection successful but slow (${latency}ms)`);
     } else if (!isEmergencyMode) {
       console.log(`✅ [PostgreSQL] Connection healthy (${latency}ms)`);
     }
     
-    // إذا كان في وضع طوارئ، نقوم بتعطيله فوراً
     if (globalThis.isEmergencyMode) {
       console.log("🔄 [Emergency] Connection restored, disabling emergency mode.");
       globalThis.isEmergencyMode = false;
@@ -370,6 +370,8 @@ export async function checkDBConnection() {
       });
     }
     return false;
+  } finally {
+    client?.release();
   }
 }
 

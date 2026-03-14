@@ -67,10 +67,20 @@ The system features a consistent design with a professional navy/blue palette, E
 - **XSS Protection:** DOMPurify for sanitizing HTML in PDF generation.
 
 ## Architect Audit History
-### Audit (Latest)
+### Audit Round 1
 - **T001 ✅** Auth rate limiting on login/refresh/reset + token hardening (httpOnly cookies, no refresh in body)
 - **T002 ✅** RBAC mass-assignment fix with field allowlists on all PATCH routes
 - **T003 ✅** DB transaction wrappers for financial operations (attendance delete, material purchase)
 - **T004 ✅** WhatsApp process safety (no global handler override) + memory leak fix (TTL eviction)
 - **T005 ✅** SQL injection fix in db-metrics + N+1 query optimization in DatabaseActions
 - **T006 ✅** API response standardization (no error.message leakage, consistent shape)
+
+### Audit Round 2
+- **T001 ✅** Removed all duplicate route handlers (GET /users, PATCH/DELETE transfers, dashboard-kpis, reports/summary) + enforced admin on /users
+- **T002 ✅** Socket.IO JWT auth middleware + scoped broadcasts (admin room for WhatsApp notifications, authenticated room for entity updates)
+- **T003 ✅** Logout clears both accessToken + refreshToken cookies; centralized cookie config in `server/auth/cookie-config.ts`
+- **T004 ✅** All pool.connect() wrapped in try/finally with guaranteed client.release() (db.ts + db-metrics.ts)
+- **T005 ✅** Timing-safe comparisons (crypto.timingSafeEqual) for hash/token verification + token removed from email logs
+- **T006 ✅** Graceful shutdown (SIGTERM+SIGINT) with full cleanup (HTTP, Socket.IO, WhatsApp, PDF browser, DB pool, intervals) + unhandledRejection handler
+- **T007 ✅** 9 composite database indexes added for hot query patterns (attendance, transfers, purchases, expenses)
+- **T008 ✅** PATCH validation for tasks (Zod schema) + user role enum validation + field allowlists on remaining routes

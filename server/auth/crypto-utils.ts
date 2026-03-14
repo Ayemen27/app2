@@ -189,7 +189,10 @@ export function verifyVerificationCode(inputCode: string, hashedCode: string): b
       .update(inputCode + CRYPTO_CONFIG.encryptionKey)
       .digest('hex');
     
-    return hashedInput === hashedCode;
+    const a = Buffer.from(hashedInput, 'hex');
+    const b = Buffer.from(hashedCode, 'hex');
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   } catch (error) {
     console.error('خطأ في التحقق من رمز التحقق:', error);
     return false;
@@ -230,7 +233,10 @@ export function verifyPasswordResetToken(inputToken: string, hashedToken: string
       .update(inputToken + CRYPTO_CONFIG.encryptionKey)
       .digest('hex');
     
-    return hashedInput === hashedToken;
+    const a = Buffer.from(hashedInput, 'hex');
+    const b = Buffer.from(hashedToken, 'hex');
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   } catch (error) {
     console.error('خطأ في التحقق من رمز إعادة تعيين كلمة المرور:', error);
     return false;

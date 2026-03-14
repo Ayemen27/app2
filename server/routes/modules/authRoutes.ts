@@ -17,6 +17,7 @@ import {
   JWT_CONFIG 
 } from '../../auth/jwt-utils.js';
 import { hashPassword, verifyPassword } from '../../auth/crypto-utils.js';
+import { setAuthCookies, clearAuthCookies, REFRESH_TOKEN_COOKIE_OPTIONS } from '../../auth/cookie-config.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 import * as schema from '@shared/schema';
 import { users } from '@shared/schema';
@@ -91,19 +92,7 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
         if (emergencyResult.success && emergencyResult.data) {
           console.log('🛡️ [AUTH] تم تسجيل الدخول بنجاح عبر وضع الطوارئ');
           
-          res.cookie('refreshToken', emergencyResult.data.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 90 * 24 * 60 * 60 * 1000
-          });
-
-          res.cookie('accessToken', emergencyResult.data.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000
-          });
+          setAuthCookies(res, emergencyResult.data.accessToken, emergencyResult.data.refreshToken);
 
           return res.json({
             success: true,
@@ -213,19 +202,7 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
       refreshTokenLength: tokenPair.refreshToken?.length || 0
     });
 
-    res.cookie('refreshToken', tokenPair.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 90 * 24 * 60 * 60 * 1000
-    });
-
-    res.cookie('accessToken', tokenPair.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000
-    });
+    setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
     const responseData = {
       success: true,
@@ -387,34 +364,6 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 });
 
 /**
- * 👥 جلب قائمة المستخدمين
- * GET /api/users
- */
-authRouter.get('/users', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const { includeRole } = req.query;
-    console.log('👥 [AUTH] طلب جلب قائمة المستخدمين', { includeRole });
-
-    const result = await db.execute({
-      text: 'SELECT id, email, first_name as "first_name", last_name as "last_name", full_name as "full_name", role, is_active as "is_active" FROM users ORDER BY full_name ASC'
-    });
-
-    res.json({
-      success: true,
-      users: result.rows,
-      message: 'تم جلب المستخدمين بنجاح'
-    });
-  } catch (error: any) {
-    console.error('❌ [AUTH] خطأ في جلب المستخدمين:', error);
-    res.status(500).json({
-      success: false,
-      message: 'خطأ في الخادم أثناء جلب المستخدمين',
-      error: error.message
-    });
-  }
-});
-
-/**
  * 🔑 تحديث دور المستخدم
  * PATCH /api/users/:id/role
  */
@@ -425,7 +374,6 @@ authRouter.patch('/users/:id/role', requireAuth, async (req: AuthenticatedReques
 
     console.log(`🔐 [AUTH] محاولة تحديث دور المستخدم ${id} إلى ${role}`);
 
-    // التحقق من صلاحيات المسؤول
     if (req.user?.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -433,10 +381,11 @@ authRouter.patch('/users/:id/role', requireAuth, async (req: AuthenticatedReques
       });
     }
 
-    if (!role) {
+    const validRoles = ['admin', 'manager', 'user'] as const;
+    if (!role || !validRoles.includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'الدور المطلوب غير محدد'
+        message: `الدور المطلوب غير صالح. الأدوار المسموحة: ${validRoles.join(', ')}`
       });
     }
 
@@ -475,8 +424,7 @@ authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: R
     // في المستقبل يمكن إضافة blacklist للـ tokens
     // أو إلغاء refresh token من قاعدة البيانات
     
-    // مسح الكوكيز عند تسجيل الخروج
-    res.clearCookie('refreshToken');
+    clearAuthCookies(res);
 
     res.json({
       success: true,
@@ -560,18 +508,7 @@ authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) =
 
       console.log('✅ [AUTH] تم تجديد الرموز بنجاح:', { user_id: user.id });
 
-      res.cookie('refreshToken', tokenPair.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000
-      });
-      res.cookie('accessToken', tokenPair.accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000
-      });
+      setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
       const responseData = {
         success: true,
@@ -928,9 +865,37 @@ authRouter.patch('/users/:user_id', requireAuth, async (req: any, res: Response)
     }
 
     const { user_id } = req.params;
+
+    const allowedFields = ['first_name', 'last_name', 'role', 'is_active'] as const;
+    const validRoles = ['admin', 'manager', 'user'];
+
+    const unexpectedFields = Object.keys(req.body).filter(
+      (k) => !(allowedFields as readonly string[]).includes(k)
+    );
+    if (unexpectedFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `حقول غير مسموحة: ${unexpectedFields.join(', ')}`
+      });
+    }
+
     const { first_name, last_name, role, is_active } = req.body;
 
-    const updateData: any = {};
+    if (role !== undefined && !validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `الدور غير صالح. الأدوار المسموحة: ${validRoles.join(', ')}`
+      });
+    }
+
+    if (is_active !== undefined && typeof is_active !== 'boolean' && is_active !== 'true' && is_active !== 'false') {
+      return res.status(400).json({
+        success: false,
+        message: 'قيمة is_active يجب أن تكون true أو false'
+      });
+    }
+
+    const updateData: Record<string, unknown> = {};
     if (first_name !== undefined) updateData.first_name = first_name;
     if (last_name !== undefined) updateData.last_name = last_name;
     if (role !== undefined) updateData.role = role;
@@ -990,6 +955,10 @@ authRouter.post('/users/:user_id/toggle-status', requireAuth, async (req: any, r
 
     const { user_id } = req.params;
     const { is_active } = req.body;
+
+    if (is_active === undefined || (typeof is_active !== 'boolean' && is_active !== 'true' && is_active !== 'false')) {
+      return res.status(400).json({ success: false, message: 'قيمة is_active مطلوبة ويجب أن تكون true أو false' });
+    }
 
     if (user_id === req.user.user_id) {
       return res.status(400).json({ success: false, message: 'لا يمكنك تعطيل حسابك الخاص' });

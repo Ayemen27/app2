@@ -380,7 +380,7 @@ export async function verifyEmailToken(
       ))
       .limit(1);
 
-    console.log('🔍 [EmailService] نتيجة البحث:', { found: tokenRecord.length > 0, user_id, token });
+    console.log('🔍 [EmailService] نتيجة البحث:', { found: tokenRecord.length > 0, user_id });
 
     if (tokenRecord.length === 0) {
       console.log('❌ [EmailService] لم يتم العثور على الرمز');

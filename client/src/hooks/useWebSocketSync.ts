@@ -14,17 +14,19 @@ export function useWebSocketSync() {
         console.log('🔌 [Socket.IO] محاولة الاتصال...');
         
         // Socket.IO سيتعامل مع كل شيء تلقائياً
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          console.log('🔌 [Socket.IO] No auth token available, skipping connection');
+          return;
+        }
+
         const socket = io({
-          // ترك الـ URL فارغ = استخدام نفس الـ origin الحالي
           reconnection: true,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
           reconnectionAttempts: 10,
           transports: ['websocket', 'polling'],
-          // إذا كنا في development على localhost
-          ...(window.location.hostname === 'localhost' && {
-            // لا نحتاج إلى أي تخصيص - Socket.IO يعرف أنه localhost
-          }),
+          auth: { token },
         });
 
         socketRef.current = socket;
@@ -35,6 +37,14 @@ export function useWebSocketSync() {
 
         socket.on('disconnect', (reason: string) => {
           console.log('🔌 [Socket.IO] تم قطع الاتصال:', reason);
+        });
+
+        socket.on('connect_error', (error: any) => {
+          console.warn('🔌 [Socket.IO] Auth error, updating token:', error.message);
+          const freshToken = localStorage.getItem('accessToken');
+          if (freshToken) {
+            socket.auth = { token: freshToken };
+          }
         });
 
         socket.on('error', (error: any) => {

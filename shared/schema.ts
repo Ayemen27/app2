@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial, doublePrecision, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -351,7 +351,9 @@ export const fundTransfers = pgTable("fund_transfers", {
   transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxFundTransfersProjectDate: index("idx_fund_transfers_project_date").on(table.project_id, table.transferDate),
+}));
 
 // Worker attendance
 export const workerAttendance = pgTable("worker_attendance", {
@@ -380,8 +382,9 @@ export const workerAttendance = pgTable("worker_attendance", {
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
-  // قيد فريد لمنع تسجيل حضور مكرر لنفس العامل في نفس اليوم
   uniqueWorkerDate: sql`UNIQUE (worker_id, attendance_date, project_id)`,
+  idxAttendanceProjectDate: index("idx_worker_attendance_project_date").on(table.project_id, table.attendanceDate),
+  idxAttendanceWorkerDate: index("idx_worker_attendance_worker_date").on(table.worker_id, table.attendanceDate),
 }));
 
 // Suppliers (الموردين)
@@ -439,8 +442,9 @@ export const materialPurchases = pgTable("material_purchases", {
   equipmentId: integer("equipment_id"), // ربط بالمعدة المنشأة تلقائياً (إن وجدت)
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
-  // إضافة قيد فريد لضمان عدم تكرار الفواتير بشكل غير مقصود
   uniqueInvoice: sql`UNIQUE (project_id, supplier_id, invoice_number, purchase_date)`,
+  idxMaterialPurchasesProjectDate: index("idx_material_purchases_project_date").on(table.project_id, table.purchaseDate),
+  idxMaterialPurchasesSupplierId: index("idx_material_purchases_supplier_id").on(table.supplier_id),
 }));
 
 // Supplier payments (مدفوعات الموردين)
@@ -469,7 +473,9 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   notes: text("notes"),
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxTransportationProjectId: index("idx_transportation_expenses_project_id").on(table.project_id),
+}));
 
 // Worker balance transfers (حوالات الحساب للأهالي)
 export const workerTransfers = pgTable("worker_transfers", {
@@ -485,7 +491,10 @@ export const workerTransfers = pgTable("worker_transfers", {
   transferDate: text("transfer_date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxWorkerTransfersProjectDate: index("idx_worker_transfers_project_date").on(table.project_id, table.transferDate),
+  idxWorkerTransfersWorkerId: index("idx_worker_transfers_worker_id").on(table.worker_id),
+}));
 
 // Worker account balances (أرصدة حسابات العمال)
 export const workerBalances = pgTable("worker_balances", {
@@ -586,7 +595,9 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   notes: text("notes"), // ملاحظات إضافية
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxWorkerMiscExpensesProjectId: index("idx_worker_misc_expenses_project_id").on(table.project_id),
+}));
 
 // Backup Logs Table (سجل النسخ الاحتياطي)
 export const backupLogs = pgTable("backup_logs", {

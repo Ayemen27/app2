@@ -29,5 +29,5 @@ export function getAuthUserId(req: Request): string {
 
 export function isAdmin(req: Request): boolean {
   const user = getAuthUser(req);
-  return user?.role === 'admin';
+  return user?.role === 'admin' || user?.role === 'super_admin';
 }

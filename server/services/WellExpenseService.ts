@@ -104,6 +104,10 @@ export class WellExpenseService {
           .limit(1);
 
         if (!attendance.length) throw new Error('سجل الحضور غير موجود');
+
+        if (attendance[0].project_id !== well[0].project_id) {
+          throw new Error('لا يمكن ربط سجل حضور من مشروع مختلف عن مشروع البئر');
+        }
         
         expenseData = attendance[0];
         expenseType = 'labor';
@@ -133,6 +137,10 @@ export class WellExpenseService {
           .limit(1);
 
         if (!purchase.length) throw new Error('فاتورة المادة غير موجودة');
+
+        if (purchase[0].project_id !== well[0].project_id) {
+          throw new Error('لا يمكن ربط فاتورة مادة من مشروع مختلف عن مشروع البئر');
+        }
 
         expenseData = purchase[0];
         
@@ -167,6 +175,10 @@ export class WellExpenseService {
           .limit(1);
 
         if (!transport.length) throw new Error('مصروف النقل غير موجود');
+
+        if (transport[0].project_id !== well[0].project_id) {
+          throw new Error('لا يمكن ربط مصروف نقل من مشروع مختلف عن مشروع البئر');
+        }
 
         expenseData = transport[0];
         expenseType = 'transport';

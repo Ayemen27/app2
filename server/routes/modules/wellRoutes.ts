@@ -106,6 +106,15 @@ wellRouter.post('/', async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
     }
 
+    if (!isAdminUser && req.body.project_id) {
+      const canAdd = await projectAccessService.checkProjectAccess(
+        user.user_id, accessReq.user?.role || '', req.body.project_id, 'add'
+      );
+      if (!canAdd) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية إضافة بيانات في هذا المشروع' });
+      }
+    }
+
     const well = await WellService.createWell({
       ...req.body,
       createdBy: user.user_id
@@ -140,6 +149,16 @@ wellRouter.put('/:id', async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
     }
 
+    if (!isAdminUser && existingWell.project_id) {
+      const user = getAuthUser(req);
+      const canEdit = await projectAccessService.checkProjectAccess(
+        user?.user_id || '', accessReq.user?.role || '', existingWell.project_id, 'edit'
+      );
+      if (!canEdit) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية تعديل بيانات في هذا المشروع' });
+      }
+    }
+
     const well = await WellService.updateWell(well_id, req.body);
 
     res.json({
@@ -169,6 +188,16 @@ wellRouter.delete('/:id', async (req: Request, res: Response) => {
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
     if (!isAdminUser && existingWell.project_id && !accessibleIds.includes(existingWell.project_id)) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
+    if (!isAdminUser && existingWell.project_id) {
+      const user = getAuthUser(req);
+      const canDelete = await projectAccessService.checkProjectAccess(
+        user?.user_id || '', accessReq.user?.role || '', existingWell.project_id, 'delete'
+      );
+      if (!canDelete) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية حذف بيانات في هذا المشروع' });
+      }
     }
 
     await WellService.deleteWell(well_id);
@@ -233,6 +262,15 @@ wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
     }
 
+    if (!isAdminUser && well.project_id) {
+      const canAdd = await projectAccessService.checkProjectAccess(
+        user?.user_id || '', accessReq.user?.role || '', well.project_id, 'add'
+      );
+      if (!canAdd) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية إضافة بيانات في هذا المشروع' });
+      }
+    }
+
     const task = await WellService.createTask(well_id, req.body, user?.user_id ?? '');
 
     res.status(201).json({
@@ -266,6 +304,15 @@ wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) =>
       const accessibleIds = accessReq.accessibleProjectIds ?? [];
       if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
         return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+      }
+
+      if (!isAdminUser && well.project_id) {
+        const canEdit = await projectAccessService.checkProjectAccess(
+          user?.user_id || '', accessReq.user?.role || '', well.project_id, 'edit'
+        );
+        if (!canEdit) {
+          return res.status(403).json({ success: false, message: 'ليس لديك صلاحية تعديل بيانات في هذا المشروع' });
+        }
       }
     }
 
@@ -301,6 +348,15 @@ wellRouter.post('/tasks/:taskId/account', async (req: Request, res: Response) =>
       const accessibleIds = accessReq.accessibleProjectIds ?? [];
       if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
         return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+      }
+
+      if (!isAdminUser && well.project_id) {
+        const canAdd = await projectAccessService.checkProjectAccess(
+          user?.user_id || '', accessReq.user?.role || '', well.project_id, 'add'
+        );
+        if (!canAdd) {
+          return res.status(403).json({ success: false, message: 'ليس لديك صلاحية إضافة بيانات في هذا المشروع' });
+        }
       }
     }
 

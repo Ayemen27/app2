@@ -88,8 +88,42 @@ wellExpenseRouter.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    const { well_id: wellId, expenseType, description, category, totalAmount, expenseDate } = req.body;
+
+    const validationErrors: string[] = [];
+    if (!wellId) validationErrors.push('well_id مطلوب');
+    if (!expenseType) validationErrors.push('expenseType مطلوب');
+    if (!description) validationErrors.push('description مطلوب');
+    if (!category) validationErrors.push('category مطلوب');
+    if (totalAmount === undefined || totalAmount === null) {
+      validationErrors.push('totalAmount مطلوب');
+    } else if (Number(totalAmount) <= 0 || isNaN(Number(totalAmount))) {
+      validationErrors.push('totalAmount يجب أن يكون أكبر من صفر');
+    }
+    if (!expenseDate) {
+      validationErrors.push('expenseDate مطلوب');
+    } else {
+      const parsedDate = new Date(expenseDate);
+      if (isNaN(parsedDate.getTime())) {
+        validationErrors.push('expenseDate تاريخ غير صالح');
+      } else {
+        const now = new Date();
+        now.setHours(23, 59, 59, 999);
+        if (parsedDate > now) {
+          validationErrors.push('expenseDate لا يمكن أن يكون في المستقبل');
+        }
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: validationErrors.join('، ')
+      });
+    }
+
     const accessReq = req as ProjectAccessRequest;
-    const wellId = req.body.well_id;
     if (wellId) {
       const projectId = await getWellProjectId(parseInt(wellId));
       if (!checkAccess(accessReq, projectId)) {

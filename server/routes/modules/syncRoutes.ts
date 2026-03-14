@@ -554,9 +554,34 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       });
     }
 
+    const MAX_BATCH_OPS = 200;
+    if (operations.length > MAX_BATCH_OPS) {
+      return res.status(400).json({
+        success: false,
+        message: `عدد العمليات يتجاوز الحد الأقصى المسموح (${MAX_BATCH_OPS})`
+      });
+    }
+
     const authUser = getAuthUser(req);
     const userId = authUser?.user_id;
     const userIsAdmin = isAdmin(req);
+
+    if (!userIsAdmin) {
+      const hasGlobalTableOp = operations.some((op: any) => {
+        const cleanEndpoint = (op.endpoint || '').split('?')[0];
+        const parts = cleanEndpoint.split('/').filter(Boolean);
+        if (parts[0] !== 'api' || parts.length < 2) return false;
+        const rawTableName = parts.slice(1).join('-');
+        const tableName = ALLOWED_BATCH_TABLES[rawTableName];
+        return tableName && TABLES_WITHOUT_PROJECT_ID.has(tableName);
+      });
+      if (hasGlobalTableOp) {
+        return res.status(403).json({
+          success: false,
+          message: 'صلاحيات المسؤول مطلوبة لتعديل الجداول العامة'
+        });
+      }
+    }
 
     console.log(`[Sync-Batch] بدء معالجة دفعة ذرية (${operations.length} عملية)...`);
     const startTime = Date.now();

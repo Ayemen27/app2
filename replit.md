@@ -84,3 +84,15 @@ The system features a consistent design with a professional navy/blue palette, E
 - **T006 ✅** Graceful shutdown (SIGTERM+SIGINT) with full cleanup (HTTP, Socket.IO, WhatsApp, PDF browser, DB pool, intervals) + unhandledRejection handler
 - **T007 ✅** 9 composite database indexes added for hot query patterns (attendance, transfers, purchases, expenses)
 - **T008 ✅** PATCH validation for tasks (Zod schema) + user role enum validation + field allowlists on remaining routes
+
+### Audit Round 3
+- **T001 ✅** Sync batch authz (admin-only for global tables: project_types/autocomplete) + batch size cap (200) + activity limit cap (100)
+- **T002 ✅** Well CRUD write-level authorization (add/edit/delete permission checks on all 6 write routes)
+- **T003 ✅** Well expense validation (amount>0, no future dates) + cross-project linkage prevention in WellExpenseService
+- **T004 ✅** Record transfer row locking (SELECT FOR UPDATE) + rowcount verification + ledger reversal atomicity (transactional) + admin/editor auth on reconcile/reverse
+- **T005 ✅** Equipment enum validation (type/status/condition) + transactional delete (movements + equipment atomic)
+- **T006 ✅** HSTS header (production) + CSP unsafe-eval removed + backup endpoints rate-limited (download/analyze/test-connection/logs/status)
+
+### Known Recommendations (Deferred)
+- **localStorage token storage**: Tokens still in localStorage (XSS risk). Migration to cookie-only auth requires coordinated frontend+backend refactor.
+- **Error message sanitization**: Some routes still return raw error.message to clients. Needs systematic standardization across all route modules.

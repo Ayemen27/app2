@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
-import { db } from "../../db.js";
+import { db, withTransaction } from "../../db.js";
 import { 
   materialPurchases, supplierPayments, transportationExpenses, 
   workerTransfers, workerMiscExpenses, workerAttendance, projects, workers,
@@ -44,6 +44,26 @@ const DATE_PROP_MAP: Record<string, string> = {
   attendance: "attendanceDate",
   fundTransferOut: "transferDate",
   fundTransferIn: "transferDate",
+};
+
+const SQL_TABLE_MAP: Record<string, string> = {
+  fundTransfers: "fund_transfers",
+  materialPurchases: "material_purchases",
+  supplierPayments: "supplier_payments",
+  transportationExpenses: "transportation_expenses",
+  workerTransfers: "worker_transfers",
+  workerMiscExpenses: "worker_misc_expenses",
+  attendance: "worker_attendance",
+};
+
+const SQL_DATE_COLUMN_MAP: Record<string, string> = {
+  fundTransfers: "transfer_date",
+  materialPurchases: "purchase_date",
+  supplierPayments: "payment_date",
+  transportationExpenses: "date",
+  workerTransfers: "transfer_date",
+  workerMiscExpenses: "date",
+  attendance: "attendance_date",
 };
 
 const TABLE_LABELS: Record<string, string> = {
@@ -585,43 +605,56 @@ router.post("/confirm", requireAdmin, async (req: Request, res: Response) => {
     const movedItems: { table: string; id: string }[] = [];
     const affectedDates = new Set<string>();
 
-    await db.transaction(async (tx: any) => {
+    await withTransaction(async (client) => {
       for (const sel of selections) {
         const isFundTransfer = sel.table === "fundTransferOut" || sel.table === "fundTransferIn";
 
         if (isFundTransfer) {
           try {
             const isOut = sel.table === "fundTransferOut";
-            const ownerCol = isOut ? projectFundTransfers.fromProjectId : projectFundTransfers.toProjectId;
-            const [existing] = await tx.select().from(projectFundTransfers).where(
-              and(eq(projectFundTransfers.id, sel.id), eq(ownerCol, String(sourceProjectId)))
+            const ownerCol = isOut ? "from_project_id" : "to_project_id";
+            const lockResult = await client.query(
+              `SELECT * FROM project_fund_transfers WHERE id = $1 AND ${ownerCol} = $2 FOR UPDATE`,
+              [sel.id, String(sourceProjectId)]
             );
+            const existing = lockResult.rows[0];
             if (!existing) {
               errors.push(`سجل ترحيل أموال غير موجود أو لا ينتمي للمشروع المصدر`);
               continue;
             }
 
-            const postFrom = isOut ? String(targetProjectId) : existing.fromProjectId;
-            const postTo = isOut ? existing.toProjectId : String(targetProjectId);
+            const postFrom = isOut ? String(targetProjectId) : existing.from_project_id;
+            const postTo = isOut ? existing.to_project_id : String(targetProjectId);
             if (postFrom === postTo) {
               errors.push(`تم تخطي سجل: النقل سيُنتج تحويل ذاتي (من/إلى نفس المشروع)`);
               continue;
             }
 
             if (!force) {
-              const postMoveRecord = { ...existing, fromProjectId: postFrom, toProjectId: postTo };
+              const snakeMapped: any = {
+                fromProjectId: existing.from_project_id,
+                toProjectId: existing.to_project_id,
+                amount: existing.amount,
+                description: existing.description,
+                transferDate: existing.transfer_date,
+              };
+              const postMoveRecord = { ...snakeMapped, fromProjectId: postFrom, toProjectId: postTo };
               const postMoveFp = makeFingerprint(sel.table, postMoveRecord);
-              const targetRows = await tx.select().from(projectFundTransfers).where(
-                and(
-                  eq(projectFundTransfers.transferDate, existing.transferDate),
-                  isOut
-                    ? eq(projectFundTransfers.fromProjectId, String(targetProjectId))
-                    : eq(projectFundTransfers.toProjectId, String(targetProjectId))
-                )
+              const dupCheckCol = isOut ? "from_project_id" : "to_project_id";
+              const targetRowsResult = await client.query(
+                `SELECT * FROM project_fund_transfers WHERE transfer_date = $1 AND ${dupCheckCol} = $2`,
+                [existing.transfer_date, String(targetProjectId)]
               );
-              const hasDuplicate = targetRows.some((r: any) => {
+              const hasDuplicate = targetRowsResult.rows.some((r: any) => {
                 if (r.id === sel.id) return false;
-                const fp = makeFingerprint(sel.table, r);
+                const mapped: any = {
+                  fromProjectId: r.from_project_id,
+                  toProjectId: r.to_project_id,
+                  amount: r.amount,
+                  description: r.description,
+                  transferDate: r.transfer_date,
+                };
+                const fp = makeFingerprint(sel.table, mapped);
                 return fp === postMoveFp;
               });
               if (hasDuplicate) {
@@ -630,20 +663,20 @@ router.post("/confirm", requireAdmin, async (req: Request, res: Response) => {
               }
             }
 
-            if (isOut) {
-              await tx.update(projectFundTransfers)
-                .set({ fromProjectId: String(targetProjectId) })
-                .where(and(eq(projectFundTransfers.id, sel.id), eq(projectFundTransfers.fromProjectId, String(sourceProjectId))));
-            } else {
-              await tx.update(projectFundTransfers)
-                .set({ toProjectId: String(targetProjectId) })
-                .where(and(eq(projectFundTransfers.id, sel.id), eq(projectFundTransfers.toProjectId, String(sourceProjectId))));
+            const updateCol = isOut ? "from_project_id" : "to_project_id";
+            const updateResult = await client.query(
+              `UPDATE project_fund_transfers SET ${updateCol} = $1 WHERE id = $2 AND ${ownerCol} = $3`,
+              [String(targetProjectId), sel.id, String(sourceProjectId)]
+            );
+            if (!updateResult.rowCount || updateResult.rowCount === 0) {
+              errors.push(`فشل تحديث سجل ترحيل أموال - تم تعديله بواسطة عملية أخرى`);
+              continue;
             }
 
             movedCount++;
             totalAmountMoved += parseFloat(String(existing.amount || "0"));
             movedItems.push({ table: sel.table, id: sel.id });
-            if (existing.transferDate) affectedDates.add(existing.transferDate);
+            if (existing.transfer_date) affectedDates.add(existing.transfer_date);
           } catch (e: any) {
             console.error(`[RecordTransfer] confirm error for ${sel.table}:`, e.message);
             errors.push(`فشل نقل سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
@@ -651,35 +684,40 @@ router.post("/confirm", requireAdmin, async (req: Request, res: Response) => {
           continue;
         }
 
-        const table = TABLE_MAP[sel.table];
-        const dateColumn = DATE_COLUMN_MAP[sel.table];
-        if (!table || !dateColumn) {
+        const sqlTable = SQL_TABLE_MAP[sel.table];
+        const sqlDateCol = SQL_DATE_COLUMN_MAP[sel.table];
+        if (!sqlTable || !sqlDateCol) {
           errors.push(`جدول غير معروف: ${sel.table}`);
           continue;
         }
         try {
-          const [existing] = await tx.select().from(table).where(
-            and(eq(table.id, sel.id), eq(table.project_id, String(sourceProjectId)))
+          const lockResult = await client.query(
+            `SELECT * FROM ${sqlTable} WHERE id = $1 AND project_id = $2 FOR UPDATE`,
+            [sel.id, String(sourceProjectId)]
           );
+          const existing = lockResult.rows[0];
           if (!existing) {
             errors.push(`سجل غير موجود في ${TABLE_LABELS[sel.table] || sel.table}`);
             continue;
           }
 
           if (!force) {
-            const formatted = formatRecord(sel.table, existing);
-            const dateProp = DATE_PROP_MAP[sel.table];
-            const dateVal = existing[dateProp];
+            const camelRecord = Object.fromEntries(
+              Object.entries(existing).map(([k, v]) => [k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), v])
+            );
+            const formatted = formatRecord(sel.table, camelRecord);
+            const dateVal = existing[sqlDateCol];
 
             if (dateVal) {
-              const targetRows = await tx.select().from(table).where(
-                and(
-                  eq(table.project_id, String(targetProjectId)),
-                  eq(dateColumn, dateVal)
-                )
+              const targetRowsResult = await client.query(
+                `SELECT * FROM ${sqlTable} WHERE project_id = $1 AND ${sqlDateCol} = $2`,
+                [String(targetProjectId), dateVal]
               );
-              const hasDuplicate = targetRows.some((r: any) => {
-                const fp = makeFingerprint(sel.table, r);
+              const hasDuplicate = targetRowsResult.rows.some((r: any) => {
+                const camelR = Object.fromEntries(
+                  Object.entries(r).map(([k, v]) => [k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()), v])
+                );
+                const fp = makeFingerprint(sel.table, camelR);
                 return fp === formatted.fingerprint;
               });
 
@@ -690,16 +728,21 @@ router.post("/confirm", requireAdmin, async (req: Request, res: Response) => {
             }
           }
 
-          await tx.update(table)
-            .set({ project_id: String(targetProjectId) })
-            .where(and(eq(table.id, sel.id), eq(table.project_id, String(sourceProjectId))));
+          const updateResult = await client.query(
+            `UPDATE ${sqlTable} SET project_id = $1 WHERE id = $2 AND project_id = $3`,
+            [String(targetProjectId), sel.id, String(sourceProjectId)]
+          );
+          if (!updateResult.rowCount || updateResult.rowCount === 0) {
+            errors.push(`فشل تحديث سجل - تم تعديله بواسطة عملية أخرى: ${TABLE_LABELS[sel.table] || sel.table}`);
+            continue;
+          }
 
           movedCount++;
-          const amt = parseFloat(existing.amount || existing.totalAmount || existing.totalPay || existing.dailyWage || "0");
+          const amt = parseFloat(existing.amount || existing.total_amount || existing.total_pay || existing.daily_wage || "0");
           totalAmountMoved += amt;
           movedItems.push({ table: sel.table, id: sel.id });
-          const dateProp = DATE_PROP_MAP[sel.table];
-          if (dateProp && existing[dateProp]) affectedDates.add(existing[dateProp]);
+          const dateVal = existing[sqlDateCol];
+          if (dateVal) affectedDates.add(dateVal);
         } catch (e: any) {
           console.error(`[RecordTransfer] confirm error for ${sel.table}:`, e.message);
           errors.push(`فشل نقل سجل من ${TABLE_LABELS[sel.table] || sel.table}`);

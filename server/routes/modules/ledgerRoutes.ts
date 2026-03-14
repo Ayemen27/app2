@@ -132,7 +132,11 @@ ledgerRouter.post('/reconcile/:project_id', async (req: Request, res: Response) 
   try {
     const { project_id } = req.params;
     const accessReq = req as ProjectAccessRequest;
-    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const userRole = accessReq.user?.role || '';
+    const isAdminUser = projectAccessService.isAdmin(userRole);
+    if (!isAdminUser && userRole !== 'editor') {
+      return res.status(403).json({ success: false, message: 'تحتاج صلاحية مسؤول أو محرر لتنفيذ المطابقة' });
+    }
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
     if (!isAdminUser && !accessibleIds.includes(project_id)) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
@@ -220,7 +224,11 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
     const user = getAuthUser(req);
 
     const accessReq = req as ProjectAccessRequest;
-    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const userRole = accessReq.user?.role || '';
+    const isAdminUser = projectAccessService.isAdmin(userRole);
+    if (!isAdminUser && userRole !== 'editor') {
+      return res.status(403).json({ success: false, message: 'تحتاج صلاحية مسؤول أو محرر لعكس القيد' });
+    }
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
 
     const entry = await db.select({ project_id: journalEntries.project_id }).from(journalEntries).where(eq(journalEntries.id, entryId)).limit(1);

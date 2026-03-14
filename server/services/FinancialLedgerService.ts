@@ -9,7 +9,7 @@
  * القراءة والتقارير: ExpenseLedgerService
  */
 
-import { db, pool } from '../db';
+import { db, pool, withTransaction } from '../db';
 import { journalEntries, journalLines, financialAuditLog, reconciliationRecords, summaryInvalidations, projects } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 
@@ -206,30 +206,46 @@ export class FinancialLedgerService {
   }
 
   static async reverseEntry(entryId: string, reason: string, createdBy?: string) {
-    const original = await db.select().from(journalEntries).where(eq(journalEntries.id, entryId)).limit(1);
-    if (!original.length || original[0].status === 'reversed') {
-      throw new Error('القيد غير موجود أو مُعكوس مسبقاً');
-    }
+    return withTransaction(async (client) => {
+      const lockResult = await client.query(
+        `SELECT * FROM journal_entries WHERE id = $1 FOR UPDATE`,
+        [entryId]
+      );
+      const original = lockResult.rows[0];
+      if (!original || original.status === 'reversed') {
+        throw new Error('القيد غير موجود أو مُعكوس مسبقاً');
+      }
 
-    const originalLines = await db.select().from(journalLines).where(eq(journalLines.journalEntryId, entryId));
+      const linesResult = await client.query(
+        `SELECT * FROM journal_lines WHERE journal_entry_id = $1`,
+        [entryId]
+      );
+      const originalLines = linesResult.rows;
 
-    await db.update(journalEntries).set({ status: 'reversed' }).where(eq(journalEntries.id, entryId));
+      const updateResult = await client.query(
+        `UPDATE journal_entries SET status = 'reversed' WHERE id = $1 AND status != 'reversed'`,
+        [entryId]
+      );
+      if (!updateResult.rowCount || updateResult.rowCount === 0) {
+        throw new Error('فشل تحديث حالة القيد - ربما تم عكسه بواسطة عملية أخرى');
+      }
 
-    return this.createJournalEntry({
-      project_id: original[0].project_id || '',
-      entryDate: original[0].entryDate,
-      description: `عكس: ${original[0].description} - السبب: ${reason}`,
-      sourceTable: original[0].sourceTable,
-      sourceId: original[0].sourceId,
-      entryType: 'reversal',
-      reversalOfId: entryId,
-      createdBy,
-      lines: originalLines.map((line: any) => ({
-        accountCode: line.accountCode,
-        debitAmount: Math.round(parseFloat(String(line.creditAmount || '0')) * 100) / 100,
-        creditAmount: Math.round(parseFloat(String(line.debitAmount || '0')) * 100) / 100,
-        description: `عكس: ${line.description || ''}`,
-      }))
+      return this.createJournalEntry({
+        project_id: original.project_id || '',
+        entryDate: original.entry_date,
+        description: `عكس: ${original.description} - السبب: ${reason}`,
+        sourceTable: original.source_table,
+        sourceId: original.source_id,
+        entryType: 'reversal',
+        reversalOfId: entryId,
+        createdBy,
+        lines: originalLines.map((line: any) => ({
+          accountCode: line.account_code,
+          debitAmount: Math.round(parseFloat(String(line.credit_amount || '0')) * 100) / 100,
+          creditAmount: Math.round(parseFloat(String(line.debit_amount || '0')) * 100) / 100,
+          description: `عكس: ${line.description || ''}`,
+        }))
+      });
     });
   }
 

@@ -34,7 +34,7 @@ router.post("/restore", sensitiveOperationsRateLimit, asyncHandler(async (req: R
   }
 }));
 
-router.get("/download/:filename", asyncHandler(async (req: Request, res: Response) => {
+router.get("/download/:filename", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
   const { filename } = req.params;
   const filePath = BackupService.getBackupFilePath(filename);
   
@@ -65,13 +65,13 @@ router.delete("/:filename", sensitiveOperationsRateLimit, asyncHandler(async (re
   }
 }));
 
-router.post("/test-connection", asyncHandler(async (req: Request, res: Response) => {
+router.post("/test-connection", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
   const { target } = req.body;
   const result = await BackupService.testConnection(target);
   res.json(result);
 }));
 
-router.post("/analyze", asyncHandler(async (req: Request, res: Response) => {
+router.post("/analyze", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
   const { target } = req.body;
   const result = await BackupService.analyzeDatabase(target || 'local');
   res.json(result);
@@ -83,7 +83,7 @@ router.get("/databases", asyncHandler(async (_req: Request, res: Response) => {
   res.json({ success: true, data: safeDbs });
 }));
 
-router.get("/logs", asyncHandler(async (_req: Request, res: Response) => {
+router.get("/logs", sensitiveOperationsRateLimit, asyncHandler(async (_req: Request, res: Response) => {
   const result = await BackupService.listBackups();
   if (!result.success) {
     res.status(500).json({ success: false, data: [], message: result.message || 'فشل جلب السجلات' });
@@ -92,7 +92,7 @@ router.get("/logs", asyncHandler(async (_req: Request, res: Response) => {
   res.json({ success: true, data: result.logs || [], total: result.total || 0 });
 }));
 
-router.get("/status", asyncHandler(async (_req: Request, res: Response) => {
+router.get("/status", sensitiveOperationsRateLimit, asyncHandler(async (_req: Request, res: Response) => {
   const status = BackupService.getAutoBackupStatus();
   const storage = await BackupService.getStorageInfo();
   res.json({ success: true, data: { ...status, storage: storage.success ? storage : null } });

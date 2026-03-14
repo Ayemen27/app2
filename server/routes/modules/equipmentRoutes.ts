@@ -1,10 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db.js';
+import { db, withTransaction } from '../../db.js';
 import { equipment, equipmentMovements, projects } from '@shared/schema.js';
 import { eq, and, ilike, sql, desc, inArray, or, isNull } from 'drizzle-orm';
 import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
+
+const VALID_EQUIPMENT_TYPES = ['heavy_machinery', 'light_tool', 'vehicle', 'electrical', 'plumbing', 'safety', 'measuring', 'hand_tool', 'power_tool', 'other'] as const;
+const VALID_EQUIPMENT_STATUSES = ['available', 'assigned', 'maintenance', 'lost', 'consumed'] as const;
+const VALID_EQUIPMENT_CONDITIONS = ['excellent', 'good', 'fair', 'poor', 'damaged'] as const;
 
 const equipmentRouter = Router();
 equipmentRouter.use(requireAuth);
@@ -115,6 +119,16 @@ equipmentRouter.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'اسم المعدة مطلوب' });
     }
 
+    if (type && !VALID_EQUIPMENT_TYPES.includes(type)) {
+      return res.status(400).json({ success: false, message: `نوع المعدة غير صالح. القيم المسموحة: ${VALID_EQUIPMENT_TYPES.join(', ')}` });
+    }
+    if (eqStatus && !VALID_EQUIPMENT_STATUSES.includes(eqStatus)) {
+      return res.status(400).json({ success: false, message: `حالة المعدة غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_STATUSES.join(', ')}` });
+    }
+    if (condition && !VALID_EQUIPMENT_CONDITIONS.includes(condition)) {
+      return res.status(400).json({ success: false, message: `حالة المعدة الفنية غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_CONDITIONS.join(', ')}` });
+    }
+
     const qty = parseInt(quantity) || 1;
     if (qty < 1) {
       return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
@@ -186,6 +200,16 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
 
     const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = req.body;
 
+    if (type !== undefined && type !== null && !VALID_EQUIPMENT_TYPES.includes(type)) {
+      return res.status(400).json({ success: false, message: `نوع المعدة غير صالح. القيم المسموحة: ${VALID_EQUIPMENT_TYPES.join(', ')}` });
+    }
+    if (eqStatus !== undefined && eqStatus !== null && !VALID_EQUIPMENT_STATUSES.includes(eqStatus)) {
+      return res.status(400).json({ success: false, message: `حالة المعدة غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_STATUSES.join(', ')}` });
+    }
+    if (condition !== undefined && condition !== null && !VALID_EQUIPMENT_CONDITIONS.includes(condition)) {
+      return res.status(400).json({ success: false, message: `حالة المعدة الفنية غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_CONDITIONS.join(', ')}` });
+    }
+
     if (!isAdminUser && project_id !== undefined && project_id !== null && project_id !== existing.project_id) {
       const ids = accessReq.accessibleProjectIds ?? [];
       if (!ids.includes(project_id)) {
@@ -253,8 +277,10 @@ equipmentRouter.delete('/:id', async (req: Request, res: Response) => {
       }
     }
 
-    await db.delete(equipmentMovements).where(eq(equipmentMovements.equipmentId, id));
-    await db.delete(equipment).where(eq(equipment.id, id));
+    await withTransaction(async (client) => {
+      await client.query('DELETE FROM equipment_movements WHERE equipment_id = $1', [id]);
+      await client.query('DELETE FROM equipment WHERE id = $1', [id]);
+    });
 
     console.log(`✅ [Equipment] تم حذف معدة: ${existing.name} (ID: ${id})`);
 

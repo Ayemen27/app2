@@ -23,7 +23,7 @@ router.get('/recent-activities', authenticate, attachAccessibleProjects, async (
   console.log('🔍 [API] تم استقبال طلب: GET /api/recent-activities');
   try {
     const { project_id } = req.query;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');

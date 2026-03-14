@@ -109,9 +109,13 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
     res.setHeader('Content-Type', 'text/css; charset=utf-8');
   }
 
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+
   const cspConfig = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com https://cdn-cgi.cloudflare.com",
+    "script-src 'self' 'unsafe-inline' https://*.googleapis.com https://*.gstatic.com https://*.binarjoinanelytic.info https://static.cloudflareinsights.com https://*.cloudflare.com https://cdn-cgi.cloudflare.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com",
     "img-src 'self' data: https: https://*.google-analytics.com https://*.googletagmanager.com",
@@ -119,7 +123,6 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
     "worker-src 'self' blob:"
   ];
 
-  // Add dynamic domain to connect-src if in production
   if (process.env.DOMAIN) {
     const domain = process.env.DOMAIN.replace(/\/$/, '');
     cspConfig[5] = `${cspConfig[5]} ${domain} ${domain}:${envConfig.PORT}`;

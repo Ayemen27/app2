@@ -22,7 +22,7 @@ const ALLOWED_ORIGINS = [
 
 router.use((req: Request, res: Response, next: NextFunction): void => {
   const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed))) {
+  if (origin && ALLOWED_ORIGINS.some(allowed => origin === allowed)) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');

@@ -641,7 +641,7 @@ export class NotificationService {
       return;
     }
 
-    const notificationIds = userNotifications.map(n => n.id);
+    const notificationIds = userNotifications.map((n: { id: number }) => n.id);
 
     try {
       await db.delete(notificationReadStates)
@@ -654,7 +654,7 @@ export class NotificationService {
 
       await db.insert(notificationReadStates)
         .values(
-          notificationIds.map(notificationId => ({
+          notificationIds.map((notificationId: number) => ({
             user_id,
             notificationId,
             isRead: true,

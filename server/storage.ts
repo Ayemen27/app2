@@ -1544,7 +1544,7 @@ export class DatabaseStorage implements IStorage {
       // إذا كان هناك أكثر من ملخص، احذف الأقدم واحتفظ بالأحدث
       if (duplicates.length > 1) {
         const toDelete = duplicates.slice(0, -1);
-        const idsToDelete = toDelete.map(s => s.id);
+        const idsToDelete = toDelete.map((s: { id: number }) => s.id);
         await db.delete(dailyExpenseSummaries)
           .where(inArray(dailyExpenseSummaries.id, idsToDelete));
         console.log(`🗑️ Removed ${toDelete.length} duplicate summaries for ${project_id} on ${date}`);
@@ -2151,13 +2151,13 @@ export class DatabaseStorage implements IStorage {
         .from(workerAttendance)
         .where(and(...projectConditions));
       
-      const projectsList = [];
+      const projectsList: any[] = [];
       let totalEarned = 0;
       let totalPaid = 0;
       let totalTransferred = 0;
       let totalBalance = 0;
       
-      const distinctProjectIds = distinctProjects.map(dp => dp.project_id).filter(Boolean) as string[];
+      const distinctProjectIds = distinctProjects.map((dp: { project_id: string | null }) => dp.project_id).filter(Boolean) as string[];
 
       const [allProjectsData, allAttendanceData, allTransfersData, allBalancesData] = await Promise.all([
         distinctProjectIds.length > 0
@@ -2185,8 +2185,8 @@ export class DatabaseStorage implements IStorage {
           : Promise.resolve([]),
       ]);
 
-      const projectsMapLocal = new Map(allProjectsData.map(p => [p.id, p]));
-      const balancesMap = new Map(allBalancesData.map(b => [b.project_id, b]));
+      const projectsMapLocal = new Map(allProjectsData.map((p: any) => [p.id, p]));
+      const balancesMap = new Map(allBalancesData.map((b: any) => [b.project_id, b]));
 
       for (const { project_id } of distinctProjects) {
         const project = projectsMapLocal.get(project_id);
@@ -2216,7 +2216,7 @@ export class DatabaseStorage implements IStorage {
         totalEarned += projectEarned;
         totalPaid += projectPaid;
         totalTransferred += projectTransferred;
-        totalBalance += balance ? Math.round(Number(balance.currentBalance) * 100) / 100 : 0;
+        totalBalance += balance ? Math.round(Number((balance as any).currentBalance) * 100) / 100 : 0;
       }
       
       return {

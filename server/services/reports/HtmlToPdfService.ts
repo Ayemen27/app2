@@ -65,7 +65,9 @@ export async function closePdfBrowser() {
   if (browserInstance) {
     try {
       await browserInstance.close();
-    } catch {}
+    } catch (err: unknown) {
+      console.warn('[PDF] Browser close error (non-critical):', (err as Error)?.message);
+    }
     browserInstance = null;
   }
 }

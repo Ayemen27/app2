@@ -1,6 +1,9 @@
 {
   "appId": "com.axion.app",
-  "appName": "Axion",
+  "appName": "AXION",
   "webDir": "www",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  }
 }

@@ -1837,7 +1837,9 @@ export class WhatsAppAIService {
           try {
             const data = await reportDataService.getDailyReport(context.data.projectId!, d);
             if (data) allReports.push(data);
-          } catch {}
+          } catch (err: unknown) {
+            console.warn(`[WhatsAppAI] Failed to fetch daily report for ${d}:`, (err as Error)?.message);
+          }
         }
         if (format === 'xlsx') {
           fileBuffer = await generateDailyRangeExcel(allReports);

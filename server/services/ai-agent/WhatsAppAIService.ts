@@ -42,7 +42,8 @@ export interface WhatsAppContext {
   step: 'idle' | 'awaiting_project' | 'awaiting_days' | 'awaiting_type'
     | 'expense_awaiting_project_summary'
     | 'export_awaiting_project' | 'export_awaiting_worker' | 'export_awaiting_date'
-    | 'export_awaiting_date_range' | 'export_awaiting_format' | 'export_awaiting_projects_select';
+    | 'export_awaiting_date_range' | 'export_awaiting_format' | 'export_awaiting_projects_select'
+    | 'export_awaiting_worker_project';
   userId: string;
   userName: string;
   menuStack: string[];
@@ -63,11 +64,37 @@ export interface WhatsAppContext {
     exportProjectIds?: string[];
     exportProjectNames?: string[];
     availableWorkers?: { id: string; name: string }[];
+    workerProjects?: { id: string; name: string }[];
+    requestedFormat?: string;
+    securityProjectIds?: string[];
+    securityIsAdmin?: boolean;
   };
 }
 
 function textReply(body: string): BotReply {
   return { type: 'text', body };
+}
+
+function normalizeArabic(text: string): string {
+  return text
+    .replace(/ة/g, 'ه')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .replace(/\u0640/g, '')
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .trim();
+}
+
+function buildArabicSearchVariants(name: string): string[] {
+  const normalized = normalizeArabic(name);
+  const variants = new Set<string>();
+  variants.add(name);
+  variants.add(normalized);
+  variants.add(name.replace(/ه/g, 'ة'));
+  variants.add(normalized.replace(/ه/g, 'ة'));
+  return [...variants].filter(v => v.length >= 2);
 }
 
 function nav(body: string): string {
@@ -258,13 +285,30 @@ export class WhatsAppAIService {
     return buildWelcomeReply(userName);
   }
 
+  private extractExportFormat(input: string): string | null {
+    const lower = input.toLowerCase();
+    const hasExcel = /(?:اكسل|excel|xlsx)/i.test(lower);
+    const hasPdf = /(?:pdf|بي دي اف)/i.test(lower);
+    if (hasExcel && hasPdf) return 'both';
+    if (hasExcel) return 'xlsx';
+    if (hasPdf) return 'pdf';
+    return null;
+  }
+
+  private extractWorkerNameFromExport(input: string): string | null {
+    const match = input.match(/(?:تصدير|صدر|ابي|ارسل)\s*(?:كشف\s*(?:حساب)?|تقرير)\s*(?:العامل|عامل|لـ?لعامل)?\s+([\u0600-\u06FF][\u0600-\u06FF\s]+)/i);
+    if (!match) return null;
+    const excludeWords = ['يومي', 'شامل', 'عام', 'فترة', 'ختامي', 'المشاريع', 'مشاريع', 'المصروفات', 'مصروفات', 'بيانات', 'ملف'];
+    let name = match[1].trim()
+      .replace(/\s*(?:ال[يى]|الى|إلى|في|ب|ك|بصيغة)?\s*(?:ملف\s*)?(?:اكسل|excel|xlsx|pdf|بي دي اف).*$/i, '')
+      .replace(/\s*(?:الى|إلى|ال[يى]|و)\s*$/i, '')
+      .trim();
+    if (name.length >= 2 && !excludeWords.includes(name)) return name;
+    return null;
+  }
+
   private detectIntent(input: string): { type: string; params?: Record<string, string> } | null {
     const lower = input.trim().toLowerCase();
-
-    const greetings = ['السلام عليكم', 'سلام', 'مرحبا', 'مرحبًا', 'هلا', 'الو', 'اهلا', 'أهلا', 'هاي', 'hi', 'hello', 'hey'];
-    if (greetings.some(g => lower.includes(g))) {
-      return { type: 'greeting' };
-    }
 
     const expenseMatch = input.match(/(\d+)\s*(?:مصاريف|مصروف|ريال)\s+(.+)/i);
     if (expenseMatch) {
@@ -291,15 +335,12 @@ export class WhatsAppAIService {
       return { type: 'expense_summary' };
     }
 
-    const workerExportMatch = input.match(/(?:تصدير|صدر|ابي|ارسل)\s*(?:كشف\s*(?:حساب)?|تقرير)\s*(?:العامل|عامل|لـ?لعامل)?\s+([\u0600-\u06FF][\u0600-\u06FF\s]+)/i);
-    if (workerExportMatch) {
-      const excludeWords = ['يومي', 'شامل', 'عام', 'فترة', 'ختامي', 'المشاريع', 'مشاريع', 'المصروفات', 'مصروفات', 'بيانات', 'ملف'];
-      let workerName = workerExportMatch[1].trim()
-        .replace(/\s*(?:ال[يى]|الى|إلى|في|ب|ك)?\s*(?:ملف\s*)?(?:اكسل|excel|xlsx|pdf|بي دي اف|و\s*ملف).*$/i, '')
-        .trim();
-      if (workerName.length >= 2 && !excludeWords.includes(workerName)) {
-        return { type: 'export_worker_direct', params: { workerName } };
-      }
+    const workerName = this.extractWorkerNameFromExport(input);
+    if (workerName) {
+      const format = this.extractExportFormat(input);
+      const params: Record<string, string> = { workerName };
+      if (format) params.format = format;
+      return { type: 'export_worker_direct', params };
     }
 
     if (/(?:تصدير|صدر|ابي|ارسل)\s*(?:كشف|تقرير|ملف|بيانات)/i.test(lower) ||
@@ -313,6 +354,11 @@ export class WhatsAppAIService {
 
     if (/(?:مساعدة|مساعده|أوامر|كيف.*استخدم)/i.test(lower)) {
       return { type: 'help' };
+    }
+
+    const greetings = ['السلام عليكم', 'سلام', 'مرحبا', 'مرحبًا', 'هلا', 'الو', 'اهلا', 'أهلا', 'هاي', 'hi', 'hello', 'hey'];
+    if (greetings.some(g => lower.includes(g))) {
+      return { type: 'greeting' };
     }
 
     return null;
@@ -366,7 +412,7 @@ export class WhatsAppAIService {
         if (!securityContext.canRead) {
           return textReply(nav(`❌ ليس لديك صلاحية تصدير البيانات.`));
         }
-        return this.handleDirectWorkerExport(intent.params!.workerName, context, senderPhone, userName, userProjectIds);
+        return this.handleDirectWorkerExport(intent.params!.workerName, intent.params?.format || null, context, senderPhone, userName, userProjectIds, isAdmin);
 
       case 'export':
         if (!securityContext.canRead) {
@@ -530,7 +576,7 @@ export class WhatsAppAIService {
       if (!securityContext.canRead) {
         return textReply(nav(`❌ ليس لديك صلاحية تصدير البيانات.`));
       }
-      return this.startExportFlow(actionId, context, senderPhone, userName, userProjectIds);
+      return this.startExportFlow(actionId, context, senderPhone, userName, userProjectIds, securityContext.isAdmin);
     }
 
     if (actionId === 'help_commands') {
@@ -750,14 +796,23 @@ export class WhatsAppAIService {
 
   private async handleDirectWorkerExport(
     workerName: string,
+    requestedFormat: string | null,
     context: WhatsAppContext,
     senderPhone: string,
     userName: string,
-    userProjectIds: string[]
+    userProjectIds: string[],
+    isAdmin: boolean
   ): Promise<BotReply> {
     try {
-      let workerConditions: any[] = [eq(workers.is_active, true)];
-      let matchedWorkers: { id: string; name: string }[];
+      if (!isAdmin && (!userProjectIds || userProjectIds.length === 0)) {
+        return textReply(nav(`❌ ليس لديك صلاحية الوصول لأي مشروع.`));
+      }
+
+      context.data.securityProjectIds = userProjectIds;
+      context.data.securityIsAdmin = isAdmin;
+
+      const searchVariants = buildArabicSearchVariants(workerName);
+      let matchedWorkers: { id: string; name: string }[] = [];
 
       if (userProjectIds && userProjectIds.length > 0) {
         const attendanceWorkers = await db.selectDistinct({ workerId: workerAttendance.worker_id })
@@ -767,15 +822,25 @@ export class WhatsAppAIService {
         if (scopedWorkerIds.length === 0) {
           return textReply(nav(`❌ لا يوجد عمال مسجلون في مشاريعك.`));
         }
-        matchedWorkers = await db.select({ id: workers.id, name: workers.name })
-          .from(workers)
-          .where(and(eq(workers.is_active, true), inArray(workers.id, scopedWorkerIds), ilike(workers.name, `%${workerName}%`)))
-          .limit(10);
+        for (const variant of searchVariants) {
+          const found = await db.select({ id: workers.id, name: workers.name })
+            .from(workers)
+            .where(and(eq(workers.is_active, true), inArray(workers.id, scopedWorkerIds), ilike(workers.name, `%${variant}%`)))
+            .limit(10);
+          for (const w of found) {
+            if (!matchedWorkers.some(m => m.id === w.id)) matchedWorkers.push(w);
+          }
+        }
       } else {
-        matchedWorkers = await db.select({ id: workers.id, name: workers.name })
-          .from(workers)
-          .where(and(eq(workers.is_active, true), ilike(workers.name, `%${workerName}%`)))
-          .limit(10);
+        for (const variant of searchVariants) {
+          const found = await db.select({ id: workers.id, name: workers.name })
+            .from(workers)
+            .where(and(eq(workers.is_active, true), ilike(workers.name, `%${variant}%`)))
+            .limit(10);
+          for (const w of found) {
+            if (!matchedWorkers.some(m => m.id === w.id)) matchedWorkers.push(w);
+          }
+        }
       }
 
       if (matchedWorkers.length === 0) {
@@ -786,20 +851,14 @@ export class WhatsAppAIService {
         context.data.exportType = 'worker';
         context.data.workerId = matchedWorkers[0].id;
         context.data.workerName = matchedWorkers[0].name;
-        context.step = 'export_awaiting_format';
-        this.sessions.set(senderPhone, context);
+        if (requestedFormat) context.data.requestedFormat = requestedFormat;
 
-        return textReply([
-          `✅ *${matchedWorkers[0].name}*`,
-          ``,
-          `اختر صيغة الملف:`,
-          `*1.* Excel`,
-          `*2.* PDF`,
-        ].join('\n'));
+        return this.checkWorkerProjectsAndProceed(context, senderPhone, userName, userProjectIds);
       }
 
       context.data.exportType = 'worker';
       context.data.availableWorkers = matchedWorkers;
+      if (requestedFormat) context.data.requestedFormat = requestedFormat;
       context.step = 'export_awaiting_worker';
       this.sessions.set(senderPhone, context);
 
@@ -817,15 +876,156 @@ export class WhatsAppAIService {
     }
   }
 
-  private async startExportFlow(
-    actionId: string,
+  private async checkWorkerProjectsAndProceed(
     context: WhatsAppContext,
     senderPhone: string,
     userName: string,
     userProjectIds: string[]
   ): Promise<BotReply> {
+    const workerId = context.data.workerId!;
+    const workerName = context.data.workerName!;
+
+    try {
+      const { inArray } = await import("drizzle-orm");
+      const isAdmin = context.data.securityIsAdmin || false;
+
+      const attendanceFilter: any[] = [eq(workerAttendance.worker_id, workerId)];
+      if (!isAdmin && userProjectIds.length > 0) {
+        attendanceFilter.push(inArray(workerAttendance.project_id, userProjectIds));
+      } else if (!isAdmin) {
+        this.sessions.delete(senderPhone);
+        return textReply(nav(`❌ ليس لديك صلاحية الوصول لأي مشروع.`));
+      }
+
+      const attendanceRows = await db.selectDistinct({ projectId: workerAttendance.project_id })
+        .from(workerAttendance)
+        .where(and(...attendanceFilter));
+
+      const projectIds = attendanceRows.map((r: any) => r.projectId);
+
+      if (projectIds.length === 0) {
+        this.sessions.delete(senderPhone);
+        return textReply(nav(`❌ لا توجد بيانات لـ *${workerName}* في مشاريعك.`));
+      }
+
+      if (projectIds.length === 1) {
+        context.data.projectId = projectIds[0];
+        const proj = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, projectIds[0])).limit(1);
+        context.data.projectName = proj[0]?.name || '';
+        return this.proceedWithFormatOrExport(context, senderPhone, userName);
+      }
+
+      const projectRows = await db.select({ id: projects.id, name: projects.name })
+        .from(projects)
+        .where(inArray(projects.id, projectIds));
+
+      context.data.workerProjects = projectRows;
+      context.step = 'export_awaiting_worker_project';
+      this.sessions.set(senderPhone, context);
+
+      const projectList = projectRows.map((p: any, i: number) => `*${i + 1}.* ${p.name}`).join('\n');
+      return textReply([
+        `📋 *${workerName}* يعمل في ${projectRows.length} مشاريع:`,
+        ``,
+        projectList,
+        `*${projectRows.length + 1}.* 📊 جميع المشاريع`,
+        ``,
+        `اختر رقم المشروع:`,
+      ].join('\n'));
+    } catch (error: any) {
+      console.error('[WhatsAppAI] Error checking worker projects:', error);
+      return this.proceedWithFormatOrExport(context, senderPhone, userName);
+    }
+  }
+
+  private async proceedWithFormatOrExport(
+    context: WhatsAppContext,
+    senderPhone: string,
+    userName: string
+  ): Promise<BotReply> {
+    const requestedFormat = context.data.requestedFormat;
+
+    if (requestedFormat === 'both') {
+      return this.executeWorkerExport(context, 'both', senderPhone, userName);
+    }
+
+    if (requestedFormat === 'xlsx' || requestedFormat === 'pdf') {
+      return this.generateAndSendExport(context, requestedFormat, senderPhone, userName);
+    }
+
+    context.step = 'export_awaiting_format';
+    this.sessions.set(senderPhone, context);
+    return textReply([
+      `✅ *${context.data.workerName}*` + (context.data.projectName ? ` - ${context.data.projectName}` : ''),
+      ``,
+      `اختر صيغة الملف:`,
+      `*1.* Excel`,
+      `*2.* PDF`,
+    ].join('\n'));
+  }
+
+  private async executeWorkerExport(
+    context: WhatsAppContext,
+    format: 'both',
+    senderPhone: string,
+    userName: string
+  ): Promise<BotReply> {
+    const { workerId, workerName, projectId } = context.data;
+    this.sessions.delete(senderPhone);
+
+    try {
+      const opts: any = {};
+      if (projectId && projectId !== 'all') opts.projectId = projectId;
+      opts.accessibleProjectIds = context.data.securityProjectIds || [];
+      opts.isAdmin = context.data.securityIsAdmin || false;
+      const data = await reportDataService.getWorkerStatement(workerId!, opts);
+      const jid = senderPhone.includes('@') ? senderPhone : `${senderPhone}@s.whatsapp.net`;
+      const { getWhatsAppBot } = await import('./WhatsAppBot');
+      const bot = getWhatsAppBot();
+
+      const excelBuffer = await generateWorkerStatementExcel(data);
+      await bot.sendMessageSafe(jid, {
+        document: Buffer.from(excelBuffer),
+        mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        fileName: `كشف-عامل-${workerName}.xlsx`,
+      });
+
+      const htmlContent = generateWorkerStatementHTML(data);
+      try {
+        const pdfBuffer = await convertHtmlToPdf(htmlContent);
+        await bot.sendMessageSafe(jid, {
+          document: pdfBuffer,
+          mimetype: 'application/pdf',
+          fileName: `كشف-عامل-${workerName}.pdf`,
+        });
+      } catch {
+        await bot.sendMessageSafe(jid, {
+          document: Buffer.from(htmlContent, 'utf-8'),
+          mimetype: 'text/html',
+          fileName: `كشف-عامل-${workerName}.html`,
+        });
+      }
+
+      const projLabel = context.data.projectName ? ` (${context.data.projectName})` : '';
+      return buildTextWithMenu('تم', `✅ تم إرسال كشف حساب *${workerName}*${projLabel} بصيغتي Excel و PDF`, 'main');
+    } catch (err: any) {
+      console.error('[WhatsAppAI] Worker export error:', err);
+      return textReply(nav(`❌ خطأ: ${err.message}`));
+    }
+  }
+
+  private async startExportFlow(
+    actionId: string,
+    context: WhatsAppContext,
+    senderPhone: string,
+    userName: string,
+    userProjectIds: string[],
+    isAdmin: boolean = false
+  ): Promise<BotReply> {
     const exportType = actionId.replace('export_', '');
     context.data.exportType = exportType;
+    context.data.securityProjectIds = userProjectIds;
+    context.data.securityIsAdmin = isAdmin;
 
     if (exportType === 'worker') {
       let allWorkers: { id: string; name: string }[] = [];
@@ -1006,15 +1206,43 @@ export class WhatsAppAIService {
 
       context.data.workerId = selectedWorker.id;
       context.data.workerName = selectedWorker.name;
-      context.step = 'export_awaiting_format';
-      this.sessions.set(senderPhone, context);
 
-      return textReply([
-        `✅ *${selectedWorker.name}*`,
-        ``,
-        `صيغة الملف:`,
-        `*1.* Excel | *2.* PDF`,
-      ].join('\n'));
+      return this.checkWorkerProjectsAndProceed(context, senderPhone, userName, userProjectIds);
+    }
+
+    if (step === 'export_awaiting_worker_project') {
+      const workerProjects = context.data.workerProjects || [];
+      const allIndex = workerProjects.length + 1;
+
+      const indexMatch = input.match(/^(\d+)$/);
+      if (indexMatch) {
+        const idx = parseInt(indexMatch[1]);
+        if (idx === allIndex || input === 'الكل' || input === 'جميع' || input.includes('جميع المشاريع')) {
+          context.data.projectId = 'all';
+          context.data.projectName = 'جميع المشاريع';
+          return this.proceedWithFormatOrExport(context, senderPhone, userName);
+        }
+        if (idx >= 1 && idx <= workerProjects.length) {
+          context.data.projectId = workerProjects[idx - 1].id;
+          context.data.projectName = workerProjects[idx - 1].name;
+          return this.proceedWithFormatOrExport(context, senderPhone, userName);
+        }
+      }
+
+      if (input === 'الكل' || input === 'جميع' || input.includes('جميع المشاريع')) {
+        context.data.projectId = 'all';
+        context.data.projectName = 'جميع المشاريع';
+        return this.proceedWithFormatOrExport(context, senderPhone, userName);
+      }
+
+      const foundProject = workerProjects.find(p => p.name.includes(input));
+      if (foundProject) {
+        context.data.projectId = foundProject.id;
+        context.data.projectName = foundProject.name;
+        return this.proceedWithFormatOrExport(context, senderPhone, userName);
+      }
+
+      return textReply(nav(`❌ أرسل رقم المشروع أو *${allIndex}* لجميع المشاريع.`));
     }
 
     if (step === 'export_awaiting_projects_select') {
@@ -1167,13 +1395,20 @@ export class WhatsAppAIService {
           fileName = `${baseName}-${context.data.exportDate}.html`;
         }
       } else if (exportType === 'worker') {
-        const data = await reportDataService.getWorkerStatement(context.data.workerId!, {});
+        const workerOpts: any = {};
+        if (context.data.projectId && context.data.projectId !== 'all') {
+          workerOpts.projectId = context.data.projectId;
+        }
+        workerOpts.accessibleProjectIds = context.data.securityProjectIds || [];
+        workerOpts.isAdmin = context.data.securityIsAdmin || false;
+        const data = await reportDataService.getWorkerStatement(context.data.workerId!, workerOpts);
+        const projSuffix = context.data.projectName && context.data.projectName !== 'جميع المشاريع' ? `-${context.data.projectName}` : '';
         if (format === 'xlsx') {
           fileBuffer = await generateWorkerStatementExcel(data);
-          fileName = `${baseName}-${context.data.workerName || ''}.xlsx`;
+          fileName = `${baseName}-${context.data.workerName || ''}${projSuffix}.xlsx`;
         } else {
           htmlContent = generateWorkerStatementHTML(data);
-          fileName = `${baseName}-${context.data.workerName || ''}.html`;
+          fileName = `${baseName}-${context.data.workerName || ''}${projSuffix}.html`;
         }
       } else if (exportType === 'period') {
         const data = await reportDataService.getPeriodFinalReport(

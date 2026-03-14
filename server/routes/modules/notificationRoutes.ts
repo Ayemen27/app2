@@ -341,7 +341,7 @@ notificationRouter.post('/mark-all-read', async (req: Request, res: Response) =>
  * 📊 جلب إحصائيات الإشعارات (للمسؤولين)
  * GET /api/admin/notifications/stats
  */
-notificationRouter.get('/stats', async (req: Request, res: Response) => {
+notificationRouter.get('/stats', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
@@ -371,7 +371,7 @@ notificationRouter.get('/stats', async (req: Request, res: Response) => {
   }
 });
 
-notificationRouter.get('/monitoring/stats', async (req: Request, res: Response) => {
+notificationRouter.get('/monitoring/stats', requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { NotificationService } = await import('../../services/NotificationService');
     const notificationService = new NotificationService();
@@ -454,6 +454,13 @@ notificationRouter.post('/:type', async (req: Request, res: Response) => {
   if (!validTypes.includes(type)) {
     return res.status(400).json({ error: 'Invalid notification type' });
   }
+  
+  if (type === 'announcement') {
+    const user = getAuthUser(req);
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+      return res.status(403).json({ success: false, message: 'تحتاج صلاحيات المسؤول لإنشاء الإعلانات' });
+    }
+  }
   const startTime = Date.now();
   try {
     const { NotificationService } = await import('../../services/NotificationService.js');
@@ -506,7 +513,14 @@ notificationRouter.post('/', async (req: Request, res: Response) => {
     const user_id = getAuthUser(req)?.user_id || "unknown";
     const { type, title, body, priority, recipients, project_id } = req.body;
 
-  const finalType = type || 'announcement';
+  const finalType = type || 'system';
+
+    if (finalType === 'announcement') {
+      const user = getAuthUser(req);
+      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+        return res.status(403).json({ success: false, message: 'تحتاج صلاحيات المسؤول لإنشاء الإعلانات' });
+      }
+    }
 
     console.log(`📝 [API] إنشاء إشعار جديد (${finalType}) عبر المسار الرئيسي من المستخدم: ${user_id}`);
 

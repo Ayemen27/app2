@@ -210,4 +210,35 @@ export class WhatsAppSecurityContext {
       "view"
     );
   }
+
+  async canPerformAction(action: 'read' | 'add' | 'edit' | 'delete', projectId?: string): Promise<boolean> {
+    switch (action) {
+      case 'read':
+        if (!this.canRead) return false;
+        if (projectId) return this.canReadProject(projectId);
+        return true;
+      case 'add':
+        if (!this.canAdd) return false;
+        if (projectId) return this.canAddToProject(projectId);
+        return true;
+      case 'edit':
+        if (!this.canEdit) return false;
+        if (this.isAdmin) return true;
+        if (!this.userId) return false;
+        if (projectId) {
+          return projectAccessService.checkProjectAccess(this.userId, this.role, projectId, "edit");
+        }
+        return true;
+      case 'delete':
+        if (!this.canDelete) return false;
+        if (this.isAdmin) return true;
+        if (!this.userId) return false;
+        if (projectId) {
+          return projectAccessService.checkProjectAccess(this.userId, this.role, projectId, "delete");
+        }
+        return true;
+      default:
+        return false;
+    }
+  }
 }

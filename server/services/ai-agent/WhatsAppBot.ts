@@ -371,6 +371,30 @@ export class WhatsAppBot {
 
     this.sock.ev.on('creds.update', saveCreds);
 
+    this.sock.ws.on('error', (err: Error) => {
+      console.error('[WhatsAppBot] WebSocket error (non-fatal):', err.message);
+    });
+
+    process.removeAllListeners('uncaughtException');
+    process.on('uncaughtException', (err: Error) => {
+      if (err.message?.includes('Unsupported state or unable to authenticate data') ||
+          err.message?.includes('aesDecrypt') ||
+          err.stack?.includes('noise-handler') ||
+          err.stack?.includes('@whiskeysockets/baileys')) {
+        console.error('[WhatsAppBot] Baileys crypto error caught (non-fatal), will reconnect:', err.message);
+        this.status = 'close';
+        this.lastError = 'خطأ تشفير مؤقت - جاري إعادة الاتصال';
+        if (this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          this.reconnectAttempts++;
+          const delay = Math.min(RECONNECT_BASE_DELAY * Math.pow(1.5, this.reconnectAttempts - 1), MAX_RECONNECT_DELAY);
+          this.reconnectTimer = setTimeout(() => this.start(), delay);
+        }
+        return;
+      }
+      console.error('[FATAL] Uncaught exception (not Baileys):', err);
+      process.exit(1);
+    });
+
     this.sock.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
       const { connection, lastDisconnect, qr } = update;
       

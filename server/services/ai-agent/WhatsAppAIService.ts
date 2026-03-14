@@ -517,7 +517,7 @@ export class WhatsAppAIService {
         return this.showTopWorker(userProjectIds, securityContext);
 
       case 'export_worker_direct':
-        return this.handleDirectWorkerExport(intent.params!.workerName, intent.params?.format || null, context, senderPhone, userName, userProjectIds, isAdmin);
+        return this.handleDirectWorkerExport(intent.params!.workerName, intent.params?.format || null, context, senderPhone, userName, userProjectIds, isAdmin, securityContext);
 
       case 'export':
         context.menuStack.push(context.currentMenu);
@@ -1211,7 +1211,8 @@ export class WhatsAppAIService {
     senderPhone: string,
     userName: string,
     userProjectIds: string[],
-    isAdmin: boolean
+    isAdmin: boolean,
+    securityContext?: WhatsAppSecurityContext
   ): Promise<BotReply> {
     try {
       if (!isAdmin && (!userProjectIds || userProjectIds.length === 0)) {
@@ -1233,7 +1234,7 @@ export class WhatsAppAIService {
         context.data.workerName = matchedWorkers[0].name;
         if (requestedFormat) context.data.requestedFormat = requestedFormat;
 
-        return this.checkWorkerProjectsAndProceed(context, senderPhone, userName, userProjectIds);
+        return this.checkWorkerProjectsAndProceed(context, senderPhone, userName, userProjectIds, securityContext);
       }
 
       context.data.exportType = 'worker';
@@ -1260,7 +1261,8 @@ export class WhatsAppAIService {
     context: WhatsAppContext,
     senderPhone: string,
     userName: string,
-    userProjectIds: string[]
+    userProjectIds: string[],
+    securityContext?: WhatsAppSecurityContext
   ): Promise<BotReply> {
     const workerId = context.data.workerId!;
     const workerName = context.data.workerName!;
@@ -1292,7 +1294,7 @@ export class WhatsAppAIService {
         context.data.projectId = projectIds[0];
         const proj = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, projectIds[0])).limit(1);
         context.data.projectName = proj[0]?.name || '';
-        return this.proceedWithFormatOrExport(context, senderPhone, userName);
+        return this.proceedWithFormatOrExport(context, senderPhone, userName, securityContext);
       }
 
       const projectRows = await db.select({ id: projects.id, name: projects.name })
@@ -1314,23 +1316,24 @@ export class WhatsAppAIService {
       ].join('\n'));
     } catch (error: any) {
       console.error('[WhatsAppAI] Error checking worker projects:', error);
-      return this.proceedWithFormatOrExport(context, senderPhone, userName);
+      return this.proceedWithFormatOrExport(context, senderPhone, userName, securityContext);
     }
   }
 
   private async proceedWithFormatOrExport(
     context: WhatsAppContext,
     senderPhone: string,
-    userName: string
+    userName: string,
+    securityContext?: WhatsAppSecurityContext
   ): Promise<BotReply> {
     const requestedFormat = context.data.requestedFormat;
 
     if (requestedFormat === 'both') {
-      return this.executeWorkerExport(context, 'both', senderPhone, userName);
+      return this.executeWorkerExport(context, 'both', senderPhone, userName, securityContext);
     }
 
     if (requestedFormat === 'xlsx' || requestedFormat === 'pdf') {
-      return this.generateAndSendExport(context, requestedFormat, senderPhone, userName);
+      return this.generateAndSendExport(context, requestedFormat, senderPhone, userName, securityContext);
     }
 
     context.step = 'export_awaiting_format';
@@ -1348,7 +1351,8 @@ export class WhatsAppAIService {
     context: WhatsAppContext,
     format: 'both',
     senderPhone: string,
-    userName: string
+    userName: string,
+    securityContext?: WhatsAppSecurityContext
   ): Promise<BotReply> {
     const { workerId, workerName, projectId } = context.data;
     this.sessions.delete(senderPhone);
@@ -1391,6 +1395,10 @@ export class WhatsAppAIService {
 
       const projLabel = context.data.projectName ? ` (${context.data.projectName})` : '';
       const formatLabel = pdfSent ? 'Excel و PDF' : 'Excel و HTML';
+      if (securityContext) {
+        const expSuggestions = buildSuggestions({ lastAction: 'export_done', workerName: workerName || undefined, security: securityContext, hasProjects: true, hasWorkers: true });
+        return textReply(nav(`✅ تم إرسال كشف حساب *${workerName}*${projLabel} بصيغتي ${formatLabel}` + expSuggestions));
+      }
       return buildTextWithMenu('تم', `✅ تم إرسال كشف حساب *${workerName}*${projLabel} بصيغتي ${formatLabel}`, 'main');
     } catch (err: any) {
       console.error('[WhatsAppAI] Worker export error:', err);
@@ -1592,7 +1600,7 @@ export class WhatsAppAIService {
       context.data.workerId = selectedWorker.id;
       context.data.workerName = selectedWorker.name;
 
-      return this.checkWorkerProjectsAndProceed(context, senderPhone, userName, userProjectIds);
+      return this.checkWorkerProjectsAndProceed(context, senderPhone, userName, userProjectIds, securityContext);
     }
 
     if (step === 'export_awaiting_worker_project') {
@@ -1605,26 +1613,26 @@ export class WhatsAppAIService {
         if (idx === allIndex || input === 'الكل' || input === 'جميع' || input.includes('جميع المشاريع')) {
           context.data.projectId = 'all';
           context.data.projectName = 'جميع المشاريع';
-          return this.proceedWithFormatOrExport(context, senderPhone, userName);
+          return this.proceedWithFormatOrExport(context, senderPhone, userName, securityContext);
         }
         if (idx >= 1 && idx <= workerProjects.length) {
           context.data.projectId = workerProjects[idx - 1].id;
           context.data.projectName = workerProjects[idx - 1].name;
-          return this.proceedWithFormatOrExport(context, senderPhone, userName);
+          return this.proceedWithFormatOrExport(context, senderPhone, userName, securityContext);
         }
       }
 
       if (input === 'الكل' || input === 'جميع' || input.includes('جميع المشاريع')) {
         context.data.projectId = 'all';
         context.data.projectName = 'جميع المشاريع';
-        return this.proceedWithFormatOrExport(context, senderPhone, userName);
+        return this.proceedWithFormatOrExport(context, senderPhone, userName, securityContext);
       }
 
       const foundProject = workerProjects.find(p => p.name.includes(input));
       if (foundProject) {
         context.data.projectId = foundProject.id;
         context.data.projectName = foundProject.name;
-        return this.proceedWithFormatOrExport(context, senderPhone, userName);
+        return this.proceedWithFormatOrExport(context, senderPhone, userName, securityContext);
       }
 
       return textReply(nav(`❌ أرسل رقم المشروع أو *${allIndex}* لجميع المشاريع.`));
@@ -2045,7 +2053,7 @@ export class WhatsAppAIService {
     }
   }
 
-  private async showProjectsList(userProjectIds: string[], _securityContext?: WhatsAppSecurityContext): Promise<BotReply> {
+  private async showProjectsList(userProjectIds: string[], securityContext: WhatsAppSecurityContext): Promise<BotReply> {
     if (userProjectIds.length === 0) {
       return textReply(nav('📂 لا توجد مشاريع.'));
     }
@@ -2059,14 +2067,11 @@ export class WhatsAppAIService {
       status: p.status || 'active',
       id: p.id,
     })));
-    if (_securityContext) {
-      const listSuggestions = buildSuggestions({ lastAction: 'projects_list', security: _securityContext, hasProjects: userProjectIds.length > 0, hasWorkers: true });
-      return textReply(nav(baseText + listSuggestions));
-    }
-    return textReply(nav(baseText));
+    const listSuggestions = buildSuggestions({ lastAction: 'projects_list', security: securityContext, hasProjects: userProjectIds.length > 0, hasWorkers: true });
+    return textReply(nav(baseText + listSuggestions));
   }
 
-  private async showProjectsStatus(userProjectIds: string[], _securityContext?: WhatsAppSecurityContext): Promise<BotReply> {
+  private async showProjectsStatus(userProjectIds: string[], securityContext: WhatsAppSecurityContext): Promise<BotReply> {
     if (userProjectIds.length === 0) {
       return textReply(nav('📊 لا توجد مشاريع.'));
     }
@@ -2131,7 +2136,7 @@ export class WhatsAppAIService {
 
     lines.push(``);
     lines.push(`*الإجمالي:* 📥 ${totalFunds.toLocaleString()} | 📤 ${totalExpenses.toLocaleString()} | 💵 ${(totalFunds - totalExpenses).toLocaleString()} | 👷 ${totalWorkers}`);
-    const projStatusSuggestions = buildSuggestions({ lastAction: 'projects_status', security: _securityContext!, hasProjects: userProjectIds.length > 0, hasWorkers: totalWorkers > 0 });
+    const projStatusSuggestions = buildSuggestions({ lastAction: 'projects_status', security: securityContext, hasProjects: userProjectIds.length > 0, hasWorkers: totalWorkers > 0 });
     return textReply(nav(lines.join('\n') + projStatusSuggestions));
   }
 

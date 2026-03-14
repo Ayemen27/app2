@@ -2151,7 +2151,12 @@ export class DatabaseStorage implements IStorage {
         .from(workerAttendance)
         .where(and(...projectConditions));
       
-      const projectsList: any[] = [];
+      const projectsList: Array<{
+        project: Project;
+        attendance: WorkerAttendance[];
+        balance: WorkerBalance | null;
+        transfers: WorkerTransfer[];
+      }> = [];
       let totalEarned = 0;
       let totalPaid = 0;
       let totalTransferred = 0;
@@ -2159,50 +2164,49 @@ export class DatabaseStorage implements IStorage {
       
       const distinctProjectIds = distinctProjects.map((dp: { project_id: string | null }) => dp.project_id).filter(Boolean) as string[];
 
-      const [allProjectsData, allAttendanceData, allTransfersData, allBalancesData] = await Promise.all([
-        distinctProjectIds.length > 0
-          ? db.select().from(projects).where(inArray(projects.id, distinctProjectIds))
-          : Promise.resolve([]),
-        (() => {
-          let conditions: any[] = [eq(workerAttendance.worker_id, worker_id)];
-          if (distinctProjectIds.length > 0) conditions.push(inArray(workerAttendance.project_id, distinctProjectIds));
-          if (dateFrom) conditions.push(gte(workerAttendance.date, dateFrom));
-          if (dateTo) conditions.push(lte(workerAttendance.date, dateTo));
-          return db.select().from(workerAttendance).where(and(...conditions)).orderBy(workerAttendance.date);
-        })(),
-        (() => {
-          let conditions: any[] = [eq(workerTransfers.worker_id, worker_id)];
-          if (distinctProjectIds.length > 0) conditions.push(inArray(workerTransfers.project_id, distinctProjectIds));
-          if (dateFrom) conditions.push(gte(workerTransfers.transferDate, dateFrom));
-          if (dateTo) conditions.push(lte(workerTransfers.transferDate, dateTo));
-          return db.select().from(workerTransfers).where(and(...conditions)).orderBy(workerTransfers.transferDate);
-        })(),
-        distinctProjectIds.length > 0
-          ? db.select().from(workerBalances).where(and(
-              eq(workerBalances.worker_id, worker_id),
-              inArray(workerBalances.project_id, distinctProjectIds)
-            ))
-          : Promise.resolve([]),
-      ]);
+      let allProjectsData: Project[] = [];
+      let allAttendanceData: WorkerAttendance[] = [];
+      let allTransfersData: WorkerTransfer[] = [];
+      let allBalancesData: WorkerBalance[] = [];
 
-      const projectsMapLocal = new Map(allProjectsData.map((p: any) => [p.id, p]));
-      const balancesMap = new Map(allBalancesData.map((b: any) => [b.project_id, b]));
+      if (distinctProjectIds.length > 0) {
+        const attendanceConditions: ReturnType<typeof eq>[] = [eq(workerAttendance.worker_id, worker_id), inArray(workerAttendance.project_id, distinctProjectIds)];
+        if (dateFrom) attendanceConditions.push(gte(workerAttendance.date, dateFrom));
+        if (dateTo) attendanceConditions.push(lte(workerAttendance.date, dateTo));
+
+        const transferConditions: ReturnType<typeof eq>[] = [eq(workerTransfers.worker_id, worker_id), inArray(workerTransfers.project_id, distinctProjectIds)];
+        if (dateFrom) transferConditions.push(gte(workerTransfers.transferDate, dateFrom));
+        if (dateTo) transferConditions.push(lte(workerTransfers.transferDate, dateTo));
+
+        [allProjectsData, allAttendanceData, allTransfersData, allBalancesData] = await Promise.all([
+          db.select().from(projects).where(inArray(projects.id, distinctProjectIds)),
+          db.select().from(workerAttendance).where(and(...attendanceConditions)).orderBy(workerAttendance.date),
+          db.select().from(workerTransfers).where(and(...transferConditions)).orderBy(workerTransfers.transferDate),
+          db.select().from(workerBalances).where(and(
+            eq(workerBalances.worker_id, worker_id),
+            inArray(workerBalances.project_id, distinctProjectIds)
+          )),
+        ]);
+      }
+
+      const projectsMapLocal = new Map(allProjectsData.map(p => [p.id, p]));
+      const balancesMap = new Map(allBalancesData.map(b => [b.project_id, b]));
 
       for (const { project_id } of distinctProjects) {
         const project = projectsMapLocal.get(project_id);
         if (!project) continue;
 
-        const attendance = allAttendanceData.filter((a: any) => a.project_id === project_id);
-        const transfers = allTransfersData.filter((t: any) => t.project_id === project_id);
+        const attendance = allAttendanceData.filter(a => a.project_id === project_id);
+        const transfers = allTransfersData.filter(t => t.project_id === project_id);
 
-        const projectEarned = attendance.reduce((sum: number, record: any) => {
+        const projectEarned = attendance.reduce((sum, record) => {
           const dailyWage = Number(record.dailyWage) || Number(worker.dailyWage) || 0;
           const workDays = Number(record.workDays) || 1;
           return sum + Math.round(dailyWage * workDays * 100) / 100;
         }, 0);
         
-        const projectPaid = attendance.reduce((sum: number, record: any) => sum + (Math.round((Number(record.paidAmount) || 0) * 100) / 100), 0);
-        const projectTransferred = transfers.reduce((sum: number, transfer: any) => sum + (Math.round((Number(transfer.amount) || 0) * 100) / 100), 0);
+        const projectPaid = attendance.reduce((sum, record) => sum + (Math.round((Number(record.paidAmount) || 0) * 100) / 100), 0);
+        const projectTransferred = transfers.reduce((sum, transfer) => sum + (Math.round((Number(transfer.amount) || 0) * 100) / 100), 0);
         
         const balance = balancesMap.get(project_id) || null;
         
@@ -2216,7 +2220,7 @@ export class DatabaseStorage implements IStorage {
         totalEarned += projectEarned;
         totalPaid += projectPaid;
         totalTransferred += projectTransferred;
-        totalBalance += balance ? Math.round(Number((balance as any).currentBalance) * 100) / 100 : 0;
+        totalBalance += balance ? Math.round(Number(balance.currentBalance) * 100) / 100 : 0;
       }
       
       return {

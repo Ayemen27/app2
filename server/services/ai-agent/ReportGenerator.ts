@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as ExcelJS from "exceljs";
 import { getDatabaseActions, ActionResult } from "./DatabaseActions";
+import { pool } from "../../db";
 
 export interface ReportOptions {
   type: "worker_statement" | "project_expenses" | "daily_summary" | "attendance";
@@ -846,7 +847,7 @@ export class ReportGenerator {
   }
 
   /**
-   * إنشاء تقرير حضور
+   * إنشاء تقرير حضور لمشروع خلال فترة زمنية
    */
   async generateAttendanceReport(
     projectId: string,
@@ -855,16 +856,232 @@ export class ReportGenerator {
     format: "excel" | "json" = "json"
   ): Promise<ReportResult> {
     try {
-      // TODO: تنفيذ تقرير الحضور
+      const client = await pool.connect();
+      let rows: any[];
+      try {
+        const result = await client.query(
+          `SELECT wa.attendance_date, wa.work_days, wa.daily_wage, wa.total_pay,
+                  wa.paid_amount, wa.remaining_amount, wa.work_description, wa.is_present,
+                  wa.hours_worked, wa.overtime, wa.start_time, wa.end_time, wa.notes,
+                  w.name as worker_name, w.type as worker_type, w.phone as worker_phone,
+                  p.name as project_name
+           FROM worker_attendance wa
+           JOIN workers w ON w.id = wa.worker_id
+           JOIN projects p ON p.id = wa.project_id
+           WHERE wa.project_id = $1
+             AND wa.attendance_date >= $2
+             AND wa.attendance_date <= $3
+           ORDER BY wa.attendance_date DESC, w.name ASC`,
+          [projectId, fromDate, toDate]
+        );
+        rows = result.rows;
+      } finally {
+        client.release();
+      }
+      const projectName = rows.length > 0 ? rows[0].project_name : "غير محدد";
+
+      const workerMap = new Map<string, { totalDays: number; totalEarned: number; totalPaid: number; count: number }>();
+      let grandTotalDays = 0;
+      let grandTotalEarned = 0;
+      let grandTotalPaid = 0;
+
+      for (const r of rows) {
+        const days = parseFloat(r.work_days || "0");
+        const earned = parseFloat(r.total_pay || "0");
+        const paid = parseFloat(r.paid_amount || "0");
+        grandTotalDays += days;
+        grandTotalEarned += earned;
+        grandTotalPaid += paid;
+
+        const existing = workerMap.get(r.worker_name) || { totalDays: 0, totalEarned: 0, totalPaid: 0, count: 0 };
+        existing.totalDays += days;
+        existing.totalEarned += earned;
+        existing.totalPaid += paid;
+        existing.count += 1;
+        workerMap.set(r.worker_name, existing);
+      }
+
+      const summary = {
+        projectName,
+        fromDate,
+        toDate,
+        totalRecords: rows.length,
+        totalWorkers: workerMap.size,
+        totalDays: grandTotalDays,
+        totalEarned: grandTotalEarned,
+        totalPaid: grandTotalPaid,
+        balance: grandTotalEarned - grandTotalPaid,
+        workerSummaries: Array.from(workerMap.entries()).map(([name, s]) => ({
+          name, ...s, balance: s.totalEarned - s.totalPaid,
+        })),
+      };
+
+      if (format === "json") {
+        return {
+          success: true,
+          data: { records: rows, summary },
+          message: `تم إنشاء تقرير الحضور: ${rows.length} سجل لـ ${workerMap.size} عامل`,
+        };
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "نظام إدارة المشاريع";
+      workbook.created = new Date();
+      const worksheet = workbook.addWorksheet("تقرير الحضور", { views: [{ rightToLeft: true }] });
+
+      worksheet.columns = [
+        { key: "A", width: 14 },
+        { key: "B", width: 22 },
+        { key: "C", width: 12 },
+        { key: "D", width: 12 },
+        { key: "E", width: 14 },
+        { key: "F", width: 14 },
+        { key: "G", width: 14 },
+        { key: "H", width: 20 },
+      ];
+
+      const primaryColor = "FF1E3A5F";
+      const secondaryColor = "FF2E86AB";
+      const lightGray = "FFF5F5F5";
+      const creditColor = "FF1B7E4E";
+      const debitColor = "FFC0392B";
+      const white = "FFFFFFFF";
+
+      const applyBorder = (row: ExcelJS.Row) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFD0D0D0" } },
+            left: { style: "thin", color: { argb: "FFD0D0D0" } },
+            bottom: { style: "thin", color: { argb: "FFD0D0D0" } },
+            right: { style: "thin", color: { argb: "FFD0D0D0" } },
+          };
+        });
+      };
+
+      worksheet.mergeCells("A1:H1");
+      const logoCell = worksheet.getCell("A1");
+      logoCell.value = "نظام إدارة المشاريع الإنشائية";
+      logoCell.font = { size: 13, bold: true, color: { argb: white } };
+      logoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: primaryColor } };
+      logoCell.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.getRow(1).height = 28;
+
+      worksheet.mergeCells("A2:H2");
+      const titleCell = worksheet.getCell("A2");
+      titleCell.value = `تقرير الحضور: ${projectName} (${fromDate} إلى ${toDate})`;
+      titleCell.font = { size: 14, bold: true, color: { argb: white } };
+      titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: secondaryColor } };
+      titleCell.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.getRow(2).height = 26;
+
+      worksheet.addRow([]);
+      const infoRow = worksheet.addRow([
+        "عدد العمال", workerMap.size, "",
+        "إجمالي الأيام", grandTotalDays, "",
+        "تاريخ التقرير", new Date().toLocaleDateString("ar-SA"),
+      ]);
+      infoRow.getCell(1).font = { bold: true };
+      infoRow.getCell(4).font = { bold: true };
+      infoRow.getCell(7).font = { bold: true };
+      applyBorder(infoRow);
+
+      worksheet.addRow([]);
+      const detailTitle = worksheet.addRow(["📋 تفاصيل الحضور", "", "", "", "", "", "", ""]);
+      worksheet.mergeCells(`A${detailTitle.number}:H${detailTitle.number}`);
+      detailTitle.getCell(1).font = { bold: true, size: 11, color: { argb: white } };
+      detailTitle.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: primaryColor } };
+      detailTitle.getCell(1).alignment = { horizontal: "center" };
+      detailTitle.height = 22;
+
+      const headerRow = worksheet.addRow([
+        "التاريخ", "اسم العامل", "نوع العامل", "أيام العمل", "الأجر اليومي", "المستحق", "المدفوع", "الوصف",
+      ]);
+      headerRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true, size: 10, color: { argb: white } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: secondaryColor } };
+        cell.alignment = { horizontal: "center" };
+      });
+      applyBorder(headerRow);
+      headerRow.height = 20;
+
+      for (const rec of rows) {
+        const row = worksheet.addRow([
+          rec.attendance_date || "-",
+          rec.worker_name || "-",
+          rec.worker_type || "-",
+          parseFloat(rec.work_days || "0"),
+          parseFloat(rec.daily_wage || "0"),
+          parseFloat(rec.total_pay || "0"),
+          parseFloat(rec.paid_amount || "0"),
+          rec.work_description || "-",
+        ]);
+        row.getCell(4).numFmt = "#,##0.00";
+        row.getCell(5).numFmt = "#,##0.00";
+        row.getCell(6).numFmt = "#,##0.00";
+        row.getCell(6).font = { color: { argb: creditColor } };
+        row.getCell(7).numFmt = "#,##0.00";
+        row.getCell(7).font = { color: { argb: debitColor } };
+        applyBorder(row);
+        row.height = 18;
+      }
+
+      if (rows.length === 0) {
+        const emptyRow = worksheet.addRow(["لا توجد سجلات حضور في هذه الفترة", "", "", "", "", "", "", ""]);
+        worksheet.mergeCells(`A${emptyRow.number}:H${emptyRow.number}`);
+        emptyRow.getCell(1).alignment = { horizontal: "center" };
+        emptyRow.getCell(1).font = { italic: true, color: { argb: "FF888888" } };
+      }
+
+      const totalRow = worksheet.addRow([
+        "", "الإجمالي", "", grandTotalDays, "", grandTotalEarned, grandTotalPaid, "",
+      ]);
+      totalRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true, size: 10 };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: lightGray } };
+      });
+      totalRow.getCell(6).font = { bold: true, color: { argb: creditColor } };
+      totalRow.getCell(7).font = { bold: true, color: { argb: debitColor } };
+      applyBorder(totalRow);
+
+      worksheet.addRow([]);
+      const workerSummaryTitle = worksheet.addRow(["👷 ملخص العمال", "", "", "", "", "", "", ""]);
+      worksheet.mergeCells(`A${workerSummaryTitle.number}:H${workerSummaryTitle.number}`);
+      workerSummaryTitle.getCell(1).font = { bold: true, size: 11, color: { argb: white } };
+      workerSummaryTitle.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: primaryColor } };
+      workerSummaryTitle.getCell(1).alignment = { horizontal: "center" };
+      workerSummaryTitle.height = 22;
+
+      const wHeaderRow = worksheet.addRow(["اسم العامل", "عدد السجلات", "إجمالي الأيام", "إجمالي المستحق", "إجمالي المدفوع", "الرصيد المتبقي", "", ""]);
+      wHeaderRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { bold: true, size: 10, color: { argb: white } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: secondaryColor } };
+        cell.alignment = { horizontal: "center" };
+      });
+      applyBorder(wHeaderRow);
+
+      for (const [name, s] of workerMap.entries()) {
+        const bal = s.totalEarned - s.totalPaid;
+        const row = worksheet.addRow([name, s.count, s.totalDays, s.totalEarned, s.totalPaid, bal, "", ""]);
+        row.getCell(3).numFmt = "#,##0.00";
+        row.getCell(4).numFmt = "#,##0.00";
+        row.getCell(4).font = { color: { argb: creditColor } };
+        row.getCell(5).numFmt = "#,##0.00";
+        row.getCell(5).font = { color: { argb: debitColor } };
+        row.getCell(6).numFmt = "#,##0.00";
+        row.getCell(6).font = { bold: true, color: { argb: bal >= 0 ? debitColor : creditColor } };
+        applyBorder(row);
+        row.height = 18;
+      }
+
+      const fileName = `attendance_${projectId}_${fromDate}_${toDate}.xlsx`;
+      const filePath = path.join(this.reportsDir, fileName);
+      await workbook.xlsx.writeFile(filePath);
+
       return {
         success: true,
-        data: {
-          projectId,
-          fromDate,
-          toDate,
-          message: "سيتم تنفيذ تقرير الحضور قريباً",
-        },
-        message: "تم إنشاء تقرير الحضور",
+        filePath,
+        data: { summary },
+        message: `تم إنشاء تقرير الحضور بنجاح: ${rows.length} سجل لـ ${workerMap.size} عامل`,
       };
     } catch (error: any) {
       return {
@@ -901,6 +1118,23 @@ export class ReportGenerator {
       text += `━━━━━━━━━━━━━━━━━━━━\n`;
       text += `📉 **إجمالي المصروفات:** ${summary.totalExpenses || 0} ريال\n`;
       text += `💰 **الرصيد المتبقي:** ${summary.balance || 0} ريال\n`;
+    } else if (title === "تقرير الحضور" || data.summary?.totalWorkers !== undefined) {
+      const s = data.summary || {};
+      text += `🏗️ **المشروع:** ${s.projectName || "غير محدد"}\n`;
+      text += `📅 **الفترة:** ${s.fromDate || "-"} إلى ${s.toDate || "-"}\n`;
+      text += `👷 **عدد العمال:** ${s.totalWorkers || 0}\n`;
+      text += `📋 **عدد السجلات:** ${s.totalRecords || 0}\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `📊 **إجمالي أيام العمل:** ${s.totalDays || 0}\n`;
+      text += `💰 **إجمالي المستحق:** ${s.totalEarned || 0} ريال\n`;
+      text += `💸 **إجمالي المدفوع:** ${s.totalPaid || 0} ريال\n`;
+      text += `📉 **الرصيد المتبقي:** ${s.balance || 0} ريال\n`;
+      if (s.workerSummaries?.length > 0) {
+        text += `\n👷 **ملخص العمال:**\n`;
+        for (const w of s.workerSummaries) {
+          text += `  - ${w.name}: ${w.totalDays} يوم، مستحق ${w.totalEarned} ريال، مدفوع ${w.totalPaid} ريال، متبقي ${w.balance} ريال\n`;
+        }
+      }
     } else if (title === "تقرير المصروفات اليومية" || data.date) {
       text += `📅 **التاريخ:** ${data.date}\n`;
       const s = data.summary || {};

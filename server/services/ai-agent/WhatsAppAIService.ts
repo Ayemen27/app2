@@ -94,6 +94,16 @@ function buildArabicSearchVariants(name: string): string[] {
   variants.add(normalized);
   variants.add(name.replace(/ه/g, 'ة'));
   variants.add(normalized.replace(/ه/g, 'ة'));
+
+  const words = name.split(/\s+/).filter(w => w.length >= 2);
+  for (const word of words) {
+    variants.add(word);
+    const nw = normalizeArabic(word);
+    variants.add(nw);
+    variants.add(word.replace(/ه/g, 'ة'));
+    variants.add(nw.replace(/ه/g, 'ة'));
+  }
+
   return [...variants].filter(v => v.length >= 2);
 }
 
@@ -295,15 +305,59 @@ export class WhatsAppAIService {
     return null;
   }
 
+  private static readonly NOISE_WORDS = new Set([
+    'يا', 'ياعمار', 'عمار', 'بوت', 'يابوت', 'ابي', 'ابغى', 'ابغا', 'اعطني', 'اعطيني',
+    'طلعت', 'طلع', 'كم', 'كيف', 'شو', 'وش', 'ايش', 'له', 'لة', 'لها', 'عنده', 'عندة',
+    'باقي', 'متبقي', 'الباقي', 'رصيد', 'الرصيد', 'حساب', 'حسابه', 'حسابة',
+    'في', 'من', 'على', 'عن', 'الى', 'إلى', 'مع', 'بين', 'هل', 'قد',
+    'يعني', 'خلاص', 'طيب', 'اوكي', 'تمام', 'حق', 'مال', 'تبع',
+    'ال', 'و', 'أو', 'ثم', 'لا', 'ما', 'هذا', 'هذه', 'ذلك',
+    'انا', 'أنا', 'انت', 'أنت', 'هو', 'هي', 'هم', 'نحن',
+    'اللي', 'الذي', 'التي', 'يكون', 'تكون',
+    'لي', 'لنا', 'لهم', 'عليه', 'عليها', 'فيه', 'فيها', 'منه', 'منها',
+  ]);
+
+  private extractWorkerNameFromText(input: string): string | null {
+    const cleaned = input.trim();
+
+    const balancePatterns = [
+      /(?:كم|كيف|وش|ايش|شو)\s*(?:باقي|متبقي|رصيد|حساب|مستحق)\s*(?:لـ?ل?|على|عند|حق)?\s*(?:العامل|عامل)?\s*([\u0600-\u06FF][\u0600-\u06FF\s]*)/i,
+      /(?:رصيد|حساب|باقي|مستحقات)\s*(?:العامل|عامل)?\s*([\u0600-\u06FF][\u0600-\u06FF\s]*)/i,
+      /(?:العامل|عامل)\s+([\u0600-\u06FF][\u0600-\u06FF\s]*?)\s*(?:كم|باقي|رصيد|حساب|مستحق|لة|له)/i,
+      /([\u0600-\u06FF][\u0600-\u06FF\s]*?)\s+(?:كم\s*)?(?:باقي|متبقي|رصيد|مستحق)\s*(?:له|لة|عنده|عندة)?/i,
+      /([\u0600-\u06FF][\u0600-\u06FF\s]*?)\s+(?:طلعت?\s*)?(?:له|لة|لها)\s+(?:كم|كيف)/i,
+    ];
+
+    for (const pattern of balancePatterns) {
+      const m = cleaned.match(pattern);
+      if (m) {
+        const raw = this.cleanExtractedName(m[1]);
+        if (raw) return raw;
+      }
+    }
+    return null;
+  }
+
   private extractWorkerNameFromExport(input: string): string | null {
     const match = input.match(/(?:تصدير|صدر|ابي|ارسل)\s*(?:كشف\s*(?:حساب)?|تقرير)\s*(?:العامل|عامل|لـ?لعامل)?\s+([\u0600-\u06FF][\u0600-\u06FF\s]+)/i);
     if (!match) return null;
-    const excludeWords = ['يومي', 'شامل', 'عام', 'فترة', 'ختامي', 'المشاريع', 'مشاريع', 'المصروفات', 'مصروفات', 'بيانات', 'ملف'];
     let name = match[1].trim()
       .replace(/\s*(?:ال[يى]|الى|إلى|في|ب|ك|بصيغة)?\s*(?:ملف\s*)?(?:اكسل|excel|xlsx|pdf|بي دي اف).*$/i, '')
       .replace(/\s*(?:الى|إلى|ال[يى]|و)\s*$/i, '')
       .trim();
-    if (name.length >= 2 && !excludeWords.includes(name)) return name;
+    return this.cleanExtractedName(name);
+  }
+
+  private cleanExtractedName(raw: string): string | null {
+    const excludeWords = new Set(['يومي', 'شامل', 'عام', 'فترة', 'ختامي', 'المشاريع', 'مشاريع', 'المصروفات', 'مصروفات', 'بيانات', 'ملف', 'تقرير', 'كشف']);
+    let name = raw.trim()
+      .replace(/\s+/g, ' ')
+      .replace(/^(?:يا|ياعمار|عمار)\s+/i, '')
+      .replace(/^(?:لـ?ل?|لل)\s*/i, '');
+
+    const words = name.split(/\s+/).filter(w => !WhatsAppAIService.NOISE_WORDS.has(w) && !excludeWords.has(w) && w.length >= 2);
+    name = words.join(' ').trim();
+    if (name.length >= 2) return name;
     return null;
   }
 
@@ -333,6 +387,11 @@ export class WhatsAppAIService {
     if (/(?:ملخص|كشف|مجموع)\s*(?:المصروفات|مصروفات|المصاريف|مصاريف)/i.test(lower) ||
         /(?:كم|اجمالي|إجمالي)\s*(?:المصروفات|مصروفات|المصاريف|صرفنا)/i.test(lower)) {
       return { type: 'expense_summary' };
+    }
+
+    const balanceName = this.extractWorkerNameFromText(input);
+    if (balanceName && /(?:كم|باقي|متبقي|رصيد|حساب|مستحق|طلعت?\s*ل)/i.test(input)) {
+      return { type: 'worker_balance', params: { workerName: balanceName } };
     }
 
     const workerName = this.extractWorkerNameFromExport(input);
@@ -407,6 +466,12 @@ export class WhatsAppAIService {
           return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
         }
         return this.showExpenseSummary(userProjectIds, context, senderPhone);
+
+      case 'worker_balance':
+        if (!securityContext.canRead) {
+          return textReply(nav(`❌ ليس لديك صلاحية عرض البيانات.`));
+        }
+        return this.handleWorkerBalanceQuery(intent.params!.workerName, context, senderPhone, userName, userProjectIds, isAdmin);
 
       case 'export_worker_direct':
         if (!securityContext.canRead) {
@@ -640,12 +705,64 @@ export class WhatsAppAIService {
       return this.handleTypeSelection(context, effectiveInput, senderPhone, userName, userProjectIds);
     }
 
+    if ((context.step as string) === 'awaiting_worker_selection') {
+      return this.handleWorkerSelectionStep(context, effectiveInput, senderPhone, userName, userProjectIds);
+    }
+
     if (context.step.startsWith('export_')) {
       return this.handleExportFlowStep(context, effectiveInput, senderPhone, userName, userProjectIds);
     }
 
     context.step = 'idle';
     this.sessions.set(senderPhone, context);
+    return buildWelcomeReply(userName);
+  }
+
+  private async handleWorkerSelectionStep(
+    context: WhatsAppContext,
+    input: string,
+    senderPhone: string,
+    userName: string,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    const availableWorkers = context.data.availableWorkers as { id: string; name: string }[] | undefined;
+    if (!availableWorkers || availableWorkers.length === 0) {
+      this.sessions.delete(senderPhone);
+      return buildWelcomeReply(userName);
+    }
+
+    const idx = parseInt(input) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= availableWorkers.length) {
+      const workerList = availableWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
+      return textReply([
+        `❌ اختيار غير صحيح. أرسل رقم العامل:`,
+        ``,
+        workerList,
+      ].join('\n'));
+    }
+
+    const selectedWorker = availableWorkers[idx];
+    const pendingAction = context.data.pendingAction;
+    this.sessions.delete(senderPhone);
+
+    if (pendingAction === 'worker_balance') {
+      const isAdmin = context.data.securityIsAdmin || false;
+      const projectIds = context.data.securityProjectIds || userProjectIds;
+      const opts: any = { isAdmin, accessibleProjectIds: projectIds };
+      const data = await reportDataService.getWorkerStatement(selectedWorker.id, opts);
+      const totalEarned = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.earned) || 0), 0);
+      const totalPaid = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.paid) || 0), 0);
+      const balance = totalEarned - totalPaid;
+      const emoji = balance > 0 ? '🔴' : balance < 0 ? '🟢' : '✅';
+      return textReply(nav([
+        `👷 *${selectedWorker.name}*`,
+        ``,
+        `💰 المكتسب: *${totalEarned.toLocaleString()}* ريال`,
+        `💸 المدفوع: *${totalPaid.toLocaleString()}* ريال`,
+        `${emoji} الرصيد المتبقي: *${balance.toLocaleString()}* ريال`,
+      ].join('\n')));
+    }
+
     return buildWelcomeReply(userName);
   }
 
@@ -794,6 +911,104 @@ export class WhatsAppAIService {
     }
   }
 
+  private async smartWorkerSearch(
+    searchName: string,
+    userProjectIds: string[]
+  ): Promise<{ id: string; name: string }[]> {
+    const searchVariants = buildArabicSearchVariants(searchName);
+    const matchedWorkers: { id: string; name: string }[] = [];
+    const normalizedDbName = sql`translate(${workers.name}, 'أإآةؤئى\u0640', 'اااهويي')`;
+
+    let scopedWorkerIds: string[] | null = null;
+    if (userProjectIds && userProjectIds.length > 0) {
+      const attendanceWorkers = await db.selectDistinct({ workerId: workerAttendance.worker_id })
+        .from(workerAttendance)
+        .where(inArray(workerAttendance.project_id, userProjectIds));
+      scopedWorkerIds = attendanceWorkers.map(r => r.workerId);
+      if (scopedWorkerIds.length === 0) return [];
+    }
+
+    const runSearch = async (variant: string) => {
+      const conditions: any[] = [
+        eq(workers.is_active, true),
+        sql`(${ilike(workers.name, `%${variant}%`)} OR ${normalizedDbName} ILIKE ${'%' + variant + '%'})`,
+      ];
+      if (scopedWorkerIds) {
+        conditions.splice(1, 0, inArray(workers.id, scopedWorkerIds));
+      }
+      return db.select({ id: workers.id, name: workers.name })
+        .from(workers)
+        .where(and(...conditions))
+        .limit(10);
+    };
+
+    for (const variant of searchVariants) {
+      const found = await runSearch(variant);
+      for (const w of found) {
+        if (!matchedWorkers.some(m => m.id === w.id)) matchedWorkers.push(w);
+      }
+    }
+
+    return matchedWorkers;
+  }
+
+  private async handleWorkerBalanceQuery(
+    workerName: string,
+    context: WhatsAppContext,
+    senderPhone: string,
+    userName: string,
+    userProjectIds: string[],
+    isAdmin: boolean
+  ): Promise<BotReply> {
+    try {
+      if (!isAdmin && (!userProjectIds || userProjectIds.length === 0)) {
+        return textReply(nav(`❌ ليس لديك صلاحية الوصول لأي مشروع.`));
+      }
+
+      const matchedWorkers = await this.smartWorkerSearch(workerName, isAdmin ? [] : userProjectIds);
+
+      if (matchedWorkers.length === 0) {
+        return textReply(nav(`❌ لم يتم العثور على عامل باسم "*${workerName}*".\nتأكد من الاسم وحاول مرة أخرى.`));
+      }
+
+      if (matchedWorkers.length === 1) {
+        const worker = matchedWorkers[0];
+        const opts: any = { isAdmin, accessibleProjectIds: userProjectIds };
+        const data = await reportDataService.getWorkerStatement(worker.id, opts);
+        const totalEarned = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.earned) || 0), 0);
+        const totalPaid = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.paid) || 0), 0);
+        const balance = totalEarned - totalPaid;
+        const emoji = balance > 0 ? '🔴' : balance < 0 ? '🟢' : '✅';
+        return textReply(nav([
+          `👷 *${worker.name}*`,
+          ``,
+          `💰 المكتسب: *${totalEarned.toLocaleString()}* ريال`,
+          `💸 المدفوع: *${totalPaid.toLocaleString()}* ريال`,
+          `${emoji} الرصيد المتبقي: *${balance.toLocaleString()}* ريال`,
+        ].join('\n')));
+      }
+
+      context.data.pendingAction = 'worker_balance';
+      context.data.availableWorkers = matchedWorkers;
+      context.data.securityProjectIds = userProjectIds;
+      context.data.securityIsAdmin = isAdmin;
+      context.step = 'awaiting_worker_selection' as any;
+      this.sessions.set(senderPhone, context);
+
+      const workerList = matchedWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
+      return textReply([
+        `🔍 هل تقصد أحد هؤلاء العمال؟`,
+        ``,
+        workerList,
+        ``,
+        `أرسل رقم العامل:`,
+      ].join('\n'));
+    } catch (error: any) {
+      console.error('[WhatsAppAI] Error in balance query:', error);
+      return textReply(nav(`❌ خطأ: ${error.message}`));
+    }
+  }
+
   private async handleDirectWorkerExport(
     workerName: string,
     requestedFormat: string | null,
@@ -811,40 +1026,10 @@ export class WhatsAppAIService {
       context.data.securityProjectIds = userProjectIds;
       context.data.securityIsAdmin = isAdmin;
 
-      const searchVariants = buildArabicSearchVariants(workerName);
-      let matchedWorkers: { id: string; name: string }[] = [];
-
-      if (userProjectIds && userProjectIds.length > 0) {
-        const attendanceWorkers = await db.selectDistinct({ workerId: workerAttendance.worker_id })
-          .from(workerAttendance)
-          .where(inArray(workerAttendance.project_id, userProjectIds));
-        const scopedWorkerIds = attendanceWorkers.map(r => r.workerId);
-        if (scopedWorkerIds.length === 0) {
-          return textReply(nav(`❌ لا يوجد عمال مسجلون في مشاريعك.`));
-        }
-        for (const variant of searchVariants) {
-          const found = await db.select({ id: workers.id, name: workers.name })
-            .from(workers)
-            .where(and(eq(workers.is_active, true), inArray(workers.id, scopedWorkerIds), ilike(workers.name, `%${variant}%`)))
-            .limit(10);
-          for (const w of found) {
-            if (!matchedWorkers.some(m => m.id === w.id)) matchedWorkers.push(w);
-          }
-        }
-      } else {
-        for (const variant of searchVariants) {
-          const found = await db.select({ id: workers.id, name: workers.name })
-            .from(workers)
-            .where(and(eq(workers.is_active, true), ilike(workers.name, `%${variant}%`)))
-            .limit(10);
-          for (const w of found) {
-            if (!matchedWorkers.some(m => m.id === w.id)) matchedWorkers.push(w);
-          }
-        }
-      }
+      const matchedWorkers = await this.smartWorkerSearch(workerName, isAdmin ? [] : userProjectIds);
 
       if (matchedWorkers.length === 0) {
-        return textReply(nav(`❌ لم يتم العثور على عامل باسم "${workerName}".`));
+        return textReply(nav(`❌ لم يتم العثور على عامل باسم "*${workerName}*".\nتأكد من الاسم وحاول مرة أخرى.`));
       }
 
       if (matchedWorkers.length === 1) {
@@ -864,7 +1049,7 @@ export class WhatsAppAIService {
 
       const workerList = matchedWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
       return textReply([
-        `🔍 تم العثور على ${matchedWorkers.length} عامل:`,
+        `🔍 هل تقصد أحد هؤلاء العمال؟`,
         ``,
         workerList,
         ``,

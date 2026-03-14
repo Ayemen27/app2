@@ -695,7 +695,7 @@ export class WhatsAppBot {
         },
       });
 
-      const io = (global as any).io;
+      const io = (globalThis as Record<string, unknown>).io as { emit: (event: string, data: unknown) => void } | undefined;
       if (io) {
         io.emit('notification:new', {
           id: notification.id,
@@ -703,7 +703,7 @@ export class WhatsAppBot {
           title: `💬 رسالة واتساب من ${phone}`,
           body: bodyText || 'رسالة جديدة',
           priority: 3,
-          createdAt: (notification as any).created_at,
+          createdAt: notification.created_at,
         });
         io.emit('entity:update', { entity: 'notifications', type: 'NEW' });
       }

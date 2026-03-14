@@ -13,6 +13,10 @@ import { smartConnectionManager } from '../../services/smart-connection-manager'
 import { requireAuth } from '../../middleware/auth.js';
 import { getAuthUser } from '../../internal/auth-user.js';
 
+declare global {
+  var isEmergencyMode: boolean | undefined;
+}
+
 // دالة تحقق من الصلاحيات للمسارات المحمية
 const requireRole = (role: string) => (req: Request, res: Response, next: NextFunction): any => {
   const user = getAuthUser(req);
@@ -42,7 +46,7 @@ healthRouter.get('/health', async (req: Request, res: Response) => {
     version: '3.0.0-smart',
     platform: req.headers['x-platform'] || 'web',
     connections: connectionStatus,
-    emergencyMode: (global as any).isEmergencyMode || false
+    emergencyMode: globalThis.isEmergencyMode || false
   });
 });
 
@@ -66,7 +70,7 @@ healthRouter.get('/health/full', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error.message,
-      emergencyMode: (global as any).isEmergencyMode || false
+      emergencyMode: globalThis.isEmergencyMode || false
     });
   }
 });
@@ -174,7 +178,7 @@ healthRouter.get('/health/connections', requireAuth, async (req: Request, res: R
       success: true,
       status,
       details: connectionTest,
-      emergencyMode: (global as any).isEmergencyMode || false,
+      emergencyMode: globalThis.isEmergencyMode || false,
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {
@@ -196,14 +200,14 @@ healthRouter.post('/health/reconnect', requireAuth, async (req: Request, res: Re
     const newStatus = smartConnectionManager.getConnectionStatus();
     
     if (newStatus.local || newStatus.supabase) {
-      (global as any).isEmergencyMode = false;
+      globalThis.isEmergencyMode = false;
     }
     
     res.json({
       success: true,
       message: 'تم إعادة الاتصال',
       status: newStatus,
-      emergencyMode: (global as any).isEmergencyMode || false
+      emergencyMode: globalThis.isEmergencyMode || false
     });
   } catch (error: any) {
     res.status(500).json({
@@ -365,10 +369,10 @@ healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, r
 
     res.json({
       success: true,
-      emergencyMode: (global as any).isEmergencyMode || false,
+      emergencyMode: globalThis.isEmergencyMode || false,
       timestamp: new Date().toISOString(),
       data: {
-        isEmergencyMode: (global as any).isEmergencyMode || false,
+        isEmergencyMode: globalThis.isEmergencyMode || false,
         dbType: backupStatus.schedulerEnabled ? "النسخ التلقائي مبرمج" : "يدوي",
         integrity: integrity
       }
@@ -376,7 +380,7 @@ healthRouter.get('/system/emergency-status', requireAuth, async (req: Request, r
   } catch (error: any) {
     res.json({
       success: true,
-      emergencyMode: (global as any).isEmergencyMode || false,
+      emergencyMode: globalThis.isEmergencyMode || false,
       timestamp: new Date().toISOString()
     });
   }

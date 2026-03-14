@@ -11,6 +11,7 @@ interface TempFile {
   mimeType: string;
   created_at: number;
   user_id: string;
+  _accessCount: number;
 }
 
 const tempFiles = new Map<string, TempFile>();
@@ -82,6 +83,7 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
       mimeType,
       created_at: Date.now(),
       user_id,
+      _accessCount: 0,
     });
 
     console.log(`[TempDownload] Stored file: ${fileName} (${buffer.length} bytes) id=${id} user=${user_id}`);
@@ -115,8 +117,8 @@ router.get('/temp-download/:id', requireAuth, (req: Request, res: Response): any
     return res.status(403).json({ error: 'Access denied: you can only download your own files' });
   }
 
-  const accessCount = (file as any)._accessCount || 0;
-  (file as any)._accessCount = accessCount + 1;
+  const accessCount = file._accessCount;
+  file._accessCount = accessCount + 1;
   if (accessCount >= 2) {
     tempFiles.delete(id);
   }

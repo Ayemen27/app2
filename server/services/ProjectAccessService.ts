@@ -149,7 +149,7 @@ class ProjectAccessService {
   ): Promise<ProjectPermissionInfo[]> {
     if (this.isAdmin(role)) {
       const allProjects = await db.select().from(projects);
-      return allProjects.map((p: any) => ({
+      return allProjects.map((p: { id: string; name: string; engineerId: string | null }) => ({
         projectId: p.id,
         projectName: p.name,
         canView: true,
@@ -393,8 +393,8 @@ class ProjectAccessService {
         actorId,
         targetUserId,
         project_id: projectId,
-        oldPermissions: oldPermissions as any,
-        newPermissions: newPermissions as any,
+        oldPermissions: oldPermissions as Record<string, boolean> | null,
+        newPermissions: newPermissions as Record<string, boolean> | null,
         ipAddress: ipAddress || null,
         userAgent: userAgent || null,
       });

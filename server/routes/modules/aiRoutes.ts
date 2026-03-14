@@ -118,7 +118,7 @@ router.get("/access", async (req: AuthenticatedRequest, res: Response) => {
     }
 
     // ✅ التحقق من الدور في التوكن أولاً
-    const hasAccess = req.user.role === 'admin' || await isAdmin(req.user.user_id);
+    const hasAccess = req.user.role === 'admin' || req.user.role === 'super_admin' || await isAdmin(req.user.user_id);
     
     console.log(`✅ [AI/Access] Result: ${hasAccess}`);
     res.json({ 

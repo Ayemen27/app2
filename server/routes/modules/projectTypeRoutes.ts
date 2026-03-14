@@ -54,7 +54,7 @@ projectTypeRouter.get('/', async (req: Request, res: Response) => {
     
     // فلترة حسب الحالة
     if (activeOnly === 'true') {
-      query = query.where(eq(projectTypes.is_active, true)) as any;
+      query = (query as ReturnType<typeof db.select>).where(eq(projectTypes.is_active, true));
     }
 
     const typesList = await query.orderBy(desc(projectTypes.created_at));

@@ -105,7 +105,7 @@ export class WhatsAppSecurityContext {
             )
           );
 
-        const allowedProjectIds = linkProjects.map((lp: any) => lp.project_id);
+        const allowedProjectIds = linkProjects.map((lp: { project_id: string }) => lp.project_id);
         accessibleProjectIds = accessibleProjectIds.filter((id) =>
           allowedProjectIds.includes(id)
         );
@@ -125,10 +125,10 @@ export class WhatsAppSecurityContext {
           .where(eq(userProjectPermissions.user_id, userId));
 
         if (userPerms.length > 0) {
-          canRead = userPerms.some((p: any) => p.canView === true);
-          canAdd = userPerms.some((p: any) => p.canAdd === true);
-          canEdit = userPerms.some((p: any) => p.canEdit === true);
-          canDelete = userPerms.some((p: any) => p.canDelete === true);
+          canRead = userPerms.some((p: { canView: boolean }) => p.canView === true);
+          canAdd = userPerms.some((p: { canAdd: boolean }) => p.canAdd === true);
+          canEdit = userPerms.some((p: { canEdit: boolean }) => p.canEdit === true);
+          canDelete = userPerms.some((p: { canDelete: boolean }) => p.canDelete === true);
         } else {
           const ownedProjects = await db
             .select({ id: projects.id })

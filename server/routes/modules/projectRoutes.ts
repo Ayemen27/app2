@@ -975,7 +975,7 @@ projectRouter.get('/:id/deletion-stats', requireProjectAccess('view'), async (re
     const project = existingProject[0];
 
     // التحقق من الصلاحيات - يجب أن يكون مسؤول أو مالك المشروع
-    const isAdminForDeletion = user?.role === 'admin';
+    const isAdminForDeletion = user?.role === 'admin' || user?.role === 'super_admin';
     const isOwner = project.engineerId === user?.user_id;
 
     // رفض الوصول للمستخدمين غير المصرح لهم
@@ -1128,7 +1128,7 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
     const projectToDelete = existingProject[0];
 
     // التحقق من الصلاحيات
-    const isAdminDel = user?.role === 'admin';
+    const isAdminDel = user?.role === 'admin' || user?.role === 'super_admin';
     const isOwnerDel = projectToDelete.engineerId === user?.user_id;
 
     // التحقق أولاً: هل المستخدم مالك أو مسؤول؟

@@ -383,7 +383,7 @@ export class AIAgentService {
    * تبديل نموذج Hugging Face
    */
   async switchHuggingFaceModel(modelKey: string): Promise<boolean> {
-    return await this.modelManager.switchHuggingFaceModel(modelKey as any);
+    return await this.modelManager.switchHuggingFaceModel(modelKey);
   }
 
   // متغير لحفظ العمليات المعلقة التي تنتظر الموافقة
@@ -1318,14 +1318,16 @@ export class AIAgentService {
    * الحصول على النموذج المحدد حالياً
    */
   getSelectedModel() {
-    return (this.modelManager as any).getSelectedModel?.() ?? null;
+    return ('getSelectedModel' in this.modelManager && typeof (this.modelManager as Record<string, unknown>).getSelectedModel === 'function') ? (this.modelManager as Record<string, unknown> & { getSelectedModel: () => string | null }).getSelectedModel() : null;
   }
 
   /**
    * تحديد نموذج معين للاستخدام
    */
   setSelectedModel(modelKey: string | null) {
-    (this.modelManager as any).setSelectedModel?.(modelKey);
+    if ('setSelectedModel' in this.modelManager && typeof (this.modelManager as Record<string, unknown>).setSelectedModel === 'function') {
+      (this.modelManager as Record<string, unknown> & { setSelectedModel: (key: string | null) => void }).setSelectedModel(modelKey);
+    }
   }
 }
 

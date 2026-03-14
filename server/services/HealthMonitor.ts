@@ -96,7 +96,7 @@ class HealthMonitor {
           supabase: true
         }
       },
-      emergencyMode: (global as any).isEmergencyMode || false,
+      emergencyMode: (globalThis as Record<string, unknown>).isEmergencyMode as boolean || false,
       platform: process.env.PLATFORM === 'android' ? 'android' : 'server'
     };
 
@@ -252,7 +252,7 @@ class HealthMonitor {
       }
     }
 
-    const result: { status: 'success' | 'warning' | 'failed'; issues: string[]; tablesChecked: number; totalRecords: number } = (global as any).lastIntegrityCheck = {
+    const result: { status: 'success' | 'warning' | 'failed'; issues: string[]; tablesChecked: number; totalRecords: number } = (globalThis as Record<string, unknown>).lastIntegrityCheck = {
       status: (issues.length === 0 ? 'success' : issues.length < 3 ? 'warning' : 'failed') as 'success' | 'warning' | 'failed',
       issues,
       tablesChecked,

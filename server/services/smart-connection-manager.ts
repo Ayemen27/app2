@@ -21,8 +21,8 @@ const execPromise = promisify(exec);
 export interface DynamicConnection {
   key: string;
   label: string;
-  pool: Pool;
-  db: any;
+  pool: Pool | null;
+  db: unknown;
   connected: boolean;
   url: string;
   dbName?: string;
@@ -224,8 +224,8 @@ export class SmartConnectionManager {
           if (fs.existsSync(uncompressedPath)) fs.unlinkSync(uncompressedPath);
           
           console.log('✅ [Emergency] اكتملت الاستعادة بنجاح');
-          (global as any).isEmergencyMode = true;
-          (global as any).emergencyDb = emergencyDb;
+          (globalThis as Record<string, unknown>).isEmergencyMode = true;
+          (globalThis as Record<string, unknown>).emergencyDb = emergencyDb;
         } catch (restoreError: any) {
           try { sqliteInstance.exec("ROLLBACK;"); } catch (e) {}
           console.error(`❌ [Emergency] فشل الاستعادة الفعلي: ${restoreError.message}`);
@@ -233,8 +233,8 @@ export class SmartConnectionManager {
         }
       } else {
         console.warn('⚠️ [Emergency] لم تنجح محاولات البحث، إنشاء قاعدة بيانات فارغة');
-        (global as any).isEmergencyMode = true;
-        (global as any).emergencyDb = emergencyDb;
+        (globalThis as Record<string, unknown>).isEmergencyMode = true;
+        (globalThis as Record<string, unknown>).emergencyDb = emergencyDb;
       }
     } catch (e: any) {
       console.error('❌ [Emergency] خطأ حرج في وضع الطوارئ:', e.message);
@@ -252,7 +252,7 @@ export class SmartConnectionManager {
     if (this.connectionStatus.local || this.connectionStatus.supabase) {
       console.log('✅ [Sync] تم استعادة الاتصال المركزي، بدء المزامنة العكسية...');
       // منطق المزامنة من SQLite إلى Postgres
-      (global as any).isEmergencyMode = false;
+      (globalThis as Record<string, unknown>).isEmergencyMode = false;
     }
   }
 
@@ -521,7 +521,7 @@ export class SmartConnectionManager {
         if (connError.message?.includes('Tenant or user not found')) {
           console.error('❌ [Supabase Fix] خطأ في هوية المشروع (Tenant not found). يرجى التأكد من أن DATABASE_URL_SUPABASE يحتوي على كلمة المرور الصحيحة لمستخدم postgres.');
           // تذكير بالخطأ في المحاولات التالية
-          (this as any).supabaseTenantError = true;
+          (this as unknown as Record<string, boolean>).supabaseTenantError = true;
         } else {
           console.error('❌ [Supabase] فشل اختبار الاتصال:', connError.message);
         }
@@ -600,7 +600,7 @@ export class SmartConnectionManager {
     source: 'local' | 'supabase' | 'emergency' | null;
   } {
     // التحقق من وضع الطوارئ أولاً
-    if ((global as any).isEmergencyMode) {
+    if ((globalThis as Record<string, unknown>).isEmergencyMode) {
       return {
         pool: null,
         db: this.localDb, // في Replit، القاعدة المحلية هي SQLite
@@ -689,7 +689,7 @@ export class SmartConnectionManager {
     return {
       ...this.connectionStatus,
       totalConnections: Object.values(this.connectionStatus).filter(Boolean).length,
-      emergencyMode: (global as any).isEmergencyMode || false,
+      emergencyMode: (globalThis as Record<string, unknown>).isEmergencyMode as boolean || false,
       metrics: this.getMetrics()
     };
   }
@@ -764,7 +764,7 @@ export class SmartConnectionManager {
       
       if (value.includes('helium') || value.includes('heliumdb')) continue;
       
-      if (suffix === 'supabase' && (this.connectionStatus.supabase || (this as any).supabaseTenantError)) continue;
+      if (suffix === 'supabase' && (this.connectionStatus.supabase || (this as unknown as Record<string, boolean>).supabaseTenantError)) continue;
       
       if (this.dynamicConnections.has(suffix)) continue;
       
@@ -841,7 +841,7 @@ export class SmartConnectionManager {
         this.dynamicConnections.set(suffix, {
           key: suffix,
           label: suffix.charAt(0).toUpperCase() + suffix.slice(1),
-          pool: null as any,
+          pool: null,
           db: null,
           connected: false,
           url: value,
@@ -956,7 +956,7 @@ export class SmartConnectionManager {
           this.dynamicConnections.set(key, {
             key,
             label: dbName,
-            pool: null as any,
+            pool: null,
             db: null,
             connected: false,
             url: connString,

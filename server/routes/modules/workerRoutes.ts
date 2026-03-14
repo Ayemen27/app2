@@ -19,6 +19,19 @@ import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } 
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { inArray } from 'drizzle-orm';
 
+declare global {
+  var io: { emit: (event: string, data: unknown) => void } | undefined;
+}
+
+interface WorkerBalanceEntry {
+  worker_id: string;
+  project_id: string;
+  totalEarned: string;
+  totalPaid: string;
+  totalTransferred: string;
+  currentBalance: string;
+}
+
 export const workerRouter = express.Router();
 
 function checkProjectAccess(req: Request, projectId: string | null | undefined, allowNullProject: boolean = false): { allowed: boolean; isAdmin: boolean } {
@@ -148,15 +161,15 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
     try {
       const activeProjects = await db.execute(sql`SELECT id FROM projects WHERE status = 'active' OR status = 'in_progress'`);
       if (activeProjects.rows.length > 0) {
-        const balanceEntries = activeProjects.rows.map((p: any) => ({
+        const balanceEntries: WorkerBalanceEntry[] = activeProjects.rows.map((p: Record<string, unknown>) => ({
           worker_id: newWorker[0].id,
-          project_id: p.id,
+          project_id: p.id as string,
           totalEarned: '0',
           totalPaid: '0',
           totalTransferred: '0',
           currentBalance: '0'
         }));
-        await db.insert(workerBalances).values(balanceEntries as any);
+        await db.insert(workerBalances).values(balanceEntries);
       }
     } catch (e) {
       console.error('⚠️ [API] فشل في إنشاء أرصدة مبدئية للعامل:', e);
@@ -1475,10 +1488,8 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       .where(eq(workerAttendance.id, attendanceId))
       .returning();
 
-    // 🔌 Broadcast real-time update via WebSocket
-    const io = (global as any).io;
-    if (io && deletedAttendance[0]) {
-      io.emit('entity:update', {
+    if (globalThis.io && deletedAttendance[0]) {
+      globalThis.io.emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
         project_id: deletedAttendance[0].project_id,
@@ -1540,7 +1551,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     }
 
     // Validation باستخدام insert schema مع معالجة خاصة للسحب المقدم
-    const recordType = (req.body as any).recordType || 'work';
+    const { recordType = 'work' } = req.body as { recordType?: string };
 
     // للسحب المقدم: نسمح بـ workDays = 0
     if (recordType === 'advance' && req.body.workDays === 0) {
@@ -1669,10 +1680,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       'worker-attendance/POST'
     );
 
-    // 🔌 Broadcast real-time update via WebSocket
-    const io = (global as any).io;
-    if (io) {
-      io.emit('entity:update', {
+    if (globalThis.io) {
+      globalThis.io.emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
         project_id: newAttendance[0].project_id,
@@ -1803,10 +1812,8 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       );
     }, 'worker-attendance/PATCH');
 
-    // 🔌 Broadcast real-time update via WebSocket
-    const io = (global as any).io;
-    if (io && updated_attendance[0]) {
-      io.emit('entity:update', {
+    if (globalThis.io && updated_attendance[0]) {
+      globalThis.io.emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
         project_id: updated_attendance[0].project_id,

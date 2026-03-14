@@ -77,7 +77,7 @@ class BotSettingsService {
       const rows = await db.select().from(whatsappBotSettings).where(eq(whatsappBotSettings.id, 1)).limit(1);
 
       if (rows.length > 0) {
-        this.cache = rows[0] as any;
+        this.cache = rows[0];
         return this.cache!;
       }
 
@@ -86,7 +86,7 @@ class BotSettingsService {
         updatedBy: null,
       }).returning();
 
-      this.cache = inserted as any;
+      this.cache = inserted;
       return this.cache!;
     } catch (error: any) {
       console.error("[BotSettingsService] Error getting settings:", error?.message);
@@ -113,7 +113,7 @@ class BotSettingsService {
       .where(eq(whatsappBotSettings.id, 1))
       .returning();
 
-    this.cache = updated as any;
+    this.cache = updated;
     return this.cache!;
   }
 
@@ -129,7 +129,7 @@ class BotSettingsService {
       .where(eq(whatsappBotSettings.id, 1))
       .returning();
 
-    this.cache = updated as any;
+    this.cache = updated;
     return this.cache!;
   }
 

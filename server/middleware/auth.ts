@@ -508,7 +508,10 @@ export const requireRole = (role: string) => {
       });
     }
 
-    if (req.user.role !== role) {
+    const userRole = req.user.role;
+    const hasRole = userRole === role || (role === 'admin' && userRole === 'super_admin');
+
+    if (!hasRole) {
       console.log(`🚫 [AUTH] محاولة وصول غير مصرح بها من: ${req.user.email} للدور: ${role}`);
       return res.status(403).json({
         success: false,
@@ -533,8 +536,8 @@ export const requirePermission = (permission: string) => {
     }
 
     // يمكن إضافة منطق الصلاحيات هنا حسب الحاجة
-    // حالياً نسمح للـ admin بكل شيء
-    if (req.user.role === 'admin') {
+    // حالياً نسمح للـ admin و super_admin بكل شيء
+    if (req.user.role === 'admin' || req.user.role === 'super_admin') {
       return next();
     }
 

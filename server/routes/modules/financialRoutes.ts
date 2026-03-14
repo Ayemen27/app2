@@ -325,8 +325,6 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
     const transferData = { ...validationResult.data };
     if (typeof transferData.transferDate === 'string' && transferData.transferDate.includes('T')) {
       transferData.transferDate = transferData.transferDate.split('T')[0];
-    } else if ((transferData.transferDate as any) instanceof Date) {
-      transferData.transferDate = (transferData.transferDate as any).toISOString().split('T')[0];
     }
 
     // التحقق المسبق من رقم التحويل لمنع أخطاء التكرار
@@ -978,7 +976,7 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
       .set({
         ...validationResult.data,
         updated_at: new Date()
-      } as any)
+      })
       .where(eq(projectFundTransfers.id, id))
       .returning();
 
@@ -2046,8 +2044,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       remainingAmount = "0";
     }
 
-    const { addToInventory: _addToInv, ...validatedWithoutInventory } = validated as any;
-    const purchaseData = { 
+    const { addToInventory: _addToInv, ...validatedWithoutInventory } = validated;
+    const purchaseData: Record<string, unknown> = { 
       ...validatedWithoutInventory,
       addToInventory: false,
       unitPrice: validated.unitPrice || "0",
@@ -2055,7 +2053,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       paidAmount: paidAmount,
       remainingAmount: remainingAmount,
       materialCategory: validated.materialCategory || null
-    } as any;
+    };
 
     // التصحيح النهائي للقيم لضمان الدقة المحاسبية
     if (purchaseData.purchaseType === 'نقد' || purchaseData.purchaseType === 'نقداً') {
@@ -2070,7 +2068,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
 
     // التحقق من أن المبلغ الإجمالي ليس سالباً
-    if (parseFloat(purchaseData.totalAmount) < 0) {
+    if (parseFloat(String(purchaseData.totalAmount)) < 0) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -2206,7 +2204,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
   const startTime = Date.now();
   try {
     const validated = insertMaterialPurchaseSchema.partial().parse(req.body);
-    const { addToInventory: _addToInv, equipmentId: _eqId, ...validatedWithoutInventory } = validated as any;
+    const { addToInventory: _addToInv, equipmentId: _eqId, ...validatedWithoutInventory } = validated;
 
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
 

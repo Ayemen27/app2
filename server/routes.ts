@@ -22,9 +22,7 @@ function getErrorMessage(e: unknown): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  await monitoringRouter(app).catch(err => {
-    console.error("Failed to initialize monitoring router:", err);
-  });
+  app.use("/api/monitoring", monitoringRouter);
 
   app.post("/api/devices", requireAuth, async (req, res) => {
     try {

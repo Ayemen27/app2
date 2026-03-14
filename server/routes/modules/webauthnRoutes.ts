@@ -10,6 +10,7 @@ import {
 import type {
   RegistrationResponseJSON,
   AuthenticationResponseJSON,
+  AuthenticatorTransportFuture,
 } from '@simplewebauthn/server';
 import { requireAuth, AuthenticatedRequest, authRateLimit } from '../../middleware/auth.js';
 import { generateTokenPair } from '../../auth/jwt-utils.js';
@@ -82,7 +83,7 @@ webauthnRouter.post('/register/options', requireAuth, async (req: AuthenticatedR
       excludeCredentials: existingCredentials.map((cred) => ({
         id: cred.credential_id,
         type: 'public-key' as const,
-        transports: (cred.transports as any[]) || [],
+        transports: (cred.transports as AuthenticatorTransportFuture[]) || [],
       })),
       authenticatorSelection: {
         authenticatorAttachment: 'platform',
@@ -343,7 +344,7 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
         id: storedCredential.credential_id,
         publicKey: base64urlDecode(storedCredential.public_key),
         counter: storedCredential.counter,
-        transports: (storedCredential.transports as any[]) || [],
+        transports: (storedCredential.transports as AuthenticatorTransportFuture[]) || [],
       },
     });
 

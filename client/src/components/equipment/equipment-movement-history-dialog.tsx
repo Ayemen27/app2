@@ -8,6 +8,7 @@ import { History, ArrowRight, Calendar, User, FileText, MapPin } from "lucide-re
 import { Equipment } from "@shared/schema";
 import { formatDate } from "@/lib/utils";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 interface EquipmentMovementHistoryDialogProps {
   equipment: Equipment | null;
@@ -36,10 +37,11 @@ export function EquipmentMovementHistoryDialog({
   const { data: movements = [], isLoading } = useQuery({
     queryKey: QUERY_KEYS.equipmentMovementsById(String(equipment?.id ?? '')),
     queryFn: async () => {
-      const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/equipment/${equipment?.id}/movements`, {
+        credentials: getFetchCredentials(),
         headers: {
-          'Authorization': token ? `Bearer ${token}` : ''
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
         }
       });
       if (!response.ok) throw new Error('فشل في جلب سجل الحركات');

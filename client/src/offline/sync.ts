@@ -9,6 +9,7 @@ import { apiRequest } from '../lib/api-client';
 import { smartSave, smartGetAll, smartClear, smartPut, smartGet } from './storage-factory';
 import { intelligentMonitor } from './intelligent-monitor';
 import { ENV } from '../lib/env';
+import { getAccessToken } from '../lib/auth-token-store';
 import { SYNCABLE_TABLES, SERVER_TO_IDB_TABLE_MAP } from '@shared/schema';
 import { endpointToStore } from './store-registry';
 import { initLeaderElection, isCurrentTabLeader, onLeaderChange } from './sync-leader';
@@ -113,9 +114,8 @@ function getBackoffDelay(retries: number): number {
  * 📥 سحب البيانات الكاملة من الخادم لمرة واحدة (التكامل التام)
  */
 export async function performInitialDataPull(): Promise<boolean> {
-  const accessToken = localStorage.getItem('accessToken');
+  const accessToken = getAccessToken();
   
-  // فحص صارم للإنترنت والتوكن قبل بدء المزامنة الثقيلة
   if (!accessToken) {
     console.warn('🔑 [Sync] لا يمكن السحب الأولي بدون توكن');
     return false;

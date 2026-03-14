@@ -29,6 +29,7 @@ import html2canvas from 'html2canvas';
 import type { Project } from '@shared/schema';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 interface DailyExpenseData {
   date: string;
@@ -117,10 +118,11 @@ export default function DailyExpensesBulkExport() {
       const dateStr = date.toISOString().split('T')[0];
       
       try {
-        const token = localStorage.getItem('accessToken');
         const response = await fetch(`/api/reports/daily-expenses/${project_id}/${dateStr}`, {
+          credentials: getFetchCredentials(),
           headers: {
-            'Authorization': token ? `Bearer ${token}` : ''
+            ...getClientPlatformHeader(),
+            ...getAuthHeaders(),
           }
         });
         if (response.ok) {

@@ -1,4 +1,5 @@
 import { ENV } from './env';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 function bufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -124,10 +125,14 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
   try {
     const apiBase = ENV.getApiBaseUrl();
 
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (token) {
       const res = await fetch(`${apiBase}/api/webauthn/status`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: getFetchCredentials(),
+        headers: {
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
+        },
       });
       if (res.ok) {
         const data = await res.json();

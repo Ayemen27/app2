@@ -5,6 +5,7 @@ import { ENV } from './env';
 import { offlineApiInterceptor, isOfflineSupportedEndpoint, triggerBackgroundSync } from "@/offline/offline-api-interceptor";
 import { isValidJwt, getValidToken, isTokenExpired } from './token-utils';
 import { queryKeyToStore as resolveStoreForQueryKey } from "@/offline/store-registry";
+import { shouldUseBearerAuth, getAccessToken, getRefreshToken, getFetchCredentials, getClientPlatformHeader, storeTokens, clearTokens } from '@/lib/auth-token-store';
 
 function cacheResponseToLocal(storeName: string, data: any) {
   try {
@@ -79,8 +80,7 @@ function getStoredAccessToken(): string | null {
   if (authProviderHelpers) {
     return authProviderHelpers.getAccessToken();
   }
-  // fallback للتوافق المؤقت
-  return localStorage.getItem('accessToken');
+  return getAccessToken();
 }
 
 // دالة تجديد التوكن - تستخدم AuthProvider الآن
@@ -110,29 +110,28 @@ export async function apiRequest(
     url = `${apiBase}${cleanEndpoint}`;
   }
 
-  const token = typeof window !== 'undefined' ? getValidToken('accessToken') : null;
+  const token = shouldUseBearerAuth() ? (typeof window !== 'undefined' ? getValidToken('accessToken') : null) : null;
   
-  if (!token) {
+  if (shouldUseBearerAuth() && !token) {
     if (import.meta.env.DEV) console.warn(`[apiRequest] No token for request: ${method} ${endpoint}`);
-    // إذا لم يكن هناك توكن ولسنا في صفحة تسجيل الدخول، نطلب تسجيل الدخول
     if (typeof window !== 'undefined' && !window.location.pathname.includes('/login') && !endpoint.includes('/auth/login')) {
-       // بدلاً من التوجيه الفوري، سنسمح للـ fetch بالفشل بـ 401 أو نلقي خطأ
     }
   }
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    ...getClientPlatformHeader(),
     ...(extraHeaders || {}),
   };
 
-  if (token) {
+  if (shouldUseBearerAuth() && token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
   const config: RequestInit = {
     method,
     headers,
-    credentials: "include",
+    credentials: getFetchCredentials(),
   };
 
   if (data && method !== "GET") {
@@ -171,7 +170,7 @@ export async function apiRequest(
     if (response.status === 401) {
       if (import.meta.env.DEV) console.log('[apiRequest] 401 Unauthorized - Checking tokens...');
       
-      const refreshTokenValue = getValidToken("refreshToken");
+      const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : getValidToken("refreshToken");
       if (refreshTokenValue && isValidJwt(refreshTokenValue) && retryCount === 0) {
         try {
           const apiBase = ENV.getApiBaseUrl();
@@ -180,7 +179,8 @@ export async function apiRequest(
           if (import.meta.env.DEV) console.log('[apiRequest] Attempting silent refresh...');
           const refreshResponse = await fetch(refreshUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            credentials: getFetchCredentials(),
+            headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
             body: JSON.stringify({ refreshToken: refreshTokenValue })
           });
 
@@ -191,17 +191,19 @@ export async function apiRequest(
             
             if (newAccessToken) {
               if (import.meta.env.DEV) console.log('[apiRequest] Refresh successful, retrying request');
-              localStorage.setItem("accessToken", newAccessToken);
-              if (newRefreshToken) localStorage.setItem("refreshToken", newRefreshToken);
+              storeTokens(newAccessToken, newRefreshToken || refreshTokenValue);
               
-              // ✅ تحديث الـ headers للطلب المعاد
-              const retryHeaders = {
-                ...headers,
-                'Authorization': `Bearer ${newAccessToken}`
+              const retryHeaders: Record<string, string> = {
+                ...(headers as Record<string, string>),
+                ...getClientPlatformHeader(),
               };
+              if (shouldUseBearerAuth()) {
+                retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
+              }
               
               const retryConfig = {
                 ...config,
+                credentials: getFetchCredentials(),
                 headers: retryHeaders
               };
               
@@ -345,7 +347,9 @@ export const getQueryFn: <T>(options: {
             }
           }
 
-        const headers: Record<string, string> = {};
+        const headers: Record<string, string> = {
+          ...getClientPlatformHeader(),
+        };
         let accessToken = getStoredAccessToken();
 
         if (accessToken && isTokenExpired(accessToken)) {
@@ -358,7 +362,7 @@ export const getQueryFn: <T>(options: {
           }
         }
 
-        if (accessToken) {
+        if (shouldUseBearerAuth() && accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
 
@@ -366,7 +370,7 @@ export const getQueryFn: <T>(options: {
 
         const res = await fetch(url, {
           headers,
-          credentials: "include",
+          credentials: getFetchCredentials(),
           signal: controller.signal,
         });
 
@@ -375,14 +379,15 @@ export const getQueryFn: <T>(options: {
         if (!res.ok) {
           if (res.status === 401 && retryCount === 0) {
             if (import.meta.env.DEV) console.log('[QueryClient] 401 - attempting token refresh...');
-            const refreshTokenValue = getValidToken("refreshToken");
+            const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : getValidToken("refreshToken");
             if (refreshTokenValue && isValidJwt(refreshTokenValue)) {
               try {
                 const refreshApiBase = ENV.getApiBaseUrl();
                 const refreshUrl = `${refreshApiBase}/api/auth/refresh`;
                 const refreshRes = await fetch(refreshUrl, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  credentials: getFetchCredentials(),
+                  headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
                   body: JSON.stringify({ refreshToken: refreshTokenValue })
                 });
                 if (refreshRes.ok) {
@@ -391,8 +396,7 @@ export const getQueryFn: <T>(options: {
                   const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
                   if (newToken) {
                     if (import.meta.env.DEV) console.log('[QueryClient] Token refreshed successfully, retrying...');
-                    localStorage.setItem("accessToken", newToken);
-                    if (newRefresh) localStorage.setItem("refreshToken", newRefresh);
+                    storeTokens(newToken, newRefresh || refreshTokenValue);
                     return makeQueryRequest(retryCount + 1);
                   }
                 }

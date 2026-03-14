@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { InsertWorker } from "@shared/schema";
+import { getAccessToken } from '@/lib/auth-token-store';
 
 interface EnhancedAddWorkerFormProps {
   onSuccess?: () => void;
@@ -70,7 +71,7 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       
       try {
         // التحقق من وجود رمز المصادقة
-        const accessToken = localStorage.getItem('accessToken');
+        const accessToken = getAccessToken();
         console.log('🔑 [AddWorker] فحص رمز المصادقة:', {
           hasToken: !!accessToken,
           tokenPreview: accessToken ? `${accessToken.substring(0, 10)}...` : 'لا يوجد'

@@ -24,6 +24,7 @@ import type { StatsRowConfig, ActionButton, FilterConfig } from "@/components/ui
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 export default function DatabaseManager() {
   const { toast } = useToast();
@@ -34,18 +35,12 @@ export default function DatabaseManager() {
   const [selectedSource, setSelectedSource] = useState("active");
 
   const fetchWithAuth = async (url: string, method: string = "GET", body?: any) => {
-    const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
-    let cleanToken = token?.trim() || "";
-    if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
-      cleanToken = cleanToken.slice(1, -1);
-    }
-    
     const options: RequestInit = {
       method,
+      credentials: getFetchCredentials(),
       headers: {
-        "Authorization": `Bearer ${cleanToken}`,
-        "x-auth-token": cleanToken,
-        "x-access-token": cleanToken,
+        ...getClientPlatformHeader(),
+        ...getAuthHeaders(),
         ...(body ? { "Content-Type": "application/json" } : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),

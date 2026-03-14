@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/node";
 import { pool } from "./db";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import fs from "fs";
@@ -52,6 +53,10 @@ function sanitizeLogData(data: any): any {
 
 const app = express();
 
+app.use(cookieParser());
+
+import { apiErrorNormalizer } from './middleware/api-error-normalizer';
+app.use('/api', apiErrorNormalizer);
 
 app.get('/favicon.ico', (req: Request, res: Response): void => {
   const faviconPath = path.resolve(process.cwd(), 'client', 'public', 'favicon.ico');
@@ -297,7 +302,18 @@ globalThis.io = io;
 // Socket.IO authentication middleware
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    let token = socket.handshake.auth?.token || socket.handshake.query?.token;
+
+    if (!token || typeof token !== 'string') {
+      const cookieHeader = socket.handshake.headers.cookie;
+      if (cookieHeader) {
+        const match = cookieHeader.match(/accessToken=([^;]+)/);
+        if (match) {
+          token = match[1];
+        }
+      }
+    }
+
     if (!token || typeof token !== 'string') {
       return next(new Error('Authentication required'));
     }

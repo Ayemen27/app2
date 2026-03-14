@@ -59,6 +59,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 import type {
   DailyReportData,
   WorkerStatementData,
@@ -80,7 +81,7 @@ function safeFormatDate(dateStr: string | null | undefined, fmt: string, options
 }
 
 function getAuthToken(): string {
-  return localStorage.getItem("accessToken") || localStorage.getItem("auth_token") || localStorage.getItem("token") || "";
+  return getAccessToken() || "";
 }
 
 function buildExportUrl(type: string, fmt: string, params: Record<string, string>): string {
@@ -91,10 +92,11 @@ function buildExportUrl(type: string, fmt: string, params: Record<string, string
 async function secureDownloadExport(type: string, fmt: string, params: Record<string, string>, toast: any) {
   const url = buildExportUrl(type, fmt, params);
   try {
-    const token = getAuthToken();
     const response = await fetch(url, {
+      credentials: getFetchCredentials(),
       headers: {
-        'Authorization': `Bearer ${token}`,
+        ...getClientPlatformHeader(),
+        ...getAuthHeaders(),
       },
     });
 

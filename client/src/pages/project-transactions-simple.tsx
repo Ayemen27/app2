@@ -33,6 +33,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { exportTransactionsToExcel } from "@/components/ui/export-transactions-excel";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 
 interface Transaction {
@@ -208,9 +209,11 @@ export default function ProjectTransactionsSimple() {
           ? '/api/project-fund-transfers'
           : `/api/projects/fund-transfers/incoming/${selectedProject}`;
         const response = await fetch(endpoint, {
+          credentials: getFetchCredentials(),
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
+            ...getClientPlatformHeader(),
+            ...getAuthHeaders(),
           }
         });
         if (!response.ok) {
@@ -255,9 +258,11 @@ export default function ProjectTransactionsSimple() {
           ? '/api/project-fund-transfers'
           : `/api/projects/fund-transfers/outgoing/${selectedProject}`;
         const response = await fetch(endpoint, {
+          credentials: getFetchCredentials(),
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
             'Content-Type': 'application/json',
+            ...getClientPlatformHeader(),
+            ...getAuthHeaders(),
           }
         });
         if (!response.ok) {
@@ -342,9 +347,11 @@ export default function ProjectTransactionsSimple() {
           for (const project of projects) {
             try {
               const response = await fetch(`/api/projects/${project.id}/material-purchases`, {
+                credentials: getFetchCredentials(),
                 headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
                   'Content-Type': 'application/json',
+                  ...getClientPlatformHeader(),
+                  ...getAuthHeaders(),
                 }
               });
               if (response.ok) {
@@ -360,9 +367,11 @@ export default function ProjectTransactionsSimple() {
           return allRecords;
         } else {
           const response = await fetch(`/api/projects/${selectedProject}/material-purchases`, {
+            credentials: getFetchCredentials(),
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
               'Content-Type': 'application/json',
+              ...getClientPlatformHeader(),
+              ...getAuthHeaders(),
             }
           });
           if (!response.ok) {

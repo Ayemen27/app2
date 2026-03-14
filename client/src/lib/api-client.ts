@@ -1,8 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import { ENV } from './env';
 import { getValidToken, isValidJwt, isTokenExpired } from './token-utils';
+import { shouldUseBearerAuth, getAccessToken, getRefreshToken, getFetchCredentials, getClientPlatformHeader, storeTokens, clearTokens } from '@/lib/auth-token-store';
 
-// عميل API محسن لمعالجة الأخطاء والاتصالات
 class ApiClient {
   private baseURL: string;
 
@@ -11,12 +11,14 @@ class ApiClient {
   }
 
   private async getTokenWithRefresh(): Promise<string | null> {
+    if (!shouldUseBearerAuth()) return null;
+
     let token = getValidToken('accessToken');
     if (token) return token;
 
-    const rawToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const rawToken = getAccessToken();
     if (rawToken && isValidJwt(rawToken) && isTokenExpired(rawToken)) {
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = getRefreshToken();
       if (refreshToken && isValidJwt(refreshToken) && !isTokenExpired(refreshToken)) {
         try {
           console.log('[ApiClient] Access token expired, attempting proactive refresh...');
@@ -24,10 +26,7 @@ class ApiClient {
             refreshToken
           });
           if (refreshResponse && refreshResponse.accessToken) {
-            localStorage.setItem('accessToken', refreshResponse.accessToken);
-            if (refreshResponse.refreshToken) {
-              localStorage.setItem('refreshToken', refreshResponse.refreshToken);
-            }
+            storeTokens(refreshResponse.accessToken, refreshResponse.refreshToken || refreshToken);
             return refreshResponse.accessToken;
           }
         } catch (e) {
@@ -46,7 +45,7 @@ class ApiClient {
 
     const isAuthEndpoint = endpoint === '/auth/refresh' || endpoint === '/auth/login';
     const token = isAuthEndpoint
-      ? (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null)
+      ? getAccessToken()
       : await this.getTokenWithRefresh();
 
     try {
@@ -55,9 +54,10 @@ class ApiClient {
       
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        ...getClientPlatformHeader(),
       };
 
-      if (token && token !== 'undefined' && token !== 'null') {
+      if (shouldUseBearerAuth() && token && token !== 'undefined' && token !== 'null') {
         const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
         headers['Authorization'] = `Bearer ${cleanToken}`;
         headers['x-auth-token'] = cleanToken;
@@ -65,6 +65,7 @@ class ApiClient {
 
       const response = await fetch(url, {
         ...options,
+        credentials: getFetchCredentials(),
         headers: {
           ...headers,
           ...options.headers,
@@ -76,27 +77,21 @@ class ApiClient {
         if (errorData.code === 'TOKEN_EXPIRED' && endpoint !== '/auth/refresh') {
           console.log('🔄 [API] Token expired, attempting refresh...');
           try {
+            const currentRefreshToken = getRefreshToken();
             const refreshResponse = await this.post<{accessToken: string, refreshToken: string}>('/auth/refresh', {
-              refreshToken: localStorage.getItem('refreshToken')
+              refreshToken: currentRefreshToken
             });
             
             if (refreshResponse && refreshResponse.accessToken) {
-              localStorage.setItem('accessToken', refreshResponse.accessToken);
-              if (refreshResponse.refreshToken) {
-                localStorage.setItem('refreshToken', refreshResponse.refreshToken);
-              }
+              storeTokens(refreshResponse.accessToken, refreshResponse.refreshToken || currentRefreshToken || '');
               
-              // Retry the original request
               return this.request<T>(endpoint, options);
             }
           } catch (refreshError) {
             console.error('❌ [API] Refresh failed:', refreshError);
-            // تسجيل الخروج تلقائياً عند فشل التجديد نهائياً
             if (typeof window !== 'undefined') {
-              localStorage.removeItem('accessToken');
-              localStorage.removeItem('refreshToken');
+              clearTokens();
               localStorage.removeItem('user');
-              // إعادة التوجيه لصفحة تسجيل الدخول
               window.location.href = '/auth';
             }
           }
@@ -149,7 +144,6 @@ class ApiClient {
 
 export const apiClient = new ApiClient();
 
-// Helper for making API requests (for backward compatibility)
 export async function apiRequest(
   endpoint: string,
   method: string = "GET",
@@ -161,20 +155,22 @@ export async function apiRequest(
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...getClientPlatformHeader(),
   };
 
-  let token = getValidToken('accessToken');
-  if (!token) {
-    const rawToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  let token = shouldUseBearerAuth() ? getValidToken('accessToken') : null;
+  if (!token && shouldUseBearerAuth()) {
+    const rawToken = getAccessToken();
     if (rawToken && isValidJwt(rawToken) && isTokenExpired(rawToken)) {
-      const refreshTokenVal = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      const refreshTokenVal = getRefreshToken();
       if (refreshTokenVal && isValidJwt(refreshTokenVal) && !isTokenExpired(refreshTokenVal)) {
         try {
           console.log('[apiRequest] Access token expired, attempting proactive refresh...');
           const refreshUrl = `${baseURL}/api/auth/refresh`;
           const refreshRes = await fetch(refreshUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            credentials: getFetchCredentials(),
+            headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
             body: JSON.stringify({ refreshToken: refreshTokenVal })
           });
           if (refreshRes.ok) {
@@ -182,8 +178,7 @@ export async function apiRequest(
             const newToken = refreshData.data?.accessToken || refreshData.accessToken;
             const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
             if (newToken) {
-              localStorage.setItem('accessToken', newToken);
-              if (newRefresh) localStorage.setItem('refreshToken', newRefresh);
+              storeTokens(newToken, newRefresh || refreshTokenVal);
               token = newToken;
             }
           }
@@ -194,7 +189,7 @@ export async function apiRequest(
     }
   }
 
-  if (token) {
+  if (shouldUseBearerAuth() && token) {
     const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
     headers['Authorization'] = `Bearer ${cleanToken}`;
     headers['x-auth-token'] = cleanToken;
@@ -207,6 +202,7 @@ export async function apiRequest(
     const response = await fetch(url, {
       method,
       headers,
+      credentials: getFetchCredentials(),
       body: data ? JSON.stringify(data) : undefined,
       signal: controller.signal
     });

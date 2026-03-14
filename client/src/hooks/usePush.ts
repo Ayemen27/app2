@@ -6,6 +6,7 @@ import {
   type Messaging,
 } from '@/services/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 interface UsePushReturn {
   isPushSupported: boolean;
@@ -124,9 +125,11 @@ export const usePush = (): UsePushReturn => {
           try {
             const response = await fetch('/api/push/token', {
               method: 'POST',
+              credentials: getFetchCredentials(),
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                ...getClientPlatformHeader(),
+                ...getAuthHeaders(),
               },
               body: JSON.stringify({ token }),
             });

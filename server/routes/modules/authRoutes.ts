@@ -45,6 +45,13 @@ declare global {
   var isEmergencyMode: boolean | undefined;
 }
 
+function isNativeClient(req: Request): boolean {
+  const platform = req.headers['x-client-platform'];
+  if (platform === 'native') return true;
+  const ua = req.headers['user-agent'] || '';
+  return /capacitor|android|ionic/i.test(ua);
+}
+
 const authRouter = express.Router();
 
 /**
@@ -204,10 +211,12 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
 
     setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
+    const nativeClient = isNativeClient(req);
     const responseData = {
       success: true,
       status: "success",
       message: 'تم تسجيل الدخول بنجاح',
+      tokenDelivery: nativeClient ? 'bearer' : 'cookie',
       token: tokenPair.accessToken, 
       accessToken: tokenPair.accessToken,
       user: {
@@ -510,9 +519,11 @@ authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) =
 
       setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
 
+      const nativeClient = isNativeClient(req);
       const responseData = {
         success: true,
         message: 'تم تجديد الرموز بنجاح',
+        tokenDelivery: nativeClient ? 'bearer' : 'cookie',
         accessToken: tokenPair.accessToken,
         expiresIn: 900,
         user: {

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { io, Socket } from 'socket.io-client';
+import { shouldUseBearerAuth, getAccessToken } from '@/lib/auth-token-store';
 
 export function useWebSocketSync() {
   const queryClient = useQueryClient();
@@ -13,9 +14,9 @@ export function useWebSocketSync() {
       try {
         console.log('🔌 [Socket.IO] محاولة الاتصال...');
         
-        // Socket.IO سيتعامل مع كل شيء تلقائياً
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
+        const useBearer = shouldUseBearerAuth();
+        const token = getAccessToken();
+        if (useBearer && !token) {
           console.log('🔌 [Socket.IO] No auth token available, skipping connection');
           return;
         }
@@ -26,7 +27,7 @@ export function useWebSocketSync() {
           reconnectionDelayMax: 5000,
           reconnectionAttempts: 10,
           transports: ['websocket', 'polling'],
-          auth: { token },
+          ...(useBearer ? { auth: { token } } : { withCredentials: true }),
         });
 
         socketRef.current = socket;
@@ -41,9 +42,11 @@ export function useWebSocketSync() {
 
         socket.on('connect_error', (error: any) => {
           console.warn('🔌 [Socket.IO] Auth error, updating token:', error.message);
-          const freshToken = localStorage.getItem('accessToken');
-          if (freshToken) {
-            socket.auth = { token: freshToken };
+          if (shouldUseBearerAuth()) {
+            const freshToken = getAccessToken();
+            if (freshToken) {
+              socket.auth = { token: freshToken };
+            }
           }
         });
 

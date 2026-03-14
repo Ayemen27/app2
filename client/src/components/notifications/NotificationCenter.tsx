@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { showSuccessToast, showErrorToast } from "@/utils/enhanced-toast";
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 
 interface Notification {
@@ -68,17 +69,19 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     setLoading(true);
     try {
       // استخدام نظام المصادقة المتقدم JWT
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
 
-      if (!token) {
+      if (!token && Object.keys(getAuthHeaders()).length === 0) {
         console.warn('لا يوجد رمز مصادقة - تخطي جلب الإشعارات');
         setLoading(false);
         return;
       }
 
       const response = await fetch('/api/notifications?limit=50', {
+        credentials: getFetchCredentials(),
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
         }
       });
       if (response.ok) {
@@ -136,9 +139,9 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   const markAsRead = async (notificationId: string) => {
     try {
       // استخدام نظام المصادقة المتقدم JWT
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
 
-      if (!token) {
+      if (!token && Object.keys(getAuthHeaders()).length === 0) {
         console.warn('لا يوجد رمز مصادقة - لا يمكن تحديد الإشعار كمقروء');
         showErrorToast("لا يمكنك تحديد الإشعارات كمقروءة بدون تسجيل الدخول.");
         return;
@@ -146,9 +149,11 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
 
       const response = await fetch(`/api/notifications/${notificationId}/read`, {
         method: 'POST',
+        credentials: getFetchCredentials(),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
         },
       });
 
@@ -172,14 +177,16 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   // مسح الإشعارات المشبوهة
   const bulkDeleteSuspicious = async () => {
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
+      const token = getAccessToken();
+      if (!token && Object.keys(getAuthHeaders()).length === 0) return;
 
       const response = await fetch('/api/notifications/bulk-delete-suspicious', {
         method: 'DELETE',
+        credentials: getFetchCredentials(),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
         },
       });
 
@@ -199,9 +206,9 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
   const markAllAsRead = async () => {
     try {
       // استخدام نظام المصادقة المتقدم JWT
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
 
-      if (!token) {
+      if (!token && Object.keys(getAuthHeaders()).length === 0) {
         console.warn('لا يوجد رمز مصادقة - لا يمكن تعليم الإشعارات كمقروءة');
         showErrorToast("لا يمكنك تحديد جميع الإشعارات كمقروءة بدون تسجيل الدخول.");
         return;
@@ -209,9 +216,11 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
 
       const response = await fetch('/api/notifications/mark-all-read', {
         method: 'POST',
+        credentials: getFetchCredentials(),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
         },
       });
 

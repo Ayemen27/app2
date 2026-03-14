@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient as globalQueryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
@@ -62,9 +63,10 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
     queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
       const response = await fetch("/api/projects", {
-        credentials: "include",
+        credentials: getFetchCredentials(),
         headers: {
-          "Authorization": `Bearer ${localStorage.getItem('accessToken') || ''}`
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
         }
       });
       if (!response.ok) {

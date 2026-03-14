@@ -6,7 +6,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/queryClient";
-import { isValidJwt, clearInvalidTokens, setAuthMode, getAuthMode, isOfflineMode, getValidToken } from "../lib/token-utils";
+import { isValidJwt, clearInvalidTokens, setAuthMode, getAuthMode, isOfflineMode } from "../lib/token-utils";
+import { storeTokens, clearTokens, getAccessToken as storeGetAccessToken, getRefreshToken as storeGetRefreshToken, isWebCookieMode, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 import { ENV } from "../lib/env";
 
 interface User {
@@ -54,11 +55,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isAuthenticated = user !== null;
 
   const getAccessToken = (): string | null => {
-    return getValidToken('accessToken');
+    return storeGetAccessToken();
   };
 
   const getRefreshToken = (): string | null => {
-    return getValidToken('refreshToken');
+    return storeGetRefreshToken();
   };
 
   // متغيرات لإدارة Fallback mechanisms
@@ -84,8 +85,65 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (import.meta.env.DEV) console.log('[AuthProvider] Initializing auth...');
       clearInvalidTokens();
       try {
-        const accessToken = getValidToken('accessToken');
+        const accessToken = storeGetAccessToken();
         const savedUser = localStorage.getItem('user');
+
+        if (isWebCookieMode()) {
+          if (import.meta.env.DEV) console.log('[AuthProvider] Web cookie mode - checking session via /api/auth/me');
+          try {
+            const res = await fetch(`${API_BASE_URL}/auth/me`, {
+              credentials: getFetchCredentials(),
+              headers: { ...getClientPlatformHeader() }
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.user) {
+                const isEmailVerified =
+                  data.user.emailVerified === true ||
+                  !!data.user.email_verified_at ||
+                  localStorage.getItem('emailVerified') === 'true';
+
+                const resolvedName = data.user.name ||
+                  [data.user.first_name, data.user.last_name].filter(Boolean).join(' ') ||
+                  data.user.email;
+
+                const updatedUser = {
+                  ...data.user,
+                  name: resolvedName,
+                  emailVerified: isEmailVerified
+                };
+
+                if (isEmailVerified) {
+                  localStorage.setItem('emailVerified', 'true');
+                }
+
+                setUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                setAuthMode('online');
+              }
+            } else if (savedUser) {
+              if (import.meta.env.DEV) console.log('[AuthProvider] Cookie session invalid, clearing user');
+              setUser(null);
+              localStorage.removeItem('user');
+              clearTokens();
+              setAuthMode('online');
+            }
+          } catch {
+            if (savedUser) {
+              try {
+                const parsedUser = JSON.parse(savedUser);
+                if (isOfflineMode()) {
+                  setUser(parsedUser);
+                  if (import.meta.env.DEV) console.log('[AuthProvider] Web offline fallback - using saved user');
+                }
+              } catch {
+                if (import.meta.env.DEV) console.log('[AuthProvider] Failed to parse saved user in offline fallback');
+              }
+            }
+          }
+          setIsLoading(false);
+          return;
+        }
 
         if (!savedUser) {
           if (import.meta.env.DEV) console.log('[AuthProvider] No saved user data');
@@ -131,12 +189,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           if (import.meta.env.DEV) console.log('[AuthProvider] Silent session verification...');
           fetch(`${API_BASE_URL}/auth/me`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
+            credentials: getFetchCredentials(),
+            headers: { ...getAuthHeaders(), ...getClientPlatformHeader() }
           }).then(async (res) => {
             if (res.ok) {
               const data = await res.json();
               if (data.user) {
-                // تحديث حالة التحقق بدقة مع دعم التوافق مع localStorage
                 const isEmailVerified = 
                   data.user.emailVerified === true || 
                   data.user.emailVerified === true ||
@@ -166,8 +224,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               if (import.meta.env.DEV) console.warn('[AuthProvider] Silent verification failed (401)');
               setUser(null);
               localStorage.removeItem('user');
-              localStorage.removeItem('accessToken');
-              localStorage.removeItem('refreshToken');
+              clearTokens();
               setAuthMode('online');
             }
           }).catch(() => {});
@@ -201,12 +258,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!user) return;
 
     const revalidateSession = async () => {
-      const accessToken = getValidToken('accessToken');
-      if (!accessToken) return;
+      const accessToken = storeGetAccessToken();
+      if (!accessToken && !isWebCookieMode()) return;
 
       try {
         const res = await fetch(`${API_BASE_URL}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
+          credentials: getFetchCredentials(),
+          headers: { ...getAuthHeaders(), ...getClientPlatformHeader() }
         });
         if (res.ok) {
           const data = await res.json();
@@ -264,8 +322,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
+        credentials: getFetchCredentials(),
         headers: {
           'Content-Type': 'application/json',
+          ...getClientPlatformHeader(),
         },
         body: JSON.stringify({ email, password }),
         signal: controller.signal,
@@ -442,11 +502,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (import.meta.env.DEV) console.log('[AuthProvider.login] Saving data to localStorage...');
     localStorage.setItem('user', JSON.stringify(userToSave));
     if (tokenData && isValidJwt(tokenData)) {
-      localStorage.setItem('accessToken', tokenData);
+      storeTokens(tokenData, refreshTokenData && isValidJwt(refreshTokenData) ? refreshTokenData : '');
       setAuthMode('online');
-    }
-    if (refreshTokenData && isValidJwt(refreshTokenData)) {
-      localStorage.setItem('refreshToken', refreshTokenData);
     }
     
     setUser(userToSave);
@@ -524,11 +581,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const refreshTokenData = result.refreshToken || responseData.refreshToken || result.tokens?.refreshToken;
 
     if (tokenData) {
-      localStorage.setItem('accessToken', tokenData);
+      storeTokens(tokenData, refreshTokenData || '');
       setAuthMode('online');
-    }
-    if (refreshTokenData) {
-      localStorage.setItem('refreshToken', refreshTokenData);
     }
 
     const userToSave = {
@@ -549,26 +603,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تسجيل الخروج
   const logout = async () => {
     try {
-      const accessToken = localStorage.getItem('accessToken');
-      if (accessToken) {
-        try {
-          await fetch(`${API_BASE_URL}/auth/logout`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            },
-          });
-        } catch (error) {
-          // تجاهل الخطأ - المهم تنظيف البيانات المحلية
-        }
+      const accessToken = storeGetAccessToken();
+      try {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: 'POST',
+          credentials: getFetchCredentials(),
+          headers: {
+            ...getAuthHeaders(),
+            ...getClientPlatformHeader(),
+          },
+        });
+      } catch (error) {
       }
     } catch (error) {
-      // تجاهل الأخطاء
     } finally {
       setUser(null);
       localStorage.removeItem('user');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      clearTokens();
       setAuthMode('online');
       clearAllCache();
       
@@ -613,8 +664,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       while (isRefreshing) {
         await sleep(100);
       }
-      // التحقق من نجاح التجديد السابق
-      return localStorage.getItem('accessToken') !== null;
+      return storeGetAccessToken() !== null;
     }
 
     setIsRefreshing(true);
@@ -622,7 +672,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let currentAttempt = forceRetry ? 0 : refreshAttempts;
 
     try {
-      const refreshTokenValue = localStorage.getItem('refreshToken');
+      const refreshTokenValue = storeGetRefreshToken();
       if (!refreshTokenValue) {
         if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] No refresh token');
         return false;
@@ -645,8 +695,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
           const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
             method: 'POST',
+            credentials: getFetchCredentials(),
             headers: {
               'Content-Type': 'application/json',
+              ...getClientPlatformHeader(),
             },
             body: JSON.stringify({ refreshToken: refreshTokenValue }),
             signal: controller.signal,
@@ -670,9 +722,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (response.ok && data.success && data.tokens) {
             if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Successful response');
 
-            // نجحت العملية - حفظ الرموز الجديدة
-            localStorage.setItem('accessToken', data.tokens.accessToken);
-            localStorage.setItem('refreshToken', data.tokens.refreshToken);
+            storeTokens(data.tokens.accessToken, data.tokens.refreshToken);
 
             // إعادة تعيين عداد المحاولات
             setRefreshAttempts(0);
@@ -773,27 +823,26 @@ export function useAuthenticatedRequest() {
   const { refreshToken } = useAuth();
 
   return async (url: string, options: RequestInit = {}): Promise<Response> => {
-    const accessToken = localStorage.getItem('accessToken');
-
     const response = await fetch(url, {
       ...options,
+      credentials: getFetchCredentials(),
       headers: {
         ...options.headers,
-        'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        ...getAuthHeaders(),
+        ...getClientPlatformHeader(),
       },
     });
 
-    // إذا انتهت صلاحية الرمز
     if (response.status === 401 || response.status === 403) {
       const refreshed = await refreshToken();
       if (refreshed) {
-        // إعادة المحاولة مع الرمز الجديد
-        const newAccessToken = localStorage.getItem('accessToken');
         return fetch(url, {
           ...options,
+          credentials: getFetchCredentials(),
           headers: {
             ...options.headers,
-            'Authorization': newAccessToken ? `Bearer ${newAccessToken}` : '',
+            ...getAuthHeaders(),
+            ...getClientPlatformHeader(),
           },
         });
       }

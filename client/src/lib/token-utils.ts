@@ -1,3 +1,5 @@
+import { getAccessToken, getRefreshToken, clearTokens } from '@/lib/auth-token-store';
+
 const PLACEHOLDER_TOKENS = [
   'offline-token',
   'offline-refresh',
@@ -53,7 +55,7 @@ export function isPlaceholderToken(token: string | null | undefined): boolean {
 
 export function getValidToken(key: 'accessToken' | 'refreshToken'): string | null {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
-  const token = localStorage.getItem(key);
+  const token = key === 'accessToken' ? getAccessToken() : getRefreshToken();
   if (!token || !isValidJwt(token)) return null;
   if (isTokenExpired(token)) {
     console.log(`[TokenUtils] ${key} expired or expiring soon`);
@@ -64,17 +66,18 @@ export function getValidToken(key: 'accessToken' | 'refreshToken'): string | nul
 
 export function clearInvalidTokens(): void {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-  const accessToken = localStorage.getItem('accessToken');
-  const refreshToken = localStorage.getItem('refreshToken');
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
 
-  if (accessToken && !isValidJwt(accessToken)) {
-    console.log(`🧹 [TokenUtils] مسح accessToken غير صالح: "${accessToken}"`);
-    localStorage.removeItem('accessToken');
-  }
-
-  if (refreshToken && !isValidJwt(refreshToken)) {
-    console.log(`🧹 [TokenUtils] مسح refreshToken غير صالح: "${refreshToken}"`);
-    localStorage.removeItem('refreshToken');
+  const hasInvalid = (accessToken && !isValidJwt(accessToken)) || (refreshToken && !isValidJwt(refreshToken));
+  if (hasInvalid) {
+    if (accessToken && !isValidJwt(accessToken)) {
+      console.log(`[TokenUtils] clearing invalid accessToken: "${accessToken}"`);
+    }
+    if (refreshToken && !isValidJwt(refreshToken)) {
+      console.log(`[TokenUtils] clearing invalid refreshToken: "${refreshToken}"`);
+    }
+    clearTokens();
   }
 }
 
@@ -96,7 +99,6 @@ export function isOfflineMode(): boolean {
 
 export function clearAuthState(): void {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
+  clearTokens();
   localStorage.removeItem(AUTH_MODE_KEY);
 }

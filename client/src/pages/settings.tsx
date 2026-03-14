@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 import { 
   Settings as SettingsIcon, 
   Bell, 
@@ -73,18 +74,23 @@ export default function SettingsPage() {
     return ENV.getApiBaseUrl();
   }, []);
 
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem('accessToken');
-    return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : null;
+  const getSettingsAuthHeaders = useCallback((): Record<string, string> | null => {
+    const token = getAccessToken();
+    const authHdrs = getAuthHeaders();
+    if (!token && Object.keys(authHdrs).length === 0 && typeof navigator !== 'undefined') {
+      return { 'Content-Type': 'application/json', ...getClientPlatformHeader() };
+    }
+    if (!token && Object.keys(authHdrs).length === 0) return null;
+    return { 'Content-Type': 'application/json', ...getClientPlatformHeader(), ...authHdrs };
   }, []);
 
   const loadPreferences = useCallback(async () => {
     try {
-      const headers = getAuthHeaders();
+      const headers = getSettingsAuthHeaders();
       if (!headers) { setPrefsLoading(false); return; }
 
       const apiBase = await getApiBase();
-      const res = await fetch(`${apiBase}/api/preferences`, { headers });
+      const res = await fetch(`${apiBase}/api/preferences`, { headers, credentials: getFetchCredentials() });
       if (res.ok) {
         const data = await res.json();
         if (data.preferences) {
@@ -109,7 +115,7 @@ export default function SettingsPage() {
     } finally {
       setPrefsLoading(false);
     }
-  }, [getApiBase, getAuthHeaders]);
+  }, [getApiBase, getSettingsAuthHeaders]);
 
   const applyTheme = (dark: boolean) => {
     if (dark) {
@@ -132,7 +138,7 @@ export default function SettingsPage() {
   const savePreferences = async () => {
     setSaving(true);
     try {
-      const headers = getAuthHeaders();
+      const headers = getSettingsAuthHeaders();
       if (!headers) {
         toast({ title: "خطأ", description: "يجب تسجيل الدخول أولاً", variant: "destructive" });
         return;
@@ -141,6 +147,7 @@ export default function SettingsPage() {
       const apiBase = await getApiBase();
       const res = await fetch(`${apiBase}/api/preferences`, {
         method: 'PUT',
+        credentials: getFetchCredentials(),
         headers,
         body: JSON.stringify(prefs),
       });
@@ -187,11 +194,11 @@ export default function SettingsPage() {
       const available = await isBiometricAvailable();
       if (!available) { setBiometricStatus('unsupported'); return; }
 
-      const headers = getAuthHeaders();
+      const headers = getSettingsAuthHeaders();
       if (!headers) { setBiometricStatus('disabled'); return; }
 
       const apiBase = await getApiBase();
-      const res = await fetch(`${apiBase}/api/webauthn/status`, { headers });
+      const res = await fetch(`${apiBase}/api/webauthn/status`, { headers, credentials: getFetchCredentials() });
       if (res.ok) {
         const data = await res.json();
         setBiometricStatus(data.enabled ? 'enabled' : 'disabled');
@@ -206,7 +213,7 @@ export default function SettingsPage() {
   const handleEnableBiometric = async () => {
     setBiometricLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) {
         toast({ title: "خطأ", description: "يجب تسجيل الدخول أولاً", variant: "destructive" });
         return;
@@ -234,12 +241,13 @@ export default function SettingsPage() {
     if (!confirm("هل أنت متأكد من إلغاء تفعيل البصمة؟ ستحتاج لإعادة تفعيلها لاستخدامها مرة أخرى.")) return;
     setBiometricLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) return;
       const apiBase = await getApiBase();
       const res = await fetch(`${apiBase}/api/webauthn/credentials`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: getFetchCredentials(),
+        headers: { ...getClientPlatformHeader(), ...getAuthHeaders() },
       });
       if (res.ok) {
         setBiometricStatus('disabled');

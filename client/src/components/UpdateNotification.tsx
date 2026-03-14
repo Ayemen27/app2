@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, Info, RefreshCw } from "lucide-react";
+import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
 // المعايير العالمية: نسخة التطبيق الحالية
 const CURRENT_VERSION = "2.1.0"; 
@@ -21,10 +22,11 @@ export function UpdateNotification() {
     // التحقق من وجود تحديث كل 5 دقائق
     const checkUpdate = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
         const response = await fetch("/api/system/version", {
+          credentials: getFetchCredentials(),
           headers: {
-            'Authorization': token ? `Bearer ${token}` : ''
+            ...getClientPlatformHeader(),
+            ...getAuthHeaders(),
           }
         });
         const data = await response.json();

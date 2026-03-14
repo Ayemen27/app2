@@ -1,33 +1,26 @@
-/**
- * 🔐 خدمة المصادقة الموحدة - تضمن إرسال التوكن مع جميع الطلبات
- */
+import { storeTokens, clearTokens as clearStoredTokens, getAccessToken, getRefreshToken } from '@/lib/auth-token-store';
 
 export class AuthService {
   private static readonly TOKEN_KEY = 'accessToken';
   private static readonly REFRESH_TOKEN_KEY = 'refreshToken';
 
-  /**
-   * حفظ التوكن
-   */
   static saveToken(token: string): void {
     if (!token) {
       console.warn('⚠️ محاولة حفظ توكن فارغ');
       return;
     }
     try {
-      localStorage.setItem(this.TOKEN_KEY, token);
+      const refresh = getRefreshToken() || '';
+      storeTokens(token, refresh);
       console.log('✅ [AuthService] تم حفظ التوكن بنجاح');
     } catch (error) {
       console.error('❌ [AuthService] خطأ في حفظ التوكن:', error);
     }
   }
 
-  /**
-   * الحصول على التوكن
-   */
   static getToken(): string | null {
     try {
-      const token = localStorage.getItem(this.TOKEN_KEY);
+      const token = getAccessToken();
       if (!token) {
         console.warn('⚠️ [AuthService] لا يوجد توكن محفوظ');
       }
@@ -38,55 +31,40 @@ export class AuthService {
     }
   }
 
-  /**
-   * حفظ التوكن المنعش
-   */
   static saveRefreshToken(token: string): void {
     if (!token) return;
     try {
-      localStorage.setItem(this.REFRESH_TOKEN_KEY, token);
+      const access = getAccessToken() || '';
+      storeTokens(access, token);
       console.log('✅ [AuthService] تم حفظ Refresh Token');
     } catch (error) {
       console.error('❌ [AuthService] خطأ في حفظ Refresh Token:', error);
     }
   }
 
-  /**
-   * الحصول على التوكن المنعش
-   */
   static getRefreshToken(): string | null {
     try {
-      return localStorage.getItem(this.REFRESH_TOKEN_KEY);
+      return getRefreshToken();
     } catch (error) {
       console.error('❌ [AuthService] خطأ في جلب Refresh Token:', error);
       return null;
     }
   }
 
-  /**
-   * مسح جميع التوكنات (تسجيل الخروج)
-   */
   static clearTokens(): void {
     try {
-      localStorage.removeItem(this.TOKEN_KEY);
-      localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+      clearStoredTokens();
       console.log('✅ [AuthService] تم مسح التوكنات');
     } catch (error) {
       console.error('❌ [AuthService] خطأ في مسح التوكنات:', error);
     }
   }
 
-  /**
-   * التحقق من وجود توكن
-   */
   static hasToken(): boolean {
     const token = this.getToken();
     return !!token && token.length > 0;
   }
 
-  /**
-   * إضافة التوكن لـ headers
-   */
   static getAuthHeaders(): Record<string, string> {
     const token = this.getToken();
     const headers: Record<string, string> = {

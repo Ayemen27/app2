@@ -10,6 +10,7 @@ import {
   transportationExpenses, workers, materials,
   type WellExpense
 } from '../../shared/schema';
+import WellService from './WellService';
 
 export interface WellExpenseDTO {
   well_id: number;
@@ -39,7 +40,6 @@ export class WellExpenseService {
    */
   static async addExpense(data: WellExpenseDTO, user_id: string) {
     try {
-      // التحقق من وجود البئر
       const well = await db.select()
         .from(wells)
         .where(eq(wells.id, data.well_id))
@@ -49,7 +49,11 @@ export class WellExpenseService {
         throw new Error('البئر غير موجود');
       }
 
-      // إنشاء المصروف
+      const totalAmount = String(data.totalAmount);
+      const quantity = data.quantity ? String(data.quantity) : '1';
+      const unit = data.unit || 'وحدة';
+      const unitPrice = data.unitPrice ? String(data.unitPrice) : totalAmount;
+
       const newExpense = await db.insert(wellExpenses).values({
         well_id: data.well_id,
         expenseType: data.expenseType,
@@ -57,19 +61,18 @@ export class WellExpenseService {
         referenceId: null,
         description: data.description,
         category: data.category,
-        quantity: data.quantity ? String(data.quantity) : null,
-        unit: data.unit || null,
-        unitPrice: data.unitPrice ? String(data.unitPrice) : null,
-        totalAmount: String(data.totalAmount),
+        quantity,
+        unit,
+        unitPrice,
+        totalAmount,
         expenseDate: new Date(data.expenseDate),
         createdBy: user_id,
         notes: data.notes || null
       }).returning();
 
-      console.log('✅ تم إضافة مصروف للبئر:', newExpense[0].id);
       return newExpense[0];
     } catch (error) {
-      console.error('❌ خطأ في إضافة المصروف:', error);
+      console.error('خطأ في إضافة المصروف:', error);
       throw error;
     }
   }
@@ -80,10 +83,10 @@ export class WellExpenseService {
   static async linkExistingExpense(
     well_id: number,
     referenceType: 'worker_attendance' | 'material_purchase' | 'transportation',
-    referenceId: number
+    referenceId: number | string,
+    userId: string
   ) {
     try {
-      // التحقق من وجود البئر
       const well = await db.select()
         .from(wells)
         .where(eq(wells.id, well_id))
@@ -93,14 +96,15 @@ export class WellExpenseService {
         throw new Error('البئر غير موجود');
       }
 
-      // جلب بيانات المصروف حسب النوع
+      const refIdStr = String(referenceId);
+
       let expenseData: any = null;
       let expenseType: string = '';
 
       if (referenceType === 'worker_attendance') {
         const attendance = await db.select()
           .from(workerAttendance)
-          .where(eq(workerAttendance.id, String(referenceId)))
+          .where(eq(workerAttendance.id, refIdStr))
           .limit(1);
 
         if (!attendance.length) throw new Error('سجل الحضور غير موجود');
@@ -112,28 +116,31 @@ export class WellExpenseService {
         expenseData = attendance[0];
         expenseType = 'labor';
 
-        // إنشاء مصروف مرتبط
+        const totalAmount = expenseData.totalPay ? String(expenseData.totalPay) : '0';
+        const quantity = String(expenseData.workDays || 1);
+        const unitPrice = expenseData.dailyWage ? String(expenseData.dailyWage) : totalAmount;
+
         const linkedExpense = await db.insert(wellExpenses).values({
           well_id,
           expenseType,
           referenceType: 'worker_attendance',
-          referenceId: Number(referenceId),
+          referenceId: refIdStr,
           description: `أجور عامل - ${expenseData.workDescription || 'عمل'}`,
           category: 'أجور عمالة',
-          quantity: String(expenseData.workDays || 1),
+          quantity,
           unit: 'يوم',
-          unitPrice: expenseData.dailyWage ? String(expenseData.dailyWage) : null,
-          totalAmount: expenseData.totalPay ? String(expenseData.totalPay) : '0',
+          unitPrice,
+          totalAmount,
           expenseDate: new Date(expenseData.attendanceDate),
-          createdBy: 'system',
-          notes: `مرتبط بسجل حضور ${referenceId}`
+          createdBy: userId,
+          notes: `مرتبط بسجل حضور ${refIdStr}`
         }).returning();
 
         return linkedExpense[0];
       } else if (referenceType === 'material_purchase') {
         const purchase = await db.select()
           .from(materialPurchases)
-          .where(eq(materialPurchases.id, String(referenceId)))
+          .where(eq(materialPurchases.id, refIdStr))
           .limit(1);
 
         if (!purchase.length) throw new Error('فاتورة المادة غير موجودة');
@@ -144,34 +151,38 @@ export class WellExpenseService {
 
         expenseData = purchase[0];
         
-        // تحديد نوع المادة
         const materialType = expenseData.materialCategory?.toLowerCase().includes('أسمنت') || 
                              expenseData.materialCategory?.toLowerCase().includes('حديد')
           ? 'consumable_material'
           : 'operational_material';
         expenseType = materialType;
 
+        const totalAmount = expenseData.totalAmount ? String(expenseData.totalAmount) : '0';
+        const quantity = expenseData.quantity ? String(expenseData.quantity) : '1';
+        const unit = expenseData.unit || 'وحدة';
+        const unitPrice = expenseData.unitPrice ? String(expenseData.unitPrice) : totalAmount;
+
         const linkedExpense = await db.insert(wellExpenses).values({
           well_id,
           expenseType,
           referenceType: 'material_purchase',
-          referenceId: Number(referenceId),
+          referenceId: refIdStr,
           description: `مادة - ${expenseData.materialName}`,
           category: expenseData.materialCategory || 'مواد',
-          quantity: expenseData.quantity ? String(expenseData.quantity) : null,
-          unit: expenseData.unit || 'وحدة',
-          unitPrice: expenseData.unitPrice ? String(expenseData.unitPrice) : null,
-          totalAmount: expenseData.totalAmount ? String(expenseData.totalAmount) : '0',
+          quantity,
+          unit,
+          unitPrice,
+          totalAmount,
           expenseDate: new Date(expenseData.purchaseDate),
-          createdBy: 'system',
-          notes: `مرتبط بفاتورة ${referenceId}`
+          createdBy: userId,
+          notes: `مرتبط بفاتورة ${refIdStr}`
         }).returning();
 
         return linkedExpense[0];
       } else if (referenceType === 'transportation') {
         const transport = await db.select()
           .from(transportationExpenses)
-          .where(eq(transportationExpenses.id, String(referenceId)))
+          .where(eq(transportationExpenses.id, refIdStr))
           .limit(1);
 
         if (!transport.length) throw new Error('مصروف النقل غير موجود');
@@ -183,20 +194,22 @@ export class WellExpenseService {
         expenseData = transport[0];
         expenseType = 'transport';
 
+        const totalAmount = expenseData.amount ? String(expenseData.amount) : '0';
+
         const linkedExpense = await db.insert(wellExpenses).values({
           well_id,
           expenseType,
           referenceType: 'transportation',
-          referenceId: Number(referenceId),
-          description: `نقل - ${expenseData.description}`,
+          referenceId: refIdStr,
+          description: `نقل - ${expenseData.description || 'مصروف نقل'}`,
           category: 'نقل ومواصلات',
-          quantity: null,
-          unit: null,
-          unitPrice: null,
-          totalAmount: expenseData.amount ? String(expenseData.amount) : '0',
+          quantity: '1',
+          unit: 'رحلة',
+          unitPrice: totalAmount,
+          totalAmount,
           expenseDate: new Date(expenseData.date),
-          createdBy: 'system',
-          notes: `مرتبط بمصروف نقل ${referenceId}`
+          createdBy: userId,
+          notes: `مرتبط بمصروف نقل ${refIdStr}`
         }).returning();
 
         return linkedExpense[0];
@@ -204,7 +217,7 @@ export class WellExpenseService {
 
       throw new Error('نوع مرجع غير معروف');
     } catch (error) {
-      console.error('❌ خطأ في ربط المصروف:', error);
+      console.error('خطأ في ربط المصروف:', error);
       throw error;
     }
   }
@@ -215,9 +228,8 @@ export class WellExpenseService {
   static async unlinkExpense(expenseId: number) {
     try {
       await db.delete(wellExpenses).where(eq(wellExpenses.id, expenseId));
-      console.log('✅ تم إلغاء ربط المصروف:', expenseId);
     } catch (error) {
-      console.error('❌ خطأ في إلغاء الربط:', error);
+      console.error('خطأ في إلغاء الربط:', error);
       throw error;
     }
   }
@@ -227,29 +239,27 @@ export class WellExpenseService {
    */
   static async getWellExpenses(well_id: number, filters?: ExpenseFilters) {
     try {
-      let query = db.select()
-        .from(wellExpenses)
-        .where(eq(wellExpenses.well_id, well_id));
+      const conditions = [eq(wellExpenses.well_id, well_id)];
 
       if (filters?.expenseType) {
-        // Drizzle ORM limitation: chained .where() on dynamic queries requires type assertion
-        query = query.where(eq(wellExpenses.expenseType, filters.expenseType)) as typeof query;
+        conditions.push(eq(wellExpenses.expenseType, filters.expenseType));
       }
 
       if (filters?.startDate) {
-        // Drizzle ORM limitation: chained .where() on dynamic queries requires type assertion
-        query = query.where(gte(wellExpenses.expenseDate, filters.startDate)) as typeof query;
+        conditions.push(gte(wellExpenses.expenseDate, filters.startDate));
       }
 
       if (filters?.endDate) {
-        // Drizzle ORM limitation: chained .where() on dynamic queries requires type assertion
-        query = query.where(lte(wellExpenses.expenseDate, filters.endDate)) as typeof query;
+        conditions.push(lte(wellExpenses.expenseDate, filters.endDate));
       }
 
-      const expenses = await query.orderBy(desc(wellExpenses.expenseDate));
+      const expenses = await db.select()
+        .from(wellExpenses)
+        .where(and(...conditions))
+        .orderBy(desc(wellExpenses.expenseDate));
       return expenses;
     } catch (error) {
-      console.error('❌ خطأ في جلب المصاريف:', error);
+      console.error('خطأ في جلب المصاريف:', error);
       throw error;
     }
   }
@@ -281,7 +291,6 @@ export class WellExpenseService {
         breakdown: {} as Record<string, { amount: number; percentage: number }>
       };
 
-      // تجميع المصاريف
       expenses.forEach((expense: any) => {
         const amount = parseFloat(expense.totalAmount as string) || 0;
         
@@ -311,7 +320,15 @@ export class WellExpenseService {
         report.summary.totalCost += amount;
       });
 
-      // حساب النسب المئوية
+      const crewsCost = await WellService.getWellCrewsCost(well_id);
+      const wellTransportCost = await WellService.getWellTransportCost(well_id);
+
+      (report.summary as any).crewsCost = crewsCost;
+      (report.summary as any).wellTransportCost = wellTransportCost;
+      report.summary.laborCost += crewsCost;
+      report.summary.transportCost += wellTransportCost;
+      report.summary.totalCost += crewsCost + wellTransportCost;
+
       if (report.summary.totalCost > 0) {
         report.breakdown = {
           labor: {
@@ -337,10 +354,9 @@ export class WellExpenseService {
         };
       }
 
-      console.log('✅ تم حساب تقرير التكاليف للبئر:', well_id);
       return report;
     } catch (error) {
-      console.error('❌ خطأ في حساب التقرير:', error);
+      console.error('خطأ في حساب التقرير:', error);
       throw error;
     }
   }
@@ -350,7 +366,6 @@ export class WellExpenseService {
    */
   static async getProjectCostSummary(project_id: string) {
     try {
-      // جلب جميع آبار المشروع
       const projectWells = await db.select()
         .from(wells)
         .where(eq(wells.project_id, project_id));
@@ -363,7 +378,6 @@ export class WellExpenseService {
         averageCostPerWell: 0
       };
 
-      // حساب التكاليف لكل بئر
       for (const well of projectWells) {
         const report = await this.getWellCostReport(well.id);
         summary.costPerWell[well.id] = report.summary;
@@ -374,10 +388,9 @@ export class WellExpenseService {
         summary.averageCostPerWell = Math.round(summary.totalProjectCost / projectWells.length);
       }
 
-      console.log('✅ تم حساب ملخص تكاليف المشروع:', project_id);
       return summary;
     } catch (error) {
-      console.error('❌ خطأ في حساب ملخص المشروع:', error);
+      console.error('خطأ في حساب ملخص المشروع:', error);
       throw error;
     }
   }

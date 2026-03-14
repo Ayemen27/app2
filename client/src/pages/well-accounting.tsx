@@ -66,7 +66,7 @@ export default function WellAccounting() {
     queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      const response = await apiRequest(`/wells?project_id=${selectedProjectId}`);
+      const response = await apiRequest(`/api/wells?project_id=${selectedProjectId}`);
       return response.data || [];
     },
     enabled: !!selectedProjectId
@@ -150,7 +150,7 @@ export default function WellAccounting() {
         amount: parseFloat(amount) || 0,
         project_id: selectedProjectId,
         created_at: new Date().toISOString()
-      }, `/wells/tasks/${taskId}/account`);
+      }, `/api/wells/tasks/${taskId}/account`);
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم محاسبة المهمة (محلياً)" });

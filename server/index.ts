@@ -640,6 +640,9 @@ registerOrganizedRoutes(app);
 import { registerRoutes } from "./routes.js";
 registerRoutes(app).catch(err => console.error("Failed to initialize services:", err));
 
+import { runWellExpansionMigrations } from "./db/run-well-expansion-migrations.js";
+runWellExpansionMigrations().catch(err => console.error("Failed to run well expansion migrations:", err));
+
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
 app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
   try {

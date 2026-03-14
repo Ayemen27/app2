@@ -1,13 +1,9 @@
-/**
- * خدمة الآبار (Wells Service)
- * خدمة شاملة لإدارة الآبار والمهام والمحاسبة
- */
-
 import { db } from '../db';
-import { eq, and, sql, desc, asc } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, isNull } from 'drizzle-orm';
 import {
   wells, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs,
-  projects, users, workerAttendance, materialPurchases, transportationExpenses
+  projects, users, workerAttendance, materialPurchases, transportationExpenses,
+  wellWorkCrews, wellSolarComponents, wellTransportDetails, wellReceptions
 } from '../../shared/schema';
 
 export interface CreateWellDTO {
@@ -39,33 +35,30 @@ export interface UpdateWellDTO {
 export interface CreateTaskDTO {
   taskType: string;
   description: string;
-  assignedTo?: string;
+  taskOrder?: number;
+  assignedWorkerId?: string;
   estimatedCost?: number;
 }
 
 export interface AccountTaskDTO {
   amount: number;
-  paymentType: 'نقدي' | 'تحويل' | 'شيك';
+  paymentMethod?: string;
   description?: string;
 }
 
 export class WellService {
-  /**
-   * الآبار - العمليات الأساسية
-   */
-
   static async getAllWells(project_id?: string, filters?: any) {
     try {
       let query = db.select().from(wells);
 
       if (project_id) {
-        query = query.where(eq(wells.project_id, project_id)) as typeof query; // Drizzle dynamic query builder limitation
+        query = query.where(eq(wells.project_id, project_id)) as typeof query;
       }
 
       const wellsList = await query.orderBy(wells.wellNumber);
       return wellsList;
     } catch (error) {
-      console.error('❌ [WellService] خطأ في جلب الآبار:', error);
+      console.error('[WellService] Error fetching wells:', error);
       throw error;
     }
   }
@@ -78,12 +71,12 @@ export class WellService {
         .limit(1);
 
       if (!well.length) {
-        throw new Error('البئر غير موجود');
+        throw new Error('Well not found');
       }
 
       return well[0];
     } catch (error) {
-      console.error('❌ [WellService] خطأ في جلب البئر:', error);
+      console.error('[WellService] Error fetching well:', error);
       throw error;
     }
   }
@@ -104,14 +97,13 @@ export class WellService {
         pumpPower: data.pumpPower || null,
         status: 'pending',
         completionPercentage: '0',
-        startDate: data.startDate ? new Date(data.startDate) : null,
+        startDate: data.startDate || null,
         createdBy: data.createdBy,
       }).returning();
 
-      console.log('✅ تم إنشاء بئر جديد:', newWell[0].id);
       return newWell[0];
     } catch (error) {
-      console.error('❌ [WellService] خطأ في إنشاء البئر:', error);
+      console.error('[WellService] Error creating well:', error);
       throw error;
     }
   }
@@ -120,12 +112,11 @@ export class WellService {
     try {
       const updateData: any = {};
       
-      // Handle each field explicitly to avoid spreading undefined values
       if (data.ownerName !== undefined) updateData.ownerName = data.ownerName;
       if (data.region !== undefined) updateData.region = data.region;
       if (data.status !== undefined) updateData.status = data.status;
       if (data.completionPercentage !== undefined) updateData.completionPercentage = String(data.completionPercentage);
-      if (data.completionDate !== undefined) updateData.completionDate = data.completionDate ? new Date(data.completionDate) : null;
+      if (data.completionDate !== undefined) updateData.completionDate = data.completionDate || null;
       if (data.notes !== undefined) updateData.notes = data.notes;
       
       updateData.updated_at = new Date();
@@ -135,10 +126,9 @@ export class WellService {
         .where(eq(wells.id, well_id))
         .returning();
 
-      console.log('✅ تم تحديث البئر:', well_id);
       return updated[0];
     } catch (error) {
-      console.error('❌ [WellService] خطأ في تحديث البئر:', error);
+      console.error('[WellService] Error updating well:', error);
       throw error;
     }
   }
@@ -146,16 +136,11 @@ export class WellService {
   static async deleteWell(well_id: number) {
     try {
       await db.delete(wells).where(eq(wells.id, well_id));
-      console.log('✅ تم حذف البئر:', well_id);
     } catch (error) {
-      console.error('❌ [WellService] خطأ في حذف البئر:', error);
+      console.error('[WellService] Error deleting well:', error);
       throw error;
     }
   }
-
-  /**
-   * المهام (Tasks)
-   */
 
   static async getTaskById(taskId: number) {
     try {
@@ -173,41 +158,69 @@ export class WellService {
 
   static async getWellTasks(well_id: number) {
     try {
-      const tasks = await db.select()
+      const tasks = await db.select({
+        task: wellTasks,
+        account: wellTaskAccounts,
+      })
         .from(wellTasks)
+        .leftJoin(wellTaskAccounts, eq(wellTasks.id, wellTaskAccounts.taskId))
         .where(eq(wellTasks.well_id, well_id))
-        .orderBy(wellTasks.created_at);
+        .orderBy(wellTasks.taskOrder);
 
-      return tasks;
+      return tasks.map(row => ({
+        ...row.task,
+        isAccounted: row.account !== null,
+        accountDetails: row.account,
+      }));
     } catch (error) {
-      console.error('❌ [WellService] خطأ في جلب مهام البئر:', error);
+      console.error('[WellService] Error fetching well tasks:', error);
       throw error;
     }
   }
 
   static async createTask(well_id: number, data: CreateTaskDTO, user_id: string) {
     try {
+      let taskOrder = data.taskOrder;
+      if (taskOrder === undefined) {
+        const existing = await db.select({ cnt: sql<number>`count(*)` })
+          .from(wellTasks)
+          .where(eq(wellTasks.well_id, well_id));
+        taskOrder = (Number(existing[0]?.cnt) || 0) + 1;
+      }
+
       const newTask = await db.insert(wellTasks).values({
         well_id,
         taskType: data.taskType,
-        description: data.description,
-        assignedTo: data.assignedTo || null,
+        description: data.description || null,
+        taskOrder,
+        assignedWorkerId: data.assignedWorkerId || null,
         status: 'pending',
         estimatedCost: data.estimatedCost ? String(data.estimatedCost) : null,
-        isAccounted: false,
         createdBy: user_id,
       }).returning();
 
-      console.log('✅ تم إنشاء مهمة جديدة:', newTask[0].id);
+      await db.insert(wellAuditLogs).values({
+        well_id,
+        taskId: newTask[0].id,
+        action: 'create',
+        entityType: 'task',
+        entityId: newTask[0].id,
+        newData: data,
+        user_id,
+      });
+
       return newTask[0];
     } catch (error) {
-      console.error('❌ [WellService] خطأ في إنشاء المهمة:', error);
+      console.error('[WellService] Error creating task:', error);
       throw error;
     }
   }
 
   static async updateTaskStatus(taskId: number, status: string, user_id: string) {
     try {
+      const existing = await this.getTaskById(taskId);
+      const previousStatus = existing?.status || 'unknown';
+
       const updated = await db.update(wellTasks)
         .set({
           status,
@@ -216,115 +229,113 @@ export class WellService {
         .where(eq(wellTasks.id, taskId))
         .returning();
 
-      // تسجيل في سجل التدقيق
       if (updated.length > 0) {
         await db.insert(wellAuditLogs).values({
           well_id: updated[0].well_id,
-          wellTaskId: taskId,
-          action: 'STATUS_CHANGED',
-          previousValue: { status: 'unknown' },
-          newValue: { status },
+          taskId,
+          action: 'status_change',
+          entityType: 'task',
+          entityId: taskId,
+          previousData: { status: previousStatus },
+          newData: { status },
           user_id,
         });
       }
 
-      console.log('✅ تم تحديث حالة المهمة:', taskId);
       return updated[0];
     } catch (error) {
-      console.error('❌ [WellService] خطأ في تحديث حالة المهمة:', error);
+      console.error('[WellService] Error updating task status:', error);
       throw error;
     }
   }
 
-  /**
-   * المحاسبة (Accounting)
-   */
-
-  static async accountTask(taskId: number, data: AccountTaskDTO, accountantId: string) {
+  static async accountTask(taskId: number, data: AccountTaskDTO, accountedByUserId: string) {
     try {
-      // التحقق من المهمة
       const task = await db.select()
         .from(wellTasks)
         .where(eq(wellTasks.id, taskId))
         .limit(1);
 
       if (!task.length) {
-        throw new Error('المهمة غير موجودة');
+        throw new Error('Task not found');
       }
 
       const taskData = task[0];
 
       if (taskData.status !== 'completed') {
-        throw new Error('لا يمكن محاسبة مهمة غير منجزة');
+        throw new Error('Cannot account for an incomplete task');
       }
 
-      if (taskData.isAccounted) {
-        throw new Error('تمت محاسبة هذه المهمة مسبقاً');
+      const existingAccount = await db.select()
+        .from(wellTaskAccounts)
+        .where(eq(wellTaskAccounts.taskId, taskId))
+        .limit(1);
+
+      if (existingAccount.length > 0) {
+        throw new Error('Task already accounted');
       }
 
-      // إنشاء سجل المحاسبة
       const account = await db.insert(wellTaskAccounts).values({
-        wellTaskId: taskId,
+        taskId,
         amount: String(data.amount),
-        paymentType: data.paymentType,
-        accountantId,
-        description: data.description || null,
-        paidDate: new Date(),
+        paymentMethod: data.paymentMethod || null,
+        accountedBy: accountedByUserId,
+        notes: data.description || null,
       }).returning();
 
-      // تحديث حالة المهمة
-      await db.update(wellTasks)
-        .set({
-          isAccounted: true,
-          updated_at: new Date()
-        })
-        .where(eq(wellTasks.id, taskId));
-
-      // تسجيل في سجل التدقيق
       await db.insert(wellAuditLogs).values({
         well_id: taskData.well_id,
-        wellTaskId: taskId,
-        action: 'ACCOUNTED',
-        newValue: data,
-        user_id: accountantId,
+        taskId,
+        action: 'account',
+        entityType: 'account',
+        entityId: account[0].id,
+        newData: data,
+        user_id: accountedByUserId,
       });
 
-      console.log('✅ تمت محاسبة المهمة:', taskId);
       return account[0];
     } catch (error) {
-      console.error('❌ [WellService] خطأ في محاسبة المهمة:', error);
+      console.error('[WellService] Error accounting task:', error);
       throw error;
     }
   }
 
   static async getPendingAccountingTasks(project_id?: string) {
     try {
-      let query = db.select()
+      let baseQuery = db.select({
+        task: wellTasks,
+        well: wells,
+      })
         .from(wellTasks)
+        .leftJoin(wellTaskAccounts, eq(wellTasks.id, wellTaskAccounts.taskId))
+        .innerJoin(wells, eq(wellTasks.well_id, wells.id))
         .where(
           and(
             eq(wellTasks.status, 'completed'),
-            sql`${wellTasks}.is_accounted = false`
+            isNull(wellTaskAccounts.id)
           )
         );
 
       if (project_id) {
-        query = query.innerJoin(wells, eq(wellTasks.well_id, wells.id))
-          .where(eq(wells.project_id, project_id)) as typeof query; // Drizzle dynamic query builder limitation
+        baseQuery = baseQuery.where(
+          and(
+            eq(wellTasks.status, 'completed'),
+            isNull(wellTaskAccounts.id),
+            eq(wells.project_id, project_id)
+          )
+        ) as typeof baseQuery;
       }
 
-      const tasks = await query.orderBy(asc(wellTasks.created_at));
-      // @ts-ignore - isAccounted exists in database but might be missing from type
-      return tasks.filter((task: any) => !project_id || task.well_tasks.isAccounted !== undefined);
+      const results = await baseQuery.orderBy(asc(wellTasks.created_at));
+      return results.map(row => ({
+        ...row.task,
+        well: row.well,
+      }));
     } catch (error) {
-      console.error('❌ [WellService] خطأ في جلب المهام المعلقة:', error);
+      console.error('[WellService] Error fetching pending accounting tasks:', error);
       throw error;
     }
   }
-
-  /**
-   * التقارير (Reports)
-   */
 
   static async getWellProgress(well_id: number) {
     try {
@@ -344,7 +355,7 @@ export class WellService {
           : 0
       };
     } catch (error) {
-      console.error('❌ [WellService] خطأ في حساب تقدم البئر:', error);
+      console.error('[WellService] Error computing well progress:', error);
       throw error;
     }
   }
@@ -367,8 +378,374 @@ export class WellService {
 
       return summary;
     } catch (error) {
-      console.error('❌ [WellService] خطأ في حساب ملخص المشروع:', error);
+      console.error('[WellService] Error computing project wells summary:', error);
       throw error;
+    }
+  }
+
+  /**
+   * طواقم العمل (Work Crews)
+   */
+
+  static async getWellCrews(well_id: number) {
+    try {
+      return await db.select()
+        .from(wellWorkCrews)
+        .where(eq(wellWorkCrews.well_id, well_id))
+        .orderBy(desc(wellWorkCrews.created_at));
+    } catch (error) {
+      console.error('[WellService] Error fetching well crews:', error);
+      throw error;
+    }
+  }
+
+  static async getCrewById(crewId: number) {
+    try {
+      const crew = await db.select()
+        .from(wellWorkCrews)
+        .where(eq(wellWorkCrews.id, crewId))
+        .limit(1);
+      return crew.length ? crew[0] : null;
+    } catch (error) {
+      console.error('[WellService] Error fetching crew:', error);
+      throw error;
+    }
+  }
+
+  static async createCrew(well_id: number, data: any, userId: string) {
+    try {
+      const totalWages = (
+        (Number(data.workersCount || 0) * Number(data.workerDailyWage || 0) * Number(data.workDays || 0)) +
+        (Number(data.mastersCount || 0) * Number(data.masterDailyWage || 0) * Number(data.workDays || 0))
+      );
+
+      const result = await db.insert(wellWorkCrews).values({
+        well_id,
+        crewType: data.crewType,
+        teamName: data.teamName || null,
+        workersCount: data.workersCount || 0,
+        mastersCount: data.mastersCount || 0,
+        workDays: String(data.workDays || 0),
+        workerDailyWage: data.workerDailyWage ? String(data.workerDailyWage) : null,
+        masterDailyWage: data.masterDailyWage ? String(data.masterDailyWage) : null,
+        totalWages: String(totalWages),
+        workDate: data.workDate || null,
+        notes: data.notes || null,
+        createdBy: userId,
+      }).returning();
+
+      return result[0];
+    } catch (error) {
+      console.error('[WellService] Error creating crew:', error);
+      throw error;
+    }
+  }
+
+  static async updateCrew(crewId: number, data: any) {
+    try {
+      const updateData: any = { updated_at: new Date() };
+      if (data.crewType !== undefined) updateData.crewType = data.crewType;
+      if (data.teamName !== undefined) updateData.teamName = data.teamName;
+      if (data.workersCount !== undefined) updateData.workersCount = data.workersCount;
+      if (data.mastersCount !== undefined) updateData.mastersCount = data.mastersCount;
+      if (data.workDays !== undefined) updateData.workDays = String(data.workDays);
+      if (data.workerDailyWage !== undefined) updateData.workerDailyWage = String(data.workerDailyWage);
+      if (data.masterDailyWage !== undefined) updateData.masterDailyWage = String(data.masterDailyWage);
+      if (data.workDate !== undefined) updateData.workDate = data.workDate;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+
+      if (data.workersCount !== undefined || data.mastersCount !== undefined ||
+          data.workerDailyWage !== undefined || data.masterDailyWage !== undefined ||
+          data.workDays !== undefined) {
+        const existing = await this.getCrewById(crewId);
+        const wc = data.workersCount ?? existing?.workersCount ?? 0;
+        const mc = data.mastersCount ?? existing?.mastersCount ?? 0;
+        const wd = data.workDays ?? existing?.workDays ?? 0;
+        const ww = data.workerDailyWage ?? existing?.workerDailyWage ?? 0;
+        const mw = data.masterDailyWage ?? existing?.masterDailyWage ?? 0;
+        updateData.totalWages = String(
+          (Number(wc) * Number(ww) * Number(wd)) + (Number(mc) * Number(mw) * Number(wd))
+        );
+      }
+
+      const result = await db.update(wellWorkCrews)
+        .set(updateData)
+        .where(eq(wellWorkCrews.id, crewId))
+        .returning();
+
+      return result[0];
+    } catch (error) {
+      console.error('[WellService] Error updating crew:', error);
+      throw error;
+    }
+  }
+
+  static async deleteCrew(crewId: number) {
+    try {
+      await db.delete(wellWorkCrews).where(eq(wellWorkCrews.id, crewId));
+    } catch (error) {
+      console.error('[WellService] Error deleting crew:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * مكونات الطاقة الشمسية (Solar Components)
+   */
+
+  static async getWellSolarComponents(well_id: number) {
+    try {
+      const result = await db.select()
+        .from(wellSolarComponents)
+        .where(eq(wellSolarComponents.well_id, well_id))
+        .limit(1);
+      return result.length ? result[0] : null;
+    } catch (error) {
+      console.error('[WellService] Error fetching solar components:', error);
+      throw error;
+    }
+  }
+
+  static async upsertSolarComponents(well_id: number, data: any, userId: string) {
+    try {
+      const existing = await this.getWellSolarComponents(well_id);
+
+      if (existing) {
+        const updateData: any = { updated_at: new Date() };
+        for (const key of Object.keys(data)) {
+          if (key !== 'well_id' && key !== 'id' && key !== 'created_at' && key !== 'updated_at') {
+            updateData[key] = data[key];
+          }
+        }
+
+        const result = await db.update(wellSolarComponents)
+          .set(updateData)
+          .where(eq(wellSolarComponents.well_id, well_id))
+          .returning();
+        return result[0];
+      } else {
+        const result = await db.insert(wellSolarComponents).values({
+          well_id,
+          inverter: data.inverter ?? null,
+          collectionBox: data.collectionBox ?? null,
+          carbonCarrier: data.carbonCarrier ?? null,
+          steelConverterTop: data.steelConverterTop ?? null,
+          clampConverterBottom: data.clampConverterBottom ?? null,
+          bindingCable6mm: data.bindingCable6mm ?? null,
+          groundingCable10x2mm: data.groundingCable10x2mm ?? null,
+          jointThermalLiquid: data.jointThermalLiquid ?? null,
+          groundingClip: data.groundingClip ?? null,
+          groundingPlate: data.groundingPlate ?? null,
+          groundingRod: data.groundingRod ?? null,
+          cable16x3mmLength: data.cable16x3mmLength ? String(data.cable16x3mmLength) : null,
+          cable10x2mmLength: data.cable10x2mmLength ? String(data.cable10x2mmLength) : null,
+          extraPipes: data.extraPipes ?? null,
+          extraPipesReason: data.extraPipesReason ?? null,
+          extraCable: data.extraCable ? String(data.extraCable) : null,
+          extraCableReason: data.extraCableReason ?? null,
+          fanCount: data.fanCount ?? null,
+          submersiblePump: data.submersiblePump ?? true,
+          notes: data.notes ?? null,
+          createdBy: userId,
+        }).returning();
+        return result[0];
+      }
+    } catch (error) {
+      console.error('[WellService] Error upserting solar components:', error);
+      throw error;
+    }
+  }
+
+  static async deleteSolarComponents(well_id: number) {
+    try {
+      await db.delete(wellSolarComponents).where(eq(wellSolarComponents.well_id, well_id));
+    } catch (error) {
+      console.error('[WellService] Error deleting solar components:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * تفاصيل النقل (Transport Details)
+   */
+
+  static async getWellTransportDetails(well_id: number) {
+    try {
+      return await db.select()
+        .from(wellTransportDetails)
+        .where(eq(wellTransportDetails.well_id, well_id))
+        .orderBy(desc(wellTransportDetails.created_at));
+    } catch (error) {
+      console.error('[WellService] Error fetching transport details:', error);
+      throw error;
+    }
+  }
+
+  static async getTransportDetailById(transportId: number) {
+    try {
+      const result = await db.select()
+        .from(wellTransportDetails)
+        .where(eq(wellTransportDetails.id, transportId))
+        .limit(1);
+      return result.length ? result[0] : null;
+    } catch (error) {
+      console.error('[WellService] Error fetching transport detail:', error);
+      throw error;
+    }
+  }
+
+  static async createTransportDetail(well_id: number, data: any, userId: string) {
+    try {
+      const result = await db.insert(wellTransportDetails).values({
+        well_id,
+        railType: data.railType || null,
+        withPanels: data.withPanels ?? false,
+        transportPrice: data.transportPrice ? String(data.transportPrice) : null,
+        crewEntitlements: data.crewEntitlements ? String(data.crewEntitlements) : null,
+        transportDate: data.transportDate || null,
+        notes: data.notes || null,
+        createdBy: userId,
+      }).returning();
+
+      return result[0];
+    } catch (error) {
+      console.error('[WellService] Error creating transport detail:', error);
+      throw error;
+    }
+  }
+
+  static async updateTransportDetail(transportId: number, data: any) {
+    try {
+      const updateData: any = {};
+      if (data.railType !== undefined) updateData.railType = data.railType;
+      if (data.withPanels !== undefined) updateData.withPanels = data.withPanels;
+      if (data.transportPrice !== undefined) updateData.transportPrice = String(data.transportPrice);
+      if (data.crewEntitlements !== undefined) updateData.crewEntitlements = String(data.crewEntitlements);
+      if (data.transportDate !== undefined) updateData.transportDate = data.transportDate;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+
+      const result = await db.update(wellTransportDetails)
+        .set(updateData)
+        .where(eq(wellTransportDetails.id, transportId))
+        .returning();
+
+      return result[0];
+    } catch (error) {
+      console.error('[WellService] Error updating transport detail:', error);
+      throw error;
+    }
+  }
+
+  static async deleteTransportDetail(transportId: number) {
+    try {
+      await db.delete(wellTransportDetails).where(eq(wellTransportDetails.id, transportId));
+    } catch (error) {
+      console.error('[WellService] Error deleting transport detail:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * استلام الآبار (Receptions)
+   */
+
+  static async getWellReceptions(well_id: number) {
+    try {
+      return await db.select()
+        .from(wellReceptions)
+        .where(eq(wellReceptions.well_id, well_id))
+        .orderBy(desc(wellReceptions.created_at));
+    } catch (error) {
+      console.error('[WellService] Error fetching receptions:', error);
+      throw error;
+    }
+  }
+
+  static async getReceptionById(receptionId: number) {
+    try {
+      const result = await db.select()
+        .from(wellReceptions)
+        .where(eq(wellReceptions.id, receptionId))
+        .limit(1);
+      return result.length ? result[0] : null;
+    } catch (error) {
+      console.error('[WellService] Error fetching reception:', error);
+      throw error;
+    }
+  }
+
+  static async createReception(well_id: number, data: any, userId: string) {
+    try {
+      const result = await db.insert(wellReceptions).values({
+        well_id,
+        receivedBy: data.receivedBy || null,
+        receiverName: data.receiverName || null,
+        inspectionStatus: data.inspectionStatus || 'pending',
+        inspectionNotes: data.inspectionNotes || null,
+        receivedAt: data.receivedAt ? new Date(data.receivedAt) : null,
+        notes: data.notes || null,
+        createdBy: userId,
+      }).returning();
+
+      return result[0];
+    } catch (error) {
+      console.error('[WellService] Error creating reception:', error);
+      throw error;
+    }
+  }
+
+  static async updateReception(receptionId: number, data: any) {
+    try {
+      const updateData: any = {};
+      if (data.receivedBy !== undefined) updateData.receivedBy = data.receivedBy;
+      if (data.receiverName !== undefined) updateData.receiverName = data.receiverName;
+      if (data.inspectionStatus !== undefined) updateData.inspectionStatus = data.inspectionStatus;
+      if (data.inspectionNotes !== undefined) updateData.inspectionNotes = data.inspectionNotes;
+      if (data.receivedAt !== undefined) updateData.receivedAt = data.receivedAt ? new Date(data.receivedAt) : null;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+
+      const result = await db.update(wellReceptions)
+        .set(updateData)
+        .where(eq(wellReceptions.id, receptionId))
+        .returning();
+
+      return result[0];
+    } catch (error) {
+      console.error('[WellService] Error updating reception:', error);
+      throw error;
+    }
+  }
+
+  static async deleteReception(receptionId: number) {
+    try {
+      await db.delete(wellReceptions).where(eq(wellReceptions.id, receptionId));
+    } catch (error) {
+      console.error('[WellService] Error deleting reception:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * تكاليف الطواقم والنقل للتقارير
+   */
+
+  static async getWellCrewsCost(well_id: number): Promise<number> {
+    try {
+      const crews = await this.getWellCrews(well_id);
+      return crews.reduce((sum, c: any) => sum + (parseFloat(String(c.totalWages)) || 0), 0);
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  static async getWellTransportCost(well_id: number): Promise<number> {
+    try {
+      const details = await this.getWellTransportDetails(well_id);
+      return details.reduce((sum, d: any) => {
+        return sum + (parseFloat(String(d.transportPrice)) || 0) + (parseFloat(String(d.crewEntitlements)) || 0);
+      }, 0);
+    } catch (error) {
+      return 0;
     }
   }
 }

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, X, CirclePlus, Wrench, TrendingUp, Download } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, X, CirclePlus, Wrench, TrendingUp, Download, Eye } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -15,6 +15,7 @@ import { UnifiedStats } from "@/components/ui/unified-stats";
 import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { WellLifecycleForms } from "@/components/well-lifecycle-forms";
 
 interface Well {
   id: number;
@@ -80,6 +81,7 @@ export default function WellsPage() {
   const [newFanType, setNewFanType] = useState("");
   const [showAddPumpPowerDialog, setShowAddPumpPowerDialog] = useState(false);
   const [newPumpPower, setNewPumpPower] = useState("");
+  const [lifecycleWell, setLifecycleWell] = useState<Well | null>(null);
 
   // جلب بيانات الإكمال التلقائي
   const { data: ownerNames = [] } = useQuery({
@@ -903,6 +905,12 @@ export default function WellsPage() {
             ]}
             actions={[
               {
+                icon: Eye,
+                label: 'التفاصيل',
+                onClick: () => setLifecycleWell(well),
+                color: 'green'
+              },
+              {
                 icon: Edit,
                 label: 'تعديل',
                 onClick: () => {
@@ -930,6 +938,15 @@ export default function WellsPage() {
         <div className="text-center py-12">
           <p className="text-gray-500">لا توجد آبار</p>
         </div>
+      )}
+
+      {lifecycleWell && (
+        <WellLifecycleForms
+          wellId={lifecycleWell.id}
+          wellNumber={lifecycleWell.wellNumber}
+          ownerName={lifecycleWell.ownerName}
+          onClose={() => setLifecycleWell(null)}
+        />
       )}
     </div>
   );

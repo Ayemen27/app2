@@ -21,7 +21,7 @@ export default function WellCostReport() {
     queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      const response = await apiRequest(`/wells?project_id=${selectedProjectId}`);
+      const response = await apiRequest(`/api/wells?project_id=${selectedProjectId}`);
       return response.data || [];
     },
     enabled: !!selectedProjectId
@@ -32,7 +32,7 @@ export default function WellCostReport() {
     queryKey: QUERY_KEYS.projectCosts(selectedProjectId),
     queryFn: async () => {
       if (!selectedProjectId) return null;
-      const response = await apiRequest(`/well-expenses/project-costs/${selectedProjectId}`);
+      const response = await apiRequest(`/api/well-expenses/project-costs/${selectedProjectId}`);
       return response.data;
     },
     enabled: !!selectedProjectId
@@ -43,7 +43,7 @@ export default function WellCostReport() {
     queryKey: QUERY_KEYS.wellCostReport(selectedWellId != null ? String(selectedWellId) : ''),
     queryFn: async () => {
       if (!selectedWellId) return null;
-      const response = await apiRequest(`/well-expenses/cost-report/${selectedWellId}`);
+      const response = await apiRequest(`/api/well-expenses/cost-report/${selectedWellId}`);
       return response.data;
     },
     enabled: !!selectedWellId

@@ -155,6 +155,14 @@ wellExpenseRouter.post('/', async (req: Request, res: Response) => {
  */
 wellExpenseRouter.post('/link', async (req: Request, res: Response) => {
   try {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
+      return res.status(401).json({
+        success: false,
+        message: 'غير مصرح'
+      });
+    }
+
     const { well_id, referenceType, referenceId } = req.body;
 
     if (!well_id || !referenceType || !referenceId) {
@@ -177,7 +185,8 @@ wellExpenseRouter.post('/link', async (req: Request, res: Response) => {
     const expense = await WellExpenseService.linkExistingExpense(
       well_id,
       referenceType,
-      referenceId
+      referenceId,
+      authUser.user_id
     );
 
     res.status(201).json({

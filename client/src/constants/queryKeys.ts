@@ -172,4 +172,13 @@ export const QUERY_KEYS = {
   autocompleteFanTypesPrefix: ["autocomplete/fanTypes"] as const,
   autocompletePumpPowersPrefix: ["autocomplete/pumpPowers"] as const,
   autocompleteOwnerNamesPrefix: ["autocomplete/ownerNames"] as const,
+
+  wellCrews: (well_id: string) =>
+    ["well-crews", well_id] as const,
+  wellSolarComponents: (well_id: string) =>
+    ["well-solar-components", well_id] as const,
+  wellTransportDetails: (well_id: string) =>
+    ["well-transport-details", well_id] as const,
+  wellReceptions: (well_id: string) =>
+    ["well-receptions", well_id] as const,
 } as const;

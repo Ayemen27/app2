@@ -21,7 +21,7 @@ export function WellDetailCard({ well_id, onEdit, onDelete, onViewCosts }: WellD
   const { data: well, isLoading: wellLoading } = useQuery({
     queryKey: QUERY_KEYS.wellById(String(well_id)),
     queryFn: async () => {
-      const response = await apiRequest(`/wells/${well_id}`);
+      const response = await apiRequest(`/api/wells/${well_id}`);
       return response.data;
     }
   });
@@ -29,7 +29,7 @@ export function WellDetailCard({ well_id, onEdit, onDelete, onViewCosts }: WellD
   const { data: expenses = [] } = useQuery({
     queryKey: QUERY_KEYS.wellExpenses(String(well_id)),
     queryFn: async () => {
-      const response = await apiRequest(`/well-expenses/${well_id}`);
+      const response = await apiRequest(`/api/well-expenses/${well_id}`);
       return response.data || [];
     }
   });
@@ -38,14 +38,14 @@ export function WellDetailCard({ well_id, onEdit, onDelete, onViewCosts }: WellD
   const { data: costReport } = useQuery({
     queryKey: QUERY_KEYS.wellCostReport(String(well_id)),
     queryFn: async () => {
-      const response = await apiRequest(`/well-expenses/cost-report/${well_id}`);
+      const response = await apiRequest(`/api/well-expenses/cost-report/${well_id}`);
       return response.data;
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/wells/${well_id}`, { method: 'DELETE' } as any);
+      return apiRequest(`/api/wells/${well_id}`, 'DELETE');
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });

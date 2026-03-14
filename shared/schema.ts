@@ -352,6 +352,7 @@ export const wells = pgTable("wells", {
   startDate: date("start_date"), // تاريخ البدء (nullable)
   completionDate: date("completion_date"), // تاريخ الانتهاء (nullable)
   notes: text("notes"),
+  beneficiaryPhone: text("beneficiary_phone"),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
@@ -1486,6 +1487,119 @@ export type InsertWellAuditLog = z.infer<typeof insertWellAuditLogSchema>;
 
 export type MaterialCategory = typeof materialCategories.$inferSelect;
 export type InsertMaterialCategory = z.infer<typeof insertMaterialCategorySchema>;
+
+// 8. جدول طواقم العمل (well_work_crews)
+export const wellWorkCrews = pgTable("well_work_crews", {
+  id: serial("id").primaryKey(),
+  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  crewType: varchar("crew_type", { length: 50 }).notNull(), // welding, steel_installation, panel_installation
+  teamName: text("team_name"),
+  workersCount: integer("workers_count").default(0).notNull(),
+  mastersCount: integer("masters_count").default(0).notNull(),
+  workDays: decimal("work_days", { precision: 10, scale: 2 }).default('0').notNull(),
+  workerDailyWage: decimal("worker_daily_wage", { precision: 12, scale: 2 }),
+  masterDailyWage: decimal("master_daily_wage", { precision: 12, scale: 2 }),
+  totalWages: decimal("total_wages", { precision: 12, scale: 2 }),
+  workDate: date("work_date"),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 9. جدول مكونات الطاقة الشمسية (well_solar_components)
+export const wellSolarComponents = pgTable("well_solar_components", {
+  id: serial("id").primaryKey(),
+  well_id: integer("well_id").notNull().unique().references(() => wells.id, { onDelete: "cascade" }),
+  inverter: text("inverter"),
+  collectionBox: text("collection_box"),
+  carbonCarrier: text("carbon_carrier"),
+  steelConverterTop: text("steel_converter_top"),
+  clampConverterBottom: text("clamp_converter_bottom"),
+  bindingCable6mm: text("binding_cable_6mm"),
+  groundingCable10x2mm: text("grounding_cable_10x2mm"),
+  jointThermalLiquid: text("joint_thermal_liquid"),
+  groundingClip: text("grounding_clip"),
+  groundingPlate: text("grounding_plate"),
+  groundingRod: text("grounding_rod"),
+  cable16x3mmLength: decimal("cable_16x3mm_length", { precision: 10, scale: 2 }),
+  cable10x2mmLength: decimal("cable_10x2mm_length", { precision: 10, scale: 2 }),
+  extraPipes: integer("extra_pipes"),
+  extraPipesReason: text("extra_pipes_reason"),
+  extraCable: decimal("extra_cable", { precision: 10, scale: 2 }),
+  extraCableReason: text("extra_cable_reason"),
+  fanCount: integer("fan_count"),
+  submersiblePump: boolean("submersible_pump").default(true),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 10. جدول تفاصيل النقل (well_transport_details)
+export const wellTransportDetails = pgTable("well_transport_details", {
+  id: serial("id").primaryKey(),
+  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  railType: varchar("rail_type", { length: 20 }), // new, old
+  withPanels: boolean("with_panels").default(false),
+  transportPrice: decimal("transport_price", { precision: 12, scale: 2 }),
+  crewEntitlements: decimal("crew_entitlements", { precision: 12, scale: 2 }),
+  transportDate: date("transport_date"),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+// 11. جدول استلام الآبار (well_receptions)
+export const wellReceptions = pgTable("well_receptions", {
+  id: serial("id").primaryKey(),
+  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  receivedBy: varchar("received_by").references(() => users.id),
+  receiverName: text("receiver_name"),
+  inspectionStatus: varchar("inspection_status", { length: 50 }).default("pending"), // pending, passed, failed
+  inspectionNotes: text("inspection_notes"),
+  receivedAt: timestamp("received_at"),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert Schemas for new well tables
+export const insertWellWorkCrewSchema = createInsertSchema(wellWorkCrews).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export const insertWellSolarComponentSchema = createInsertSchema(wellSolarComponents).omit({
+  id: true,
+  created_at: true,
+  updated_at: true,
+});
+
+export const insertWellTransportDetailSchema = createInsertSchema(wellTransportDetails).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertWellReceptionSchema = createInsertSchema(wellReceptions).omit({
+  id: true,
+  created_at: true,
+});
+
+// Types for new well tables
+export type WellWorkCrew = typeof wellWorkCrews.$inferSelect;
+export type InsertWellWorkCrew = z.infer<typeof insertWellWorkCrewSchema>;
+
+export type WellSolarComponent = typeof wellSolarComponents.$inferSelect;
+export type InsertWellSolarComponent = z.infer<typeof insertWellSolarComponentSchema>;
+
+export type WellTransportDetail = typeof wellTransportDetails.$inferSelect;
+export type InsertWellTransportDetail = z.infer<typeof insertWellTransportDetailSchema>;
+
+export type WellReception = typeof wellReceptions.$inferSelect;
+export type InsertWellReception = z.infer<typeof insertWellReceptionSchema>;
+
 export const equipment = pgTable("equipment", {
   id: serial("id").primaryKey(),
   code: text("code"),
@@ -1857,6 +1971,7 @@ export const SYNCABLE_TABLES = [
   'report_templates', 'notification_read_states', 'build_deployments',
   'notifications', 'ai_chat_sessions', 'ai_chat_messages', 'ai_usage_stats',
   'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories',
+  'well_work_crews', 'well_solar_components', 'well_transport_details', 'well_receptions',
   'equipment', 'equipment_movements',
 ] as const;
 
@@ -1900,6 +2015,10 @@ export const SERVER_TO_IDB_TABLE_MAP: Record<string, string> = {
   'well_expenses': 'wellExpenses',
   'well_audit_logs': 'wellAuditLogs',
   'material_categories': 'materialCategories',
+  'well_work_crews': 'wellWorkCrews',
+  'well_solar_components': 'wellSolarComponents',
+  'well_transport_details': 'wellTransportDetails',
+  'well_receptions': 'wellReceptions',
   'equipment_movements': 'equipmentMovements',
   'auth_request_nonces': 'authRequestNonces',
 };

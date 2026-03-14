@@ -107,6 +107,15 @@ The system features a consistent design with a professional navy/blue palette, E
 - **T005 ✅** Refresh token rotation: Dev mode now generates new sessionId on every refresh (was reusing). Detects refresh token reuse → revokes all user sessions (theft indicator). Session context updated on refresh. Both dev/prod modes unified with reuse detection.
 - **T006 ✅** Replay protection: `auth_request_nonces` table + `requireFreshRequest({windowSec})` middleware. Applied to: `/auth/refresh` (120s), password reset (60s), role changes (60s), all financial write operations (60s). Periodic nonce cleanup via `startNonceCleanup()`.
 
+### Round 6 — Well Management System Enhancement
+- **T001 ✅** Schema expansion: 4 new tables (`well_work_crews`, `well_solar_components`, `well_transport_details`, `well_receptions`) + `beneficiary_phone` column on wells. Safe SQL migration via `server/db/run-well-expansion-migrations.ts` (auto-runs at startup). DB: 79 tables.
+- **T002 ✅** WellService.ts field name fixes: `assignedTo→assignedWorkerId`, removed `isAccounted` dependency (LEFT JOIN pattern), `wellTaskId→taskId`, `accountantId→accountedBy`, `paymentType→paymentMethod`, `newValue/previousValue→newData/previousData`, added `entityType+entityId` to all audit log inserts, auto-computed `taskOrder`.
+- **T003 ✅** WellExpenseService.ts: NULL violation fixes (safe defaults for quantity/unit/unitPrice), referenceId kept as string, createdBy accepts real userId (no hardcoded 'system'), transport expenses properly handled.
+- **T004 ✅** Frontend API path fixes: All `/wells?...` → `/api/wells?...` in well-accounting.tsx, well-cost-report.tsx, well-detail-card.tsx. Fixed apiRequest DELETE call signature.
+- **T005 ✅** New CRUD endpoints: `/api/wells/:wellId/crews|solar-components|transport|receptions` with Zod validation, project access control, and cost report integration.
+- **T006 ✅** New RTL Arabic well lifecycle forms component (`client/src/components/well-lifecycle-forms.tsx`): 4 tabbed sections (crews/solar/transport/reception) with full CRUD, Arabic labels matching Excel columns, data-testid attributes.
+- **Post-review fixes**: Added missing imports for new tables in WellService.ts, fixed Zod `error.errors→error.issues`, fixed WellExpenseService filter bug (chained `.where()` → combined `and()` to prevent well_id bypass).
+
 ### Known Recommendations (Deferred)
 - **Play Integrity (Android)**: Phase 1 of attestation plan — replace UA heuristics with cryptographic device verification. Requires Google Play Console setup.
 - **iOS App Attest**: Deferred until iOS client reaches production.

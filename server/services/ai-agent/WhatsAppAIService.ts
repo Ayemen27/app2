@@ -742,15 +742,25 @@ export class WhatsAppAIService {
     context.data.exportType = exportType;
 
     if (exportType === 'worker') {
-      const workerConditions: any[] = [eq(workers.is_active, true)];
+      let allWorkers: { id: string; name: string }[] = [];
       if (userProjectIds && userProjectIds.length > 0) {
         const { inArray } = await import("drizzle-orm");
-        workerConditions.push(inArray(workers.projectId, userProjectIds));
+        const attendanceWorkers = await db.selectDistinct({ workerId: workerAttendance.worker_id })
+          .from(workerAttendance)
+          .where(inArray(workerAttendance.project_id, userProjectIds));
+        const scopedWorkerIds = attendanceWorkers.map(r => r.workerId);
+        if (scopedWorkerIds.length > 0) {
+          allWorkers = await db.select({ id: workers.id, name: workers.name })
+            .from(workers)
+            .where(and(eq(workers.is_active, true), inArray(workers.id, scopedWorkerIds)))
+            .limit(30);
+        }
+      } else {
+        allWorkers = await db.select({ id: workers.id, name: workers.name })
+          .from(workers)
+          .where(eq(workers.is_active, true))
+          .limit(30);
       }
-      const allWorkers = await db.select({ id: workers.id, name: workers.name })
-        .from(workers)
-        .where(and(...workerConditions))
-        .limit(30);
 
       if (allWorkers.length === 0) {
         return textReply(nav(`❌ لا يوجد عمال مسجلون.`));

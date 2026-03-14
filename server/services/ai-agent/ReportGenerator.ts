@@ -696,6 +696,7 @@ export class ReportGenerator {
    */
   async generateWorkerStatement(
     workerId: string,
+    allowedProjectIds?: string[],
     format: "excel" | "json" = "json"
   ): Promise<ReportResult> {
     try {
@@ -703,7 +704,7 @@ export class ReportGenerator {
         return await this.generateWorkerStatementExcel(workerId);
       }
       
-      const result = await this.dbActions.getWorkerStatement(workerId);
+      const result = await this.dbActions.getWorkerStatement(workerId, allowedProjectIds);
 
       if (!result.success) {
         return {

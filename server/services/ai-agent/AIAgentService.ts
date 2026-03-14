@@ -8,7 +8,7 @@ import { getDatabaseActions, ActionResult } from "./DatabaseActions";
 import { getReportGenerator, ReportResult } from "./ReportGenerator";
 import { db } from "../../db";
 import { eq, desc, and, sql } from "drizzle-orm";
-import { aiChatSessions, aiChatMessages, aiUsageStats, workers } from "@shared/schema";
+import { aiChatSessions, aiChatMessages, aiUsageStats, workers, workerAttendance } from "@shared/schema";
 
 export interface AgentStep {
   title: string;
@@ -492,14 +492,16 @@ export class AIAgentService {
                 }
               }
               if (scopeIds) {
-                const workerCheck = await db.select({ id: workers.id, projectId: workers.projectId })
-                  .from(workers).where(eq(workers.id, workerId)).limit(1);
-                if (workerCheck.length === 0 || !scopeIds.includes(workerCheck[0].projectId)) {
+                const workerProjects = await db.select({ projectId: workerAttendance.project_id })
+                  .from(workerAttendance).where(eq(workerAttendance.worker_id, workerId));
+                const workerProjectIds = [...new Set(workerProjects.map(r => r.projectId))];
+                const hasAccess = workerProjectIds.some(pid => scopeIds.includes(pid));
+                if (!hasAccess) {
                   currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا العامل" };
                   break;
                 }
               }
-              currentResult = await this.reportGenerator.generateWorkerStatement(workerId);
+              currentResult = await this.reportGenerator.generateWorkerStatement(workerId, scopeIds);
               break;
             }
 
@@ -585,9 +587,10 @@ export class AIAgentService {
             case "EXPORT_EXCEL":
               if (actionParams[0] === "WORKER_STATEMENT") {
                 if (scopeIds) {
-                  const wCheck = await db.select({ id: workers.id, projectId: workers.projectId })
-                    .from(workers).where(eq(workers.id, actionParams[1])).limit(1);
-                  if (wCheck.length === 0 || !scopeIds.includes(wCheck[0].projectId)) {
+                  const wProjects = await db.select({ projectId: workerAttendance.project_id })
+                    .from(workerAttendance).where(eq(workerAttendance.worker_id, actionParams[1]));
+                  const wPids = [...new Set(wProjects.map(r => r.projectId))];
+                  if (!wPids.some(pid => scopeIds.includes(pid))) {
                     currentResult = { success: false, message: "ليس لديك صلاحية الوصول لهذا العامل" };
                     break;
                   }

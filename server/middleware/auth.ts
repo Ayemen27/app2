@@ -258,7 +258,7 @@ export const trackSuspiciousActivity = (req: Request, res: Response, next: NextF
 };
 
 // Middleware المصادقة الأساسي
-export const authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
     const publicPaths = [
       '/api/auth/login', 
       '/api/auth/register', 
@@ -357,16 +357,21 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       });
     }
 
-    const sessionId = decoded.sessionId || 'jwt-session';
-    if (sessionId !== 'jwt-session') {
-      const session = await verifySession(user_id, sessionId);
-      if (!session) {
-        return res.status(401).json({
-          success: false,
-          message: 'الجلسة منتهية أو ملغاة - يرجى تسجيل الدخول مجدداً',
-          code: 'SESSION_REVOKED'
-        });
-      }
+    const sessionId = decoded.sessionId;
+    if (!sessionId) {
+      return res.status(401).json({
+        success: false,
+        message: 'رمز الوصول لا يحتوي على معرف جلسة - يرجى تسجيل الدخول مجدداً',
+        code: 'SESSION_MISSING'
+      });
+    }
+    const session = await verifySession(user_id, sessionId);
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        message: 'الجلسة منتهية أو ملغاة - يرجى تسجيل الدخول مجدداً',
+        code: 'SESSION_REVOKED'
+      });
     }
 
     // إضافة بيانات المستخدم للـ request مع ضمان تحديث الدور من قاعدة البيانات مباشرة
@@ -379,7 +384,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       role: user.role || 'user', // استخدام الدور من قاعدة البيانات مباشرة
       is_active: String(user.is_active) === 'true' ? true : false,
       mfa_enabled: user.mfa_enabled || undefined,
-      sessionId: sessionId
+      sessionId: sessionId || ''
     };
 
     const duration = Date.now() - startTime;
@@ -397,7 +402,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
 };
 
 // Middleware للتحقق من صلاحيات الإدارة
-export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -448,9 +453,9 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
     if (token) {
       const decoded = await verifyToken(token);
       const decodedUserId = decoded.userId || decoded.sub || decoded.user_id || decoded.id;
-      const decodedSessionId = decoded.sessionId || 'jwt-session';
+      const decodedSessionId = decoded.sessionId;
       if (!decodedUserId) return next();
-      const session = await verifySession(decodedUserId, decodedSessionId);
+      const session = decodedSessionId ? await verifySession(decodedUserId, decodedSessionId) : true;
 
       if (session) {
         const user = await db
@@ -469,7 +474,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
             role: user[0].role,
             is_active: user[0].is_active,
             mfa_enabled: user[0].mfa_enabled || undefined,
-            sessionId: decodedSessionId
+            sessionId: decodedSessionId || ''
           };
         }
       }

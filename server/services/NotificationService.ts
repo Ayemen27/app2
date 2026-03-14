@@ -297,10 +297,7 @@ export class NotificationService {
       try {
         const defaultUser = await db.query.users.findFirst({
           columns: { id: true },
-          where: (users: any, { eq, or }: any) => or(
-            eq(users.role, 'admin'),
-            eq(users.email, 'admin')
-          )
+          where: (users: { role: any }, { eq }: { eq: any }) => eq(users.role, 'admin')
         });
         return defaultUser ? [defaultUser.id] : [];
       } catch {

@@ -12,7 +12,7 @@ import { storage } from "../../storage.js";
 import { invalidateBalanceCache } from "./projectRoutes.js";
 
 const router = Router();
-router.use(requireAuth as any);
+router.use(requireAuth);
 
 const TABLE_MAP: Record<string, any> = {
   fundTransfers,
@@ -260,7 +260,7 @@ function formatRecord(table: string, record: any) {
   };
 }
 
-router.get("/review", requireAdmin as any, async (req: Request, res: Response) => {
+router.get("/review", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { projectId, date } = req.query;
     if (!projectId || !date) {
@@ -331,7 +331,7 @@ router.get("/review", requireAdmin as any, async (req: Request, res: Response) =
   }
 });
 
-router.post("/preview", requireAdmin as any, async (req: Request, res: Response) => {
+router.post("/preview", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { sourceProjectId, targetProjectId, date, selections } = req.body;
     if (!sourceProjectId || !targetProjectId || !selections?.length) {
@@ -569,7 +569,7 @@ router.post("/preview", requireAdmin as any, async (req: Request, res: Response)
   }
 });
 
-router.post("/confirm", requireAdmin as any, async (req: Request, res: Response) => {
+router.post("/confirm", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { sourceProjectId, targetProjectId, selections, force } = req.body;
     if (!sourceProjectId || !targetProjectId || !selections?.length) {
@@ -731,7 +731,7 @@ router.post("/confirm", requireAdmin as any, async (req: Request, res: Response)
   }
 });
 
-router.post("/delete", requireAdmin as any, async (req: Request, res: Response) => {
+router.post("/delete", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { projectId, selections } = req.body;
     if (!projectId || !selections?.length) {

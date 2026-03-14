@@ -6,8 +6,8 @@ import path from 'path';
 
 const router = Router();
 
-router.use(authenticate as any);
-router.use(requireAdmin as any);
+router.use(authenticate);
+router.use(requireAdmin);
 
 router.post("/run", sensitiveOperationsRateLimit, async (req: Request, res: Response) => {
   try {

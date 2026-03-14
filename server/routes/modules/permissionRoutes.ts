@@ -13,7 +13,7 @@ permissionRouter.get("/my", async (req: Request, res: Response) => {
     if (!user) {
       return sendError(res, "غير مصرح", 401);
     }
-    const userId = user.user_id || user.id;
+    const userId = user.user_id;
     if (!userId) {
       return sendError(res, "غير مصرح", 401);
     }
@@ -65,7 +65,7 @@ permissionRouter.post("/grant", requireAdmin, async (req: Request, res: Response
       return sendError(res, "يجب تحديد المستخدم والمشروع", 400);
     }
 
-    const actorId = user.user_id || user.id;
+    const actorId = user.user_id;
     if (!actorId) {
       return sendError(res, "غير مصرح", 401);
     }
@@ -103,7 +103,7 @@ permissionRouter.patch("/update", requireAdmin, async (req: Request, res: Respon
       return sendError(res, "يجب تحديد المستخدم والمشروع", 400);
     }
 
-    const actorId = user.user_id || user.id;
+    const actorId = user.user_id;
     if (!actorId) {
       return sendError(res, "غير مصرح", 401);
     }
@@ -141,7 +141,7 @@ permissionRouter.delete("/revoke", requireAdmin, async (req: Request, res: Respo
       return sendError(res, "يجب تحديد المستخدم والمشروع", 400);
     }
 
-    const actorId = user.user_id || user.id;
+    const actorId = user.user_id;
     if (!actorId) {
       return sendError(res, "غير مصرح", 401);
     }

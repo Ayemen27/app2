@@ -17,5 +17,5 @@ export function requireRoles(...roles: string[]) {
 }
 
 export function requireAdmin() {
-  return requireRoles('admin');
+  return requireRoles('admin', 'super_admin');
 }

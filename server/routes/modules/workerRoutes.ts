@@ -74,7 +74,7 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
     if (isAdminUser) {
       workersList = await db.select().from(workers).orderBy(workers.name);
     } else {
-      const userId = accessReq.user?.id;
+      const userId = accessReq.user?.user_id;
       if (!userId) {
         workersList = [];
       } else {
@@ -83,7 +83,7 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
           .orderBy(workers.name);
       }
     }
-    console.log(`👷 [API] isAdmin: ${isAdminUser}, userId: ${accessReq.user?.id}, total: ${workersList.length}`);
+    console.log(`👷 [API] isAdmin: ${isAdminUser}, userId: ${accessReq.user?.user_id}, total: ${workersList.length}`);
     console.log(`👷 [API] تم جلب ${workersList.length} عامل`);
     res.json({
       success: true,
@@ -301,7 +301,7 @@ workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    if (!isAdminUser && worker[0].created_by !== accessReq.user?.id) {
+    if (!isAdminUser && worker[0].created_by !== accessReq.user?.user_id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
     }
 
@@ -368,7 +368,7 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    if (!isAdminUser && existingWorker[0].created_by !== accessReq.user?.id) {
+    if (!isAdminUser && existingWorker[0].created_by !== accessReq.user?.user_id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا العامل' });
     }
 
@@ -527,7 +527,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    if (!isAdminUser && workerToDelete.created_by !== accessReq.user?.id) {
+    if (!isAdminUser && workerToDelete.created_by !== accessReq.user?.user_id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لحذف هذا العامل' });
     }
 
@@ -2281,7 +2281,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    if (!isAdminUser && worker[0].created_by !== accessReq.user?.id) {
+    if (!isAdminUser && worker[0].created_by !== accessReq.user?.user_id) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا العامل' });
     }
 

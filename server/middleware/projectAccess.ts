@@ -17,7 +17,7 @@ export const attachAccessibleProjects = async (
       return next();
     }
 
-    const userId = req.user.user_id || req.user.id;
+    const userId = req.user.user_id;
     if (!userId) {
       req.accessibleProjectIds = [];
       return next();
@@ -46,7 +46,7 @@ export const requireProjectAccess = (action: PermissionAction) => {
         });
       }
 
-      const userId = req.user.user_id || req.user.id;
+      const userId = req.user.user_id;
       if (!userId) {
         return res.status(401).json({
           success: false,

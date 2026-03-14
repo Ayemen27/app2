@@ -8,7 +8,7 @@ import { db } from '../db';
 import { emergencyUsers } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 import { hashPassword, verifyPassword } from '../auth/crypto-utils';
-import { generateAccessToken, generateRefreshToken } from '../auth/jwt-utils';
+import { generateTokenPair } from '../auth/jwt-utils';
 
 const EMERGENCY_ACCESS_LIMIT = 5; // محاولات تسجيل دخول محدودة في وضع الطوارئ
 const EMERGENCY_LOCK_DURATION = 15 * 60 * 1000; // قفل لمدة 15 دقيقة
@@ -177,16 +177,11 @@ export class EmergencyAuthService {
           // تحقق من كلمة المرور
           if (adminCreds.password === password) {
             this.clearAttempts(email);
-            const token = generateAccessToken({
-              userId: 'emergency-admin',
-              email: adminCreds.email,
-              role: 'admin',
-            });
-
-            const refreshToken = await generateRefreshToken({
-              userId: 'emergency-admin',
-              email: adminCreds.email,
-            });
+            const tokens = await generateTokenPair(
+              'emergency-admin',
+              adminCreds.email,
+              'admin'
+            );
 
             console.log('✅ [EMERGENCY] تم تسجيل دخول المسؤول الطارئ بنجاح');
             return {
@@ -197,8 +192,8 @@ export class EmergencyAuthService {
                 email: adminCreds.email,
                 name: 'Administrator (Emergency Mode)',
                 role: 'admin',
-                accessToken: token,
-                refreshToken,
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
               },
             };
           } else {
@@ -239,17 +234,11 @@ export class EmergencyAuthService {
       // مسح المحاولات الناجحة
       this.clearAttempts(email);
 
-      // إنشاء رموز الوصول
-      const accessToken = generateAccessToken({
-        userId: String(user.id),
-        email: String(user.email),
-        role: String(user.role),
-      });
-
-      const refreshToken = await generateRefreshToken({
-        userId: String(user.id),
-        email: String(user.email),
-      });
+      const tokens = await generateTokenPair(
+        String(user.id),
+        String(user.email),
+        String(user.role)
+      );
 
       console.log('✅ [EMERGENCY] تم تسجيل دخول المستخدم الطارئ بنجاح:', {
         user_id: user.id,
@@ -265,11 +254,11 @@ export class EmergencyAuthService {
           email: String(user.email),
           name: String(user.name),
           role: String(user.role),
-          accessToken,
-          refreshToken,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [EMERGENCY] خطأ في تسجيل الدخول الطارئ:', error);
       return {
         success: false,
@@ -348,7 +337,7 @@ export class EmergencyAuthService {
           role,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [EMERGENCY] خطأ في إنشاء مستخدم طارئ:', error);
       return {
         success: false,
@@ -374,7 +363,7 @@ export class EmergencyAuthService {
         .where(eq(emergencyUsers.id, user_id));
 
       return result[0] || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [EMERGENCY] خطأ في جلب معلومات المستخدم:', error);
       return null;
     }

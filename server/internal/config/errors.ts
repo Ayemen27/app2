@@ -43,15 +43,17 @@ export class ExternalServiceError extends AppError {
 }
 
 // معالج الأخطاء العام
-export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction) {
-  const status = err?.status ?? 500;
-  const code   = err?.code   ?? "INTERNAL_ERROR";
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
+  const errObj = err as Record<string, unknown> | null;
+  const status = (errObj?.status as number) ?? 500;
+  const code   = (errObj?.code as string)   ?? "INTERNAL_ERROR";
+  const message = err instanceof Error ? err.message : "حدث خطأ غير متوقع.";
   const body = {
     ok: false,
     code,
-    message: err?.message || "حدث خطأ غير متوقع.",
+    message,
     requestId: (req as TrackedRequest).id,
-    details: process.env.NODE_ENV === "production" ? undefined : err?.details ?? String(err),
+    details: process.env.NODE_ENV === "production" ? undefined : (errObj?.details as string) ?? String(err),
   };
   
   if (status >= 500) {

@@ -38,7 +38,7 @@ router.use(authenticate);
 
 router.get("/my-link", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id as string;
+    const userId = req.user!.user_id as string;
     const link = await db.select()
       .from(whatsappUserLinks)
       .where(eq(whatsappUserLinks.user_id, userId))
@@ -56,7 +56,7 @@ router.get("/my-link", async (req: Request, res: Response) => {
 
 router.post("/link-phone", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id as string;
+    const userId = req.user!.user_id as string;
 
     const validation = linkPhoneSchema.safeParse(req.body);
     if (!validation.success) {
@@ -109,7 +109,7 @@ router.post("/link-phone", async (req: Request, res: Response) => {
 
 router.post("/unlink-phone", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id as string;
+    const userId = req.user!.user_id as string;
     await db.delete(whatsappUserLinks).where(eq(whatsappUserLinks.user_id, userId));
     res.json({ success: true, message: "تم إلغاء ربط الواتساب" });
   } catch (error: any) {
@@ -239,7 +239,7 @@ router.post("/webhook", async (req: Request, res: Response) => {
 
 router.get("/stats/me", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id as string;
+    const userId = req.user!.user_id as string;
 
     const link = await db.select()
       .from(whatsappUserLinks)
@@ -322,7 +322,7 @@ router.get("/stats", async (req: Request, res: Response) => {
         phoneNumber: stats?.phoneNumber || null
       });
     }
-    const userId = req.user!.id as string;
+    const userId = req.user!.user_id as string;
     const link = await db.select()
       .from(whatsappUserLinks)
       .where(eq(whatsappUserLinks.user_id, userId))
@@ -360,7 +360,7 @@ router.get("/stats", async (req: Request, res: Response) => {
 
 router.get("/my-scope", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id as string;
+    const userId = req.user!.user_id as string;
     const role = req.user!.role as string;
 
     const link = await db.select()
@@ -392,7 +392,7 @@ router.get("/my-scope", async (req: Request, res: Response) => {
 
 router.get("/messages/me", async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id as string;
+    const userId = req.user!.user_id as string;
 
     const link = await db.select()
       .from(whatsappUserLinks)
@@ -644,7 +644,7 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
       phoneNumber: canonical,
       label: label || null,
       isActive: true,
-      addedBy: req.user!.id,
+      addedBy: req.user!.user_id,
     }).returning();
     res.json({ success: true, number: inserted });
   } catch (error: any) {
@@ -947,7 +947,7 @@ router.put("/settings", requireAdminCheck, async (req: Request, res: Response) =
       }
     }
 
-    const updated = await botSettingsService.updateSettings(validation.data, req.user!.id as string);
+    const updated = await botSettingsService.updateSettings(validation.data, req.user!.user_id as string);
     res.json(updated);
   } catch (error: any) {
     console.error("[WhatsApp Settings] PUT Error:", error?.message);
@@ -957,7 +957,7 @@ router.put("/settings", requireAdminCheck, async (req: Request, res: Response) =
 
 router.post("/settings/reset", requireAdminCheck, async (req: Request, res: Response) => {
   try {
-    const settings = await botSettingsService.resetSettings(req.user!.id as string);
+    const settings = await botSettingsService.resetSettings(req.user!.user_id as string);
     res.json(settings);
   } catch (error: any) {
     console.error("[WhatsApp Settings] Reset Error:", error?.message);

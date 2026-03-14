@@ -1816,7 +1816,6 @@ export type WhatsappBotSettings = typeof whatsappBotSettings.$inferSelect;
 export type InsertWhatsappBotSettings = z.infer<typeof insertWhatsappBotSettingsSchema>;
 
 export const SYNCABLE_TABLES = [
-  'users', 'emergency_users', 'auth_user_sessions', 'email_verification_tokens', 'password_reset_tokens',
   'project_types', 'projects', 'workers', 'wells',
   'fund_transfers', 'worker_attendance', 'suppliers', 'materials', 'material_purchases',
   'supplier_payments', 'transportation_expenses', 'worker_transfers', 'worker_balances',

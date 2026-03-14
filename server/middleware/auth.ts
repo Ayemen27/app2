@@ -12,7 +12,6 @@ import { envConfig } from '../utils/unified-env';
 // تعريف نوع الـ Request مع user
 export interface AuthenticatedRequest extends Request {
   user?: {
-    id?: string;
     user_id: string;
     email: string;
     first_name?: string;
@@ -376,7 +375,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     // إضافة بيانات المستخدم للـ request مع ضمان تحديث الدور من قاعدة البيانات مباشرة
     req.user = {
-      id: user.id,
       user_id: user.id,
       email: user.email,
       first_name: user.first_name || undefined,
@@ -466,7 +464,6 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 
         if (user.length && user[0].is_active) {
           req.user = {
-            id: user[0].id,
             user_id: user[0].id,
             email: user[0].email,
             first_name: user[0].first_name || undefined,

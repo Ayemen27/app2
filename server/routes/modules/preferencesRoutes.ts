@@ -30,7 +30,7 @@ const preferencesRouter = express.Router();
 
 preferencesRouter.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.user_id || req.user?.id;
+    const userId = req.user?.user_id;
     if (!userId) {
       return res.status(401).json({ success: false, message: 'غير مصرح' });
     }
@@ -50,7 +50,7 @@ preferencesRouter.get('/', requireAuth, async (req: AuthenticatedRequest, res: R
 
 preferencesRouter.put('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.user_id || req.user?.id;
+    const userId = req.user?.user_id;
     if (!userId) {
       return res.status(401).json({ success: false, message: 'غير مصرح' });
     }

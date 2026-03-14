@@ -15,11 +15,11 @@ interface TrackedRequest extends Request {
  * Middleware لتتبع الأخطاء تلقائياً
  */
 export function errorTrackingMiddleware() {
-  return async (err: any, req: Request, res: Response, next: NextFunction) => {
+  return async (err: unknown, req: Request, res: Response, next: NextFunction) => {
     try {
-      // تحديد نوع الخطأ ورمز الحالة
-      const statusCode = err.status || err.statusCode || 500;
-      const errorMessage = err.message || 'خطأ داخلي في الخادم';
+      const errObj = err as Record<string, unknown> | null;
+      const statusCode = (errObj?.status as number) || (errObj?.statusCode as number) || 500;
+      const errorMessage = (err instanceof Error ? err.message : String(err)) || 'خطأ داخلي في الخادم';
 
       // جمع معلومات إضافية من الطلب
       const context = {
@@ -39,7 +39,7 @@ export function errorTrackingMiddleware() {
       };
 
       // تسجيل الخطأ باستخدام النظام المتقدم
-      await advancedErrorTracker.logError(err, context);
+      await advancedErrorTracker.logError(err instanceof Error ? err : String(err), context);
 
       // إرسال استجابة مناسبة للمستخدم
       if (!res.headersSent) {

@@ -60,7 +60,7 @@ function normalizeBase64url(str: string): string {
 
 webauthnRouter.post('/register/options', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.user_id || req.user?.id;
+    const userId = req.user?.user_id;
     const userEmail = req.user?.email;
 
     if (!userId || !userEmail) {
@@ -122,7 +122,7 @@ webauthnRouter.post('/register/options', requireAuth, async (req: AuthenticatedR
 
 webauthnRouter.post('/register/verify', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.user_id || req.user?.id;
+    const userId = req.user?.user_id;
     const userEmail = req.user?.email;
 
     if (!userId || !userEmail) {
@@ -442,7 +442,7 @@ webauthnRouter.post('/login/verify', authRateLimit, async (req: Request, res: Re
 
 webauthnRouter.get('/status', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.user_id || req.user?.id;
+    const userId = req.user?.user_id;
     if (!userId) {
       return res.status(401).json({ success: false, message: 'غير مصرح' });
     }
@@ -467,7 +467,7 @@ webauthnRouter.get('/status', requireAuth, async (req: AuthenticatedRequest, res
 
 webauthnRouter.delete('/credentials', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.user_id || req.user?.id;
+    const userId = req.user?.user_id;
     if (!userId) {
       return res.status(401).json({ success: false, message: 'غير مصرح' });
     }

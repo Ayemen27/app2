@@ -748,19 +748,7 @@ export class WhatsAppAIService {
     if (pendingAction === 'worker_balance') {
       const isAdmin = context.data.securityIsAdmin || false;
       const projectIds = context.data.securityProjectIds || userProjectIds;
-      const opts: any = { isAdmin, accessibleProjectIds: projectIds };
-      const data = await reportDataService.getWorkerStatement(selectedWorker.id, opts);
-      const totalEarned = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.earned) || 0), 0);
-      const totalPaid = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.paid) || 0), 0);
-      const balance = totalEarned - totalPaid;
-      const emoji = balance > 0 ? '🔴' : balance < 0 ? '🟢' : '✅';
-      return textReply(nav([
-        `👷 *${selectedWorker.name}*`,
-        ``,
-        `💰 المكتسب: *${totalEarned.toLocaleString()}* ريال`,
-        `💸 المدفوع: *${totalPaid.toLocaleString()}* ريال`,
-        `${emoji} الرصيد المتبقي: *${balance.toLocaleString()}* ريال`,
-      ].join('\n')));
+      return this.formatWorkerBalance(selectedWorker, isAdmin, projectIds);
     }
 
     return buildWelcomeReply(userName);
@@ -973,19 +961,7 @@ export class WhatsAppAIService {
 
       if (matchedWorkers.length === 1) {
         const worker = matchedWorkers[0];
-        const opts: any = { isAdmin, accessibleProjectIds: userProjectIds };
-        const data = await reportDataService.getWorkerStatement(worker.id, opts);
-        const totalEarned = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.earned) || 0), 0);
-        const totalPaid = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.paid) || 0), 0);
-        const balance = totalEarned - totalPaid;
-        const emoji = balance > 0 ? '🔴' : balance < 0 ? '🟢' : '✅';
-        return textReply(nav([
-          `👷 *${worker.name}*`,
-          ``,
-          `💰 المكتسب: *${totalEarned.toLocaleString()}* ريال`,
-          `💸 المدفوع: *${totalPaid.toLocaleString()}* ريال`,
-          `${emoji} الرصيد المتبقي: *${balance.toLocaleString()}* ريال`,
-        ].join('\n')));
+        return this.formatWorkerBalance(worker, isAdmin, userProjectIds);
       }
 
       context.data.pendingAction = 'worker_balance';
@@ -1006,6 +982,53 @@ export class WhatsAppAIService {
     } catch (error: any) {
       console.error('[WhatsAppAI] Error in balance query:', error);
       return textReply(nav(`❌ خطأ: ${error.message}`));
+    }
+  }
+
+  private async formatWorkerBalance(
+    worker: { id: string; name: string },
+    isAdmin: boolean,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    try {
+      const opts: any = { isAdmin, accessibleProjectIds: userProjectIds };
+      const data = await reportDataService.getWorkerStatement(worker.id, opts);
+
+      if (!data || !data.statement || !Array.isArray(data.statement)) {
+        return textReply(nav(`⚠️ تعذّر استرجاع بيانات العامل *${worker.name}*.\nحدث خطأ تقني، حاول مرة أخرى.`));
+      }
+
+      if (data.statement.length === 0) {
+        return textReply(nav(`👷 *${worker.name}*\n\n📭 لا توجد سجلات مالية مسجلة لهذا العامل حتى الآن.`));
+      }
+
+      const sample = data.statement[0];
+      if (!('debit' in sample) || !('credit' in sample)) {
+        console.error('[WhatsAppAI] Unexpected statement fields:', Object.keys(sample));
+        return textReply(nav(`⚠️ خطأ تقني في قراءة بيانات العامل *${worker.name}*.\nيرجى التواصل مع المسؤول.`));
+      }
+
+      const totalDebit = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.debit) || 0), 0);
+      const totalCredit = data.statement.reduce((s: number, r: any) => s + (parseFloat(r.credit) || 0), 0);
+      const balance = totalDebit - totalCredit;
+      const emoji = balance > 0 ? '🔴' : balance < 0 ? '🟢' : '✅';
+      const balanceLabel = balance > 0 ? 'عليه (مستحق)' : balance < 0 ? 'له (زيادة)' : 'صفر';
+
+      const lastEntry = data.statement[data.statement.length - 1];
+      const lastDate = lastEntry?.date || '';
+
+      return textReply(nav([
+        `👷 *${worker.name}*`,
+        ``,
+        `💰 المستحقات (مدين): *${totalDebit.toLocaleString()}* ريال`,
+        `💸 المدفوعات (دائن): *${totalCredit.toLocaleString()}* ريال`,
+        `${emoji} الرصيد: *${Math.abs(balance).toLocaleString()}* ريال ${balanceLabel}`,
+        `📊 عدد السجلات: ${data.statement.length}`,
+        lastDate ? `📅 آخر حركة: ${lastDate}` : '',
+      ].filter(Boolean).join('\n')));
+    } catch (err: any) {
+      console.error('[WhatsAppAI] formatWorkerBalance error:', err);
+      return textReply(nav(`⚠️ تعذّر استرجاع رصيد العامل *${worker.name}*.\nخطأ: ${err.message}`));
     }
   }
 

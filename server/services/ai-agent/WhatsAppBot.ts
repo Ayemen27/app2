@@ -73,6 +73,9 @@ export class WhatsAppBot {
   private userMinuteRates: Map<string, number[]> = new Map();
   private notificationService: NotificationService = new NotificationService();
   private conflictReconnectCount: number = 0;
+  private conflictTimestamps: number[] = [];
+  private static CONFLICT_WINDOW_MS = 300_000;
+  private static MAX_CONFLICTS_IN_WINDOW = 5;
   private lastSentMessages: Map<string, { key: any; timestamp: number }[]> = new Map();
 
   getStatus(): BotStatus {
@@ -429,11 +432,25 @@ export class WhatsAppBot {
         const isPairingInProgress = !!this.pendingPhoneNumber;
         
         if (statusCode === DisconnectReason.connectionReplaced) {
+          const now = Date.now();
+          this.conflictTimestamps.push(now);
+          this.conflictTimestamps = this.conflictTimestamps.filter(
+            (t: number) => now - t < WhatsAppBot.CONFLICT_WINDOW_MS
+          );
+
           this.conflictReconnectCount++;
+
+          if (this.conflictTimestamps.length >= WhatsAppBot.MAX_CONFLICTS_IN_WINDOW) {
+            this.pairingCode = null;
+            this.lastError = "تعارض متكرر مع جلسة أخرى - تم إيقاف إعادة الاتصال. أغلق الجلسة الأخرى وأعد التشغيل يدوياً";
+            console.warn(`[WhatsAppBot] ${this.conflictTimestamps.length} conflicts in ${WhatsAppBot.CONFLICT_WINDOW_MS / 1000}s window. Halting reconnect permanently.`);
+            return;
+          }
+
           if (this.conflictReconnectCount > 3) {
             this.pairingCode = null;
             this.lastError = "جلسة أخرى نشطة - تم إيقاف إعادة الاتصال لتجنب التكرار";
-            console.warn(`[WhatsAppBot] Connection replaced ${this.conflictReconnectCount} times. Another session is active. Stopping reconnect.`);
+            console.warn(`[WhatsAppBot] Connection replaced ${this.conflictReconnectCount} times consecutively. Stopping reconnect.`);
             return;
           }
           const conflictDelays = [5000, 15000, 30000];

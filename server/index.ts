@@ -132,70 +132,90 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
 // تم استخدام نظام الاكتشاف الموحد من unified-env
 const { isProduction, PORT, REPLIT_DOMAIN, PRODUCTION_DOMAIN } = envConfig;
 
-// ✅ DYNAMIC CORS Configuration
-const getAllowedOrigins = (req?: Request) => {
-  const origins = [
-    `http://localhost:${PORT}`,
-    'http://localhost:3000',
-    `http://127.0.0.1:${PORT}`,
+// ✅ DYNAMIC CORS Configuration - Strict Origin Validation
+function isStrictLocalhost(origin: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1';
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedDomain(origin: string, allowedHost: string): boolean {
+  try {
+    const parsed = new URL(origin);
+    return parsed.hostname === allowedHost || parsed.hostname.endsWith('.' + allowedHost);
+  } catch {
+    return false;
+  }
+}
+
+const STATIC_ALLOWED_ORIGINS = new Set(
+  [
     PRODUCTION_DOMAIN,
     REPLIT_DOMAIN,
-    'https://app2.binarjoinanelytic.info', // الدومين الأساسي
-    'https://binarjoinanelytic.info'
-  ].filter(Boolean) as string[];
+    'https://app2.binarjoinanelytic.info',
+    'https://binarjoinanelytic.info',
+    process.env.DOMAIN?.replace(/\/$/, ''),
+  ].filter(Boolean) as string[]
+);
 
-  // إضافة الدومين من متغير البيئة إذا وجد
-  if (process.env.DOMAIN) {
-    origins.push(process.env.DOMAIN.replace(/\/$/, ''));
-  }
+const ALLOWED_DOMAIN_SUFFIXES = ['binarjoinanelytic.info'];
 
-  // في بيئة التطوير، نسمح بالدومين الحالي ديناميكياً
+const getAllowedOrigins = (req?: Request): Set<string> => {
+  const origins = new Set(STATIC_ALLOWED_ORIGINS);
+  origins.add(`http://localhost:${PORT}`);
+  origins.add('http://localhost:3000');
+  origins.add(`http://127.0.0.1:${PORT}`);
+
   if (!isProduction && req && req.headers.host) {
     const protocol = req.headers['x-forwarded-proto'] === 'https' || req.secure ? 'https' : 'http';
-    origins.push(`${protocol}://${req.headers.host}`);
+    origins.add(`${protocol}://${req.headers.host}`);
   }
 
   return origins;
 };
 
+function isOriginAllowed(origin: string, isDev: boolean, req?: Request): boolean {
+  if (!origin || origin === 'null') return true;
+  if (origin.startsWith('capacitor://')) return true;
+  if (isStrictLocalhost(origin)) return true;
+
+  const allowedSet = getAllowedOrigins(req);
+  if (allowedSet.has(origin)) return true;
+
+  for (const suffix of ALLOWED_DOMAIN_SUFFIXES) {
+    if (isAllowedDomain(origin, suffix)) return true;
+  }
+
+  if (isDev) {
+    try {
+      const parsed = new URL(origin);
+      if (parsed.hostname.endsWith('.replit.dev') || parsed.hostname.endsWith('.replit.app')) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 app.use(cors({
   origin: (origin, callback) => {
-    // طلبات بدون origin (mobile app, Postman) أو طلبات Capacitor
-    if (!origin || 
-        origin.startsWith('capacitor://') || 
-        origin.startsWith('http://localhost') || 
-        origin.startsWith('https://localhost') ||
-        origin === 'null') {
+    if (!origin) {
       callback(null, true);
       return;
     }
 
-    // في الإنتاج، نتحقق بصرامة من الدومين المسموح
-    if (isProduction) {
-      const allowed = origin === PRODUCTION_DOMAIN || 
-                      (origin.includes('binarjoinanelytic.info')) ||
-                      origin.startsWith('capacitor://') ||
-                      origin.startsWith('http://localhost') ||
-                      origin.startsWith('https://localhost') ||
-                      origin === 'null';
-      
-      if (!allowed) {
-        console.log(`⚠️ [CORS Blocked] Origin: ${origin}`);
-      }
-      callback(null, allowed);
-      return;
+    const allowed = isOriginAllowed(origin, !isProduction);
+
+    if (!allowed && isProduction) {
+      console.log(`⚠️ [CORS Blocked] Origin: ${origin}`);
     }
-
-    // في التطوير، نكون أكثر مرونة
-    const allowedOrigins = getAllowedOrigins();
-    const isAllowed = allowedOrigins.includes(origin) || 
-                      origin.endsWith('.replit.dev') || 
-                      origin.endsWith('.replit.app') ||
-                      origin.includes('binarjoinanelytic.info') ||
-                      origin.startsWith('capacitor://') ||
-                      origin === 'null';
-
-    callback(null, isAllowed);
+    callback(null, allowed);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -218,14 +238,19 @@ app.use(cors({
   maxAge: 86400
 }));
 
-// ✅ Handle preflight requests explicitly
+// ✅ Handle preflight requests - validated through same CORS policy
 app.use((req: Request, res: Response, next: NextFunction): void => {
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.sendStatus(200);
+    const reqOrigin = req.headers.origin as string | undefined;
+    if (reqOrigin && isOriginAllowed(reqOrigin, !isProduction, req)) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token, x-auth-token, x-device-type, x-device-name, x-device-id');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.sendStatus(200);
+      return;
+    }
+    res.sendStatus(403);
     return;
   }
   next();
@@ -251,7 +276,13 @@ app.use('/api', idempotencyMiddleware);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      callback(null, isOriginAllowed(origin, !isProduction));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }

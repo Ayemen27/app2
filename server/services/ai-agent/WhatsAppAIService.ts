@@ -43,7 +43,8 @@ export interface WhatsAppContext {
     | 'expense_awaiting_project_summary'
     | 'export_awaiting_project' | 'export_awaiting_worker' | 'export_awaiting_date'
     | 'export_awaiting_date_range' | 'export_awaiting_format' | 'export_awaiting_projects_select'
-    | 'export_awaiting_worker_project';
+    | 'export_awaiting_worker_project'
+    | 'awaiting_worker_selection' | 'balance_offer_export';
   userId: string;
   userName: string;
   menuStack: string[];
@@ -68,6 +69,9 @@ export interface WhatsAppContext {
     requestedFormat?: string;
     securityProjectIds?: string[];
     securityIsAdmin?: boolean;
+    pendingAction?: string;
+    balanceWorkerId?: string;
+    balanceWorkerName?: string;
   };
 }
 
@@ -705,8 +709,12 @@ export class WhatsAppAIService {
       return this.handleTypeSelection(context, effectiveInput, senderPhone, userName, userProjectIds);
     }
 
-    if ((context.step as string) === 'awaiting_worker_selection') {
+    if (context.step === 'awaiting_worker_selection') {
       return this.handleWorkerSelectionStep(context, effectiveInput, senderPhone, userName, userProjectIds);
+    }
+
+    if (context.step === 'balance_offer_export') {
+      return this.handleBalanceExportChoice(context, effectiveInput, senderPhone, userName, userProjectIds);
     }
 
     if (context.step.startsWith('export_')) {
@@ -748,7 +756,7 @@ export class WhatsAppAIService {
     if (pendingAction === 'worker_balance') {
       const isAdmin = context.data.securityIsAdmin || false;
       const projectIds = context.data.securityProjectIds || userProjectIds;
-      return this.formatWorkerBalance(selectedWorker, isAdmin, projectIds);
+      return this.formatWorkerBalance(selectedWorker, isAdmin, projectIds, context, senderPhone);
     }
 
     return buildWelcomeReply(userName);
@@ -891,6 +899,11 @@ export class WhatsAppAIService {
         ``,
         `👷 ${context.data.workerName} | 🏗️ ${context.data.projectName}`,
         `💰 ${context.data.amount} ر.س | 📅 ${context.data.workDays} يوم | 📋 ${expenseType}`,
+        ``,
+        `💡 *اقتراحات:*`,
+        `• أرسل *"كم باقي ل ${context.data.workerName}"* لعرض رصيده`,
+        `• أرسل *"كشف ${context.data.workerName}"* لتصدير كشف حسابه`,
+        `• أرسل *"مصروف"* لإضافة مصروف جديد`,
       ];
       return buildTextWithMenu('تم', lines.join('\n'), 'main');
     } catch (error: any) {
@@ -961,14 +974,14 @@ export class WhatsAppAIService {
 
       if (matchedWorkers.length === 1) {
         const worker = matchedWorkers[0];
-        return this.formatWorkerBalance(worker, isAdmin, userProjectIds);
+        return this.formatWorkerBalance(worker, isAdmin, userProjectIds, context, senderPhone);
       }
 
       context.data.pendingAction = 'worker_balance';
       context.data.availableWorkers = matchedWorkers;
       context.data.securityProjectIds = userProjectIds;
       context.data.securityIsAdmin = isAdmin;
-      context.step = 'awaiting_worker_selection' as any;
+      context.step = 'awaiting_worker_selection';
       this.sessions.set(senderPhone, context);
 
       const workerList = matchedWorkers.map((w, i) => `*${i + 1}.* ${w.name}`).join('\n');
@@ -988,7 +1001,9 @@ export class WhatsAppAIService {
   private async formatWorkerBalance(
     worker: { id: string; name: string },
     isAdmin: boolean,
-    userProjectIds: string[]
+    userProjectIds: string[],
+    context?: WhatsAppContext,
+    senderPhone?: string
   ): Promise<BotReply> {
     try {
       const opts: any = { isAdmin, accessibleProjectIds: userProjectIds };
@@ -1017,7 +1032,16 @@ export class WhatsAppAIService {
       const lastEntry = data.statement[data.statement.length - 1];
       const lastDate = lastEntry?.date || '';
 
-      return textReply(nav([
+      if (context && senderPhone) {
+        context.data.balanceWorkerId = worker.id;
+        context.data.balanceWorkerName = worker.name;
+        context.data.securityProjectIds = userProjectIds;
+        context.data.securityIsAdmin = isAdmin;
+        context.step = 'balance_offer_export';
+        this.sessions.set(senderPhone, context);
+      }
+
+      return textReply([
         `👷 *${worker.name}*`,
         ``,
         `💰 المستحقات (مدين): *${totalDebit.toLocaleString()}* ريال`,
@@ -1025,11 +1049,110 @@ export class WhatsAppAIService {
         `${emoji} الرصيد: *${Math.abs(balance).toLocaleString()}* ريال ${balanceLabel}`,
         `📊 عدد السجلات: ${data.statement.length}`,
         lastDate ? `📅 آخر حركة: ${lastDate}` : '',
-      ].filter(Boolean).join('\n')));
+        ``,
+        `📎 هل تريد تصدير كشف حساب *${worker.name}*؟`,
+        `*1.* نعم - Excel`,
+        `*2.* نعم - PDF`,
+        `*3.* نعم - Excel و PDF`,
+        ``,
+        `*0* القائمة | *#* رجوع`,
+      ].filter(Boolean).join('\n'));
     } catch (err: any) {
       console.error('[WhatsAppAI] formatWorkerBalance error:', err);
       return textReply(nav(`⚠️ تعذّر استرجاع رصيد العامل *${worker.name}*.\nخطأ: ${err.message}`));
     }
+  }
+
+  private async handleBalanceExportChoice(
+    context: WhatsAppContext,
+    input: string,
+    senderPhone: string,
+    userName: string,
+    userProjectIds: string[]
+  ): Promise<BotReply> {
+    const workerId = context.data.balanceWorkerId;
+    const workerName = context.data.balanceWorkerName;
+    const isAdmin = context.data.securityIsAdmin || false;
+    const projectIds = context.data.securityProjectIds || userProjectIds;
+
+    if (!workerId || !workerName) {
+      this.sessions.delete(senderPhone);
+      return buildWelcomeReply(userName);
+    }
+
+    const choice = input.trim();
+
+    if (['1', '2', '3'].includes(choice)) {
+      context.data.exportType = 'worker';
+      context.data.workerId = workerId;
+      context.data.workerName = workerName;
+      context.data.projectId = 'all';
+      context.data.projectName = 'جميع المشاريع';
+
+      const formats: Record<string, string> = { '1': 'xlsx', '2': 'pdf', '3': 'both' };
+      const format = formats[choice];
+
+      if (format === 'both') {
+        this.sessions.delete(senderPhone);
+        try {
+          const opts: any = { isAdmin, accessibleProjectIds: projectIds };
+          const data = await reportDataService.getWorkerStatement(workerId, opts);
+
+          const excelBuf = await generateWorkerStatementExcel(data);
+          const html = generateWorkerStatementHTML(data);
+
+          const jid = senderPhone.includes('@') ? senderPhone : `${senderPhone}@s.whatsapp.net`;
+          const { getWhatsAppBot } = await import('./WhatsAppBot');
+          const bot = getWhatsAppBot();
+
+          await bot.sendMessageSafe(jid, {
+            document: Buffer.from(excelBuf),
+            mimetype: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            fileName: `كشف-عامل-${workerName}.xlsx`,
+          });
+
+          try {
+            const pdfBuf = await convertHtmlToPdf(html);
+            await bot.sendMessageSafe(jid, {
+              document: pdfBuf,
+              mimetype: 'application/pdf',
+              fileName: `كشف-عامل-${workerName}.pdf`,
+            });
+          } catch {
+            await bot.sendMessageSafe(jid, {
+              document: Buffer.from(html, 'utf-8'),
+              mimetype: 'text/html',
+              fileName: `كشف-عامل-${workerName}.html`,
+            });
+          }
+
+          return textReply(nav([
+            `✅ تم إرسال كشف حساب *${workerName}* (Excel + PDF)`,
+            ``,
+            `💡 *اقتراحات:*`,
+            `• أرسل *"كشف [اسم عامل]"* لتصدير كشف عامل آخر`,
+            `• أرسل *"حالة المشاريع"* لعرض ملخص المشاريع`,
+          ].join('\n')));
+        } catch (err: any) {
+          return textReply(nav(`❌ خطأ: ${err.message}`));
+        }
+      }
+
+      context.step = 'idle';
+      this.sessions.delete(senderPhone);
+
+      context.data.securityProjectIds = projectIds;
+      context.data.securityIsAdmin = isAdmin;
+      return this.generateAndSendExport(context, format as 'xlsx' | 'pdf', senderPhone, userName);
+    }
+
+    if (/^(لا|no|لأ|مو|مب|خلاص)$/i.test(choice)) {
+      this.sessions.delete(senderPhone);
+      return textReply(nav(`👍 تمام.`));
+    }
+
+    this.sessions.delete(senderPhone);
+    return this.handleIncomingMessage(senderPhone, input);
   }
 
   private async handleDirectWorkerExport(
@@ -1710,7 +1833,15 @@ export class WhatsAppAIService {
       });
 
       const formatLabel = format === 'xlsx' ? 'Excel' : 'PDF';
-      return buildTextWithMenu('تم', `✅ تم إرسال ملف *${formatLabel}*\n📎 ${sendFileName}`, 'main');
+      const exportDoneLines = [
+        `✅ تم إرسال ملف *${formatLabel}*`,
+        `📎 ${sendFileName}`,
+        ``,
+        `💡 *اقتراحات:*`,
+        `• أرسل *"كشف [اسم عامل]"* لتصدير كشف عامل آخر`,
+        `• أرسل *"حالة المشاريع"* لعرض ملخص المشاريع`,
+      ];
+      return buildTextWithMenu('تم', exportDoneLines.join('\n'), 'main');
     } catch (error: any) {
       console.error('[WhatsAppAI] Export error:', error);
       this.sessions.delete(senderPhone);
@@ -1843,6 +1974,10 @@ export class WhatsAppAIService {
         lines.push(`💵 عجز: *${Math.abs(remaining).toLocaleString()}* ر.س ❌`);
       }
       lines.push(`👷 عمال: *${wCount}*`);
+      lines.push(``);
+      lines.push(`💡 *اقتراحات:*`);
+      lines.push(`• أرسل *"تصدير كشف يومي"* لتصدير كشف المشروع`);
+      lines.push(`• أرسل *"كم باقي ل [اسم العامل]"* لمعرفة رصيد عامل`);
 
       return textReply(nav(lines.join('\n')));
     } catch (error: any) {
@@ -1933,7 +2068,10 @@ export class WhatsAppAIService {
     lines.push(``);
     lines.push(`*الإجمالي:* 📥 ${totalFunds.toLocaleString()} | 📤 ${totalExpenses.toLocaleString()} | 💵 ${(totalFunds - totalExpenses).toLocaleString()} | 👷 ${totalWorkers}`);
     lines.push(``);
-    lines.push(`📤 أرسل *تصدير* لكشوفات مفصلة`);
+    lines.push(`💡 *اقتراحات:*`);
+    lines.push(`• أرسل *"تصدير"* لكشوفات مفصلة`);
+    lines.push(`• أرسل *"ملخص مصروفات"* لتفاصيل مشروع`);
+    lines.push(`• أرسل *"كم باقي ل [اسم العامل]"* لرصيد عامل`);
 
     return textReply(nav(lines.join('\n')));
   }

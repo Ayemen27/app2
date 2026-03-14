@@ -8,6 +8,7 @@ import { eq, desc } from 'drizzle-orm';
 import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const ledgerRouter = express.Router();
 
@@ -216,7 +217,7 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
   try {
     const { entryId } = req.params;
     const { reason } = req.body;
-    const user = req.user as any;
+    const user = getAuthUser(req);
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
@@ -232,7 +233,7 @@ ledgerRouter.post('/reverse-entry/:entryId', async (req: Request, res: Response)
       return res.status(400).json({ success: false, error: 'سبب العكس مطلوب' });
     }
 
-    const reversalId = await FinancialLedgerService.reverseEntry(entryId, reason, user?.id);
+    const reversalId = await FinancialLedgerService.reverseEntry(entryId, reason, user?.user_id);
 
     res.json({
       success: true,

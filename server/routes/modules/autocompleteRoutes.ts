@@ -10,6 +10,7 @@ import { db } from '../../db.js';
 import { autocompleteData, transportationExpenses } from '../../../shared/schema.js';
 import { eq, desc, and, sql, inArray, or } from 'drizzle-orm';
 import { projectAccessService } from '../../services/ProjectAccessService.js';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const autocompleteRouter = express.Router();
 
@@ -22,7 +23,7 @@ autocompleteRouter.post('/', requireAuth, async (req: Request, res: Response) =>
   const startTime = Date.now();
   try {
     const { category, value, usageCount = 1 } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
     
     if (!category || !value) {
       return res.status(400).json({
@@ -103,7 +104,7 @@ autocompleteRouter.get('/', requireAuth, async (req: Request, res: Response) => 
   const startTime = Date.now();
   try {
     const category = req.query.category as string | undefined;
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
     console.log('📊 [API] جلب بيانات الإكمال التلقائي', category ? `للفئة: ${category}` : '(جميع الفئات)', 'للمستخدم:', userId);
     
     let conditions = [eq(autocompleteData.user_id, userId)];
@@ -368,8 +369,8 @@ async function seedUserWorkerTypes(userId: string): Promise<void> {
  */
 autocompleteRouter.get('/worker-types', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
-    const userRole = (req as any).user?.role || '';
+    const userId = getAuthUser(req)?.user_id ?? '';
+    const userRole = getAuthUser(req)?.role || '';
     
     let data = await db
       .select()
@@ -487,7 +488,7 @@ autocompleteRouter.get('/worker-types', requireAuth, async (req: Request, res: R
 autocompleteRouter.delete('/worker-types/:value', requireAuth, async (req: Request, res: Response) => {
   try {
     const typeValue = decodeURIComponent(req.params.value);
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
     
     const deleted = await db
       .delete(autocompleteData)
@@ -544,7 +545,7 @@ async function seedUserProjectTypes(userId: string) {
  */
 autocompleteRouter.get('/project-types', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
     if (!userId) {
       return res.status(401).json({ success: false, message: 'غير مصرح' });
     }
@@ -621,7 +622,7 @@ autocompleteRouter.get('/project-types', requireAuth, async (req: Request, res: 
  */
 autocompleteRouter.post('/project-types', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
     const { value } = req.body;
     if (!value || !value.trim()) {
       return res.status(400).json({ success: false, message: 'القيمة مطلوبة' });
@@ -674,7 +675,7 @@ autocompleteRouter.post('/project-types', requireAuth, async (req: Request, res:
 autocompleteRouter.delete('/project-types/:value', requireAuth, async (req: Request, res: Response) => {
   try {
     const typeValue = decodeURIComponent(req.params.value);
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
 
     const deleted = await db
       .delete(autocompleteData)
@@ -738,7 +739,7 @@ async function seedUserTransportCategories(userId: string): Promise<void> {
  */
 autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
     
     let data = await db
       .select()
@@ -764,7 +765,7 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
     const autocompleteValues = new Set(data.map((item: any) => item.value));
     
     try {
-      const userRole = (req as any).user?.role || '';
+      const userRole = getAuthUser(req)?.role || '';
       const accessibleProjectIds = await projectAccessService.getAccessibleProjectIds(userId, userRole);
       
       if (accessibleProjectIds.length > 0) {
@@ -826,7 +827,7 @@ autocompleteRouter.get('/transport-categories', requireAuth, async (req: Request
 autocompleteRouter.delete('/transport-categories/:value', requireAuth, async (req: Request, res: Response) => {
   try {
     const categoryValue = decodeURIComponent(req.params.value);
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id ?? '';
     
     const deleted = await db
       .delete(autocompleteData)

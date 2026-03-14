@@ -42,8 +42,7 @@ export const JWT_CONFIG = {
   algorithm: 'HS256' as const,
 };
 
-// واجهة بيانات JWT
-interface JWTPayload {
+export interface JWTPayload {
   userId: string;
   email: string;
   role: string;
@@ -52,6 +51,9 @@ interface JWTPayload {
   iat?: number;
   exp?: number;
   iss?: string;
+  user_id?: string;
+  id?: string;
+  sub?: string;
 }
 
 // واجهة نتيجة إنشاء الرموز
@@ -100,7 +102,7 @@ export async function generateTokenPair(
   role: string,
   ipAddress?: string,
   userAgent?: string,
-  deviceInfo?: any
+  deviceInfo?: { deviceId?: string; [key: string]: unknown }
 ): Promise<TokenPair> {
   const sessionId = crypto.randomUUID();
   const deviceId = deviceInfo?.deviceId || crypto.randomUUID();
@@ -140,10 +142,10 @@ export async function generateTokenPair(
     
     try {
       // ✅ محاولة استباقية للتأكد من وجود جدول الجلسات وتوافق البيانات
-      await db.insert(authUserSessions).values(sessionData as any);
+      await db.insert(authUserSessions).values(sessionData);
       console.log('✅ [JWT] تم حفظ الجلسة بنجاح في قاعدة البيانات:', { userId, sessionId: sessionId.substring(0, 8) + '...' });
-    } catch (sessionError: any) {
-      console.error('❌ [JWT] فشل في حفظ الجلسة في DB:', sessionError.message);
+    } catch (sessionError: unknown) {
+      console.error('❌ [JWT] فشل في حفظ الجلسة في DB:', sessionError instanceof Error ? sessionError.message : sessionError);
       // في ريبليت أو التطوير، سنسمح بالاستمرار حتى لو فشل الحفظ لضمان عدم توقف النظام
       const isFlexibleEnv = process.env.NODE_ENV !== 'production' || process.env.REPL_ID !== undefined;
       if (isFlexibleEnv) {
@@ -169,7 +171,7 @@ export async function generateTokenPair(
 /**
  * التحقق من صحة Access Token مع فحص الجلسة في قاعدة البيانات
  */
-export async function verifyAccessToken(token: string): Promise<{ success: boolean; user?: any } | null> {
+export async function verifyAccessToken(token: string): Promise<{ success: boolean; user?: { userId: string; email: string; role: string; sessionId: string } } | null> {
   try {
     // تنظيف التوكن من أي علامات اقتباس أو مسافات زائدة
     let cleanToken = token.trim();
@@ -180,7 +182,7 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
     const payload = jwt.verify(cleanToken, JWT_ACCESS_SECRET, {
       issuer: JWT_CONFIG.issuer,
       ignoreExpiration: process.env.NODE_ENV === 'development',
-    }) as any;
+    }) as JWTPayload;
 
     // التحقق من نوع الرمز
     if (payload.type !== 'access') {
@@ -244,7 +246,7 @@ export async function verifyAccessToken(token: string): Promise<{ success: boole
 /**
  * التحقق من صحة Refresh Token - نسخة مبسطة
  */
-export async function verifyRefreshToken(token: string): Promise<any | null> {
+export async function verifyRefreshToken(token: string): Promise<JWTPayload | null> {
   try {
     if (!token || typeof token !== 'string') return null;
     const parts = token.split('.');
@@ -255,7 +257,7 @@ export async function verifyRefreshToken(token: string): Promise<any | null> {
 
     const payload = jwt.verify(token, JWT_REFRESH_SECRET, {
       issuer: JWT_CONFIG.issuer,
-    }) as any;
+    }) as JWTPayload;
 
     console.log('🔍 [JWT] فك تشفير refresh token:', { 
       hasUserId: !!payload.userId, 
@@ -274,8 +276,8 @@ export async function verifyRefreshToken(token: string): Promise<any | null> {
     // إرجاع payload مع التحقق الأساسي
     return payload;
 
-  } catch (error: any) {
-    console.error('❌ [JWT] خطأ في التحقق من refresh token:', error.message);
+  } catch (error: unknown) {
+    console.error('❌ [JWT] خطأ في التحقق من refresh token:', error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -291,16 +293,15 @@ async function refreshAccessTokenDev(refreshToken: string): Promise<TokenPair | 
   console.log('🔄 [JWT-DEV] بدء تجديد مبسط للتطوير...');
 
   try {
-    let payload: any;
+    let payload: JWTPayload | null;
     try {
-      // محاولة التحقق العادية
       payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
         issuer: JWT_CONFIG.issuer,
         ignoreExpiration: true,
-      }) as any;
-    } catch (verifyError: any) {
-      console.warn(`⚠️ [JWT-DEV] فشل التحقق (${verifyError.message})، محاولة فك التشفير الصامت...`);
-      payload = jwt.decode(refreshToken) as any;
+      }) as JWTPayload;
+    } catch (verifyError: unknown) {
+      console.warn(`⚠️ [JWT-DEV] فشل التحقق (${verifyError instanceof Error ? verifyError.message : verifyError})، محاولة فك التشفير الصامت...`);
+      payload = jwt.decode(refreshToken) as JWTPayload | null;
       
       if (!payload || !payload.userId) {
         console.error('❌ [JWT-DEV] فشل فك التشفير الصامت أو البيانات ناقصة');
@@ -411,7 +412,7 @@ async function refreshAccessTokenProd(refreshToken: string): Promise<TokenPair |
     const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
       issuer: JWT_CONFIG.issuer,
       ignoreExpiration: true,
-    }) as any;
+    }) as JWTPayload;
 
     // التحقق من نوع الرمز
     if (payload.type !== 'refresh') {

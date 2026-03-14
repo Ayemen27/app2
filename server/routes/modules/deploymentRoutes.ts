@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { deploymentEngine } from "../../services/deployment-engine.js";
+import { getAuthUser } from "../../internal/auth-user.js";
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.post("/start", requireAdmin as any, async (req: Request, res: Response) =
     const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
     const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
 
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id;
     const deploymentId = await deploymentEngine.startDeployment({
       pipeline,
       appType: pipeline === "android-build" || pipeline === "full-deploy" ? "android" : appType,
@@ -59,7 +60,7 @@ router.post("/deploy", requireAdmin as any, async (req: Request, res: Response) 
     const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
     const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
 
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id;
     const deploymentId = await deploymentEngine.startDeployment({
       pipeline,
       appType: pipeline === "android-build" || pipeline === "full-deploy" ? "android" : appType,

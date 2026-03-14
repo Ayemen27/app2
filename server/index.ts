@@ -595,9 +595,7 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
   }
 
 // ✅ **Error Handler Middleware** - Moved after static/vite
-if ((Sentry as any).Handlers) {
-  app.use((Sentry as any).Handlers.errorHandler());
-}
+Sentry.setupExpressErrorHandler(app);
 app.use((err: any, req: Request, res: Response, _next: NextFunction): any => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || "Internal Server Error";

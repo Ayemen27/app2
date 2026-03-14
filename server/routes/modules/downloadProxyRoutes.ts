@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { requireAuth } from '../../middleware/auth.js';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ setInterval(() => {
 
 router.post('/temp-download', requireAuth, async (req: Request, res: Response) => {
   try {
-    const user_id = (req as any).user?.id || (req as any).user?.user_id;
+    const user_id = getAuthUser(req)?.user_id;
     if (!user_id) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -94,7 +95,7 @@ router.post('/temp-download', requireAuth, async (req: Request, res: Response) =
 
 router.get('/temp-download/:id', requireAuth, (req: Request, res: Response): any => {
   const { id } = req.params;
-  const requestUserId = (req as any).user?.id || (req as any).user?.user_id;
+  const requestUserId = getAuthUser(req)?.user_id;
 
   if (!requestUserId) {
     return res.status(401).json({ error: 'Authentication required' });

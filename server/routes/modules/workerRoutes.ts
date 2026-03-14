@@ -13,6 +13,7 @@ import {
   insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, workerTypes
 } from '@shared/schema';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js';
+import { getAuthUser } from '../../internal/auth-user.js';
 import { FinancialLedgerService } from '../../services/FinancialLedgerService.js';
 import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
@@ -137,7 +138,7 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation العامل');
 
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id;
     const workerData = { ...validationResult.data, created_by: userId || null };
 
     console.log('💾 [API] حفظ العامل في قاعدة البيانات...');
@@ -814,9 +815,9 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     const t = updatedTransfer[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordWorkerTransfer(
-        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-transfers/PATCH');
 
@@ -892,7 +893,7 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
     });
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'worker-transfers/DELETE'
     );
 
@@ -1102,9 +1103,9 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 
     const t = updatedExpense[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordMiscExpense(
-        t.project_id, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.date, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-misc-expenses/PATCH');
 
@@ -1463,7 +1464,7 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     });
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'حذف', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'worker-attendance/DELETE'
     );
 
@@ -1663,7 +1664,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     const record = newAttendance[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordWorkerWage(
-        record.project_id, parseFloat(record.actualWage || '0'), record.date, record.id, (req as any).user?.id
+        record.project_id, parseFloat(record.actualWage || '0'), record.date, record.id, getAuthUser(req)?.user_id
       ),
       'worker-attendance/POST'
     );
@@ -1796,9 +1797,9 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
 
     const t = updated_attendance[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'تعديل حضور عامل', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'تعديل حضور عامل', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordWorkerWage(
-        t.project_id, parseFloat(t.actualWage || '0'), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.actualWage || '0'), t.date, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-attendance/PATCH');
 
@@ -1931,9 +1932,9 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     const t = updatedTransfer[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordWorkerTransfer(
-        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-transfers/PATCH');
 
@@ -2020,7 +2021,7 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
     });
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'worker-transfers/DELETE'
     );
 
@@ -2198,9 +2199,9 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 
     const t = updatedExpense[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordMiscExpense(
-        t.project_id, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.date, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-misc-expenses/PATCH');
 

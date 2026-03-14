@@ -12,7 +12,7 @@ router.use(requireAdmin as any);
 router.post("/run", sensitiveOperationsRateLimit, async (req: Request, res: Response) => {
   try {
     const authReq = req as AuthenticatedRequest;
-    const triggeredBy = authReq.user?.email || 'admin';
+    const triggeredBy = authReq.user?.user_id || 'unknown';
     console.log(`🚀 [Backup] نسخ يدوي بواسطة: ${triggeredBy}`);
     const result = await BackupService.runBackup(triggeredBy);
     res.json(result);
@@ -27,7 +27,7 @@ router.post("/restore", sensitiveOperationsRateLimit, async (req: Request, res: 
     if (!fileName) return res.status(400).json({ success: false, message: "اسم الملف مطلوب" });
 
     const authReq = req as AuthenticatedRequest;
-    console.log(`🔄 [Backup] استعادة بواسطة: ${authReq.user?.email} | ملف: ${fileName} | هدف: ${target || 'local'}`);
+    console.log(`🔄 [Backup] استعادة بواسطة: ${authReq.user?.user_id || 'unknown'} | ملف: ${fileName} | هدف: ${target || 'local'}`);
 
     const result = await BackupService.restoreBackup(fileName, target || 'local');
     if (result.success) {
@@ -65,7 +65,7 @@ router.delete("/:filename", sensitiveOperationsRateLimit, async (req: Request, r
   try {
     const { filename } = req.params;
     const authReq = req as AuthenticatedRequest;
-    console.log(`🗑️ [Backup] حذف بواسطة: ${authReq.user?.email} | ملف: ${filename}`);
+    console.log(`🗑️ [Backup] حذف بواسطة: ${authReq.user?.user_id || 'unknown'} | ملف: ${filename}`);
     
     const result = await BackupService.deleteBackup(filename);
     if (result.success) {

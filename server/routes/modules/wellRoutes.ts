@@ -8,6 +8,7 @@ import { requireAuth } from '../../middleware/auth';
 import WellService from '../../services/WellService';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const wellRouter = express.Router();
 
@@ -90,7 +91,7 @@ wellRouter.get('/:id', async (req: Request, res: Response) => {
  */
 wellRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = getAuthUser(req);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -107,7 +108,7 @@ wellRouter.post('/', async (req: Request, res: Response) => {
 
     const well = await WellService.createWell({
       ...req.body,
-      createdBy: user.id
+      createdBy: user.user_id
     });
 
     res.status(201).json({
@@ -221,7 +222,7 @@ wellRouter.get('/:id/tasks', async (req: Request, res: Response) => {
  */
 wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = getAuthUser(req);
     const well_id = parseInt(req.params.id);
 
     const well = await WellService.getWellById(well_id);
@@ -232,7 +233,7 @@ wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
     }
 
-    const task = await WellService.createTask(well_id, req.body, user.id);
+    const task = await WellService.createTask(well_id, req.body, user?.user_id ?? '');
 
     res.status(201).json({
       success: true,
@@ -253,7 +254,7 @@ wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
  */
 wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = getAuthUser(req);
     const taskId = parseInt(req.params.taskId);
     const { status } = req.body;
 
@@ -268,7 +269,7 @@ wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) =>
       }
     }
 
-    const task = await WellService.updateTaskStatus(taskId, status, user.id);
+    const task = await WellService.updateTaskStatus(taskId, status, user?.user_id ?? '');
 
     res.json({
       success: true,
@@ -289,7 +290,7 @@ wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) =>
  */
 wellRouter.post('/tasks/:taskId/account', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = getAuthUser(req);
     const taskId = parseInt(req.params.taskId);
 
     const taskCheck = await WellService.getTaskById(taskId);
@@ -303,7 +304,7 @@ wellRouter.post('/tasks/:taskId/account', async (req: Request, res: Response) =>
       }
     }
 
-    const account = await WellService.accountTask(taskId, req.body, user.id);
+    const account = await WellService.accountTask(taskId, req.body, user?.user_id ?? '');
 
     res.status(201).json({
       success: true,

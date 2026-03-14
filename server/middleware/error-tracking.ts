@@ -6,6 +6,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { advancedErrorTracker } from '../services/advanced-error-tracker';
 
+interface TrackedRequest extends Request {
+  startTime?: number;
+  id?: string;
+}
+
 /**
  * Middleware لتتبع الأخطاء تلقائياً
  */
@@ -29,7 +34,7 @@ export function errorTrackingMiddleware() {
           functionName: process.env.AWS_LAMBDA_FUNCTION_NAME,
           isColdStart: !global.isWarm,
           memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024, // بالميجابايت
-          duration: Date.now() - (req as any).startTime
+          duration: Date.now() - ((req as TrackedRequest).startTime || Date.now())
         }
       };
 
@@ -43,7 +48,7 @@ export function errorTrackingMiddleware() {
           success: false,
           message: userFriendlyMessage,
           timestamp: new Date().toISOString(),
-          requestId: (req as any).id || 'unknown'
+          requestId: (req as TrackedRequest).id || 'unknown'
         });
       }
 
@@ -68,14 +73,14 @@ export function errorTrackingMiddleware() {
 export function requestLoggingMiddleware() {
   return (req: Request, res: Response, next: NextFunction) => {
     // إضافة وقت بداية الطلب
-    (req as any).startTime = Date.now();
+    (req as TrackedRequest).startTime = Date.now();
     
     // تسجيل بداية الطلب
     console.log(`📥 [${new Date().toLocaleTimeString('ar-SA')}] ${req.method} ${req.path} - IP: ${req.ip}`);
 
     // تسجيل انتهاء الطلب
     res.on('finish', () => {
-      const duration = Date.now() - (req as any).startTime;
+      const duration = Date.now() - ((req as TrackedRequest).startTime || Date.now());
       const statusEmoji = res.statusCode >= 500 ? '🚨' : res.statusCode >= 400 ? '⚠️' : '✅';
       
       console.log(`📤 [${new Date().toLocaleTimeString('ar-SA')}] ${statusEmoji} ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);

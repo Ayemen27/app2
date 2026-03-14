@@ -11,10 +11,11 @@ import { healthMonitor } from '../../services/HealthMonitor';
 import { circuitBreaker } from '../../services/CircuitBreaker';
 import { smartConnectionManager } from '../../services/smart-connection-manager';
 import { requireAuth } from '../../middleware/auth.js';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 // دالة تحقق من الصلاحيات للمسارات المحمية
 const requireRole = (role: string) => (req: Request, res: Response, next: NextFunction): any => {
-  const user = (req as any).user;
+  const user = getAuthUser(req);
   if (!user) {
     return res.status(401).json({ success: false, message: 'غير مصرح' });
   }
@@ -420,7 +421,7 @@ healthRouter.get('/db/tables', requireAuth, requireRole('admin'), async (req: Re
 healthRouter.get('/db/tables/:name', requireAuth, async (req: Request, res: Response) => {
   try {
     const { name } = req.params;
-    const user = (req as any).user;
+    const user = getAuthUser(req);
     
     // الحل الجذري: الاعتماد الكلي على الصلاحيات (RBAC) بدلاً من نوع الجهاز
     const isSuperAdmin = user && user.role === 'super_admin';

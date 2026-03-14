@@ -313,31 +313,24 @@ export class NotificationService {
   /**
    * تحديد ما إذا كان المستخدم مسؤولاً
    */
-  private async isAdmin(user_id: string): Promise<boolean> {
+  async isAdmin(user_id: string): Promise<boolean> {
     try {
-      // التحقق السريع من المعرفات المعروفة
-      if (user_id === 'admin' || user_id === 'مسؤول') {
-        return true;
-      }
-
-      // التحقق من قاعدة البيانات
-      const user = await db.query.users.findFirst({
-        where: (users: any, { eq, or }: any) => or(
-          eq(users.id, user_id),
-          eq(users.email, user_id)
-        )
-      });
-
-      if (!user) {
-        console.log(`❌ لم يتم العثور على المستخدم: ${user_id}`);
+      if (!user_id || user_id === 'unknown') {
         return false;
       }
 
-      // تحديد المسؤول بناءً على الدور - يشمل جميع أدوار الإدارة
+      const user = await db.query.users.findFirst({
+        where: (users: any, { eq }: any) => eq(users.id, user_id)
+      });
+
+      if (!user) {
+        console.log(`لم يتم العثور على المستخدم: ${user_id}`);
+        return false;
+      }
+
       const adminRoles = ['admin', 'manager', 'مدير', 'مسؤول', 'مشرف'];
       const isAdminUser = adminRoles.includes(user.role || '');
 
-      console.log(`🔍 فحص صلاحيات المستخدم ${user.email}: ${isAdminUser ? 'مسؤول' : 'مستخدم عادي'} (الدور: ${user.role})`);
       return isAdminUser;
     } catch (error) {
       console.error('خطأ في فحص صلاحيات المستخدم:', error);
@@ -351,10 +344,7 @@ export class NotificationService {
   private async getAllowedNotificationTypes(user_id: string): Promise<string[]> {
     try {
       const user = await db.query.users.findFirst({
-        where: (users: any, { eq, or }: any) => or(
-          eq(users.id, user_id),
-          eq(users.email, user_id)
-        )
+        where: (users: any, { eq }: any) => eq(users.id, user_id)
       });
 
       if (!user) {

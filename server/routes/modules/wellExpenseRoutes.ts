@@ -12,6 +12,7 @@ import { WellService } from '../../services/WellService';
 import { db } from '../../db';
 import { wellExpenses } from '../../../shared/schema';
 import { eq } from 'drizzle-orm';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const wellExpenseRouter = express.Router();
 
@@ -79,8 +80,8 @@ wellExpenseRouter.get('/:well_id', async (req: Request, res: Response) => {
  */
 wellExpenseRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
       return res.status(401).json({
         success: false,
         message: 'غير مصرح'
@@ -99,7 +100,7 @@ wellExpenseRouter.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    const expense = await WellExpenseService.addExpense(req.body, user.id);
+    const expense = await WellExpenseService.addExpense(req.body, authUser.user_id);
 
     res.status(201).json({
       success: true,

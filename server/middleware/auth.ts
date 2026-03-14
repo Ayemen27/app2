@@ -162,26 +162,34 @@ export function extractTokenFromReq(req: Request): string | null {
 import { storage } from '../storage';
 
 // التحقق من صحة الـ Token مع دعم Argon2-based Session
-const verifyToken = async (token: string): Promise<any> => {
-  try {
-    // تنظيف التوكن بشكل نهائي قبل التحقق
-    let cleanToken = token.trim();
-    if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
-      cleanToken = cleanToken.slice(1, -1);
-    }
+interface DecodedToken {
+  userId?: string;
+  sub?: string;
+  user_id?: string;
+  id?: string;
+  email: string;
+  role: string;
+  sessionId?: string;
+  type?: string;
+  exp?: number;
+  iat?: number;
+}
 
-    const secret = JWT_ACCESS_SECRET;
-    const issuer = 'construction-management-app-v2';
-    
-    return jwt.verify(cleanToken, secret, {
-      issuer: issuer,
-      algorithms: ['HS256'],
-      ignoreExpiration: false,
-      clockTolerance: 60 
-    });
-  } catch (error: any) {
-    throw error;
+const verifyToken = async (token: string): Promise<DecodedToken> => {
+  let cleanToken = token.trim();
+  if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
+    cleanToken = cleanToken.slice(1, -1);
   }
+
+  const secret = JWT_ACCESS_SECRET;
+  const issuer = 'construction-management-app-v2';
+  
+  return jwt.verify(cleanToken, secret, {
+    issuer: issuer,
+    algorithms: ['HS256'],
+    ignoreExpiration: false,
+    clockTolerance: 60 
+  }) as DecodedToken;
 };
 
 // التحقق من الجلسة في قاعدة البيانات
@@ -311,17 +319,18 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
     let decoded;
     try {
       decoded = await verifyToken(token);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (req.path === '/api/auth/refresh') {
         return next();
       }
 
-      console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${error.message}`);
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      const errorName = (error as { name?: string })?.name;
+      console.warn(`⚠️ [AUTH] Invalid token for ${req.path}: ${errorObj.message}`);
 
-      // التحقق الذكي: إذا كان الخطأ هو انتهاء الصلاحية وكان المستخدم أدمن، نمنحه مهلة إضافية قصيرة للمزامنة
-      const tempDecoded = jwt.decode(token) as any;
-      if (error.name === 'TokenExpiredError' && tempDecoded?.role === 'admin') {
-         const drift = (Date.now() / 1000) - tempDecoded.exp;
+      const tempDecoded = jwt.decode(token) as DecodedToken | null;
+      if (errorName === 'TokenExpiredError' && tempDecoded?.role === 'admin') {
+         const drift = (Date.now() / 1000) - (tempDecoded.exp || 0);
          if (drift < 300) { // 5 minutes grace period for admins
             console.log('🛡️ [AUTH] منح مهلة إضافية (Grace Period) لمسؤول النظام');
             decoded = tempDecoded;
@@ -329,7 +338,7 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       }
 
       if (!decoded) {
-        if (error.name === 'TokenExpiredError' || error.message?.includes('expired')) {
+        if (errorName === 'TokenExpiredError' || errorObj.message?.includes('expired')) {
           return res.status(401).json({
             success: false,
             message: 'انتهت الجلسة - يرجى تجديد الدخول',
@@ -345,8 +354,10 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
       }
     }
 
-    // جلب بيانات المستخدم - دعم Argon2-based identity
     const user_id = decoded.userId || decoded.sub || decoded.user_id || decoded.id;
+    if (!user_id) {
+      return res.status(401).json({ success: false, message: 'بيانات الاعتماد غير صالحة', code: 'INVALID_TOKEN' });
+    }
     const user = await storage.getUser(user_id);
 
     if (!user || !user.is_active) {
@@ -435,13 +446,16 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 
     if (token) {
       const decoded = await verifyToken(token);
-      const session = await verifySession(decoded.user_id, decoded.sessionId);
+      const decodedUserId = decoded.userId || decoded.sub || decoded.user_id || decoded.id;
+      const decodedSessionId = decoded.sessionId || 'jwt-session';
+      if (!decodedUserId) return next();
+      const session = await verifySession(decodedUserId, decodedSessionId);
 
       if (session) {
         const user = await db
           .select()
           .from(users)
-          .where(eq(users.id, decoded.user_id))
+          .where(eq(users.id, decodedUserId))
           .limit(1);
 
         if (user.length && user[0].is_active) {
@@ -454,13 +468,13 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
             role: user[0].role,
             is_active: user[0].is_active,
             mfa_enabled: user[0].mfa_enabled || undefined,
-            sessionId: decoded.sessionId
+            sessionId: decodedSessionId
           };
         }
       }
     }
-  } catch (error: any) {
-    console.log('⚠️ [AUTH] خطأ في المصادقة الاختيارية:', error?.message || error);
+  } catch (error: unknown) {
+    console.log('⚠️ [AUTH] خطأ في المصادقة الاختيارية:', error instanceof Error ? error.message : error);
   }
 
   next();

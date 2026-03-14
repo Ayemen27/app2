@@ -9,13 +9,14 @@ import { eq, and, sql, desc, ilike } from 'drizzle-orm';
 import { db } from '../../db';
 import { projectTypes, projects, insertProjectTypeSchema } from '../../../shared/schema';
 import { requireAuth } from '../../middleware/auth';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const projectTypeRouter = express.Router();
 
 // Middleware للتحقق من الأدوار المتعددة
 const requireRoles = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const user = (req as any).user;
+    const user = getAuthUser(req);
     if (!user) {
       return res.status(401).json({
         success: false,

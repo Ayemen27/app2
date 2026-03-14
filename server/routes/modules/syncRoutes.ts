@@ -11,6 +11,7 @@ import { db, pool } from '../../db.js';
 import { requireAuth, syncRateLimit } from '../../middleware/auth.js';
 import { SyncAuditService } from '../../services/SyncAuditService.js';
 import { SYNCABLE_TABLES } from '../../../shared/schema.js';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const syncRouter = express.Router();
 
@@ -131,8 +132,8 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
 
 
     SyncAuditService.logBulkSync({
-      user_id: (req as any).user?.id,
-      userName: (req as any).user?.name || (req as any).user?.email,
+      user_id: getAuthUser(req)?.user_id,
+      userName: getAuthUser(req)?.first_name || getAuthUser(req)?.email,
       syncType: lastSyncTime ? 'delta_sync' : 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
       totalRecords,
@@ -168,8 +169,8 @@ syncRouter.get('/full-backup', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح في المزامنة:', error);
     SyncAuditService.logBulkSync({
-      user_id: (req as any).user?.id,
-      userName: (req as any).user?.name || (req as any).user?.email,
+      user_id: getAuthUser(req)?.user_id,
+      userName: getAuthUser(req)?.first_name || getAuthUser(req)?.email,
       syncType: 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
       totalRecords: 0,
@@ -208,8 +209,8 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
     console.log(`✅ [Sync] POST اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
     SyncAuditService.logBulkSync({
-      user_id: (req as any).user?.id,
-      userName: (req as any).user?.name || (req as any).user?.email,
+      user_id: getAuthUser(req)?.user_id,
+      userName: getAuthUser(req)?.first_name || getAuthUser(req)?.email,
       syncType: lastSyncTime ? 'delta_sync' : 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
       totalRecords,
@@ -244,8 +245,8 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ [Sync] خطأ فادح:', error);
     SyncAuditService.logBulkSync({
-      user_id: (req as any).user?.id,
-      userName: (req as any).user?.name || (req as any).user?.email,
+      user_id: getAuthUser(req)?.user_id,
+      userName: getAuthUser(req)?.first_name || getAuthUser(req)?.email,
       syncType: 'full_backup',
       tablesCount: ALL_DATABASE_TABLES.length,
       totalRecords: 0,
@@ -287,8 +288,8 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
     console.log(`⚡ [Sync] اكتملت: ${totalRecords} سجل في ${duration}ms`);
 
     SyncAuditService.logBulkSync({
-      user_id: (req as any).user?.id,
-      userName: (req as any).user?.name || (req as any).user?.email,
+      user_id: getAuthUser(req)?.user_id,
+      userName: getAuthUser(req)?.first_name || getAuthUser(req)?.email,
       syncType: 'instant_sync',
       tablesCount: tablesToSync.length,
       totalRecords,
@@ -317,8 +318,8 @@ syncRouter.post('/instant-sync', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ [Sync] خطأ في المزامنة الفورية:', error);
     SyncAuditService.logBulkSync({
-      user_id: (req as any).user?.id,
-      userName: (req as any).user?.name || (req as any).user?.email,
+      user_id: getAuthUser(req)?.user_id,
+      userName: getAuthUser(req)?.first_name || getAuthUser(req)?.email,
       syncType: 'instant_sync',
       tablesCount: 0,
       totalRecords: 0,

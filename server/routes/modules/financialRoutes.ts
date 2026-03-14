@@ -18,6 +18,7 @@ import { FinancialLedgerService } from '../../services/FinancialLedgerService';
 import { storage } from '../../storage';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
+import { getAuthUser } from '../../internal/auth-user.js';
 
 export const financialRouter = express.Router();
 
@@ -357,7 +358,7 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
         parseFloat(newTransfer[0].amount),
         newTransfer[0].transferDate,
         newTransfer[0].id,
-        (req as any).user?.id
+        getAuthUser(req)?.user_id
       ),
       'fund-transfer/POST'
     );
@@ -393,7 +394,7 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
   const startTime = Date.now();
   try {
     const transferId = req.params.id;
-    console.log('🔄 [API] طلب تحديث تحويل العهدة من المستخدم:', (req as any).user?.email);
+    console.log('🔄 [API] طلب تحديث تحويل العهدة من المستخدم:', getAuthUser(req)?.email);
     console.log('📋 [API] ID تحويل العهدة:', transferId);
     console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
 
@@ -463,9 +464,9 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
 
     const t = updatedTransfer[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'تعديل تحويل عهدة', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'تعديل تحويل عهدة', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordFundTransfer(
-        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
       );
     }, 'fund-transfer/PATCH');
 
@@ -530,7 +531,7 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
     }
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'حذف تحويل عهدة', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'حذف تحويل عهدة', getAuthUser(req)?.user_id).then(() => ''),
       'fund-transfer/DELETE'
     );
 
@@ -761,7 +762,7 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
 financialRouter.post('/project-fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    console.log('🏗️ [API] طلب إضافة تحويل أموال مشروع جديد من المستخدم:', (req as any).user?.email);
+    console.log('🏗️ [API] طلب إضافة تحويل أموال مشروع جديد من المستخدم:', getAuthUser(req)?.email);
     console.log('📋 [API] بيانات تحويل المشروع المرسلة:', req.body);
 
     // Map old frontend fields to schema fields if necessary
@@ -822,7 +823,7 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
     FinancialLedgerService.safeRecord(
       async () => {
         await FinancialLedgerService.recordProjectTransfer(
-          record.fromProjectId, record.toProjectId, parseFloat(record.amount), record.transferDate, record.id, (req as any).user?.id
+          record.fromProjectId, record.toProjectId, parseFloat(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
         );
         return '';
       },
@@ -905,7 +906,7 @@ financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: 
     }
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'حذف', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'project-fund-transfers/DELETE'
     );
 
@@ -987,9 +988,9 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
 
     const t = updatedTransfer[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'تعديل تحويل مشروع', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'تعديل تحويل مشروع', getAuthUser(req)?.user_id);
       await FinancialLedgerService.recordProjectTransfer(
-        t.fromProjectId, t.toProjectId, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.fromProjectId, t.toProjectId, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
       );
       return '';
     }, 'project-fund-transfers/PATCH');
@@ -1107,7 +1108,7 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
     const wt = newTransfer[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordWorkerTransfer(
-        wt.project_id, parseFloat(wt.amount), wt.transferDate, wt.id, (req as any).user?.id
+        wt.project_id, parseFloat(wt.amount), wt.transferDate, wt.id, getAuthUser(req)?.user_id
       ),
       'worker-transfer/POST'
     );
@@ -1145,7 +1146,7 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
   const startTime = Date.now();
   try {
     const transferId = req.params.id;
-    console.log('🔄 [API] طلب تحديث تحويل العامل من المستخدم:', (req as any).user?.email);
+    console.log('🔄 [API] طلب تحديث تحويل العامل من المستخدم:', getAuthUser(req)?.email);
     console.log('📋 [API] ID تحويل العامل:', transferId);
     console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
 
@@ -1207,9 +1208,9 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
 
     const t = updatedTransfer[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordWorkerTransfer(
-        t.project_id, parseFloat(t.amount), t.transferDate, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-transfers/PATCH');
 
@@ -1242,7 +1243,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
   try {
     const transferId = req.params.id;
     console.log('🗑️ [API] طلب حذف حوالة العامل:', transferId);
-    console.log('👤 [API] المستخدم:', (req as any).user?.email);
+    console.log('👤 [API] المستخدم:', getAuthUser(req)?.email);
 
     if (!transferId) {
       const duration = Date.now() - startTime;
@@ -1284,7 +1285,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
     });
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'worker-transfers/DELETE'
     );
 
@@ -1434,7 +1435,7 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
     const record = newExpense[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordMiscExpense(
-        record.project_id, parseFloat(record.amount), record.date, record.id, (req as any).user?.id
+        record.project_id, parseFloat(record.amount), record.date, record.id, getAuthUser(req)?.user_id
       ),
       'worker-misc-expenses/POST'
     );
@@ -1472,7 +1473,7 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
   const startTime = Date.now();
   try {
     const expenseId = req.params.id;
-    console.log('🔄 [API] طلب تحديث المصروف المتنوع للعامل من المستخدم:', (req as any).user?.email);
+    console.log('🔄 [API] طلب تحديث المصروف المتنوع للعامل من المستخدم:', getAuthUser(req)?.email);
     console.log('📋 [API] ID المصروف المتنوع:', expenseId);
     console.log('📋 [API] بيانات التحديث المرسلة:', req.body);
 
@@ -1534,9 +1535,9 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
 
     const t = updatedExpense[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordMiscExpense(
-        t.project_id, parseFloat(t.amount), t.date, t.id, (req as any).user?.id
+        t.project_id, parseFloat(t.amount), t.date, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-misc-expenses/PATCH');
 
@@ -1569,7 +1570,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
   try {
     const expenseId = req.params.id;
     console.log('🗑️ [API] طلب حذف مصروف العامل المتنوع:', expenseId);
-    console.log('👤 [API] المستخدم:', (req as any).user?.email);
+    console.log('👤 [API] المستخدم:', getAuthUser(req)?.email);
 
     if (!expenseId) {
       const duration = Date.now() - startTime;
@@ -1611,7 +1612,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
     });
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'حذف', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'worker-misc-expenses/DELETE'
     );
 
@@ -1671,7 +1672,7 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     console.log('📊 [API] جلب ملخص التقارير المالية العامة');
-    console.log('👤 [API] المستخدم:', (req as any).user?.email);
+    console.log('👤 [API] المستخدم:', getAuthUser(req)?.email);
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
@@ -1816,7 +1817,7 @@ financialRouter.get('/suppliers', async (req: Request, res: Response) => {
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    const userId = accessReq.user?.id;
+    const userId = getAuthUser(req)?.user_id;
 
     let suppliersList;
     if (isAdminUser) {
@@ -1824,12 +1825,12 @@ financialRouter.get('/suppliers', async (req: Request, res: Response) => {
         .where(eq(suppliers.is_active, true))
         .orderBy(suppliers.name);
     } else {
-      suppliersList = await db.select().from(suppliers)
+      suppliersList = userId ? await db.select().from(suppliers)
         .where(and(
           eq(suppliers.is_active, true),
-          eq(suppliers.created_by, userId!)
+          eq(suppliers.created_by, userId)
         ))
-        .orderBy(suppliers.name);
+        .orderBy(suppliers.name) : [];
     }
 
     const duration = Date.now() - startTime;
@@ -1881,7 +1882,7 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation المورد');
 
-    const userId = (req as any).user?.id;
+    const userId = getAuthUser(req)?.user_id;
     const supplierData = { ...validationResult.data, created_by: userId || null };
 
     const newSupplier = await db.insert(suppliers).values(supplierData).returning();
@@ -2087,7 +2088,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     const p = newPurchase[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordMaterialPurchase(
-        p.project_id, parseFloat(p.totalAmount || '0'), p.purchaseDate, p.id, p.purchaseType || 'نقد', (req as any).user?.id
+        p.project_id, parseFloat(p.totalAmount || '0'), p.purchaseDate, p.id, p.purchaseType || 'نقد', getAuthUser(req)?.user_id
       ),
       'material-purchase/POST'
     );
@@ -2242,9 +2243,9 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     
     const mp = updated[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'تعديل مشتراة', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'تعديل مشتراة', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordMaterialPurchase(
-        mp.project_id, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', (req as any).user?.id
+        mp.project_id, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', getAuthUser(req)?.user_id
       );
     }, 'material-purchase/PATCH');
 
@@ -2332,7 +2333,7 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
     }
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'حذف مشتراة', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'حذف مشتراة', getAuthUser(req)?.user_id).then(() => ''),
       'material-purchase/DELETE'
     );
 
@@ -2441,7 +2442,7 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
     const te = newExpense[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordTransportExpense(
-        te.project_id, parseFloat(te.amount || '0'), te.date, te.id, (req as any).user?.id
+        te.project_id, parseFloat(te.amount || '0'), te.date, te.id, getAuthUser(req)?.user_id
       ),
       'transport-expense/POST'
     );
@@ -2545,9 +2546,9 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
     
     const tu = updated[0];
     FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'تعديل نفقة نقل', (req as any).user?.id);
+      await FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'تعديل نفقة نقل', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordTransportExpense(
-        tu.project_id, parseFloat(tu.amount || '0'), tu.date, tu.id, (req as any).user?.id
+        tu.project_id, parseFloat(tu.amount || '0'), tu.date, tu.id, getAuthUser(req)?.user_id
       );
     }, 'transport-expense/PATCH');
 
@@ -2588,7 +2589,7 @@ financialRouter.delete('/transportation-expenses/:id', async (req: Request, res:
     }
 
     FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'حذف نفقة نقل', (req as any).user?.id).then(() => ''),
+      () => FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'حذف نفقة نقل', getAuthUser(req)?.user_id).then(() => ''),
       'transport-expense/DELETE'
     );
 
@@ -3086,16 +3087,16 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    const userId = accessReq.user?.id;
+    const userId = getAuthUser(req)?.user_id;
 
     let suppliersList;
     if (isAdminUser) {
       suppliersList = await db.select().from(suppliers).where(eq(suppliers.is_active, true));
     } else {
-      suppliersList = await db.select().from(suppliers).where(and(
+      suppliersList = userId ? await db.select().from(suppliers).where(and(
         eq(suppliers.is_active, true),
-        eq(suppliers.created_by, userId!)
-      ));
+        eq(suppliers.created_by, userId)
+      )) : [];
     }
     
     if (!isAdminUser) {

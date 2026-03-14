@@ -1,6 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import { logger } from "./logging.js";
 
+interface TrackedRequest extends Request {
+  id?: string;
+}
+
 export class AppError extends Error {
   status: number; 
   code: string; 
@@ -46,14 +50,14 @@ export function errorHandler(err: any, req: Request, res: Response, _next: NextF
     ok: false,
     code,
     message: err?.message || "حدث خطأ غير متوقع.",
-    requestId: (req as any).id,
+    requestId: (req as TrackedRequest).id,
     details: process.env.NODE_ENV === "production" ? undefined : err?.details ?? String(err),
   };
   
   if (status >= 500) {
-    logger.error({ err, requestId: (req as any).id }, "Unhandled error");
+    logger.error({ err, requestId: (req as TrackedRequest).id }, "Unhandled error");
   } else {
-    logger.warn({ err, requestId: (req as any).id }, "Handled error");
+    logger.warn({ err, requestId: (req as TrackedRequest).id }, "Handled error");
   }
   
   res.status(status).json(body);

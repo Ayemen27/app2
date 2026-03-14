@@ -6,7 +6,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { eq, sql, and, or } from 'drizzle-orm';
-import { db } from '../../db.js';
+import { db, withTransaction } from '../../db.js';
 import {
   workers, workerAttendance, workerTransfers, workerMiscExpenses, workerBalances,
   transportationExpenses, enhancedInsertWorkerSchema, insertWorkerAttendanceSchema,
@@ -21,6 +21,36 @@ import { inArray } from 'drizzle-orm';
 
 declare global {
   var io: { emit: (event: string, data: unknown) => void } | undefined;
+}
+
+const ALLOWED_WORKER_PATCH_FIELDS = new Set([
+  'name', 'type', 'dailyWage', 'phone', 'hireDate', 'is_active',
+]);
+
+const ALLOWED_ATTENDANCE_PATCH_FIELDS = new Set([
+  'attendanceDate', 'date', 'startTime', 'endTime', 'workDescription',
+  'isPresent', 'hoursWorked', 'overtime', 'overtimeRate',
+  'workDays', 'dailyWage', 'actualWage', 'totalPay',
+  'paidAmount', 'remainingAmount', 'paymentType', 'notes', 'well_id',
+]);
+
+const ALLOWED_TRANSFER_PATCH_FIELDS = new Set([
+  'amount', 'transferNumber', 'senderName', 'recipientName',
+  'recipientPhone', 'transferMethod', 'transferDate', 'notes',
+]);
+
+const ALLOWED_MISC_EXPENSE_PATCH_FIELDS = new Set([
+  'amount', 'description', 'date', 'notes', 'well_id',
+]);
+
+function pickAllowedFields<T extends Record<string, unknown>>(data: T, allowed: Set<string>): Partial<T> {
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(data)) {
+    if (allowed.has(key)) {
+      result[key] = data[key];
+    }
+  }
+  return result as Partial<T>;
 }
 
 interface WorkerBalanceEntry {
@@ -62,7 +92,6 @@ workerRouter.get('/worker-types', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
       message: "فشل في جلب أنواع العمال"
     });
   }
@@ -107,8 +136,8 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في جلب العمال:', error);
     res.status(500).json({
       success: false,
-      error: "فشل في جلب قائمة العمال",
-      message: error.message
+      message: "فشل في جلب قائمة العمال",
+      data: null
     });
   }
 });
@@ -208,8 +237,8 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -273,8 +302,8 @@ workerRouter.get('/workers/search/:query', async (req: Request, res: Response) =
     console.error('❌ [API] خطأ في البحث عن عامل:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في البحث',
-      message: error.message,
+      message: 'خطأ في البحث',
+      data: null,
       processingTime: duration
     });
   }
@@ -337,8 +366,8 @@ workerRouter.get('/workers/:id', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في جلب العامل:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في جلب العامل',
-      message: error.message,
+      message: 'خطأ في جلب العامل',
+      data: null,
       processingTime: duration
     });
   }
@@ -406,16 +435,28 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation تحديث العامل');
 
+    const sanitizedData = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_WORKER_PATCH_FIELDS);
+
+    if (Object.keys(sanitizedData).length === 0) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'لا توجد حقول صالحة للتحديث',
+        message: 'لم يتم توفير أي حقول مسموح بتحديثها',
+        processingTime: duration
+      });
+    }
+
     // التحقق مما إذا كان يتم تحديث اليومية
     const oldDailyWage = existingWorker[0].dailyWage;
-    const newDailyWage = validationResult.data.dailyWage;
+    const newDailyWage = (sanitizedData as any).dailyWage;
     const isDailyWageChanged = newDailyWage && newDailyWage !== oldDailyWage;
 
     // تحديث العامل في قاعدة البيانات
     console.log('💾 [API] تحديث العامل في قاعدة البيانات...');
     const [updatedWorker] = await db
       .update(workers)
-      .set(validationResult.data)
+      .set(sanitizedData)
       .where(eq(workers.id, worker_id))
       .returning();
 
@@ -493,8 +534,8 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -739,7 +780,7 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
     res.status(statusCode).json({
       success: false,
       error: errorMessage,
-      message: `خطأ في حذف العامل: ${error.message}`,
+      message: 'خطأ في حذف العامل',
       userAction,
       processingTime: duration,
       troubleshooting: relatedInfo
@@ -819,10 +860,12 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       });
     }
 
+    const sanitizedTransferData = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_TRANSFER_PATCH_FIELDS);
+
     // تحديث تحويل العامل
     const updatedTransfer = await db
       .update(workerTransfers)
-      .set(validationResult.data)
+      .set(sanitizedTransferData)
       .where(eq(workerTransfers.id, transferId))
       .returning();
 
@@ -850,8 +893,8 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     res.status(500).json({
       success: false,
-      error: 'فشل في تحديث تحويل العامل',
-      message: error.message,
+      message: 'فشل في تحديث تحويل العامل',
+      data: null,
       processingTime: duration
     });
   }
@@ -949,8 +992,8 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1032,8 +1075,8 @@ workerRouter.get('/worker-misc-expenses', async (req: Request, res: Response) =>
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
       message: 'فشل في جلب المصاريف المتنوعة',
+
       processingTime: duration
     });
   }
@@ -1107,10 +1150,12 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
       });
     }
 
+    const sanitizedExpenseData = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_MISC_EXPENSE_PATCH_FIELDS);
+
     // تحديث المصروف المتنوع للعامل
     const updatedExpense = await db
       .update(workerMiscExpenses)
-      .set(validationResult.data)
+      .set(sanitizedExpenseData)
       .where(eq(workerMiscExpenses.id, expenseId))
       .returning();
 
@@ -1138,8 +1183,8 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 
     res.status(500).json({
       success: false,
-      error: 'فشل في تحديث المصروف المتنوع للعامل',
-      message: error.message,
+      message: 'فشل في تحديث المصروف المتنوع للعامل',
+      data: null,
       processingTime: duration
     });
   }
@@ -1167,7 +1212,6 @@ workerRouter.get('/autocomplete/workerMiscDescriptions', async (req: Request, re
     console.error('❌ [API] خطأ في جلب وصف المصاريف المتنوعة:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
       message: 'فشل في جلب وصف المصاريف المتنوعة'
     });
   }
@@ -1232,8 +1276,8 @@ workerRouter.post('/worker-types', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في إضافة نوع عامل جديد:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في إضافة نوع العامل',
-      message: error.message,
+      message: 'خطأ في إضافة نوع العامل',
+      data: null,
       processingTime: duration
     });
   }
@@ -1327,7 +1371,8 @@ workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      message: 'حدث خطأ داخلي',
+
       processingTime: duration
     });
   }
@@ -1418,7 +1463,8 @@ workerRouter.get('/projects/:project_id/worker-attendance', async (req: Request,
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      message: 'حدث خطأ داخلي',
+
       processingTime: duration
     });
   }
@@ -1476,17 +1522,26 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       project_id: attendanceToDelete.project_id
     });
 
-    FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
-      'worker-attendance/DELETE'
-    );
+    const userId = getAuthUser(req)?.user_id;
 
-    // حذف سجل الحضور من قاعدة البيانات
-    console.log('🗑️ [API] حذف سجل الحضور من قاعدة البيانات...');
-    const deletedAttendance = await db
-      .delete(workerAttendance)
-      .where(eq(workerAttendance.id, attendanceId))
-      .returning();
+    const deletedAttendance = await withTransaction(async (client) => {
+      await client.query(
+        `UPDATE journal_entries SET status = 'reversed' WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
+        ['worker_attendance', attendanceId]
+      );
+
+      const deleteResult = await client.query(
+        `DELETE FROM worker_attendance WHERE id = $1 RETURNING *`,
+        [attendanceId]
+      );
+
+      return deleteResult.rows;
+    });
+
+    FinancialLedgerService.safeRecord(
+      () => FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'حذف', userId).then(() => ''),
+      'worker-attendance/DELETE-ledger-cleanup'
+    );
 
     if (globalThis.io && deletedAttendance[0]) {
       globalThis.io.emit('entity:update', {
@@ -1528,8 +1583,8 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1702,7 +1757,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
 
     // تحليل نوع الخطأ لرسالة أفضل ومفصلة
     let errorMessage = 'فشل في إنشاء حضور العامل';
-    let detailedMessage = error.message;
+    let detailedMessage = 'فشل في إنشاء حضور العامل';
     let statusCode = 500;
 
     if (error.code === '23503') { // foreign key violation
@@ -1768,21 +1823,27 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية لتعديل هذا السجل' });
     }
 
-    // Validation باستخدام تحقيق يدوي للبيانات - نسمح بتحديث جزئي
-    const updateData: any = { ...req.body };
+    const rawBody = pickAllowedFields(req.body as Record<string, unknown>, ALLOWED_ATTENDANCE_PATCH_FIELDS);
+    const updateData: Record<string, unknown> = { ...rawBody };
+
+    if (Object.keys(updateData).length === 0) {
+      const duration = Date.now() - startTime;
+      return res.status(400).json({
+        success: false,
+        error: 'لا توجد حقول صالحة للتحديث',
+        message: 'لم يتم توفير أي حقول مسموح بتحديثها',
+        processingTime: duration
+      });
+    }
 
     // تحويل workDays إلى string إذا كان موجوداً لتجاوز خطأ الـ validation
     if (updateData.workDays !== undefined && updateData.workDays !== null) {
-      updateData.workDays = updateData.workDays.toString();
+      updateData.workDays = String(updateData.workDays);
     }
 
-    // تأكد من أن الملاحظات ووصف العمل يتم تضمينهما إذا تم إرسالهما
-    if (req.body.notes !== undefined) updateData.notes = req.body.notes;
-    if (req.body.workDescription !== undefined) updateData.workDescription = req.body.workDescription;
-
     // حساب actualWage
-    const dailyWage = updateData.dailyWage || existingAttendance[0].dailyWage;
-    const workDays = updateData.workDays || existingAttendance[0].workDays;
+    const dailyWage = (updateData.dailyWage || existingAttendance[0].dailyWage) as string;
+    const workDays = (updateData.workDays || existingAttendance[0].workDays) as string;
 
     if (dailyWage && workDays) {
       const actualWageValue = parseFloat(dailyWage) * parseFloat(workDays);
@@ -1792,8 +1853,8 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       // تحديث المتبقي إذا تم تحديث المدفوع أو الأيام
       const paidAmount = updateData.paidAmount !== undefined ? updateData.paidAmount : existingAttendance[0].paidAmount;
       if (paidAmount !== undefined) {
-        updateData.remainingAmount = (actualWageValue - parseFloat(paidAmount)).toString();
-        updateData.paymentType = parseFloat(paidAmount) >= actualWageValue ? "full" : "partial";
+        updateData.remainingAmount = (actualWageValue - parseFloat(paidAmount as string)).toString();
+        updateData.paymentType = parseFloat(paidAmount as string) >= actualWageValue ? "full" : "partial";
       }
     }
 
@@ -1851,8 +1912,8 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1930,10 +1991,12 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       });
     }
 
+    const sanitizedTransferData2 = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_TRANSFER_PATCH_FIELDS);
+
     // تحديث تحويل العامل
     const updatedTransfer = await db
       .update(workerTransfers)
-      .set(validationResult.data)
+      .set(sanitizedTransferData2)
       .where(eq(workerTransfers.id, transferId))
       .returning();
 
@@ -1972,8 +2035,8 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -2067,8 +2130,8 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -2123,7 +2186,8 @@ workerRouter.get('/projects/:project_id/worker-misc-expenses', async (req: Reque
     res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
+      message: 'حدث خطأ داخلي',
+
       processingTime: duration
     });
   }
@@ -2197,10 +2261,12 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
       });
     }
 
+    const sanitizedExpenseData2 = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_MISC_EXPENSE_PATCH_FIELDS);
+
     // تحديث المصروف المتنوع للعامل
     const updatedExpense = await db
       .update(workerMiscExpenses)
-      .set(validationResult.data)
+      .set(sanitizedExpenseData2)
       .where(eq(workerMiscExpenses.id, expenseId))
       .returning();
 
@@ -2239,8 +2305,8 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -2439,8 +2505,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     console.error('❌ [API] خطأ في جلب إحصائيات العامل:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في جلب إحصائيات العامل',
-      message: error.message,
+      message: 'خطأ في جلب إحصائيات العامل',
+      data: null,
       processingTime: duration
     });
   }

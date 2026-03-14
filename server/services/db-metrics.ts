@@ -104,6 +104,24 @@ export interface ConnectionInfo {
 
 export class DbMetricsService {
 
+  private static quoteIdentifier(name: string): string {
+    return '"' + name.replace(/"/g, '""') + '"';
+  }
+
+  private static async validateTableName(tableName: string, dbPool: any): Promise<string | null> {
+    const client = await dbPool.connect();
+    try {
+      const result = await client.query(
+        `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name = $1`,
+        [tableName]
+      );
+      if (result.rows.length === 0) return null;
+      return result.rows[0].table_name;
+    } finally {
+      client.release();
+    }
+  }
+
   static getPoolForSource(source?: string): { pool: any; error?: string } {
     if (!source || source === 'active') return { pool };
     const connMgr = smartConnectionManager;
@@ -495,6 +513,12 @@ export class DbMetricsService {
   static async getTableDetails(tableName: string, source?: string): Promise<any> {
     const { pool: p, error } = this.getPoolForSource(source);
     if (error || !p) throw new Error(error || 'القاعدة غير متصلة');
+
+    const validatedName = await this.validateTableName(tableName, p);
+    if (!validatedName) {
+      throw new Error(`اسم جدول غير صالح: ${tableName}`);
+    }
+
     const client = await p.connect();
     try {
       const [columns, indexes, constraints, sampleCount] = await Promise.all([
@@ -503,19 +527,19 @@ export class DbMetricsService {
           FROM information_schema.columns
           WHERE table_name = $1 AND table_schema = 'public'
           ORDER BY ordinal_position
-        `, [tableName]),
+        `, [validatedName]),
         client.query(`
           SELECT indexname, indexdef
           FROM pg_indexes
           WHERE tablename = $1 AND schemaname = 'public'
-        `, [tableName]),
+        `, [validatedName]),
         client.query(`
           SELECT conname as name, contype as type,
             pg_get_constraintdef(oid) as definition
           FROM pg_constraint
           WHERE conrelid = $1::regclass
-        `, [tableName]),
-        client.query(`SELECT COUNT(*) as count FROM ${tableName}`)
+        `, [validatedName]),
+        client.query(`SELECT COUNT(*) as count FROM ${this.quoteIdentifier(validatedName)}`)
       ]);
 
       return {

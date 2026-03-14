@@ -56,10 +56,10 @@ export const syncRateLimit = rateLimit({
   }
 });
 
-// Rate Limiting للمصادقة (أكثر صرامة)
+// Rate Limiting للمصادقة (أكثر صرامة - 5 محاولات فقط لكل 15 دقيقة)
 export const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 دقيقة
-  max: 10, // 10 محاولات تسجيل دخول لكل IP
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   message: {
     success: false,
     message: 'تم تجاوز عدد محاولات تسجيل الدخول المسموحة، يرجى المحاولة بعد 15 دقيقة',
@@ -67,7 +67,7 @@ export const authRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // لا تحسب الطلبات الناجحة
+  skipSuccessfulRequests: true,
 });
 
 // Rate Limiting للعمليات الحساسة

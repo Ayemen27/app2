@@ -187,62 +187,82 @@ export class DatabaseActions {
       } else {
         allProjects = await db.select().from(projects);
       }
-      const projectSummaries = [];
 
-      for (const project of allProjects) {
-        try {
-          const fundsResult = await db
-            .select({ total: sql<string>`COALESCE(SUM(${fundTransfers.amount}), 0)` })
-            .from(fundTransfers)
-            .where(eq(fundTransfers.project_id, project.id));
-
-          const wagesResult = await db
-            .select({ total: sql<string>`COALESCE(SUM(${workerAttendance.paidAmount}), 0)` })
-            .from(workerAttendance)
-            .where(eq(workerAttendance.project_id, project.id));
-
-          const materialsResult = await db
-            .select({ total: sql<string>`COALESCE(SUM(${materialPurchases.paidAmount}), 0)` })
-            .from(materialPurchases)
-            .where(eq(materialPurchases.project_id, project.id));
-
-          const transportResult = await db
-            .select({ total: sql<string>`COALESCE(SUM(${transportationExpenses.amount}), 0)` })
-            .from(transportationExpenses)
-            .where(eq(transportationExpenses.project_id, project.id));
-
-          const miscResult = await db
-            .select({ total: sql<string>`COALESCE(SUM(${workerMiscExpenses.amount}), 0)` })
-            .from(workerMiscExpenses)
-            .where(eq(workerMiscExpenses.project_id, project.id));
-
-          const totalFunds = parseFloat(fundsResult[0]?.total || "0");
-          const totalWages = parseFloat(wagesResult[0]?.total || "0");
-          const totalMaterials = parseFloat(materialsResult[0]?.total || "0");
-          const totalTransport = parseFloat(transportResult[0]?.total || "0");
-          const totalMisc = parseFloat(miscResult[0]?.total || "0");
-          const totalExpenses = totalWages + totalMaterials + totalTransport + totalMisc;
-
-          projectSummaries.push({
-            المشروع: project.name,
-            الحالة: project.status || "نشط",
-            الميزانية: parseFloat(String(project.budget || "0")),
-            إجمالي_التمويل: totalFunds,
-            الأجور: totalWages,
-            المواد: totalMaterials,
-            النقل: totalTransport,
-            متنوعات: totalMisc,
-            إجمالي_المصروفات: totalExpenses,
-            الرصيد: totalFunds - totalExpenses,
-          });
-        } catch {
-          projectSummaries.push({
-            المشروع: project.name,
-            الحالة: project.status || "نشط",
-            ملاحظة: "تعذر جلب البيانات المالية",
-          });
-        }
+      if (allProjects.length === 0) {
+        return {
+          success: true,
+          data: [],
+          message: `تقرير شامل لـ 0 مشروع مع التفاصيل المالية`,
+          action: "all_projects_report",
+        };
       }
+
+      const projectIds = allProjects.map((p: any) => p.id);
+
+      const [fundsAgg, wagesAgg, materialsAgg, transportAgg, miscAgg] = await Promise.all([
+        db.select({
+          project_id: fundTransfers.project_id,
+          total: sql<string>`COALESCE(SUM(${fundTransfers.amount}), 0)`,
+        }).from(fundTransfers)
+          .where(inArray(fundTransfers.project_id, projectIds))
+          .groupBy(fundTransfers.project_id),
+
+        db.select({
+          project_id: workerAttendance.project_id,
+          total: sql<string>`COALESCE(SUM(${workerAttendance.paidAmount}), 0)`,
+        }).from(workerAttendance)
+          .where(inArray(workerAttendance.project_id, projectIds))
+          .groupBy(workerAttendance.project_id),
+
+        db.select({
+          project_id: materialPurchases.project_id,
+          total: sql<string>`COALESCE(SUM(${materialPurchases.paidAmount}), 0)`,
+        }).from(materialPurchases)
+          .where(inArray(materialPurchases.project_id, projectIds))
+          .groupBy(materialPurchases.project_id),
+
+        db.select({
+          project_id: transportationExpenses.project_id,
+          total: sql<string>`COALESCE(SUM(${transportationExpenses.amount}), 0)`,
+        }).from(transportationExpenses)
+          .where(inArray(transportationExpenses.project_id, projectIds))
+          .groupBy(transportationExpenses.project_id),
+
+        db.select({
+          project_id: workerMiscExpenses.project_id,
+          total: sql<string>`COALESCE(SUM(${workerMiscExpenses.amount}), 0)`,
+        }).from(workerMiscExpenses)
+          .where(inArray(workerMiscExpenses.project_id, projectIds))
+          .groupBy(workerMiscExpenses.project_id),
+      ]);
+
+      const fundsMap = new Map<string, number>(fundsAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
+      const wagesMap = new Map<string, number>(wagesAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
+      const materialsMap = new Map<string, number>(materialsAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
+      const transportMap = new Map<string, number>(transportAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
+      const miscMap = new Map<string, number>(miscAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
+
+      const projectSummaries = allProjects.map((project: any) => {
+        const totalFunds: number = fundsMap.get(project.id) || 0;
+        const totalWages: number = wagesMap.get(project.id) || 0;
+        const totalMaterials: number = materialsMap.get(project.id) || 0;
+        const totalTransport: number = transportMap.get(project.id) || 0;
+        const totalMisc: number = miscMap.get(project.id) || 0;
+        const totalExpenses: number = totalWages + totalMaterials + totalTransport + totalMisc;
+
+        return {
+          المشروع: project.name,
+          الحالة: project.status || "نشط",
+          الميزانية: parseFloat(String(project.budget || "0")),
+          إجمالي_التمويل: totalFunds,
+          الأجور: totalWages,
+          المواد: totalMaterials,
+          النقل: totalTransport,
+          متنوعات: totalMisc,
+          إجمالي_المصروفات: totalExpenses,
+          الرصيد: totalFunds - totalExpenses,
+        };
+      });
 
       return {
         success: true,

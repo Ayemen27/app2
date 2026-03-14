@@ -305,16 +305,20 @@ app.get("/api/health", (req: Request, res: Response): void => {
   const connectionStatus = getConnectionHealthStatus();
   
   res.json({
-    status: connectionStatus.totalConnections > 0 ? "healthy" : "degraded",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    version: "2.0.0-organized",
-    connections: {
-      local: connectionStatus.local,
-      supabase: connectionStatus.supabase,
-      emergency: connectionStatus.emergencyMode,
-      total: connectionStatus.totalConnections
-    }
+    success: true,
+    data: {
+      status: connectionStatus.totalConnections > 0 ? "healthy" : "degraded",
+      uptime: process.uptime(),
+      version: "2.0.0-organized",
+      connections: {
+        local: connectionStatus.local,
+        supabase: connectionStatus.supabase,
+        emergency: connectionStatus.emergencyMode,
+        total: connectionStatus.totalConnections
+      }
+    },
+    message: connectionStatus.totalConnections > 0 ? 'النظام يعمل بشكل سليم' : 'النظام يعمل في وضع محدود',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -343,9 +347,11 @@ app.get("/api/connection-health", requireAuth, (req: Request, res: Response): vo
       recommendations: generateRecommendations(connectionStatus, metrics)
     });
   } catch (error: any) {
+    console.error('❌ [API] خطأ في جلب صحة الاتصال:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      message: 'فشل في جلب حالة الاتصال',
+      data: null,
       timestamp: new Date().toISOString()
     });
   }
@@ -393,9 +399,11 @@ app.get("/api/health-monitor", requireAuth, (req: Request, res: Response): void 
       recommendations: generateRecommendations(connectionStatus, connectionStatus.metrics)
     });
   } catch (error: any) {
+    console.error('❌ [API] خطأ في مراقب الصحة:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      message: 'فشل في جلب بيانات مراقب الصحة',
+      data: null,
       timestamp: new Date().toISOString()
     });
   }
@@ -427,9 +435,11 @@ app.post("/api/connection/reconnect", requireAuth, async (req: Request, res: Res
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {
+    console.error('❌ [API] خطأ في إعادة الاتصال:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      message: 'فشل في إعادة الاتصال',
+      data: null,
       timestamp: new Date().toISOString()
     });
   }
@@ -463,9 +473,11 @@ app.get("/api/connection/test", requireAuth, async (req: Request, res: Response)
       }
     });
   } catch (error: any) {
+    console.error('❌ [API] خطأ في اختبار الاتصال:', error);
     res.status(500).json({
       success: false,
-      error: error.message,
+      message: 'فشل في اختبار الاتصال',
+      data: null,
       timestamp: new Date().toISOString()
     });
   }
@@ -526,7 +538,8 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response): void =
       }
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('❌ [API] خطأ في حالة المخطط:', error);
+    res.status(500).json({ success: false, message: 'فشل في جلب حالة المخطط', data: null });
   }
 });
 
@@ -610,7 +623,6 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ 
       success: false, 
       data: [], 
-      error: error.message,
       message: "فشل في جلب قائمة المستخدمين"
     });
   }
@@ -630,17 +642,20 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
 Sentry.setupExpressErrorHandler(app);
 app.use((err: any, req: Request, res: Response, _next: NextFunction): any => {
   const status = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
+  const isProduction = process.env.NODE_ENV === 'production';
+  const genericMessage = 'حدث خطأ داخلي في الخادم';
+
+  console.error(`❌ [Global Error] ${req.method} ${req.path}:`, err);
 
   if (req.path.startsWith('/api/')) {
     return res.status(status).json({ 
       success: false, 
-      message,
-      error: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+      message: isProduction ? genericMessage : (err.message || genericMessage),
+      data: null
     });
   }
   
-  res.status(status).send(message);
+  res.status(status).send(isProduction ? genericMessage : (err.message || genericMessage));
 });
 
 // ✅ **404 Handler for API**

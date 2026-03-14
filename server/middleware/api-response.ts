@@ -1,5 +1,14 @@
 import { Response, Request, NextFunction } from 'express';
 
+const isProductionEnv = () => process.env.NODE_ENV === 'production';
+
+export function safeErrorMessage(error: any, fallback: string): string {
+  if (isProductionEnv()) {
+    return fallback;
+  }
+  return error?.message || fallback;
+}
+
 /**
  * Standard API Response Structure (2026 Best Practices)
  */
@@ -34,7 +43,8 @@ export interface ApiErrorDetail {
  */
 export const globalErrorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'حدث خطأ داخلي في الخادم';
+  const genericMessage = 'حدث خطأ داخلي في الخادم';
+  const message = isProductionEnv() ? genericMessage : (err.message || genericMessage);
   
   const response: ApiResponse = {
     success: false,
@@ -46,10 +56,10 @@ export const globalErrorHandler = (err: any, req: Request, res: Response, next: 
       path: req.path,
       method: req.method
     },
-    errors: err.errors || [{ message: message, code: err.code || 'INTERNAL_SERVER_ERROR' }]
+    errors: [{ message: message, code: err.code || 'INTERNAL_SERVER_ERROR' }]
   };
 
-  if (process.env.NODE_ENV === 'development' && err.stack) {
+  if (!isProductionEnv() && err.stack) {
     response.metadata = { ...response.metadata!, stack: err.stack };
   }
 

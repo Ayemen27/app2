@@ -6,7 +6,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc, inArray } from 'drizzle-orm';
-import { db } from '../../db';
+import { db, withTransaction } from '../../db';
 import {
   fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries, workers, workerAttendance, materials, equipment,
   insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertMaterialSchema,
@@ -116,7 +116,7 @@ financialRouter.get('/financial-summary', async (req: Request, res: Response) =>
       }, `تم جلب الملخص المالي لـ ${summaries.length} مشروع`, { processingTime: Date.now() - startTime });
     }
   } catch (error: any) {
-    return sendError(res, 'فشل في جلب الملخص المالي', 500, [{ message: error.message }]);
+    return sendError(res, 'فشل في جلب الملخص المالي', 500);
   }
 });
 
@@ -173,7 +173,7 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
     return sendSuccess(res, summary, 'تم جلب الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
   } catch (error: any) {
     console.error('❌ [API] خطأ في جلب الملخص اليومي:', error);
-    return sendError(res, 'فشل في جلب الملخص اليومي', 500, [{ message: error.message }]);
+    return sendError(res, 'فشل في جلب الملخص اليومي', 500);
   }
 });
 
@@ -201,7 +201,7 @@ financialRouter.post('/daily-expense-summaries', async (req: Request, res: Respo
     return sendSuccess(res, summary, 'تم حفظ الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
   } catch (error: any) {
     console.error('❌ [API] خطأ في حفظ الملخص اليومي:', error);
-    return sendError(res, 'فشل في حفظ الملخص اليومي', 500, [{ message: error.message }]);
+    return sendError(res, 'فشل في حفظ الملخص اليومي', 500);
   }
 });
 
@@ -258,8 +258,8 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       data: [],
-      error: 'خطأ في جلب تحويلات العهدة',
-      message: error.message,
+      message: 'خطأ في جلب تحويلات العهدة',
+
       processingTime: duration
     });
   }
@@ -380,8 +380,8 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -484,8 +484,8 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
 
     res.status(500).json({
       success: false,
-      error: 'فشل في تحديث تحويل العهدة',
-      message: error.message,
+      message: 'فشل في تحديث تحويل العهدة',
+      data: null,
       processingTime: duration
     });
   }
@@ -562,8 +562,8 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -637,8 +637,8 @@ financialRouter.get('/daily-project-transfers', async (req: Request, res: Respon
 
     res.status(500).json({
       success: false,
-      error: 'فشل في جلب تحويلات أموال المشاريع',
-      message: error.message,
+      message: 'فشل في جلب تحويلات أموال المشاريع',
+      data: null,
       processingTime: duration
     });
   }
@@ -749,8 +749,8 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
     res.status(500).json({
       success: false,
       data: [],
-      error: 'خطأ في جلب تحويلات أموال المشاريع',
-      message: error.message,
+      message: 'خطأ في جلب تحويلات أموال المشاريع',
+
       processingTime: duration
     });
   }
@@ -864,8 +864,8 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -929,8 +929,8 @@ financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: 
 
     res.status(500).json({
       success: false,
-      error: 'فشل في حذف تحويل المشروع',
-      message: error.message,
+      message: 'فشل في حذف تحويل المشروع',
+      data: null,
       processingTime: duration
     });
   }
@@ -1000,7 +1000,7 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
       processingTime: Date.now() - startTime
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: 'فشل في تحديث تحويل المشروع', message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في تحديث تحويل المشروع', data: null });
   }
 });
 
@@ -1051,8 +1051,8 @@ financialRouter.get('/worker-transfers', async (req: Request, res: Response) => 
     res.status(500).json({
       success: false,
       data: [],
-      error: 'خطأ في جلب تحويلات العمال',
-      message: error.message,
+      message: 'خطأ في جلب تحويلات العمال',
+
       processingTime: duration
     });
   }
@@ -1132,8 +1132,8 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1228,8 +1228,8 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
 
     res.status(500).json({
       success: false,
-      error: 'فشل في تحديث تحويل العامل',
-      message: error.message,
+      message: 'فشل في تحديث تحويل العامل',
+      data: null,
       processingTime: duration
     });
   }
@@ -1326,8 +1326,8 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1368,8 +1368,8 @@ financialRouter.get('/worker-misc-expenses', async (req: Request, res: Response)
     res.status(500).json({
       success: false,
       data: [],
-      error: 'خطأ في جلب مصاريف العمال المتنوعة',
-      message: error.message,
+      message: 'خطأ في جلب مصاريف العمال المتنوعة',
+
       processingTime: duration
     });
   }
@@ -1459,8 +1459,8 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1555,8 +1555,8 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
 
     res.status(500).json({
       success: false,
-      error: 'فشل في تحديث المصروف المتنوع للعامل',
-      message: error.message,
+      message: 'فشل في تحديث المصروف المتنوع للعامل',
+      data: null,
       processingTime: duration
     });
   }
@@ -1653,8 +1653,8 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1795,8 +1795,8 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
 
     res.status(500).json({
       success: false,
-      error: 'فشل في جلب ملخص التقارير المالية',
-      message: error.message,
+      message: 'فشل في جلب ملخص التقارير المالية',
+      data: null,
       processingTime: duration
     });
   }
@@ -1846,8 +1846,8 @@ financialRouter.get('/suppliers', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       data: [],
-      error: 'خطأ في جلب قائمة الموردين',
-      message: error.message,
+      message: 'خطأ في جلب قائمة الموردين',
+
       processingTime: duration
     });
   }
@@ -1906,8 +1906,8 @@ financialRouter.post('/suppliers', async (req: Request, res: Response) => {
 
     res.status(statusCode).json({
       success: false,
-      error: errorMessage,
-      message: error.message,
+      message: errorMessage,
+      data: null,
       processingTime: duration
     });
   }
@@ -1994,8 +1994,8 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
     console.error('❌ [MaterialPurchases] خطأ في جلب المشتريات:', error);
     res.status(500).json({
       success: false,
-      error: 'فشل في جلب المشتريات المادية',
-      message: error.message,
+      message: 'فشل في جلب المشتريات المادية',
+      data: null,
       processingTime: duration
     });
   }
@@ -2078,30 +2078,24 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       });
     }
 
-    const newPurchase = await db
-      .insert(materialPurchases)
-      .values(purchaseData)
-      .returning();
-    
-    const p = newPurchase[0];
-    FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.recordMaterialPurchase(
-        p.project_id, parseFloat(p.totalAmount || '0'), p.purchaseDate, p.id, p.purchaseType || 'نقد', getAuthUser(req)?.user_id
-      ),
-      'material-purchase/POST'
-    );
-
-    let createdEquipment = null;
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
-    
-    if (shouldAddToInventory) {
-      try {
+
+    const { newPurchase, createdEquipment } = await db.transaction(async (tx: any) => {
+      const newPurchaseResult = await tx
+        .insert(materialPurchases)
+        .values(purchaseData)
+        .returning();
+
+      const p = newPurchaseResult[0];
+      let eqResult = null;
+
+      if (shouldAddToInventory) {
         const rawQty = parseInt(String(p.quantity || '1'), 10);
         const qty = Number.isNaN(rawQty) || rawQty < 1 ? 1 : rawQty;
         const totalAmountVal = parseFloat(p.totalAmount || '0');
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
-        
-        const [newEquipment] = await db.insert(equipment).values({
+
+        const [newEquipment] = await tx.insert(equipment).values({
           name: p.materialName,
           type: p.materialCategory || null,
           unit: p.materialUnit || p.unit || 'قطعة',
@@ -2115,21 +2109,28 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         }).returning();
 
         const eqCode = `EQ-${String(newEquipment.id).padStart(5, '0')}`;
-        await db.update(equipment)
+        await tx.update(equipment)
           .set({ code: eqCode })
           .where(eq(equipment.id, newEquipment.id));
 
-        createdEquipment = { ...newEquipment, code: eqCode };
-
-        await db.update(materialPurchases)
+        await tx.update(materialPurchases)
           .set({ equipmentId: newEquipment.id, addToInventory: true })
           .where(eq(materialPurchases.id, p.id));
 
+        eqResult = { ...newEquipment, code: eqCode };
         console.log(`📦 [MaterialPurchases→Equipment] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) كود: ${eqCode} تلقائياً من المشتراة ${p.id}`);
-      } catch (eqError: any) {
-        console.error('⚠️ [MaterialPurchases→Equipment] فشل إنشاء المعدة تلقائياً:', eqError.message);
       }
-    }
+
+      return { newPurchase: newPurchaseResult, createdEquipment: eqResult };
+    });
+
+    const p = newPurchase[0];
+    FinancialLedgerService.safeRecord(
+      () => FinancialLedgerService.recordMaterialPurchase(
+        p.project_id, parseFloat(p.totalAmount || '0'), p.purchaseDate, p.id, p.purchaseType || 'نقد', getAuthUser(req)?.user_id
+      ),
+      'material-purchase/POST'
+    );
 
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم إضافة مشتراة جديدة في ${duration}ms`);
@@ -2149,8 +2150,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     console.error('❌ [MaterialPurchases] خطأ في إضافة المشتراة:', error);
     res.status(400).json({
       success: false,
-      error: 'فشل في إضافة المشتراة المادية',
-      message: error.message,
+      message: 'فشل في إضافة المشتراة المادية',
+      data: null,
       processingTime: duration
     });
   }
@@ -2192,8 +2193,8 @@ financialRouter.get('/material-purchases/:id', async (req: Request, res: Respons
     console.error('❌ [MaterialPurchases] خطأ في جلب المشتراة:', error);
     res.status(500).json({
       success: false,
-      error: 'فشل في جلب المشتراة',
-      message: error.message,
+      message: 'فشل في جلب المشتراة',
+      data: null,
       processingTime: duration
     });
   }
@@ -2229,34 +2230,28 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
 
     const alreadyHasEquipment = !!existing.equipmentId;
     const preservedAddToInventory = alreadyHasEquipment ? true : (shouldAddToInventory ? false : (existing.addToInventory ?? false));
+    const purchaseId = req.params.id;
 
-    const updated = await db
-      .update(materialPurchases)
-      .set({
-        ...validatedWithoutInventory,
-        addToInventory: preservedAddToInventory,
-      })
-      .where(eq(materialPurchases.id, req.params.id))
-      .returning();
-    
-    const mp = updated[0];
-    FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'تعديل مشتراة', getAuthUser(req)?.user_id);
-      return FinancialLedgerService.recordMaterialPurchase(
-        mp.project_id, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', getAuthUser(req)?.user_id
-      );
-    }, 'material-purchase/PATCH');
+    const { updated, createdEquipment } = await db.transaction(async (tx: any) => {
+      const updatedResult = await tx
+        .update(materialPurchases)
+        .set({
+          ...validatedWithoutInventory,
+          addToInventory: preservedAddToInventory,
+        })
+        .where(eq(materialPurchases.id, purchaseId))
+        .returning();
 
-    let createdEquipment = null;
+      const mp = updatedResult[0];
+      let eqResult = null;
 
-    if (shouldAddToInventory && !alreadyHasEquipment) {
-      try {
+      if (shouldAddToInventory && !alreadyHasEquipment) {
         const rawQty = parseInt(String(mp.quantity || '1'), 10);
         const qty = Number.isNaN(rawQty) || rawQty < 1 ? 1 : rawQty;
         const totalAmountVal = parseFloat(mp.totalAmount || '0');
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
 
-        const [newEquipment] = await db.insert(equipment).values({
+        const [newEquipment] = await tx.insert(equipment).values({
           name: mp.materialName,
           type: mp.materialCategory || null,
           unit: mp.materialUnit || mp.unit || 'قطعة',
@@ -2270,21 +2265,28 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         }).returning();
 
         const eqCode2 = `EQ-${String(newEquipment.id).padStart(5, '0')}`;
-        await db.update(equipment)
+        await tx.update(equipment)
           .set({ code: eqCode2 })
           .where(eq(equipment.id, newEquipment.id));
 
-        createdEquipment = { ...newEquipment, code: eqCode2 };
-
-        await db.update(materialPurchases)
+        await tx.update(materialPurchases)
           .set({ equipmentId: newEquipment.id, addToInventory: true })
           .where(eq(materialPurchases.id, mp.id));
 
+        eqResult = { ...newEquipment, code: eqCode2 };
         console.log(`📦 [MaterialPurchases→Equipment/PATCH] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) كود: ${eqCode2} تلقائياً من المشتراة ${mp.id}`);
-      } catch (eqError: any) {
-        console.error('⚠️ [MaterialPurchases→Equipment/PATCH] فشل إنشاء المعدة تلقائياً:', eqError.message);
       }
-    }
+
+      return { updated: updatedResult, createdEquipment: eqResult };
+    });
+
+    const mp = updated[0];
+    FinancialLedgerService.safeRecord(async () => {
+      await FinancialLedgerService.findAndReverseBySource('material_purchases', purchaseId, 'تعديل مشتراة', getAuthUser(req)?.user_id);
+      return FinancialLedgerService.recordMaterialPurchase(
+        mp.project_id, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', getAuthUser(req)?.user_id
+      );
+    }, 'material-purchase/PATCH');
 
     const finalAddToInventory = !!createdEquipment || alreadyHasEquipment;
     const finalEquipmentId = createdEquipment?.id || existing.equipmentId || null;
@@ -2307,8 +2309,8 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     console.error('❌ [MaterialPurchases] خطأ في تحديث المشتراة:', error);
     res.status(400).json({
       success: false,
-      error: 'فشل في تحديث المشتراة',
-      message: error.message,
+      message: 'فشل في تحديث المشتراة',
+      data: null,
       processingTime: duration
     });
   }
@@ -2363,8 +2365,8 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
     console.error('❌ [MaterialPurchases] خطأ في حذف المشتراة:', error);
     res.status(400).json({
       success: false,
-      error: 'فشل في حذف المشتراة',
-      message: error.message,
+      message: 'فشل في حذف المشتراة',
+      data: null,
       processingTime: duration
     });
   }
@@ -2412,8 +2414,8 @@ financialRouter.get('/transportation-expenses', async (req: Request, res: Respon
     console.error('❌ [TransportationExpenses] خطأ:', error);
     res.status(500).json({
       success: false,
-      error: 'فشل في جلب النفقات',
-      message: error.message,
+      message: 'فشل في جلب النفقات',
+      data: null,
       processingTime: duration
     });
   }
@@ -2459,8 +2461,8 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
     console.error('❌ [TransportationExpenses] خطأ في الإضافة:', error);
     res.status(400).json({
       success: false,
-      error: 'فشل في إضافة النفقة',
-      message: error.message,
+      message: 'فشل في إضافة النفقة',
+      data: null,
       processingTime: duration
     });
   }
@@ -2502,8 +2504,8 @@ financialRouter.get('/transportation-expenses/:id', async (req: Request, res: Re
     console.error('❌ [TransportationExpenses] خطأ:', error);
     res.status(500).json({
       success: false,
-      error: 'فشل في جلب النفقة',
-      message: error.message,
+      message: 'فشل في جلب النفقة',
+      data: null,
       processingTime: duration
     });
   }
@@ -2564,8 +2566,8 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
     console.error('❌ [TransportationExpenses] خطأ في التحديث:', error);
     res.status(400).json({
       success: false,
-      error: 'فشل في تحديث النفقة',
-      message: error.message,
+      message: 'فشل في تحديث النفقة',
+      data: null,
       processingTime: duration
     });
   }
@@ -2619,8 +2621,8 @@ financialRouter.delete('/transportation-expenses/:id', async (req: Request, res:
     console.error('❌ [TransportationExpenses] خطأ في الحذف:', error);
     res.status(400).json({
       success: false,
-      error: 'فشل في حذف النفقة',
-      message: error.message,
+      message: 'فشل في حذف النفقة',
+      data: null,
       processingTime: duration
     });
   }
@@ -2716,8 +2718,8 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
     console.error('❌ [DailyExpenses] خطأ في جلب مصاريف اليوم:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في جلب المصاريف',
-      message: error.message,
+      message: 'خطأ في جلب المصاريف',
+      data: null,
       processingTime: duration
     });
   }
@@ -2792,8 +2794,8 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
     console.error('❌ [DailyAttendance] خطأ في جلب السجلات:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في جلب سجلات الحضور',
-      message: error.message,
+      message: 'خطأ في جلب سجلات الحضور',
+      data: null,
       processingTime: duration
     });
   }
@@ -2867,8 +2869,8 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
     console.error('❌ [WorkerTransfers] خطأ في جلب الحوالات:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في جلب الحوالات',
-      message: error.message,
+      message: 'خطأ في جلب الحوالات',
+      data: null,
       processingTime: duration
     });
   }
@@ -3023,8 +3025,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     console.error('❌ [WorkerStatement] خطأ في جلب بيان العامل:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في جلب البيان',
-      message: error.message,
+      message: 'خطأ في جلب البيان',
+      data: null,
       processingTime: duration
     });
   }
@@ -3150,7 +3152,8 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
     return res.status(500).json({
       success: false,
       data: { totalSuppliers: 0, totalCashPurchases: "0", totalCreditPurchases: "0", totalDebt: "0", totalPaid: "0", remainingDebt: "0", activeSuppliers: 0 },
-      error: error.message,
+      message: 'حدث خطأ داخلي',
+
       processingTime: duration
     });
   }
@@ -3211,7 +3214,6 @@ financialRouter.get('/materials', async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       data: [],
-      error: error.message,
       message: 'فشل في جلب المواد'
     });
   }
@@ -3238,7 +3240,6 @@ financialRouter.post('/materials', async (req: Request, res: Response) => {
     console.error('❌ [Materials] خطأ في إضافة المادة:', error);
     return res.status(500).json({
       success: false,
-      error: error.message,
       message: 'فشل في إضافة المادة'
     });
   }
@@ -3265,7 +3266,6 @@ financialRouter.get('/materials/:id', async (req: Request, res: Response) => {
   } catch (error: any) {
     return res.status(500).json({
       success: false,
-      error: error.message,
       message: 'فشل في جلب المادة'
     });
   }
@@ -3297,7 +3297,6 @@ financialRouter.patch('/materials/:id', async (req: Request, res: Response) => {
   } catch (error: any) {
     return res.status(500).json({
       success: false,
-      error: error.message,
       message: 'فشل في تحديث المادة'
     });
   }
@@ -3327,7 +3326,6 @@ financialRouter.delete('/materials/:id', async (req: Request, res: Response) => 
   } catch (error: any) {
     return res.status(500).json({
       success: false,
-      error: error.message,
       message: 'فشل في حذف المادة'
     });
   }

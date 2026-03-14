@@ -71,6 +71,9 @@ export class WhatsAppBot {
   private dedupCleanupTimer: NodeJS.Timeout | null = null;
   private userMessageCounts: Map<string, { count: number; resetAt: number }> = new Map();
   private userMinuteRates: Map<string, number[]> = new Map();
+  private rateMapsCleanupTimer: NodeJS.Timeout | null = null;
+  private static RATE_MAP_TTL_MS = 60 * 60 * 1000;
+  private baileysExceptionHandler: ((err: Error) => void) | null = null;
   private notificationService: NotificationService = new NotificationService();
   private conflictReconnectCount: number = 0;
   private conflictTimestamps: number[] = [];
@@ -161,6 +164,14 @@ export class WhatsAppBot {
   }
 
   private async cleanupSocket(): Promise<void> {
+    if (this.baileysExceptionHandler) {
+      process.removeListener('uncaughtException', this.baileysExceptionHandler);
+      this.baileysExceptionHandler = null;
+    }
+    if (this.rateMapsCleanupTimer) {
+      clearInterval(this.rateMapsCleanupTimer);
+      this.rateMapsCleanupTimer = null;
+    }
     if (this.sock) {
       try {
         this.sock.ev?.removeAllListeners?.('connection.update');
@@ -199,6 +210,26 @@ export class WhatsAppBot {
         }
       }
     }, 60_000);
+  }
+
+  private startRateMapsCleanup(): void {
+    if (this.rateMapsCleanupTimer) clearInterval(this.rateMapsCleanupTimer);
+    this.rateMapsCleanupTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [phone, entry] of this.userMessageCounts.entries()) {
+        if (now > entry.resetAt || now - (entry.resetAt - 24 * 60 * 60 * 1000) > WhatsAppBot.RATE_MAP_TTL_MS) {
+          this.userMessageCounts.delete(phone);
+        }
+      }
+      for (const [phone, timestamps] of this.userMinuteRates.entries()) {
+        const recent = timestamps.filter(t => now - t < 60_000);
+        if (recent.length === 0) {
+          this.userMinuteRates.delete(phone);
+        } else {
+          this.userMinuteRates.set(phone, recent);
+        }
+      }
+    }, 5 * 60_000);
   }
 
   private extractMessageContent(msg: any): { text: string; inputType: 'text' | 'button' | 'list' | 'image'; inputId?: string; imageCaption?: string } {
@@ -379,12 +410,16 @@ export class WhatsAppBot {
       console.error('[WhatsAppBot] WebSocket error (non-fatal):', err.message);
     });
 
-    process.removeAllListeners('uncaughtException');
-    process.on('uncaughtException', (err: Error) => {
-      if (err.message?.includes('Unsupported state or unable to authenticate data') ||
+    if (this.baileysExceptionHandler) {
+      process.removeListener('uncaughtException', this.baileysExceptionHandler);
+    }
+    this.baileysExceptionHandler = (err: Error) => {
+      const isBaileysError = err.message?.includes('Unsupported state or unable to authenticate data') ||
           err.message?.includes('aesDecrypt') ||
           err.stack?.includes('noise-handler') ||
-          err.stack?.includes('@whiskeysockets/baileys')) {
+          err.stack?.includes('@whiskeysockets/baileys');
+
+      if (isBaileysError) {
         console.error('[WhatsAppBot] Baileys crypto error caught (non-fatal), will reconnect:', err.message);
         this.status = 'close';
         this.lastError = 'خطأ تشفير مؤقت - جاري إعادة الاتصال';
@@ -395,9 +430,8 @@ export class WhatsAppBot {
         }
         return;
       }
-      console.error('[FATAL] Uncaught exception (not Baileys):', err);
-      process.exit(1);
-    });
+    };
+    process.on('uncaughtException', this.baileysExceptionHandler);
 
     this.sock.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
       const { connection, lastDisconnect, qr } = update;
@@ -508,6 +542,7 @@ export class WhatsAppBot {
         this.pendingPhoneNumber = null;
         this.resetDailyCounter();
         this.startDedupCleanup();
+        this.startRateMapsCleanup();
         console.log('[WhatsAppBot] Connection opened successfully');
         
         try {

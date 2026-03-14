@@ -20,7 +20,7 @@ import { hashPassword, verifyPassword } from '../../auth/crypto-utils.js';
 import { sendVerificationEmail, verifyEmailToken } from '../../services/email-service.js';
 import * as schema from '@shared/schema';
 import { users } from '@shared/schema';
-import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
+import { requireAuth, AuthenticatedRequest, authRateLimit } from '../../middleware/auth.js';
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 import { storage } from '../../storage.js';
 import { getAuthUser } from '../../internal/auth-user.js';
@@ -50,7 +50,7 @@ const authRouter = express.Router();
  * 🔐 تسجيل الدخول
  * POST /api/auth/login
  */
-authRouter.post('/login', async (req: Request, res: Response) => {
+authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('🔐 [AUTH] محاولة تسجيل دخول:', { email: req.body.email, timestamp: new Date().toISOString() });
 
@@ -99,7 +99,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
           });
 
           res.cookie('accessToken', emergencyResult.data.accessToken, {
-            httpOnly: false,
+            httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000
@@ -111,7 +111,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
             message: emergencyResult.message,
             token: emergencyResult.data.accessToken,
             accessToken: emergencyResult.data.accessToken,
-            refreshToken: emergencyResult.data.refreshToken,
             user: {
               id: emergencyResult.data.user_id,
               email: emergencyResult.data.email,
@@ -222,20 +221,18 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     });
 
     res.cookie('accessToken', tokenPair.accessToken, {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000
     });
 
-    // هيكلة استجابة متوافقة تماماً مع Android و Web
     const responseData = {
       success: true,
       status: "success",
       message: 'تم تسجيل الدخول بنجاح',
       token: tokenPair.accessToken, 
       accessToken: tokenPair.accessToken,
-      refreshToken: tokenPair.refreshToken,
       user: {
         id: user.id,
         user_id: user.id,
@@ -249,8 +246,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
       role: user.role || 'user',
       tokens: {
-        accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken
+        accessToken: tokenPair.accessToken
       },
       expiresIn: 900,
       expires_in: 900,
@@ -501,7 +497,7 @@ authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: R
  * 🔄 تجديد Access Token
  * POST /api/auth/refresh
  */
-authRouter.post('/refresh', async (req: Request, res: Response) => {
+authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب تجديد Access Token');
 
@@ -564,26 +560,23 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 
       console.log('✅ [AUTH] تم تجديد الرموز بنجاح:', { user_id: user.id });
 
-      if (cookieToken) {
-        res.cookie('refreshToken', tokenPair.refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 30 * 24 * 60 * 60 * 1000
-        });
-        res.cookie('accessToken', tokenPair.accessToken, {
-          httpOnly: false,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 24 * 60 * 60 * 1000
-        });
-      }
+      res.cookie('refreshToken', tokenPair.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000
+      });
+      res.cookie('accessToken', tokenPair.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000
+      });
 
       const responseData = {
         success: true,
         message: 'تم تجديد الرموز بنجاح',
         accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken,
         expiresIn: 900,
         user: {
           id: user.id,
@@ -1132,7 +1125,7 @@ authRouter.get('/me', requireAuth, (req: any, res: Response) => {
  * 🔑 نسيت كلمة المرور
  * POST /api/auth/forgot-password
  */
-authRouter.post('/forgot-password', async (req: Request, res: Response) => {
+authRouter.post('/forgot-password', authRateLimit, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     if (!email) {
@@ -1163,7 +1156,7 @@ authRouter.post('/forgot-password', async (req: Request, res: Response) => {
  * 🔐 إعادة تعيين كلمة المرور
  * POST /api/auth/reset-password
  */
-authRouter.post('/reset-password', async (req: Request, res: Response) => {
+authRouter.post('/reset-password', authRateLimit, async (req: Request, res: Response) => {
   try {
     const { token, newPassword } = req.body;
     

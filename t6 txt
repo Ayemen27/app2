@@ -1,0 +1,357 @@
+================================================================================
+T006: FRONTEND ARCHITECTURE & STATE MANAGEMENT AUDIT REPORT
+================================================================================
+Date: 2025-01-XX
+Scope: React component architecture, React Query usage, form handling, error
+       boundaries, auth flow, XSS vulnerabilities, accessibility, bundle size,
+       offline/sync components
+
+================================================================================
+1. COMPONENT ARCHITECTURE & REUSABILITY
+================================================================================
+
+FINDINGS:
+
+[HIGH] Monolithic page components - Many pages are extremely large:
+  - daily-expenses.tsx: 4,094 lines
+  - whatsapp/index.tsx: 2,774 lines
+  - axion-reports.tsx: 1,929 lines
+  - material-purchase.tsx: 1,602 lines
+  - projects.tsx: 1,574 lines
+  These should be broken into smaller, composable sub-components for
+  maintainability and testability.
+
+[MEDIUM] AuthProvider.tsx is 803 lines - Contains login, biometric login,
+  offline login, token refresh, logout, and session revalidation all in one
+  file. Should be split into separate concerns (online auth, offline auth,
+  token management, session revalidation).
+
+[MEDIUM] App.tsx has module-level side effects (lines 8-21, 106-108):
+  - ResizeObserver monkey-patching at module scope
+  - initializeStorage() called at module scope
+  - intelligentMonitor.initialize() called at module scope
+  These should be moved into useEffect hooks or initialization functions.
+
+[LOW] Duplicate import patterns - Some pages import React explicitly
+  (unnecessary with Vite JSX transform) and have @ts-ignore comments
+  (e.g., dashboard.tsx line 9).
+
+[GOOD] Proper use of React.lazy() for code splitting - ~30 lazy-loaded pages.
+[GOOD] Consistent use of Shadcn UI components across the application.
+[GOOD] Sidebar uses the built-in Shadcn sidebar primitives correctly.
+
+================================================================================
+2. REACT QUERY USAGE PATTERNS
+================================================================================
+
+FINDINGS:
+
+[HIGH] Excessive console.log in queryClient.ts - Production builds will have
+  verbose logging on every API request and response (lines 334, 374, 427, 448,
+  464, etc.). This impacts performance and leaks information in production.
+  Recommendation: Wrap all debug logs in process.env.NODE_ENV === 'development'.
+
+[MEDIUM] Custom queryFn defined in SelectedProjectContext.tsx (line 63-80)
+  bypasses the default query function. The default queryFn already handles auth
+  headers and offline fallback, but this custom one manually adds Authorization
+  header from localStorage directly instead of using the centralized
+  getStoredAccessToken(). This creates inconsistency.
+
+[MEDIUM] Header component (header.tsx line 99-107) defines a custom queryFn
+  for projects that also bypasses the default queryFn with its own error handling
+  that silently returns empty arrays, potentially masking real errors.
+
+[MEDIUM] queryClient defaults have refetchOnWindowFocus: false,
+  refetchOnMount: false, and refetchOnReconnect: false. While this improves
+  performance, it means data can become stale without the user realizing it.
+  The pull-to-refresh partially mitigates this, but users on desktop have no
+  easy way to refresh data other than full page reload.
+
+[LOW] getQueryFn joins queryKey with "/" (line 313): `queryKey.join("/")`.
+  This assumes all query keys are path segments, which works for API endpoints
+  but could break if non-path query keys are used.
+
+[GOOD] Proper cache invalidation after mutations using queryKey arrays.
+[GOOD] Offline fallback with local storage when network is unavailable.
+[GOOD] Token refresh retry logic on 401 responses.
+
+================================================================================
+3. FORM HANDLING CONSISTENCY
+================================================================================
+
+FINDINGS:
+
+[GOOD] LoginPage.tsx correctly uses react-hook-form with zodResolver.
+[GOOD] Form validation schemas use Zod with proper Arabic error messages.
+[GOOD] useMutation for form submissions with proper isPending states.
+
+[LOW] LoginPage uses form.getValues('email') before form is defined (line 114)
+  - The `handleBiometricLogin` function references `form` which is defined
+    on line 163, after the function. This works due to hoisting but is
+    a code organization issue.
+
+================================================================================
+4. ERROR BOUNDARIES
+================================================================================
+
+FINDINGS:
+
+[MEDIUM] ErrorBoundary uses emoji "⚠️" in the fallback UI (line 33).
+  Per design guidelines, emoji should not be used in application UI.
+
+[MEDIUM] ErrorBoundary fallback has a "تسجيل دخول جديد" button that calls
+  localStorage.clear() (line 49). This is a nuclear option that clears ALL
+  localStorage data including offline data, cached credentials, etc. Should
+  only clear auth-related keys.
+
+[GOOD] Dual error boundaries in App.tsx - outer one wraps entire app, inner one
+  wraps the route content. This prevents total app crash on route-level errors.
+
+[GOOD] ErrorBoundary shows error details only in development mode.
+
+[CONCERN] No error boundary wrapping individual Suspense boundaries. If a lazy
+  component fails to load (e.g., network error during chunk fetch), the error
+  propagates up to the nearest ErrorBoundary which is at the App level, causing
+  the entire app to show the error state rather than just the affected page.
+
+================================================================================
+5. AUTHENTICATION FLOW AUDIT
+================================================================================
+
+FINDINGS:
+
+[HIGH] Token storage in localStorage (AuthProvider.tsx lines 446-452) - 
+  Access tokens and refresh tokens are stored in localStorage, which is
+  vulnerable to XSS attacks. Any XSS vulnerability would allow token theft.
+  Consider using httpOnly cookies for token storage.
+
+[HIGH] Offline login accepts any locally-stored user if password hash
+  verification passes (AuthProvider.tsx lines 290-334). The offline user
+  data in IndexedDB could potentially be tampered with if an attacker has
+  access to the browser's dev tools. The role from offline storage is trusted
+  without server validation.
+
+[MEDIUM] AuthProvider trusts localStorage 'emailVerified' flag (lines 145, 425).
+  A user could manually set localStorage.setItem('emailVerified', 'true') to
+  bypass email verification checks on the frontend. Backend should enforce this.
+
+[MEDIUM] ProtectedRoute logs sensitive information (user email) to console on
+  every render (line 19-25). This should be removed in production.
+
+[MEDIUM] ProtectedRoute has an exclusion list for paths (line 51) that allows
+  unauthenticated users to pass through. This is checked via
+  window.location.pathname which could potentially be manipulated. However,
+  since these routes (/check, /login, etc.) are also defined outside the
+  ProtectedRoute wrapper in App.tsx, this is redundant dead code.
+
+[LOW] AdminRoute role check (line 34-35): `adminRoles` is hardcoded as
+  ["admin", "super_admin"]. If new admin roles are added, this must be
+  updated in multiple places.
+
+[GOOD] Session revalidation on network reconnect (AuthProvider lines 200-252).
+[GOOD] Storage event listener for cross-tab logout (lines 189-198).
+[GOOD] AbortController with timeout on login request (lines 263-265).
+
+================================================================================
+6. XSS VULNERABILITIES
+================================================================================
+
+FINDINGS:
+
+[HIGH] ai-chat.tsx (line 50-53, 83, 92): The `generatePrintPDF` function
+  takes AI-generated content, performs regex replacements to create HTML
+  (replacing **bold** with <strong> tags, newlines with <br/>), and writes
+  it directly to a new window via document.write() WITHOUT sanitization.
+  If the AI response contains malicious HTML/JS, it will execute in the
+  user's browser context.
+  
+  Affected code:
+    const contentHTML = content
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/━+/g, "<hr/>")
+      .replace(/\n/g, "<br/>");
+    win.document.write(html);  // html contains unsanitized contentHTML
+
+  Similarly, table data from AI (line 45) is inserted without escaping:
+    `<td>${row[c] != null ? String(row[c]) : "-"}</td>`
+
+  Recommendation: Use DOMPurify (already in the project for pdf-exports.tsx)
+  to sanitize all AI-generated content before inserting into HTML.
+
+[HIGH] equipment-management.tsx (line 586): document.write with
+  potentially unsanitized content in print functionality.
+
+[MEDIUM] main.tsx (line 71): innerHTML used for error display, but the
+  content is a hardcoded Arabic string, so XSS risk is minimal here.
+
+[GOOD] pdf-exports.tsx and pdfGenerator.ts properly use DOMPurify for
+  HTML sanitization.
+
+[GOOD] React's JSX auto-escaping prevents most XSS in rendered components.
+
+================================================================================
+7. ACCESSIBILITY BASICS
+================================================================================
+
+FINDINGS:
+
+[GOOD] Sidebar items have aria-label and aria-current attributes.
+[GOOD] Header uses role="banner" and proper ARIA labels.
+[GOOD] Main content area has role="main" and aria-label.
+[GOOD] Interactive elements have data-testid attributes.
+[GOOD] Theme toggle has descriptive aria-label.
+[GOOD] Icons use aria-hidden="true".
+
+[MEDIUM] ErrorBoundary buttons lack data-testid attributes.
+[MEDIUM] The entire app is RTL (dir="rtl") which is correct for Arabic,
+  but there's no language tag (lang="ar") set on the root element.
+
+[LOW] PageLoader uses hardcoded Arabic text without i18n support.
+
+================================================================================
+8. BUNDLE SIZE CONCERNS
+================================================================================
+
+FINDINGS:
+
+[MEDIUM] Large icon imports from lucide-react across files. While tree-shaking
+  should handle this, some files import 20+ icons (header.tsx imports ~30 icons,
+  app-sidebar.tsx imports ~30 icons). This is acceptable with tree-shaking.
+
+[GOOD] Extensive use of React.lazy() for route-based code splitting.
+  ~30 pages are lazy-loaded, which is excellent for initial bundle size.
+
+[MEDIUM] framer-motion imported in ai-chat.tsx (line 15) - this is a large
+  library (~32KB gzipped). Verify it's only loaded when needed (it is, since
+  ai-chat is lazy-loaded).
+
+[LOW] The offline module is large with many files (sync.ts, db.ts,
+  storage-factory.ts, etc.) and some are imported at module scope in App.tsx
+  (lines 63-68), meaning they're included in the main bundle rather than
+  being lazy-loaded.
+
+================================================================================
+9. OFFLINE/SYNC COMPONENTS AUDIT
+================================================================================
+
+FINDINGS:
+
+[HIGH] App.tsx Router component (lines 118-175): The useEffect for sync
+  initialization uses Capacitor and PushNotifications without checking if
+  those modules are available first. On web, `Capacitor.isNativePlatform()`
+  should return false, but the import is at module level (line 427-428)
+  which could cause issues if @capacitor/core isn't properly configured.
+
+[MEDIUM] Multiple initialization points for IndexedDB:
+  - main.tsx line 50: initializeDB().catch(console.error)
+  - App.tsx line 122: await initializeDB()
+  - App.tsx line 106: initializeStorage()
+  This triple initialization is redundant and could cause race conditions.
+
+[MEDIUM] The sync state subscription in Router (lines 144-166) creates a
+  subscription but the cleanup function (line 168) is returned inside the
+  async initSync function, not from the useEffect itself. This means the
+  unsubscribe function is never actually called on unmount, causing a
+  memory leak.
+
+  Code:
+    useEffect(() => {
+      const initSync = async () => {
+        // ...
+        const unsubscribe = subscribeSyncState((state) => { ... });
+        return () => unsubscribe();  // This return is inside async, not useEffect
+      };
+      initSync();  // The cleanup from async is ignored
+    }, []);
+
+[GOOD] SyncProgressTracker and PullToRefreshIndicator provide visual
+  feedback for sync operations.
+[GOOD] Offline API interceptor queues mutations when offline.
+
+================================================================================
+10. MISCELLANEOUS ISSUES
+================================================================================
+
+[MEDIUM] process.env.NODE_ENV used in frontend code (app-sidebar.tsx line 259,
+  ErrorBoundary.tsx line 57). Per guidelines, should use import.meta.env
+  instead. However, Vite typically replaces process.env.NODE_ENV during build.
+
+[LOW] LoginPage.tsx line 139: `window.location.href = "/"` used for navigation
+  after biometric login instead of wouter's navigate(). This causes a full
+  page reload.
+
+[LOW] Redundant duplicate checks in AuthProvider email verification:
+  Line 142: data.user.emailVerified === true
+  Line 143: data.user.emailVerified === true (exact duplicate)
+  Line 389: possibleRefreshKeys = ['refreshToken', 'refreshToken'] (duplicate)
+
+================================================================================
+SUMMARY OF FINDINGS BY SEVERITY
+================================================================================
+
+CRITICAL: 0
+
+HIGH: 5
+  - Tokens stored in localStorage (XSS token theft risk)
+  - XSS in ai-chat.tsx generatePrintPDF (unsanitized AI content)
+  - XSS in equipment-management.tsx document.write
+  - Offline login trusts local role without server validation
+  - Excessive production console logging in queryClient.ts
+
+MEDIUM: 13
+  - AuthProvider is monolithic (803 lines)
+  - Module-level side effects in App.tsx
+  - Custom queryFn bypasses default in multiple components
+  - Stale data risk with all refetch options disabled
+  - ErrorBoundary uses emoji in UI
+  - ErrorBoundary localStorage.clear() is too aggressive
+  - No per-route error boundaries around Suspense
+  - Frontend trusts localStorage 'emailVerified' flag
+  - ProtectedRoute logs user email to console
+  - Double/triple DB initialization
+  - Memory leak in sync subscription cleanup
+  - process.env.NODE_ENV usage in frontend
+  - Missing lang="ar" on root element
+
+LOW: 6
+  - Duplicate checks in AuthProvider
+  - window.location.href instead of navigate()
+  - Form function references before declaration
+  - No i18n support
+  - Offline modules in main bundle
+  - @ts-ignore comments
+
+GOOD PRACTICES OBSERVED:
+  - Extensive code splitting with React.lazy (~30 pages)
+  - Proper Shadcn component usage
+  - Dual error boundaries (app-level + route-level)
+  - react-hook-form with zodResolver for form validation
+  - Proper ARIA attributes and accessibility labels
+  - data-testid attributes on interactive elements
+  - Offline fallback with IndexedDB
+  - Token refresh retry on 401
+  - Cross-tab logout via storage events
+  - Pull-to-refresh for data updates
+  - DOMPurify used in PDF generation (but not in AI chat print)
+
+================================================================================
+PRIORITY RECOMMENDATIONS
+================================================================================
+
+1. SANITIZE AI CONTENT: Add DOMPurify.sanitize() to generatePrintPDF in
+   ai-chat.tsx and equipment-management.tsx document.write calls.
+
+2. REDUCE CONSOLE LOGGING: Wrap all queryClient.ts debug logs in
+   process.env.NODE_ENV === 'development' checks.
+
+3. FIX SYNC MEMORY LEAK: Move the subscribeSyncState cleanup out of the
+   async function and into the useEffect return directly.
+
+4. CONSOLIDATE DB INITIALIZATION: Remove duplicate initializeDB() calls,
+   keep only one initialization point.
+
+5. CONSIDER httpOnly COOKIES: Evaluate migrating token storage from
+   localStorage to httpOnly cookies to mitigate XSS token theft.
+
+6. BREAK UP LARGE FILES: Split daily-expenses.tsx (4,094 lines) and
+   other large page components into sub-components.

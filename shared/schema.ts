@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial, doublePrecision, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial, doublePrecision, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -547,13 +547,15 @@ export const workerBalances = pgTable("worker_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
   project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  totalEarned: decimal("total_earned", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المكتسب
-  totalPaid: decimal("total_paid", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المدفوع
-  totalTransferred: decimal("total_transferred", { precision: 15, scale: 2 }).default('0').notNull(), // إجمالي المحول للأهل
-  currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).default('0').notNull(), // الرصيد الحالي
+  totalEarned: decimal("total_earned", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalPaid: decimal("total_paid", { precision: 15, scale: 2 }).default('0').notNull(),
+  totalTransferred: decimal("total_transferred", { precision: 15, scale: 2 }).default('0').notNull(),
+  currentBalance: decimal("current_balance", { precision: 15, scale: 2 }).default('0').notNull(),
   lastUpdated: timestamp("last_updated").defaultNow().notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("idx_worker_balances_worker_project").on(table.worker_id, table.project_id),
+]);
 
 // Daily Activity Logs (سجلات النشاط اليومي)
 export const dailyActivityLogs = pgTable("daily_activity_logs", {

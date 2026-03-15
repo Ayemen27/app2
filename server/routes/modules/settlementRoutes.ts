@@ -34,6 +34,17 @@ interface FundTransferPreview {
   amount: number;
 }
 
+interface WorkerProjectBalanceWithFlag extends WorkerProjectBalance {
+  isSettlementProject: boolean;
+}
+
+interface WorkerSettlementPreviewFull {
+  workerId: string;
+  workerName: string;
+  projects: WorkerProjectBalanceWithFlag[];
+  totalBalance: number;
+}
+
 async function calculatePreviewData(
   workerIds: string[] | 'all',
   settlementProjectId: string,
@@ -41,8 +52,7 @@ async function calculatePreviewData(
   queryFn: (text: string, params: any[]) => Promise<any>
 ) {
   let paramIndex = 1;
-  let workerParams: any[] = [settlementProjectId];
-  paramIndex++;
+  let workerParams: any[] = [];
 
   let projectAccessFilter = '';
   if (accessibleProjectIds.length > 0) {
@@ -66,13 +76,13 @@ async function calculatePreviewData(
      FROM worker_attendance wa
      JOIN workers w ON w.id = wa.worker_id
      JOIN projects p ON p.id = wa.project_id
-     WHERE wa.project_id != $1 ${projectAccessFilter} ${workerFilter}
+     WHERE 1=1 ${projectAccessFilter} ${workerFilter}
      GROUP BY wa.worker_id, wa.project_id, p.name, w.name`,
     workerParams
   );
 
-  let transferParams: any[] = [settlementProjectId];
-  let tParamIndex = 2;
+  let tParamIndex = 1;
+  let transferParams: any[] = [];
   let tProjectAccessFilter = '';
   if (accessibleProjectIds.length > 0) {
     const projectPlaceholders = accessibleProjectIds.map((_, i) => `$${tParamIndex + i}`).join(',');
@@ -92,7 +102,7 @@ async function calculatePreviewData(
             COALESCE(SUM(CAST(wt.amount AS DECIMAL(15,2))), 0) as total_transferred
      FROM worker_transfers wt
      JOIN workers w ON w.id = wt.worker_id
-     WHERE wt.project_id != $1 ${tProjectAccessFilter} ${tWorkerFilter}
+     WHERE 1=1 ${tProjectAccessFilter} ${tWorkerFilter}
      GROUP BY wt.worker_id, wt.project_id`,
     transferParams
   );
@@ -102,7 +112,7 @@ async function calculatePreviewData(
     transferMap.set(`${row.worker_id}:${row.project_id}`, parseFloat(row.total_transferred));
   }
 
-  const workerMap = new Map<string, WorkerSettlementPreview>();
+  const workerMap = new Map<string, WorkerSettlementPreviewFull>();
   const warnings: string[] = [];
 
   for (const row of earnedResult.rows) {
@@ -122,6 +132,8 @@ async function calculatePreviewData(
       });
     }
 
+    const isSettlementProject = row.project_id === settlementProjectId;
+
     const worker = workerMap.get(row.worker_id)!;
     worker.projects.push({
       projectId: row.project_id,
@@ -130,6 +142,7 @@ async function calculatePreviewData(
       paid,
       transferred,
       balance,
+      isSettlementProject,
     });
     worker.totalBalance += balance;
 
@@ -149,7 +162,7 @@ async function calculatePreviewData(
   const projectTotals = new Map<string, { fromProjectId: string; fromProjectName: string; amount: number }>();
   for (const worker of workers) {
     for (const proj of worker.projects) {
-      if (proj.balance > 0) {
+      if (proj.balance > 0 && !proj.isSettlementProject) {
         const existing = projectTotals.get(proj.projectId);
         if (existing) {
           existing.amount += proj.balance;
@@ -171,7 +184,9 @@ async function calculatePreviewData(
     amount: t.amount,
   }));
 
-  const totalSettlementAmount = workers.reduce((sum, w) => sum + w.totalBalance, 0);
+  const totalSettlementAmount = workers.reduce((sum, w) => {
+    return sum + w.projects.filter(p => !p.isSettlementProject).reduce((s, p) => s + (p.balance > 0 ? p.balance : 0), 0);
+  }, 0);
 
   return { workers, fundTransfers, totalSettlementAmount, warnings, settlementProjectName };
 }
@@ -223,7 +238,7 @@ settlementRouter.get('/preview', async (req: Request, res: Response) => {
 
 settlementRouter.post('/execute', async (req: Request, res: Response) => {
   try {
-    const { worker_ids, settlement_project_id, notes } = req.body;
+    const { worker_ids, settlement_project_id, notes, excluded_projects } = req.body;
     const accessReq = req as ProjectAccessRequest;
     const accessibleProjectIds = accessReq.accessibleProjectIds || [];
 
@@ -237,6 +252,9 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
     if (accessibleProjectIds.length > 0 && !accessibleProjectIds.includes(settlement_project_id as string)) {
       return sendError(res, 'ليس لديك صلاحية الوصول لهذا المشروع', 403);
     }
+
+    const workerExclusions: Record<string, string[]> = excluded_projects && typeof excluded_projects === 'object'
+      ? excluded_projects : {};
 
     const authUser = getAuthUser(req);
     const userId = authUser?.user_id || null;
@@ -253,7 +271,14 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         throw new Error('لا يوجد عمال مؤهلون للتصفية');
       }
 
-      const positiveWorkers = preview.workers.filter(w => w.projects.some(p => p.balance > 0));
+      const isProjectIncluded = (workerId: string, proj: { projectId: string; balance: number; isSettlementProject: boolean }) => {
+        if (proj.isSettlementProject || proj.balance <= 0) return false;
+        const excluded = workerExclusions[workerId];
+        if (excluded && Array.isArray(excluded) && excluded.includes(proj.projectId)) return false;
+        return true;
+      };
+
+      const positiveWorkers = preview.workers.filter(w => w.projects.some(p => isProjectIncluded(w.workerId, p)));
       if (positiveWorkers.length === 0) {
         throw new Error('لا يوجد عمال بأرصدة موجبة قابلة للتصفية');
       }
@@ -261,7 +286,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       const today = new Date().toISOString().split('T')[0];
 
       const positiveTotal = positiveWorkers.reduce((sum, w) => {
-        return sum + w.projects.filter(p => p.balance > 0).reduce((s, p) => s + p.balance, 0);
+        return sum + w.projects.filter(p => isProjectIncluded(w.workerId, p)).reduce((s, p) => s + p.balance, 0);
       }, 0);
 
       const settlementResult = await client.query(
@@ -273,7 +298,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           settlement_project_id,
           positiveTotal.toFixed(2),
           positiveWorkers.length,
-          preview.fundTransfers.length,
+          0,
           'completed',
           notes || null,
           userId,
@@ -281,9 +306,11 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       );
       const settlementId = settlementResult.rows[0].id;
 
+      const actualFundTotals = new Map<string, { fromProjectId: string; fromProjectName: string; amount: number }>();
+
       for (const worker of positiveWorkers) {
         for (const proj of worker.projects) {
-          if (proj.balance <= 0) continue;
+          if (!isProjectIncluded(worker.workerId, proj)) continue;
 
           await client.query(
             `INSERT INTO worker_settlement_lines (settlement_id, worker_id, from_project_id, to_project_id, amount, balance_before, balance_after)
@@ -298,12 +325,23 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
               '0',
             ]
           );
+
+          const existing = actualFundTotals.get(proj.projectId);
+          if (existing) {
+            existing.amount += proj.balance;
+          } else {
+            actualFundTotals.set(proj.projectId, {
+              fromProjectId: proj.projectId,
+              fromProjectName: proj.projectName,
+              amount: proj.balance,
+            });
+          }
         }
       }
 
       const workerNames = positiveWorkers.map(w => w.workerName).join('، ');
 
-      for (const transfer of preview.fundTransfers) {
+      for (const transfer of actualFundTotals.values()) {
         await client.query(
           `INSERT INTO project_fund_transfers (from_project_id, to_project_id, amount, description, transfer_reason, transfer_date)
            VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -320,7 +358,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
 
       for (const worker of positiveWorkers) {
         for (const proj of worker.projects) {
-          if (proj.balance <= 0) continue;
+          if (!isProjectIncluded(worker.workerId, proj)) continue;
 
           await client.query(
             `UPDATE worker_balances 
@@ -349,6 +387,11 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       }
 
       await client.query(
+        `UPDATE worker_settlements SET transfer_count = $1 WHERE id = $2`,
+        [actualFundTotals.size, settlementId]
+      );
+
+      await client.query(
         `INSERT INTO audit_logs (user_id, action, meta, created_at)
          VALUES ($1, $2, $3, NOW())`,
         [
@@ -359,7 +402,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             settlementProjectId: settlement_project_id,
             workerCount: positiveWorkers.length,
             totalAmount: positiveTotal,
-            transferCount: preview.fundTransfers.length,
+            transferCount: actualFundTotals.size,
           }),
         ]
       );
@@ -368,7 +411,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         settlementId,
         workerCount: positiveWorkers.length,
         totalAmount: positiveTotal,
-        transferCount: preview.fundTransfers.length,
+        transferCount: actualFundTotals.size,
         warnings: preview.warnings,
       };
     });

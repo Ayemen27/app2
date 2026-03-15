@@ -34,6 +34,7 @@ import {
   Play,
   AlertTriangle,
   Plus,
+  X,
   Building,
   User,
   ChevronDown,
@@ -53,6 +54,7 @@ interface WorkerProjectBalance {
   paid: number;
   transferred: number;
   balance: number;
+  isSettlementProject?: boolean;
 }
 
 interface WorkerPreview {
@@ -125,6 +127,7 @@ export default function WorkerSettlementsPage() {
   const [settlementProjectId, setSettlementProjectId] = useState("");
   const [preview, setPreview] = useState<SettlementPreview | null>(null);
   const [selectedWorkers, setSelectedWorkers] = useState<Set<string>>(new Set());
+  const [excludedProjects, setExcludedProjects] = useState<Map<string, Set<string>>>(new Map());
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [expandedSettlement, setExpandedSettlement] = useState<string | null>(null);
 
@@ -150,6 +153,7 @@ export default function WorkerSettlementsPage() {
     },
     onSuccess: (data) => {
       setPreview(data);
+      setExcludedProjects(new Map());
       if (data?.workers) {
         const uniqueWorkers = new Set(data.workers.map((w: WorkerPreview) => w.workerId));
         setSelectedWorkers(uniqueWorkers);
@@ -166,9 +170,16 @@ export default function WorkerSettlementsPage() {
 
   const executeMutation = useMutation({
     mutationFn: async () => {
+      const workerExclusions: Record<string, string[]> = {};
+      excludedProjects.forEach((projectIds, workerId) => {
+        if (projectIds.size > 0 && selectedWorkers.has(workerId)) {
+          workerExclusions[workerId] = Array.from(projectIds);
+        }
+      });
       return apiRequest("/api/worker-settlements/execute", "POST", {
         settlement_project_id: settlementProjectId,
         worker_ids: Array.from(selectedWorkers),
+        excluded_projects: workerExclusions,
       });
     },
     onSuccess: () => {
@@ -231,14 +242,42 @@ export default function WorkerSettlementsPage() {
     );
   }, [preview, searchValue]);
 
+  const isProjectExcluded = useCallback((workerId: string, projectId: string) => {
+    return excludedProjects.get(workerId)?.has(projectId) || false;
+  }, [excludedProjects]);
+
+  const toggleProjectForWorker = useCallback((workerId: string, projectId: string) => {
+    setExcludedProjects(prev => {
+      const newMap = new Map(prev);
+      const workerExcluded = new Set(newMap.get(workerId) || []);
+      if (workerExcluded.has(projectId)) {
+        workerExcluded.delete(projectId);
+      } else {
+        workerExcluded.add(projectId);
+      }
+      newMap.set(workerId, workerExcluded);
+      return newMap;
+    });
+  }, []);
+
+  const getActiveProjects = useCallback((worker: WorkerPreview) => {
+    const workerExcluded = excludedProjects.get(worker.workerId);
+    return worker.projects.filter(p =>
+      !p.isSettlementProject && p.balance > 0 && !(workerExcluded?.has(p.projectId))
+    );
+  }, [excludedProjects]);
+
   const selectedSummary = useMemo(() => {
     if (!preview?.workers) return { amount: 0, count: 0 };
     const selected = preview.workers.filter((w) => selectedWorkers.has(w.workerId));
+    let count = 0;
     const amount = selected.reduce((sum, w) => {
-      return sum + w.projects.filter(p => p.balance > 0).reduce((s, p) => s + p.balance, 0);
+      const activeProjects = getActiveProjects(w);
+      if (activeProjects.length > 0) count++;
+      return sum + activeProjects.reduce((s, p) => s + p.balance, 0);
     }, 0);
-    return { amount, count: selected.length };
-  }, [preview, selectedWorkers]);
+    return { amount, count };
+  }, [preview, selectedWorkers, excludedProjects, getActiveProjects]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
     if (activeView === "new" && preview) {
@@ -548,35 +587,92 @@ export default function WorkerSettlementsPage() {
                             variant: worker.totalBalance >= 0 ? "success" : "destructive",
                           },
                         ]}
-                        fields={worker.projects.map((p) => ({
-                          label: p.projectName,
-                          value: formatCurrency(p.balance),
-                          icon: Building,
-                          color: (p.balance > 0 ? "success" : p.balance < 0 ? "danger" : "muted") as "success" | "danger" | "muted",
-                        }))}
+                        fields={[]}
                         footer={
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400">المستحقات</p>
-                              <p className="text-xs font-bold text-green-600 dark:text-green-400">
-                                {formatCurrency(totalEarned)}
-                              </p>
+                          <div className="space-y-2">
+                            <div className="space-y-1">
+                              {worker.projects.map((p) => {
+                                const excluded = isProjectExcluded(worker.workerId, p.projectId);
+                                const canToggle = !p.isSettlementProject && p.balance > 0;
+                                return (
+                                  <div
+                                    key={p.projectId}
+                                    className={`flex items-center justify-between gap-1 py-1.5 px-2 rounded-md transition-all ${
+                                      excluded
+                                        ? "bg-gray-100 dark:bg-gray-800 opacity-50"
+                                        : p.isSettlementProject
+                                        ? "bg-gray-50 dark:bg-gray-800/50"
+                                        : "bg-white dark:bg-gray-900/30"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      {canToggle && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleProjectForWorker(worker.workerId, p.projectId);
+                                          }}
+                                          className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+                                            excluded
+                                              ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400"
+                                              : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                                          }`}
+                                          data-testid={`toggle-project-${worker.workerId}-${p.projectId}`}
+                                        >
+                                          {excluded ? (
+                                            <Plus className="h-3 w-3" />
+                                          ) : (
+                                            <X className="h-3 w-3" />
+                                          )}
+                                        </button>
+                                      )}
+                                      <Building className="h-3 w-3 text-muted-foreground shrink-0" />
+                                      <span className={`text-[11px] truncate ${excluded ? "line-through text-muted-foreground" : ""}`}>
+                                        {p.isSettlementProject ? `${p.projectName} ⭐` : p.projectName}
+                                      </span>
+                                    </div>
+                                    <span
+                                      className={`text-[11px] font-bold shrink-0 ${
+                                        excluded
+                                          ? "text-muted-foreground line-through"
+                                          : p.isSettlementProject
+                                          ? "text-muted-foreground"
+                                          : p.balance > 0
+                                          ? "text-green-600 dark:text-green-400"
+                                          : p.balance < 0
+                                          ? "text-red-600 dark:text-red-400"
+                                          : "text-muted-foreground"
+                                      }`}
+                                    >
+                                      {formatCurrency(p.balance)}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center">
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400">المدفوع</p>
-                              <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
-                                {formatCurrency(totalPaidTransferred)}
-                              </p>
-                            </div>
-                            <div
-                              className={`${worker.totalBalance >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"} rounded-lg p-2 text-center`}
-                            >
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
-                              <p
-                                className={`text-xs font-bold ${worker.totalBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">المستحقات</p>
+                                <p className="text-xs font-bold text-green-600 dark:text-green-400">
+                                  {formatCurrency(totalEarned)}
+                                </p>
+                              </div>
+                              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center">
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">المدفوع</p>
+                                <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
+                                  {formatCurrency(totalPaidTransferred)}
+                                </p>
+                              </div>
+                              <div
+                                className={`${worker.totalBalance >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"} rounded-lg p-2 text-center`}
                               >
-                                {formatCurrency(worker.totalBalance)}
-                              </p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
+                                <p
+                                  className={`text-xs font-bold ${worker.totalBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}
+                                >
+                                  {formatCurrency(worker.totalBalance)}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         }

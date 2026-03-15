@@ -19,13 +19,13 @@ import { format, addDays, subDays } from "date-fns";
 import { ar } from "date-fns/locale";
 import {
   ClipboardCheck, CheckCircle, XCircle, Clock, BarChart3, Download, Plus, Edit, Trash2, Loader,
-  MapPin, Calendar, UserCheck, Users, Wrench, TrendingUp, ChevronRight, ChevronLeft, ArrowUpDown
+  MapPin, Calendar, UserCheck, Users, Wrench, TrendingUp, ChevronRight, ChevronLeft, ArrowUpDown, FileText
 } from "lucide-react";
 
-const WELL_STATUS_MAP: Record<string, { label: string }> = {
-  pending: { label: 'لم يبدأ' },
-  in_progress: { label: 'قيد التنفيذ' },
-  completed: { label: 'منجز' },
+const WELL_STATUS_MAP: Record<string, { label: string; color: string; badgeClass: string }> = {
+  pending: { label: 'لم يبدأ', color: '#9ca3af', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600' },
+  in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeClass: 'bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600' },
+  completed: { label: 'منجز', color: '#22c55e', badgeClass: 'bg-green-100 text-green-800 border-green-400 dark:bg-green-900/40 dark:text-green-300 dark:border-green-600' },
 };
 
 function toDateInputValue(val: any): string {
@@ -89,6 +89,7 @@ export default function WellReceptionsPage() {
   });
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [showReceptionDialog, setShowReceptionDialog] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
   const [editingReceptionId, setEditingReceptionId] = useState<number | null>(null);
@@ -257,9 +258,9 @@ export default function WellReceptionsPage() {
       key: "status", label: "حالة البئر", type: "select", placeholder: "اختر الحالة",
       options: [
         { value: "all", label: "جميع الحالات" },
-        { value: "pending", label: "لم يبدأ" },
-        { value: "in_progress", label: "قيد التنفيذ" },
-        { value: "completed", label: "منجز" },
+        { value: "pending", label: "لم يبدأ", dotColor: "#9ca3af" },
+        { value: "in_progress", label: "قيد التنفيذ", dotColor: "#f59e0b" },
+        { value: "completed", label: "منجز", dotColor: "#22c55e" },
       ],
       defaultValue: "all",
     },
@@ -330,14 +331,76 @@ export default function WellReceptionsPage() {
     }
   }, [filteredWells, stats, toast]);
 
+  const receptionColumns = [
+    { header: "#", key: "index", width: 5 },
+    { header: "رقم البئر", key: "wellNumber", width: 10 },
+    { header: "اسم المستفيد", key: "ownerName", width: 20 },
+    { header: "المنطقة", key: "region", width: 14 },
+    { header: "اسم المستلم", key: "receiverName", width: 18 },
+    { header: "المهندسين", key: "engineers", width: 20 },
+    { header: "حالة الفحص", key: "inspectionStatus", width: 14 },
+    { header: "ملاحظات الفحص", key: "inspectionNotes", width: 25 },
+    { header: "تاريخ الاستلام", key: "receptionDate", width: 14 },
+    { header: "ملاحظات عامة", key: "notes", width: 20 },
+  ];
+
+  const handleExportPdf = useCallback(async () => {
+    if (filteredWells.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const data = filteredWells.map((well: WellFullData, idx: number) => {
+        const latestReception = well.receptions?.[0];
+        const status = latestReception?.inspectionStatus || latestReception?.inspection_status || "";
+        const statusLabel = INSPECTION_STATUSES.find((s) => s.value === status)?.label || "بانتظار";
+        return {
+          index: idx + 1,
+          wellNumber: well.wellNumber,
+          ownerName: well.ownerName,
+          region: well.region || "-",
+          receiverName: latestReception?.receiverName || latestReception?.receiver_name || "-",
+          engineers: latestReception?.engineers || "-",
+          inspectionStatus: statusLabel,
+          inspectionNotes: latestReception?.inspectionNotes || latestReception?.inspection_notes || "-",
+          receptionDate: formatDateSafe(latestReception?.receptionDate || latestReception?.reception_date, "en-GB"),
+          notes: latestReception?.notes || "-",
+        };
+      });
+      const success = await generateTablePDF({
+        reportTitle: "تقرير سجلات استلام الآبار",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "إجمالي الآبار", value: data.length },
+          { label: "مقبولة", value: stats.passed, color: "#16a34a" },
+          { label: "مرفوضة", value: stats.failed, color: "#dc2626" },
+          { label: "بانتظار", value: stats.pending, color: "#ca8a04" },
+        ],
+        columns: receptionColumns,
+        data,
+        filename: `سجلات_استلام_الآبار_${new Date().toISOString().split("T")[0]}`,
+        orientation: "landscape",
+      });
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في تصدير PDF", variant: "destructive" });
+    } finally { setIsExportingPdf(false); }
+  }, [filteredWells, stats, toast]);
+
   const actionsConfig: ActionButton[] = useMemo(() => [
+    {
+      key: "export-pdf", icon: FileText, label: "تصدير PDF",
+      onClick: handleExportPdf, variant: "outline",
+      loading: isExportingPdf, disabled: filteredWells.length === 0,
+      tooltip: "تصدير سجلات الاستلام إلى ملف PDF",
+    },
     {
       key: "export-excel", icon: Download, label: "تصدير Excel",
       onClick: handleExportExcel, variant: "outline",
       loading: isExporting, disabled: filteredWells.length === 0,
       tooltip: "تصدير سجلات الاستلام إلى ملف Excel",
     },
-  ], [handleExportExcel, isExporting, filteredWells.length]);
+  ], [handleExportExcel, handleExportPdf, isExporting, isExportingPdf, filteredWells.length]);
 
   const resultsSummary = useMemo(() => ({
     totalCount: wellsData.length,
@@ -545,8 +608,9 @@ export default function WellReceptionsPage() {
                 title={`بئر #${well.wellNumber} - ${well.ownerName}`}
                 subtitle={well.region}
                 titleIcon={MapPin}
-                headerColor={status ? STATUS_COLOR_MAP[status] || "gray" : "gray"}
+                headerColor={WELL_STATUS_MAP[well.status]?.color || '#9ca3af'}
                 badges={[
+                  { label: WELL_STATUS_MAP[well.status]?.label || 'لم يبدأ', className: WELL_STATUS_MAP[well.status]?.badgeClass || WELL_STATUS_MAP.pending.badgeClass },
                   ...(status ? [{
                     label: getStatusLabel(status),
                     variant: getStatusVariant(status) as any,

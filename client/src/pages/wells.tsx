@@ -50,9 +50,9 @@ const REGIONS = [
 ];
 
 const STATUS_MAP = {
-  pending: { label: 'لم يبدأ', color: '#9ca3af', badgeVariant: 'outline' },
-  in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeVariant: 'warning' },
-  completed: { label: 'منجز', color: '#22c55e', badgeVariant: 'success' }
+  pending: { label: 'لم يبدأ', color: '#9ca3af', badgeVariant: 'outline', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600' },
+  in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeVariant: 'warning', badgeClass: 'bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600' },
+  completed: { label: 'منجز', color: '#22c55e', badgeVariant: 'success', badgeClass: 'bg-green-100 text-green-800 border-green-400 dark:bg-green-900/40 dark:text-green-300 dark:border-green-600' }
 };
 
 const RECEPTION_MAP: Record<string, string> = {
@@ -309,9 +309,9 @@ export default function WellsPage() {
       placeholder: 'اختر الحالة',
       options: [
         { value: 'all', label: 'جميع الحالات' },
-        { value: 'pending', label: 'لم يبدأ' },
-        { value: 'in_progress', label: 'قيد التنفيذ' },
-        { value: 'completed', label: 'منجز' }
+        { value: 'pending', label: 'لم يبدأ', dotColor: '#9ca3af' },
+        { value: 'in_progress', label: 'قيد التنفيذ', dotColor: '#f59e0b' },
+        { value: 'completed', label: 'منجز', dotColor: '#22c55e' }
       ],
       defaultValue: 'all'
     },
@@ -334,64 +334,48 @@ export default function WellsPage() {
     if (filteredWells.length === 0) return;
     setIsExportingPdf(true);
     try {
-      const { generatePDF } = await import('@/utils/pdfGenerator');
+      const { generateTablePDF } = await import('@/utils/pdfGenerator');
       const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
       const getStatusColor = (s: string) => s === 'completed' ? '#16a34a' : s === 'in_progress' ? '#ca8a04' : '#6b7280';
-      const tableRows = filteredWells.map((well: any, idx: number) => `
-        <tr style="background:${idx % 2 === 0 ? '#fff' : '#F0F4F8'};">
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${idx + 1}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellNumber}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:right;font-size:10px;">${well.ownerName}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.region || '-'}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;"><span style="color:${getStatusColor(well.status)};font-weight:700;">${getStatusText(well.status)}</span></td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.completionPercentage || 0}%</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellDepth || 0}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPanels || 0}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${(well.numberOfPipes || 0) + (well.extraPipes || 0)}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfBases || 0}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.crewCount || 0}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.transportCount || 0}</td>
-        </tr>
-      `).join('');
-      const html = `
-        <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
-          <div style="background:#1B2A4A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
-          <div style="background:#2E5090;color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">تقرير إدارة الآبار</div>
-          <div style="text-align:center;padding:6px 0;font-size:11px;color:#6B7280;">تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}</div>
-          <div style="display:flex;justify-content:center;gap:24px;padding:8px 16px;font-size:11px;background:#F0F4F8;margin:0 16px;border-radius:4px;">
-            <span>عدد الآبار: <b>${filteredWells.length}</b></span>
-            <span>منجزة: <b style="color:#16a34a;">${stats.completed}</b></span>
-            <span>قيد التنفيذ: <b style="color:#ca8a04;">${stats.inProgress}</b></span>
-            <span>فرق العمل: <b>${stats.totalCrews}</b></span>
-            <span>رحلات النقل: <b>${stats.totalTransport}</b></span>
-          </div>
-          <table style="width:calc(100% - 32px);border-collapse:collapse;margin:12px 16px;table-layout:auto;">
-            <thead>
-              <tr style="background:#1B2A4A;color:#fff;">
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">#</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">رقم البئر</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المالك</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المنطقة</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الحالة</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">التقدم</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">العمق</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الألواح</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المواسير</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">القواعد</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">فرق</th>
-                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">نقل</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-          </table>
-          <div style="text-align:center;padding:8px 0;font-size:9px;color:#9CA3AF;border-top:1px solid #E5E7EB;margin:8px 16px 0;">
-            تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - ${new Date().toLocaleDateString('en-GB')} - ${new Date().toLocaleTimeString('en-GB')}
-          </div>
-        </div>
-      `;
-      const success = await generatePDF({ html, filename: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}`, orientation: 'landscape', format: 'A4' });
+      const data = filteredWells.map((well: any, idx: number) => ({
+        index: idx + 1, wellNumber: well.wellNumber, ownerName: well.ownerName, region: well.region || '-',
+        status: getStatusText(well.status), completion: `${well.completionPercentage || 0}%`,
+        wellDepth: well.wellDepth || 0, numberOfPanels: well.numberOfPanels || 0,
+        numberOfPipes: (well.numberOfPipes || 0) + (well.extraPipes || 0), numberOfBases: well.numberOfBases || 0,
+        crewCount: well.crewCount || 0, transportCount: well.transportCount || 0,
+      }));
+      const success = await generateTablePDF({
+        reportTitle: 'تقرير إدارة الآبار',
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+        infoItems: [
+          { label: 'عدد الآبار', value: filteredWells.length },
+          { label: 'منجزة', value: stats.completed, color: '#16a34a' },
+          { label: 'قيد التنفيذ', value: stats.inProgress, color: '#ca8a04' },
+          { label: 'فرق العمل', value: stats.totalCrews },
+          { label: 'رحلات النقل', value: stats.totalTransport },
+        ],
+        columns: [
+          { header: '#', key: 'index', width: 5 },
+          { header: 'رقم البئر', key: 'wellNumber', width: 10 },
+          { header: 'المالك', key: 'ownerName', width: 20 },
+          { header: 'المنطقة', key: 'region', width: 14 },
+          { header: 'الحالة', key: 'status', width: 12, color: (val: any) => val === 'منجز' ? '#16a34a' : val === 'قيد التنفيذ' ? '#ca8a04' : '#6b7280' },
+          { header: 'التقدم', key: 'completion', width: 10 },
+          { header: 'العمق', key: 'wellDepth', width: 10 },
+          { header: 'الألواح', key: 'numberOfPanels', width: 10 },
+          { header: 'المواسير', key: 'numberOfPipes', width: 10 },
+          { header: 'القواعد', key: 'numberOfBases', width: 10 },
+          { header: 'فرق', key: 'crewCount', width: 8 },
+          { header: 'نقل', key: 'transportCount', width: 8 },
+        ],
+        data,
+        filename: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}`,
+        orientation: 'landscape',
+      });
       if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
       else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في تصدير PDF", variant: "destructive" });
     } finally { setIsExportingPdf(false); }
   }, [filteredWells, stats, toast]);
 
@@ -682,7 +666,7 @@ export default function WellsPage() {
             badges={[
               {
                 label: STATUS_MAP[well.status as keyof typeof STATUS_MAP]?.label,
-                variant: STATUS_MAP[well.status as keyof typeof STATUS_MAP]?.badgeVariant as any
+                className: STATUS_MAP[well.status as keyof typeof STATUS_MAP]?.badgeClass,
               }
             ]}
             fields={[

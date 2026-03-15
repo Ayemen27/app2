@@ -162,7 +162,10 @@ export function SearchToolbar({
                 <SelectContent className="rounded-2xl shadow-2xl border-slate-200 dark:border-slate-800">
                   {filter.options?.map((option) => (
                     <SelectItem key={option.value} value={String(option.value)} className="rounded-xl my-1 py-3 text-right">
-                      {option.label}
+                      <span className="flex items-center gap-2">
+                        {option.dotColor && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: option.dotColor }} />}
+                        {option.label}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

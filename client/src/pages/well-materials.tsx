@@ -16,7 +16,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp, CheckCircle, AlertCircle, XCircle, Clock, ArrowUpDown, Trash2 } from "lucide-react";
+import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp, CheckCircle, AlertCircle, XCircle, Clock, ArrowUpDown, Trash2, FileText } from "lucide-react";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 
 const INSTALLATION_STATUSES = [
@@ -81,10 +81,10 @@ function getInstallationStatusIcon(status: string) {
   }
 }
 
-const WELL_STATUS_MAP: Record<string, { label: string }> = {
-  pending: { label: 'لم يبدأ' },
-  in_progress: { label: 'قيد التنفيذ' },
-  completed: { label: 'منجز' },
+const WELL_STATUS_MAP: Record<string, { label: string; color: string; badgeClass: string }> = {
+  pending: { label: 'لم يبدأ', color: '#9ca3af', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600' },
+  in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeClass: 'bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600' },
+  completed: { label: 'منجز', color: '#22c55e', badgeClass: 'bg-green-100 text-green-800 border-green-400 dark:bg-green-900/40 dark:text-green-300 dark:border-green-600' },
 };
 
 interface WellFullData {
@@ -110,9 +110,9 @@ interface WellFullData {
 
 const STATUS_OPTIONS = [
   { value: "all", label: "جميع الحالات" },
-  { value: "pending", label: "لم يبدأ" },
-  { value: "in_progress", label: "قيد التنفيذ" },
-  { value: "completed", label: "منجز" },
+  { value: "pending", label: "لم يبدأ", dotColor: "#9ca3af" },
+  { value: "in_progress", label: "قيد التنفيذ", dotColor: "#f59e0b" },
+  { value: "completed", label: "منجز", dotColor: "#22c55e" },
 ];
 
 const REGIONS = [
@@ -136,6 +136,7 @@ export default function WellMaterialsPage() {
   });
   const [editingWellId, setEditingWellId] = useState<number | null>(null);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const changeStatusMutation = useMutation({
     mutationFn: async ({ wellId, status }: { wellId: number; status: string }) =>
@@ -269,11 +270,11 @@ export default function WellMaterialsPage() {
         placeholder: "الكل",
         options: [
           { value: "all", label: "الكل" },
-          { value: "not_installed", label: "غير مركبة" },
-          { value: "in_progress", label: "قيد التنفيذ" },
-          { value: "partial", label: "مركب جزئياً" },
-          { value: "installed", label: "مركب" },
-          { value: "completed", label: "منجز" },
+          { value: "not_installed", label: "غير مركبة", dotColor: "#9ca3af" },
+          { value: "in_progress", label: "قيد التنفيذ", dotColor: "#f59e0b" },
+          { value: "partial", label: "مركب جزئياً", dotColor: "#3b82f6" },
+          { value: "installed", label: "مركب", dotColor: "#22c55e" },
+          { value: "completed", label: "منجز", dotColor: "#059669" },
           { value: "no_solar", label: "بدون منظومة" },
         ],
         defaultValue: "all",
@@ -295,43 +296,102 @@ export default function WellMaterialsPage() {
     []
   );
 
+  const buildMaterialsData = useCallback((wells: WellFullData[]) => {
+    return wells.map((well: WellFullData, idx: number) => {
+      const s = well.solar;
+      return {
+        index: idx + 1,
+        ownerName: well.ownerName,
+        region: well.region || "-",
+        numberOfBases: well.numberOfBases || 0,
+        numberOfPanels: well.numberOfPanels || 0,
+        wellDepth: well.wellDepth || 0,
+        waterLevel: well.waterLevel || "-",
+        numberOfPipes: (well.numberOfPipes || 0) + Number(s?.extraPipes ?? s?.extra_pipes ?? 0),
+        fanCount: s?.fanCount ?? s?.fan_count ?? "-",
+        submersiblePump: (s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "لا",
+        inverter: s?.inverter || "-",
+        collectionBox: s?.collectionBox || s?.collection_box || "-",
+        carbonCarrier: s?.carbonCarrier || s?.carbon_carrier || "-",
+        steelConverterTop: s?.steelConverterTop || s?.steel_converter_top || "-",
+        clampConverterBottom: s?.clampConverterBottom || s?.clamp_converter_bottom || "-",
+        groundingClip: s?.groundingClip || s?.grounding_clip || "-",
+        groundingPlate: s?.groundingPlate || s?.grounding_plate || "-",
+        groundingRod: s?.groundingRod || s?.grounding_rod || "-",
+        jointThermalLiquid: s?.jointThermalLiquid || s?.joint_thermal_liquid || "-",
+        bindingCable6mm: s?.bindingCable6mm || s?.binding_cable_6mm || "-",
+        groundingCable10x2mm: s?.groundingCable10x2mm || s?.grounding_cable_10x2mm || "-",
+        cable16x3mmLength: s?.cable16x3mmLength || s?.cable_16x3mm_length || "-",
+        cable10x2mmLength: s?.cable10x2mmLength || s?.cable_10x2mm_length || "-",
+        extraPipes: s?.extraPipes ?? s?.extra_pipes ?? "-",
+        extraCable: s?.extraCable ?? s?.extra_cable ?? "-",
+        notes: s?.notes || well.notes || "-",
+      };
+    });
+  }, []);
+
+  const materialsColumns = [
+    { header: "م", key: "index", width: 5 },
+    { header: "اسم المستفيد", key: "ownerName", width: 18 },
+    { header: "المنطقة", key: "region", width: 14 },
+    { header: "القواعد", key: "numberOfBases", width: 8 },
+    { header: "الألواح", key: "numberOfPanels", width: 8 },
+    { header: "العمق", key: "wellDepth", width: 8 },
+    { header: "منسوب الماء", key: "waterLevel", width: 9 },
+    { header: "المواسير", key: "numberOfPipes", width: 8 },
+    { header: "مراوح", key: "fanCount", width: 7 },
+    { header: "غطاس", key: "submersiblePump", width: 7 },
+    { header: "أنفرتر", key: "inverter", width: 7 },
+    { header: "صندوق تجميع", key: "collectionBox", width: 9 },
+    { header: "شيال كربون", key: "carbonCarrier", width: 9 },
+    { header: "تحويلة استيل", key: "steelConverterTop", width: 10 },
+    { header: "ملزمة تحت", key: "clampConverterBottom", width: 9 },
+    { header: "كليب تأريض", key: "groundingClip", width: 9 },
+    { header: "صفيحة تأريض", key: "groundingPlate", width: 9 },
+    { header: "سيخ تأريض", key: "groundingRod", width: 9 },
+    { header: "سائل حراري", key: "jointThermalLiquid", width: 9 },
+    { header: "كيبل 6ملي", key: "bindingCable6mm", width: 9 },
+    { header: "كيبل 10×2مم", key: "groundingCable10x2mm", width: 10 },
+    { header: "كيبل 16×3مم", key: "cable16x3mmLength", width: 10 },
+    { header: "كيبل 10×2مم", key: "cable10x2mmLength", width: 10 },
+    { header: "مواسير+", key: "extraPipes", width: 8 },
+    { header: "كيبل+", key: "extraCable", width: 8 },
+    { header: "ملاحظات", key: "notes", width: 14 },
+  ];
+
+  const handleExportPdf = useCallback(async () => {
+    if (filteredWells.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const data = buildMaterialsData(filteredWells);
+      const success = await generateTablePDF({
+        reportTitle: "كشف مواد الآبار الشمسية والمواسير",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "عدد الآبار", value: data.length },
+          { label: "منظومة شمسية", value: stats.withSolar },
+          { label: "إجمالي الألواح", value: stats.totalPanels },
+          { label: "إجمالي المواسير", value: stats.totalPipes },
+        ],
+        columns: materialsColumns,
+        data,
+        filename: `كشف_مواد_الآبار_${new Date().toISOString().split("T")[0]}`,
+        orientation: "landscape",
+      });
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في تصدير PDF", variant: "destructive" });
+    } finally { setIsExportingPdf(false); }
+  }, [filteredWells, stats, toast, buildMaterialsData]);
+
   const handleExportExcel = useCallback(async () => {
     if (filteredWells.length === 0) return;
     setIsExportingExcel(true);
     try {
       const { createProfessionalReport } = await import("@/utils/axion-export");
-
-      const data = filteredWells.map((well: WellFullData, idx: number) => {
-        const s = well.solar;
-        return {
-          index: idx + 1,
-          ownerName: well.ownerName,
-          region: well.region || "-",
-          numberOfBases: well.numberOfBases || 0,
-          numberOfPanels: well.numberOfPanels || 0,
-          wellDepth: well.wellDepth || 0,
-          waterLevel: well.waterLevel || "-",
-          numberOfPipes: (well.numberOfPipes || 0) + Number(s?.extraPipes ?? s?.extra_pipes ?? 0),
-          fanCount: s?.fanCount ?? s?.fan_count ?? "-",
-          submersiblePump: (s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "لا",
-          inverter: s?.inverter || "-",
-          collectionBox: s?.collectionBox || s?.collection_box || "-",
-          carbonCarrier: s?.carbonCarrier || s?.carbon_carrier || "-",
-          steelConverterTop: s?.steelConverterTop || s?.steel_converter_top || "-",
-          clampConverterBottom: s?.clampConverterBottom || s?.clamp_converter_bottom || "-",
-          groundingClip: s?.groundingClip || s?.grounding_clip || "-",
-          groundingPlate: s?.groundingPlate || s?.grounding_plate || "-",
-          groundingRod: s?.groundingRod || s?.grounding_rod || "-",
-          jointThermalLiquid: s?.jointThermalLiquid || s?.joint_thermal_liquid || "-",
-          bindingCable6mm: s?.bindingCable6mm || s?.binding_cable_6mm || "-",
-          groundingCable10x2mm: s?.groundingCable10x2mm || s?.grounding_cable_10x2mm || "-",
-          cable16x3mmLength: s?.cable16x3mmLength || s?.cable_16x3mm_length || "-",
-          cable10x2mmLength: s?.cable10x2mmLength || s?.cable_10x2mm_length || "-",
-          extraPipes: s?.extraPipes ?? s?.extra_pipes ?? "-",
-          extraCable: s?.extraCable ?? s?.extra_cable ?? "-",
-          notes: s?.notes || well.notes || "-",
-        };
-      });
+      const data = buildMaterialsData(filteredWells);
 
       const success = await createProfessionalReport({
         sheetName: "كشف المواد",
@@ -343,34 +403,7 @@ export default function WellMaterialsPage() {
           `إجمالي الألواح: ${stats.totalPanels}`,
           `إجمالي المواسير: ${stats.totalPipes}`,
         ],
-        columns: [
-          { header: "م", key: "index", width: 5 },
-          { header: "اسم المستفيد", key: "ownerName", width: 18 },
-          { header: "المنطقة", key: "region", width: 14 },
-          { header: "عدد القواعد", key: "numberOfBases", width: 10 },
-          { header: "عدد الألواح", key: "numberOfPanels", width: 10 },
-          { header: "عمق البئر", key: "wellDepth", width: 10 },
-          { header: "منسوب الماء", key: "waterLevel", width: 10 },
-          { header: "عدد المواسير", key: "numberOfPipes", width: 10 },
-          { header: "مراوح", key: "fanCount", width: 8 },
-          { header: "غطاس", key: "submersiblePump", width: 8 },
-          { header: "أنفرتر", key: "inverter", width: 8 },
-          { header: "صندوق تجميع", key: "collectionBox", width: 10 },
-          { header: "شيال كربون", key: "carbonCarrier", width: 10 },
-          { header: "تحويلة فوق استيل", key: "steelConverterTop", width: 12 },
-          { header: "ملزمة تحت", key: "clampConverterBottom", width: 10 },
-          { header: "كليب تأريض", key: "groundingClip", width: 10 },
-          { header: "صفيحة تأريض", key: "groundingPlate", width: 10 },
-          { header: "سيخ تأريض", key: "groundingRod", width: 10 },
-          { header: "جونتي سائل حراري", key: "jointThermalLiquid", width: 12 },
-          { header: "لفة كيبل 6ملي", key: "bindingCable6mm", width: 12 },
-          { header: "كيبل تأريض 10×2مم", key: "groundingCable10x2mm", width: 14 },
-          { header: "طول كيبل 16×3مم", key: "cable16x3mmLength", width: 14 },
-          { header: "طول كيبل 10×2مم", key: "cable10x2mmLength", width: 14 },
-          { header: "مواسير إضافية", key: "extraPipes", width: 12 },
-          { header: "كيبل إضافي", key: "extraCable", width: 10 },
-          { header: "ملاحظات", key: "notes", width: 20 },
-        ],
+        columns: materialsColumns,
         data,
         fileName: `كشف_مواد_الآبار_${new Date().toISOString().split("T")[0]}.xlsx`,
         orientation: "landscape",
@@ -387,6 +420,16 @@ export default function WellMaterialsPage() {
 
   const actionsConfig: ActionButton[] = useMemo(
     () => [
+      {
+        key: "export-pdf",
+        icon: FileText,
+        label: "تصدير PDF",
+        onClick: handleExportPdf,
+        variant: "outline",
+        loading: isExportingPdf,
+        disabled: filteredWells.length === 0,
+        tooltip: "تصدير كشف المواد إلى ملف PDF",
+      },
       {
         key: "export-excel",
         icon: Download,
@@ -460,8 +503,9 @@ export default function WellMaterialsPage() {
                 title={`بئر #${well.wellNumber} - ${well.ownerName}`}
                 titleIcon={MapPin}
                 compact
-                headerColor={s ? getInstallationStatusColor(s?.installationStatus || s?.installation_status || "not_installed") : "#9ca3af"}
+                headerColor={WELL_STATUS_MAP[well.status]?.color || '#9ca3af'}
                 badges={[
+                  { label: WELL_STATUS_MAP[well.status]?.label || 'لم يبدأ', className: WELL_STATUS_MAP[well.status]?.badgeClass || WELL_STATUS_MAP.pending.badgeClass },
                   ...(s ? [{
                     label: getInstallationStatusLabel(s?.installationStatus || s?.installation_status || "not_installed"),
                     className: getInstallationStatusBadgeClass(s?.installationStatus || s?.installation_status || "not_installed"),

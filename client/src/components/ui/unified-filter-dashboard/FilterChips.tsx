@@ -141,7 +141,10 @@ export function FilterChips({
             <SelectContent>
               {filter.options?.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  <span className="flex items-center gap-2">
+                    {option.dotColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: option.dotColor }} />}
+                    {option.label}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

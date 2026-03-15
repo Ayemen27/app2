@@ -30,6 +30,7 @@ export interface StatsRowConfig {
 export interface FilterOption {
   value: string;
   label: string;
+  dotColor?: string;
 }
 
 export type FilterType = 'select' | 'date' | 'date-range' | 'async-select' | 'multi-select';

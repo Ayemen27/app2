@@ -16,13 +16,13 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import {
-  Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap, ArrowUpDown
+  Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap, ArrowUpDown, FileText
 } from "lucide-react";
 
-const WELL_STATUS_MAP: Record<string, { label: string }> = {
-  pending: { label: 'لم يبدأ' },
-  in_progress: { label: 'قيد التنفيذ' },
-  completed: { label: 'منجز' },
+const WELL_STATUS_MAP: Record<string, { label: string; color: string; badgeClass: string }> = {
+  pending: { label: 'لم يبدأ', color: '#9ca3af', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600' },
+  in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeClass: 'bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600' },
+  completed: { label: 'منجز', color: '#22c55e', badgeClass: 'bg-green-100 text-green-800 border-green-400 dark:bg-green-900/40 dark:text-green-300 dark:border-green-600' },
 };
 
 const CREW_TYPES = [
@@ -64,6 +64,7 @@ interface WellFullData {
   waterLevel?: number;
   numberOfPipes: number;
   project_id: string;
+  status: string;
   crews: any[];
   transport: any[];
 }
@@ -85,6 +86,7 @@ export default function WellCrewsPage() {
   const [editingTransport, setEditingTransport] = useState<any>(null);
   const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const emptyCrewForm = {
     crewType: "", teamName: "", workersCount: 0, mastersCount: 0,
@@ -254,9 +256,9 @@ export default function WellCrewsPage() {
       key: 'status', label: 'حالة البئر', type: 'select', placeholder: 'اختر الحالة',
       options: [
         { value: 'all', label: 'جميع الحالات' },
-        { value: 'pending', label: 'لم يبدأ' },
-        { value: 'in_progress', label: 'قيد التنفيذ' },
-        { value: 'completed', label: 'منجز' },
+        { value: 'pending', label: 'لم يبدأ', dotColor: '#9ca3af' },
+        { value: 'in_progress', label: 'قيد التنفيذ', dotColor: '#f59e0b' },
+        { value: 'completed', label: 'منجز', dotColor: '#22c55e' },
       ],
       defaultValue: 'all'
     },
@@ -505,7 +507,95 @@ export default function WellCrewsPage() {
     }
   }, [filteredData, stats, toast]);
 
+  const crewColumns = [
+    { header: '#', key: 'index', width: 5 },
+    { header: 'رقم البئر', key: 'wellNumber', width: 10 },
+    { header: 'اسم المستفيد', key: 'ownerName', width: 18 },
+    { header: 'المنطقة', key: 'region', width: 14 },
+    { header: 'القواعد', key: 'numberOfBases', width: 8 },
+    { header: 'الألواح', key: 'numberOfPanels', width: 8 },
+    { header: 'نوع الفريق', key: 'crewType', width: 14 },
+    { header: 'اسم الفريق', key: 'teamName', width: 14 },
+    { header: 'تاريخ العمل', key: 'crewDate', width: 12 },
+    { header: 'العمال', key: 'workersCount', width: 8 },
+    { header: 'المعلمين', key: 'mastersCount', width: 8 },
+    { header: 'أيام العمل', key: 'workDays', width: 9 },
+    { header: 'مستحقات الفريق', key: 'crewDues', width: 12 },
+    { header: 'ملاحظات الفريق', key: 'crewNotes', width: 14 },
+    { header: 'ريلات', key: 'railType', width: 8 },
+    { header: 'مع ألواح', key: 'withPanels', width: 8 },
+    { header: 'سعر النقل', key: 'transportPrice', width: 10 },
+    { header: 'ملاحظات النقل', key: 'transportNotes', width: 14 },
+  ];
+
+  const handleExportPdf = useCallback(async () => {
+    if (filteredData.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generateTablePDF } = await import("@/utils/pdfGenerator");
+      const rows: Record<string, any>[] = [];
+      let rowIdx = 0;
+      for (const well of filteredData) {
+        const maxLen = Math.max(well.crews?.length || 0, well.transport?.length || 0, 1);
+        for (let i = 0; i < maxLen; i++) {
+          const crew = well.crews?.[i];
+          const transport = well.transport?.[i];
+          rowIdx++;
+          rows.push({
+            index: i === 0 ? rowIdx : '',
+            wellNumber: i === 0 ? well.wellNumber : '',
+            ownerName: i === 0 ? well.ownerName : '',
+            region: i === 0 ? (well.region || '-') : '',
+            numberOfBases: i === 0 ? well.numberOfBases : '',
+            numberOfPanels: i === 0 ? well.numberOfPanels : '',
+            crewType: crew ? (CREW_TYPE_MAP[crew.crewType || crew.crew_type] || '') : '',
+            teamName: crew ? (crew.teamName || crew.team_name || '') : '',
+            crewDate: crew ? (crew.workDate || crew.work_date || '') : '',
+            workersCount: crew ? (crew.workersCount ?? crew.workers_count ?? '') : '',
+            mastersCount: crew ? (crew.mastersCount ?? crew.masters_count ?? '') : '',
+            workDays: crew ? (crew.workDays ?? crew.work_days ?? '') : '',
+            crewDues: crew ? (Number(crew.crewDues || crew.crew_dues) || '') : '',
+            crewNotes: crew ? (crew.notes || '') : '',
+            railType: transport ? (RAIL_TYPE_MAP[transport.railType || transport.rail_type] || '') : '',
+            withPanels: transport ? ((transport.withPanels ?? transport.with_panels) ? 'نعم' : 'لا') : '',
+            transportPrice: transport ? (Number(transport.transportPrice || transport.transport_price) || '') : '',
+            transportNotes: transport ? (transport.notes || '') : '',
+          });
+        }
+      }
+      const success = await generateTablePDF({
+        reportTitle: "كشف حسابات العمال والنقل",
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString("en-GB")}`,
+        infoItems: [
+          { label: "عدد الآبار", value: stats.wellCount },
+          { label: "إجمالي الفرق", value: stats.crewCount },
+          { label: "أيام العمل", value: stats.totalWorkDays },
+          { label: "رحلات النقل", value: stats.transportCount },
+        ],
+        columns: crewColumns,
+        data: rows,
+        totals: { label: 'الإجمالي', values: { transportPrice: stats.totalTransportCost, workDays: stats.totalWorkDays } },
+        filename: `كشف_الفرق_والنقل_${new Date().toISOString().split("T")[0]}`,
+        orientation: "landscape",
+      });
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في تصدير PDF", variant: "destructive" });
+    } finally { setIsExportingPdf(false); }
+  }, [filteredData, stats, toast]);
+
   const actionsConfig: ActionButton[] = useMemo(() => [
+    {
+      key: 'export-pdf',
+      icon: FileText,
+      label: 'تصدير PDF',
+      onClick: handleExportPdf,
+      variant: 'outline',
+      loading: isExportingPdf,
+      disabled: filteredData.length === 0,
+      tooltip: 'تصدير كشف الفرق والنقل إلى PDF',
+    },
     {
       key: 'export-excel',
       icon: Download,
@@ -516,7 +606,7 @@ export default function WellCrewsPage() {
       disabled: filteredData.length === 0,
       tooltip: 'تصدير كشف الفرق والنقل إلى Excel',
     },
-  ], [handleExportExcel, isExporting, filteredData.length]);
+  ], [handleExportExcel, handleExportPdf, isExporting, isExportingPdf, filteredData.length]);
 
   const resultsSummary = useMemo(() => ({
     totalCount: (fullData as any[]).length,
@@ -575,9 +665,10 @@ export default function WellCrewsPage() {
                 data-testid={`card-well-crews-${well.id}`}
                 title={`بئر #${well.wellNumber} - ${well.ownerName}`}
                 titleIcon={MapPin}
-                headerColor={crewCount > 0 ? "green" : "gray"}
+                headerColor={WELL_STATUS_MAP[well.status]?.color || '#9ca3af'}
                 compact
                 badges={[
+                  { label: WELL_STATUS_MAP[well.status]?.label || 'لم يبدأ', className: WELL_STATUS_MAP[well.status]?.badgeClass || WELL_STATUS_MAP.pending.badgeClass },
                   { label: `${crewCount} فريق`, variant: crewCount > 0 ? "default" : "outline" as any },
                   ...(transportCount > 0 ? [{ label: `${transportCount} نقل`, variant: "secondary" as any }] : []),
                 ]}

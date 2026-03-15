@@ -13,7 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { performLocalOperation } from "@/offline/db";
 import { formatCurrency } from "@/lib/utils";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
-import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign, Download } from "lucide-react";
+import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign, Download, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 
@@ -22,11 +22,17 @@ const REGIONS = [
   'محيران', 'جربياح', 'الربعي', 'بيت الزين'
 ];
 
+const WELL_STATUS_MAP: Record<string, { label: string; color: string; badgeClass: string }> = {
+  pending: { label: 'لم يبدأ', color: '#9ca3af', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600' },
+  in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeClass: 'bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600' },
+  completed: { label: 'منجز', color: '#22c55e', badgeClass: 'bg-green-100 text-green-800 border-green-400 dark:bg-green-900/40 dark:text-green-300 dark:border-green-600' },
+};
+
 const WELL_STATUS_OPTIONS = [
   { value: 'all', label: 'جميع الحالات' },
-  { value: 'pending', label: 'لم يبدأ' },
-  { value: 'in_progress', label: 'قيد التنفيذ' },
-  { value: 'completed', label: 'منجز' }
+  { value: 'pending', label: 'لم يبدأ', dotColor: '#9ca3af' },
+  { value: 'in_progress', label: 'قيد التنفيذ', dotColor: '#f59e0b' },
+  { value: 'completed', label: 'منجز', dotColor: '#22c55e' }
 ];
 
 import { AdminMonitoringUI } from "@/components/admin-monitoring-ui";
@@ -310,6 +316,79 @@ export default function WellAccounting() {
                 <Download className="h-4 w-4" />
                 تصدير Excel
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
+                  const allData: any[] = [];
+                  let idx = 0;
+                  filteredWells.forEach((well: any) => {
+                    const tasks = well.tasks || [];
+                    if (tasks.length > 0) {
+                      tasks.forEach((task: any) => {
+                        idx++;
+                        allData.push({
+                          index: idx,
+                          wellNumber: well.wellNumber,
+                          ownerName: well.ownerName,
+                          region: well.region || '-',
+                          description: task.description || '-',
+                          amount: Number(task.amount || 0),
+                          paidAmount: Number(task.paidAmount || 0),
+                          status: getStatusText(well.status),
+                          balance: Number(task.amount || 0) - Number(task.paidAmount || 0),
+                        });
+                      });
+                    } else {
+                      idx++;
+                      allData.push({
+                        index: idx,
+                        wellNumber: well.wellNumber,
+                        ownerName: well.ownerName,
+                        region: well.region || '-',
+                        description: '-',
+                        amount: 0,
+                        paidAmount: 0,
+                        status: getStatusText(well.status),
+                        balance: 0,
+                      });
+                    }
+                  });
+                  const totalAmount = allData.reduce((s, r) => s + r.amount, 0);
+                  const totalPaid = allData.reduce((s, r) => s + r.paidAmount, 0);
+                  const { generateTablePDF } = await import('@/utils/pdfGenerator');
+                  await generateTablePDF({
+                    reportTitle: 'تقرير محاسبة الآبار',
+                    subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+                    infoItems: [
+                      { label: 'عدد الآبار', value: filteredWells.length },
+                      { label: 'إجمالي المبالغ', value: `${totalAmount.toLocaleString('en-US')} ريال` },
+                      { label: 'المدفوع', value: `${totalPaid.toLocaleString('en-US')} ريال`, color: '#16a34a' },
+                    ],
+                    columns: [
+                      { header: '#', key: 'index', width: 5 },
+                      { header: 'رقم البئر', key: 'wellNumber', width: 10 },
+                      { header: 'المالك', key: 'ownerName', width: 18 },
+                      { header: 'المنطقة', key: 'region', width: 14 },
+                      { header: 'وصف المهمة', key: 'description', width: 22 },
+                      { header: 'المبلغ', key: 'amount', width: 12 },
+                      { header: 'المدفوع', key: 'paidAmount', width: 12 },
+                      { header: 'الحالة', key: 'status', width: 12 },
+                      { header: 'الرصيد', key: 'balance', width: 12 },
+                    ],
+                    data: allData,
+                    totals: { label: 'الإجماليات', values: { amount: totalAmount, paidAmount: totalPaid, balance: totalAmount - totalPaid } },
+                    filename: `محاسبة_الآبار_${new Date().toISOString().split('T')[0]}`,
+                  });
+                }}
+                disabled={filteredWells.length === 0}
+                className="gap-2"
+                data-testid="button-export-well-accounting-pdf"
+              >
+                <FileText className="h-4 w-4" />
+                تصدير PDF
+              </Button>
             </div>
           </div>
 
@@ -323,10 +402,11 @@ export default function WellAccounting() {
                   title={`بئر #${well.wellNumber}`}
                   subtitle={well.ownerName}
                   titleIcon={MapPin}
+                  headerColor={WELL_STATUS_MAP[well.status]?.color || '#9ca3af'}
                   badges={[
                     {
-                      label: well.status === 'pending' ? 'لم يبدأ' : well.status === 'in_progress' ? 'قيد التنفيذ' : 'منجز',
-                      variant: well.status === 'completed' ? 'success' : well.status === 'in_progress' ? 'warning' : 'outline'
+                      label: WELL_STATUS_MAP[well.status]?.label || 'لم يبدأ',
+                      className: WELL_STATUS_MAP[well.status]?.badgeClass || WELL_STATUS_MAP.pending.badgeClass,
                     }
                   ]}
                   fields={[

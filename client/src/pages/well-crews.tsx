@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,8 +14,9 @@ import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import {
-  Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench
+  Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap
 } from "lucide-react";
 
 const CREW_TYPES = [
@@ -480,140 +480,156 @@ export default function WellCrewsPage() {
         resultsSummary={resultsSummary}
       />
 
-      <div className="space-y-4">
-        {filteredData.map((well) => (
-          <Card key={well.id} className="p-4 space-y-3" data-testid={`card-well-crews-${well.id}`}>
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" data-testid={`badge-well-number-${well.id}`}>بئر #{well.wellNumber}</Badge>
-                <span className="font-semibold text-sm" data-testid={`text-owner-${well.id}`}>{well.ownerName}</span>
-                <span className="text-xs text-muted-foreground">{well.region}</span>
-                <span className="text-xs text-muted-foreground">قواعد: {well.numberOfBases}</span>
-                <span className="text-xs text-muted-foreground">ألواح: {well.numberOfPanels}</span>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => { setSelectedWellId(well.id); setShowCrewForm(true); }}
-                  data-testid={`button-add-crew-${well.id}`}
-                >
-                  <Plus className="h-3 w-3 ml-1" />
-                  فريق
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => { setSelectedWellId(well.id); setShowTransportForm(true); }}
-                  data-testid={`button-add-transport-${well.id}`}
-                >
-                  <Plus className="h-3 w-3 ml-1" />
-                  نقل
-                </Button>
-              </div>
-            </div>
+      {filteredData.length === 0 ? (
+        <div className="text-center py-12">
+          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="text-gray-500 text-lg" data-testid="text-no-wells">لا توجد آبار مطابقة للبحث</p>
+        </div>
+      ) : (
+        <UnifiedCardGrid columns={2}>
+          {filteredData.map((well) => {
+            const crewCount = well.crews?.length || 0;
+            const transportCount = well.transport?.length || 0;
+            const totalCrewWages = (well.crews || []).reduce((s: number, c: any) => s + (Number(c.totalWages ?? c.total_wages) || 0), 0);
+            const totalTransportCost = (well.transport || []).reduce((s: number, t: any) => s + (Number(t.transportPrice ?? t.transport_price) || 0), 0);
 
-            {(well.crews?.length > 0 || well.transport?.length > 0) && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse" data-testid={`table-well-${well.id}`}>
-                  <thead>
-                    <tr className="bg-muted/50">
-                      <th className="text-right p-2 text-xs font-medium border-b">نوع الفريق</th>
-                      <th className="text-right p-2 text-xs font-medium border-b">اسم الفريق</th>
-                      <th className="text-center p-2 text-xs font-medium border-b">التاريخ</th>
-                      <th className="text-center p-2 text-xs font-medium border-b">عمال</th>
-                      <th className="text-center p-2 text-xs font-medium border-b">معلمين</th>
-                      <th className="text-center p-2 text-xs font-medium border-b">أيام</th>
-                      <th className="text-center p-2 text-xs font-medium border-b">إجمالي</th>
-                      <th className="text-right p-2 text-xs font-medium border-b">ملاحظات</th>
-                      <th className="text-center p-2 text-xs font-medium border-b">إجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {well.crews?.map((crew: any) => (
-                      <tr key={`crew-${crew.id}`} className="border-b last:border-b-0" data-testid={`row-crew-${crew.id}`}>
-                        <td className="p-2 text-xs">{CREW_TYPE_MAP[crew.crewType || crew.crew_type] || (crew.crewType || crew.crew_type)}</td>
-                        <td className="p-2 text-xs">{crew.teamName || crew.team_name || '-'}</td>
-                        <td className="p-2 text-xs text-center">{(crew.workDate || crew.work_date) ? new Date(crew.workDate || crew.work_date).toLocaleDateString('ar-SA') : '-'}</td>
-                        <td className="p-2 text-xs text-center">{crew.workersCount ?? crew.workers_count ?? 0}</td>
-                        <td className="p-2 text-xs text-center">{crew.mastersCount ?? crew.masters_count ?? 0}</td>
-                        <td className="p-2 text-xs text-center">{crew.workDays ?? crew.work_days ?? 0}</td>
-                        <td className="p-2 text-xs text-center">{Number(crew.totalWages ?? crew.total_wages ?? 0).toLocaleString()}</td>
-                        <td className="p-2 text-xs max-w-[120px] truncate">{crew.notes || '-'}</td>
-                        <td className="p-2">
-                          <div className="flex gap-1 justify-center">
-                            <Button size="icon" variant="ghost" onClick={() => startEditCrew(crew, well.id)} data-testid={`button-edit-crew-${crew.id}`}>
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => { if (confirm("حذف هذا الفريق؟")) deleteCrewMutation.mutate(crew.id); }} data-testid={`button-delete-crew-${crew.id}`}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {well.transport?.length > 0 && (
-                  <div className="mt-2">
-                    <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                      <Truck className="h-3 w-3" /> النقل
-                    </div>
-                    <table className="w-full text-sm border-collapse" data-testid={`table-transport-${well.id}`}>
-                      <thead>
-                        <tr className="bg-muted/30">
-                          <th className="text-right p-2 text-xs font-medium border-b">نوع الريلات</th>
-                          <th className="text-center p-2 text-xs font-medium border-b">التاريخ</th>
-                          <th className="text-center p-2 text-xs font-medium border-b">مع ألواح</th>
-                          <th className="text-center p-2 text-xs font-medium border-b">سعر النقل</th>
-                          <th className="text-center p-2 text-xs font-medium border-b">مستحقات الفريق</th>
-                          <th className="text-right p-2 text-xs font-medium border-b">ملاحظات</th>
-                          <th className="text-center p-2 text-xs font-medium border-b">إجراءات</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {well.transport.map((t: any) => (
-                          <tr key={`transport-${t.id}`} className="border-b last:border-b-0" data-testid={`row-transport-${t.id}`}>
-                            <td className="p-2 text-xs">{t.railType || t.rail_type || '-'}</td>
-                            <td className="p-2 text-xs text-center">{(t.transportDate || t.transport_date) ? new Date(t.transportDate || t.transport_date).toLocaleDateString('ar-SA') : '-'}</td>
-                            <td className="p-2 text-xs text-center">{(t.withPanels ?? t.with_panels) ? 'نعم' : 'لا'}</td>
-                            <td className="p-2 text-xs text-center">{Number(t.transportPrice || t.transport_price || 0).toLocaleString()}</td>
-                            <td className="p-2 text-xs text-center">{Number(t.crewDues || t.crew_dues || 0).toLocaleString()}</td>
-                            <td className="p-2 text-xs max-w-[120px] truncate">{t.notes || '-'}</td>
-                            <td className="p-2">
-                              <div className="flex gap-1 justify-center">
-                                <Button size="icon" variant="ghost" onClick={() => startEditTransport(t, well.id)} data-testid={`button-edit-transport-${t.id}`}>
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button size="icon" variant="ghost" onClick={() => { if (confirm("حذف سجل النقل؟")) deleteTransportMutation.mutate(t.id); }} data-testid={`button-delete-transport-${t.id}`}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
+            return (
+              <UnifiedCard
+                key={well.id}
+                data-testid={`card-well-crews-${well.id}`}
+                title={`بئر #${well.wellNumber} - ${well.ownerName}`}
+                subtitle={well.region}
+                titleIcon={MapPin}
+                headerColor={crewCount > 0 ? "green" : "gray"}
+                badges={[
+                  { label: `${crewCount} فريق`, variant: crewCount > 0 ? "default" : "outline" as any },
+                  ...(transportCount > 0 ? [{ label: `${transportCount} نقل`, variant: "secondary" as any }] : []),
+                ]}
+                fields={[
+                  { label: "المنطقة", value: well.region || "-", icon: MapPin, color: "info" as const },
+                  { label: "القواعد", value: well.numberOfBases || 0, icon: BarChart3, color: "info" as const },
+                  { label: "الألواح", value: well.numberOfPanels || 0, icon: Zap, color: "success" as const },
+                  { label: "إجمالي الأجور", value: totalCrewWages > 0 ? `${totalCrewWages.toLocaleString()} ر` : "-", icon: Wrench, color: totalCrewWages > 0 ? "warning" as const : "muted" as const },
+                ]}
+                actions={[
+                  {
+                    icon: Plus,
+                    label: "إضافة فريق",
+                    onClick: () => { setSelectedWellId(well.id); setShowCrewForm(true); },
+                    color: "blue",
+                    dropdown: [
+                      { label: "إضافة فريق", onClick: () => { setSelectedWellId(well.id); setShowCrewForm(true); } },
+                      { label: "إضافة نقل", onClick: () => { setSelectedWellId(well.id); setShowTransportForm(true); } },
+                    ],
+                  },
+                ]}
+                footer={
+                  <div className="space-y-2 pt-1">
+                    {crewCount > 0 && (
+                      <>
+                        <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5 text-blue-500" /> الفرق ({crewCount})
+                        </div>
+                        {well.crews.map((crew: any) => {
+                          const crewType = CREW_TYPE_MAP[crew.crewType || crew.crew_type] || (crew.crewType || crew.crew_type);
+                          const workDate = crew.workDate || crew.work_date;
+                          return (
+                            <div key={`crew-${crew.id}`} className="border rounded-lg p-3 space-y-2 bg-muted/30" data-testid={`row-crew-${crew.id}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className="text-xs">{crewType}</Badge>
+                                  <span className="text-xs font-semibold text-foreground">{crew.teamName || crew.team_name || '-'}</span>
+                                  {workDate && (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      {new Date(workDate).toLocaleDateString('ar-SA')}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditCrew(crew, well.id)} data-testid={`button-edit-crew-${crew.id}`}>
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("حذف هذا الفريق؟")) deleteCrewMutation.mutate(crew.id); }} data-testid={`button-delete-crew-${crew.id}`}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                              <div className="grid grid-cols-3 gap-1 text-xs">
+                                <span>عمال: <b className="text-foreground">{crew.workersCount ?? crew.workers_count ?? 0}</b></span>
+                                <span>معلمين: <b className="text-foreground">{crew.mastersCount ?? crew.masters_count ?? 0}</b></span>
+                                <span>أيام: <b className="text-foreground">{crew.workDays ?? crew.work_days ?? 0}</b></span>
+                              </div>
+                              {(Number(crew.totalWages ?? crew.total_wages) > 0) && (
+                                <div className="text-xs">
+                                  إجمالي: <b className="text-green-600 dark:text-green-400">{Number(crew.totalWages ?? crew.total_wages ?? 0).toLocaleString()} ر</b>
+                                </div>
+                              )}
+                              {crew.notes && (
+                                <div className="text-xs text-muted-foreground break-words">ملاحظات: {crew.notes}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {transportCount > 0 && (
+                      <>
+                        <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mt-2">
+                          <Truck className="h-3.5 w-3.5 text-amber-500" /> النقل ({transportCount})
+                        </div>
+                        {well.transport.map((t: any) => {
+                          const tDate = t.transportDate || t.transport_date;
+                          return (
+                            <div key={`transport-${t.id}`} className="border rounded-lg p-3 space-y-2 bg-amber-50/50 dark:bg-amber-950/20" data-testid={`row-transport-${t.id}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className="text-xs">{t.railType || t.rail_type || '-'}</Badge>
+                                  {(t.withPanels ?? t.with_panels) && (
+                                    <Badge variant="secondary" className="text-xs">مع ألواح</Badge>
+                                  )}
+                                  {tDate && (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      {new Date(tDate).toLocaleDateString('ar-SA')}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditTransport(t, well.id)} data-testid={`button-edit-transport-${t.id}`}>
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("حذف سجل النقل؟")) deleteTransportMutation.mutate(t.id); }} data-testid={`button-delete-transport-${t.id}`}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1 text-xs">
+                                <span>سعر النقل: <b className="text-foreground">{Number(t.transportPrice || t.transport_price || 0).toLocaleString()} ر</b></span>
+                                <span>مستحقات الفريق: <b className="text-foreground">{Number(t.crewDues || t.crew_dues || 0).toLocaleString()} ر</b></span>
+                              </div>
+                              {t.notes && (
+                                <div className="text-xs text-muted-foreground break-words">ملاحظات: {t.notes}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {crewCount === 0 && transportCount === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-2" data-testid={`text-no-data-${well.id}`}>
+                        لا توجد بيانات فرق أو نقل مسجلة
+                      </p>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
-
-            {(!well.crews || well.crews.length === 0) && (!well.transport || well.transport.length === 0) && (
-              <p className="text-xs text-muted-foreground text-center py-2" data-testid={`text-no-data-${well.id}`}>
-                لا توجد بيانات فرق أو نقل مسجلة
-              </p>
-            )}
-          </Card>
-        ))}
-
-        {filteredData.length === 0 && (
-          <Card className="p-8">
-            <p className="text-center text-muted-foreground" data-testid="text-no-wells">لا توجد آبار مطابقة للبحث</p>
-          </Card>
-        )}
-      </div>
+                }
+              />
+            );
+          })}
+        </UnifiedCardGrid>
+      )}
 
       <Dialog open={showCrewForm} onOpenChange={(open) => { if (!open) resetCrewForm(); }}>
         <DialogContent className="max-w-lg">

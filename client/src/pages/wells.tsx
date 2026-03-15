@@ -740,10 +740,9 @@ export default function WellsPage() {
                 onClick: () => {},
                 color: 'yellow',
                 dropdown: Object.entries(STATUS_MAP)
-                  .filter(([key]) => key !== well.status)
                   .map(([key, val]) => ({
-                    label: val.label,
-                    onClick: () => changeStatusMutation.mutate({ wellId: well.id, status: key })
+                    label: key === well.status ? `${val.label} ✓` : val.label,
+                    onClick: () => { if (key !== well.status) changeStatusMutation.mutate({ wellId: well.id, status: key }); }
                   }))
               },
               {

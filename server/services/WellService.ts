@@ -522,6 +522,7 @@ export class WellService {
         workerDailyWage: data.workerDailyWage ? String(data.workerDailyWage) : null,
         masterDailyWage: data.masterDailyWage ? String(data.masterDailyWage) : null,
         totalWages: String(totalWages),
+        crewDues: data.crewDues ? String(data.crewDues) : null,
         workDate: data.workDate || null,
         notes: data.notes || null,
         createdBy: userId,
@@ -544,6 +545,7 @@ export class WellService {
       if (data.workDays !== undefined) updateData.workDays = String(data.workDays);
       if (data.workerDailyWage !== undefined) updateData.workerDailyWage = String(data.workerDailyWage);
       if (data.masterDailyWage !== undefined) updateData.masterDailyWage = String(data.masterDailyWage);
+      if (data.crewDues !== undefined) updateData.crewDues = data.crewDues ? String(data.crewDues) : null;
       if (data.workDate !== undefined) updateData.workDate = data.workDate;
       if (data.notes !== undefined) updateData.notes = data.notes;
 

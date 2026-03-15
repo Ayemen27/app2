@@ -158,7 +158,7 @@ export function UnifiedCard({
         "group relative rounded-2xl border-2 bg-card text-card-foreground shadow-sm overflow-hidden transition-all duration-300",
         "hover:shadow-xl hover:border-primary/30 hover:-translate-y-1",
         onClick && "cursor-pointer",
-        compact ? "p-4" : "p-6",
+        compact ? "p-3" : "p-6",
         className
       )}
       onClick={onClick}
@@ -181,8 +181,8 @@ export function UnifiedCard({
             )}
             <div className="min-w-0 flex-1">
               <h3 className={cn(
-                "font-extrabold text-foreground leading-tight break-words",
-                compact ? "text-base" : "text-lg"
+                "font-extrabold text-foreground leading-tight truncate",
+                compact ? "text-sm" : "text-lg"
               )}>
                 {title}
               </h3>

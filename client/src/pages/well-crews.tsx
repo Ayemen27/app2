@@ -37,6 +37,11 @@ const CREW_TYPE_MAP: Record<string, string> = {
   panel_installation: "تركيب ألواح",
 };
 
+const RAIL_TYPE_MAP: Record<string, string> = {
+  new: "جديد",
+  old: "قديم",
+};
+
 const CREW_TYPE_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
   welding: { bg: "bg-orange-50/60 dark:bg-orange-950/20", border: "border-orange-200 dark:border-orange-800", badge: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700" },
   steel_installation: { bg: "bg-blue-50/60 dark:bg-blue-950/20", border: "border-blue-200 dark:border-blue-800", badge: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
@@ -84,13 +89,13 @@ export default function WellCrewsPage() {
   const emptyCrewForm = {
     crewType: "", teamName: "", workersCount: 0, mastersCount: 0,
     workDays: "", workerDailyWage: "", masterDailyWage: "", totalWages: "",
-    workDate: "", notes: "",
+    crewDues: "", workDate: "", notes: "",
   };
   const [crewForm, setCrewForm] = useState(emptyCrewForm);
 
   const emptyTransportForm = {
     railType: "", withPanels: false, transportPrice: "",
-    crewDues: "", transportDate: "", notes: "",
+    transportDate: "", notes: "",
   };
   const [transportForm, setTransportForm] = useState(emptyTransportForm);
 
@@ -391,6 +396,7 @@ export default function WellCrewsPage() {
       workerDailyWage: String(crew.workerDailyWage ?? crew.worker_daily_wage ?? ""),
       masterDailyWage: String(crew.masterDailyWage ?? crew.master_daily_wage ?? ""),
       totalWages: String(crew.totalWages ?? crew.total_wages ?? ""),
+      crewDues: String(crew.crewDues ?? crew.crew_dues ?? ""),
       workDate: crew.workDate || crew.work_date || "",
       notes: crew.notes || "",
     });
@@ -404,7 +410,6 @@ export default function WellCrewsPage() {
       railType: transport.railType || transport.rail_type || "",
       withPanels: transport.withPanels ?? transport.with_panels ?? false,
       transportPrice: String(transport.transportPrice ?? transport.transport_price ?? ""),
-      crewDues: String(transport.crewDues ?? transport.crew_dues ?? ""),
       transportDate: transport.transportDate || transport.transport_date || "",
       notes: transport.notes || "",
     });
@@ -439,10 +444,11 @@ export default function WellCrewsPage() {
             mastersCount: crew ? (crew.mastersCount ?? crew.masters_count ?? '') : '',
             workDays: crew ? (crew.workDays ?? crew.work_days ?? '') : '',
             crewNotes: crew ? (crew.notes || '') : '',
-            railType: transport ? (transport.railType || transport.rail_type || '') : '',
+            crewDues: crew ? (Number(crew.crewDues || crew.crew_dues) || '') : '',
+            crewDate: crew ? (crew.workDate || crew.work_date || '') : '',
+            railType: transport ? (RAIL_TYPE_MAP[transport.railType || transport.rail_type] || transport.railType || transport.rail_type || '') : '',
             withPanels: transport ? ((transport.withPanels ?? transport.with_panels) ? 'نعم' : 'لا') : '',
             transportPrice: transport ? (Number(transport.transportPrice || transport.transport_price) || '') : '',
-            crewDues: transport ? (Number(transport.crewDues || transport.crew_dues) || '') : '',
             transportNotes: transport ? (transport.notes || '') : '',
           });
         }
@@ -467,14 +473,15 @@ export default function WellCrewsPage() {
           { header: 'عدد الألواح', key: 'numberOfPanels', width: 10 },
           { header: 'نوع الفريق', key: 'crewType', width: 14 },
           { header: 'اسم الفريق', key: 'teamName', width: 14 },
+          { header: 'تاريخ العمل', key: 'crewDate', width: 12 },
           { header: 'عدد العمال', key: 'workersCount', width: 10 },
           { header: 'عدد المعلمين', key: 'mastersCount', width: 10 },
           { header: 'أيام العمل', key: 'workDays', width: 10 },
+          { header: 'مستحقات الفريق', key: 'crewDues', width: 12, numFmt: '#,##0' },
           { header: 'ملاحظات الفريق', key: 'crewNotes', width: 16 },
           { header: 'ريلات', key: 'railType', width: 10 },
           { header: 'مع ألواح', key: 'withPanels', width: 10 },
           { header: 'سعر النقل', key: 'transportPrice', width: 12, numFmt: '#,##0' },
-          { header: 'مستحقات الفريق', key: 'crewDues', width: 12, numFmt: '#,##0' },
           { header: 'ملاحظات النقل', key: 'transportNotes', width: 16 },
         ],
         data: rows,
@@ -597,10 +604,9 @@ export default function WellCrewsPage() {
                     onClick: () => {},
                     color: "yellow",
                     dropdown: Object.entries(WELL_STATUS_MAP)
-                      .filter(([key]) => key !== well.status)
                       .map(([key, val]) => ({
-                        label: val.label,
-                        onClick: () => changeStatusMutation.mutate({ wellId: well.id, status: key })
+                        label: key === well.status ? `${val.label} ✓` : val.label,
+                        onClick: () => { if (key !== well.status) changeStatusMutation.mutate({ wellId: well.id, status: key }); }
                       }))
                   },
                   {
@@ -615,7 +621,7 @@ export default function WellCrewsPage() {
                   },
                 ]}
                 footer={
-                  <div className="space-y-1.5 pt-0.5">
+                  <div className="space-y-1 pt-0">
                     {crewCount > 0 && (
                       <>
                         <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
@@ -626,40 +632,47 @@ export default function WellCrewsPage() {
                           const crewType = CREW_TYPE_MAP[crewTypeKey] || crewTypeKey;
                           const colors = CREW_TYPE_COLORS[crewTypeKey] || { bg: "bg-muted/30", border: "border-border", badge: "" };
                           const workDate = crew.workDate || crew.work_date;
+                          const crewDues = Number(crew.crewDues ?? crew.crew_dues ?? 0);
+                          const totalWages = Number(crew.totalWages ?? crew.total_wages ?? 0);
                           return (
-                            <div key={`crew-${crew.id}`} className={`border rounded-lg p-2.5 space-y-1.5 ${colors.bg} ${colors.border}`} data-testid={`row-crew-${crew.id}`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${colors.badge}`}>{crewType}</Badge>
-                                  <span className="text-xs font-semibold text-foreground">{crew.teamName || crew.team_name || '-'}</span>
-                                  {workDate && (
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" />
-                                      {new Date(workDate).toLocaleDateString('ar-SA')}
-                                    </span>
-                                  )}
+                            <div key={`crew-${crew.id}`} className={`border rounded-md p-2 space-y-1 ${colors.bg} ${colors.border}`} data-testid={`row-crew-${crew.id}`}>
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 shrink-0 ${colors.badge}`}>{crewType}</Badge>
+                                  <span className="text-xs font-semibold text-foreground truncate">{crew.teamName || crew.team_name || '-'}</span>
                                 </div>
-                                <div className="flex gap-1">
-                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditCrew(crew, well.id)} data-testid={`button-edit-crew-${crew.id}`}>
-                                    <Edit className="h-3.5 w-3.5" />
+                                <div className="flex gap-0.5 shrink-0">
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditCrew(crew, well.id)} data-testid={`button-edit-crew-${crew.id}`}>
+                                    <Edit className="h-3 w-3" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("حذف هذا الفريق؟")) deleteCrewMutation.mutate(crew.id); }} data-testid={`button-delete-crew-${crew.id}`}>
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { if (confirm("حذف هذا الفريق؟")) deleteCrewMutation.mutate(crew.id); }} data-testid={`button-delete-crew-${crew.id}`}>
+                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-3 gap-1 text-xs">
+                              <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-[11px]">
                                 <span>عمال: <b className="text-foreground">{crew.workersCount ?? crew.workers_count ?? 0}</b></span>
                                 <span>معلمين: <b className="text-foreground">{crew.mastersCount ?? crew.masters_count ?? 0}</b></span>
                                 <span>أيام: <b className="text-foreground">{crew.workDays ?? crew.work_days ?? 0}</b></span>
+                                {workDate ? (
+                                  <span className="flex items-center gap-0.5">
+                                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                                    <b className="text-foreground">{new Date(workDate).toLocaleDateString('ar-SA')}</b>
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">بدون تاريخ</span>
+                                )}
                               </div>
-                              {(Number(crew.totalWages ?? crew.total_wages) > 0) && (
-                                <div className="text-xs">
-                                  إجمالي: <b className="text-green-600 dark:text-green-400">{Number(crew.totalWages ?? crew.total_wages ?? 0).toLocaleString()} ر</b>
-                                </div>
-                              )}
+                              <div className="grid grid-cols-2 gap-x-2 text-[11px]">
+                                {totalWages > 0 && (
+                                  <span>إجمالي الأجور: <b className="text-green-600 dark:text-green-400">{totalWages.toLocaleString()} ر</b></span>
+                                )}
+                                {crewDues > 0 && (
+                                  <span>مستحقات الفريق: <b className="text-blue-600 dark:text-blue-400">{crewDues.toLocaleString()} ر</b></span>
+                                )}
+                              </div>
                               {crew.notes && (
-                                <div className="text-xs text-muted-foreground break-words">ملاحظات: {crew.notes}</div>
+                                <div className="text-[11px] text-muted-foreground break-words">ملاحظات: {crew.notes}</div>
                               )}
                             </div>
                           );
@@ -669,41 +682,43 @@ export default function WellCrewsPage() {
 
                     {transportCount > 0 && (
                       <>
-                        <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 mt-1">
+                        <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 mt-0.5">
                           <Truck className="h-3 w-3 text-amber-500" /> النقل ({transportCount})
                         </div>
                         {well.transport.map((t: any) => {
                           const tDate = t.transportDate || t.transport_date;
+                          const rawRail = t.railType || t.rail_type || '-';
+                          const railLabel = RAIL_TYPE_MAP[rawRail] || rawRail;
                           return (
-                            <div key={`transport-${t.id}`} className="border rounded-lg p-2.5 space-y-1.5 bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800" data-testid={`row-transport-${t.id}`}>
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant="outline" className="text-xs">{t.railType || t.rail_type || '-'}</Badge>
+                            <div key={`transport-${t.id}`} className="border rounded-md p-2 space-y-1 bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800" data-testid={`row-transport-${t.id}`}>
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700">{railLabel}</Badge>
                                   {(t.withPanels ?? t.with_panels) && (
-                                    <Badge variant="secondary" className="text-xs">مع ألواح</Badge>
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">مع ألواح</Badge>
                                   )}
                                   {tDate && (
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                                       <Calendar className="h-3 w-3" />
                                       {new Date(tDate).toLocaleDateString('ar-SA')}
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex gap-1">
-                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEditTransport(t, well.id)} data-testid={`button-edit-transport-${t.id}`}>
-                                    <Edit className="h-3.5 w-3.5" />
+                                <div className="flex gap-0.5 shrink-0">
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditTransport(t, well.id)} data-testid={`button-edit-transport-${t.id}`}>
+                                    <Edit className="h-3 w-3" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("حذف سجل النقل؟")) deleteTransportMutation.mutate(t.id); }} data-testid={`button-delete-transport-${t.id}`}>
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { if (confirm("حذف سجل النقل؟")) deleteTransportMutation.mutate(t.id); }} data-testid={`button-delete-transport-${t.id}`}>
+                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-1 text-xs">
+                              <div className="grid grid-cols-2 gap-x-2 text-[11px]">
                                 <span>سعر النقل: <b className="text-foreground">{Number(t.transportPrice || t.transport_price || 0).toLocaleString()} ر</b></span>
-                                <span>مستحقات الفريق: <b className="text-foreground">{Number(t.crewDues || t.crew_dues || 0).toLocaleString()} ر</b></span>
+                                {!tDate && <span className="text-muted-foreground">بدون تاريخ</span>}
                               </div>
                               {t.notes && (
-                                <div className="text-xs text-muted-foreground break-words">ملاحظات: {t.notes}</div>
+                                <div className="text-[11px] text-muted-foreground break-words">ملاحظات: {t.notes}</div>
                               )}
                             </div>
                           );
@@ -712,7 +727,7 @@ export default function WellCrewsPage() {
                     )}
 
                     {crewCount === 0 && transportCount === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-2" data-testid={`text-no-data-${well.id}`}>
+                      <p className="text-[11px] text-muted-foreground text-center py-1" data-testid={`text-no-data-${well.id}`}>
                         لا توجد بيانات فرق أو نقل مسجلة
                       </p>
                     )}
@@ -794,6 +809,10 @@ export default function WellCrewsPage() {
             <div className="space-y-1">
               <Label className="text-sm">أجر المعلم اليومي</Label>
               <Input type="number" value={crewForm.masterDailyWage} onChange={(e) => setCrewForm({ ...crewForm, masterDailyWage: e.target.value })} placeholder="0" data-testid="input-crew-master-wage" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">مستحقات الفريق</Label>
+              <Input type="number" value={crewForm.crewDues} onChange={(e) => setCrewForm({ ...crewForm, crewDues: e.target.value })} placeholder="0" data-testid="input-crew-dues" />
             </div>
             <div className="space-y-1">
               <Label className="text-sm">تاريخ العمل</Label>
@@ -879,10 +898,6 @@ export default function WellCrewsPage() {
             <div className="space-y-1">
               <Label className="text-sm">سعر النقل</Label>
               <Input type="number" value={transportForm.transportPrice} onChange={(e) => setTransportForm({ ...transportForm, transportPrice: e.target.value })} placeholder="0" data-testid="input-transport-price" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">مستحقات الفريق</Label>
-              <Input type="number" value={transportForm.crewDues} onChange={(e) => setTransportForm({ ...transportForm, crewDues: e.target.value })} placeholder="0" data-testid="input-transport-crew-dues" />
             </div>
             <div className="space-y-1 col-span-2">
               <Label className="text-sm">ملاحظات</Label>

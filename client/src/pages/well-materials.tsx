@@ -458,8 +458,8 @@ export default function WellMaterialsPage() {
                 key={well.id}
                 data-testid={`card-well-material-${well.id}`}
                 title={`بئر #${well.wellNumber} - ${well.ownerName}`}
-                subtitle={well.region}
                 titleIcon={MapPin}
+                compact
                 headerColor={s ? getInstallationStatusColor(s?.installationStatus || s?.installation_status || "not_installed") : "#9ca3af"}
                 badges={[
                   ...(s ? [{
@@ -484,9 +484,9 @@ export default function WellMaterialsPage() {
                 })()}
                 footer={
                   s ? (
-                    <div className="space-y-2 pt-1">
+                    <div className="space-y-1 pt-0">
                       {(s?.installationStatus || s?.installation_status) === "partial" && (s?.installedComponents || s?.installed_components) && (
-                        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-2 text-xs">
+                        <div className="bg-blue-50 dark:bg-blue-950/30 rounded p-1.5 text-[11px]">
                           <span className="font-semibold text-blue-700 dark:text-blue-300">المكونات المركبة: </span>
                           {(() => {
                             try {
@@ -496,38 +496,38 @@ export default function WellMaterialsPage() {
                           })()}
                         </div>
                       )}
-                      <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                        <Sun className="h-3.5 w-3.5 text-yellow-500" /> مكونات المنظومة الشمسية
+                      <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                        <Sun className="h-3 w-3 text-yellow-500" /> مكونات المنظومة الشمسية
                       </div>
-                      <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs">
-                        <span>مراوح: <b className="text-foreground">{getVal(s, "fanCount", "fan_count")}</b></span>
-                        <span>غطاس: <b className="text-foreground">{(s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "-"}</b></span>
-                        <span>أنفرتر: <b className="text-foreground">{getVal(s, "inverter", "inverter")}</b></span>
-                        <span>صندوق تجميع: <b className="text-foreground">{getVal(s, "collectionBox", "collection_box")}</b></span>
-                        <span>شيال كربون: <b className="text-foreground">{getVal(s, "carbonCarrier", "carbon_carrier")}</b></span>
-                        <span>تحويلة استيل: <b className="text-foreground">{getVal(s, "steelConverterTop", "steel_converter_top")}</b></span>
-                        <span>ملزمة تحت: <b className="text-foreground">{getVal(s, "clampConverterBottom", "clamp_converter_bottom")}</b></span>
-                        <span>كليب تأريض: <b className="text-foreground">{getVal(s, "groundingClip", "grounding_clip")}</b></span>
-                        <span>صفيحة تأريض: <b className="text-foreground">{getVal(s, "groundingPlate", "grounding_plate")}</b></span>
-                        <span>سيخ تأريض: <b className="text-foreground">{getVal(s, "groundingRod", "grounding_rod")}</b></span>
-                        <span>سائل حراري: <b className="text-foreground">{getVal(s, "jointThermalLiquid", "joint_thermal_liquid")}</b></span>
-                        <span>كيبل 6ملي: <b className="text-foreground">{getVal(s, "bindingCable6mm", "binding_cable_6mm")}</b></span>
+                      <div className="grid grid-cols-4 gap-x-2 gap-y-0 text-[11px] leading-5">
+                        <span>مراوح: <b>{getVal(s, "fanCount", "fan_count")}</b></span>
+                        <span>غطاس: <b>{(s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "-"}</b></span>
+                        <span>أنفرتر: <b>{getVal(s, "inverter", "inverter")}</b></span>
+                        <span>صندوق تجميع: <b>{getVal(s, "collectionBox", "collection_box")}</b></span>
+                        <span>شيال كربون: <b>{getVal(s, "carbonCarrier", "carbon_carrier")}</b></span>
+                        <span>تحويلة استيل: <b>{getVal(s, "steelConverterTop", "steel_converter_top")}</b></span>
+                        <span>ملزمة تحت: <b>{getVal(s, "clampConverterBottom", "clamp_converter_bottom")}</b></span>
+                        <span>كليب تأريض: <b>{getVal(s, "groundingClip", "grounding_clip")}</b></span>
+                        <span>صفيحة تأريض: <b>{getVal(s, "groundingPlate", "grounding_plate")}</b></span>
+                        <span>سيخ تأريض: <b>{getVal(s, "groundingRod", "grounding_rod")}</b></span>
+                        <span>سائل حراري: <b>{getVal(s, "jointThermalLiquid", "joint_thermal_liquid")}</b></span>
+                        <span>كيبل 6ملي: <b>{getVal(s, "bindingCable6mm", "binding_cable_6mm")}</b></span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs border-t pt-1.5 mt-1">
-                        <span>كيبل تأريض 10×2: <b className="text-foreground">{getVal(s, "groundingCable10x2mm", "grounding_cable_10x2mm")}</b></span>
-                        <span>كيبل 16×3: <b className="text-foreground">{getVal(s, "cable16x3mmLength", "cable_16x3mm_length")}</b></span>
-                        <span>كيبل 10×2: <b className="text-foreground">{getVal(s, "cable10x2mmLength", "cable_10x2mm_length")}</b></span>
+                      <div className="grid grid-cols-3 gap-x-2 gap-y-0 text-[11px] leading-5 border-t pt-0.5">
+                        <span>كيبل تأريض 10×2: <b>{getVal(s, "groundingCable10x2mm", "grounding_cable_10x2mm")}</b></span>
+                        <span>كيبل 16×3: <b>{getVal(s, "cable16x3mmLength", "cable_16x3mm_length")}</b></span>
+                        <span>كيبل 10×2: <b>{getVal(s, "cable10x2mmLength", "cable_10x2mm_length")}</b></span>
                       </div>
                       {(() => {
                         const extraPipesVal = Number(s?.extraPipes ?? s?.extra_pipes ?? 0);
                         const extraCableVal = Number(s?.extraCable ?? s?.extra_cable ?? 0);
                         if (extraPipesVal <= 0 && extraCableVal <= 0) return null;
                         return (
-                          <div className="grid grid-cols-2 gap-2 mt-1.5">
+                          <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                             {extraPipesVal > 0 && (
-                              <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 rounded-lg p-2 flex items-center gap-2">
-                                <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                              <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 rounded p-1.5 flex items-center gap-1.5">
+                                <Wrench className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
                                   مواسير إضافية: {extraPipesVal}
                                   {(s?.extraPipesReason || s?.extra_pipes_reason) && (
                                     <span className="font-normal text-blue-600 dark:text-blue-400 mr-1">({s.extraPipesReason || s.extra_pipes_reason})</span>
@@ -536,9 +536,9 @@ export default function WellMaterialsPage() {
                               </div>
                             )}
                             {extraCableVal > 0 && (
-                              <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-700 rounded-lg p-2 flex items-center gap-2">
-                                <Zap className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
-                                <span className="text-xs font-bold text-orange-700 dark:text-orange-300">
+                              <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-700 rounded p-1.5 flex items-center gap-1.5">
+                                <Zap className="h-3 w-3 text-orange-600 dark:text-orange-400 shrink-0" />
+                                <span className="text-[11px] font-bold text-orange-700 dark:text-orange-300">
                                   كيبل إضافي: {extraCableVal} م
                                   {(s?.extraCableReason || s?.extra_cable_reason) && (
                                     <span className="font-normal text-orange-600 dark:text-orange-400 mr-1">({s.extraCableReason || s.extra_cable_reason})</span>
@@ -550,7 +550,7 @@ export default function WellMaterialsPage() {
                         );
                       })()}
                       {(s?.notes || well.notes) && (
-                        <div className="text-xs text-muted-foreground border-t pt-1 mt-1">
+                        <div className="text-[11px] text-muted-foreground border-t pt-0.5">
                           ملاحظات: {s?.notes || well.notes}
                         </div>
                       )}
@@ -572,10 +572,9 @@ export default function WellMaterialsPage() {
                     onClick: () => {},
                     color: "yellow",
                     dropdown: Object.entries(WELL_STATUS_MAP)
-                      .filter(([key]) => key !== well.status)
                       .map(([key, val]) => ({
-                        label: val.label,
-                        onClick: () => changeStatusMutation.mutate({ wellId: well.id, status: key })
+                        label: key === well.status ? `${val.label} ✓` : val.label,
+                        onClick: () => { if (key !== well.status) changeStatusMutation.mutate({ wellId: well.id, status: key }); }
                       }))
                   },
                   {

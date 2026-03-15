@@ -1500,6 +1500,7 @@ export const wellWorkCrews = pgTable("well_work_crews", {
   workerDailyWage: decimal("worker_daily_wage", { precision: 12, scale: 2 }),
   masterDailyWage: decimal("master_daily_wage", { precision: 12, scale: 2 }),
   totalWages: decimal("total_wages", { precision: 12, scale: 2 }),
+  crewDues: decimal("crew_dues", { precision: 12, scale: 2 }),
   workDate: date("work_date"),
   notes: text("notes"),
   createdBy: varchar("created_by").references(() => users.id),

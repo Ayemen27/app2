@@ -623,43 +623,92 @@ workerRouter.patch('/workers/:id', async (req: Request, res: Response) => {
       .where(eq(workers.id, worker_id))
       .returning();
 
-    // إذا تم تغيير اليومية، نقوم بتحديث جميع سجلات الحضور السابقة وإعادة حساب الأرصدة
+    // إذا تم تغيير اليومية، نحدث فقط سجلات المشاريع التي ليس لها أجر مشروع خاص
     let attendanceUpdatedCount = 0;
     if (isDailyWageChanged) {
-      console.log(`💰 [API] تم تغيير اليومية من ${oldDailyWage} إلى ${newDailyWage} - جاري تحديث جميع سجلات الحضور السابقة وإعادة الحساب...`);
-      
-      // عملية واحدة لتحديث كافة السجلات وإعادة حساب القيم المالية
-      const attendanceUpdateResult = await db.execute(sql`
-        UPDATE worker_attendance
-        SET 
-          daily_wage = ${newDailyWage},
-          actual_wage = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
-          total_pay = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
-          remaining_amount = (CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
-        WHERE worker_id = ${worker_id}
-      `);
-      
-      attendanceUpdatedCount = attendanceUpdateResult.rowCount || 0;
-      console.log(`✅ [API] تم تحديث ${attendanceUpdatedCount} سجل حضور بالأجر الجديد`);
+      console.log(`💰 [API] تم تغيير اليومية من ${oldDailyWage} إلى ${newDailyWage}`);
 
-      // تحديث أرصدة العامل في جميع المشاريع المرتبطة بشكل فوري
-      await db.execute(sql`
-        UPDATE worker_balances wb
-        SET 
-          total_earned = COALESCE((
-            SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
-            FROM worker_attendance wa
-            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
-          ), 0),
-          current_balance = COALESCE((
-            SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
-            FROM worker_attendance wa
-            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
-          ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),
-          last_updated = NOW()
-        WHERE wb.worker_id = ${worker_id}
-      `);
-      console.log('✅ [API] تم إعادة حساب وتحديث كافة أرصدة العامل بنجاح');
+      // جلب المشاريع التي لها أجر مشروع خاص لهذا العامل (لن نمسها)
+      const coveredProjects = await db.select({
+        project_id: workerProjectWages.project_id
+      }).from(workerProjectWages).where(
+        and(
+          eq(workerProjectWages.worker_id, worker_id),
+          eq(workerProjectWages.is_active, true)
+        )
+      );
+      const coveredProjectIds = [...new Set(coveredProjects.map(p => p.project_id))];
+
+      if (coveredProjectIds.length > 0) {
+        console.log(`⚠️ [API] تجاوز ${coveredProjectIds.length} مشروع لديهم أجر مشروع خاص`);
+      }
+
+      // تحديث سجلات الحضور فقط في المشاريع غير المغطاة بأجر مشروع
+      let attendanceUpdateResult;
+      if (coveredProjectIds.length > 0) {
+        attendanceUpdateResult = await db.execute(sql`
+          UPDATE worker_attendance
+          SET
+            daily_wage = ${newDailyWage},
+            actual_wage = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+            total_pay = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+            remaining_amount = (CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
+          WHERE worker_id = ${worker_id}
+            AND project_id NOT IN (${sql.raw(coveredProjectIds.map(id => `'${id}'`).join(','))})
+        `);
+      } else {
+        attendanceUpdateResult = await db.execute(sql`
+          UPDATE worker_attendance
+          SET
+            daily_wage = ${newDailyWage},
+            actual_wage = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+            total_pay = CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+            remaining_amount = (CAST(${newDailyWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
+          WHERE worker_id = ${worker_id}
+        `);
+      }
+
+      attendanceUpdatedCount = attendanceUpdateResult.rowCount || 0;
+      console.log(`✅ [API] تم تحديث ${attendanceUpdatedCount} سجل حضور بالأجر الجديد (المشاريع غير المغطاة فقط)`);
+
+      // تحديث أرصدة العامل في المشاريع المتأثرة فقط
+      if (coveredProjectIds.length > 0) {
+        await db.execute(sql`
+          UPDATE worker_balances wb
+          SET
+            total_earned = COALESCE((
+              SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+              FROM worker_attendance wa
+              WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+            ), 0),
+            current_balance = COALESCE((
+              SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+              FROM worker_attendance wa
+              WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+            ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),
+            last_updated = NOW()
+          WHERE wb.worker_id = ${worker_id}
+            AND wb.project_id NOT IN (${sql.raw(coveredProjectIds.map(id => `'${id}'`).join(','))})
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE worker_balances wb
+          SET
+            total_earned = COALESCE((
+              SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+              FROM worker_attendance wa
+              WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+            ), 0),
+            current_balance = COALESCE((
+              SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+              FROM worker_attendance wa
+              WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+            ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),
+            last_updated = NOW()
+          WHERE wb.worker_id = ${worker_id}
+        `);
+      }
+      console.log('✅ [API] تم إعادة حساب وتحديث أرصدة العامل بنجاح');
     }
 
     const duration = Date.now() - startTime;
@@ -1636,15 +1685,95 @@ workerRouter.patch('/worker-project-wages/:id', async (req: Request, res: Respon
       });
     }
 
+    const oldWage = existing[0];
+    const newDailyWage = validationResult.data.dailyWage || oldWage.dailyWage;
+    const isDailyWageChanged = validationResult.data.dailyWage && validationResult.data.dailyWage !== oldWage.dailyWage;
+
+    const effectiveFrom = validationResult.data.effectiveFrom || oldWage.effectiveFrom;
+    const effectiveTo = validationResult.data.effectiveTo !== undefined ? validationResult.data.effectiveTo : oldWage.effectiveTo;
+
+    const oldEffectiveFrom = oldWage.effectiveFrom;
+    const oldEffectiveTo = oldWage.effectiveTo;
+    const rangeChanged = effectiveFrom !== oldEffectiveFrom || effectiveTo !== oldEffectiveTo;
+
     const [updated] = await db.update(workerProjectWages)
       .set({ ...validationResult.data, updated_at: new Date() })
       .where(eq(workerProjectWages.id, id))
       .returning();
 
+    let attendanceUpdatedCount = 0;
+
+    if (isDailyWageChanged || rangeChanged) {
+      console.log(`💰 [ProjectWage] تغيير أجر المشروع للعامل ${oldWage.worker_id} في مشروع ${oldWage.project_id}: ${oldWage.dailyWage} → ${newDailyWage}`);
+
+      const recalcFrom = rangeChanged
+        ? (oldEffectiveFrom < effectiveFrom ? oldEffectiveFrom : effectiveFrom)
+        : effectiveFrom;
+      const recalcTo = rangeChanged
+        ? (oldEffectiveTo && effectiveTo ? (oldEffectiveTo > effectiveTo ? oldEffectiveTo : effectiveTo) : null)
+        : effectiveTo;
+
+      const dateConditions = [
+        eq(workerAttendance.worker_id, oldWage.worker_id),
+        eq(workerAttendance.project_id, oldWage.project_id),
+        gte(workerAttendance.attendanceDate, recalcFrom)
+      ];
+      if (recalcTo) {
+        dateConditions.push(lte(workerAttendance.attendanceDate, recalcTo));
+      }
+
+      const affectedRecords = await db.select({
+        id: workerAttendance.id,
+        attendanceDate: workerAttendance.attendanceDate
+      }).from(workerAttendance).where(and(...dateConditions));
+
+      if (affectedRecords.length > 0) {
+        for (const record of affectedRecords) {
+          const resolvedWage = await resolveEffectiveWageForRoute(
+            oldWage.worker_id, oldWage.project_id, record.attendanceDate
+          );
+
+          await db.execute(sql`
+            UPDATE worker_attendance
+            SET
+              daily_wage = ${resolvedWage},
+              actual_wage = CAST(${resolvedWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+              total_pay = CAST(${resolvedWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+              remaining_amount = (CAST(${resolvedWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
+            WHERE id = ${record.id}
+          `);
+        }
+
+        attendanceUpdatedCount = affectedRecords.length;
+        console.log(`✅ [ProjectWage] تم تحديث ${attendanceUpdatedCount} سجل حضور في المشروع`);
+
+        await db.execute(sql`
+          UPDATE worker_balances wb
+          SET
+            total_earned = COALESCE((
+              SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+              FROM worker_attendance wa
+              WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+            ), 0),
+            current_balance = COALESCE((
+              SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+              FROM worker_attendance wa
+              WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+            ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),
+            last_updated = NOW()
+          WHERE wb.worker_id = ${oldWage.worker_id} AND wb.project_id = ${oldWage.project_id}
+        `);
+        console.log(`✅ [ProjectWage] تم إعادة حساب رصيد العامل في المشروع`);
+      }
+    }
+
     res.json({
       success: true,
       data: updated,
-      message: 'تم تحديث سجل أجر العامل في المشروع بنجاح'
+      attendanceRecordsUpdated: attendanceUpdatedCount,
+      message: attendanceUpdatedCount > 0
+        ? `تم تحديث أجر المشروع وإعادة حساب ${attendanceUpdatedCount} سجل حضور بنجاح`
+        : 'تم تحديث سجل أجر العامل في المشروع بنجاح'
     });
   } catch (error: any) {
     console.error('❌ خطأ في تحديث أجر العامل في المشروع:', error);

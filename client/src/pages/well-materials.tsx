@@ -15,8 +15,64 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp, CheckCircle, AlertCircle, XCircle, Clock } from "lucide-react";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+
+const INSTALLATION_STATUSES = [
+  { value: "installed", label: "مركب" },
+  { value: "in_progress", label: "قيد التنفيذ" },
+  { value: "not_installed", label: "غير مركبة" },
+  { value: "partial", label: "مركب جزئياً" },
+];
+
+const INSTALLABLE_COMPONENTS = [
+  { key: "inverter", label: "أنفرتر" },
+  { key: "collectionBox", label: "صندوق تجميع" },
+  { key: "carbonCarrier", label: "شيال كربون" },
+  { key: "steelConverterTop", label: "تحويلة فوق استيل" },
+  { key: "clampConverterBottom", label: "ملزمة تحت" },
+  { key: "jointThermalLiquid", label: "جونتي سائل حراري" },
+  { key: "groundingClip", label: "كليب تأريض" },
+  { key: "groundingPlate", label: "صفيحة تأريض" },
+  { key: "groundingRod", label: "سيخ تأريض" },
+  { key: "submersiblePump", label: "غطاس" },
+  { key: "panels", label: "ألواح شمسية" },
+  { key: "pipes", label: "مواسير" },
+  { key: "cables", label: "كيبلات" },
+  { key: "fanCount", label: "مراوح" },
+];
+
+function getInstallationStatusLabel(status: string) {
+  return INSTALLATION_STATUSES.find(s => s.value === status)?.label || "غير مركبة";
+}
+
+function getInstallationStatusColor(status: string) {
+  switch (status) {
+    case "installed": return "green";
+    case "in_progress": return "orange";
+    case "partial": return "blue";
+    default: return "gray";
+  }
+}
+
+function getInstallationStatusIcon(status: string) {
+  switch (status) {
+    case "installed": return CheckCircle;
+    case "in_progress": return Clock;
+    case "partial": return AlertCircle;
+    default: return XCircle;
+  }
+}
+
+function getInstallationBadgeVariant(status: string): "default" | "destructive" | "outline" {
+  switch (status) {
+    case "installed": return "default";
+    case "partial": return "outline";
+    case "in_progress": return "outline";
+    default: return "destructive";
+  }
+}
 
 interface WellFullData {
   id: number;
@@ -113,9 +169,10 @@ export default function WellMaterialsPage() {
         (filterValues.depthRange === "0-50" && depth <= 50) ||
         (filterValues.depthRange === "51-100" && depth >= 51 && depth <= 100) ||
         (filterValues.depthRange === "101+" && depth >= 101);
+      const solarStatus = well.solar?.installationStatus || well.solar?.installation_status || (well.solar ? "not_installed" : null);
       const matchesSolar = filterValues.hasSolar === "all" ||
-        (filterValues.hasSolar === "yes" && !!well.solar) ||
-        (filterValues.hasSolar === "no" && !well.solar);
+        (filterValues.hasSolar === "no_solar" && !well.solar) ||
+        (filterValues.hasSolar !== "no_solar" && solarStatus === filterValues.hasSolar);
       return matchesSearch && matchesRegion && matchesStatus && matchesDepth && matchesSolar;
     });
   }, [wellsData, searchValue, filterValues]);
@@ -170,13 +227,16 @@ export default function WellMaterialsPage() {
       },
       {
         key: "hasSolar",
-        label: "المنظومة الشمسية",
+        label: "حالة التركيب",
         type: "select",
         placeholder: "الكل",
         options: [
           { value: "all", label: "الكل" },
-          { value: "yes", label: "مركّبة" },
-          { value: "no", label: "غير مركّبة" },
+          { value: "installed", label: "مركب" },
+          { value: "in_progress", label: "قيد التنفيذ" },
+          { value: "partial", label: "مركب جزئياً" },
+          { value: "not_installed", label: "غير مركبة" },
+          { value: "no_solar", label: "بدون منظومة" },
         ],
         defaultValue: "all",
       },
@@ -358,15 +418,19 @@ export default function WellMaterialsPage() {
             return (
               <UnifiedCard
                 key={well.id}
+                data-testid={`card-well-material-${well.id}`}
                 title={`بئر #${well.wellNumber} - ${well.ownerName}`}
                 subtitle={well.region}
                 titleIcon={MapPin}
-                headerColor={s ? "green" : "gray"}
+                headerColor={s ? getInstallationStatusColor(s?.installationStatus || s?.installation_status || "not_installed") : "gray"}
                 badges={[
-                  {
-                    label: s ? "منظومة شمسية ✓" : "بدون منظومة",
-                    variant: s ? ("default" as any) : ("outline" as any),
-                  },
+                  ...(s ? [{
+                    label: getInstallationStatusLabel(s?.installationStatus || s?.installation_status || "not_installed"),
+                    variant: getInstallationBadgeVariant(s?.installationStatus || s?.installation_status || "not_installed") as any,
+                  }] : [{
+                    label: "بدون منظومة",
+                    variant: "outline" as any,
+                  }]),
                 ]}
                 fields={[
                   { label: "المنطقة", value: well.region || "-", icon: MapPin, color: "info" as const },
@@ -379,6 +443,17 @@ export default function WellMaterialsPage() {
                 footer={
                   s ? (
                     <div className="space-y-2 pt-1">
+                      {(s?.installationStatus || s?.installation_status) === "partial" && (s?.installedComponents || s?.installed_components) && (
+                        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-2 text-xs">
+                          <span className="font-semibold text-blue-700 dark:text-blue-300">المكونات المركبة: </span>
+                          {(() => {
+                            try {
+                              const comps = JSON.parse(s.installedComponents || s.installed_components || "[]");
+                              return comps.map((c: string) => INSTALLABLE_COMPONENTS.find(ic => ic.key === c)?.label || c).join("، ");
+                            } catch { return s.installedComponents || s.installed_components; }
+                          })()}
+                        </div>
+                      )}
                       <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
                         <Sun className="h-3.5 w-3.5 text-yellow-500" /> مكونات المنظومة الشمسية
                       </div>
@@ -464,6 +539,12 @@ function SolarEditDialog({
 
   const existing = solarComponents;
 
+  const parseInstalledComponents = (data: any): string[] => {
+    const raw = data?.installedComponents || data?.installed_components;
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch { return []; }
+  };
+
   const [form, setForm] = useState(() => ({
     inverter: existing?.inverter || "نعم",
     collectionBox: existing?.collectionBox || existing?.collection_box || "نعم",
@@ -480,6 +561,8 @@ function SolarEditDialog({
     cable10x2mmLength: existing?.cable10x2mmLength || existing?.cable_10x2mm_length || "",
     fanCount: existing?.fanCount ?? existing?.fan_count ?? "",
     submersiblePump: existing?.submersiblePump ?? existing?.submersible_pump ?? true,
+    installationStatus: existing?.installationStatus || existing?.installation_status || "not_installed",
+    installedComponents: parseInstalledComponents(existing),
     extraPipes: existing?.extraPipes ?? existing?.extra_pipes ?? "",
     extraPipesReason: existing?.extraPipesReason || existing?.extra_pipes_reason || "",
     extraCable: existing?.extraCable ?? existing?.extra_cable ?? "",
@@ -506,6 +589,8 @@ function SolarEditDialog({
         cable10x2mmLength: data.cable10x2mmLength || data.cable_10x2mm_length || "",
         fanCount: data.fanCount ?? data.fan_count ?? "",
         submersiblePump: data.submersiblePump ?? data.submersible_pump ?? true,
+        installationStatus: data.installationStatus || data.installation_status || "not_installed",
+        installedComponents: parseInstalledComponents(data),
         extraPipes: data.extraPipes ?? data.extra_pipes ?? "",
         extraPipesReason: data.extraPipesReason || data.extra_pipes_reason || "",
         extraCable: data.extraCable ?? data.extra_cable ?? "",
@@ -518,10 +603,14 @@ function SolarEditDialog({
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest(`/api/wells/${wellId}/solar-components`, "POST", {
+      const payload = {
         ...data,
         well_id: wellId,
-      });
+        installedComponents: Array.isArray(data.installedComponents)
+          ? JSON.stringify(data.installedComponents)
+          : data.installedComponents,
+      };
+      return apiRequest(`/api/wells/${wellId}/solar-components`, "POST", payload);
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم حفظ مكونات الطاقة الشمسية بنجاح" });
@@ -560,6 +649,47 @@ function SolarEditDialog({
             </div>
           ) : (
             <>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-sm font-semibold">حالة التركيب *</Label>
+                  <SearchableSelect
+                    value={form.installationStatus}
+                    onValueChange={(v) => {
+                      setForm({ ...form, installationStatus: v, installedComponents: v === "partial" ? form.installedComponents : [] });
+                    }}
+                    options={INSTALLATION_STATUSES}
+                    placeholder="اختر حالة التركيب"
+                    data-testid="select-installation-status"
+                  />
+                </div>
+                {form.installationStatus === "partial" && (
+                  <div className="border rounded-xl p-3 bg-blue-50/50 dark:bg-blue-950/20 space-y-2">
+                    <Label className="text-sm font-semibold text-blue-700 dark:text-blue-300">حدد المكونات التي تم تركيبها:</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {INSTALLABLE_COMPONENTS.map((comp) => (
+                        <label key={comp.key} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg p-1.5 transition-colors" data-testid={`checkbox-component-${comp.key}`}>
+                          <Checkbox
+                            checked={form.installedComponents.includes(comp.key)}
+                            onCheckedChange={(checked) => {
+                              const updated = checked
+                                ? [...form.installedComponents, comp.key]
+                                : form.installedComponents.filter((k: string) => k !== comp.key);
+                              setForm({ ...form, installedComponents: updated });
+                            }}
+                          />
+                          <span>{comp.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {form.installedComponents.length > 0 && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        تم تحديد {form.installedComponents.length} من {INSTALLABLE_COMPONENTS.length} مكون
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {boolFields.map((f) => (
                   <div key={f.key} className="space-y-1">

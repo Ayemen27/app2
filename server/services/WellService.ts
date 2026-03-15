@@ -635,6 +635,8 @@ export class WellService {
           extraCableReason: data.extraCableReason ?? null,
           fanCount: data.fanCount ?? null,
           submersiblePump: data.submersiblePump ?? true,
+          installationStatus: data.installationStatus ?? 'not_installed',
+          installedComponents: data.installedComponents ?? null,
           notes: data.notes ?? null,
           createdBy: userId,
         }).returning();
@@ -773,6 +775,8 @@ export class WellService {
         inspectionStatus: data.inspectionStatus || 'pending',
         inspectionNotes: data.inspectionNotes || null,
         receivedAt: data.receivedAt ? new Date(data.receivedAt) : null,
+        receptionDate: data.receptionDate || null,
+        engineers: data.engineers || null,
         notes: data.notes || null,
         createdBy: userId,
       }).returning();
@@ -792,6 +796,8 @@ export class WellService {
       if (data.inspectionStatus !== undefined) updateData.inspectionStatus = data.inspectionStatus;
       if (data.inspectionNotes !== undefined) updateData.inspectionNotes = data.inspectionNotes;
       if (data.receivedAt !== undefined) updateData.receivedAt = data.receivedAt ? new Date(data.receivedAt) : null;
+      if (data.receptionDate !== undefined) updateData.receptionDate = data.receptionDate || null;
+      if (data.engineers !== undefined) updateData.engineers = data.engineers || null;
       if (data.notes !== undefined) updateData.notes = data.notes;
 
       const result = await db.update(wellReceptions)

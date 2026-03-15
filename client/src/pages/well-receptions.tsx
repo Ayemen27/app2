@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,22 +11,31 @@ import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
 import {
-  ClipboardCheck,
-  CheckCircle,
-  XCircle,
-  Clock,
-  BarChart3,
-  Download,
-  Plus,
-  Edit,
-  Trash2,
-  Loader,
-  RefreshCw,
+  ClipboardCheck, CheckCircle, XCircle, Clock, BarChart3, Download, Plus, Edit, Trash2, Loader,
+  MapPin, Calendar, UserCheck, Users, Wrench, TrendingUp
 } from "lucide-react";
+
+function toDateInputValue(val: any): string {
+  if (!val) return "";
+  const str = String(val);
+  const match = str.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().split("T")[0];
+}
+
+function formatDateSafe(val: any, locale = "ar-SA"): string {
+  if (!val) return "-";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString(locale);
+}
 
 const INSPECTION_STATUSES = [
   { value: "pending", label: "قيد الانتظار" },
@@ -39,6 +47,12 @@ const REGIONS = [
   'دار حمدين', 'بيت الشعيب', 'الشبيطا', 'الحندج',
   'محيران', 'جربياح', 'الربعي', 'بيت الزين'
 ];
+
+const STATUS_COLOR_MAP: Record<string, string> = {
+  passed: "green",
+  failed: "red",
+  pending: "orange",
+};
 
 interface WellFullData {
   id: number;
@@ -59,14 +73,11 @@ export default function WellReceptionsPage() {
   const { selectedProjectId } = useSelectedProject();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
   const { setFloatingAction } = useFloatingButton();
 
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    region: "all",
-    receptionStatus: "all",
-    status: "all",
+    region: "all", receptionStatus: "all", status: "all", dateRange: undefined,
   });
   const [isExporting, setIsExporting] = useState(false);
   const [showReceptionDialog, setShowReceptionDialog] = useState(false);
@@ -76,6 +87,8 @@ export default function WellReceptionsPage() {
     receiverName: "",
     inspectionStatus: "pending",
     inspectionNotes: "",
+    receptionDate: "",
+    engineers: "",
     notes: "",
   });
 
@@ -85,7 +98,7 @@ export default function WellReceptionsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue("");
-    setFilterValues({ region: "all", receptionStatus: "all", status: "all" });
+    setFilterValues({ region: "all", receptionStatus: "all", status: "all", dateRange: undefined });
   }, []);
 
   const { data: wellsData = [], isLoading, isFetching } = useQuery({
@@ -107,7 +120,7 @@ export default function WellReceptionsPage() {
       if (wellsData.length > 0) {
         setSelectedWellId(wellsData[0].id);
         setEditingReceptionId(null);
-        setReceptionForm({ receiverName: "", inspectionStatus: "pending", inspectionNotes: "", notes: "" });
+        setReceptionForm({ receiverName: "", inspectionStatus: "pending", inspectionNotes: "", receptionDate: "", engineers: "", notes: "" });
         setShowReceptionDialog(true);
       } else {
         toast({ title: "لا توجد آبار", description: "يرجى إضافة آبار أولاً", variant: "destructive" });
@@ -118,6 +131,11 @@ export default function WellReceptionsPage() {
   }, [setFloatingAction, wellsData]);
 
   const filteredWells = useMemo(() => {
+    const dateFrom = filterValues.dateRange?.from ? new Date(filterValues.dateRange.from) : null;
+    const dateTo = filterValues.dateRange?.to ? new Date(filterValues.dateRange.to) : null;
+    if (dateFrom) dateFrom.setHours(0, 0, 0, 0);
+    if (dateTo) dateTo.setHours(23, 59, 59, 999);
+
     return wellsData.filter((well: WellFullData) => {
       const matchesSearch =
         well.ownerName?.toLowerCase().includes(searchValue.toLowerCase()) ||
@@ -137,17 +155,30 @@ export default function WellReceptionsPage() {
         matchesReceptionStatus = receptionStatus === "failed";
       }
 
-      return matchesSearch && matchesRegion && matchesReceptionStatus && matchesStatus;
+      let matchesDate = true;
+      if (dateFrom || dateTo) {
+        const recDates = (well.receptions || []).map((r: any) =>
+          r.receptionDate || r.reception_date || r.receivedAt || r.received_at
+        ).filter(Boolean);
+        if (recDates.length === 0) {
+          matchesDate = false;
+        } else {
+          matchesDate = recDates.some((d: string) => {
+            const date = new Date(d);
+            if (dateFrom && date < dateFrom) return false;
+            if (dateTo && date > dateTo) return false;
+            return true;
+          });
+        }
+      }
+
+      return matchesSearch && matchesRegion && matchesReceptionStatus && matchesStatus && matchesDate;
     });
   }, [wellsData, searchValue, filterValues]);
 
   const stats = useMemo(() => {
     const total = wellsData.length;
-    let received = 0;
-    let passed = 0;
-    let failed = 0;
-    let pendingCount = 0;
-
+    let received = 0, passed = 0, failed = 0, pendingCount = 0;
     for (const well of wellsData) {
       const latestReception = well.receptions?.[0];
       const status = latestReception?.inspectionStatus || latestReception?.inspection_status;
@@ -156,14 +187,12 @@ export default function WellReceptionsPage() {
       else if (status === "pending") { pendingCount++; received++; }
       else { pendingCount++; }
     }
-
     return { total, received, passed, failed, pending: pendingCount };
   }, [wellsData]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 5,
-      gap: "sm",
+      columns: 5, gap: "sm",
       items: [
         { key: "total", label: "إجمالي الآبار", value: stats.total, icon: BarChart3, color: "blue" },
         { key: "received", label: "تم استلامها", value: stats.received, icon: ClipboardCheck, color: "indigo" },
@@ -176,18 +205,12 @@ export default function WellReceptionsPage() {
 
   const filtersConfig: FilterConfig[] = useMemo(() => [
     {
-      key: "region",
-      label: "المنطقة",
-      type: "select",
-      placeholder: "اختر المنطقة",
+      key: "region", label: "المنطقة", type: "select", placeholder: "اختر المنطقة",
       options: [{ value: "all", label: "جميع المناطق" }, ...REGIONS.map((r) => ({ value: r, label: r }))],
       defaultValue: "all",
     },
     {
-      key: "status",
-      label: "حالة البئر",
-      type: "select",
-      placeholder: "اختر الحالة",
+      key: "status", label: "حالة البئر", type: "select", placeholder: "اختر الحالة",
       options: [
         { value: "all", label: "جميع الحالات" },
         { value: "pending", label: "لم يبدأ" },
@@ -197,10 +220,7 @@ export default function WellReceptionsPage() {
       defaultValue: "all",
     },
     {
-      key: "receptionStatus",
-      label: "حالة الاستلام",
-      type: "select",
-      placeholder: "اختر حالة الاستلام",
+      key: "receptionStatus", label: "حالة الاستلام", type: "select", placeholder: "اختر حالة الاستلام",
       options: [
         { value: "all", label: "جميع الحالات" },
         { value: "pending", label: "بانتظار" },
@@ -208,6 +228,9 @@ export default function WellReceptionsPage() {
         { value: "failed", label: "مرفوض" },
       ],
       defaultValue: "all",
+    },
+    {
+      key: "dateRange", label: "فترة الاستلام", type: "date-range" as any, placeholder: "اختر الفترة",
     },
   ], []);
 
@@ -225,11 +248,10 @@ export default function WellReceptionsPage() {
           ownerName: well.ownerName,
           region: well.region || "-",
           receiverName: latestReception?.receiverName || latestReception?.receiver_name || "-",
+          engineers: latestReception?.engineers || "-",
           inspectionStatus: statusLabel,
           inspectionNotes: latestReception?.inspectionNotes || latestReception?.inspection_notes || "-",
-          receivedAt: latestReception?.receivedAt || latestReception?.received_at
-            ? new Date(latestReception.receivedAt || latestReception.received_at).toLocaleDateString("en-GB")
-            : "-",
+          receptionDate: formatDateSafe(latestReception?.receptionDate || latestReception?.reception_date, "en-GB"),
           notes: latestReception?.notes || "-",
         };
       });
@@ -249,9 +271,10 @@ export default function WellReceptionsPage() {
           { header: "اسم المستفيد", key: "ownerName", width: 20 },
           { header: "المنطقة", key: "region", width: 14 },
           { header: "اسم المستلم", key: "receiverName", width: 18 },
+          { header: "المهندسين", key: "engineers", width: 20 },
           { header: "حالة الفحص", key: "inspectionStatus", width: 14 },
           { header: "ملاحظات الفحص", key: "inspectionNotes", width: 25 },
-          { header: "تاريخ الاستلام", key: "receivedAt", width: 14 },
+          { header: "تاريخ الاستلام", key: "receptionDate", width: 14 },
           { header: "ملاحظات عامة", key: "notes", width: 20 },
         ],
         data,
@@ -268,13 +291,9 @@ export default function WellReceptionsPage() {
 
   const actionsConfig: ActionButton[] = useMemo(() => [
     {
-      key: "export-excel",
-      icon: Download,
-      label: "تصدير Excel",
-      onClick: handleExportExcel,
-      variant: "outline",
-      loading: isExporting,
-      disabled: filteredWells.length === 0,
+      key: "export-excel", icon: Download, label: "تصدير Excel",
+      onClick: handleExportExcel, variant: "outline",
+      loading: isExporting, disabled: filteredWells.length === 0,
       tooltip: "تصدير سجلات الاستلام إلى ملف Excel",
     },
   ], [handleExportExcel, isExporting, filteredWells.length]);
@@ -287,7 +306,7 @@ export default function WellReceptionsPage() {
   }), [wellsData.length, filteredWells.length]);
 
   const resetReceptionForm = () => {
-    setReceptionForm({ receiverName: "", inspectionStatus: "pending", inspectionNotes: "", notes: "" });
+    setReceptionForm({ receiverName: "", inspectionStatus: "pending", inspectionNotes: "", receptionDate: "", engineers: "", notes: "" });
     setEditingReceptionId(null);
     setSelectedWellId(null);
     setShowReceptionDialog(false);
@@ -296,7 +315,7 @@ export default function WellReceptionsPage() {
   const openAddReception = (wellId: number) => {
     setSelectedWellId(wellId);
     setEditingReceptionId(null);
-    setReceptionForm({ receiverName: "", inspectionStatus: "pending", inspectionNotes: "", notes: "" });
+    setReceptionForm({ receiverName: "", inspectionStatus: "pending", inspectionNotes: "", receptionDate: "", engineers: "", notes: "" });
     setShowReceptionDialog(true);
   };
 
@@ -307,6 +326,8 @@ export default function WellReceptionsPage() {
       receiverName: reception.receiverName || reception.receiver_name || "",
       inspectionStatus: reception.inspectionStatus || reception.inspection_status || "pending",
       inspectionNotes: reception.inspectionNotes || reception.inspection_notes || "",
+      receptionDate: toDateInputValue(reception.receptionDate || reception.reception_date),
+      engineers: reception.engineers || "",
       notes: reception.notes || "",
     });
     setShowReceptionDialog(true);
@@ -314,10 +335,7 @@ export default function WellReceptionsPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: { wellId: number; form: any }) => {
-      return apiRequest(`/api/wells/${data.wellId}/receptions`, "POST", {
-        ...data.form,
-        well_id: data.wellId,
-      });
+      return apiRequest(`/api/wells/${data.wellId}/receptions`, "POST", { ...data.form, well_id: data.wellId });
     },
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم تسجيل الاستلام بنجاح" });
@@ -356,15 +374,21 @@ export default function WellReceptionsPage() {
     },
   });
 
-  const getStatusLabel = (status: string) => {
-    return INSPECTION_STATUSES.find((s) => s.value === status)?.label || "بانتظار";
-  };
+  const getStatusLabel = (status: string) =>
+    INSPECTION_STATUSES.find((s) => s.value === status)?.label || "بانتظار";
 
   const getStatusVariant = (status: string): "default" | "destructive" | "outline" => {
     if (status === "passed") return "default";
     if (status === "failed") return "destructive";
     return "outline";
   };
+
+  const wellOptions = useMemo(() => {
+    return (wellsData as WellFullData[]).map(w => ({
+      value: String(w.id),
+      label: `بئر #${w.wellNumber} - ${w.ownerName}`,
+    }));
+  }, [wellsData]);
 
   return (
     <div className="p-4 space-y-4" dir="rtl">
@@ -389,97 +413,87 @@ export default function WellReceptionsPage() {
           <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : filteredWells.length === 0 ? (
-        <Card className="p-8">
-          <p className="text-center text-muted-foreground" data-testid="text-no-receptions-data">
-            لا توجد بيانات استلام للعرض
-          </p>
-        </Card>
+        <div className="text-center py-12">
+          <ClipboardCheck className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="text-gray-500 text-lg" data-testid="text-no-receptions-data">لا توجد بيانات استلام للعرض</p>
+        </div>
       ) : (
-        <div className="space-y-3">
+        <UnifiedCardGrid columns={2}>
           {filteredWells.map((well: WellFullData) => {
             const latestReception = well.receptions?.[0];
             const status = latestReception?.inspectionStatus || latestReception?.inspection_status || "";
             const allReceptions = well.receptions || [];
+            const hasReceptions = allReceptions.length > 0;
 
             return (
-              <Card key={well.id} className="p-4" data-testid={`card-well-reception-${well.id}`}>
-                <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm" data-testid={`text-well-number-${well.id}`}>
-                        بئر #{well.wellNumber}
-                      </span>
-                      <span className="text-sm text-muted-foreground">-</span>
-                      <span className="text-sm" data-testid={`text-well-owner-${well.id}`}>
-                        {well.ownerName}
-                      </span>
-                      <Badge variant="outline" data-testid={`badge-well-region-${well.id}`}>
-                        {well.region}
-                      </Badge>
-                      {status && (
-                        <Badge
-                          variant={getStatusVariant(status)}
-                          data-testid={`badge-reception-status-${well.id}`}
-                        >
-                          {getStatusLabel(status)}
-                        </Badge>
-                      )}
-                      {!status && (
-                        <Badge variant="outline" data-testid={`badge-reception-none-${well.id}`}>
-                          لم يتم الاستلام
-                        </Badge>
-                      )}
-                    </div>
-
-                    {allReceptions.length > 0 ? (
-                      <div className="space-y-2">
-                        {allReceptions.map((rec: any) => (
-                          <div
-                            key={rec.id}
-                            className="border rounded-md p-3 space-y-1"
-                            data-testid={`reception-record-${rec.id}`}
-                          >
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <UnifiedCard
+                key={well.id}
+                data-testid={`card-well-reception-${well.id}`}
+                title={`بئر #${well.wellNumber} - ${well.ownerName}`}
+                subtitle={well.region}
+                titleIcon={MapPin}
+                headerColor={status ? STATUS_COLOR_MAP[status] || "gray" : "gray"}
+                badges={[
+                  ...(status ? [{
+                    label: getStatusLabel(status),
+                    variant: getStatusVariant(status) as any,
+                  }] : [{
+                    label: "لم يتم الاستلام",
+                    variant: "outline" as any,
+                  }]),
+                ]}
+                fields={[
+                  { label: "المنطقة", value: well.region || "-", icon: MapPin, color: "info" as const },
+                  { label: "العمق", value: `${well.wellDepth || 0}م`, icon: TrendingUp, color: "warning" as const },
+                  { label: "الألواح", value: well.numberOfPanels || 0, icon: BarChart3, color: "success" as const },
+                  { label: "القواعد", value: well.numberOfBases || 0, icon: Wrench, color: "info" as const },
+                  { label: "المواسير", value: well.numberOfPipes || 0, icon: Wrench, color: "success" as const },
+                  { label: "سجلات الاستلام", value: allReceptions.length, icon: ClipboardCheck, color: hasReceptions ? "success" as const : "info" as const },
+                ]}
+                footer={
+                  <div className="space-y-2 pt-1">
+                    {hasReceptions ? (
+                      allReceptions.map((rec: any) => {
+                        const recStatus = rec.inspectionStatus || rec.inspection_status || "pending";
+                        const recDate = rec.receptionDate || rec.reception_date || rec.receivedAt || rec.received_at;
+                        const recEngineers = rec.engineers;
+                        return (
+                          <div key={rec.id} className="border rounded-lg p-3 space-y-2 bg-muted/30" data-testid={`reception-record-${rec.id}`}>
+                            <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium" data-testid={`text-receiver-${rec.id}`}>
-                                  المستلم: {rec.receiverName || rec.receiver_name || "-"}
-                                </span>
-                                <Badge
-                                  variant={getStatusVariant(rec.inspectionStatus || rec.inspection_status || "pending") as any}
-                                  data-testid={`badge-rec-status-${rec.id}`}
-                                >
-                                  {getStatusLabel(rec.inspectionStatus || rec.inspection_status || "pending")}
+                                <Badge variant={getStatusVariant(recStatus) as any} className="text-xs" data-testid={`badge-rec-status-${rec.id}`}>
+                                  {getStatusLabel(recStatus)}
                                 </Badge>
-                                {(rec.receivedAt || rec.received_at) && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(rec.receivedAt || rec.received_at).toLocaleDateString("ar-SA")}
+                                {recDate && (
+                                  <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`text-reception-date-${rec.id}`}>
+                                    <Calendar className="h-3 w-3" />
+                                    {formatDateSafe(recDate)}
                                   </span>
                                 )}
                               </div>
                               <div className="flex gap-1">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => openEditReception(well.id, rec)}
-                                  data-testid={`button-edit-reception-${rec.id}`}
-                                >
-                                  <Edit className="h-4 w-4" />
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditReception(well.id, rec)} data-testid={`button-edit-reception-${rec.id}`}>
+                                  <Edit className="h-3.5 w-3.5" />
                                 </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    if (confirm("هل أنت متأكد من حذف سجل الاستلام؟"))
-                                      deleteMutation.mutate(rec.id);
-                                  }}
-                                  data-testid={`button-delete-reception-${rec.id}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("هل أنت متأكد من حذف سجل الاستلام؟")) deleteMutation.mutate(rec.id); }} data-testid={`button-delete-reception-${rec.id}`}>
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-1 text-xs">
+                              <span className="flex items-center gap-1">
+                                <UserCheck className="h-3 w-3 text-blue-500" />
+                                المستلم: <b className="text-foreground">{rec.receiverName || rec.receiver_name || "-"}</b>
+                              </span>
+                              {recEngineers && (
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-3 w-3 text-indigo-500" />
+                                  المهندسين: <b className="text-foreground">{recEngineers}</b>
+                                </span>
+                              )}
+                            </div>
                             {(rec.inspectionNotes || rec.inspection_notes) && (
-                              <p className="text-sm text-muted-foreground" data-testid={`text-inspection-notes-${rec.id}`}>
+                              <p className="text-xs text-muted-foreground" data-testid={`text-inspection-notes-${rec.id}`}>
                                 ملاحظات الفحص: {rec.inspectionNotes || rec.inspection_notes}
                               </p>
                             )}
@@ -489,28 +503,27 @@ export default function WellReceptionsPage() {
                               </p>
                             )}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })
                     ) : (
-                      <p className="text-sm text-muted-foreground" data-testid={`text-no-reception-${well.id}`}>
+                      <p className="text-xs text-muted-foreground text-center py-2" data-testid={`text-no-reception-${well.id}`}>
                         لا توجد سجلات استلام لهذا البئر
                       </p>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openAddReception(well.id)}
-                    data-testid={`button-add-reception-${well.id}`}
-                  >
-                    <Plus className="h-4 w-4 ml-1" />
-                    تسجيل استلام
-                  </Button>
-                </div>
-              </Card>
+                }
+                actions={[
+                  {
+                    icon: Plus,
+                    label: "تسجيل استلام",
+                    onClick: () => openAddReception(well.id),
+                    color: "blue",
+                  },
+                ]}
+              />
             );
           })}
-        </div>
+        </UnifiedCardGrid>
       )}
 
       <Dialog open={showReceptionDialog} onOpenChange={() => resetReceptionForm()}>
@@ -520,6 +533,18 @@ export default function WellReceptionsPage() {
               {editingReceptionId ? "تعديل سجل استلام" : "تسجيل استلام جديد"}
             </DialogTitle>
           </DialogHeader>
+          {!editingReceptionId && !selectedWellId && (
+            <div className="space-y-1">
+              <Label className="text-sm">البئر *</Label>
+              <SearchableSelect
+                value={selectedWellId ? String(selectedWellId) : ""}
+                onValueChange={(v) => setSelectedWellId(Number(v))}
+                options={wellOptions}
+                placeholder="اختر البئر"
+                data-testid="select-reception-well"
+              />
+            </div>
+          )}
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -539,6 +564,24 @@ export default function WellReceptionsPage() {
                   options={INSPECTION_STATUSES}
                   placeholder="اختر حالة الفحص"
                   data-testid="select-reception-inspection-status"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">تاريخ الاستلام</Label>
+                <Input
+                  type="date"
+                  value={receptionForm.receptionDate}
+                  onChange={(e) => setReceptionForm({ ...receptionForm, receptionDate: e.target.value })}
+                  data-testid="input-reception-date"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">المهندسين المكلفين</Label>
+                <Input
+                  value={receptionForm.engineers}
+                  onChange={(e) => setReceptionForm({ ...receptionForm, engineers: e.target.value })}
+                  placeholder="م. أحمد، م. خالد"
+                  data-testid="input-reception-engineers"
                 />
               </div>
               <div className="space-y-1 md:col-span-2">
@@ -578,9 +621,7 @@ export default function WellReceptionsPage() {
               >
                 {createMutation.isPending || updateMutation.isPending
                   ? "جاري..."
-                  : editingReceptionId
-                    ? "تحديث"
-                    : "حفظ"}
+                  : editingReceptionId ? "تحديث" : "حفظ"}
               </Button>
             </div>
           </div>

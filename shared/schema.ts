@@ -1530,6 +1530,8 @@ export const wellSolarComponents = pgTable("well_solar_components", {
   extraCableReason: text("extra_cable_reason"),
   fanCount: integer("fan_count"),
   submersiblePump: boolean("submersible_pump").default(true),
+  installationStatus: varchar("installation_status", { length: 30 }).default("not_installed"),
+  installedComponents: text("installed_components"),
   notes: text("notes"),
   createdBy: varchar("created_by").references(() => users.id),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -1559,6 +1561,8 @@ export const wellReceptions = pgTable("well_receptions", {
   inspectionStatus: varchar("inspection_status", { length: 50 }).default("pending"), // pending, passed, failed
   inspectionNotes: text("inspection_notes"),
   receivedAt: timestamp("received_at"),
+  receptionDate: date("reception_date"),
+  engineers: text("engineers"),
   notes: text("notes"),
   createdBy: varchar("created_by").references(() => users.id),
   created_at: timestamp("created_at").defaultNow().notNull(),

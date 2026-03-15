@@ -303,9 +303,12 @@ export function SearchToolbar({
               </div>
               
               <div className="flex-1 space-y-8 overflow-y-auto custom-scrollbar px-1 pb-32 pt-2">
-                <div className="space-y-10 max-w-xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
                   {filters.map((filter) => (
-                    <div key={filter.key} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div key={filter.key} className={cn(
+                      "animate-in fade-in slide-in-from-bottom-2 duration-300",
+                      filter.type === 'date-range' && "sm:col-span-2"
+                    )}>
                       {renderFilterInput(filter)}
                     </div>
                   ))}

@@ -51,6 +51,7 @@ export interface UnifiedCardProps {
   isLoading?: boolean;
   compact?: boolean;
   headerColor?: string;
+  "data-testid"?: string;
 }
 
 const fieldColorClasses = {
@@ -142,6 +143,7 @@ export function UnifiedCard({
   isLoading,
   compact = false,
   headerColor,
+  "data-testid": dataTestId,
 }: UnifiedCardProps) {
   if (isLoading) {
     return <UnifiedCardSkeleton compact={compact} />;
@@ -160,6 +162,7 @@ export function UnifiedCard({
         className
       )}
       onClick={onClick}
+      data-testid={dataTestId}
     >
       {headerColor && (
         <div 

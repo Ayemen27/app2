@@ -119,31 +119,31 @@ export default function WellAccounting() {
     });
   }, [wells, searchValue, filterValues]);
 
-  const stats = useMemo(() => {
+  const taskStats = useMemo(() => {
     const totalTasks = tasks.length;
     const totalExpected = tasks.reduce((s: number, t: any) => s + (Number(t.expectedAmount) || 0), 0);
     const totalPaid = tasks.reduce((s: number, t: any) => s + (Number(t.paidAmount) || 0), 0);
-    return {
-      wellCount: filteredWells.length,
-      totalTasks,
-      pendingCount: pendingTasks.length,
-      completedCount: completedTasks.length,
-      totalExpected,
-      totalPaid,
-    };
-  }, [filteredWells, tasks, pendingTasks, completedTasks]);
+    return { totalTasks, totalExpected, totalPaid, balance: totalExpected - totalPaid };
+  }, [tasks]);
 
-  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [{
-    items: [
-      { key: 'wellCount', label: 'إجمالي الآبار', value: stats.wellCount, icon: BarChart3, color: 'blue' as const },
-      { key: 'totalTasks', label: 'إجمالي المهام', value: stats.totalTasks, icon: Clock, color: 'blue' as const },
-      { key: 'pendingCount', label: 'مهام معلقة', value: stats.pendingCount, icon: Clock, color: 'amber' as const },
-      { key: 'completedCount', label: 'مهام منجزة', value: stats.completedCount, icon: CheckCircle2, color: 'green' as const },
-      { key: 'totalExpected', label: 'المبالغ المتوقعة', value: formatCurrency(stats.totalExpected), icon: DollarSign, color: 'blue' as const },
-      { key: 'totalPaid', label: 'المدفوع', value: formatCurrency(stats.totalPaid), icon: DollarSign, color: 'green' as const },
-    ],
-    columns: 6,
-  }], [stats]);
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      items: [
+        { key: 'totalWells', label: 'إجمالي الآبار', value: wells.length, icon: BarChart3, color: 'blue' },
+        { key: 'totalExpected', label: 'المبالغ المتوقعة', value: formatCurrency(taskStats.totalExpected), icon: DollarSign, color: 'blue' },
+        { key: 'totalPaid', label: 'المدفوع', value: formatCurrency(taskStats.totalPaid), icon: DollarSign, color: 'green' },
+      ]
+    },
+    {
+      columns: 3,
+      items: [
+        { key: 'balance', label: 'المتبقي', value: formatCurrency(taskStats.balance), icon: DollarSign, color: 'amber' },
+        { key: 'pendingTasks', label: 'مهام معلقة', value: pendingTasks.length, icon: Clock, color: 'orange' },
+        { key: 'completedTasks', label: 'مهام منجزة', value: completedTasks.length, icon: CheckCircle2, color: 'green' },
+      ]
+    },
+  ], [wells.length, taskStats, pendingTasks.length, completedTasks.length]);
 
   const filtersConfig: FilterConfig[] = useMemo(() => [
     {

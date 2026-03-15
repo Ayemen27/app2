@@ -12,6 +12,9 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 import EnhancedWorkerCard from "@/components/enhanced-worker-card";
+import { MultiWellSelector } from "@/components/multi-well-selector";
+import { TeamSelector } from "@/components/team-selector";
+import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
@@ -75,7 +78,10 @@ export default function WorkerAttendance() {
     workDays: 0,
     paymentType: "partial",
     paidAmount: "",
-    workDescription: ""
+    workDescription: "",
+    well_ids: [] as number[],
+    teamNames: [] as string[],
+    crewTypes: [] as string[]
   });
 
   const { toast } = useToast();
@@ -624,7 +630,11 @@ export default function WorkerAttendance() {
           workDays: bulkSettings.workDays,
           paymentType: bulkSettings.paymentType,
           paidAmount: bulkSettings.paidAmount,
-          workDescription: bulkSettings.workDescription
+          workDescription: bulkSettings.workDescription,
+          well_ids: bulkSettings.well_ids.length > 0 ? bulkSettings.well_ids : newAttendanceData[worker_id].well_ids,
+          well_id: bulkSettings.well_ids.length > 0 ? bulkSettings.well_ids[0] : newAttendanceData[worker_id].well_id,
+          teamNames: bulkSettings.teamNames.length > 0 ? bulkSettings.teamNames : newAttendanceData[worker_id].teamNames,
+          crewTypes: bulkSettings.crewTypes.length > 0 ? bulkSettings.crewTypes : newAttendanceData[worker_id].crewTypes
         };
       }
     });
@@ -650,7 +660,11 @@ export default function WorkerAttendance() {
           workDays: bulkSettings.workDays,
           paymentType: bulkSettings.paymentType,
           paidAmount: bulkSettings.paidAmount,
-          workDescription: bulkSettings.workDescription
+          workDescription: bulkSettings.workDescription,
+          well_ids: bulkSettings.well_ids,
+          well_id: bulkSettings.well_ids[0] || undefined,
+          teamNames: bulkSettings.teamNames,
+          crewTypes: bulkSettings.crewTypes
         };
       } else {
         newAttendanceData[worker.id] = {
@@ -1331,6 +1345,26 @@ export default function WorkerAttendance() {
                           />
                         </div>
                       </div>
+
+                      {isWellsProject && (
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          <MultiWellSelector
+                            project_id={selectedProjectId}
+                            value={bulkSettings.well_ids}
+                            onChange={(ids) => setBulkSettings(prev => ({ ...prev, well_ids: ids }))}
+                            optional={true}
+                          />
+                          <TeamSelector
+                            project_id={selectedProjectId}
+                            value={bulkSettings.teamNames}
+                            onChange={(names) => setBulkSettings(prev => ({ ...prev, teamNames: names }))}
+                          />
+                          <CrewTypeSelector
+                            value={bulkSettings.crewTypes}
+                            onChange={(types) => setBulkSettings(prev => ({ ...prev, crewTypes: types }))}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 

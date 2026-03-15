@@ -16,7 +16,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp, CheckCircle, AlertCircle, XCircle, Clock } from "lucide-react";
+import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp, CheckCircle, AlertCircle, XCircle, Clock, ArrowUpDown, Trash2 } from "lucide-react";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 
 const INSTALLATION_STATUSES = [
@@ -74,6 +74,12 @@ function getInstallationBadgeVariant(status: string): "default" | "destructive" 
   }
 }
 
+const WELL_STATUS_MAP: Record<string, { label: string }> = {
+  pending: { label: 'لم يبدأ' },
+  in_progress: { label: 'قيد التنفيذ' },
+  completed: { label: 'منجز' },
+};
+
 interface WellFullData {
   id: number;
   project_id: string;
@@ -123,6 +129,26 @@ export default function WellMaterialsPage() {
   });
   const [editingWellId, setEditingWellId] = useState<number | null>(null);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const changeStatusMutation = useMutation({
+    mutationFn: async ({ wellId, status }: { wellId: number; status: string }) =>
+      apiRequest(`/api/wells/${wellId}`, 'PUT', { status, project_id: selectedProjectId }),
+    onSuccess: (_data, variables) => {
+      const statusLabel = WELL_STATUS_MAP[variables.status]?.label || variables.status;
+      toast({ title: "نجاح", description: `تم تغيير حالة البئر إلى "${statusLabel}"` });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data", selectedProjectId] });
+    },
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تغيير حالة البئر", variant: "destructive" }); }
+  });
+
+  const deleteWellMutation = useMutation({
+    mutationFn: async (wellId: number) => apiRequest(`/api/wells/${wellId}`, 'DELETE'),
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data", selectedProjectId] });
+    },
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
+  });
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues((prev) => ({ ...prev, [key]: value }));
@@ -528,6 +554,28 @@ export default function WellMaterialsPage() {
                     label: "تعديل المواد",
                     onClick: () => setEditingWellId(well.id),
                     color: "blue",
+                  },
+                  {
+                    icon: ArrowUpDown,
+                    label: "تغيير الحالة",
+                    onClick: () => {},
+                    color: "yellow",
+                    dropdown: Object.entries(WELL_STATUS_MAP)
+                      .filter(([key]) => key !== well.status)
+                      .map(([key, val]) => ({
+                        label: val.label,
+                        onClick: () => changeStatusMutation.mutate({ wellId: well.id, status: key })
+                      }))
+                  },
+                  {
+                    icon: Trash2,
+                    label: "حذف",
+                    onClick: () => {
+                      if (confirm("هل أنت متأكد من حذف هذا البئر؟")) {
+                        deleteWellMutation.mutate(well.id);
+                      }
+                    },
+                    color: "red",
                   },
                 ]}
               />

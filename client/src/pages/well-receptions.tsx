@@ -19,8 +19,14 @@ import { format, addDays, subDays } from "date-fns";
 import { ar } from "date-fns/locale";
 import {
   ClipboardCheck, CheckCircle, XCircle, Clock, BarChart3, Download, Plus, Edit, Trash2, Loader,
-  MapPin, Calendar, UserCheck, Users, Wrench, TrendingUp, ChevronRight, ChevronLeft
+  MapPin, Calendar, UserCheck, Users, Wrench, TrendingUp, ChevronRight, ChevronLeft, ArrowUpDown
 } from "lucide-react";
+
+const WELL_STATUS_MAP: Record<string, { label: string }> = {
+  pending: { label: 'لم يبدأ' },
+  in_progress: { label: 'قيد التنفيذ' },
+  completed: { label: 'منجز' },
+};
 
 function toDateInputValue(val: any): string {
   if (!val) return "";
@@ -343,6 +349,26 @@ export default function WellReceptionsPage() {
     setShowReceptionDialog(true);
   };
 
+  const changeStatusMutation = useMutation({
+    mutationFn: async ({ wellId, status }: { wellId: number; status: string }) =>
+      apiRequest(`/api/wells/${wellId}`, 'PUT', { status, project_id: selectedProjectId }),
+    onSuccess: (_data, variables) => {
+      const statusLabel = WELL_STATUS_MAP[variables.status]?.label || variables.status;
+      toast({ title: "نجاح", description: `تم تغيير حالة البئر إلى "${statusLabel}"` });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+    },
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تغيير حالة البئر", variant: "destructive" }); }
+  });
+
+  const deleteWellMutation = useMutation({
+    mutationFn: async (wellId: number) => apiRequest(`/api/wells/${wellId}`, 'DELETE'),
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+    },
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: { wellId: number; form: any }) => {
       return apiRequest(`/api/wells/${data.wellId}/receptions`, "POST", { ...data.form, well_id: data.wellId });
@@ -580,6 +606,28 @@ export default function WellReceptionsPage() {
                     label: "تسجيل استلام",
                     onClick: () => openAddReception(well.id),
                     color: "blue",
+                  },
+                  {
+                    icon: ArrowUpDown,
+                    label: "تغيير الحالة",
+                    onClick: () => {},
+                    color: "yellow",
+                    dropdown: Object.entries(WELL_STATUS_MAP)
+                      .filter(([key]) => key !== well.status)
+                      .map(([key, val]) => ({
+                        label: val.label,
+                        onClick: () => changeStatusMutation.mutate({ wellId: well.id, status: key })
+                      }))
+                  },
+                  {
+                    icon: Trash2,
+                    label: "حذف",
+                    onClick: () => {
+                      if (confirm("هل أنت متأكد من حذف هذا البئر؟")) {
+                        deleteWellMutation.mutate(well.id);
+                      }
+                    },
+                    color: "red",
                   },
                 ]}
               />

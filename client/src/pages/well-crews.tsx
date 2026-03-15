@@ -16,8 +16,14 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import {
-  Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap
+  Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap, ArrowUpDown
 } from "lucide-react";
+
+const WELL_STATUS_MAP: Record<string, { label: string }> = {
+  pending: { label: 'لم يبدأ' },
+  in_progress: { label: 'قيد التنفيذ' },
+  completed: { label: 'منجز' },
+};
 
 const CREW_TYPES = [
   { value: "welding", label: "تلحيم العمدان" },
@@ -215,6 +221,26 @@ export default function WellCrewsPage() {
       key: 'dateRange', label: 'الفترة الزمنية', type: 'date-range' as any, placeholder: 'اختر الفترة',
     },
   ], []);
+
+  const changeStatusMutation = useMutation({
+    mutationFn: async ({ wellId, status }: { wellId: number; status: string }) =>
+      apiRequest(`/api/wells/${wellId}`, 'PUT', { status, project_id: selectedProjectId }),
+    onSuccess: (_data, variables) => {
+      const statusLabel = WELL_STATUS_MAP[variables.status]?.label || variables.status;
+      toast({ title: "نجاح", description: `تم تغيير حالة البئر إلى "${statusLabel}"` });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+    },
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تغيير حالة البئر", variant: "destructive" }); }
+  });
+
+  const deleteWellMutation = useMutation({
+    mutationFn: async (wellId: number) => apiRequest(`/api/wells/${wellId}`, 'DELETE'),
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+    },
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
+  });
 
   const createCrewMutation = useMutation({
     mutationFn: async ({ wellId, data }: { wellId: number; data: any }) => {
@@ -521,6 +547,28 @@ export default function WellCrewsPage() {
                       { label: "إضافة فريق", onClick: () => { setSelectedWellId(well.id); setShowCrewForm(true); } },
                       { label: "إضافة نقل", onClick: () => { setSelectedWellId(well.id); setShowTransportForm(true); } },
                     ],
+                  },
+                  {
+                    icon: ArrowUpDown,
+                    label: "تغيير الحالة",
+                    onClick: () => {},
+                    color: "yellow",
+                    dropdown: Object.entries(WELL_STATUS_MAP)
+                      .filter(([key]) => key !== well.status)
+                      .map(([key, val]) => ({
+                        label: val.label,
+                        onClick: () => changeStatusMutation.mutate({ wellId: well.id, status: key })
+                      }))
+                  },
+                  {
+                    icon: Trash2,
+                    label: "حذف",
+                    onClick: () => {
+                      if (confirm("هل أنت متأكد من حذف هذا البئر؟")) {
+                        deleteWellMutation.mutate(well.id);
+                      }
+                    },
+                    color: "red",
                   },
                 ]}
                 footer={

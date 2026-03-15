@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, Wrench, TrendingUp, Download, Eye, Users, Truck, CheckCircle, DollarSign, FileText, Sun, ClipboardCheck, RefreshCw } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, Wrench, TrendingUp, Download, Eye, Users, Truck, CheckCircle, DollarSign, FileText, Sun, ClipboardCheck, RefreshCw, ArrowUpDown } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -220,6 +220,17 @@ export default function WellsPage() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
     },
     onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
+  });
+
+  const changeStatusMutation = useMutation({
+    mutationFn: async ({ wellId, status }: { wellId: number; status: string }) =>
+      apiRequest(`/api/wells/${wellId}`, 'PUT', { status, project_id: selectedProjectId }),
+    onSuccess: (_data, variables) => {
+      const statusLabel = STATUS_MAP[variables.status as keyof typeof STATUS_MAP]?.label || variables.status;
+      toast({ title: "نجاح", description: `تم تغيير حالة البئر إلى "${statusLabel}"` });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
+    },
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تغيير حالة البئر", variant: "destructive" }); }
   });
 
   const filteredWells = useMemo(() => {
@@ -728,6 +739,18 @@ export default function WellsPage() {
                   setShowEditDialog(true);
                 },
                 color: 'blue'
+              },
+              {
+                icon: ArrowUpDown,
+                label: 'تغيير الحالة',
+                onClick: () => {},
+                color: 'yellow',
+                dropdown: Object.entries(STATUS_MAP)
+                  .filter(([key]) => key !== well.status)
+                  .map(([key, val]) => ({
+                    label: val.label,
+                    onClick: () => changeStatusMutation.mutate({ wellId: well.id, status: key })
+                  }))
               },
               {
                 icon: Trash2,

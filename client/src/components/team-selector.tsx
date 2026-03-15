@@ -113,7 +113,7 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg">
+          <div className="absolute z-50 mt-1 bg-popover border rounded-md shadow-lg min-w-[200px] right-0">
             <div className="p-1.5 border-b">
               <Input
                 ref={searchInputRef}
@@ -131,14 +131,14 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
                 filteredTeams.map((team) => (
                   <label
                     key={team}
-                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent cursor-pointer text-xs"
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent cursor-pointer text-xs whitespace-nowrap"
                     data-testid={`checkbox-team-${team}`}
                   >
                     <Checkbox
                       checked={value.includes(team)}
                       onCheckedChange={() => toggleTeam(team)}
                     />
-                    <span className="truncate">{team}</span>
+                    <span>{team}</span>
                   </label>
                 ))
               )}

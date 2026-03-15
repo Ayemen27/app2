@@ -95,7 +95,7 @@ export function CrewTypeSelector({ value = [], onChange, showLabel = true }: Cre
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg">
+          <div className="absolute z-50 mt-1 bg-popover border rounded-md shadow-lg min-w-[180px] right-0">
             <div className="p-1.5 border-b">
               <Input
                 ref={searchInputRef}
@@ -113,7 +113,7 @@ export function CrewTypeSelector({ value = [], onChange, showLabel = true }: Cre
                 filteredTypes.map((type) => (
                   <label
                     key={type.value}
-                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent cursor-pointer text-xs"
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent cursor-pointer text-xs whitespace-nowrap"
                     data-testid={`checkbox-crew-${type.value}`}
                   >
                     <Checkbox

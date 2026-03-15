@@ -137,7 +137,7 @@ export function MultiWellSelector({
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg">
+          <div className="absolute z-50 mt-1 bg-popover border rounded-md shadow-lg min-w-[220px] right-0">
             <div className="p-1.5 border-b">
               <Input
                 ref={searchInputRef}
@@ -155,14 +155,14 @@ export function MultiWellSelector({
                 filteredWells.map((well: any) => (
                   <label
                     key={well.id}
-                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent cursor-pointer text-xs"
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent cursor-pointer text-xs whitespace-nowrap"
                     data-testid={`checkbox-well-${well.id}`}
                   >
                     <Checkbox
                       checked={value.includes(well.id)}
                       onCheckedChange={() => toggleWell(well.id)}
                     />
-                    <span className="truncate">#{well.wellNumber} - {well.ownerName}</span>
+                    <span>#{well.wellNumber} - {well.ownerName}</span>
                   </label>
                 ))
               )}

@@ -489,18 +489,12 @@ export default function WorkerSettlementsPage() {
           {preview && !previewMutation.isPending && (
             <>
               {preview.warnings && preview.warnings.length > 0 && (
-                <Alert className="border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20">
-                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                  <AlertDescription>
-                    <div className="space-y-1">
-                      {preview.warnings.map((w, i) => (
-                        <p key={i} className="text-sm text-yellow-700 dark:text-yellow-300">
-                          {w}
-                        </p>
-                      ))}
-                    </div>
-                  </AlertDescription>
-                </Alert>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                  <span className="text-xs text-yellow-700 dark:text-yellow-300">
+                    {preview.warnings.length} عامل لديهم أرصدة سالبة (لن يتم تصفيتها)
+                  </span>
+                </div>
               )}
 
               <div className="flex items-center justify-between flex-wrap gap-2">

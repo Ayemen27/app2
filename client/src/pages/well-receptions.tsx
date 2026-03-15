@@ -66,6 +66,7 @@ export default function WellReceptionsPage() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     region: "all",
     receptionStatus: "all",
+    status: "all",
   });
   const [isExporting, setIsExporting] = useState(false);
   const [showReceptionDialog, setShowReceptionDialog] = useState(false);
@@ -84,7 +85,7 @@ export default function WellReceptionsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue("");
-    setFilterValues({ region: "all", receptionStatus: "all" });
+    setFilterValues({ region: "all", receptionStatus: "all", status: "all" });
   }, []);
 
   const { data: wellsData = [], isLoading, isFetching } = useQuery({
@@ -122,6 +123,7 @@ export default function WellReceptionsPage() {
         well.ownerName?.toLowerCase().includes(searchValue.toLowerCase()) ||
         well.wellNumber?.toString().includes(searchValue);
       const matchesRegion = filterValues.region === "all" || well.region === filterValues.region;
+      const matchesStatus = filterValues.status === "all" || well.status === filterValues.status;
 
       const latestReception = well.receptions?.[0];
       const receptionStatus = latestReception?.inspectionStatus || latestReception?.inspection_status || null;
@@ -135,7 +137,7 @@ export default function WellReceptionsPage() {
         matchesReceptionStatus = receptionStatus === "failed";
       }
 
-      return matchesSearch && matchesRegion && matchesReceptionStatus;
+      return matchesSearch && matchesRegion && matchesReceptionStatus && matchesStatus;
     });
   }, [wellsData, searchValue, filterValues]);
 
@@ -179,6 +181,19 @@ export default function WellReceptionsPage() {
       type: "select",
       placeholder: "اختر المنطقة",
       options: [{ value: "all", label: "جميع المناطق" }, ...REGIONS.map((r) => ({ value: r, label: r }))],
+      defaultValue: "all",
+    },
+    {
+      key: "status",
+      label: "حالة البئر",
+      type: "select",
+      placeholder: "اختر الحالة",
+      options: [
+        { value: "all", label: "جميع الحالات" },
+        { value: "pending", label: "لم يبدأ" },
+        { value: "in_progress", label: "قيد التنفيذ" },
+        { value: "completed", label: "منجز" },
+      ],
       defaultValue: "all",
     },
     {

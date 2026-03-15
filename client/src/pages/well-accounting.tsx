@@ -57,7 +57,8 @@ export default function WellAccounting() {
     onReset,
   } = useUnifiedFilter({
     status: 'all',
-    region: 'all'
+    region: 'all',
+    depthRange: 'all'
   });
 
 
@@ -178,8 +179,13 @@ export default function WellAccounting() {
         (well.wellNumber || '').toString().includes(searchValue);
       const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
       const matchesRegion = filterValues.region === 'all' || well.region === filterValues.region;
+      const depth = Number(well.wellDepth) || 0;
+      const matchesDepth = filterValues.depthRange === 'all' ||
+        (filterValues.depthRange === '0-50' && depth <= 50) ||
+        (filterValues.depthRange === '51-100' && depth >= 51 && depth <= 100) ||
+        (filterValues.depthRange === '101+' && depth >= 101);
       
-      return matchesSearch && matchesStatus && matchesRegion;
+      return matchesSearch && matchesStatus && matchesRegion && matchesDepth;
     });
   }, [wells, searchValue, filterValues]);
 
@@ -210,7 +216,20 @@ export default function WellAccounting() {
                   placeholder: 'اختر الحالة',
                   options: WELL_STATUS_OPTIONS,
                   defaultValue: 'all'
-                }
+                },
+                {
+                  key: 'depthRange',
+                  label: 'عمق البئر',
+                  type: 'select',
+                  placeholder: 'اختر النطاق',
+                  options: [
+                    { value: 'all', label: 'الكل' },
+                    { value: '0-50', label: '0 - 50 م' },
+                    { value: '51-100', label: '51 - 100 م' },
+                    { value: '101+', label: '101 م فأكثر' },
+                  ],
+                  defaultValue: 'all'
+                },
               ]}
               filterValues={filterValues}
               onFilterChange={onFilterChange}

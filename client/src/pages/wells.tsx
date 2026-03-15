@@ -68,7 +68,7 @@ export default function WellsPage() {
 
   const [regions, setRegions] = useState<string[]>(REGIONS);
   const [searchValue, setSearchValue] = useState('');
-  const [filterValues, setFilterValues] = useState<Record<string, any>>({ region: 'all', status: 'all' });
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({ region: 'all', status: 'all', depthRange: 'all' });
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues(prev => ({ ...prev, [key]: value }));
@@ -228,7 +228,12 @@ export default function WellsPage() {
         well.wellNumber.toString().includes(searchValue);
       const matchesRegion = filterValues.region === 'all' || well.region === filterValues.region;
       const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
-      return matchesSearch && matchesRegion && matchesStatus;
+      const depth = Number(well.wellDepth) || 0;
+      const matchesDepth = filterValues.depthRange === 'all' ||
+        (filterValues.depthRange === '0-50' && depth <= 50) ||
+        (filterValues.depthRange === '51-100' && depth >= 51 && depth <= 100) ||
+        (filterValues.depthRange === '101+' && depth >= 101);
+      return matchesSearch && matchesRegion && matchesStatus && matchesDepth;
     });
   }, [wells, searchValue, filterValues]);
 
@@ -297,7 +302,20 @@ export default function WellsPage() {
         { value: 'completed', label: 'منجز' }
       ],
       defaultValue: 'all'
-    }
+    },
+    {
+      key: 'depthRange',
+      label: 'عمق البئر',
+      type: 'select',
+      placeholder: 'اختر النطاق',
+      options: [
+        { value: 'all', label: 'الكل' },
+        { value: '0-50', label: '0 - 50 م' },
+        { value: '51-100', label: '51 - 100 م' },
+        { value: '101+', label: '101 م فأكثر' },
+      ],
+      defaultValue: 'all'
+    },
   ], [regions]);
 
   const handleExportPdf = useCallback(async () => {

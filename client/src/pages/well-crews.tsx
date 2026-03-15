@@ -60,7 +60,7 @@ export default function WellCrewsPage() {
 
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    region: 'all', crewType: 'all'
+    region: 'all', crewType: 'all', status: 'all'
   });
   const [showCrewForm, setShowCrewForm] = useState(false);
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -113,7 +113,7 @@ export default function WellCrewsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue('');
-    setFilterValues({ region: 'all', crewType: 'all' });
+    setFilterValues({ region: 'all', crewType: 'all', status: 'all' });
   }, []);
 
   const filteredData = useMemo(() => {
@@ -124,7 +124,8 @@ export default function WellCrewsPage() {
       const matchesRegion = filterValues.region === 'all' || well.region === filterValues.region;
       const matchesCrewType = filterValues.crewType === 'all' ||
         well.crews?.some((c: any) => (c.crewType || c.crew_type) === filterValues.crewType);
-      return matchesSearch && matchesRegion && matchesCrewType;
+      const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
+      return matchesSearch && matchesRegion && matchesCrewType && matchesStatus;
     });
   }, [fullData, searchValue, filterValues]);
 
@@ -170,6 +171,16 @@ export default function WellCrewsPage() {
     {
       key: 'region', label: 'المنطقة', type: 'select', placeholder: 'اختر المنطقة',
       options: [{ value: 'all', label: 'جميع المناطق' }, ...REGIONS.map(r => ({ value: r, label: r }))],
+      defaultValue: 'all'
+    },
+    {
+      key: 'status', label: 'حالة البئر', type: 'select', placeholder: 'اختر الحالة',
+      options: [
+        { value: 'all', label: 'جميع الحالات' },
+        { value: 'pending', label: 'لم يبدأ' },
+        { value: 'in_progress', label: 'قيد التنفيذ' },
+        { value: 'completed', label: 'منجز' },
+      ],
       defaultValue: 'all'
     },
     {

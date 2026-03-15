@@ -69,6 +69,8 @@ export default function WellMaterialsPage() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     region: "all",
     status: "all",
+    depthRange: "all",
+    hasSolar: "all",
   });
   const [editingWellId, setEditingWellId] = useState<number | null>(null);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -79,7 +81,7 @@ export default function WellMaterialsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue("");
-    setFilterValues({ region: "all", status: "all" });
+    setFilterValues({ region: "all", status: "all", depthRange: "all", hasSolar: "all" });
   }, []);
 
   const { data: wellsData = [], isLoading, isFetching } = useQuery({
@@ -113,7 +115,15 @@ export default function WellMaterialsPage() {
         well.wellNumber?.toString().includes(searchValue);
       const matchesRegion = filterValues.region === "all" || well.region === filterValues.region;
       const matchesStatus = filterValues.status === "all" || well.status === filterValues.status;
-      return matchesSearch && matchesRegion && matchesStatus;
+      const depth = Number(well.wellDepth) || 0;
+      const matchesDepth = filterValues.depthRange === "all" ||
+        (filterValues.depthRange === "0-50" && depth <= 50) ||
+        (filterValues.depthRange === "51-100" && depth >= 51 && depth <= 100) ||
+        (filterValues.depthRange === "101+" && depth >= 101);
+      const matchesSolar = filterValues.hasSolar === "all" ||
+        (filterValues.hasSolar === "yes" && !!well.solar) ||
+        (filterValues.hasSolar === "no" && !well.solar);
+      return matchesSearch && matchesRegion && matchesStatus && matchesDepth && matchesSolar;
     });
   }, [wellsData, searchValue, filterValues]);
 
@@ -159,10 +169,35 @@ export default function WellMaterialsPage() {
       },
       {
         key: "status",
-        label: "الحالة",
+        label: "حالة البئر",
         type: "select",
         placeholder: "اختر الحالة",
         options: STATUS_OPTIONS,
+        defaultValue: "all",
+      },
+      {
+        key: "hasSolar",
+        label: "المنظومة الشمسية",
+        type: "select",
+        placeholder: "الكل",
+        options: [
+          { value: "all", label: "الكل" },
+          { value: "yes", label: "مركّبة" },
+          { value: "no", label: "غير مركّبة" },
+        ],
+        defaultValue: "all",
+      },
+      {
+        key: "depthRange",
+        label: "عمق البئر",
+        type: "select",
+        placeholder: "اختر النطاق",
+        options: [
+          { value: "all", label: "الكل" },
+          { value: "0-50", label: "0 - 50 م" },
+          { value: "51-100", label: "51 - 100 م" },
+          { value: "101+", label: "101 م فأكثر" },
+        ],
         defaultValue: "all",
       },
     ],

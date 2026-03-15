@@ -192,6 +192,7 @@ export default function DeploymentConsole() {
 
   const [selectedPipeline, setSelectedPipeline] = useState<string>("git-push");
   const [commitMessage, setCommitMessage] = useState("");
+  const [versionInput, setVersionInput] = useState("");
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
   const [liveDeployment, setLiveDeployment] = useState<Deployment | null>(null);
   const [liveLogs, setLiveLogs] = useState<LogEntry[]>([]);
@@ -223,7 +224,6 @@ export default function DeploymentConsole() {
   }, []);
 
   const startPolling = useCallback((deploymentId: string) => {
-    if (sseConnectedRef.current) return;
     stopPolling();
     
     const poll = async () => {
@@ -246,16 +246,8 @@ export default function DeploymentConsole() {
     };
 
     poll();
-    const scheduleNext = () => {
-      const delay = Math.min(5000 * Math.pow(1.5, pollRetryCountRef.current), 30000);
-      pollIntervalRef.current = setTimeout(async () => {
-        await poll();
-        if (pollIntervalRef.current !== null) {
-          scheduleNext();
-        }
-      }, delay) as unknown as ReturnType<typeof setInterval>;
-    };
-    scheduleNext();
+    const POLL_INTERVAL = sseConnectedRef.current ? 5000 : 2000;
+    pollIntervalRef.current = setInterval(poll, POLL_INTERVAL);
   }, [refetchHistory, queryClient, stopPolling]);
 
   const connectSSE = useCallback((deploymentId: string) => {
@@ -273,7 +265,6 @@ export default function DeploymentConsole() {
 
       es.onopen = () => {
         sseConnectedRef.current = true;
-        stopPolling();
       };
 
       es.onmessage = (event) => {
@@ -320,6 +311,7 @@ export default function DeploymentConsole() {
   useEffect(() => {
     if (activeDeploymentId) {
       connectSSE(activeDeploymentId);
+      startPolling(activeDeploymentId);
     }
     return () => {
       eventSourceRef.current?.close();
@@ -328,7 +320,7 @@ export default function DeploymentConsole() {
         pollIntervalRef.current = null;
       }
     };
-  }, [activeDeploymentId, connectSSE]);
+  }, [activeDeploymentId]);
 
   useEffect(() => {
     if (!activeDeploymentId && historyData?.deployments) {
@@ -356,6 +348,7 @@ export default function DeploymentConsole() {
       const data = await apiRequest("/api/deployment/start", "POST", {
         pipeline: selectedPipeline,
         commitMessage: commitMessage || undefined,
+        version: versionInput.trim() || undefined,
       });
 
       if (!data?.id) {
@@ -634,6 +627,14 @@ export default function DeploymentConsole() {
                   value={commitMessage}
                   onChange={(e) => setCommitMessage(e.target.value)}
                   className="bg-muted/50 border-border text-foreground flex-1"
+                />
+                <Input
+                  data-testid="input-version"
+                  placeholder="رقم الإصدار (مثل 3.9.2)"
+                  value={versionInput}
+                  onChange={(e) => setVersionInput(e.target.value)}
+                  className="bg-muted/50 border-border text-foreground w-full sm:w-[160px]"
+                  dir="ltr"
                 />
               </div>
 

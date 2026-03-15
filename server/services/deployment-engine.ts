@@ -19,6 +19,7 @@ interface DeploymentConfig {
   branch?: string;
   commitMessage?: string;
   triggeredBy?: string;
+  version?: string;
 }
 
 const PIPELINE_STEPS: Record<Pipeline, string[]> = {
@@ -104,7 +105,7 @@ export class DeploymentEngine {
       status: "pending" as const,
     }));
 
-    const version = await this.getCurrentVersion();
+    const version = config.version || await this.getCurrentVersion();
 
     const deploymentTypeMap: Record<string, string> = {
       "web-deploy": "web",

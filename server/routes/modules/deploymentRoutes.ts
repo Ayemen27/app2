@@ -17,7 +17,7 @@ function sanitizeShellArg(input: string): string {
 router.use(requireAuth);
 
 router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage } = req.body;
+  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version } = req.body;
 
   const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix"];
   if (!validPipelines.includes(pipeline)) {
@@ -33,6 +33,7 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
 
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
   const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
+  const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
 
   const userId = getAuthUser(req)?.user_id;
   const deploymentId = await deploymentEngine.startDeployment({
@@ -42,13 +43,14 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
     branch: safeBranch,
     commitMessage: safeMessage,
     triggeredBy: userId,
+    version: safeVersion,
   });
 
   res.json({ id: deploymentId, message: "Deployment started" });
 }));
 
 router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage } = req.body;
+  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version } = req.body;
 
   const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix"];
   if (!validPipelines.includes(pipeline)) {
@@ -58,6 +60,7 @@ router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Resp
 
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
   const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
+  const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
 
   const userId = getAuthUser(req)?.user_id;
   const deploymentId = await deploymentEngine.startDeployment({
@@ -67,6 +70,7 @@ router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Resp
     branch: safeBranch,
     commitMessage: safeMessage,
     triggeredBy: userId,
+    version: safeVersion,
   });
 
   res.json({ id: deploymentId, message: "Deployment started" });

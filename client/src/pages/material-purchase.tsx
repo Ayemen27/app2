@@ -22,6 +22,7 @@ import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { MultiWellSelector } from "@/components/multi-well-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
+import { TeamSelector } from "@/components/team-selector";
 import { API_ENDPOINTS } from "@/constants/api";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { apiRequest } from "@/lib/queryClient";
@@ -34,7 +35,7 @@ import type { Material, InsertMaterialPurchase, InsertMaterial, Supplier, Insert
 
 export default function MaterialPurchase() {
   const [, setLocation] = useLocation();
-  const { selectedProjectId, selectProject, isAllProjects, getProjectIdForApi } = useSelectedProject();
+  const { selectedProjectId, selectProject, isAllProjects, getProjectIdForApi, isWellsProject } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ 
     paymentType: 'all', 
@@ -99,10 +100,10 @@ export default function MaterialPurchase() {
   const [supplierFormNotes, setSupplierFormNotes] = useState("");
   const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
   const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
+  const [selectedTeamNames, setSelectedTeamNames] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    // التحقق من وجود التاريخ في URL أولاً
     const params = new URLSearchParams(window.location.search);
-    return params.get('date') || ""; // القيمة الافتراضية فارغة لجلب الكل
+    return params.get('date') || "";
   });
 
   const { toast } = useToast();
@@ -1240,19 +1241,25 @@ export default function MaterialPurchase() {
               </Label>
             </div>
 
-            {/* Well Selector */}
-            <MultiWellSelector
-              project_id={selectedProjectId}
-              value={selectedWellIds}
-              onChange={setSelectedWellIds}
-              optional={true}
-            />
-
-            {/* Crew Type Selector */}
-            <CrewTypeSelector
-              value={selectedCrewTypes}
-              onChange={setSelectedCrewTypes}
-            />
+            {isWellsProject && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <MultiWellSelector
+                  project_id={selectedProjectId}
+                  value={selectedWellIds}
+                  onChange={setSelectedWellIds}
+                  optional={true}
+                />
+                <TeamSelector
+                  project_id={selectedProjectId}
+                  value={selectedTeamNames}
+                  onChange={setSelectedTeamNames}
+                />
+                <CrewTypeSelector
+                  value={selectedCrewTypes}
+                  onChange={setSelectedCrewTypes}
+                />
+              </div>
+            )}
 
             {/* Supplier/Store */}
             <div>

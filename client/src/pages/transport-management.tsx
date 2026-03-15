@@ -46,6 +46,7 @@ import { cn, getCurrentDate, formatDate, formatCurrency, formatDateForApi } from
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { MultiWellSelector } from "@/components/multi-well-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
+import { TeamSelector } from "@/components/team-selector";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -59,7 +60,7 @@ import * as XLSX from 'xlsx';
 
 export default function TransportManagement() {
   const [, setLocation] = useLocation();
-  const { selectedProjectId, isAllProjects, getProjectIdForApi } = useSelectedProject();
+  const { selectedProjectId, isAllProjects, getProjectIdForApi, isWellsProject } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ 
     dateRange: undefined,
@@ -79,6 +80,7 @@ export default function TransportManagement() {
   const [category, setCategory] = useState<string>("");
   const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
   const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
+  const [selectedTeamNames, setSelectedTeamNames] = useState<string[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -631,23 +633,32 @@ export default function TransportManagement() {
                         data-testid="select-worker"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label data-testid="label-well" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                        <Hash className="h-3 w-3" /> البئر
-                      </Label>
-                      <MultiWellSelector 
-                        project_id={selectedProjectId}
-                        value={selectedWellIds} 
-                        onChange={setSelectedWellIds}
-                        showLabel={false}
-                      />
-                    </div>
                   </div>
 
-                  <CrewTypeSelector
-                    value={selectedCrewTypes}
-                    onChange={setSelectedCrewTypes}
-                  />
+                  {isWellsProject && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label data-testid="label-well" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                          <Hash className="h-3 w-3" /> البئر
+                        </Label>
+                        <MultiWellSelector 
+                          project_id={selectedProjectId}
+                          value={selectedWellIds} 
+                          onChange={setSelectedWellIds}
+                          showLabel={false}
+                        />
+                      </div>
+                      <TeamSelector
+                        project_id={selectedProjectId}
+                        value={selectedTeamNames}
+                        onChange={setSelectedTeamNames}
+                      />
+                      <CrewTypeSelector
+                        value={selectedCrewTypes}
+                        onChange={setSelectedCrewTypes}
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <Label data-testid="label-notes" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">

@@ -19,12 +19,12 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: teams = [] } = useQuery<string[]>({
-    queryKey: ['/api/well-work-crews/team-names', project_id],
+    queryKey: ['/api/wells/team-names', project_id],
     queryFn: async () => {
       try {
         const url = project_id
-          ? `/api/well-work-crews/team-names?project_id=${project_id}`
-          : '/api/well-work-crews/team-names';
+          ? `/api/wells/team-names?project_id=${project_id}`
+          : '/api/wells/team-names';
         const response = await apiRequest(url, "GET");
         if (response && response.success && Array.isArray(response.data)) {
           return response.data;

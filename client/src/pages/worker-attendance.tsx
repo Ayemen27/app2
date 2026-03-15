@@ -49,7 +49,7 @@ interface AttendanceData {
 
 export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
-  const { selectedProjectId, selectProject, isAllProjects, projects } = useSelectedProject();
+  const { selectedProjectId, selectProject, isAllProjects, projects, isWellsProject } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     dateRange: undefined,
@@ -1358,6 +1358,7 @@ export default function WorkerAttendance() {
                           onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
                           selectedDate={selectedDate ?? undefined}
                           projectId={selectedProjectId}
+                          isWellsProject={isWellsProject}
                         />
                       ))
                     )}

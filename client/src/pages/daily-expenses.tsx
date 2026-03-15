@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { MultiWellSelector } from "@/components/multi-well-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
+import { TeamSelector } from "@/components/team-selector";
 import ExpenseSummary from "@/components/expense-summary";
 import WorkerMiscExpenses from "./worker-misc-expenses";
 import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
@@ -60,7 +61,7 @@ import type {
 
 function DailyExpensesContent() {
   const { toast } = useToast();
-  const { selectedProjectId, selectProject, isAllProjects } = useSelectedProject();
+  const { selectedProjectId, selectProject, isAllProjects, isWellsProject } = useSelectedProject();
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [carriedForward, setCarriedForward] = useState<string>("0");
   const [showProjectTransfers, setShowProjectTransfers] = useState<boolean>(true);
@@ -109,6 +110,7 @@ function DailyExpensesContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
   const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
+  const [selectedTeamNames, setSelectedTeamNames] = useState<string[]>([]);
   const [purchaseCrewTypes, setPurchaseCrewTypes] = useState<string[]>([]);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isFundTransfersExpanded, setIsFundTransfersExpanded] = useState(false);
@@ -182,6 +184,7 @@ function DailyExpensesContent() {
   const [purchaseSupplierName, setPurchaseSupplierName] = useState<string>("");
   const [purchaseNotes, setPurchaseNotes] = useState<string>("");
   const [purchaseWellIds, setPurchaseWellIds] = useState<number[]>([]);
+  const [purchaseTeamNames, setPurchaseTeamNames] = useState<string[]>([]);
   const [editingMaterialPurchaseId, setEditingMaterialPurchaseId] = useState<string | null>(null);
 
   // Worker transfer form
@@ -2926,26 +2929,25 @@ function DailyExpensesContent() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 gap-3 mb-3">
-                {selectedProjectId && !isAllProjects && (
-                  <>
-                    <div className="flex flex-col">
-                      <MultiWellSelector
-                        project_id={selectedProjectId}
-                        value={selectedWellIds}
-                        onChange={setSelectedWellIds}
-                        optional={true}
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <CrewTypeSelector
-                        value={selectedCrewTypes}
-                        onChange={setSelectedCrewTypes}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+              {isWellsProject && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                  <MultiWellSelector
+                    project_id={selectedProjectId}
+                    value={selectedWellIds}
+                    onChange={setSelectedWellIds}
+                    optional={true}
+                  />
+                  <TeamSelector
+                    project_id={selectedProjectId}
+                    value={selectedTeamNames}
+                    onChange={setSelectedTeamNames}
+                  />
+                  <CrewTypeSelector
+                    value={selectedCrewTypes}
+                    onChange={setSelectedCrewTypes}
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-2">
                 <Button 
                   onClick={handleAddTransportation} 
@@ -3144,13 +3146,18 @@ function DailyExpensesContent() {
               />
             </div>
 
-            {selectedProjectId && !isAllProjects && (
-              <div className="mb-3 space-y-3">
+            {isWellsProject && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
                 <MultiWellSelector
                   project_id={selectedProjectId}
                   value={selectedWellIds}
                   onChange={setSelectedWellIds}
                   optional={true}
+                />
+                <TeamSelector
+                  project_id={selectedProjectId}
+                  value={selectedTeamNames}
+                  onChange={setSelectedTeamNames}
                 />
                 <CrewTypeSelector
                   value={selectedCrewTypes}
@@ -3498,23 +3505,24 @@ function DailyExpensesContent() {
                           placeholder="ملاحظات (اختياري)"
                         />
                       </div>
-                      {selectedProjectId && !isAllProjects && (
-                        <>
-                          <div>
-                            <MultiWellSelector
-                              project_id={selectedProjectId}
-                              value={purchaseWellIds}
-                              onChange={setPurchaseWellIds}
-                              optional
-                            />
-                          </div>
-                          <div>
-                            <CrewTypeSelector
-                              value={purchaseCrewTypes}
-                              onChange={setPurchaseCrewTypes}
-                            />
-                          </div>
-                        </>
+                      {isWellsProject && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <MultiWellSelector
+                            project_id={selectedProjectId}
+                            value={purchaseWellIds}
+                            onChange={setPurchaseWellIds}
+                            optional
+                          />
+                          <TeamSelector
+                            project_id={selectedProjectId}
+                            value={purchaseTeamNames}
+                            onChange={setPurchaseTeamNames}
+                          />
+                          <CrewTypeSelector
+                            value={purchaseCrewTypes}
+                            onChange={setPurchaseCrewTypes}
+                          />
+                        </div>
                       )}
                       <div className="flex gap-2">
                         <Button
@@ -4069,7 +4077,8 @@ function DailyExpensesContent() {
                     <CollapsibleContent className="pt-2">
                       <WorkerMiscExpenses 
                         project_id={selectedProjectId} 
-                        selectedDate={selectedDate || new Date().toISOString().split('T')[0]} 
+                        selectedDate={selectedDate || new Date().toISOString().split('T')[0]}
+                        isWellsProject={isWellsProject}
                       />
                     </CollapsibleContent>
                   </Collapsible>

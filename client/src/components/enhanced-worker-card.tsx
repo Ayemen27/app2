@@ -11,6 +11,7 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { User, Clock, DollarSign, FileText, Calendar, Activity, AlertCircle, CheckCircle, Timer, Calculator, MessageSquare, Banknote, TrendingUp, Target, Users, Briefcase, Hammer, Wrench, Paintbrush, Grid3X3, ChevronDown, ChevronUp, Droplets, HardHat } from "lucide-react";
 import { MultiWellSelector } from "@/components/multi-well-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
+import { TeamSelector } from "@/components/team-selector";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
@@ -37,6 +38,7 @@ interface AttendanceData {
   well_ids?: number[];
   crewType?: string;
   crewTypes?: string[];
+  teamNames?: string[];
 }
 
 interface EnhancedWorkerCardProps {
@@ -45,6 +47,7 @@ interface EnhancedWorkerCardProps {
   onAttendanceChange: (attendance: AttendanceData) => void;
   selectedDate?: string;
   projectId?: string;
+  isWellsProject?: boolean;
 }
 
 export default function EnhancedWorkerCard({
@@ -52,7 +55,8 @@ export default function EnhancedWorkerCard({
   attendance,
   onAttendanceChange,
   selectedDate = getCurrentDate(),
-  projectId
+  projectId,
+  isWellsProject = false
 }: EnhancedWorkerCardProps) {
   const [localAttendance, setLocalAttendance] = useState<AttendanceData>(attendance);
   const [showDetails, setShowDetails] = useState(false);
@@ -287,14 +291,19 @@ export default function EnhancedWorkerCard({
           </div>
         </div>
 
-        {localAttendance.isPresent && projectId && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+        {localAttendance.isPresent && projectId && isWellsProject && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
             <MultiWellSelector
               project_id={projectId}
               value={localAttendance.well_ids || []}
               onChange={(ids) => updateAttendance({ well_ids: ids, well_id: ids[0] || undefined })}
               optional={true}
               showLabel={true}
+            />
+            <TeamSelector
+              project_id={projectId}
+              value={localAttendance.teamNames || []}
+              onChange={(names) => updateAttendance({ teamNames: names })}
             />
             <CrewTypeSelector
               value={localAttendance.crewTypes || []}

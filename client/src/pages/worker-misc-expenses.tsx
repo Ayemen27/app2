@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { MultiWellSelector } from "@/components/multi-well-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
+import { TeamSelector } from "@/components/team-selector";
 import { formatCurrency } from "@/lib/utils";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
@@ -30,13 +31,15 @@ interface WorkerMiscExpense {
 interface WorkerMiscExpensesProps {
   project_id: string;
   selectedDate: string;
+  isWellsProject?: boolean;
 }
 
-export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerMiscExpensesProps) {
+export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsProject = false }: WorkerMiscExpensesProps) {
   const [miscDescription, setMiscDescription] = useState("");
   const [miscAmount, setMiscAmount] = useState("");
   const [miscWellIds, setMiscWellIds] = useState<number[]>([]);
   const [miscCrewTypes, setMiscCrewTypes] = useState<string[]>([]);
+  const [miscTeamNames, setMiscTeamNames] = useState<string[]>([]);
   const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
@@ -258,18 +261,28 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
 
   return (
     <div className="space-y-3">
-      <MultiWellSelector
-        project_id={project_id}
-        value={miscWellIds}
-        onChange={setMiscWellIds}
-        showLabel={false}
-        optional={true}
-      />
-      <CrewTypeSelector
-        value={miscCrewTypes}
-        onChange={setMiscCrewTypes}
-        showLabel={false}
-      />
+      {isWellsProject && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <MultiWellSelector
+            project_id={project_id}
+            value={miscWellIds}
+            onChange={setMiscWellIds}
+            showLabel={false}
+            optional={true}
+          />
+          <TeamSelector
+            project_id={project_id}
+            value={miscTeamNames}
+            onChange={setMiscTeamNames}
+            showLabel={false}
+          />
+          <CrewTypeSelector
+            value={miscCrewTypes}
+            onChange={setMiscCrewTypes}
+            showLabel={false}
+          />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
             <AutocompleteInput
               value={miscDescription}

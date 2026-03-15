@@ -1067,4 +1067,59 @@ wellRouter.get('/:well_id/crew-workers', async (req: Request, res: Response) => 
   }
 });
 
+wellRouter.get('/team-names', async (req: Request, res: Response) => {
+  try {
+    const { project_id } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const { wells: wellsTable } = await import('../../../shared/schema.js');
+
+    if (project_id && typeof project_id === 'string') {
+      if (!isAdminUser && !accessibleIds.includes(project_id)) {
+        return res.json({ success: true, data: [] });
+      }
+      const results = await db
+        .selectDistinct({ teamName: wellWorkCrews.teamName })
+        .from(wellWorkCrews)
+        .innerJoin(wellsTable, eq(wellWorkCrews.well_id, wellsTable.id))
+        .where(eq(wellsTable.project_id, project_id));
+
+      const teamNames = results
+        .map((r: any) => r.teamName)
+        .filter((name: string | null): name is string => !!name && name.trim() !== '');
+      return res.json({ success: true, data: teamNames });
+    }
+
+    if (isAdminUser) {
+      const results = await db
+        .selectDistinct({ teamName: wellWorkCrews.teamName })
+        .from(wellWorkCrews);
+      const teamNames = results
+        .map((r: any) => r.teamName)
+        .filter((name: string | null): name is string => !!name && name.trim() !== '');
+      return res.json({ success: true, data: teamNames });
+    }
+
+    if (accessibleIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const results = await db
+      .selectDistinct({ teamName: wellWorkCrews.teamName })
+      .from(wellWorkCrews)
+      .innerJoin(wellsTable, eq(wellWorkCrews.well_id, wellsTable.id))
+      .where(inArray(wellsTable.project_id, accessibleIds));
+
+    const teamNames = results
+      .map((r: any) => r.teamName)
+      .filter((name: string | null): name is string => !!name && name.trim() !== '');
+    res.json({ success: true, data: teamNames });
+  } catch (error: any) {
+    console.error('Error fetching team names:', error);
+    res.status(500).json({ success: false, error: 'TEAM_NAMES_FETCH_ERROR', message: error.message || 'فشل في جلب أسماء الفرق' });
+  }
+});
+
 export default wellRouter;

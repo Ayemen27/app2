@@ -20,6 +20,7 @@ import { storage } from '../../storage';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
+import { WellExpenseAutoAllocationService } from '../../services/WellExpenseAutoAllocationService';
 
 export const financialRouter = express.Router();
 
@@ -1447,6 +1448,18 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
       'worker-misc-expenses/POST'
     );
 
+    await WellExpenseAutoAllocationService.allocateOnCreate({
+      referenceType: 'worker_misc_expense',
+      referenceId: record.id,
+      wellIdsJson: record.well_ids,
+      totalAmount: record.amount,
+      description: `نثريات عمال - ${record.description || ''}`,
+      category: 'نفقات تشغيلية',
+      expenseDate: record.date,
+      userId: getAuthUser(req)?.user_id || 'system',
+      projectId: record.project_id,
+    });
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء مصروف العامل المتنوع بنجاح في ${duration}ms`);
 
@@ -1548,6 +1561,18 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
       );
     }, 'worker-misc-expenses/PATCH');
 
+    await WellExpenseAutoAllocationService.reallocateOnUpdate({
+      referenceType: 'worker_misc_expense',
+      referenceId: expenseId,
+      wellIdsJson: t.well_ids,
+      totalAmount: t.amount,
+      description: `نثريات عمال - ${t.description || ''}`,
+      category: 'نفقات تشغيلية',
+      expenseDate: t.date,
+      userId: getAuthUser(req)?.user_id || 'system',
+      projectId: t.project_id,
+    });
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);
 
@@ -1623,8 +1648,8 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
       'worker-misc-expenses/DELETE'
     );
 
-    // حذف مصروف العامل المتنوع من قاعدة البيانات
     console.log('🗑️ [API] حذف مصروف العامل المتنوع من قاعدة البيانات...');
+    await WellExpenseAutoAllocationService.removeOnDelete('worker_misc_expense', expenseId);
     const deletedExpense = await db
       .delete(workerMiscExpenses)
       .where(eq(workerMiscExpenses.id, expenseId))
@@ -2141,6 +2166,18 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       'material-purchase/POST'
     );
 
+    await WellExpenseAutoAllocationService.allocateOnCreate({
+      referenceType: 'material_purchase',
+      referenceId: p.id,
+      wellIdsJson: p.well_ids,
+      totalAmount: p.totalAmount || '0',
+      description: `مشتريات - ${p.materialName || ''}`,
+      category: 'قيمة المواد',
+      expenseDate: p.purchaseDate,
+      userId: getAuthUser(req)?.user_id || 'system',
+      projectId: p.project_id,
+    });
+
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم إضافة مشتراة جديدة في ${duration}ms`);
     
@@ -2297,6 +2334,18 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       );
     }, 'material-purchase/PATCH');
 
+    await WellExpenseAutoAllocationService.reallocateOnUpdate({
+      referenceType: 'material_purchase',
+      referenceId: purchaseId,
+      wellIdsJson: mp.well_ids,
+      totalAmount: mp.totalAmount || '0',
+      description: `مشتريات - ${mp.materialName || ''}`,
+      category: 'قيمة المواد',
+      expenseDate: mp.purchaseDate,
+      userId: getAuthUser(req)?.user_id || 'system',
+      projectId: mp.project_id,
+    });
+
     const finalAddToInventory = !!createdEquipment || alreadyHasEquipment;
     const finalEquipmentId = createdEquipment?.id || existing.equipmentId || null;
 
@@ -2345,6 +2394,8 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
       () => FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'حذف مشتراة', getAuthUser(req)?.user_id).then(() => ''),
       'material-purchase/DELETE'
     );
+
+    await WellExpenseAutoAllocationService.removeOnDelete('material_purchase', req.params.id);
 
     const deleted = await db
       .delete(materialPurchases)
@@ -2456,6 +2507,18 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
       'transport-expense/POST'
     );
 
+    await WellExpenseAutoAllocationService.allocateOnCreate({
+      referenceType: 'transportation',
+      referenceId: te.id,
+      wellIdsJson: te.well_ids,
+      totalAmount: te.amount || '0',
+      description: `مواصلات ونقل - ${te.description || ''}`,
+      category: 'نفقات تشغيلية',
+      expenseDate: te.date,
+      userId: getAuthUser(req)?.user_id || 'system',
+      projectId: te.project_id,
+    });
+
     const duration = Date.now() - startTime;
     console.log(`✅ [TransportationExpenses] تم إضافة نفقة جديدة في ${duration}ms`);
     
@@ -2561,6 +2624,18 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
       );
     }, 'transport-expense/PATCH');
 
+    await WellExpenseAutoAllocationService.reallocateOnUpdate({
+      referenceType: 'transportation',
+      referenceId: req.params.id,
+      wellIdsJson: tu.well_ids,
+      totalAmount: tu.amount || '0',
+      description: `مواصلات ونقل - ${tu.description || ''}`,
+      category: 'نفقات تشغيلية',
+      expenseDate: tu.date,
+      userId: getAuthUser(req)?.user_id || 'system',
+      projectId: tu.project_id,
+    });
+
     const duration = Date.now() - startTime;
     console.log(`✅ [TransportationExpenses] تم التحديث في ${duration}ms`);
     
@@ -2601,6 +2676,8 @@ financialRouter.delete('/transportation-expenses/:id', async (req: Request, res:
       () => FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'حذف نفقة نقل', getAuthUser(req)?.user_id).then(() => ''),
       'transport-expense/DELETE'
     );
+
+    await WellExpenseAutoAllocationService.removeOnDelete('transportation', req.params.id);
 
     const deleted = await db
       .delete(transportationExpenses)

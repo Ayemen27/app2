@@ -323,11 +323,19 @@ export class WellExpenseService {
       const crewsCost = await WellService.getWellCrewsCost(well_id);
       const wellTransportCost = await WellService.getWellTransportCost(well_id);
 
+      const hasAutoAllocatedTransport = expenses.some((e: any) => 
+        e.expenseType === 'transport' && e.referenceType === 'transportation'
+      );
+
       (report.summary as any).crewsCost = crewsCost;
       (report.summary as any).wellTransportCost = wellTransportCost;
       report.summary.laborCost += crewsCost;
-      report.summary.transportCost += wellTransportCost;
-      report.summary.totalCost += crewsCost + wellTransportCost;
+      if (!hasAutoAllocatedTransport) {
+        report.summary.transportCost += wellTransportCost;
+        report.summary.totalCost += crewsCost + wellTransportCost;
+      } else {
+        report.summary.totalCost += crewsCost;
+      }
 
       if (report.summary.totalCost > 0) {
         report.breakdown = {

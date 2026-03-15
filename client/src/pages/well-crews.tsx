@@ -79,7 +79,7 @@ export default function WellCrewsPage() {
 
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    region: 'all', crewType: 'all', status: 'all', dateRange: undefined
+    region: 'all', crewType: 'all', status: 'all', teamName: 'all', dateRange: undefined
   });
   const [showCrewForm, setShowCrewForm] = useState(false);
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -172,7 +172,7 @@ export default function WellCrewsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue('');
-    setFilterValues({ region: 'all', crewType: 'all', status: 'all', dateRange: undefined });
+    setFilterValues({ region: 'all', crewType: 'all', status: 'all', teamName: 'all', dateRange: undefined });
   }, []);
 
   const filteredData = useMemo(() => {
@@ -189,6 +189,8 @@ export default function WellCrewsPage() {
       const matchesCrewType = filterValues.crewType === 'all' ||
         well.crews?.some((c: any) => (c.crewType || c.crew_type) === filterValues.crewType);
       const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
+      const matchesTeamName = filterValues.teamName === 'all' ||
+        well.crews?.some((c: any) => (c.teamName || c.team_name) === filterValues.teamName);
 
       let matchesDate = true;
       if (dateFrom || dateTo) {
@@ -207,7 +209,7 @@ export default function WellCrewsPage() {
         }
       }
 
-      return matchesSearch && matchesRegion && matchesCrewType && matchesStatus && matchesDate;
+      return matchesSearch && matchesRegion && matchesCrewType && matchesStatus && matchesTeamName && matchesDate;
     });
   }, [fullData, searchValue, filterValues]);
 
@@ -271,9 +273,14 @@ export default function WellCrewsPage() {
       defaultValue: 'all'
     },
     {
+      key: 'teamName', label: 'اسم الفريق', type: 'select', placeholder: 'اختر الفريق',
+      options: [{ value: 'all', label: 'جميع الفرق' }, ...teamNameOptions],
+      defaultValue: 'all'
+    },
+    {
       key: 'dateRange', label: 'الفترة الزمنية', type: 'date-range' as any, placeholder: 'اختر الفترة',
     },
-  ], []);
+  ], [teamNameOptions]);
 
   const changeStatusMutation = useMutation({
     mutationFn: async ({ wellId, status }: { wellId: number; status: string }) =>

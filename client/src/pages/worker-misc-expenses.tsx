@@ -7,6 +7,7 @@ import { Plus, Trash2, Edit2, Save, X, DollarSign, ChevronDown, ChevronUp, Loade
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
+import { WellSelector } from "@/components/well-selector";
 import { formatCurrency } from "@/lib/utils";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
@@ -21,6 +22,7 @@ interface WorkerMiscExpense {
   description: string;
   date: string;
   notes?: string;
+  well_id?: number | null;
   created_at: string;
 }
 
@@ -32,6 +34,7 @@ interface WorkerMiscExpensesProps {
 export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerMiscExpensesProps) {
   const [miscDescription, setMiscDescription] = useState("");
   const [miscAmount, setMiscAmount] = useState("");
+  const [miscWellId, setMiscWellId] = useState<number | undefined>();
   const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
@@ -53,6 +56,25 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
     } catch (error) {
       console.warn(`Failed to save autocomplete value for ${field}:`, error);
     }
+  };
+
+  const { data: wells = [] } = useQuery<any[]>({
+    queryKey: QUERY_KEYS.wellsByProject(project_id),
+    queryFn: async () => {
+      try {
+        const response = await apiRequest(`/api/wells?project_id=${project_id}`);
+        if (response && response.success && Array.isArray(response.data)) return response.data;
+        return Array.isArray(response) ? response : (response.data || []);
+      } catch { return []; }
+    },
+    enabled: !!project_id,
+    staleTime: 5 * 60 * 1000
+  });
+
+  const getWellLabel = (wellId: number | null | undefined) => {
+    if (!wellId) return null;
+    const well = wells.find((w: any) => w.id === wellId);
+    return well ? `بئر #${well.wellNumber}` : null;
   };
 
   const { data: todayMiscExpenses = [] } = useQuery<WorkerMiscExpense[]>({
@@ -188,21 +210,21 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
     if (editingMiscId) {
-      // Update existing expense
       updateMiscExpenseMutation.mutate({
         id: editingMiscId,
         data: {
           description: miscDescription,
-          amount: miscAmount
+          amount: miscAmount,
+          well_id: miscWellId || null
         }
       });
     } else {
-      // Create new expense
       createMiscExpenseMutation.mutate({
         description: miscDescription,
         amount: miscAmount,
         project_id,
-        date: selectedDate
+        date: selectedDate,
+        well_id: miscWellId || null
       });
     }
   };
@@ -210,12 +232,14 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
   const resetMiscExpenseForm = () => {
     setMiscDescription("");
     setMiscAmount("");
+    setMiscWellId(undefined);
     setEditingMiscId(null);
   };
 
   const handleEditMiscExpense = (expense: WorkerMiscExpense) => {
     setMiscDescription(expense.description);
     setMiscAmount(expense.amount);
+    setMiscWellId(expense.well_id ? Number(expense.well_id) : undefined);
     setEditingMiscId(expense.id);
   };
 
@@ -226,6 +250,13 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
 
   return (
     <div className="space-y-3">
+      <WellSelector
+        project_id={project_id}
+        value={miscWellId}
+        onChange={setMiscWellId}
+        showLabel={false}
+        optional={true}
+      />
       <div className="grid grid-cols-2 gap-3">
             <AutocompleteInput
               value={miscDescription}
@@ -274,7 +305,12 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
           {/* Show existing misc expenses */}
           {Array.isArray(todayMiscExpenses) && todayMiscExpenses.map((expense, index) => (
             <div key={expense.id || index} className="flex justify-between items-center p-2 bg-muted rounded">
-              <span className="text-sm flex-1">{expense.description}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm block">{expense.description}</span>
+                {getWellLabel(expense.well_id) && (
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400">{getWellLabel(expense.well_id)}</span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <span className="font-medium arabic-numbers">{formatCurrency(expense.amount)}</span>
                 <div className="flex gap-1">

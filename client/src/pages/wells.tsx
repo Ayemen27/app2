@@ -40,6 +40,7 @@ interface Well {
   crewCount?: number;
   transportCount?: number;
   hasSolar?: boolean;
+  extraPipes?: number;
   receptionStatus?: string | null;
 }
 
@@ -335,7 +336,7 @@ export default function WellsPage() {
           <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.completionPercentage || 0}%</td>
           <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellDepth || 0}</td>
           <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPanels || 0}</td>
-          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPipes || 0}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${(well.numberOfPipes || 0) + (well.extraPipes || 0)}</td>
           <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfBases || 0}</td>
           <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.crewCount || 0}</td>
           <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.transportCount || 0}</td>
@@ -392,7 +393,7 @@ export default function WellsPage() {
       const data = filteredWells.map((well: any, idx: number) => ({
         index: idx + 1, wellNumber: well.wellNumber, ownerName: well.ownerName, region: well.region || '-',
         wellDepth: well.wellDepth || 0, numberOfPanels: well.numberOfPanels || 0, numberOfBases: well.numberOfBases || 0,
-        numberOfPipes: well.numberOfPipes || 0, fanType: well.fanType || '-', pumpPower: well.pumpPower || '-',
+        numberOfPipes: (well.numberOfPipes || 0) + (well.extraPipes || 0), fanType: well.fanType || '-', pumpPower: well.pumpPower || '-',
         waterLevel: well.waterLevel || '-', crewCount: well.crewCount || 0, transportCount: well.transportCount || 0,
         hasSolar: well.hasSolar ? 'نعم' : 'لا', receptionStatus: RECEPTION_MAP[well.receptionStatus || ''] || '-',
         status: getStatusText(well.status), completion: well.completionPercentage || 0,
@@ -683,7 +684,7 @@ export default function WellsPage() {
               { label: 'المنطقة', value: well.region, icon: MapPin, color: 'info' as const },
               { label: 'العمق', value: `${well.wellDepth}م`, icon: TrendingUp, color: 'warning' as const },
               { label: 'الألواح', value: well.numberOfPanels, icon: BarChart3, color: 'success' as const },
-              { label: 'المواسير', value: well.numberOfPipes, icon: Wrench, color: 'success' as const },
+              { label: 'المواسير', value: (well.numberOfPipes || 0) + (well.extraPipes || 0), icon: Wrench, color: 'success' as const },
               { label: 'القواعد', value: well.numberOfBases, icon: BarChart3, color: 'info' as const },
               { label: 'مستوى الماء', value: well.waterLevel ? `${well.waterLevel}م` : '-', icon: TrendingUp, color: 'info' as const },
               { label: 'التقدم', value: `${Number.isFinite(Number(well.completionPercentage)) ? Number(well.completionPercentage) : 0}%`, emphasis: true, color: 'info' as const, icon: TrendingUp },

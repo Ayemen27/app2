@@ -185,7 +185,11 @@ export default function WellMaterialsPage() {
       0
     );
     const totalPipes = filteredWells.reduce(
-      (sum: number, w: WellFullData) => sum + (Number(w.numberOfPipes) || 0),
+      (sum: number, w: WellFullData) => {
+        const basePipes = Number(w.numberOfPipes) || 0;
+        const extraPipes = Number(w.solar?.extraPipes ?? w.solar?.extra_pipes ?? 0);
+        return sum + basePipes + extraPipes;
+      },
       0
     );
     return { total, withSolar, totalPanels, totalPipes };
@@ -273,7 +277,7 @@ export default function WellMaterialsPage() {
           numberOfPanels: well.numberOfPanels || 0,
           wellDepth: well.wellDepth || 0,
           waterLevel: well.waterLevel || "-",
-          numberOfPipes: well.numberOfPipes || 0,
+          numberOfPipes: (well.numberOfPipes || 0) + Number(s?.extraPipes ?? s?.extra_pipes ?? 0),
           fanCount: s?.fanCount ?? s?.fan_count ?? "-",
           submersiblePump: (s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "لا",
           inverter: s?.inverter || "-",
@@ -432,14 +436,18 @@ export default function WellMaterialsPage() {
                     variant: "outline" as any,
                   }]),
                 ]}
-                fields={[
-                  { label: "المنطقة", value: well.region || "-", icon: MapPin, color: "info" as const },
-                  { label: "العمق", value: `${well.wellDepth || 0}م`, icon: TrendingUp, color: "warning" as const },
-                  { label: "الألواح", value: well.numberOfPanels || 0, icon: Zap, color: "success" as const },
-                  { label: "القواعد", value: well.numberOfBases || 0, icon: BarChart3, color: "info" as const },
-                  { label: "المواسير", value: well.numberOfPipes || 0, icon: Wrench, color: "success" as const },
-                  { label: "منسوب الماء", value: well.waterLevel ? `${well.waterLevel}م` : "-", icon: TrendingUp, color: "info" as const },
-                ]}
+                fields={(() => {
+                  const extraPipesVal = Number(s?.extraPipes ?? s?.extra_pipes ?? 0);
+                  const totalPipes = (well.numberOfPipes || 0) + extraPipesVal;
+                  return [
+                    { label: "المنطقة", value: well.region || "-", icon: MapPin, color: "info" as const },
+                    { label: "العمق", value: `${well.wellDepth || 0}م`, icon: TrendingUp, color: "warning" as const },
+                    { label: "الألواح", value: well.numberOfPanels || 0, icon: Zap, color: "success" as const },
+                    { label: "القواعد", value: well.numberOfBases || 0, icon: BarChart3, color: "info" as const },
+                    { label: "المواسير", value: totalPipes, icon: Wrench, color: "success" as const },
+                    { label: "منسوب الماء", value: well.waterLevel ? `${well.waterLevel}م` : "-", icon: TrendingUp, color: "info" as const },
+                  ];
+                })()}
                 footer={
                   s ? (
                     <div className="space-y-2 pt-1">
@@ -475,8 +483,21 @@ export default function WellMaterialsPage() {
                         <span>كيبل تأريض 10×2: <b className="text-foreground">{getVal(s, "groundingCable10x2mm", "grounding_cable_10x2mm")}</b></span>
                         <span>كيبل 16×3: <b className="text-foreground">{getVal(s, "cable16x3mmLength", "cable_16x3mm_length")}</b></span>
                         <span>كيبل 10×2: <b className="text-foreground">{getVal(s, "cable10x2mmLength", "cable_10x2mm_length")}</b></span>
-                        <span>مواسير إضافية: <b className="text-foreground">{getVal(s, "extraPipes", "extra_pipes")}</b></span>
                       </div>
+                      {(() => {
+                        const extraPipesVal = Number(s?.extraPipes ?? s?.extra_pipes ?? 0);
+                        return extraPipesVal > 0 ? (
+                          <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 rounded-lg p-2 mt-1.5 flex items-center gap-2">
+                            <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                            <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                              مواسير إضافية: {extraPipesVal}
+                              {(s?.extraPipesReason || s?.extra_pipes_reason) && (
+                                <span className="font-normal text-blue-600 dark:text-blue-400 mr-1">({s.extraPipesReason || s.extra_pipes_reason})</span>
+                              )}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                       {(() => {
                         const extraCableVal = Number(s?.extraCable ?? s?.extra_cable ?? 0);
                         return extraCableVal > 0 ? (

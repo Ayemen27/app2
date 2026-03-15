@@ -78,6 +78,7 @@ export class WellService {
         db.select({
           well_id: wellSolarComponents.well_id,
           id: wellSolarComponents.id,
+          extraPipes: wellSolarComponents.extraPipes,
         }).from(wellSolarComponents)
           .where(inArray(wellSolarComponents.well_id, wellIds)),
 
@@ -92,6 +93,7 @@ export class WellService {
       const crewMap = new Map(crewCounts.map(c => [c.well_id, c.count]));
       const transportMap = new Map(transportCounts.map(t => [t.well_id, t.count]));
       const solarSet = new Set(solarStatuses.map(s => s.well_id));
+      const solarExtraPipesMap = new Map(solarStatuses.map(s => [s.well_id, Number(s.extraPipes) || 0]));
       const receptionMap = new Map<number, string>();
       const receptionRows = (receptionStatuses as any).rows || receptionStatuses;
       for (const r of receptionRows) {
@@ -103,6 +105,7 @@ export class WellService {
         crewCount: crewMap.get(well.id) || 0,
         transportCount: transportMap.get(well.id) || 0,
         hasSolar: solarSet.has(well.id),
+        extraPipes: solarExtraPipesMap.get(well.id) || 0,
         receptionStatus: receptionMap.get(well.id) || null,
       }));
     } catch (error) {

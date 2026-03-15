@@ -332,7 +332,7 @@ export default function WellAccounting() {
                   fields={[
                     { label: 'المنطقة', value: well.region, icon: MapPin, color: 'info' as const },
                     { label: 'الألواح', value: well.numberOfPanels, icon: Wrench, color: 'success' as const },
-                    { label: 'المواسير', value: well.numberOfPipes, icon: Wrench, color: 'success' as const },
+                    { label: 'المواسير', value: (well.numberOfPipes || 0) + (well.extraPipes || 0), icon: Wrench, color: 'success' as const },
                     { label: 'العمق', value: `${well.wellDepth}م`, icon: TrendingUp, color: 'warning' as const },
                     { label: 'التقدم', value: `${well.completionPercentage}%`, emphasis: true, color: 'info' as const, icon: TrendingUp }
                   ]}

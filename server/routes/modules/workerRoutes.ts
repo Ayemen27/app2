@@ -6,7 +6,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { eq, sql, and, or, desc, isNull, gte, lte, ne } from 'drizzle-orm';
-import { db, withTransaction } from '../../db.js';
+import { db, pool, withTransaction } from '../../db.js';
 import {
   workers, workerAttendance, workerTransfers, workerMiscExpenses, workerBalances,
   transportationExpenses, enhancedInsertWorkerSchema, insertWorkerAttendanceSchema,
@@ -253,15 +253,18 @@ async function recalculateAttendanceAndBalances(
       workerId, record.project_id, record.attendanceDate
     );
 
-    await db.execute(sql`
-      UPDATE worker_attendance
-      SET
-        daily_wage = ${resolvedWage},
-        actual_wage = CAST(${resolvedWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
-        total_pay = CAST(${resolvedWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0),
-        remaining_amount = (CAST(${resolvedWage} AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
-      WHERE id = ${record.id}
-    `);
+    const updateResult = await pool.query(
+      `UPDATE worker_attendance
+       SET
+         daily_wage = $1,
+         actual_wage = CAST($1 AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+         total_pay = CAST($1 AS DECIMAL(15,2)) * COALESCE(work_days, 0),
+         remaining_amount = (CAST($1 AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
+       WHERE id = $2`,
+      [resolvedWage, record.id]
+    );
+
+    console.log(`🔄 [RecalcHelper] سجل ${record.id} تاريخ ${record.attendanceDate} → أجر: ${resolvedWage} | rowCount: ${updateResult.rowCount}`);
 
     projectIdsSet.add(record.project_id);
   }
@@ -269,22 +272,23 @@ async function recalculateAttendanceAndBalances(
   const projectsAffected = Array.from(projectIdsSet);
 
   for (const pid of projectsAffected) {
-    await db.execute(sql`
-      UPDATE worker_balances wb
-      SET
-        total_earned = COALESCE((
-          SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
-          FROM worker_attendance wa
-          WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
-        ), 0),
-        current_balance = COALESCE((
-          SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
-          FROM worker_attendance wa
-          WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
-        ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),
-        last_updated = NOW()
-      WHERE wb.worker_id = ${workerId} AND wb.project_id = ${pid}
-    `);
+    await pool.query(
+      `UPDATE worker_balances wb
+       SET
+         total_earned = COALESCE((
+           SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+           FROM worker_attendance wa
+           WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+         ), 0),
+         current_balance = COALESCE((
+           SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+           FROM worker_attendance wa
+           WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
+         ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),
+         last_updated = NOW()
+       WHERE wb.worker_id = $1 AND wb.project_id = $2`,
+      [workerId, pid]
+    );
   }
 
   console.log(`✅ [RecalcHelper] تم تحديث ${affectedRecords.length} سجل حضور في ${projectsAffected.length} مشروع`);

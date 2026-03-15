@@ -50,7 +50,7 @@ export function generateWorkerStatementHTML(data: WorkerStatementData): string {
     [
       `<b>اسم العامل:</b> ${escapeHtml(data.worker.name)}`,
       `<b>نوع العامل:</b> ${escapeHtml(data.worker.type)}`,
-      `<b>الأجر اليومي:</b> ${formatNum(data.worker.dailyWage)} YER`,
+      ...((!data.projectWages || data.projectWages.length === 0) ? [`<b>الأجر اليومي:</b> ${formatNum(data.worker.dailyWage)} YER`] : []),
     ],
     [
       `<b>الفترة من:</b> ${formatDateBR(data.period.from)}`,
@@ -58,6 +58,26 @@ export function generateWorkerStatementHTML(data: WorkerStatementData): string {
       data.worker.phone ? `<b>الهاتف:</b> ${escapeHtml(data.worker.phone)}` : '',
     ].filter(Boolean)
   );
+
+  if (data.projectWages && data.projectWages.length > 0) {
+    body += pdfSectionTitle('أجور المشاريع');
+    const projectWageRows = data.projectWages.map(pw =>
+      `<tr>
+        <td style="text-align:right;">${escapeHtml(pw.projectName)}</td>
+        <td>${formatNum(pw.dailyWage)} YER</td>
+        <td>${formatDateBR(pw.effectiveFrom)}</td>
+        <td>${pw.effectiveTo ? formatDateBR(pw.effectiveTo) : 'مستمر'}</td>
+      </tr>`
+    ).join('');
+    body += `<table><thead><tr>
+      <th>اسم المشروع</th><th style="width:90px;">الأجر اليومي</th>
+      <th style="width:80px;">من تاريخ</th><th style="width:80px;">إلى تاريخ</th>
+    </tr></thead><tbody>${projectWageRows}</tbody></table>`;
+    body += `<div style="margin:4px 0;font-size:9px;color:${PDF_COLORS.textMuted};">
+      <b>الأجر الأساسي:</b> ${formatNum(data.worker.dailyWage)} YER
+    </div>`;
+  }
+
   body += pdfKpiStrip(kpis);
 
   body += pdfSectionTitle('كشف الحساب التفصيلي');

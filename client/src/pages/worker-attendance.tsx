@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2, Download } from "lucide-react";
+import { Save, ChevronDown, ChevronUp, Users, Clock, DollarSign, CheckCircle2, User, Calendar, Edit2, Trash2, Download, Briefcase } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -1423,7 +1424,10 @@ export default function WorkerAttendance() {
             <UnifiedCardGrid columns={2}>
               {filteredAttendance.map((record: any) => {
                 const worker = workers.find(w => w.id === record.worker_id);
-                const currentDailyWage = parseFloat(worker?.dailyWage || record.dailyWage || '0');
+                const recordDailyWage = parseFloat(record.dailyWage || '0');
+                const workerDefaultWage = parseFloat(worker?.dailyWage || '0');
+                const currentDailyWage = recordDailyWage || workerDefaultWage;
+                const isProjectWage = recordDailyWage > 0 && recordDailyWage !== workerDefaultWage;
                 const workDays = parseFloat(record.workDays || '0');
                 const calculatedActualWage = currentDailyWage * workDays;
                 const paidAmount = parseFloat(record.paidAmount || '0');
@@ -1438,7 +1442,11 @@ export default function WorkerAttendance() {
                     headerColor="#22c55e"
                     badges={[
                       { label: 'حاضر', variant: 'success' },
-                      ...(isAllProjects && projectName ? [{ label: projectName, variant: 'outline' as const }] : [])
+                      ...(isAllProjects && projectName ? [{ label: projectName, variant: 'outline' as const }] : []),
+                      ...(isProjectWage 
+                        ? [{ label: 'أجر المشروع', variant: 'default' as const }]
+                        : [{ label: 'أجر افتراضي', variant: 'secondary' as const }]
+                      ),
                     ]}
                     fields={[
                       {
@@ -1454,10 +1462,10 @@ export default function WorkerAttendance() {
                         color: "warning",
                       },
                       {
-                        label: "الراتب اليومي",
+                        label: isProjectWage ? "الأجر الفعّال" : "الراتب اليومي",
                         value: formatCurrency(currentDailyWage),
-                        icon: DollarSign,
-                        color: "default",
+                        icon: isProjectWage ? Briefcase : DollarSign,
+                        color: isProjectWage ? "info" : "default",
                       },
                       {
                         label: "المستحق",

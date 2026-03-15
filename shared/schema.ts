@@ -523,6 +523,25 @@ export const workerTransfers = pgTable("worker_transfers", {
   idxWorkerTransfersWorkerId: index("idx_worker_transfers_worker_id").on(table.worker_id),
 }));
 
+// Worker Project Wages (أجور العمال حسب المشروع)
+export const workerProjectWages = pgTable("worker_project_wages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(),
+  effectiveFrom: text("effective_from").notNull(),
+  effectiveTo: text("effective_to"),
+  is_active: boolean("is_active").default(true).notNull(),
+  created_by: varchar("created_by").references(() => users.id),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueWorkerProjectEffective: sql`UNIQUE (worker_id, project_id, effective_from)`,
+  idxWorkerProjectWagesWorker: index("idx_worker_project_wages_worker").on(table.worker_id),
+  idxWorkerProjectWagesProject: index("idx_worker_project_wages_project").on(table.project_id),
+  idxWorkerProjectWagesEffective: index("idx_worker_project_wages_effective").on(table.worker_id, table.project_id, table.effectiveFrom),
+}));
+
 // Worker account balances (أرصدة حسابات العمال)
 export const workerBalances = pgTable("worker_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1116,6 +1135,9 @@ export type InsertMaterial = z.infer<typeof insertMaterialSchema>;
 export type InsertMaterialPurchase = z.infer<typeof insertMaterialPurchaseSchema>;
 export type InsertTransportationExpense = z.infer<typeof insertTransportationExpenseSchema>;
 export type InsertWorkerTransfer = z.infer<typeof insertWorkerTransferSchema>;
+export const insertWorkerProjectWageSchema = createInsertSchema(workerProjectWages).omit({ id: true, created_at: true, updated_at: true });
+export type WorkerProjectWage = typeof workerProjectWages.$inferSelect;
+export type InsertWorkerProjectWage = z.infer<typeof insertWorkerProjectWageSchema>;
 export const insertWorkerBalanceSchema = createInsertSchema(workerBalances);
 export type InsertWorkerBalance = z.infer<typeof insertWorkerBalanceSchema>;
 export type InsertDailyExpenseSummary = z.infer<typeof insertDailyExpenseSummarySchema>;

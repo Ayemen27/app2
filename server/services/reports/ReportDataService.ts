@@ -10,11 +10,13 @@ import {
   workerMiscExpenses,
   fundTransfers,
   projectFundTransfers,
+  workerProjectWages,
 } from '@shared/schema';
 import type {
   DailyReportData,
   WorkerStatementData,
   WorkerStatementEntry,
+  WorkerProjectWageInfo,
   PeriodFinalReportData,
   MultiProjectFinalReportData,
   ProjectBreakdown,
@@ -344,7 +346,7 @@ export class ReportDataService {
       transferFilters.push(lte(workerTransfers.transferDate, dateTo));
     }
 
-    const [attendanceRows, transferRows] = await Promise.all([
+    const [attendanceRows, transferRows, projectWageRows] = await Promise.all([
       db
         .select({
           attendanceDate: workerAttendance.attendanceDate,
@@ -373,6 +375,23 @@ export class ReportDataService {
         .leftJoin(projects, eq(workerTransfers.project_id, projects.id))
         .where(and(...transferFilters))
         .orderBy(asc(workerTransfers.transferDate)),
+
+      db
+        .select({
+          dailyWage: workerProjectWages.dailyWage,
+          effectiveFrom: workerProjectWages.effectiveFrom,
+          effectiveTo: workerProjectWages.effectiveTo,
+          projectName: projects.name,
+        })
+        .from(workerProjectWages)
+        .leftJoin(projects, eq(workerProjectWages.project_id, projects.id))
+        .where(
+          and(
+            eq(workerProjectWages.worker_id, workerId),
+            eq(workerProjectWages.is_active, true)
+          )
+        )
+        .orderBy(asc(workerProjectWages.effectiveFrom)),
     ]);
 
     const rawEntries: Array<{
@@ -497,6 +516,13 @@ export class ReportDataService {
     const effectiveFrom = dateFrom || (statement.length > 0 ? statement[0].date : new Date().toISOString().split('T')[0]);
     const effectiveTo = dateTo || (statement.length > 0 ? statement[statement.length - 1].date : new Date().toISOString().split('T')[0]);
 
+    const projectWages: WorkerProjectWageInfo[] = projectWageRows.map((pw: any) => ({
+      projectName: pw.projectName || '-',
+      dailyWage: safeNum(pw.dailyWage),
+      effectiveFrom: pw.effectiveFrom,
+      effectiveTo: pw.effectiveTo || undefined,
+    }));
+
     return {
       reportType: 'worker-statement',
       generatedAt: new Date().toISOString(),
@@ -514,6 +540,7 @@ export class ReportDataService {
       },
       kpis,
       statement,
+      projectWages: projectWages.length > 0 ? projectWages : undefined,
       projectSummary,
       totals: {
         totalWorkDays,

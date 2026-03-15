@@ -4,8 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown } from 'lucide-react';
+import { FileText, Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown, Plus, FolderOpen } from 'lucide-react';
 import { exportWorkerStatement } from '@/lib/excel-exports';
 import { generateWorkerPDF } from '@/lib/pdf-exports.tsx';
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -66,6 +70,316 @@ const WorkerDialog = ({ worker, onClose, isOpen, projectId }: {
   );
 };
 
+interface WorkerProjectWageData {
+  id: string;
+  worker_id: string;
+  project_id: string;
+  dailyWage: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  projectName?: string;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
+interface WageFormData {
+  project_id: string;
+  dailyWage: string;
+  effectiveFrom: string;
+  effectiveTo: string;
+}
+
+const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
+  worker: Worker;
+  isOpen: boolean;
+  onClose: () => void;
+}) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showWageForm, setShowWageForm] = useState(false);
+  const [editingWage, setEditingWage] = useState<WorkerProjectWageData | null>(null);
+  const [wageForm, setWageForm] = useState<WageFormData>({
+    project_id: '',
+    dailyWage: '',
+    effectiveFrom: new Date().toISOString().split('T')[0],
+    effectiveTo: '',
+  });
+
+  const { data: wagesResponse, isLoading: wagesLoading } = useQuery<{ success: boolean; data: WorkerProjectWageData[] }>({
+    queryKey: QUERY_KEYS.workerProjectWages(worker.id),
+    queryFn: () => apiRequest(`/api/workers/${worker.id}/project-wages`, 'GET'),
+    enabled: isOpen,
+  });
+
+  const wages = wagesResponse?.data || (Array.isArray(wagesResponse) ? wagesResponse : []);
+
+  const { data: projectsResponse } = useQuery<ProjectOption[]>({
+    queryKey: QUERY_KEYS.projects,
+    enabled: isOpen,
+  });
+
+  const projectsList: ProjectOption[] = Array.isArray(projectsResponse) 
+    ? projectsResponse 
+    : (projectsResponse as any)?.data || [];
+
+  const getProjectName = (projectId: string) => {
+    return projectsList.find(p => p.id === projectId)?.name || 'غير معروف';
+  };
+
+  const resetForm = () => {
+    setWageForm({
+      project_id: '',
+      dailyWage: '',
+      effectiveFrom: new Date().toISOString().split('T')[0],
+      effectiveTo: '',
+    });
+    setEditingWage(null);
+    setShowWageForm(false);
+  };
+
+  const createWageMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/worker-project-wages', 'POST', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerProjectWages(worker.id) });
+      toast({ title: "تم بنجاح", description: "تم إضافة أجر المشروع بنجاح" });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error?.message || "فشل في إضافة أجر المشروع", variant: "destructive" });
+    },
+  });
+
+  const updateWageMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest(`/api/worker-project-wages/${id}`, 'PATCH', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerProjectWages(worker.id) });
+      toast({ title: "تم بنجاح", description: "تم تحديث أجر المشروع بنجاح" });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error?.message || "فشل في تحديث أجر المشروع", variant: "destructive" });
+    },
+  });
+
+  const deleteWageMutation = useMutation({
+    mutationFn: (id: string) => apiRequest(`/api/worker-project-wages/${id}`, 'DELETE'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workerProjectWages(worker.id) });
+      toast({ title: "تم بنجاح", description: "تم حذف أجر المشروع بنجاح" });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error?.message || "فشل في حذف أجر المشروع", variant: "destructive" });
+    },
+  });
+
+  const handleSubmitWage = () => {
+    if (!wageForm.project_id || !wageForm.dailyWage || !wageForm.effectiveFrom) {
+      toast({ title: "خطأ", description: "يرجى ملء جميع الحقول المطلوبة", variant: "destructive" });
+      return;
+    }
+
+    const payload = {
+      worker_id: worker.id,
+      project_id: wageForm.project_id,
+      dailyWage: wageForm.dailyWage,
+      effectiveFrom: wageForm.effectiveFrom,
+      effectiveTo: wageForm.effectiveTo || null,
+      is_active: true,
+    };
+
+    if (editingWage) {
+      updateWageMutation.mutate({ id: editingWage.id, data: payload });
+    } else {
+      createWageMutation.mutate(payload);
+    }
+  };
+
+  const handleEditWage = (wage: WorkerProjectWageData) => {
+    setEditingWage(wage);
+    setWageForm({
+      project_id: wage.project_id,
+      dailyWage: wage.dailyWage,
+      effectiveFrom: wage.effectiveFrom,
+      effectiveTo: wage.effectiveTo || '',
+    });
+    setShowWageForm(true);
+  };
+
+  const handleDeleteWage = (wage: WorkerProjectWageData) => {
+    if (confirm('هل أنت متأكد من حذف هذا الأجر؟')) {
+      deleteWageMutation.mutate(wage.id);
+    }
+  };
+
+  const formatCurrency = (amount: string | number) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return new Intl.NumberFormat('en-US', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num) + ' ر.ي';
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>أجور المشاريع - {worker.name}</DialogTitle>
+          <DialogDescription>إدارة الأجور اليومية حسب المشروع</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-muted-foreground">
+              الأجر الافتراضي: {formatCurrency(worker.dailyWage)}
+            </span>
+            <Button
+              size="sm"
+              onClick={() => { resetForm(); setShowWageForm(true); }}
+              data-testid="button-add-project-wage"
+            >
+              <Plus className="h-4 w-4 ml-1" />
+              إضافة أجر مشروع
+            </Button>
+          </div>
+
+          {showWageForm && (
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">المشروع *</Label>
+                    <Select
+                      value={wageForm.project_id}
+                      onValueChange={(v) => setWageForm(prev => ({ ...prev, project_id: v }))}
+                    >
+                      <SelectTrigger data-testid="select-project">
+                        <SelectValue placeholder="اختر المشروع" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projectsList.map(p => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">الأجر اليومي (ر.ي) *</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={wageForm.dailyWage}
+                      onChange={(e) => setWageForm(prev => ({ ...prev, dailyWage: e.target.value }))}
+                      placeholder="0"
+                      data-testid="input-wage-amount"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">ساري من *</Label>
+                    <Input
+                      type="date"
+                      value={wageForm.effectiveFrom}
+                      onChange={(e) => setWageForm(prev => ({ ...prev, effectiveFrom: e.target.value }))}
+                      data-testid="input-effective-from"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">ساري حتى</Label>
+                    <Input
+                      type="date"
+                      value={wageForm.effectiveTo}
+                      onChange={(e) => setWageForm(prev => ({ ...prev, effectiveTo: e.target.value }))}
+                      data-testid="input-effective-to"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSubmitWage}
+                    disabled={createWageMutation.isPending || updateWageMutation.isPending}
+                    data-testid="button-save-wage"
+                  >
+                    {createWageMutation.isPending || updateWageMutation.isPending ? 'جاري الحفظ...' : (editingWage ? 'تحديث' : 'حفظ')}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={resetForm}>إلغاء</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {wagesLoading ? (
+            <div className="text-center py-6">
+              <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">جاري التحميل...</p>
+            </div>
+          ) : wages.length === 0 ? (
+            <div className="text-center py-6">
+              <FolderOpen className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-40" />
+              <p className="text-sm text-muted-foreground">لا توجد أجور مخصصة للمشاريع</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg">
+              <Table data-testid="table-project-wages">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">المشروع</TableHead>
+                    <TableHead className="text-right">الأجر اليومي</TableHead>
+                    <TableHead className="text-right">من</TableHead>
+                    <TableHead className="text-right">إلى</TableHead>
+                    <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">إجراءات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {wages.map((wage: WorkerProjectWageData) => (
+                    <TableRow key={wage.id}>
+                      <TableCell className="text-sm">{wage.projectName || getProjectName(wage.project_id)}</TableCell>
+                      <TableCell className="text-sm font-medium">{formatCurrency(wage.dailyWage)}</TableCell>
+                      <TableCell className="text-sm">{wage.effectiveFrom}</TableCell>
+                      <TableCell className="text-sm">{wage.effectiveTo || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={wage.is_active ? 'default' : 'secondary'} className="text-xs">
+                          {wage.is_active ? 'نشط' : 'غير نشط'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEditWage(wage)}
+                            data-testid={`button-edit-wage-${wage.id}`}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDeleteWage(wage)}
+                            disabled={deleteWageMutation.isPending}
+                            data-testid={`button-delete-wage-${wage.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const FinancialStatsFooter = ({ 
   stats,
   formatCurrency,
@@ -120,6 +434,7 @@ const WorkerCardWrapper = ({
   onDelete, 
   onToggleStatus,
   onExport,
+  onShowProjectWages,
   formatCurrency,
   isToggling,
   selectedProjectId,
@@ -132,6 +447,7 @@ const WorkerCardWrapper = ({
   onDelete: () => void;
   onToggleStatus: () => void;
   onExport: (type: 'excel' | 'pdf') => void;
+  onShowProjectWages: () => void;
   formatCurrency: (amount: number) => string;
   isToggling: boolean;
   selectedProjectId: string | null;
@@ -241,6 +557,12 @@ const WorkerCardWrapper = ({
             ]
           },
           {
+            icon: Briefcase,
+            label: "أجور المشاريع",
+            onClick: onShowProjectWages,
+            color: "purple",
+          },
+          {
             icon: Edit2,
             label: "تعديل",
             onClick: onEdit,
@@ -286,6 +608,7 @@ export default function WorkersPage() {
   const [exportingWorkerId, setExportingWorkerId] = useState<string | null>(null);
   const [exportProgress, setExportProgress] = useState(0);
   const [showExportOptions, setShowExportOptions] = useState<string | null>(null);
+  const [projectWagesWorker, setProjectWagesWorker] = useState<Worker | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -635,6 +958,7 @@ export default function WorkersPage() {
               onDelete={() => handleDeleteWorker(worker)}
               onToggleStatus={() => handleToggleStatus(worker)}
               onExport={(type) => handleExportStatement(worker, type)}
+              onShowProjectWages={() => setProjectWagesWorker(worker)}
               formatCurrency={formatCurrency}
               isToggling={togglingWorkerId === worker.id}
               selectedProjectId={selectedProjectId}
@@ -652,6 +976,14 @@ export default function WorkersPage() {
         onClose={() => setShowDialog(false)}
         projectId={selectedProjectId}
       />
+
+      {projectWagesWorker && (
+        <ProjectWagesDialog
+          worker={projectWagesWorker}
+          isOpen={!!projectWagesWorker}
+          onClose={() => setProjectWagesWorker(null)}
+        />
+      )}
     </div>
   );
 }

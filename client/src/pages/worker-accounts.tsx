@@ -28,6 +28,7 @@ import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig } from '@/components/ui/unified-filter-dashboard/types';
 import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
+import { Badge } from '@/components/ui/badge';
 import { 
   Send, 
   User, 
@@ -44,7 +45,8 @@ import {
   TrendingUp,
   FileText,
   Download,
-  Building2
+  Building2,
+  Briefcase
 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { downloadExcelFile } from '@/utils/webview-download';
@@ -184,6 +186,22 @@ export default function WorkerAccountsPage() {
       return Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
     }
   });
+
+  const { data: projectWagesData } = useQuery<any>({
+    queryKey: QUERY_KEYS.workerProjectWagesByProject(selectedProject || 'all'),
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      const response = await apiRequest(`/api/worker-project-wages/by-project/${selectedProject}`, 'GET');
+      return response?.data || (Array.isArray(response) ? response : []);
+    },
+    enabled: !!selectedProject,
+  });
+
+  const projectWages: any[] = Array.isArray(projectWagesData) ? projectWagesData : [];
+
+  const getWorkerProjectWage = (workerId: string) => {
+    return projectWages.find((w: any) => w.worker_id === workerId && w.is_active);
+  };
 
   useEffect(() => {
     const handleAddNew = () => {
@@ -717,6 +735,7 @@ export default function WorkerAccountsPage() {
           {filteredTransfers.map((transfer) => {
             const worker = workers.find(w => w.id === transfer.worker_id);
             const project = projects.find(p => p.id === transfer.project_id);
+            const workerProjWage = worker ? getWorkerProjectWage(worker.id) : null;
             
             return (
               <UnifiedCard
@@ -733,7 +752,14 @@ export default function WorkerAccountsPage() {
                     label: getTransferMethodLabel(transfer.transferMethod),
                     variant: transfer.transferMethod === 'cash' ? 'success' : 
                              transfer.transferMethod === 'bank' ? 'warning' : 'default'
-                  }
+                  },
+                  ...(workerProjWage 
+                    ? [{
+                        label: `أجر المشروع: ${formatCurrency(workerProjWage.dailyWage)}`,
+                        variant: 'outline' as const,
+                      }]
+                    : []
+                  ),
                 ]}
                 fields={[
                   {
@@ -760,7 +786,18 @@ export default function WorkerAccountsPage() {
                     value: transfer.recipientPhone || '-',
                     icon: Phone,
                     color: 'muted'
-                  }
+                  },
+                  ...(workerProjWage ? [{
+                    label: 'الأجر اليومي (المشروع)',
+                    value: formatCurrency(workerProjWage.dailyWage),
+                    icon: Briefcase,
+                    color: 'info' as const,
+                  }] : worker ? [{
+                    label: 'الأجر اليومي (افتراضي)',
+                    value: formatCurrency(worker.dailyWage),
+                    icon: DollarSign,
+                    color: 'muted' as const,
+                  }] : []),
                 ]}
                 actions={[
                   {

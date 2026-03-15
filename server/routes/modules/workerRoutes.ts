@@ -5,13 +5,14 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
-import { eq, sql, and, or } from 'drizzle-orm';
+import { eq, sql, and, or, desc, isNull, gte, lte, ne } from 'drizzle-orm';
 import { db, withTransaction } from '../../db.js';
 import {
   workers, workerAttendance, workerTransfers, workerMiscExpenses, workerBalances,
   transportationExpenses, enhancedInsertWorkerSchema, insertWorkerAttendanceSchema,
   insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, workerTypes,
-  wellWorkCrews, wellCrewWorkers
+  wellWorkCrews, wellCrewWorkers,
+  workerProjectWages, insertWorkerProjectWageSchema
 } from '@shared/schema';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js';
 import { getAuthUser } from '../../internal/auth-user.js';
@@ -192,6 +193,35 @@ async function syncAttendanceToWellCrews(attendanceRecord: any) {
     }
   } catch (error) {
     console.error('[syncAttendanceToWellCrews] Error syncing attendance to well crews:', error);
+  }
+}
+
+async function resolveEffectiveWageForRoute(worker_id: string, project_id: string, date: string): Promise<string> {
+  try {
+    const [projectWage] = await db.select().from(workerProjectWages)
+      .where(and(
+        eq(workerProjectWages.worker_id, worker_id),
+        eq(workerProjectWages.project_id, project_id),
+        eq(workerProjectWages.is_active, true),
+        lte(workerProjectWages.effectiveFrom, date),
+        or(
+          isNull(workerProjectWages.effectiveTo),
+          gte(workerProjectWages.effectiveTo, date)
+        )
+      ))
+      .orderBy(desc(workerProjectWages.effectiveFrom))
+      .limit(1);
+
+    if (projectWage) {
+      return projectWage.dailyWage;
+    }
+
+    const [worker] = await db.select().from(workers).where(eq(workers.id, worker_id));
+    return worker?.dailyWage || '0';
+  } catch (error) {
+    console.error('خطأ في حل الأجر الفعلي:', error);
+    const [worker] = await db.select().from(workers).where(eq(workers.id, worker_id));
+    return worker?.dailyWage || '0';
   }
 }
 
@@ -1417,6 +1447,242 @@ workerRouter.post('/worker-types', async (req: Request, res: Response) => {
 });
 
 // ===========================================
+// Worker Project Wages Routes (أجور العمال حسب المشروع)
+// ===========================================
+
+/**
+ * 💰 جلب أجور جميع العمال في مشروع محدد
+ * GET /worker-project-wages/by-project/:projectId
+ */
+workerRouter.get('/worker-project-wages/by-project/:projectId', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+
+    const { allowed } = checkProjectAccess(req, projectId);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
+    const wages = await db.select().from(workerProjectWages)
+      .where(eq(workerProjectWages.project_id, projectId))
+      .orderBy(desc(workerProjectWages.effectiveFrom));
+
+    res.json({
+      success: true,
+      data: wages,
+      message: `تم جلب ${wages.length} سجل أجر للمشروع`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب أجور المشروع:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      message: 'فشل في جلب أجور المشروع'
+    });
+  }
+});
+
+/**
+ * 💰 جلب أجور عامل في المشاريع
+ * GET /worker-project-wages/:workerId
+ */
+workerRouter.get('/worker-project-wages/:workerId', async (req: Request, res: Response) => {
+  try {
+    const { workerId } = req.params;
+    const { project_id } = req.query;
+
+    const conditions: any[] = [eq(workerProjectWages.worker_id, workerId)];
+    if (project_id) {
+      conditions.push(eq(workerProjectWages.project_id, project_id as string));
+    }
+
+    const wages = await db.select().from(workerProjectWages)
+      .where(and(...conditions))
+      .orderBy(desc(workerProjectWages.effectiveFrom));
+
+    res.json({
+      success: true,
+      data: wages,
+      message: `تم جلب ${wages.length} سجل أجر للعامل`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب أجور العامل حسب المشروع:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      message: 'فشل في جلب أجور العامل حسب المشروع'
+    });
+  }
+});
+
+/**
+ * 🔄 ترحيل أجور العمال من سجلات الحضور الحالية
+ * POST /worker-project-wages/backfill
+ */
+workerRouter.post('/worker-project-wages/backfill', async (req: Request, res: Response) => {
+  try {
+    const activeWorkers = await db.select().from(workers).where(eq(workers.is_active, true));
+    let createdCount = 0;
+
+    for (const worker of activeWorkers) {
+      const distinctProjects = await db.select({
+        project_id: workerAttendance.project_id,
+        earliestDate: sql<string>`MIN(${workerAttendance.attendanceDate})`
+      })
+        .from(workerAttendance)
+        .where(eq(workerAttendance.worker_id, worker.id))
+        .groupBy(workerAttendance.project_id);
+
+      for (const proj of distinctProjects) {
+        const existing = await db.select().from(workerProjectWages)
+          .where(and(
+            eq(workerProjectWages.worker_id, worker.id),
+            eq(workerProjectWages.project_id, proj.project_id)
+          ))
+          .limit(1);
+
+        if (existing.length === 0) {
+          const userId = getAuthUser(req)?.user_id;
+          await db.insert(workerProjectWages).values({
+            worker_id: worker.id,
+            project_id: proj.project_id,
+            dailyWage: worker.dailyWage,
+            effectiveFrom: proj.earliestDate,
+            is_active: true,
+            created_by: userId || null,
+          });
+          createdCount++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: { createdCount },
+      message: `تم إنشاء ${createdCount} سجل أجر من بيانات الحضور الحالية`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في ترحيل أجور العمال:', error);
+    res.status(500).json({ success: false, message: 'فشل في ترحيل أجور العمال' });
+  }
+});
+
+/**
+ * ➕ إنشاء سجل أجر عامل في مشروع
+ * POST /worker-project-wages
+ */
+workerRouter.post('/worker-project-wages', async (req: Request, res: Response) => {
+  try {
+    const validationResult = insertWorkerProjectWageSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات الأجر غير صحيحة',
+        details: validationResult.error.flatten().fieldErrors
+      });
+    }
+
+    const { allowed } = checkProjectAccess(req, validationResult.data.project_id);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
+    }
+
+    const userId = getAuthUser(req)?.user_id;
+    const wageData = { ...validationResult.data, created_by: userId || null };
+
+    const [newWage] = await db.insert(workerProjectWages).values(wageData).returning();
+
+    res.status(201).json({
+      success: true,
+      data: newWage,
+      message: 'تم إنشاء سجل أجر العامل في المشروع بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في إنشاء أجر العامل في المشروع:', error);
+    let statusCode = 500;
+    let message = 'فشل في إنشاء أجر العامل في المشروع';
+    if (error.code === '23505') {
+      statusCode = 409;
+      message = 'سجل أجر مكرر لنفس العامل والمشروع وتاريخ السريان';
+    }
+    res.status(statusCode).json({ success: false, message });
+  }
+});
+
+/**
+ * ✏️ تعديل سجل أجر عامل في مشروع
+ * PATCH /worker-project-wages/:id
+ */
+workerRouter.patch('/worker-project-wages/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await db.select().from(workerProjectWages).where(eq(workerProjectWages.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'سجل الأجر غير موجود' });
+    }
+
+    const { allowed } = checkProjectAccess(req, existing[0].project_id);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
+    }
+
+    const validationResult = insertWorkerProjectWageSchema.partial().safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات التحديث غير صحيحة',
+        details: validationResult.error.flatten().fieldErrors
+      });
+    }
+
+    const [updated] = await db.update(workerProjectWages)
+      .set({ ...validationResult.data, updated_at: new Date() })
+      .where(eq(workerProjectWages.id, id))
+      .returning();
+
+    res.json({
+      success: true,
+      data: updated,
+      message: 'تم تحديث سجل أجر العامل في المشروع بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في تحديث أجر العامل في المشروع:', error);
+    res.status(500).json({ success: false, message: 'فشل في تحديث أجر العامل في المشروع' });
+  }
+});
+
+/**
+ * 🗑️ حذف سجل أجر عامل في مشروع
+ * DELETE /worker-project-wages/:id
+ */
+workerRouter.delete('/worker-project-wages/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await db.select().from(workerProjectWages).where(eq(workerProjectWages.id, id)).limit(1);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'سجل الأجر غير موجود' });
+    }
+
+    const { allowed } = checkProjectAccess(req, existing[0].project_id);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
+    }
+
+    await db.delete(workerProjectWages).where(eq(workerProjectWages.id, id));
+
+    res.json({
+      success: true,
+      message: 'تم حذف سجل أجر العامل في المشروع بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في حذف أجر العامل في المشروع:', error);
+    res.status(500).json({ success: false, message: 'فشل في حذف أجر العامل في المشروع' });
+  }
+});
+
+// ===========================================
 // Worker Attendance Routes (حضور العمال)
 // ===========================================
 
@@ -1828,8 +2094,17 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
 
     // حساب actualWage و totalPay = dailyWage * workDays وتحويل workDays إلى string
     const attendanceDate = req.body.attendanceDate || req.body.date;
-    const dailyWage = parseFloat(validationResult.data.dailyWage || "0");
     const workDays = Number(validationResult.data.workDays) || 0;
+
+    // حل الأجر الفعلي حسب المشروع مع الرجوع للأجر الافتراضي للعامل
+    const resolvedWage = await resolveEffectiveWageForRoute(
+      validationResult.data.worker_id,
+      validationResult.data.project_id,
+      attendanceDate
+    );
+    let dailyWage = parseFloat(resolvedWage);
+    console.log(`💰 [API] الأجر الفعلي للعامل: ${dailyWage}`);
+
     const actualWageValue = dailyWage * workDays;
     
     const dataWithCalculatedFields: Record<string, any> = {
@@ -2359,6 +2634,38 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       message: 'خطأ في جلب إحصائيات العامل',
       data: null,
       processingTime: duration
+    });
+  }
+});
+
+/**
+ * 💰 جلب جميع أجور المشاريع لعامل محدد
+ * GET /workers/:id/project-wages
+ */
+workerRouter.get('/workers/:id/project-wages', async (req: Request, res: Response) => {
+  try {
+    const workerId = req.params.id;
+
+    const workerRows = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    if (workerRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'العامل غير موجود' });
+    }
+
+    const wages = await db.select().from(workerProjectWages)
+      .where(eq(workerProjectWages.worker_id, workerId))
+      .orderBy(desc(workerProjectWages.effectiveFrom));
+
+    res.json({
+      success: true,
+      data: wages,
+      message: `تم جلب ${wages.length} سجل أجر للعامل "${workerRows[0].name}"`
+    });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب أجور المشاريع للعامل:', error);
+    res.status(500).json({
+      success: false,
+      data: [],
+      message: 'فشل في جلب أجور المشاريع للعامل'
     });
   }
 });

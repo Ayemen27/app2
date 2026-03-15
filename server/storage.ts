@@ -17,6 +17,7 @@ import {
   type InsertWell, type InsertWellTask, type InsertWellTaskAccount, type InsertWellExpense, type InsertWellAuditLog,
   type Notification, type InsertNotification,
   type NotificationReadState, type InsertNotificationReadState,
+  type WorkerProjectWage, type InsertWorkerProjectWage,
   type InsertProject, type InsertWorker, type InsertFundTransfer, type InsertWorkerAttendance,
   type InsertMaterial, type InsertMaterialPurchase, type InsertTransportationExpense, type InsertDailyExpenseSummary,
   type InsertWorkerTransfer, type InsertWorkerBalance, type InsertAutocompleteData, type InsertWorkerType, type InsertWorkerMiscExpense, type InsertUser,
@@ -31,7 +32,7 @@ import {
   type WhatsAppSecurityEvent, type InsertWhatsAppSecurityEvent,
   type WebAuthnCredential, type InsertWebAuthnCredential, type WebAuthnChallenge, type InsertWebAuthnChallenge,
   projects as projectsTable, workers, fundTransfers, workerAttendance, materials, materialPurchases, transportationExpenses, dailyExpenseSummaries,
-  workerTransfers, workerBalances, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
+  workerTransfers, workerBalances, workerProjectWages, autocompleteData, workerTypes, workerMiscExpenses, users, suppliers, supplierPayments, printSettings, projectFundTransfers, reportTemplates, emergencyUsers,
   dailyActivityLogs,
   refreshTokens, auditLogs,
   wells, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs,
@@ -108,6 +109,14 @@ export interface IStorage {
   getWorkerByName(name: string): Promise<Worker | undefined>;
   createWorker(worker: InsertWorker): Promise<Worker>;
   updateWorker(id: string, worker: Partial<InsertWorker>): Promise<Worker | undefined>;
+  
+  // Worker Project Wages (أجور العمال حسب المشروع)
+  getWorkerProjectWages(worker_id: string, project_id?: string): Promise<WorkerProjectWage[]>;
+  getWorkerProjectWage(id: string): Promise<WorkerProjectWage | null>;
+  createWorkerProjectWage(wage: InsertWorkerProjectWage): Promise<WorkerProjectWage>;
+  updateWorkerProjectWage(id: string, wage: Partial<InsertWorkerProjectWage>): Promise<WorkerProjectWage | undefined>;
+  deleteWorkerProjectWage(id: string): Promise<boolean>;
+  resolveEffectiveWage(worker_id: string, project_id: string, date: string): Promise<string>;
   
   // Worker Types
   getWorkerTypes(): Promise<WorkerType[]>;
@@ -685,6 +694,75 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error deleting worker:', error);
       throw new Error('فشل في حذف العامل');
+    }
+  }
+
+  // Worker Project Wages (أجور العمال حسب المشروع)
+  async getWorkerProjectWages(worker_id: string, project_id?: string): Promise<WorkerProjectWage[]> {
+    try {
+      const conditions = [eq(workerProjectWages.worker_id, worker_id)];
+      if (project_id) {
+        conditions.push(eq(workerProjectWages.project_id, project_id));
+      }
+      return await db.select().from(workerProjectWages)
+        .where(and(...conditions))
+        .orderBy(desc(workerProjectWages.effectiveFrom));
+    } catch (error) {
+      console.error('Error fetching worker project wages:', error);
+      return [];
+    }
+  }
+
+  async getWorkerProjectWage(id: string): Promise<WorkerProjectWage | null> {
+    const [wage] = await db.select().from(workerProjectWages).where(eq(workerProjectWages.id, id));
+    return wage || null;
+  }
+
+  async createWorkerProjectWage(wage: InsertWorkerProjectWage): Promise<WorkerProjectWage> {
+    const [newWage] = await db.insert(workerProjectWages).values(wage).returning();
+    if (!newWage) throw new Error('فشل في إنشاء أجر المشروع');
+    return newWage;
+  }
+
+  async updateWorkerProjectWage(id: string, wage: Partial<InsertWorkerProjectWage>): Promise<WorkerProjectWage | undefined> {
+    const [updated] = await db.update(workerProjectWages)
+      .set({ ...wage, updated_at: new Date() })
+      .where(eq(workerProjectWages.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteWorkerProjectWage(id: string): Promise<boolean> {
+    const result = await db.delete(workerProjectWages).where(eq(workerProjectWages.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async resolveEffectiveWage(worker_id: string, project_id: string, date: string): Promise<string> {
+    try {
+      const [projectWage] = await db.select().from(workerProjectWages)
+        .where(and(
+          eq(workerProjectWages.worker_id, worker_id),
+          eq(workerProjectWages.project_id, project_id),
+          eq(workerProjectWages.is_active, true),
+          lte(workerProjectWages.effectiveFrom, date),
+          or(
+            isNull(workerProjectWages.effectiveTo),
+            gte(workerProjectWages.effectiveTo, date)
+          )
+        ))
+        .orderBy(desc(workerProjectWages.effectiveFrom))
+        .limit(1);
+
+      if (projectWage) {
+        return projectWage.dailyWage;
+      }
+
+      const worker = await this.getWorker(worker_id);
+      return worker?.dailyWage || '0';
+    } catch (error) {
+      console.error('Error resolving effective wage:', error);
+      const worker = await this.getWorker(worker_id);
+      return worker?.dailyWage || '0';
     }
   }
 

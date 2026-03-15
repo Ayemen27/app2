@@ -187,4 +187,9 @@ export const QUERY_KEYS = {
     ["well-progress", well_id] as const,
   wellPendingAccounting: (well_id: string) =>
     ["well-pending-accounting", well_id] as const,
+
+  workerProjectWages: (worker_id: string) =>
+    ["/api/worker-project-wages", worker_id] as const,
+  workerProjectWagesByProject: (project_id: string) =>
+    ["/api/worker-project-wages/by-project", project_id] as const,
 } as const;

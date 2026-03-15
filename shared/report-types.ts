@@ -124,6 +124,13 @@ export interface WorkerStatementEntry {
   reference: string;
 }
 
+export interface WorkerProjectWageInfo {
+  projectName: string;
+  dailyWage: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+}
+
 export interface WorkerStatementData {
   reportType: 'worker-statement';
   generatedAt: string;
@@ -141,6 +148,7 @@ export interface WorkerStatementData {
   };
   kpis: ReportKPI[];
   statement: WorkerStatementEntry[];
+  projectWages?: WorkerProjectWageInfo[];
   projectSummary: Array<{
     projectName: string;
     totalDays: number;

@@ -83,6 +83,77 @@ export async function generateWorkerStatementExcel(data: WorkerStatementData): P
     row++;
   });
 
+  if (data.projectWages && data.projectWages.length > 0) {
+    row++;
+    row = xlSectionHeader(ws, row, 'أجور المشاريع', COL_COUNT);
+
+    {
+      const hdr = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 3);
+      ws.mergeCells(row, 4, row, 5);
+      ws.mergeCells(row, 6, row, 7);
+      ws.mergeCells(row, 8, row, 10);
+      const pwHeaders = [
+        { col: 1, text: 'اسم المشروع' },
+        { col: 4, text: 'الأجر اليومي' },
+        { col: 6, text: 'من تاريخ' },
+        { col: 8, text: 'إلى تاريخ' },
+      ];
+      pwHeaders.forEach(({ col, text }) => {
+        hdr.getCell(col).value = text;
+        hdr.getCell(col).font = { bold: true, size: 10, color: { argb: COLORS.white }, name: 'Calibri' };
+        hdr.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        hdr.getCell(col).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        hdr.getCell(col).border = BORDER;
+      });
+      for (let c = 1; c <= COL_COUNT; c++) {
+        if (!hdr.getCell(c).border) hdr.getCell(c).border = BORDER;
+        if (!hdr.getCell(c).font?.bold) {
+          hdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        }
+      }
+      hdr.height = 28;
+      row++;
+    }
+
+    data.projectWages.forEach((pw, idx) => {
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 3);
+      ws.mergeCells(row, 4, row, 5);
+      ws.mergeCells(row, 6, row, 7);
+      ws.mergeCells(row, 8, row, 10);
+      r.getCell(1).value = pw.projectName;
+      r.getCell(4).value = formatNum(pw.dailyWage);
+      r.getCell(6).value = formatDateBR(pw.effectiveFrom);
+      r.getCell(8).value = pw.effectiveTo ? formatDateBR(pw.effectiveTo) : 'مستمر';
+
+      for (let c = 1; c <= COL_COUNT; c++) {
+        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        r.getCell(c).font = { size: 10, name: 'Calibri' };
+        r.getCell(c).border = BORDER;
+        if (idx % 2 === 1) {
+          r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+        }
+      }
+      r.height = 24;
+      row++;
+    });
+
+    const baseWageRow = ws.getRow(row);
+    ws.mergeCells(row, 1, row, 5);
+    ws.mergeCells(row, 6, row, 10);
+    baseWageRow.getCell(1).value = 'الأجر الأساسي (الافتراضي)';
+    baseWageRow.getCell(1).font = { bold: true, size: 9, color: { argb: COLORS.gray500 }, name: 'Calibri' };
+    baseWageRow.getCell(1).alignment = { horizontal: 'right', vertical: 'middle' };
+    baseWageRow.getCell(1).border = BORDER;
+    baseWageRow.getCell(6).value = formatNum(data.worker.dailyWage);
+    baseWageRow.getCell(6).font = { size: 9, color: { argb: COLORS.gray500 }, name: 'Calibri' };
+    baseWageRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+    baseWageRow.getCell(6).border = BORDER;
+    baseWageRow.height = 22;
+    row++;
+  }
+
   row++;
   const kpiLabels = ['إجمالي الأيام', 'إجمالي المستحق', 'إجمالي المدفوع', 'إجمالي الحوالات', 'الرصيد'];
   const kpiValues = [

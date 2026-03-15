@@ -96,6 +96,21 @@ export default function WellCrewsPage() {
   };
   const [crewForm, setCrewForm] = useState(emptyCrewForm);
 
+  const computedCrewDues = useMemo(() => {
+    const workers = Number(crewForm.workersCount) || 0;
+    const masters = Number(crewForm.mastersCount) || 0;
+    const days = Number(crewForm.workDays) || 0;
+    const workerWage = Number(crewForm.workerDailyWage) || 0;
+    const masterWage = Number(crewForm.masterDailyWage) || 0;
+    return (workers * workerWage * days) + (masters * masterWage * days);
+  }, [crewForm.workersCount, crewForm.mastersCount, crewForm.workDays, crewForm.workerDailyWage, crewForm.masterDailyWage]);
+
+  useEffect(() => {
+    if (computedCrewDues > 0) {
+      setCrewForm(prev => ({ ...prev, crewDues: String(computedCrewDues) }));
+    }
+  }, [computedCrewDues]);
+
   const emptyTransportForm = {
     railType: "", withPanels: false, transportPrice: "",
     transportDate: "", notes: "",
@@ -934,7 +949,7 @@ export default function WellCrewsPage() {
             </div>
             <div className="space-y-1">
               <Label className="text-sm">مستحقات الفريق</Label>
-              <Input type="number" value={crewForm.crewDues} onChange={(e) => setCrewForm({ ...crewForm, crewDues: e.target.value })} placeholder="0" data-testid="input-crew-dues" />
+              <Input type="number" value={crewForm.crewDues} readOnly className="bg-muted/50 font-semibold" data-testid="input-crew-dues" />
             </div>
             <div className="space-y-1">
               <Label className="text-sm">تاريخ العمل</Label>
@@ -942,7 +957,25 @@ export default function WellCrewsPage() {
             </div>
             <div className="space-y-1 col-span-2">
               <Label className="text-sm">ملاحظات</Label>
-              <Input value={crewForm.notes} onChange={(e) => setCrewForm({ ...crewForm, notes: e.target.value })} placeholder="ملاحظات اختيارية" data-testid="input-crew-notes" />
+              <textarea
+                value={crewForm.notes}
+                onChange={(e) => setCrewForm({ ...crewForm, notes: e.target.value })}
+                placeholder="ملاحظات اختيارية"
+                data-testid="input-crew-notes"
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-hidden min-h-[38px]"
+                rows={1}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = Math.max(38, el.scrollHeight) + 'px';
+                  }
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = Math.max(38, target.scrollHeight) + 'px';
+                }}
+              />
             </div>
           </div>
           <div className="flex gap-2 justify-end pt-2">
@@ -1023,7 +1056,25 @@ export default function WellCrewsPage() {
             </div>
             <div className="space-y-1 col-span-2">
               <Label className="text-sm">ملاحظات</Label>
-              <Input value={transportForm.notes} onChange={(e) => setTransportForm({ ...transportForm, notes: e.target.value })} placeholder="ملاحظات اختيارية" data-testid="input-transport-notes" />
+              <textarea
+                value={transportForm.notes}
+                onChange={(e) => setTransportForm({ ...transportForm, notes: e.target.value })}
+                placeholder="ملاحظات اختيارية"
+                data-testid="input-transport-notes"
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-hidden min-h-[38px]"
+                rows={1}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = Math.max(38, el.scrollHeight) + 'px';
+                  }
+                }}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = Math.max(38, target.scrollHeight) + 'px';
+                }}
+              />
             </div>
           </div>
           <div className="flex gap-2 justify-end pt-2">

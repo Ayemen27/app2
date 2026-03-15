@@ -7,7 +7,8 @@ import { Plus, Trash2, Edit2, Save, X, DollarSign, ChevronDown, ChevronUp, Loade
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
-import { WellSelector } from "@/components/well-selector";
+import { MultiWellSelector } from "@/components/multi-well-selector";
+import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { formatCurrency } from "@/lib/utils";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedSearchFilter } from "@/components/ui/unified-search-filter";
@@ -34,7 +35,8 @@ interface WorkerMiscExpensesProps {
 export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerMiscExpensesProps) {
   const [miscDescription, setMiscDescription] = useState("");
   const [miscAmount, setMiscAmount] = useState("");
-  const [miscWellId, setMiscWellId] = useState<number | undefined>();
+  const [miscWellIds, setMiscWellIds] = useState<number[]>([]);
+  const [miscCrewTypes, setMiscCrewTypes] = useState<string[]>([]);
   const [editingMiscId, setEditingMiscId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState({});
   const [isExpanded, setIsExpanded] = useState(false);
@@ -215,7 +217,9 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
         data: {
           description: miscDescription,
           amount: miscAmount,
-          well_id: miscWellId || null
+          well_id: miscWellIds[0] || null,
+          well_ids: miscWellIds.length > 0 ? JSON.stringify(miscWellIds) : null,
+          crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null
         }
       });
     } else {
@@ -224,7 +228,9 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
         amount: miscAmount,
         project_id,
         date: selectedDate,
-        well_id: miscWellId || null
+        well_id: miscWellIds[0] || null,
+        well_ids: miscWellIds.length > 0 ? JSON.stringify(miscWellIds) : null,
+        crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null
       });
     }
   };
@@ -232,14 +238,16 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
   const resetMiscExpenseForm = () => {
     setMiscDescription("");
     setMiscAmount("");
-    setMiscWellId(undefined);
+    setMiscWellIds([]);
+    setMiscCrewTypes([]);
     setEditingMiscId(null);
   };
 
-  const handleEditMiscExpense = (expense: WorkerMiscExpense) => {
+  const handleEditMiscExpense = (expense: any) => {
     setMiscDescription(expense.description);
     setMiscAmount(expense.amount);
-    setMiscWellId(expense.well_id ? Number(expense.well_id) : undefined);
+    setMiscWellIds(expense.well_ids ? JSON.parse(expense.well_ids) : (expense.well_id ? [Number(expense.well_id)] : []));
+    setMiscCrewTypes(expense.crew_type ? (expense.crew_type.startsWith('[') ? JSON.parse(expense.crew_type) : [expense.crew_type]) : []);
     setEditingMiscId(expense.id);
   };
 
@@ -250,12 +258,17 @@ export default function WorkerMiscExpenses({ project_id, selectedDate }: WorkerM
 
   return (
     <div className="space-y-3">
-      <WellSelector
+      <MultiWellSelector
         project_id={project_id}
-        value={miscWellId}
-        onChange={setMiscWellId}
+        value={miscWellIds}
+        onChange={setMiscWellIds}
         showLabel={false}
         optional={true}
+      />
+      <CrewTypeSelector
+        value={miscCrewTypes}
+        onChange={setMiscCrewTypes}
+        showLabel={false}
       />
       <div className="grid grid-cols-2 gap-3">
             <AutocompleteInput

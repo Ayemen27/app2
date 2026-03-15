@@ -13,13 +13,16 @@ import {
   insertWellWorkCrewSchema,
   insertWellSolarComponentSchema,
   insertWellTransportDetailSchema,
-  insertWellReceptionSchema
+  insertWellReceptionSchema,
+  wellCrewWorkers,
+  wellWorkCrews,
+  workers
 } from '../../../shared/schema';
 import { generateWellReportExcel } from '../../services/reports/templates/WellReportExcel';
 import { generateWellReportHTML } from '../../services/reports/templates/WellReportPDF';
 import { db } from '../../db';
 import { projects, users } from '../../../shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 export const wellRouter = express.Router();
 
@@ -180,6 +183,51 @@ wellRouter.get('/reports/export', async (req: Request, res: Response) => {
       error: 'WELL_REPORT_EXPORT_ERROR',
       message: error.message || 'فشل في تصدير تقرير الآبار'
     });
+  }
+});
+
+wellRouter.get('/crews/:crew_id/workers', async (req: Request, res: Response) => {
+  try {
+    const crewId = parseInt(req.params.crew_id);
+    if (isNaN(crewId)) {
+      return res.status(400).json({ success: false, message: 'معرف الطاقم غير صالح' });
+    }
+
+    const crew = await WellService.getCrewById(crewId);
+    if (!crew) {
+      return res.status(404).json({ success: false, message: 'طاقم العمل غير موجود' });
+    }
+
+    const well = await WellService.getWellById(crew.well_id);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
+    const crewWorkers = await db
+      .select({
+        id: wellCrewWorkers.id,
+        crew_id: wellCrewWorkers.crew_id,
+        worker_id: wellCrewWorkers.worker_id,
+        daily_wage_snapshot: wellCrewWorkers.daily_wage_snapshot,
+        work_days: wellCrewWorkers.work_days,
+        crew_type: wellCrewWorkers.crew_type,
+        notes: wellCrewWorkers.notes,
+        created_at: wellCrewWorkers.created_at,
+        worker_name: workers.name,
+        worker_type: workers.type,
+        worker_daily_wage: workers.dailyWage,
+      })
+      .from(wellCrewWorkers)
+      .leftJoin(workers, eq(wellCrewWorkers.worker_id, workers.id))
+      .where(eq(wellCrewWorkers.crew_id, crewId));
+
+    res.json({ success: true, data: crewWorkers });
+  } catch (error: any) {
+    console.error('Error fetching crew workers:', error);
+    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: error.message || 'فشل في جلب عمال الطاقم' });
   }
 });
 
@@ -969,6 +1017,53 @@ wellRouter.delete('/receptions/:receptionId', async (req: Request, res: Response
     res.json({ success: true, message: 'تم حذف سجل الاستلام بنجاح' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: 'RECEPTION_DELETE_ERROR', message: error.message || 'فشل في حذف سجل الاستلام' });
+  }
+});
+
+wellRouter.get('/:well_id/crew-workers', async (req: Request, res: Response) => {
+  try {
+    const wellId = parseInt(req.params.well_id);
+    if (isNaN(wellId)) {
+      return res.status(400).json({ success: false, message: 'معرف البئر غير صالح' });
+    }
+
+    const well = await WellService.getWellById(wellId);
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+    if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
+    const crews = await db.select().from(wellWorkCrews).where(eq(wellWorkCrews.well_id, wellId));
+    const crewIds = crews.map(c => c.id);
+
+    if (crewIds.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const crewWorkers = await db
+      .select({
+        id: wellCrewWorkers.id,
+        crew_id: wellCrewWorkers.crew_id,
+        worker_id: wellCrewWorkers.worker_id,
+        daily_wage_snapshot: wellCrewWorkers.daily_wage_snapshot,
+        work_days: wellCrewWorkers.work_days,
+        crew_type: wellCrewWorkers.crew_type,
+        notes: wellCrewWorkers.notes,
+        created_at: wellCrewWorkers.created_at,
+        worker_name: workers.name,
+        worker_type: workers.type,
+        worker_daily_wage: workers.dailyWage,
+      })
+      .from(wellCrewWorkers)
+      .leftJoin(workers, eq(wellCrewWorkers.worker_id, workers.id))
+      .where(inArray(wellCrewWorkers.crew_id, crewIds));
+
+    res.json({ success: true, data: crewWorkers });
+  } catch (error: any) {
+    console.error('Error fetching well crew workers:', error);
+    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: error.message || 'فشل في جلب عمال الطواقم' });
   }
 });
 

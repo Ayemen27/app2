@@ -20,6 +20,88 @@ import {
   Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap, ArrowUpDown, FileText
 } from "lucide-react";
 
+interface CrewWorkerData {
+  id: number;
+  crew_id: number;
+  worker_id: string;
+  daily_wage_snapshot: string | null;
+  work_days: string | null;
+  crew_type: string | null;
+  notes: string | null;
+  created_at: string;
+  worker_name: string | null;
+  worker_type: string | null;
+  worker_daily_wage: string | null;
+}
+
+function CrewLinkedWorkers({ crewId, manualWorkersCount, manualMastersCount, manualTotalWages }: { crewId: number; manualWorkersCount: number; manualMastersCount: number; manualTotalWages: number }) {
+  const { data: workersData, isLoading } = useQuery<CrewWorkerData[]>({
+    queryKey: ['/api/wells/crews', crewId, 'workers'],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/wells/crews/${crewId}/workers`);
+      return res.data || [];
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="text-[10px] text-muted-foreground animate-pulse" data-testid={`text-crew-workers-loading-${crewId}`}>
+        جاري تحميل العمال...
+      </div>
+    );
+  }
+
+  if (!workersData || workersData.length === 0) return null;
+
+  const autoWorkers = workersData.filter(w => w.worker_type === 'عامل').length;
+  const autoMasters = workersData.filter(w => w.worker_type === 'معلم' || w.worker_type === 'مشرف').length;
+  const autoTotalWages = workersData.reduce((sum, w) => {
+    const wage = Number(w.daily_wage_snapshot || w.worker_daily_wage || 0);
+    const days = Number(w.work_days || 1);
+    return sum + (wage * days);
+  }, 0);
+
+  const hasDiscrepancy = (manualWorkersCount > 0 || manualMastersCount > 0) &&
+    (autoWorkers !== manualWorkersCount || autoMasters !== manualMastersCount);
+
+  return (
+    <div className="space-y-1 mt-1" data-testid={`section-crew-workers-${crewId}`}>
+      <div className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+        <Users className="h-2.5 w-2.5" /> العمال المرتبطون ({workersData.length})
+      </div>
+      <div className="space-y-0.5">
+        {workersData.map((w) => (
+          <div key={w.id} className="flex items-center justify-between gap-1 text-[10px] px-1.5 py-0.5 rounded bg-background/60 dark:bg-background/30" data-testid={`text-crew-worker-${w.id}`}>
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="font-medium text-foreground truncate">{w.worker_name || 'غير معروف'}</span>
+              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 shrink-0">
+                {w.worker_type || '-'}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0 text-muted-foreground">
+              {w.work_days && <span>{w.work_days} يوم</span>}
+              <span className="font-medium text-foreground">{Number(w.daily_wage_snapshot || w.worker_daily_wage || 0).toLocaleString()} ر</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {hasDiscrepancy && (
+        <div className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400" data-testid={`text-crew-discrepancy-${crewId}`}>
+          <TrendingUp className="h-2.5 w-2.5 shrink-0" />
+          <span>يدوي: {manualWorkersCount} عمال / {manualMastersCount} معلمين — تلقائي: {autoWorkers} عمال / {autoMasters} معلمين</span>
+        </div>
+      )}
+      {manualTotalWages > 0 && autoTotalWages > 0 && Math.abs(manualTotalWages - autoTotalWages) > 1 && (
+        <div className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400" data-testid={`text-crew-wages-comparison-${crewId}`}>
+          <BarChart3 className="h-2.5 w-2.5 shrink-0" />
+          <span>أجور يدوية: {manualTotalWages.toLocaleString()} ر — تلقائية: {autoTotalWages.toLocaleString()} ر</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const WELL_STATUS_MAP: Record<string, { label: string; color: string; badgeClass: string }> = {
   pending: { label: 'لم يبدأ', color: '#9ca3af', badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600' },
   in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeClass: 'bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600' },
@@ -809,6 +891,12 @@ export default function WellCrewsPage() {
                               {crew.notes && (
                                 <div className="text-[11px] text-muted-foreground break-words">ملاحظات: {crew.notes}</div>
                               )}
+                              <CrewLinkedWorkers
+                                crewId={crew.id}
+                                manualWorkersCount={Number(crew.workersCount ?? crew.workers_count ?? 0)}
+                                manualMastersCount={Number(crew.mastersCount ?? crew.masters_count ?? 0)}
+                                manualTotalWages={totalWages}
+                              />
                             </div>
                           );
                         })}

@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
-import { User, Clock, DollarSign, FileText, Calendar, Activity, AlertCircle, CheckCircle, Timer, Calculator, MessageSquare, Banknote, TrendingUp, Target, Users, Briefcase, Hammer, Wrench, Paintbrush, Grid3X3, ChevronDown, ChevronUp } from "lucide-react";
+import { User, Clock, DollarSign, FileText, Calendar, Activity, AlertCircle, CheckCircle, Timer, Calculator, MessageSquare, Banknote, TrendingUp, Target, Users, Briefcase, Hammer, Wrench, Paintbrush, Grid3X3, ChevronDown, ChevronUp, Droplets, HardHat } from "lucide-react";
+import { MultiWellSelector } from "@/components/multi-well-selector";
+import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
@@ -31,6 +33,10 @@ interface AttendanceData {
   remainingAmount?: number;
   notes?: string;
   recordType?: "work" | "advance";
+  well_id?: number;
+  well_ids?: number[];
+  crewType?: string;
+  crewTypes?: string[];
 }
 
 interface EnhancedWorkerCardProps {
@@ -38,13 +44,15 @@ interface EnhancedWorkerCardProps {
   attendance: AttendanceData;
   onAttendanceChange: (attendance: AttendanceData) => void;
   selectedDate?: string;
+  projectId?: string;
 }
 
 export default function EnhancedWorkerCard({
   worker,
   attendance,
   onAttendanceChange,
-  selectedDate = getCurrentDate()
+  selectedDate = getCurrentDate(),
+  projectId
 }: EnhancedWorkerCardProps) {
   const [localAttendance, setLocalAttendance] = useState<AttendanceData>(attendance);
   const [showDetails, setShowDetails] = useState(false);
@@ -278,6 +286,22 @@ export default function EnhancedWorkerCard({
             />
           </div>
         </div>
+
+        {localAttendance.isPresent && projectId && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+            <MultiWellSelector
+              project_id={projectId}
+              value={localAttendance.well_ids || []}
+              onChange={(ids) => updateAttendance({ well_ids: ids, well_id: ids[0] || undefined })}
+              optional={true}
+              showLabel={true}
+            />
+            <CrewTypeSelector
+              value={localAttendance.crewTypes || []}
+              onChange={(types) => updateAttendance({ crewTypes: types })}
+            />
+          </div>
+        )}
 
         {localAttendance.isPresent && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">

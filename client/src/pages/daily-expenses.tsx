@@ -24,7 +24,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
-import { WellSelector } from "@/components/well-selector";
+import { MultiWellSelector } from "@/components/multi-well-selector";
+import { CrewTypeSelector } from "@/components/crew-type-selector";
 import ExpenseSummary from "@/components/expense-summary";
 import WorkerMiscExpenses from "./worker-misc-expenses";
 import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
@@ -106,7 +107,9 @@ function DailyExpensesContent() {
   }, [toast]);
   const [isExporting, setIsExporting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
+  const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
+  const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
+  const [purchaseCrewTypes, setPurchaseCrewTypes] = useState<string[]>([]);
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isFundTransfersExpanded, setIsFundTransfersExpanded] = useState(false);
   const [isTransportationExpanded, setIsTransportationExpanded] = useState(false);
@@ -178,7 +181,7 @@ function DailyExpensesContent() {
   const [purchaseType, setPurchaseType] = useState<string>("نقد");
   const [purchaseSupplierName, setPurchaseSupplierName] = useState<string>("");
   const [purchaseNotes, setPurchaseNotes] = useState<string>("");
-  const [purchaseWellId, setPurchaseWellId] = useState<number | undefined>();
+  const [purchaseWellIds, setPurchaseWellIds] = useState<number[]>([]);
   const [editingMaterialPurchaseId, setEditingMaterialPurchaseId] = useState<string | null>(null);
 
   // Worker transfer form
@@ -430,7 +433,9 @@ function DailyExpensesContent() {
       remainingAmount: (actualWage - paidAmountNum).toString(),
       workDescription: workerNotes || (workDaysNum > 0 ? "أيام عمل" : "مصروف بدون عمل"),
       notes: workerNotes,
-      well_id: selectedWellId || null,
+      well_id: selectedWellIds[0] || null,
+      well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
+      crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
       paymentType: paidAmountNum > 0 ? (paidAmountNum >= actualWage && actualWage > 0 ? "full" : "partial") : "credit",
     };
 
@@ -737,9 +742,11 @@ function DailyExpensesContent() {
 
   // تصفير البئر عند تغيير المشروع
   useEffect(() => {
-    setSelectedWellId(undefined);
+    setSelectedWellIds([]);
+    setSelectedCrewTypes([]);
     setFundTransferWellId(undefined);
-    setPurchaseWellId(undefined);
+    setPurchaseWellIds([]);
+    setPurchaseCrewTypes([]);
   }, [selectedProjectId]);
 
   // تحديث حالة توسع الفئات عند تغير البيانات
@@ -976,7 +983,7 @@ function DailyExpensesContent() {
       }
       
       // أضف well_id إلى البيانات
-      const dataWithWell = { ...data, well_id: selectedWellId || null };
+      const dataWithWell = { ...data, well_id: selectedWellIds[0] || null, well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null, crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null };
       return apiRequest("/api/transportation-expenses", "POST", dataWithWell);
     },
     onSuccess: async (newExpense) => {
@@ -1010,7 +1017,9 @@ function DailyExpensesContent() {
           notes: transportNotes,
           selectedDate,
           project_id: selectedProjectId,
-          well_id: selectedWellId || null
+          well_id: selectedWellIds[0] || null,
+          well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
+          crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null
         };
         await queueForSync('create', '/api/transportation-expenses', dataWithWell);
         toast({
@@ -1225,7 +1234,9 @@ function DailyExpensesContent() {
           supplierName: purchaseSupplierName || null,
           purchaseDate: selectedDate,
           notes: purchaseNotes || null,
-          well_id: purchaseWellId || null,
+          well_id: purchaseWellIds[0] || null,
+          well_ids: purchaseWellIds.length > 0 ? JSON.stringify(purchaseWellIds) : null,
+          crew_type: purchaseCrewTypes.length > 0 ? JSON.stringify(purchaseCrewTypes) : null,
           paidAmount: purchaseType === 'نقد' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
           remainingAmount: purchaseType === 'آجل' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
         };
@@ -1282,7 +1293,8 @@ function DailyExpensesContent() {
     setPurchaseType("نقد");
     setPurchaseSupplierName("");
     setPurchaseNotes("");
-    setPurchaseWellId(undefined);
+    setPurchaseWellIds([]);
+    setPurchaseCrewTypes([]);
     setEditingMaterialPurchaseId(null);
   };
 
@@ -1295,7 +1307,8 @@ function DailyExpensesContent() {
     setPurchaseType(purchase.purchaseType || "نقد");
     setPurchaseSupplierName(purchase.supplierName || "");
     setPurchaseNotes(purchase.notes || "");
-    setPurchaseWellId(purchase.well_id || undefined);
+    setPurchaseWellIds(purchase.well_ids ? JSON.parse(purchase.well_ids) : (purchase.well_id ? [Number(purchase.well_id)] : []));
+    setPurchaseCrewTypes(purchase.crew_type ? (purchase.crew_type.startsWith('[') ? JSON.parse(purchase.crew_type) : [purchase.crew_type]) : []);
     setEditingMaterialPurchaseId(purchase.id);
     setIsMaterialsExpanded(true);
   };
@@ -1352,7 +1365,9 @@ function DailyExpensesContent() {
       supplierName: purchaseSupplierName.trim() || null,
       purchaseDate: selectedDate,
       notes: purchaseNotes.trim() || null,
-      well_id: purchaseWellId || null,
+      well_id: purchaseWellIds[0] || null,
+      well_ids: purchaseWellIds.length > 0 ? JSON.stringify(purchaseWellIds) : null,
+      crew_type: purchaseCrewTypes.length > 0 ? JSON.stringify(purchaseCrewTypes) : null,
       paidAmount: purchaseType === 'نقد' ? total.toString() : '0',
       remainingAmount: purchaseType === 'آجل' ? total.toString() : '0',
     };
@@ -1941,6 +1956,8 @@ function DailyExpensesContent() {
     setTransportAmount("");
     setTransportNotes("");
     setTransportCategory(dynamicTransportCategories.length > 0 ? dynamicTransportCategories[0].value : "");
+    setSelectedWellIds([]);
+    setSelectedCrewTypes([]);
     setEditingTransportationId(null);
   };
 
@@ -1949,6 +1966,8 @@ function DailyExpensesContent() {
     setTransportAmount(expense.amount);
     setTransportNotes(expense.notes || "");
     setTransportCategory(expense.category || "");
+    setSelectedWellIds((expense as any).well_ids ? JSON.parse((expense as any).well_ids) : ((expense as any).well_id ? [Number((expense as any).well_id)] : []));
+    setSelectedCrewTypes((expense as any).crew_type ? ((expense as any).crew_type.startsWith('[') ? JSON.parse((expense as any).crew_type) : [(expense as any).crew_type]) : []);
     setEditingTransportationId(expense.id);
   };
 
@@ -1978,7 +1997,9 @@ function DailyExpensesContent() {
       date: selectedDate || new Date().toISOString().split('T')[0],
       category: transportCategory,
       notes: transportNotes,
-      well_id: selectedWellId || null,
+      well_id: selectedWellIds[0] || null,
+      well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
+      crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
     };
 
     if (editingTransportationId) {
@@ -2907,14 +2928,22 @@ function DailyExpensesContent() {
               </div>
               <div className="grid grid-cols-1 gap-3 mb-3">
                 {selectedProjectId && !isAllProjects && (
-                  <div className="flex flex-col">
-                    <WellSelector
-                      project_id={selectedProjectId}
-                      value={selectedWellId}
-                      onChange={setSelectedWellId}
-                      optional={true}
-                    />
-                  </div>
+                  <>
+                    <div className="flex flex-col">
+                      <MultiWellSelector
+                        project_id={selectedProjectId}
+                        value={selectedWellIds}
+                        onChange={setSelectedWellIds}
+                        optional={true}
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <CrewTypeSelector
+                        value={selectedCrewTypes}
+                        onChange={setSelectedCrewTypes}
+                      />
+                    </div>
+                  </>
                 )}
               </div>
               <div className="flex items-center gap-2 mt-2">
@@ -3116,12 +3145,16 @@ function DailyExpensesContent() {
             </div>
 
             {selectedProjectId && !isAllProjects && (
-              <div className="mb-3">
-                <WellSelector
+              <div className="mb-3 space-y-3">
+                <MultiWellSelector
                   project_id={selectedProjectId}
-                  value={selectedWellId}
-                  onChange={setSelectedWellId}
+                  value={selectedWellIds}
+                  onChange={setSelectedWellIds}
                   optional={true}
+                />
+                <CrewTypeSelector
+                  value={selectedCrewTypes}
+                  onChange={setSelectedCrewTypes}
                 />
               </div>
             )}
@@ -3466,15 +3499,22 @@ function DailyExpensesContent() {
                         />
                       </div>
                       {selectedProjectId && !isAllProjects && (
-                        <div>
-                          <Label className="text-xs">البئر (اختياري)</Label>
-                          <WellSelector
-                            project_id={selectedProjectId}
-                            value={purchaseWellId}
-                            onChange={setPurchaseWellId}
-                            optional
-                          />
-                        </div>
+                        <>
+                          <div>
+                            <MultiWellSelector
+                              project_id={selectedProjectId}
+                              value={purchaseWellIds}
+                              onChange={setPurchaseWellIds}
+                              optional
+                            />
+                          </div>
+                          <div>
+                            <CrewTypeSelector
+                              value={purchaseCrewTypes}
+                              onChange={setPurchaseCrewTypes}
+                            />
+                          </div>
+                        </>
                       )}
                       <div className="flex gap-2">
                         <Button

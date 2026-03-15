@@ -6,6 +6,7 @@ import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
+const WELLS_PROJECT_TYPE_IDS = [1, 8];
 
 export const ALL_PROJECTS_ID = "all";
 export const ALL_PROJECTS_NAME = "جميع المشاريع";
@@ -29,6 +30,7 @@ interface Project {
   name: string;
   status?: string;
   budget?: number;
+  project_type_id?: number | null;
 }
 
 interface SelectedProjectContextType {
@@ -45,6 +47,7 @@ interface SelectedProjectContextType {
   projectsError: Error | null;
   isProjectsLoading: boolean;
   refreshAllData: () => Promise<void>;
+  isWellsProject: boolean;
 }
 
 const SelectedProjectContext = createContext<SelectedProjectContextType | null>(null);
@@ -215,6 +218,15 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
     await instantRefreshAllData(selectedProjectId);
   }, [instantRefreshAllData, selectedProjectId]);
 
+  const isWellsProject = useMemo(() => {
+    if (isAllProjects || !selectedProjectId || selectedProjectId === ALL_PROJECTS_ID) return false;
+    const currentProject = projects.find(p => p.id === selectedProjectId);
+    if (!currentProject) return false;
+    if (currentProject.project_type_id && WELLS_PROJECT_TYPE_IDS.includes(currentProject.project_type_id)) return true;
+    const name = currentProject.name?.toLowerCase() || '';
+    return name.includes('ابار') || name.includes('آبار') || name.includes('بئر');
+  }, [selectedProjectId, isAllProjects, projects]);
+
   const value = useMemo(() => ({
     selectedProjectId,
     selectedProjectName,
@@ -229,6 +241,7 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
     projectsError: projectsError as Error | null,
     isProjectsLoading,
     refreshAllData,
+    isWellsProject,
   }), [
     selectedProjectId,
     selectedProjectName,
@@ -243,6 +256,7 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
     projectsError,
     isProjectsLoading,
     refreshAllData,
+    isWellsProject,
   ]);
 
   return (

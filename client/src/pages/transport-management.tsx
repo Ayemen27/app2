@@ -44,7 +44,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { cn, getCurrentDate, formatDate, formatCurrency, formatDateForApi } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
-import { WellSelector } from "@/components/well-selector";
+import { MultiWellSelector } from "@/components/multi-well-selector";
+import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -76,7 +77,8 @@ export default function TransportManagement() {
   const [date, setDate] = useState<string>(getCurrentDate());
   const [notes, setNotes] = useState<string>("");
   const [category, setCategory] = useState<string>("");
-  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
+  const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
+  const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -90,7 +92,8 @@ export default function TransportManagement() {
     setDate(getCurrentDate());
     setNotes("");
     setCategory("");
-    setSelectedWellId(undefined);
+    setSelectedWellIds([]);
+    setSelectedCrewTypes([]);
     setEditingExpenseId(null);
     setIsDialogOpen(false);
     setIsAddingCategory(false);
@@ -403,7 +406,9 @@ export default function TransportManagement() {
       date: date,
       category: category,
       notes: notes,
-      well_id: selectedWellId
+      well_id: selectedWellIds[0] || null,
+      well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
+      crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
     });
   };
 
@@ -415,7 +420,10 @@ export default function TransportManagement() {
     setDate(expense.date);
     setNotes(expense.notes || "");
     setCategory(expense.category || "");
-    setSelectedWellId(expense.well_id || undefined);
+    const wellIds = (expense as any).well_ids ? JSON.parse((expense as any).well_ids) : (expense.well_id ? [expense.well_id] : []);
+    setSelectedWellIds(wellIds);
+    const crewTypes = (expense as any).crew_type ? ((expense as any).crew_type.startsWith('[') ? JSON.parse((expense as any).crew_type) : [(expense as any).crew_type]) : [];
+    setSelectedCrewTypes(crewTypes);
     setIsDialogOpen(true);
   };
 
@@ -627,15 +635,19 @@ export default function TransportManagement() {
                       <Label data-testid="label-well" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <Hash className="h-3 w-3" /> البئر
                       </Label>
-                      <WellSelector 
+                      <MultiWellSelector 
                         project_id={selectedProjectId}
-                        value={selectedWellId} 
-                        onChange={setSelectedWellId}
+                        value={selectedWellIds} 
+                        onChange={setSelectedWellIds}
                         showLabel={false}
-                        data-testid="select-well"
                       />
                     </div>
                   </div>
+
+                  <CrewTypeSelector
+                    value={selectedCrewTypes}
+                    onChange={setSelectedCrewTypes}
+                  />
 
                   <div className="space-y-1">
                     <Label data-testid="label-notes" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">

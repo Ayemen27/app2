@@ -12,7 +12,6 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 import EnhancedWorkerCard from "@/components/enhanced-worker-card";
-import { WellSelector } from "@/components/well-selector";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
@@ -40,6 +39,10 @@ interface AttendanceData {
     notes?: string;
     recordId?: string;
     recordType?: "work" | "advance";
+    well_id?: number;
+    well_ids?: number[];
+    crewType?: string;
+    crewTypes?: string[];
   };
 }
 
@@ -53,7 +56,6 @@ export default function WorkerAttendance() {
     type: 'all'
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
 
   // Get URL parameters for editing
   const urlParams = new URLSearchParams(window.location.search);
@@ -233,16 +235,16 @@ export default function WorkerAttendance() {
     enabled: !!editId,
   });
 
-  // تصفير بيانات الحضور والبئر عند تغيير المشروع أو التاريخ
   useEffect(() => {
     setAttendanceData({});
-    setSelectedWellId(undefined);
   }, [selectedDate, selectedProjectId]);
 
   // Effect to populate form when editing
   useEffect(() => {
     if (attendanceToEdit && worker_id) {
       const newAttendanceData = { ...attendanceData };
+      const editWellIds = attendanceToEdit.well_ids ? JSON.parse(attendanceToEdit.well_ids) : (attendanceToEdit.well_id ? [Number(attendanceToEdit.well_id)] : []);
+      const editCrewTypes = attendanceToEdit.crew_type ? (attendanceToEdit.crew_type.startsWith('[') ? JSON.parse(attendanceToEdit.crew_type) : [attendanceToEdit.crew_type]) : [];
       newAttendanceData[worker_id] = {
         isPresent: true,
         startTime: attendanceToEdit.startTime,
@@ -250,7 +252,10 @@ export default function WorkerAttendance() {
         workDescription: attendanceToEdit.workDescription || "",
         workDays: parseFloat(attendanceToEdit.workDays?.toString() || '0'),
         paidAmount: attendanceToEdit.paidAmount?.toString() || "",
-        paymentType: attendanceToEdit.paymentType || "partial"
+        paymentType: attendanceToEdit.paymentType || "partial",
+        well_id: editWellIds[0] || undefined,
+        well_ids: editWellIds,
+        crewTypes: editCrewTypes,
       };
       setAttendanceData(newAttendanceData);
     }
@@ -330,6 +335,8 @@ export default function WorkerAttendance() {
     const worker = Array.isArray(workers) ? workers.find(w => w.id === record.worker_id) : null;
     if (worker) {
       const newAttendanceData = { ...attendanceData };
+      const wellIds = record.well_ids ? JSON.parse(record.well_ids) : (record.well_id ? [Number(record.well_id)] : []);
+      const crewTypes = record.crew_type ? (record.crew_type.startsWith('[') ? JSON.parse(record.crew_type) : [record.crew_type]) : [];
       newAttendanceData[record.worker_id] = {
         isPresent: true,
         startTime: record.startTime,
@@ -338,8 +345,11 @@ export default function WorkerAttendance() {
         workDays: parseFloat(record.workDays?.toString() || '0'),
         paidAmount: record.paidAmount,
         paymentType: record.paymentType || "partial",
-        recordId: record.id, // حفظ ID السجل الأصلي
-        recordType: record.recordType || "work"
+        recordId: record.id,
+        recordType: record.recordType || "work",
+        well_id: wellIds[0] || undefined,
+        well_ids: wellIds,
+        crewTypes: crewTypes,
       };
       setAttendanceData(newAttendanceData);
     }
@@ -819,7 +829,9 @@ export default function WorkerAttendance() {
           remainingAmount: remainingAmount.toString(),
           paymentType: data.paymentType || "partial",
           notes: data.notes || "",
-          well_id: selectedWellId || null,
+          well_id: (data as any).well_ids?.[0] || data.well_id || null,
+          well_ids: (data as any).well_ids?.length ? JSON.stringify((data as any).well_ids) : null,
+          crew_type: (data as any).crewTypes?.length ? JSON.stringify((data as any).crewTypes) : null,
         };
 
         // إذا كان هناك recordId، أضفه للحفظ حتى نعرف أنه تعديل
@@ -1177,12 +1189,6 @@ export default function WorkerAttendance() {
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="p-4 bg-muted/30 border-b space-y-3">
-                <WellSelector
-                  project_id={selectedProjectId}
-                  value={selectedWellId}
-                  onChange={setSelectedWellId}
-                  optional={true}
-                />
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-reverse space-x-2">
                                             <Button
@@ -1351,6 +1357,7 @@ export default function WorkerAttendance() {
                           attendance={attendanceData[worker.id] || { isPresent: false }}
                           onAttendanceChange={(attendance) => handleAttendanceChange(worker.id, attendance)}
                           selectedDate={selectedDate ?? undefined}
+                          projectId={selectedProjectId}
                         />
                       ))
                     )}

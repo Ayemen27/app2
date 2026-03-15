@@ -401,6 +401,8 @@ export const workerAttendance = pgTable("worker_attendance", {
   paymentType: text("payment_type").default("partial"), // "full" | "partial" | "credit" - nullable في قاعدة البيانات
   notes: text("notes"), // ملاحظات
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_ids: text("well_ids"), // JSON array of well IDs e.g. "[1,5]" for multi-well
+  crew_type: varchar("crew_type", { length: 50 }), // welding, steel_installation, panel_installation
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueWorkerDate: sql`UNIQUE (worker_id, attendance_date, project_id)`,
@@ -459,6 +461,8 @@ export const materialPurchases = pgTable("material_purchases", {
   notes: text("notes"),
   purchaseDate: text("purchase_date").notNull(), // YYYY-MM-DD format
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_ids: text("well_ids"), // JSON array of well IDs for multi-well
+  crew_type: varchar("crew_type", { length: 50 }),
   addToInventory: boolean("add_to_inventory").default(false), // إضافة المادة للمخزن/المعدات تلقائياً
   equipmentId: integer("equipment_id"), // ربط بالمعدة المنشأة تلقائياً (إن وجدت)
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -493,6 +497,8 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   date: text("date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_ids: text("well_ids"), // JSON array of well IDs for multi-well
+  crew_type: varchar("crew_type", { length: 50 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   idxTransportationProjectId: index("idx_transportation_expenses_project_id").on(table.project_id),
@@ -615,6 +621,8 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   date: text("date").notNull(), // تاريخ النثريات
   notes: text("notes"), // ملاحظات إضافية
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_ids: text("well_ids"), // JSON array of well IDs for multi-well
+  crew_type: varchar("crew_type", { length: 50 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   idxWorkerMiscExpensesProjectId: index("idx_worker_misc_expenses_project_id").on(table.project_id),
@@ -1508,6 +1516,18 @@ export const wellWorkCrews = pgTable("well_work_crews", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 8b. جدول ربط العمال بطواقم الآبار (well_crew_workers)
+export const wellCrewWorkers = pgTable("well_crew_workers", {
+  id: serial("id").primaryKey(),
+  crew_id: integer("crew_id").notNull().references(() => wellWorkCrews.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  daily_wage_snapshot: decimal("daily_wage_snapshot", { precision: 12, scale: 2 }),
+  work_days: decimal("work_days", { precision: 10, scale: 4 }),
+  crew_type: varchar("crew_type", { length: 50 }),
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 // 9. جدول مكونات الطاقة الشمسية (well_solar_components)
 export const wellSolarComponents = pgTable("well_solar_components", {
   id: serial("id").primaryKey(),
@@ -1604,6 +1624,14 @@ export type InsertWellTransportDetail = z.infer<typeof insertWellTransportDetail
 
 export type WellReception = typeof wellReceptions.$inferSelect;
 export type InsertWellReception = z.infer<typeof insertWellReceptionSchema>;
+
+export const insertWellCrewWorkerSchema = createInsertSchema(wellCrewWorkers).omit({
+  id: true,
+  created_at: true,
+});
+
+export type WellCrewWorker = typeof wellCrewWorkers.$inferSelect;
+export type InsertWellCrewWorker = z.infer<typeof insertWellCrewWorkerSchema>;
 
 export const equipment = pgTable("equipment", {
   id: serial("id").primaryKey(),
@@ -1976,7 +2004,7 @@ export const SYNCABLE_TABLES = [
   'report_templates', 'notification_read_states', 'build_deployments',
   'notifications', 'ai_chat_sessions', 'ai_chat_messages', 'ai_usage_stats',
   'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories',
-  'well_work_crews', 'well_solar_components', 'well_transport_details', 'well_receptions',
+  'well_work_crews', 'well_crew_workers', 'well_solar_components', 'well_transport_details', 'well_receptions',
   'equipment', 'equipment_movements',
 ] as const;
 
@@ -2021,6 +2049,7 @@ export const SERVER_TO_IDB_TABLE_MAP: Record<string, string> = {
   'well_audit_logs': 'wellAuditLogs',
   'material_categories': 'materialCategories',
   'well_work_crews': 'wellWorkCrews',
+  'well_crew_workers': 'wellCrewWorkers',
   'well_solar_components': 'wellSolarComponents',
   'well_transport_details': 'wellTransportDetails',
   'well_receptions': 'wellReceptions',

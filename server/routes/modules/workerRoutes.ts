@@ -10,7 +10,8 @@ import { db, withTransaction } from '../../db.js';
 import {
   workers, workerAttendance, workerTransfers, workerMiscExpenses, workerBalances,
   transportationExpenses, enhancedInsertWorkerSchema, insertWorkerAttendanceSchema,
-  insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, workerTypes
+  insertWorkerTransferSchema, insertWorkerMiscExpenseSchema, workerTypes,
+  wellWorkCrews, wellCrewWorkers
 } from '@shared/schema';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js';
 import { getAuthUser } from '../../internal/auth-user.js';
@@ -32,6 +33,7 @@ const ALLOWED_ATTENDANCE_PATCH_FIELDS = new Set([
   'isPresent', 'hoursWorked', 'overtime', 'overtimeRate',
   'workDays', 'dailyWage', 'actualWage', 'totalPay',
   'paidAmount', 'remainingAmount', 'paymentType', 'notes', 'well_id',
+  'well_ids', 'crew_type',
 ]);
 
 const ALLOWED_TRANSFER_PATCH_FIELDS = new Set([
@@ -41,6 +43,7 @@ const ALLOWED_TRANSFER_PATCH_FIELDS = new Set([
 
 const ALLOWED_MISC_EXPENSE_PATCH_FIELDS = new Set([
   'amount', 'description', 'date', 'notes', 'well_id',
+  'well_ids', 'crew_type',
 ]);
 
 function pickAllowedFields<T extends Record<string, unknown>>(data: T, allowed: Set<string>): Partial<T> {
@@ -60,6 +63,136 @@ interface WorkerBalanceEntry {
   totalPaid: string;
   totalTransferred: string;
   currentBalance: string;
+}
+
+async function syncAttendanceToWellCrews(attendanceRecord: any) {
+  try {
+    const workerId = attendanceRecord.worker_id;
+    if (!workerId) return;
+
+    let wellIds: number[] = [];
+    if (attendanceRecord.well_ids) {
+      try {
+        const parsed = typeof attendanceRecord.well_ids === 'string'
+          ? JSON.parse(attendanceRecord.well_ids)
+          : attendanceRecord.well_ids;
+        if (Array.isArray(parsed)) wellIds = parsed.map(Number).filter(Boolean);
+      } catch { /* ignore parse errors */ }
+    }
+    if (wellIds.length === 0 && attendanceRecord.well_id) {
+      wellIds = [Number(attendanceRecord.well_id)];
+    }
+    if (wellIds.length === 0) return;
+
+    let crewTypes: string[] = [];
+    if (attendanceRecord.crew_type) {
+      try {
+        const raw = attendanceRecord.crew_type;
+        if (typeof raw === 'string' && raw.startsWith('[')) {
+          crewTypes = JSON.parse(raw);
+        } else if (Array.isArray(raw)) {
+          crewTypes = raw;
+        } else if (typeof raw === 'string' && raw.length > 0) {
+          crewTypes = [raw];
+        }
+      } catch { /* ignore parse errors */ }
+    }
+    if (crewTypes.length === 0) {
+      crewTypes = ['attendance_linked'];
+    }
+
+    const workerRows = await db.select().from(workers).where(eq(workers.id, workerId)).limit(1);
+    if (workerRows.length === 0) return;
+    const worker = workerRows[0];
+
+    const workerType = worker.type;
+    const dailyWage = parseFloat(worker.dailyWage || '0');
+    const workDaysVal = parseFloat(attendanceRecord.workDays || '0');
+    const workDate = attendanceRecord.date || attendanceRecord.attendanceDate;
+    const isMaster = workerType === 'معلم' || workerType === 'مشرف';
+
+    const splitFactor = wellIds.length * crewTypes.length;
+    const splitWorkDays = workDaysVal / splitFactor;
+    const splitWage = (dailyWage * workDaysVal) / splitFactor;
+
+    for (const wellId of wellIds) {
+      for (const crewType of crewTypes) {
+        const existingCrews = await db.select().from(wellWorkCrews).where(
+          and(
+            eq(wellWorkCrews.well_id, wellId),
+            eq(wellWorkCrews.crewType, crewType),
+            workDate ? eq(wellWorkCrews.workDate, workDate) : sql`${wellWorkCrews.workDate} IS NULL`
+          )
+        ).limit(1);
+
+        let crewId: number;
+
+        if (existingCrews.length > 0) {
+          crewId = existingCrews[0].id;
+          const existingWorkerLink = await db.select().from(wellCrewWorkers).where(
+            and(
+              eq(wellCrewWorkers.crew_id, crewId),
+              eq(wellCrewWorkers.worker_id, workerId)
+            )
+          ).limit(1);
+
+          if (existingWorkerLink.length === 0) {
+            const wCount = existingCrews[0].workersCount + (isMaster ? 0 : 1);
+            const mCount = existingCrews[0].mastersCount + (isMaster ? 1 : 0);
+            const existingTotal = parseFloat(existingCrews[0].totalWages || '0');
+            const newTotal = existingTotal + splitWage;
+
+            await db.update(wellWorkCrews).set({
+              workersCount: wCount,
+              mastersCount: mCount,
+              totalWages: newTotal.toString(),
+              updated_at: new Date(),
+            }).where(eq(wellWorkCrews.id, crewId));
+          }
+        } else {
+          const newCrew = await db.insert(wellWorkCrews).values({
+            well_id: wellId,
+            crewType: crewType,
+            workersCount: isMaster ? 0 : 1,
+            mastersCount: isMaster ? 1 : 0,
+            workDays: splitWorkDays.toString(),
+            workerDailyWage: isMaster ? null : dailyWage.toString(),
+            masterDailyWage: isMaster ? dailyWage.toString() : null,
+            totalWages: splitWage.toString(),
+            workDate: workDate || null,
+          }).returning();
+          crewId = newCrew[0].id;
+        }
+
+        const existingLink = await db.select().from(wellCrewWorkers).where(
+          and(
+            eq(wellCrewWorkers.crew_id, crewId),
+            eq(wellCrewWorkers.worker_id, workerId)
+          )
+        ).limit(1);
+
+        if (existingLink.length === 0) {
+          await db.insert(wellCrewWorkers).values({
+            crew_id: crewId,
+            worker_id: workerId,
+            daily_wage_snapshot: dailyWage.toString(),
+            work_days: splitWorkDays.toString(),
+            crew_type: crewType,
+          });
+        } else {
+          await db.update(wellCrewWorkers).set({
+            daily_wage_snapshot: dailyWage.toString(),
+            work_days: splitWorkDays.toString(),
+            crew_type: crewType,
+          }).where(eq(wellCrewWorkers.id, existingLink[0].id));
+        }
+
+        console.log(`[syncAttendanceToWellCrews] Synced worker ${workerId} to well ${wellId} crew ${crewId} (split 1/${splitFactor})`);
+      }
+    }
+  } catch (error) {
+    console.error('[syncAttendanceToWellCrews] Error syncing attendance to well crews:', error);
+  }
 }
 
 export const workerRouter = express.Router();
@@ -1543,6 +1676,40 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       'worker-attendance/DELETE-ledger-cleanup'
     );
 
+    if ((attendanceToDelete.well_id || attendanceToDelete.well_ids) && attendanceToDelete.worker_id) {
+      try {
+        let deleteWellIds: number[] = [];
+        if (attendanceToDelete.well_ids) {
+          try {
+            const parsed = JSON.parse(attendanceToDelete.well_ids);
+            if (Array.isArray(parsed)) deleteWellIds = parsed.map(Number).filter(Boolean);
+          } catch { /* ignore */ }
+        }
+        if (deleteWellIds.length === 0 && attendanceToDelete.well_id) {
+          deleteWellIds = [Number(attendanceToDelete.well_id)];
+        }
+        for (const wId of deleteWellIds) {
+          const linkedCrews = await db.select({ id: wellWorkCrews.id })
+            .from(wellWorkCrews)
+            .where(and(
+              eq(wellWorkCrews.well_id, wId),
+              attendanceToDelete.date ? eq(wellWorkCrews.workDate, attendanceToDelete.date) : sql`${wellWorkCrews.workDate} IS NULL`
+            ));
+          for (const crew of linkedCrews) {
+            await db.delete(wellCrewWorkers).where(
+              and(
+                eq(wellCrewWorkers.crew_id, crew.id),
+                eq(wellCrewWorkers.worker_id, attendanceToDelete.worker_id)
+              )
+            );
+          }
+        }
+        console.log(`[WellCrew] Removed worker ${attendanceToDelete.worker_id} from well crews`);
+      } catch (err) {
+        console.error('[WellCrew] Error cleaning up crew links:', err);
+      }
+    }
+
     if (globalThis.io && deletedAttendance[0]) {
       (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
@@ -1665,15 +1832,22 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     const workDays = Number(validationResult.data.workDays) || 0;
     const actualWageValue = dailyWage * workDays;
     
-    const dataWithCalculatedFields = {
+    const dataWithCalculatedFields: Record<string, any> = {
       ...validationResult.data,
       dailyWage: dailyWage.toString(),
-      date: attendanceDate, // التأكد من تعيين التاريخ
-      workDays: workDays.toString(), // تحويل إلى string للتوافق مع decimal
+      date: attendanceDate,
+      workDays: workDays.toString(),
       actualWage: actualWageValue.toString(),
-      totalPay: actualWageValue.toString(), // totalPay = actualWage
-      notes: req.body.notes || validationResult.data.notes || "" // تأكد من جلب الملاحظات من جسم الطلب
+      totalPay: actualWageValue.toString(),
+      notes: req.body.notes || validationResult.data.notes || ""
     };
+
+    if (req.body.well_ids !== undefined) {
+      dataWithCalculatedFields.well_ids = req.body.well_ids;
+    }
+    if (req.body.crew_type !== undefined) {
+      dataWithCalculatedFields.crew_type = req.body.crew_type;
+    }
 
     // التحقق من وجود سجل مماثل لمنع التكرار (نفس التاريخ، العامل، المشروع، المبلغ، وأيام العمل)
     const existingAttendance = await db.select()
@@ -1734,6 +1908,12 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       ),
       'worker-attendance/POST'
     );
+
+    syncAttendanceToWellCrews({
+      ...record,
+      well_ids: req.body.well_ids || record.well_ids,
+      crew_type: req.body.crew_type || record.crew_type,
+    }).catch(err => console.error('[syncAttendanceToWellCrews] POST error:', err));
 
     if (globalThis.io) {
       (globalThis.io as any).to('authenticated').emit('entity:update', {
@@ -1872,6 +2052,14 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
         t.project_id, parseFloat(t.actualWage || '0'), t.date, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-attendance/PATCH');
+
+    if (t.well_id || t.well_ids) {
+      syncAttendanceToWellCrews({
+        ...t,
+        well_ids: req.body.well_ids || t.well_ids,
+        crew_type: req.body.crew_type || t.crew_type,
+      }).catch(err => console.error('[syncAttendanceToWellCrews] PATCH error:', err));
+    }
 
     if (globalThis.io && updated_attendance[0]) {
       (globalThis.io as any).to('authenticated').emit('entity:update', {

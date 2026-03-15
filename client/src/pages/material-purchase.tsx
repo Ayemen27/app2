@@ -20,7 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { getCurrentDate, formatCurrency } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
-import { WellSelector } from "@/components/well-selector";
+import { MultiWellSelector } from "@/components/multi-well-selector";
+import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { API_ENDPOINTS } from "@/constants/api";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { apiRequest } from "@/lib/queryClient";
@@ -96,7 +97,8 @@ export default function MaterialPurchase() {
   const [supplierFormAddress, setSupplierFormAddress] = useState("");
   const [supplierFormPaymentTerms, setSupplierFormPaymentTerms] = useState("نقد");
   const [supplierFormNotes, setSupplierFormNotes] = useState("");
-  const [selectedWellId, setSelectedWellId] = useState<number | undefined>();
+  const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
+  const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     // التحقق من وجود التاريخ في URL أولاً
     const params = new URLSearchParams(window.location.search);
@@ -346,6 +348,10 @@ export default function MaterialPurchase() {
       setInvoicePhoto(purchaseToEdit.invoicePhoto || "");
       setEditingPurchaseId(purchaseToEdit.id);
       setAddToInventory(purchaseToEdit.addToInventory || false);
+      const wellIds = purchaseToEdit.well_ids ? JSON.parse(purchaseToEdit.well_ids) : (purchaseToEdit.well_id ? [Number(purchaseToEdit.well_id)] : []);
+      setSelectedWellIds(wellIds);
+      const crewTypes = purchaseToEdit.crew_type ? (purchaseToEdit.crew_type.startsWith('[') ? JSON.parse(purchaseToEdit.crew_type) : [purchaseToEdit.crew_type]) : [];
+      setSelectedCrewTypes(crewTypes);
 
       console.log('✅ تم ملء النموذج بالبيانات:', {
         materialName,
@@ -542,6 +548,8 @@ export default function MaterialPurchase() {
     setInvoicePhoto("");
     setEditingPurchaseId(null);
     setAddToInventory(false);
+    setSelectedWellIds([]);
+    setSelectedCrewTypes([]);
   };
 
   // Update Material Purchase Mutation
@@ -732,7 +740,9 @@ export default function MaterialPurchase() {
       invoiceDate: invoiceDate || new Date().toISOString().split('T')[0],
       purchaseDate: purchaseDate || new Date().toISOString().split('T')[0],
       notes: notes?.trim() || '',
-      well_id: selectedWellId || null,
+      well_id: selectedWellIds[0] || null,
+      well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
+      crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
       invoicePhoto: invoicePhoto || '',
       addToInventory: addToInventory,
       status: 'completed'
@@ -894,6 +904,10 @@ export default function MaterialPurchase() {
     setInvoicePhoto(purchase.invoicePhoto || "");
     setEditingPurchaseId(purchase.id);
     setAddToInventory(purchase.addToInventory || false);
+    const wellIds = purchase.well_ids ? JSON.parse(purchase.well_ids) : (purchase.well_id ? [Number(purchase.well_id)] : []);
+    setSelectedWellIds(wellIds);
+    const crewTypes = purchase.crew_type ? (purchase.crew_type.startsWith('[') ? JSON.parse(purchase.crew_type) : [purchase.crew_type]) : [];
+    setSelectedCrewTypes(crewTypes);
     setIsFormCollapsed(false);
   };
 
@@ -1227,11 +1241,17 @@ export default function MaterialPurchase() {
             </div>
 
             {/* Well Selector */}
-            <WellSelector
+            <MultiWellSelector
               project_id={selectedProjectId}
-              value={selectedWellId}
-              onChange={setSelectedWellId}
+              value={selectedWellIds}
+              onChange={setSelectedWellIds}
               optional={true}
+            />
+
+            {/* Crew Type Selector */}
+            <CrewTypeSelector
+              value={selectedCrewTypes}
+              onChange={setSelectedCrewTypes}
             />
 
             {/* Supplier/Store */}

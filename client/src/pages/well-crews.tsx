@@ -110,6 +110,7 @@ export default function WellCrewsPage() {
 
   const [customCrewTypes, setCustomCrewTypes] = useState<Array<{value: string; label: string}>>([]);
   const [customRailTypes, setCustomRailTypes] = useState<Array<{value: string; label: string}>>([]);
+  const [customTeamNames, setCustomTeamNames] = useState<string[]>([]);
 
   const { data: fullData = [], isLoading } = useQuery({
     queryKey: ["wells-full-data", selectedProjectId],
@@ -131,8 +132,9 @@ export default function WellCrewsPage() {
         if (name) names.add(name);
       });
     });
+    customTeamNames.forEach(n => names.add(n));
     return Array.from(names).sort().map(n => ({ value: n, label: n }));
-  }, [fullData]);
+  }, [fullData, customTeamNames]);
 
   const allCrewTypeOptions = useMemo(() => {
     const merged = [...CREW_TYPES];
@@ -388,6 +390,25 @@ export default function WellCrewsPage() {
     setShowTransportForm(false);
   };
 
+  const normalizeDate = (val: any): string => {
+    if (!val || val === '') return '';
+    const str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('-');
+      return `${y}-${m}-${d}`;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('/');
+      return `${y}-${m}-${d}`;
+    }
+    try {
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+    } catch {}
+    return '';
+  };
+
   const startEditCrew = (crew: any, wellId: number) => {
     setCrewForm({
       crewType: crew.crewType || crew.crew_type || "",
@@ -399,7 +420,7 @@ export default function WellCrewsPage() {
       masterDailyWage: String(crew.masterDailyWage ?? crew.master_daily_wage ?? ""),
       totalWages: String(crew.totalWages ?? crew.total_wages ?? ""),
       crewDues: String(crew.crewDues ?? crew.crew_dues ?? ""),
-      workDate: crew.workDate || crew.work_date || "",
+      workDate: normalizeDate(crew.workDate || crew.work_date),
       notes: crew.notes || "",
     });
     setEditingCrew(crew);
@@ -412,7 +433,7 @@ export default function WellCrewsPage() {
       railType: transport.railType || transport.rail_type || "",
       withPanels: transport.withPanels ?? transport.with_panels ?? false,
       transportPrice: String(transport.transportPrice ?? transport.transport_price ?? ""),
-      transportDate: transport.transportDate || transport.transport_date || "",
+      transportDate: normalizeDate(transport.transportDate || transport.transport_date),
       notes: transport.notes || "",
     });
     setEditingTransport(transport);
@@ -730,7 +751,7 @@ export default function WellCrewsPage() {
                               <div className="flex items-center justify-between gap-1">
                                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 shrink-0 ${colors.badge}`}>{crewType}</Badge>
-                                  <span className="text-xs font-semibold text-foreground truncate">{crew.teamName || crew.team_name || '-'}</span>
+                                  <span className="text-xs font-semibold text-foreground break-words">{crew.teamName || crew.team_name || '-'}</span>
                                 </div>
                                 <div className="flex gap-0.5 shrink-0">
                                   <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => startEditCrew(crew, well.id)} data-testid={`button-edit-crew-${crew.id}`}>
@@ -875,7 +896,9 @@ export default function WellCrewsPage() {
                 placeholder="اختر اسم الفريق"
                 searchPlaceholder="ابحث عن فريق..."
                 allowCustom
-                onCustomAdd={() => {}}
+                onCustomAdd={(v) => {
+                  setCustomTeamNames(prev => prev.includes(v) ? prev : [...prev, v]);
+                }}
                 onAddNew={() => setShowAddTeamNameDialog(true)}
                 addNewLabel="إضافة فريق جديد"
                 data-testid="select-crew-team-name"
@@ -1046,6 +1069,7 @@ export default function WellCrewsPage() {
             <Button variant="outline" size="sm" onClick={() => setShowAddTeamNameDialog(false)}>إلغاء</Button>
             <Button size="sm" disabled={!newTeamNameValue.trim()} onClick={() => {
               const val = newTeamNameValue.trim();
+              setCustomTeamNames(prev => prev.includes(val) ? prev : [...prev, val]);
               setCrewForm(f => ({ ...f, teamName: val }));
               setNewTeamNameValue("");
               setShowAddTeamNameDialog(false);

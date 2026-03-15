@@ -107,6 +107,7 @@ export default function WellReceptionsPage() {
   const [customStatuses, setCustomStatuses] = useState<Array<{value: string; label: string}>>([]);
   const [showAddReceiverDialog, setShowAddReceiverDialog] = useState(false);
   const [newReceiverName, setNewReceiverName] = useState("");
+  const [customReceiverNames, setCustomReceiverNames] = useState<string[]>([]);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues((prev) => ({ ...prev, [key]: value }));
@@ -156,8 +157,9 @@ export default function WellReceptionsPage() {
         if (name) names.add(name);
       });
     });
+    customReceiverNames.forEach(n => names.add(n));
     return Array.from(names).sort().map(n => ({ value: n, label: n }));
-  }, [wellsData]);
+  }, [wellsData, customReceiverNames]);
 
   const allInspectionStatuses = useMemo(() => {
     const base = [...INSPECTION_STATUSES];
@@ -754,7 +756,9 @@ export default function WellReceptionsPage() {
                   placeholder="اختر اسم المستلم"
                   searchPlaceholder="ابحث عن مستلم..."
                   allowCustom
-                  onCustomAdd={() => {}}
+                  onCustomAdd={(v) => {
+                    setCustomReceiverNames(prev => prev.includes(v) ? prev : [...prev, v]);
+                  }}
                   onAddNew={() => setShowAddReceiverDialog(true)}
                   addNewLabel="إضافة مستلم جديد"
                   data-testid="select-reception-receiver-name"
@@ -848,6 +852,7 @@ export default function WellReceptionsPage() {
             <Button variant="outline" size="sm" onClick={() => setShowAddReceiverDialog(false)}>إلغاء</Button>
             <Button size="sm" disabled={!newReceiverName.trim()} onClick={() => {
               const val = newReceiverName.trim();
+              setCustomReceiverNames(prev => prev.includes(val) ? prev : [...prev, val]);
               setReceptionForm(f => ({ ...f, receiverName: val }));
               setNewReceiverName("");
               setShowAddReceiverDialog(false);

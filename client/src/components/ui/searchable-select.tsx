@@ -117,7 +117,7 @@ export function SearchableSelect({
             )}
           >
             <span className="truncate text-right flex-1">
-              {selectedOption?.label || placeholder}
+              {selectedOption?.label || (value ? value : placeholder)}
             </span>
             <div className="flex items-center gap-1 mr-2">
               {value && !disabled && (

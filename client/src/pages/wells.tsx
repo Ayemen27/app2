@@ -518,7 +518,7 @@ export default function WellsPage() {
       </div>
       <div className="space-y-1">
         <Label className="text-sm font-semibold">المنطقة *</Label>
-        <SearchableSelect value={data.region || ''} onValueChange={(value) => setData({ ...data, region: value })} options={isEdit ? getRegionOptions(data.region) : regions.map(r => ({ value: r, label: r }))} placeholder="اختر المنطقة" searchPlaceholder="ابحث عن المنطقة..." showSearch={true} allowCustom={true} onCustomAdd={() => {}} onAddNew={() => { const region = prompt("أدخل اسم المنطقة الجديدة"); if (region?.trim()) { setData({ ...data, region: region.trim() }); } }} addNewLabel="إضافة منطقة جديدة" data-testid="select-region" />
+        <SearchableSelect value={data.region || ''} onValueChange={(value) => setData({ ...data, region: value })} options={isEdit ? getRegionOptions(data.region) : regions.map(r => ({ value: r, label: r }))} placeholder="اختر المنطقة" searchPlaceholder="ابحث عن المنطقة..." showSearch={true} allowCustom={true} onCustomAdd={(v) => { if (!regions.includes(v)) setRegions(prev => [...prev, v]); }} onAddNew={() => { const region = prompt("أدخل اسم المنطقة الجديدة"); if (region?.trim()) { if (!regions.includes(region.trim())) setRegions(prev => [...prev, region.trim()]); setData({ ...data, region: region.trim() }); } }} addNewLabel="إضافة منطقة جديدة" data-testid="select-region" />
       </div>
       <div className="space-y-1">
         <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>

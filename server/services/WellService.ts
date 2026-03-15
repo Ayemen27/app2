@@ -166,8 +166,8 @@ export class WellService {
       if (data.ownerName !== undefined) updateData.ownerName = data.ownerName;
       if (data.region !== undefined) updateData.region = data.region;
       if (data.status !== undefined) updateData.status = data.status;
-      if (data.completionPercentage !== undefined) updateData.completionPercentage = String(data.completionPercentage);
-      if (data.completionDate !== undefined) updateData.completionDate = data.completionDate || null;
+      if (data.completionPercentage !== undefined) updateData.completionPercentage = this.sanitizeDecimal(data.completionPercentage) ?? '0';
+      if (data.completionDate !== undefined) updateData.completionDate = this.sanitizeDate(data.completionDate);
       if (data.notes !== undefined) updateData.notes = data.notes;
       
       updateData.updated_at = new Date();
@@ -507,23 +507,25 @@ export class WellService {
 
   static async createCrew(well_id: number, data: any, userId: string) {
     try {
-      const totalWages = (
-        (Number(data.workersCount || 0) * Number(data.workerDailyWage || 0) * Number(data.workDays || 0)) +
-        (Number(data.mastersCount || 0) * Number(data.masterDailyWage || 0) * Number(data.workDays || 0))
-      );
+      const wc = this.sanitizeInteger(data.workersCount);
+      const mc = this.sanitizeInteger(data.mastersCount);
+      const wd = Number(this.sanitizeDecimal(data.workDays) ?? 0);
+      const ww = Number(this.sanitizeDecimal(data.workerDailyWage) ?? 0);
+      const mw = Number(this.sanitizeDecimal(data.masterDailyWage) ?? 0);
+      const totalWages = (wc * ww * wd) + (mc * mw * wd);
 
       const result = await db.insert(wellWorkCrews).values({
         well_id,
         crewType: data.crewType,
         teamName: data.teamName || null,
-        workersCount: data.workersCount || 0,
-        mastersCount: data.mastersCount || 0,
-        workDays: String(data.workDays || 0),
-        workerDailyWage: data.workerDailyWage ? String(data.workerDailyWage) : null,
-        masterDailyWage: data.masterDailyWage ? String(data.masterDailyWage) : null,
+        workersCount: wc,
+        mastersCount: mc,
+        workDays: String(wd),
+        workerDailyWage: this.sanitizeDecimal(data.workerDailyWage),
+        masterDailyWage: this.sanitizeDecimal(data.masterDailyWage),
         totalWages: String(totalWages),
-        crewDues: data.crewDues ? String(data.crewDues) : null,
-        workDate: data.workDate || null,
+        crewDues: this.sanitizeDecimal(data.crewDues),
+        workDate: this.sanitizeDate(data.workDate),
         notes: data.notes || null,
         createdBy: userId,
       }).returning();
@@ -535,31 +537,62 @@ export class WellService {
     }
   }
 
+  private static sanitizeDecimal(value: any): string | null {
+    if (value === undefined || value === null || value === '') return null;
+    const num = Number(value);
+    return isNaN(num) ? null : String(num);
+  }
+
+  private static sanitizeInteger(value: any, defaultVal: number = 0): number {
+    if (value === undefined || value === null || value === '') return defaultVal;
+    const num = parseInt(String(value), 10);
+    return isNaN(num) ? defaultVal : num;
+  }
+
+  private static sanitizeDate(value: any): string | null {
+    if (!value || value === '') return null;
+    const str = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('-');
+      return `${y}-${m}-${d}`;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('/');
+      return `${y}-${m}-${d}`;
+    }
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+    return null;
+  }
+
   static async updateCrew(crewId: number, data: any) {
     try {
       const updateData: any = { updated_at: new Date() };
       if (data.crewType !== undefined) updateData.crewType = data.crewType;
-      if (data.teamName !== undefined) updateData.teamName = data.teamName;
-      if (data.workersCount !== undefined) updateData.workersCount = data.workersCount;
-      if (data.mastersCount !== undefined) updateData.mastersCount = data.mastersCount;
-      if (data.workDays !== undefined) updateData.workDays = String(data.workDays);
-      if (data.workerDailyWage !== undefined) updateData.workerDailyWage = String(data.workerDailyWage);
-      if (data.masterDailyWage !== undefined) updateData.masterDailyWage = String(data.masterDailyWage);
-      if (data.crewDues !== undefined) updateData.crewDues = data.crewDues ? String(data.crewDues) : null;
-      if (data.workDate !== undefined) updateData.workDate = data.workDate;
-      if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.teamName !== undefined) updateData.teamName = data.teamName || null;
+      if (data.workersCount !== undefined) updateData.workersCount = this.sanitizeInteger(data.workersCount);
+      if (data.mastersCount !== undefined) updateData.mastersCount = this.sanitizeInteger(data.mastersCount);
+      if (data.workDays !== undefined) updateData.workDays = this.sanitizeDecimal(data.workDays) ?? '0';
+      if (data.workerDailyWage !== undefined) updateData.workerDailyWage = this.sanitizeDecimal(data.workerDailyWage);
+      if (data.masterDailyWage !== undefined) updateData.masterDailyWage = this.sanitizeDecimal(data.masterDailyWage);
+      if (data.crewDues !== undefined) updateData.crewDues = this.sanitizeDecimal(data.crewDues);
+      if (data.workDate !== undefined) updateData.workDate = this.sanitizeDate(data.workDate);
+      if (data.notes !== undefined) updateData.notes = data.notes || null;
 
       if (data.workersCount !== undefined || data.mastersCount !== undefined ||
           data.workerDailyWage !== undefined || data.masterDailyWage !== undefined ||
           data.workDays !== undefined) {
         const existing = await this.getCrewById(crewId);
-        const wc = data.workersCount ?? existing?.workersCount ?? 0;
-        const mc = data.mastersCount ?? existing?.mastersCount ?? 0;
-        const wd = data.workDays ?? existing?.workDays ?? 0;
-        const ww = data.workerDailyWage ?? existing?.workerDailyWage ?? 0;
-        const mw = data.masterDailyWage ?? existing?.masterDailyWage ?? 0;
+        const wc = Number(data.workersCount ?? existing?.workersCount ?? 0);
+        const mc = Number(data.mastersCount ?? existing?.mastersCount ?? 0);
+        const wd = Number(this.sanitizeDecimal(data.workDays) ?? existing?.workDays ?? 0);
+        const ww = Number(this.sanitizeDecimal(data.workerDailyWage) ?? existing?.workerDailyWage ?? 0);
+        const mw = Number(this.sanitizeDecimal(data.masterDailyWage) ?? existing?.masterDailyWage ?? 0);
         updateData.totalWages = String(
-          (Number(wc) * Number(ww) * Number(wd)) + (Number(mc) * Number(mw) * Number(wd))
+          (wc * ww * wd) + (mc * mw * wd)
         );
       }
 
@@ -697,9 +730,9 @@ export class WellService {
         well_id,
         railType: data.railType || null,
         withPanels: data.withPanels ?? false,
-        transportPrice: data.transportPrice ? String(data.transportPrice) : null,
-        crewEntitlements: data.crewEntitlements ? String(data.crewEntitlements) : null,
-        transportDate: data.transportDate || null,
+        transportPrice: this.sanitizeDecimal(data.transportPrice),
+        crewEntitlements: this.sanitizeDecimal(data.crewEntitlements),
+        transportDate: this.sanitizeDate(data.transportDate),
         notes: data.notes || null,
         createdBy: userId,
       }).returning();
@@ -714,12 +747,12 @@ export class WellService {
   static async updateTransportDetail(transportId: number, data: any) {
     try {
       const updateData: any = {};
-      if (data.railType !== undefined) updateData.railType = data.railType;
+      if (data.railType !== undefined) updateData.railType = data.railType || null;
       if (data.withPanels !== undefined) updateData.withPanels = data.withPanels;
-      if (data.transportPrice !== undefined) updateData.transportPrice = String(data.transportPrice);
-      if (data.crewEntitlements !== undefined) updateData.crewEntitlements = String(data.crewEntitlements);
-      if (data.transportDate !== undefined) updateData.transportDate = data.transportDate;
-      if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.transportPrice !== undefined) updateData.transportPrice = this.sanitizeDecimal(data.transportPrice);
+      if (data.crewEntitlements !== undefined) updateData.crewEntitlements = this.sanitizeDecimal(data.crewEntitlements);
+      if (data.transportDate !== undefined) updateData.transportDate = this.sanitizeDate(data.transportDate);
+      if (data.notes !== undefined) updateData.notes = data.notes || null;
 
       const result = await db.update(wellTransportDetails)
         .set(updateData)
@@ -796,14 +829,14 @@ export class WellService {
   static async updateReception(receptionId: number, data: any) {
     try {
       const updateData: any = {};
-      if (data.receivedBy !== undefined) updateData.receivedBy = data.receivedBy;
-      if (data.receiverName !== undefined) updateData.receiverName = data.receiverName;
+      if (data.receivedBy !== undefined) updateData.receivedBy = data.receivedBy || null;
+      if (data.receiverName !== undefined) updateData.receiverName = data.receiverName || null;
       if (data.inspectionStatus !== undefined) updateData.inspectionStatus = data.inspectionStatus;
-      if (data.inspectionNotes !== undefined) updateData.inspectionNotes = data.inspectionNotes;
+      if (data.inspectionNotes !== undefined) updateData.inspectionNotes = data.inspectionNotes || null;
       if (data.receivedAt !== undefined) updateData.receivedAt = data.receivedAt ? new Date(data.receivedAt) : null;
-      if (data.receptionDate !== undefined) updateData.receptionDate = data.receptionDate || null;
+      if (data.receptionDate !== undefined) updateData.receptionDate = this.sanitizeDate(data.receptionDate);
       if (data.engineers !== undefined) updateData.engineers = data.engineers || null;
-      if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.notes !== undefined) updateData.notes = data.notes || null;
 
       const result = await db.update(wellReceptions)
         .set(updateData)

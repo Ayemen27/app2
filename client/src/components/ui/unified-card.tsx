@@ -181,7 +181,7 @@ export function UnifiedCard({
             )}
             <div className="min-w-0 flex-1">
               <h3 className={cn(
-                "font-extrabold text-foreground leading-tight truncate",
+                "font-extrabold text-foreground leading-tight break-words",
                 compact ? "text-sm" : "text-lg"
               )}>
                 {title}

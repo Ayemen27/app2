@@ -196,6 +196,25 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
     setShowForm(false);
   };
 
+  const normalizeDate = (val: any): string => {
+    if (!val || val === '') return '';
+    const str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('-');
+      return `${y}-${m}-${d}`;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('/');
+      return `${y}-${m}-${d}`;
+    }
+    try {
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+    } catch {}
+    return '';
+  };
+
   const startEdit = (crew: any) => {
     setForm({
       crewType: crew.crewType || crew.crew_type || "",
@@ -206,7 +225,7 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
       workerDailyWage: String(crew.workerDailyWage ?? crew.worker_daily_wage ?? ""),
       masterDailyWage: String(crew.masterDailyWage ?? crew.master_daily_wage ?? ""),
       totalWages: String(crew.totalWages ?? crew.total_wages ?? ""),
-      workDate: crew.workDate || crew.work_date || "",
+      workDate: normalizeDate(crew.workDate || crew.work_date),
       notes: crew.notes || "",
     });
     setEditingId(crew.id);
@@ -688,13 +707,32 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
     setShowForm(false);
   };
 
+  const normalizeDateTransport = (val: any): string => {
+    if (!val || val === '') return '';
+    const str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('-');
+      return `${y}-${m}-${d}`;
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+      const [d, m, y] = str.split('/');
+      return `${y}-${m}-${d}`;
+    }
+    try {
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+    } catch {}
+    return '';
+  };
+
   const startEdit = (td: any) => {
     setForm({
       railType: td.railType || td.rail_type || "",
       withPanels: td.withPanels ?? td.with_panels ?? false,
       transportPrice: String(td.transportPrice ?? td.transport_price ?? ""),
       crewEntitlements: String(td.crewEntitlements ?? td.crew_entitlements ?? ""),
-      transportDate: td.transportDate || td.transport_date || "",
+      transportDate: normalizeDateTransport(td.transportDate || td.transport_date),
       notes: td.notes || "",
     });
     setEditingId(td.id);

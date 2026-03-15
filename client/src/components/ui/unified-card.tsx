@@ -257,7 +257,7 @@ export function UnifiedCard({
         </div>
 
         {visibleActions.length > 0 && (
-          <div className="shrink-0 flex flex-col gap-0.5 mr-[-8px] mt-[-4px]">
+          <div className="shrink-0 grid grid-cols-2 gap-0.5 mr-[-8px] mt-[-4px]">
             {visibleActions.map((action, idx) => {
               const ActionIcon = action.icon;
               if (action.dropdown && action.dropdown.length > 0) {

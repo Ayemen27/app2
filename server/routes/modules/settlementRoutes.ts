@@ -506,7 +506,9 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
 
     return sendSuccess(res, result, 'تم تنفيذ التصفية بنجاح');
   } catch (error: any) {
-    console.error('[Settlement] Error in execute:', error);
+    console.error('[Settlement] ❌ Execute ERROR:', error?.message || error);
+    console.error('[Settlement] ❌ Stack:', error?.stack);
+    console.error('[Settlement] ❌ Request body:', JSON.stringify({ settlement_project_id: req.body?.settlement_project_id, worker_ids_count: req.body?.worker_ids?.length || req.body?.worker_ids }));
     const safeMsg = error.message?.includes('عمال') || error.message?.includes('تصفية')
       ? error.message : 'فشل في تنفيذ التصفية';
     return sendError(res, safeMsg, 500);

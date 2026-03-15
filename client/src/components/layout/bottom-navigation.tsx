@@ -7,7 +7,7 @@ import {
   FileText, CreditCard, Bell, 
   Shield, Database, Wrench, Terminal,
   Search, X, RefreshCw, MessageSquare, Activity, 
-  KeyRound, GitCompare, AlertTriangle, BrainCircuit, Sparkles
+  KeyRound, GitCompare, AlertTriangle, BrainCircuit, Sparkles, Scale
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -50,6 +50,7 @@ const allPagesData = [
       { path: "/equipment", icon: Wrench, label: "إدارة المعدات", description: "إدارة المعدات مع النقل والتتبع", requireAdmin: true },
       { path: "/project-fund-custody", icon: DollarSign, label: "الوارد للعهد", description: "إدارة الوارد الرئيسي للعُهد" },
       { path: "/project-transfers", icon: ArrowLeftRight, label: "ترحيل بين المشاريع", description: "إدارة ترحيل الأرصدة بين المشاريع" },
+      { path: "/worker-settlements", icon: Scale, label: "تصفية الحسابات", description: "تصفية حساب العمال بين المشاريع", requireAdmin: true },
       { path: "/project-transactions", icon: FileText, label: "سجل العمليات", description: "عرض شامل لجميع المعاملات المالية", requireAdmin: true },
     ]
   },

@@ -35,6 +35,7 @@ import preferencesRouter from './preferencesRoutes.js';
 import permissionRouter from './permissionRoutes.js';
 import deploymentRouter from './deploymentRoutes.js';
 import recordTransferRouter from './recordTransferRoutes.js';
+import settlementRouter from './settlementRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 import { telemetryRouter } from './telemetryRoutes.js';
 import { monitoringRouter } from '../../monitoring/routes.js';
@@ -166,6 +167,9 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/record-transfer', recordTransferRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات نقل السجلات: /api/record-transfer');
 
+  app.use('/api/worker-settlements', settlementRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات تصفية حسابات العمال: /api/worker-settlements');
+
   // مسارات الإكمال التلقائي الإضافية
   app.use('/api/worker-transfer-notes', autocompleteRouter);
   app.use('/api/worker-transfer-numbers', autocompleteRouter);
@@ -188,7 +192,8 @@ export function registerOrganizedRoutes(app: Express) {
       'notifications/*',
       'recent-activities',
       'autocomplete (GET/POST)',
-      'ledger/* (قيد مزدوج + ملخصات + تدقيق)'
+      'ledger/* (قيد مزدوج + ملخصات + تدقيق)',
+      'worker-settlements/*'
     ]
   };
 
@@ -215,6 +220,7 @@ const REGISTERED_ROUTE_FILES = new Set([
   'deploymentRoutes',
   'telemetryRoutes',
   'recordTransferRoutes',
+  'settlementRoutes',
 ]);
 
 export async function checkForUnregisteredRouters() {
@@ -286,6 +292,7 @@ export {
   ledgerRouter,
   equipmentRouter,
   telemetryRouter,
+  settlementRouter,
 };
 
 export default {

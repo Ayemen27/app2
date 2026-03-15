@@ -1,0 +1,828 @@
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { QUERY_KEYS } from "@/constants/queryKeys";
+import {
+  Scale,
+  Users,
+  ArrowLeftRight,
+  DollarSign,
+  Loader2,
+  Eye,
+  Play,
+  AlertTriangle,
+  History,
+  Plus,
+  Building,
+  User,
+  CheckCircle,
+  Wallet,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface WorkerBalance {
+  worker_id: string;
+  worker_name: string;
+  project_id: string;
+  project_name: string;
+  earned: number;
+  paid: number;
+  transferred: number;
+  balance: number;
+}
+
+interface FundTransferPreview {
+  from_project_id: string;
+  from_project_name: string;
+  to_project_id: string;
+  to_project_name: string;
+  amount: number;
+}
+
+interface SettlementPreview {
+  workers: WorkerBalance[];
+  fund_transfers: FundTransferPreview[];
+  warnings: string[];
+  summary: {
+    total_amount: number;
+    worker_count: number;
+    transfer_count: number;
+  };
+}
+
+interface SettlementRecord {
+  id: string;
+  settlement_project_id: string;
+  settlement_project_name: string;
+  worker_count: number;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  lines?: SettlementLine[];
+}
+
+interface SettlementLine {
+  worker_id: string;
+  worker_name: string;
+  project_id: string;
+  project_name: string;
+  amount: number;
+}
+
+function formatCurrency(amount: number | string) {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(num)) return "0 ر.ي";
+  return `${num.toLocaleString("en-US")} ر.ي`;
+}
+
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+export default function WorkerSettlementsPage() {
+  const { toast } = useToast();
+  const { selectedProjectId } = useSelectedProject();
+  const { setFloatingAction } = useFloatingButton();
+  const [activeView, setActiveView] = useState<"new" | "history">("new");
+  const [searchValue, setSearchValue] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({
+    view: "new",
+  });
+
+  const [settlementProjectId, setSettlementProjectId] = useState("");
+  const [preview, setPreview] = useState<SettlementPreview | null>(null);
+  const [selectedWorkers, setSelectedWorkers] = useState<Set<string>>(new Set());
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [expandedSettlement, setExpandedSettlement] = useState<string | null>(null);
+
+  const [historyPage, setHistoryPage] = useState(1);
+
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: QUERY_KEYS.projects,
+    queryFn: async () => {
+      const res = await apiRequest("/api/projects", "GET");
+      if (res?.data && Array.isArray(res.data)) return res.data;
+      if (Array.isArray(res)) return res;
+      return [];
+    },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      const res = await apiRequest(
+        `/api/worker-settlements/preview?settlement_project_id=${projectId}&worker_ids=all`,
+        "GET"
+      );
+      return (res?.data || res) as SettlementPreview;
+    },
+    onSuccess: (data) => {
+      setPreview(data);
+      if (data?.workers) {
+        const uniqueWorkers = new Set(data.workers.map((w: WorkerBalance) => w.worker_id));
+        setSelectedWorkers(uniqueWorkers);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "خطأ",
+        description: error?.message || "فشل في تحميل معاينة التصفية",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const executeMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/worker-settlements/execute", "POST", {
+        settlement_project_id: settlementProjectId,
+        worker_ids: Array.from(selectedWorkers),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "تم بنجاح",
+        description: "تمت تصفية حسابات العمال بنجاح",
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100",
+      });
+      setPreview(null);
+      setSettlementProjectId("");
+      setSelectedWorkers(new Set());
+      queryClient.invalidateQueries({ queryKey: ["/api/worker-settlements"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+      setActiveView("history");
+      setFilterValues({ view: "history" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "خطأ في التصفية",
+        description: error?.message || "فشل في تنفيذ التصفية",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const { data: settlementsData, isLoading: settlementsLoading } = useQuery<{
+    data: SettlementRecord[];
+    total: number;
+  }>({
+    queryKey: ["/api/worker-settlements", historyPage],
+    queryFn: async () => {
+      const res = await apiRequest(
+        `/api/worker-settlements?page=${historyPage}&limit=20`,
+        "GET"
+      );
+      return res?.data ? res : { data: Array.isArray(res) ? res : [], total: 0 };
+    },
+    enabled: activeView === "history",
+  });
+
+  const settlements = useMemo(() => {
+    if (Array.isArray(settlementsData?.data)) return settlementsData.data;
+    if (Array.isArray(settlementsData)) return settlementsData as unknown as SettlementRecord[];
+    return [];
+  }, [settlementsData]);
+
+  const { data: detailData, isLoading: detailLoading } = useQuery<SettlementRecord>({
+    queryKey: ["/api/worker-settlements", expandedSettlement],
+    queryFn: async () => {
+      const res = await apiRequest(`/api/worker-settlements/${expandedSettlement}`, "GET");
+      return (res?.data || res) as SettlementRecord;
+    },
+    enabled: !!expandedSettlement,
+  });
+
+  const groupedWorkers = useMemo(() => {
+    if (!preview?.workers) return [];
+    const groups: Record<string, WorkerBalance[]> = {};
+    for (const w of preview.workers) {
+      if (!groups[w.worker_id]) groups[w.worker_id] = [];
+      groups[w.worker_id].push(w);
+    }
+    return Object.entries(groups);
+  }, [preview]);
+
+  const filteredGroupedWorkers = useMemo(() => {
+    if (!searchValue.trim()) return groupedWorkers;
+    return groupedWorkers.filter(([, balances]) =>
+      balances.some(
+        (b) =>
+          b.worker_name.toLowerCase().includes(searchValue.toLowerCase()) ||
+          b.project_name.toLowerCase().includes(searchValue.toLowerCase())
+      )
+    );
+  }, [groupedWorkers, searchValue]);
+
+  const selectedSummary = useMemo(() => {
+    if (!preview?.workers) return { amount: 0, count: 0 };
+    const selected = preview.workers.filter((w) => selectedWorkers.has(w.worker_id));
+    const uniqueIds = new Set(selected.map((w) => w.worker_id));
+    const amount = selected.reduce((sum, w) => sum + Math.abs(w.balance), 0);
+    return { amount, count: uniqueIds.size };
+  }, [preview, selectedWorkers]);
+
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
+    if (activeView === "new" && preview) {
+      return [
+        {
+          columns: 3,
+          gap: "sm",
+          items: [
+            {
+              key: "totalAmount",
+              label: "إجمالي التصفية",
+              value: formatCurrency(preview.summary?.total_amount || 0),
+              icon: DollarSign,
+              color: "green",
+            },
+            {
+              key: "workerCount",
+              label: "عدد العمال",
+              value: preview.summary?.worker_count || 0,
+              icon: Users,
+              color: "blue",
+            },
+            {
+              key: "transferCount",
+              label: "عدد التحويلات",
+              value: preview.summary?.transfer_count || 0,
+              icon: ArrowLeftRight,
+              color: "purple",
+            },
+          ],
+        },
+      ];
+    }
+    if (activeView === "history") {
+      return [
+        {
+          columns: 3,
+          gap: "sm",
+          items: [
+            {
+              key: "totalSettlements",
+              label: "عدد التصفيات",
+              value: settlements.length,
+              icon: Scale,
+              color: "blue",
+            },
+            {
+              key: "totalSettled",
+              label: "إجمالي المبالغ",
+              value: formatCurrency(settlements.reduce((s, r) => s + (parseFloat(String(r.total_amount)) || 0), 0)),
+              icon: DollarSign,
+              color: "green",
+            },
+            {
+              key: "totalWorkers",
+              label: "إجمالي العمال",
+              value: settlements.reduce((s, r) => s + (r.worker_count || 0), 0),
+              icon: Users,
+              color: "purple",
+            },
+          ],
+        },
+      ];
+    }
+    return [];
+  }, [activeView, preview, settlements]);
+
+  const filtersConfig: FilterConfig[] = useMemo(
+    () => [
+      {
+        key: "view",
+        label: "العرض",
+        type: "select",
+        defaultValue: "new",
+        options: [
+          { value: "new", label: "تصفية جديدة" },
+          { value: "history", label: "سجل التصفيات" },
+        ],
+      },
+    ],
+    []
+  );
+
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    setFilterValues((prev) => ({ ...prev, [key]: value }));
+    if (key === "view") {
+      setActiveView(value as "new" | "history");
+    }
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setFilterValues({ view: "new" });
+    setActiveView("new");
+    setSearchValue("");
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      if (activeView === "history") {
+        await queryClient.invalidateQueries({ queryKey: ["/api/worker-settlements"] });
+      }
+      if (preview && settlementProjectId) {
+        previewMutation.mutate(settlementProjectId);
+      }
+      toast({ title: "تم التحديث", description: "تم تحديث البيانات بنجاح" });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [activeView, preview, settlementProjectId]);
+
+  const handlePreview = useCallback(() => {
+    if (!settlementProjectId) {
+      toast({
+        title: "خطأ",
+        description: "الرجاء اختيار مشروع التصفية",
+        variant: "destructive",
+      });
+      return;
+    }
+    previewMutation.mutate(settlementProjectId);
+  }, [settlementProjectId]);
+
+  const toggleWorker = useCallback((workerId: string) => {
+    setSelectedWorkers((prev) => {
+      const next = new Set(prev);
+      if (next.has(workerId)) next.delete(workerId);
+      else next.add(workerId);
+      return next;
+    });
+  }, []);
+
+  const toggleAllWorkers = useCallback(() => {
+    if (!preview?.workers) return;
+    const allWorkerIds = new Set(preview.workers.map((w) => w.worker_id));
+    if (selectedWorkers.size === allWorkerIds.size) {
+      setSelectedWorkers(new Set());
+    } else {
+      setSelectedWorkers(allWorkerIds);
+    }
+  }, [preview, selectedWorkers]);
+
+  const handleNewSettlement = useCallback(() => {
+    setActiveView("new");
+    setFilterValues({ view: "new" });
+    setPreview(null);
+    setSettlementProjectId("");
+    setSelectedWorkers(new Set());
+  }, []);
+
+  useEffect(() => {
+    setFloatingAction(handleNewSettlement, "تصفية جديدة");
+    return () => setFloatingAction(null);
+  }, [setFloatingAction, handleNewSettlement]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return (
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 no-default-hover-elevate no-default-active-elevate">
+            مكتملة
+          </Badge>
+        );
+      case "reversed":
+        return (
+          <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 no-default-hover-elevate no-default-active-elevate">
+            ملغاة
+          </Badge>
+        );
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-4 space-y-4" dir="rtl">
+      <UnifiedFilterDashboard
+        hideHeader={true}
+        title=""
+        subtitle=""
+        statsRows={statsRowsConfig}
+        filters={filtersConfig}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        onSearchChange={setSearchValue}
+        searchValue={searchValue}
+        searchPlaceholder="ابحث عن عامل أو مشروع..."
+        showSearch={activeView === "new" && !!preview}
+        onReset={handleResetFilters}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
+
+      {activeView === "new" && (
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                <div className="flex-1 w-full sm:w-auto space-y-2">
+                  <label className="text-sm font-medium text-muted-foreground">مشروع التصفية</label>
+                  <Select
+                    value={settlementProjectId}
+                    onValueChange={(v) => {
+                      setSettlementProjectId(v);
+                      setPreview(null);
+                      setSelectedWorkers(new Set());
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-settlement-project" className="text-sm">
+                      <SelectValue placeholder="اختر مشروع التصفية" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.isArray(projects) &&
+                        projects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={handlePreview}
+                  disabled={!settlementProjectId || previewMutation.isPending}
+                  className="w-full sm:w-auto"
+                  data-testid="button-preview-settlement"
+                >
+                  {previewMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  ) : (
+                    <Eye className="h-4 w-4 ml-2" />
+                  )}
+                  معاينة التصفية
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {previewMutation.isPending && (
+            <Card>
+              <CardContent className="text-center py-12">
+                <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+                <p className="text-muted-foreground">جاري تحميل معاينة التصفية...</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {preview && !previewMutation.isPending && (
+            <>
+              {preview.warnings && preview.warnings.length > 0 && (
+                <Alert className="border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      {preview.warnings.map((w, i) => (
+                        <p key={i} className="text-sm text-yellow-700 dark:text-yellow-300">
+                          {w}
+                        </p>
+                      ))}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={
+                      groupedWorkers.length > 0 &&
+                      selectedWorkers.size === new Set(preview.workers.map((w) => w.worker_id)).size
+                    }
+                    onCheckedChange={toggleAllWorkers}
+                    data-testid="checkbox-select-all-workers"
+                  />
+                  <span className="text-sm font-medium">تحديد الكل ({groupedWorkers.length} عامل)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate">
+                    المحدد: {selectedSummary.count} عمال
+                  </Badge>
+                  <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 no-default-hover-elevate no-default-active-elevate">
+                    {formatCurrency(selectedSummary.amount)}
+                  </Badge>
+                </div>
+              </div>
+
+              <UnifiedCardGrid columns={2}>
+                {filteredGroupedWorkers.map(([workerId, balances]) => {
+                  const workerName = balances[0]?.worker_name || "عامل";
+                  const totalBalance = balances.reduce((s, b) => s + b.balance, 0);
+                  const isSelected = selectedWorkers.has(workerId);
+
+                  return (
+                    <div key={workerId} className="relative">
+                      <div
+                        className={`absolute top-3 right-3 z-10`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleWorker(workerId)}
+                          data-testid={`checkbox-worker-${workerId}`}
+                        />
+                      </div>
+                      <UnifiedCard
+                        title={workerName}
+                        subtitle={`${balances.length} مشاريع`}
+                        titleIcon={User}
+                        headerColor={isSelected ? "#3b82f6" : "#94a3b8"}
+                        badges={[
+                          {
+                            label: totalBalance >= 0 ? "رصيد موجب" : "رصيد سالب",
+                            variant: totalBalance >= 0 ? "success" : "destructive",
+                          },
+                        ]}
+                        fields={balances.map((b) => ({
+                          label: b.project_name,
+                          value: formatCurrency(b.balance),
+                          icon: Building,
+                          color: (b.balance > 0 ? "success" : b.balance < 0 ? "danger" : "muted") as "success" | "danger" | "muted",
+                        }))}
+                        footer={
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400">المستحقات</p>
+                              <p className="text-xs font-bold text-green-600 dark:text-green-400">
+                                {formatCurrency(balances.reduce((s, b) => s + b.earned, 0))}
+                              </p>
+                            </div>
+                            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center">
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400">المدفوع</p>
+                              <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
+                                {formatCurrency(balances.reduce((s, b) => s + b.paid + b.transferred, 0))}
+                              </p>
+                            </div>
+                            <div
+                              className={`${totalBalance >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"} rounded-lg p-2 text-center`}
+                            >
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
+                              <p
+                                className={`text-xs font-bold ${totalBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}
+                              >
+                                {formatCurrency(totalBalance)}
+                              </p>
+                            </div>
+                          </div>
+                        }
+                        data-testid={`card-worker-settlement-${workerId}`}
+                      />
+                    </div>
+                  );
+                })}
+              </UnifiedCardGrid>
+
+              {filteredGroupedWorkers.length === 0 && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+                    <p className="text-muted-foreground">لا توجد أرصدة للتصفية</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {preview.fund_transfers && preview.fund_transfers.length > 0 && (
+                <Card>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <ArrowLeftRight className="h-4 w-4" />
+                      تحويلات الصناديق بين المشاريع
+                    </div>
+                    <div className="space-y-2">
+                      {preview.fund_transfers.map((ft, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/30 border"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Badge variant="outline" className="shrink-0 no-default-hover-elevate no-default-active-elevate">
+                              {ft.from_project_name}
+                            </Badge>
+                            <ArrowLeftRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <Badge variant="outline" className="shrink-0 no-default-hover-elevate no-default-active-elevate">
+                              {ft.to_project_name}
+                            </Badge>
+                          </div>
+                          <span className="font-bold text-sm text-primary shrink-0">
+                            {formatCurrency(ft.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex items-center justify-between flex-wrap gap-3 p-3 rounded-lg bg-muted/30 border">
+                <p className="text-sm text-muted-foreground">
+                  تم اختيار{" "}
+                  <span className="font-bold text-foreground">{selectedSummary.count}</span> عمال بإجمالي{" "}
+                  <span className="font-bold text-foreground">{formatCurrency(selectedSummary.amount)}</span>
+                </p>
+                <Button
+                  onClick={() => setShowConfirmDialog(true)}
+                  disabled={selectedWorkers.size === 0 || executeMutation.isPending}
+                  data-testid="button-execute-settlement"
+                >
+                  {executeMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  ) : (
+                    <Play className="h-4 w-4 ml-2" />
+                  )}
+                  تنفيذ التصفية
+                </Button>
+              </div>
+
+              <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>تأكيد التصفية</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      هل أنت متأكد من تصفية حساب {selectedSummary.count} عمال بإجمالي{" "}
+                      {formatCurrency(selectedSummary.amount)}؟
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="flex gap-2 flex-row-reverse">
+                    <AlertDialogAction
+                      onClick={() => executeMutation.mutate()}
+                      disabled={executeMutation.isPending}
+                      data-testid="button-confirm-settlement"
+                    >
+                      {executeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+                      تأكيد
+                    </AlertDialogAction>
+                    <AlertDialogCancel data-testid="button-cancel-settlement">إلغاء</AlertDialogCancel>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          )}
+        </div>
+      )}
+
+      {activeView === "history" && (
+        <div className="space-y-4">
+          {settlementsLoading ? (
+            <Card>
+              <CardContent className="text-center py-12">
+                <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+                <p className="text-muted-foreground">جاري تحميل سجل التصفيات...</p>
+              </CardContent>
+            </Card>
+          ) : settlements.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Scale className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+                <h3 className="text-lg font-medium text-foreground mb-2">لا توجد تصفيات سابقة</h3>
+                <p className="text-muted-foreground mb-4">لم يتم إجراء أي تصفيات بعد</p>
+                <Button
+                  onClick={handleNewSettlement}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-start-new-settlement"
+                >
+                  <Plus className="h-4 w-4 ml-2" />
+                  تصفية جديدة
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <UnifiedCardGrid columns={2}>
+                {settlements.map((s) => (
+                  <div key={s.id}>
+                    <UnifiedCard
+                      title={s.settlement_project_name || "مشروع غير معروف"}
+                      subtitle={formatDate(s.created_at)}
+                      titleIcon={Building}
+                      headerColor={s.status === "completed" ? "#22c55e" : s.status === "reversed" ? "#ef4444" : "#94a3b8"}
+                      badges={[
+                        {
+                          label: s.status === "completed" ? "مكتملة" : s.status === "reversed" ? "ملغاة" : s.status,
+                          variant: s.status === "completed" ? "success" : s.status === "reversed" ? "destructive" : "secondary",
+                        },
+                      ]}
+                      fields={[
+                        {
+                          label: "عدد العمال",
+                          value: `${s.worker_count} عامل`,
+                          icon: Users,
+                          color: "info",
+                        },
+                        {
+                          label: "إجمالي المبلغ",
+                          value: formatCurrency(s.total_amount),
+                          icon: DollarSign,
+                          emphasis: true,
+                          color: "success",
+                        },
+                      ]}
+                      actions={[
+                        {
+                          icon: expandedSettlement === s.id ? ChevronUp : ChevronDown,
+                          label: expandedSettlement === s.id ? "إخفاء التفاصيل" : "عرض التفاصيل",
+                          onClick: () => setExpandedSettlement((prev) => (prev === s.id ? null : s.id)),
+                          color: "blue",
+                        },
+                      ]}
+                      footer={
+                        expandedSettlement === s.id ? (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">تفاصيل التصفية:</p>
+                            {detailLoading ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                              </div>
+                            ) : detailData?.lines && detailData.lines.length > 0 ? (
+                              <div className="space-y-1">
+                                {detailData.lines.map((line, i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center justify-between p-2 rounded bg-muted/40 text-xs"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <User className="h-3 w-3 text-muted-foreground" />
+                                      <span className="font-medium">{line.worker_name}</span>
+                                      <span className="text-muted-foreground">• {line.project_name}</span>
+                                    </div>
+                                    <span className="font-bold text-primary">{formatCurrency(line.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground text-center py-2">لا توجد تفاصيل</p>
+                            )}
+                          </div>
+                        ) : undefined
+                      }
+                      data-testid={`card-settlement-${s.id}`}
+                    />
+                  </div>
+                ))}
+              </UnifiedCardGrid>
+
+              {settlements.length > 0 && (
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={historyPage <= 1}
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    data-testid="button-prev-page"
+                  >
+                    السابق
+                  </Button>
+                  <span className="text-sm text-muted-foreground">صفحة {historyPage}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHistoryPage((p) => p + 1)}
+                    disabled={settlements.length < 20}
+                    data-testid="button-next-page"
+                  >
+                    التالي
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

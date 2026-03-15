@@ -2015,6 +2015,41 @@ export const insertWhatsappBotSettingsSchema = createInsertSchema(whatsappBotSet
 export type WhatsappBotSettings = typeof whatsappBotSettings.$inferSelect;
 export type InsertWhatsappBotSettings = z.infer<typeof insertWhatsappBotSettingsSchema>;
 
+// Worker Settlements (تصفية حساب العمال)
+export const workerSettlements = pgTable("worker_settlements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  settlementDate: text("settlement_date").notNull(),
+  settlementProjectId: varchar("settlement_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).default('0').notNull(),
+  workerCount: integer("worker_count").default(0).notNull(),
+  transferCount: integer("transfer_count").default(0).notNull(),
+  status: text("status").notNull().default("completed"),
+  notes: text("notes"),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Worker Settlement Lines (تفاصيل تصفية حساب العمال)
+export const workerSettlementLines = pgTable("worker_settlement_lines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  settlementId: varchar("settlement_id").notNull().references(() => workerSettlements.id, { onDelete: "cascade" }),
+  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  fromProjectId: varchar("from_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  toProjectId: varchar("to_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
+  balanceBefore: decimal("balance_before", { precision: 15, scale: 2 }).default('0').notNull(),
+  balanceAfter: decimal("balance_after", { precision: 15, scale: 2 }).default('0').notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertWorkerSettlementSchema = createInsertSchema(workerSettlements).omit({ id: true, created_at: true });
+export type WorkerSettlement = typeof workerSettlements.$inferSelect;
+export type InsertWorkerSettlement = z.infer<typeof insertWorkerSettlementSchema>;
+
+export const insertWorkerSettlementLineSchema = createInsertSchema(workerSettlementLines).omit({ id: true, created_at: true });
+export type WorkerSettlementLine = typeof workerSettlementLines.$inferSelect;
+export type InsertWorkerSettlementLine = z.infer<typeof insertWorkerSettlementLineSchema>;
+
 export const SYNCABLE_TABLES = [
   'project_types', 'projects', 'workers', 'wells',
   'fund_transfers', 'worker_attendance', 'suppliers', 'materials', 'material_purchases',
@@ -2028,6 +2063,7 @@ export const SYNCABLE_TABLES = [
   'well_tasks', 'well_task_accounts', 'well_expenses', 'well_audit_logs', 'material_categories',
   'well_work_crews', 'well_crew_workers', 'well_solar_components', 'well_transport_details', 'well_receptions',
   'equipment', 'equipment_movements',
+  'worker_settlements', 'worker_settlement_lines',
 ] as const;
 
 export type SyncableTable = (typeof SYNCABLE_TABLES)[number];
@@ -2077,6 +2113,8 @@ export const SERVER_TO_IDB_TABLE_MAP: Record<string, string> = {
   'well_receptions': 'wellReceptions',
   'equipment_movements': 'equipmentMovements',
   'auth_request_nonces': 'authRequestNonces',
+  'worker_settlements': 'workerSettlements',
+  'worker_settlement_lines': 'workerSettlementLines',
 };
 
 export interface ErrorLog {

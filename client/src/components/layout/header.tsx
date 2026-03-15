@@ -1,4 +1,4 @@
-import { HardHat, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, Wrench, FolderOpen, CheckCircle2, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, Database, Sun, Moon, Settings, Bell, Shield, RefreshCw, BarChart3, Wifi, WifiOff, ChevronDown } from "lucide-react";
+import { HardHat, Home, Building2, Users, Truck, UserCheck, DollarSign, Calculator, Package, ArrowLeftRight, FileText, Wrench, FolderOpen, CheckCircle2, Layers, Activity, Wallet, MessageSquare, Lock, FileBarChart, Cloud, CloudOff, Database, Sun, Moon, Settings, Bell, Shield, RefreshCw, BarChart3, Wifi, WifiOff, ChevronDown, Scale } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -57,6 +57,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/admin/system': { title: 'لوحة إدارة النظام المركزية', icon: Settings },
   '/whatsapp-setup': { title: 'ربط الواتساب', icon: MessageSquare },
   '/admin/permissions': { title: 'إدارة الصلاحيات', icon: Lock },
+  '/worker-settlements': { title: 'تصفية حساب العمال', icon: Scale },
 };
 
 export default function Header() {

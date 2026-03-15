@@ -72,6 +72,7 @@ import { SyncStatusIndicator } from "./components/sync-status";
 import { EnvironmentBadge } from "./components/layout/EnvironmentBadge";
 
 const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
+const WorkerSettlementsPage = lazy(() => import("./pages/worker-settlements"));
 const SuppliersProPage = lazy(() => import("./pages/suppliers-professional"));
 const CustomersPage = lazy(() => import("./pages/customers"));
 const SupplierAccountsPage = lazy(() => import("./pages/supplier-accounts"));
@@ -210,6 +211,11 @@ function Router() {
       <Route path="/worker-accounts">
         <Suspense fallback={<PageLoader />}>
           <WorkerAccountsPage />
+        </Suspense>
+      </Route>
+      <Route path="/worker-settlements">
+        <Suspense fallback={<PageLoader />}>
+          <WorkerSettlementsPage />
         </Suspense>
       </Route>
       <Route path="/suppliers-pro">

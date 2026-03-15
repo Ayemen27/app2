@@ -192,4 +192,8 @@ export const QUERY_KEYS = {
     ["/api/worker-project-wages", worker_id] as const,
   workerProjectWagesByProject: (project_id: string) =>
     ["/api/worker-project-wages/by-project", project_id] as const,
+
+  workerSettlements: ["/api/worker-settlements"] as const,
+  workerSettlementDetail: (id: string) =>
+    ["/api/worker-settlements", id] as const,
 } as const;

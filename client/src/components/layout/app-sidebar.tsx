@@ -2,7 +2,7 @@ import {
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
   ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText, KeyRound,
-  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit
+  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale
 } from "lucide-react";
 import { 
   Sidebar,
@@ -57,6 +57,7 @@ const sections: SidebarSection[] = [
       { title: "إدارة العمال", url: "/workers", icon: Users },
       { title: "حضور العمال", url: "/worker-attendance", icon: UserCheck },
       { title: "حسابات العمال", url: "/worker-accounts", icon: Wallet },
+      { title: "تصفية الحسابات", url: "/worker-settlements", icon: Scale },
       { title: "سجل العمليات", url: "/project-transactions", icon: FileText, adminOnly: true },
     ]
   },

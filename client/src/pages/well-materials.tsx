@@ -459,7 +459,7 @@ export default function WellMaterialsPage() {
                       </div>
                       <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs">
                         <span>مراوح: <b className="text-foreground">{getVal(s, "fanCount", "fan_count")}</b></span>
-                        <span>غطاس: <b className="text-foreground">{(s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "لا"}</b></span>
+                        <span>غطاس: <b className="text-foreground">{(s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "-"}</b></span>
                         <span>أنفرتر: <b className="text-foreground">{getVal(s, "inverter", "inverter")}</b></span>
                         <span>صندوق تجميع: <b className="text-foreground">{getVal(s, "collectionBox", "collection_box")}</b></span>
                         <span>شيال كربون: <b className="text-foreground">{getVal(s, "carbonCarrier", "carbon_carrier")}</b></span>
@@ -476,8 +476,21 @@ export default function WellMaterialsPage() {
                         <span>كيبل 16×3: <b className="text-foreground">{getVal(s, "cable16x3mmLength", "cable_16x3mm_length")}</b></span>
                         <span>كيبل 10×2: <b className="text-foreground">{getVal(s, "cable10x2mmLength", "cable_10x2mm_length")}</b></span>
                         <span>مواسير إضافية: <b className="text-foreground">{getVal(s, "extraPipes", "extra_pipes")}</b></span>
-                        <span>كيبل إضافي: <b className="text-foreground">{getVal(s, "extraCable", "extra_cable")}</b></span>
                       </div>
+                      {(() => {
+                        const extraCableVal = Number(s?.extraCable ?? s?.extra_cable ?? 0);
+                        return extraCableVal > 0 ? (
+                          <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-700 rounded-lg p-2 mt-1.5 flex items-center gap-2 animate-pulse-once">
+                            <Zap className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                            <span className="text-xs font-bold text-orange-700 dark:text-orange-300">
+                              كيبل إضافي: {extraCableVal} م
+                              {(s?.extraCableReason || s?.extra_cable_reason) && (
+                                <span className="font-normal text-orange-600 dark:text-orange-400 mr-1">({s.extraCableReason || s.extra_cable_reason})</span>
+                              )}
+                            </span>
+                          </div>
+                        ) : null;
+                      })()}
                       {(s?.notes || well.notes) && (
                         <div className="text-xs text-muted-foreground border-t pt-1 mt-1">
                           ملاحظات: {s?.notes || well.notes}

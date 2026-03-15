@@ -64,6 +64,36 @@ wellRouter.get('/', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/wells/export/full-data - جلب بيانات الآبار الكاملة للتصدير والصفحات المستقلة
+ */
+wellRouter.get('/export/full-data', async (req: Request, res: Response) => {
+  try {
+    const { project_id } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const filteredProjectId = project_id === 'all' || !project_id ? undefined : (project_id as string);
+
+    if (!isAdminUser && filteredProjectId && !accessibleIds.includes(filteredProjectId)) {
+      return res.json({ success: true, data: [], message: 'لا توجد بيانات متاحة' });
+    }
+
+    let data = await WellService.getWellsFullExportData(filteredProjectId);
+
+    if (!isAdminUser) {
+      const idSet = new Set(accessibleIds);
+      data = data.filter((w: any) => w.project_id && idSet.has(w.project_id));
+    }
+
+    res.json({ success: true, data, message: `تم جلب بيانات ${data.length} بئر بنجاح` });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب بيانات التصدير الكاملة:', error);
+    res.status(500).json({ success: false, error: 'EXPORT_DATA_ERROR', message: error.message || 'فشل في جلب بيانات التصدير' });
+  }
+});
+
+/**
  * GET /api/wells/:id - جلب بئر محدد
  */
 wellRouter.get('/:id', async (req: Request, res: Response) => {
@@ -849,33 +879,6 @@ wellRouter.delete('/receptions/:receptionId', async (req: Request, res: Response
     res.json({ success: true, message: 'تم حذف سجل الاستلام بنجاح' });
   } catch (error: any) {
     res.status(400).json({ success: false, error: 'RECEPTION_DELETE_ERROR', message: error.message || 'فشل في حذف سجل الاستلام' });
-  }
-});
-
-wellRouter.get('/export/full-data', async (req: Request, res: Response) => {
-  try {
-    const { project_id } = req.query;
-    const accessReq = req as ProjectAccessRequest;
-    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
-    const accessibleIds = accessReq.accessibleProjectIds ?? [];
-
-    const filteredProjectId = project_id === 'all' || !project_id ? undefined : (project_id as string);
-
-    if (!isAdminUser && filteredProjectId && !accessibleIds.includes(filteredProjectId)) {
-      return res.json({ success: true, data: [], message: 'لا توجد بيانات متاحة' });
-    }
-
-    let data = await WellService.getWellsFullExportData(filteredProjectId);
-
-    if (!isAdminUser) {
-      const idSet = new Set(accessibleIds);
-      data = data.filter((w: any) => w.project_id && idSet.has(w.project_id));
-    }
-
-    res.json({ success: true, data, message: `تم جلب بيانات ${data.length} بئر بنجاح` });
-  } catch (error: any) {
-    console.error('❌ خطأ في جلب بيانات التصدير الكاملة:', error);
-    res.status(500).json({ success: false, error: 'EXPORT_DATA_ERROR', message: error.message || 'فشل في جلب بيانات التصدير' });
   }
 });
 

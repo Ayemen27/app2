@@ -77,6 +77,9 @@ const sections: SidebarSection[] = [
     icon: Calculator,
     items: [
       { title: "إدارة الآبار", url: "/wells", icon: MapPin },
+      { title: "الفرق والنقل", url: "/wells/crews", icon: Users },
+      { title: "المواد والمنظومات", url: "/wells/materials", icon: Package },
+      { title: "الاستلام والفحص", url: "/wells/receptions", icon: UserCheck },
       { title: "محاسبة الآبار", url: "/well-accounting", icon: Calculator },
       { title: "تقرير التكلفة", url: "/well-cost-report", icon: BarChart3 },
       { title: "المصاريف اليومية", url: "/daily-expenses", icon: Calculator },

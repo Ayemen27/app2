@@ -1,0 +1,736 @@
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useSelectedProject } from "@/hooks/use-selected-project";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { QUERY_KEYS } from "@/constants/queryKeys";
+import { createProfessionalReport } from "@/utils/axion-export";
+import {
+  Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench
+} from "lucide-react";
+
+const CREW_TYPES = [
+  { value: "welding", label: "تلحيم العمدان" },
+  { value: "steel_installation", label: "تركيب حديد" },
+  { value: "panel_installation", label: "تركيب ألواح" },
+];
+
+const CREW_TYPE_MAP: Record<string, string> = {
+  welding: "تلحيم العمدان",
+  steel_installation: "تركيب حديد",
+  panel_installation: "تركيب ألواح",
+};
+
+const REGIONS = [
+  'دار حمدين', 'بيت الشعيب', 'الشبيطا', 'الحندج',
+  'محيران', 'جربياح', 'الربعي', 'بيت الزين'
+];
+
+interface WellFullData {
+  id: number;
+  wellNumber: number;
+  ownerName: string;
+  region: string;
+  numberOfBases: number;
+  numberOfPanels: number;
+  wellDepth: number;
+  waterLevel?: number;
+  numberOfPipes: number;
+  project_id: string;
+  crews: any[];
+  transport: any[];
+}
+
+export default function WellCrewsPage() {
+  const { selectedProjectId } = useSelectedProject();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { setFloatingAction } = useFloatingButton();
+
+  const [searchValue, setSearchValue] = useState('');
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({
+    region: 'all', crewType: 'all'
+  });
+  const [showCrewForm, setShowCrewForm] = useState(false);
+  const [showTransportForm, setShowTransportForm] = useState(false);
+  const [editingCrew, setEditingCrew] = useState<any>(null);
+  const [editingTransport, setEditingTransport] = useState<any>(null);
+  const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const emptyCrewForm = {
+    crewType: "", teamName: "", workersCount: 0, mastersCount: 0,
+    workDays: "", workerDailyWage: "", masterDailyWage: "", totalWages: "",
+    workDate: "", notes: "",
+  };
+  const [crewForm, setCrewForm] = useState(emptyCrewForm);
+
+  const emptyTransportForm = {
+    railType: "", withPanels: false, transportPrice: "",
+    crewDues: "", notes: "",
+  };
+  const [transportForm, setTransportForm] = useState(emptyTransportForm);
+
+  const { data: fullData = [], isLoading } = useQuery({
+    queryKey: ["wells-full-data", selectedProjectId],
+    queryFn: async () => {
+      const projectParam = selectedProjectId && selectedProjectId !== 'all'
+        ? `?project_id=${selectedProjectId}` : '';
+      const res = await apiRequest(`/api/wells/export/full-data${projectParam}`);
+      return res.data || [];
+    },
+    enabled: !!selectedProjectId,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    const handleFloatingAction = () => {
+      if (fullData.length > 0) {
+        setSelectedWellId(fullData[0].id);
+        setShowCrewForm(true);
+      } else {
+        toast({ title: "لا توجد آبار", description: "يرجى إضافة آبار أولاً", variant: "destructive" });
+      }
+    };
+    setFloatingAction(handleFloatingAction, '+ فريق جديد');
+    return () => { setFloatingAction(null); };
+  }, [setFloatingAction, fullData]);
+
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setSearchValue('');
+    setFilterValues({ region: 'all', crewType: 'all' });
+  }, []);
+
+  const filteredData = useMemo(() => {
+    return (fullData as WellFullData[]).filter((well) => {
+      const matchesSearch =
+        well.ownerName?.toLowerCase().includes(searchValue.toLowerCase()) ||
+        String(well.wellNumber).includes(searchValue);
+      const matchesRegion = filterValues.region === 'all' || well.region === filterValues.region;
+      const matchesCrewType = filterValues.crewType === 'all' ||
+        well.crews?.some((c: any) => (c.crewType || c.crew_type) === filterValues.crewType);
+      return matchesSearch && matchesRegion && matchesCrewType;
+    });
+  }, [fullData, searchValue, filterValues]);
+
+  const stats = useMemo(() => {
+    const allCrews = filteredData.flatMap(w => w.crews || []);
+    const allTransport = filteredData.flatMap(w => w.transport || []);
+    const totalWorkDays = allCrews.reduce((sum, c) => sum + (Number(c.workDays || c.work_days) || 0), 0);
+    const totalWages = allCrews.reduce((sum, c) => sum + (Number(c.totalWages || c.total_wages) || 0), 0);
+    const totalTransportCost = allTransport.reduce((sum, t) => sum + (Number(t.transportPrice || t.transport_price) || 0), 0);
+
+    return {
+      wellCount: filteredData.length,
+      crewCount: allCrews.length,
+      totalWorkDays,
+      totalWages,
+      transportCount: allTransport.length,
+      totalTransportCost,
+    };
+  }, [filteredData]);
+
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        { key: 'wells', label: 'عدد الآبار', value: stats.wellCount, icon: BarChart3, color: 'blue' },
+        { key: 'crews', label: 'إجمالي الفرق', value: stats.crewCount, icon: Users, color: 'indigo' },
+        { key: 'workDays', label: 'إجمالي أيام العمل', value: stats.totalWorkDays, icon: Calendar, color: 'green' },
+      ]
+    },
+    {
+      columns: 3,
+      gap: 'sm',
+      items: [
+        { key: 'wages', label: 'إجمالي الأجور', value: `${stats.totalWages.toLocaleString()} ريال`, icon: Wrench, color: 'orange' },
+        { key: 'transport', label: 'رحلات النقل', value: stats.transportCount, icon: Truck, color: 'amber' },
+        { key: 'transportCost', label: 'تكلفة النقل', value: `${stats.totalTransportCost.toLocaleString()} ريال`, icon: Truck, color: 'purple' },
+      ]
+    }
+  ], [stats]);
+
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'region', label: 'المنطقة', type: 'select', placeholder: 'اختر المنطقة',
+      options: [{ value: 'all', label: 'جميع المناطق' }, ...REGIONS.map(r => ({ value: r, label: r }))],
+      defaultValue: 'all'
+    },
+    {
+      key: 'crewType', label: 'نوع الفريق', type: 'select', placeholder: 'اختر نوع الفريق',
+      options: [{ value: 'all', label: 'جميع الأنواع' }, ...CREW_TYPES],
+      defaultValue: 'all'
+    },
+  ], []);
+
+  const createCrewMutation = useMutation({
+    mutationFn: async ({ wellId, data }: { wellId: number; data: any }) => {
+      return apiRequest(`/api/wells/${wellId}/crews`, 'POST', { ...data, well_id: wellId });
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم إضافة طاقم العمل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+      resetCrewForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في إضافة طاقم العمل", variant: "destructive" });
+    },
+  });
+
+  const updateCrewMutation = useMutation({
+    mutationFn: async ({ crewId, data }: { crewId: number; data: any }) => {
+      return apiRequest(`/api/wells/crews/${crewId}`, 'PUT', data);
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم تحديث طاقم العمل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+      resetCrewForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في تحديث طاقم العمل", variant: "destructive" });
+    },
+  });
+
+  const deleteCrewMutation = useMutation({
+    mutationFn: async (crewId: number) => {
+      return apiRequest(`/api/wells/crews/${crewId}`, 'DELETE');
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم حذف طاقم العمل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في حذف طاقم العمل", variant: "destructive" });
+    },
+  });
+
+  const createTransportMutation = useMutation({
+    mutationFn: async ({ wellId, data }: { wellId: number; data: any }) => {
+      return apiRequest(`/api/wells/${wellId}/transport`, 'POST', { ...data, well_id: wellId });
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم إضافة سجل النقل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+      resetTransportForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في إضافة سجل النقل", variant: "destructive" });
+    },
+  });
+
+  const updateTransportMutation = useMutation({
+    mutationFn: async ({ transportId, data }: { transportId: number; data: any }) => {
+      return apiRequest(`/api/wells/transport/${transportId}`, 'PUT', data);
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم تحديث سجل النقل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+      resetTransportForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في تحديث سجل النقل", variant: "destructive" });
+    },
+  });
+
+  const deleteTransportMutation = useMutation({
+    mutationFn: async (transportId: number) => {
+      return apiRequest(`/api/wells/transport/${transportId}`, 'DELETE');
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم حذف سجل النقل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في حذف سجل النقل", variant: "destructive" });
+    },
+  });
+
+  const resetCrewForm = () => {
+    setCrewForm(emptyCrewForm);
+    setEditingCrew(null);
+    setSelectedWellId(null);
+    setShowCrewForm(false);
+  };
+
+  const resetTransportForm = () => {
+    setTransportForm(emptyTransportForm);
+    setEditingTransport(null);
+    setSelectedWellId(null);
+    setShowTransportForm(false);
+  };
+
+  const startEditCrew = (crew: any, wellId: number) => {
+    setCrewForm({
+      crewType: crew.crewType || crew.crew_type || "",
+      teamName: crew.teamName || crew.team_name || "",
+      workersCount: crew.workersCount ?? crew.workers_count ?? 0,
+      mastersCount: crew.mastersCount ?? crew.masters_count ?? 0,
+      workDays: String(crew.workDays ?? crew.work_days ?? ""),
+      workerDailyWage: String(crew.workerDailyWage ?? crew.worker_daily_wage ?? ""),
+      masterDailyWage: String(crew.masterDailyWage ?? crew.master_daily_wage ?? ""),
+      totalWages: String(crew.totalWages ?? crew.total_wages ?? ""),
+      workDate: crew.workDate || crew.work_date || "",
+      notes: crew.notes || "",
+    });
+    setEditingCrew(crew);
+    setSelectedWellId(wellId);
+    setShowCrewForm(true);
+  };
+
+  const startEditTransport = (transport: any, wellId: number) => {
+    setTransportForm({
+      railType: transport.railType || transport.rail_type || "",
+      withPanels: transport.withPanels ?? transport.with_panels ?? false,
+      transportPrice: String(transport.transportPrice ?? transport.transport_price ?? ""),
+      crewDues: String(transport.crewDues ?? transport.crew_dues ?? ""),
+      notes: transport.notes || "",
+    });
+    setEditingTransport(transport);
+    setSelectedWellId(wellId);
+    setShowTransportForm(true);
+  };
+
+  const handleExportExcel = useCallback(async () => {
+    if (filteredData.length === 0) return;
+    setIsExporting(true);
+    try {
+      const rows: Record<string, any>[] = [];
+      let idx = 1;
+      for (const well of filteredData) {
+        const crews = well.crews || [];
+        const transports = well.transport || [];
+        const maxRows = Math.max(1, crews.length, transports.length);
+        for (let i = 0; i < maxRows; i++) {
+          const crew = crews[i];
+          const transport = transports[i];
+          rows.push({
+            index: idx++,
+            wellNumber: i === 0 ? well.wellNumber : '',
+            ownerName: i === 0 ? well.ownerName : '',
+            region: i === 0 ? well.region : '',
+            numberOfBases: i === 0 ? well.numberOfBases : '',
+            numberOfPanels: i === 0 ? well.numberOfPanels : '',
+            crewType: crew ? (CREW_TYPE_MAP[crew.crewType || crew.crew_type] || '') : '',
+            teamName: crew ? (crew.teamName || crew.team_name || '') : '',
+            workersCount: crew ? (crew.workersCount ?? crew.workers_count ?? '') : '',
+            mastersCount: crew ? (crew.mastersCount ?? crew.masters_count ?? '') : '',
+            workDays: crew ? (crew.workDays ?? crew.work_days ?? '') : '',
+            crewNotes: crew ? (crew.notes || '') : '',
+            railType: transport ? (transport.railType || transport.rail_type || '') : '',
+            withPanels: transport ? ((transport.withPanels ?? transport.with_panels) ? 'نعم' : 'لا') : '',
+            transportPrice: transport ? (Number(transport.transportPrice || transport.transport_price) || '') : '',
+            crewDues: transport ? (Number(transport.crewDues || transport.crew_dues) || '') : '',
+            transportNotes: transport ? (transport.notes || '') : '',
+          });
+        }
+      }
+
+      const success = await createProfessionalReport({
+        sheetName: 'كشف الفرق والنقل',
+        reportTitle: 'كشف حسابات العمال والنقل',
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+        infoLines: [
+          `عدد الآبار: ${stats.wellCount}`,
+          `إجمالي الفرق: ${stats.crewCount}`,
+          `إجمالي أيام العمل: ${stats.totalWorkDays}`,
+          `رحلات النقل: ${stats.transportCount}`,
+        ],
+        columns: [
+          { header: '#', key: 'index', width: 5 },
+          { header: 'رقم البئر', key: 'wellNumber', width: 10 },
+          { header: 'اسم المستفيد', key: 'ownerName', width: 18 },
+          { header: 'المنطقة', key: 'region', width: 14 },
+          { header: 'عدد القواعد', key: 'numberOfBases', width: 10 },
+          { header: 'عدد الألواح', key: 'numberOfPanels', width: 10 },
+          { header: 'نوع الفريق', key: 'crewType', width: 14 },
+          { header: 'اسم الفريق', key: 'teamName', width: 14 },
+          { header: 'عدد العمال', key: 'workersCount', width: 10 },
+          { header: 'عدد المعلمين', key: 'mastersCount', width: 10 },
+          { header: 'أيام العمل', key: 'workDays', width: 10 },
+          { header: 'ملاحظات الفريق', key: 'crewNotes', width: 16 },
+          { header: 'ريلات', key: 'railType', width: 10 },
+          { header: 'مع ألواح', key: 'withPanels', width: 10 },
+          { header: 'سعر النقل', key: 'transportPrice', width: 12, numFmt: '#,##0' },
+          { header: 'مستحقات الفريق', key: 'crewDues', width: 12, numFmt: '#,##0' },
+          { header: 'ملاحظات النقل', key: 'transportNotes', width: 16 },
+        ],
+        data: rows,
+        totals: {
+          label: 'الإجمالي',
+          values: {
+            transportPrice: stats.totalTransportCost,
+            workDays: stats.totalWorkDays,
+          },
+        },
+        fileName: `كشف_الفرق_والنقل_${new Date().toISOString().split('T')[0]}.xlsx`,
+        orientation: 'landscape',
+      });
+
+      if (success) toast({ title: "نجاح", description: "تم تصدير ملف Excel بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير ملف Excel", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في التصدير", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [filteredData, stats, toast]);
+
+  const actionsConfig: ActionButton[] = useMemo(() => [
+    {
+      key: 'export-excel',
+      icon: Download,
+      label: 'تصدير Excel',
+      onClick: handleExportExcel,
+      variant: 'outline',
+      loading: isExporting,
+      disabled: filteredData.length === 0,
+      tooltip: 'تصدير كشف الفرق والنقل إلى Excel',
+    },
+  ], [handleExportExcel, isExporting, filteredData.length]);
+
+  const resultsSummary = useMemo(() => ({
+    totalCount: (fullData as any[]).length,
+    filteredCount: filteredData.length,
+    totalLabel: 'إجمالي الآبار',
+    filteredLabel: 'نتائج البحث',
+  }), [(fullData as any[]).length, filteredData.length]);
+
+  const wellOptions = useMemo(() => {
+    return (fullData as WellFullData[]).map(w => ({
+      value: String(w.id),
+      label: `بئر #${w.wellNumber} - ${w.ownerName}`,
+    }));
+  }, [fullData]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]" data-testid="loader-crews-page">
+        <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 p-4" data-testid="page-well-crews">
+      <UnifiedFilterDashboard
+        hideHeader
+        statsRows={statsRowsConfig}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        searchPlaceholder="بحث بالاسم أو رقم البئر..."
+        filters={filtersConfig}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        onReset={handleReset}
+        actions={actionsConfig}
+        resultsSummary={resultsSummary}
+      />
+
+      <div className="space-y-4">
+        {filteredData.map((well) => (
+          <Card key={well.id} className="p-4 space-y-3" data-testid={`card-well-crews-${well.id}`}>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" data-testid={`badge-well-number-${well.id}`}>بئر #{well.wellNumber}</Badge>
+                <span className="font-semibold text-sm" data-testid={`text-owner-${well.id}`}>{well.ownerName}</span>
+                <span className="text-xs text-muted-foreground">{well.region}</span>
+                <span className="text-xs text-muted-foreground">قواعد: {well.numberOfBases}</span>
+                <span className="text-xs text-muted-foreground">ألواح: {well.numberOfPanels}</span>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setSelectedWellId(well.id); setShowCrewForm(true); }}
+                  data-testid={`button-add-crew-${well.id}`}
+                >
+                  <Plus className="h-3 w-3 ml-1" />
+                  فريق
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setSelectedWellId(well.id); setShowTransportForm(true); }}
+                  data-testid={`button-add-transport-${well.id}`}
+                >
+                  <Plus className="h-3 w-3 ml-1" />
+                  نقل
+                </Button>
+              </div>
+            </div>
+
+            {(well.crews?.length > 0 || well.transport?.length > 0) && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse" data-testid={`table-well-${well.id}`}>
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="text-right p-2 text-xs font-medium border-b">نوع الفريق</th>
+                      <th className="text-right p-2 text-xs font-medium border-b">اسم الفريق</th>
+                      <th className="text-center p-2 text-xs font-medium border-b">عمال</th>
+                      <th className="text-center p-2 text-xs font-medium border-b">معلمين</th>
+                      <th className="text-center p-2 text-xs font-medium border-b">أيام</th>
+                      <th className="text-center p-2 text-xs font-medium border-b">إجمالي</th>
+                      <th className="text-right p-2 text-xs font-medium border-b">ملاحظات</th>
+                      <th className="text-center p-2 text-xs font-medium border-b">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {well.crews?.map((crew: any) => (
+                      <tr key={`crew-${crew.id}`} className="border-b last:border-b-0" data-testid={`row-crew-${crew.id}`}>
+                        <td className="p-2 text-xs">{CREW_TYPE_MAP[crew.crewType || crew.crew_type] || (crew.crewType || crew.crew_type)}</td>
+                        <td className="p-2 text-xs">{crew.teamName || crew.team_name || '-'}</td>
+                        <td className="p-2 text-xs text-center">{crew.workersCount ?? crew.workers_count ?? 0}</td>
+                        <td className="p-2 text-xs text-center">{crew.mastersCount ?? crew.masters_count ?? 0}</td>
+                        <td className="p-2 text-xs text-center">{crew.workDays ?? crew.work_days ?? 0}</td>
+                        <td className="p-2 text-xs text-center">{Number(crew.totalWages ?? crew.total_wages ?? 0).toLocaleString()}</td>
+                        <td className="p-2 text-xs max-w-[120px] truncate">{crew.notes || '-'}</td>
+                        <td className="p-2">
+                          <div className="flex gap-1 justify-center">
+                            <Button size="icon" variant="ghost" onClick={() => startEditCrew(crew, well.id)} data-testid={`button-edit-crew-${crew.id}`}>
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => { if (confirm("حذف هذا الفريق؟")) deleteCrewMutation.mutate(crew.id); }} data-testid={`button-delete-crew-${crew.id}`}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {well.transport?.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                      <Truck className="h-3 w-3" /> النقل
+                    </div>
+                    <table className="w-full text-sm border-collapse" data-testid={`table-transport-${well.id}`}>
+                      <thead>
+                        <tr className="bg-muted/30">
+                          <th className="text-right p-2 text-xs font-medium border-b">نوع الريلات</th>
+                          <th className="text-center p-2 text-xs font-medium border-b">مع ألواح</th>
+                          <th className="text-center p-2 text-xs font-medium border-b">سعر النقل</th>
+                          <th className="text-center p-2 text-xs font-medium border-b">مستحقات الفريق</th>
+                          <th className="text-right p-2 text-xs font-medium border-b">ملاحظات</th>
+                          <th className="text-center p-2 text-xs font-medium border-b">إجراءات</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {well.transport.map((t: any) => (
+                          <tr key={`transport-${t.id}`} className="border-b last:border-b-0" data-testid={`row-transport-${t.id}`}>
+                            <td className="p-2 text-xs">{t.railType || t.rail_type || '-'}</td>
+                            <td className="p-2 text-xs text-center">{(t.withPanels ?? t.with_panels) ? 'نعم' : 'لا'}</td>
+                            <td className="p-2 text-xs text-center">{Number(t.transportPrice || t.transport_price || 0).toLocaleString()}</td>
+                            <td className="p-2 text-xs text-center">{Number(t.crewDues || t.crew_dues || 0).toLocaleString()}</td>
+                            <td className="p-2 text-xs max-w-[120px] truncate">{t.notes || '-'}</td>
+                            <td className="p-2">
+                              <div className="flex gap-1 justify-center">
+                                <Button size="icon" variant="ghost" onClick={() => startEditTransport(t, well.id)} data-testid={`button-edit-transport-${t.id}`}>
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" onClick={() => { if (confirm("حذف سجل النقل؟")) deleteTransportMutation.mutate(t.id); }} data-testid={`button-delete-transport-${t.id}`}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(!well.crews || well.crews.length === 0) && (!well.transport || well.transport.length === 0) && (
+              <p className="text-xs text-muted-foreground text-center py-2" data-testid={`text-no-data-${well.id}`}>
+                لا توجد بيانات فرق أو نقل مسجلة
+              </p>
+            )}
+          </Card>
+        ))}
+
+        {filteredData.length === 0 && (
+          <Card className="p-8">
+            <p className="text-center text-muted-foreground" data-testid="text-no-wells">لا توجد آبار مطابقة للبحث</p>
+          </Card>
+        )}
+      </div>
+
+      <Dialog open={showCrewForm} onOpenChange={(open) => { if (!open) resetCrewForm(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle data-testid="text-crew-form-title">
+              {editingCrew ? "تعديل فريق عمل" : "إضافة فريق عمل جديد"}
+            </DialogTitle>
+          </DialogHeader>
+          {!editingCrew && !selectedWellId && (
+            <div className="space-y-1">
+              <Label className="text-sm">البئر *</Label>
+              <SearchableSelect
+                value={selectedWellId ? String(selectedWellId) : ""}
+                onValueChange={(v) => setSelectedWellId(Number(v))}
+                options={wellOptions}
+                placeholder="اختر البئر"
+                data-testid="select-crew-well"
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-sm">نوع الطاقم *</Label>
+              <SearchableSelect
+                value={crewForm.crewType}
+                onValueChange={(v) => setCrewForm({ ...crewForm, crewType: v })}
+                options={CREW_TYPES}
+                placeholder="اختر نوع الطاقم"
+                data-testid="select-crew-type"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">اسم الفريق</Label>
+              <Input value={crewForm.teamName} onChange={(e) => setCrewForm({ ...crewForm, teamName: e.target.value })} placeholder="اسم الفريق" data-testid="input-crew-team-name" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">عدد العمال</Label>
+              <Input type="number" value={crewForm.workersCount || ""} onChange={(e) => setCrewForm({ ...crewForm, workersCount: parseInt(e.target.value) || 0 })} placeholder="0" data-testid="input-crew-workers" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">عدد المعلمين</Label>
+              <Input type="number" value={crewForm.mastersCount || ""} onChange={(e) => setCrewForm({ ...crewForm, mastersCount: parseInt(e.target.value) || 0 })} placeholder="0" data-testid="input-crew-masters" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">أيام العمل</Label>
+              <Input type="number" step="0.5" value={crewForm.workDays} onChange={(e) => setCrewForm({ ...crewForm, workDays: e.target.value })} placeholder="0" data-testid="input-crew-work-days" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">أجر العامل اليومي</Label>
+              <Input type="number" value={crewForm.workerDailyWage} onChange={(e) => setCrewForm({ ...crewForm, workerDailyWage: e.target.value })} placeholder="0" data-testid="input-crew-worker-wage" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">أجر المعلم اليومي</Label>
+              <Input type="number" value={crewForm.masterDailyWage} onChange={(e) => setCrewForm({ ...crewForm, masterDailyWage: e.target.value })} placeholder="0" data-testid="input-crew-master-wage" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">تاريخ العمل</Label>
+              <Input type="date" value={crewForm.workDate} onChange={(e) => setCrewForm({ ...crewForm, workDate: e.target.value })} data-testid="input-crew-work-date" />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <Label className="text-sm">ملاحظات</Label>
+              <Input value={crewForm.notes} onChange={(e) => setCrewForm({ ...crewForm, notes: e.target.value })} placeholder="ملاحظات اختيارية" data-testid="input-crew-notes" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" size="sm" onClick={resetCrewForm} data-testid="button-cancel-crew">إلغاء</Button>
+            <Button
+              size="sm"
+              disabled={!crewForm.crewType || !selectedWellId || createCrewMutation.isPending || updateCrewMutation.isPending}
+              onClick={() => {
+                if (!selectedWellId) return;
+                if (editingCrew) {
+                  updateCrewMutation.mutate({ crewId: editingCrew.id, data: crewForm });
+                } else {
+                  createCrewMutation.mutate({ wellId: selectedWellId, data: crewForm });
+                }
+              }}
+              data-testid="button-save-crew"
+            >
+              {(createCrewMutation.isPending || updateCrewMutation.isPending) ? "جاري..." : editingCrew ? "تحديث" : "حفظ"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showTransportForm} onOpenChange={(open) => { if (!open) resetTransportForm(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle data-testid="text-transport-form-title">
+              {editingTransport ? "تعديل سجل نقل" : "إضافة سجل نقل جديد"}
+            </DialogTitle>
+          </DialogHeader>
+          {!editingTransport && !selectedWellId && (
+            <div className="space-y-1">
+              <Label className="text-sm">البئر *</Label>
+              <SearchableSelect
+                value={selectedWellId ? String(selectedWellId) : ""}
+                onValueChange={(v) => setSelectedWellId(Number(v))}
+                options={wellOptions}
+                placeholder="اختر البئر"
+                data-testid="select-transport-well"
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-sm">نوع الريلات</Label>
+              <SearchableSelect
+                value={transportForm.railType}
+                onValueChange={(v) => setTransportForm({ ...transportForm, railType: v })}
+                options={[{ value: "new", label: "جديد" }, { value: "old", label: "قديم" }]}
+                placeholder="جديد / قديم"
+                data-testid="select-transport-rail-type"
+              />
+            </div>
+            <div className="space-y-1 flex items-end gap-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={transportForm.withPanels}
+                  onChange={(e) => setTransportForm({ ...transportForm, withPanels: e.target.checked })}
+                  data-testid="checkbox-transport-with-panels"
+                />
+                مع ألواح
+              </label>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">سعر النقل</Label>
+              <Input type="number" value={transportForm.transportPrice} onChange={(e) => setTransportForm({ ...transportForm, transportPrice: e.target.value })} placeholder="0" data-testid="input-transport-price" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">مستحقات الفريق</Label>
+              <Input type="number" value={transportForm.crewDues} onChange={(e) => setTransportForm({ ...transportForm, crewDues: e.target.value })} placeholder="0" data-testid="input-transport-crew-dues" />
+            </div>
+            <div className="space-y-1 col-span-2">
+              <Label className="text-sm">ملاحظات</Label>
+              <Input value={transportForm.notes} onChange={(e) => setTransportForm({ ...transportForm, notes: e.target.value })} placeholder="ملاحظات اختيارية" data-testid="input-transport-notes" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button variant="outline" size="sm" onClick={resetTransportForm} data-testid="button-cancel-transport">إلغاء</Button>
+            <Button
+              size="sm"
+              disabled={!selectedWellId || createTransportMutation.isPending || updateTransportMutation.isPending}
+              onClick={() => {
+                if (!selectedWellId) return;
+                if (editingTransport) {
+                  updateTransportMutation.mutate({ transportId: editingTransport.id, data: transportForm });
+                } else {
+                  createTransportMutation.mutate({ wellId: selectedWellId, data: transportForm });
+                }
+              }}
+              data-testid="button-save-transport"
+            >
+              {(createTransportMutation.isPending || updateTransportMutation.isPending) ? "جاري..." : editingTransport ? "تحديث" : "حفظ"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

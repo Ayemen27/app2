@@ -15,15 +15,8 @@ import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin, TrendingUp } from "lucide-react";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 
 interface WellFullData {
   id: number;
@@ -354,102 +347,84 @@ export default function WellMaterialsPage() {
           <Loader className="h-8 w-8 animate-spin text-muted-foreground" data-testid="loader-materials" />
         </div>
       ) : filteredWells.length === 0 ? (
-        <Card className="p-8">
-          <p className="text-center text-muted-foreground" data-testid="text-no-materials">
-            لا توجد بيانات آبار متاحة
-          </p>
-        </Card>
+        <div className="text-center py-12">
+          <Sun className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="text-gray-500 text-lg" data-testid="text-no-materials">لا توجد بيانات آبار متاحة</p>
+        </div>
       ) : (
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-center min-w-[40px]">م</TableHead>
-                  <TableHead className="text-center min-w-[120px]">اسم المستفيد</TableHead>
-                  <TableHead className="text-center min-w-[80px]">المنطقة</TableHead>
-                  <TableHead className="text-center min-w-[60px]">القواعد</TableHead>
-                  <TableHead className="text-center min-w-[60px]">الألواح</TableHead>
-                  <TableHead className="text-center min-w-[60px]">العمق</TableHead>
-                  <TableHead className="text-center min-w-[60px]">المنسوب</TableHead>
-                  <TableHead className="text-center min-w-[60px]">المواسير</TableHead>
-                  <TableHead className="text-center min-w-[50px]">مراوح</TableHead>
-                  <TableHead className="text-center min-w-[50px]">غطاس</TableHead>
-                  <TableHead className="text-center min-w-[50px]">أنفرتر</TableHead>
-                  <TableHead className="text-center min-w-[70px]">صندوق تجميع</TableHead>
-                  <TableHead className="text-center min-w-[70px]">شيال كربون</TableHead>
-                  <TableHead className="text-center min-w-[80px]">تحويلة استيل</TableHead>
-                  <TableHead className="text-center min-w-[70px]">ملزمة تحت</TableHead>
-                  <TableHead className="text-center min-w-[70px]">كليب تأريض</TableHead>
-                  <TableHead className="text-center min-w-[80px]">صفيحة تأريض</TableHead>
-                  <TableHead className="text-center min-w-[70px]">سيخ تأريض</TableHead>
-                  <TableHead className="text-center min-w-[80px]">سائل حراري</TableHead>
-                  <TableHead className="text-center min-w-[80px]">كيبل 6ملي</TableHead>
-                  <TableHead className="text-center min-w-[100px]">كيبل تأريض</TableHead>
-                  <TableHead className="text-center min-w-[90px]">كيبل 16×3</TableHead>
-                  <TableHead className="text-center min-w-[90px]">كيبل 10×2</TableHead>
-                  <TableHead className="text-center min-w-[70px]">مواسير+</TableHead>
-                  <TableHead className="text-center min-w-[70px]">كيبل+</TableHead>
-                  <TableHead className="text-center min-w-[100px]">ملاحظات</TableHead>
-                  <TableHead className="text-center min-w-[60px]">إجراء</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredWells.map((well: WellFullData, idx: number) => {
-                  const s = well.solar;
-                  return (
-                    <TableRow key={well.id} data-testid={`row-material-${well.id}`}>
-                      <TableCell className="text-center">{idx + 1}</TableCell>
-                      <TableCell className="text-center font-medium" data-testid={`text-owner-${well.id}`}>
-                        {well.ownerName}
-                      </TableCell>
-                      <TableCell className="text-center">{well.region || "-"}</TableCell>
-                      <TableCell className="text-center">{well.numberOfBases || 0}</TableCell>
-                      <TableCell className="text-center">{well.numberOfPanels || 0}</TableCell>
-                      <TableCell className="text-center">{well.wellDepth || 0}</TableCell>
-                      <TableCell className="text-center">{well.waterLevel || "-"}</TableCell>
-                      <TableCell className="text-center">{well.numberOfPipes || 0}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "fanCount", "fan_count")}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={(s?.submersiblePump ?? s?.submersible_pump) ? "default" : "outline"} className="text-xs" data-testid={`badge-pump-${well.id}`}>
-                          {(s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : s ? "لا" : "-"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">{getVal(s, "inverter", "inverter")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "collectionBox", "collection_box")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "carbonCarrier", "carbon_carrier")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "steelConverterTop", "steel_converter_top")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "clampConverterBottom", "clamp_converter_bottom")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "groundingClip", "grounding_clip")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "groundingPlate", "grounding_plate")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "groundingRod", "grounding_rod")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "jointThermalLiquid", "joint_thermal_liquid")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "bindingCable6mm", "binding_cable_6mm")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "groundingCable10x2mm", "grounding_cable_10x2mm")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "cable16x3mmLength", "cable_16x3mm_length")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "cable10x2mmLength", "cable_10x2mm_length")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "extraPipes", "extra_pipes")}</TableCell>
-                      <TableCell className="text-center">{getVal(s, "extraCable", "extra_cable")}</TableCell>
-                      <TableCell className="text-center text-xs text-muted-foreground max-w-[120px] truncate">
-                        {s?.notes || well.notes || "-"}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setEditingWellId(well.id)}
-                          data-testid={`button-edit-material-${well.id}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+        <UnifiedCardGrid columns={2}>
+          {filteredWells.map((well: WellFullData) => {
+            const s = well.solar;
+            return (
+              <UnifiedCard
+                key={well.id}
+                title={`بئر #${well.wellNumber} - ${well.ownerName}`}
+                subtitle={well.region}
+                titleIcon={MapPin}
+                headerColor={s ? "green" : "gray"}
+                badges={[
+                  {
+                    label: s ? "منظومة شمسية ✓" : "بدون منظومة",
+                    variant: s ? ("default" as any) : ("outline" as any),
+                  },
+                ]}
+                fields={[
+                  { label: "المنطقة", value: well.region || "-", icon: MapPin, color: "info" as const },
+                  { label: "العمق", value: `${well.wellDepth || 0}م`, icon: TrendingUp, color: "warning" as const },
+                  { label: "الألواح", value: well.numberOfPanels || 0, icon: Zap, color: "success" as const },
+                  { label: "القواعد", value: well.numberOfBases || 0, icon: BarChart3, color: "info" as const },
+                  { label: "المواسير", value: well.numberOfPipes || 0, icon: Wrench, color: "success" as const },
+                  { label: "منسوب الماء", value: well.waterLevel ? `${well.waterLevel}م` : "-", icon: TrendingUp, color: "info" as const },
+                ]}
+                footer={
+                  s ? (
+                    <div className="space-y-2 pt-1">
+                      <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                        <Sun className="h-3.5 w-3.5 text-yellow-500" /> مكونات المنظومة الشمسية
+                      </div>
+                      <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs">
+                        <span>مراوح: <b className="text-foreground">{getVal(s, "fanCount", "fan_count")}</b></span>
+                        <span>غطاس: <b className="text-foreground">{(s?.submersiblePump ?? s?.submersible_pump) ? "نعم" : "لا"}</b></span>
+                        <span>أنفرتر: <b className="text-foreground">{getVal(s, "inverter", "inverter")}</b></span>
+                        <span>صندوق تجميع: <b className="text-foreground">{getVal(s, "collectionBox", "collection_box")}</b></span>
+                        <span>شيال كربون: <b className="text-foreground">{getVal(s, "carbonCarrier", "carbon_carrier")}</b></span>
+                        <span>تحويلة استيل: <b className="text-foreground">{getVal(s, "steelConverterTop", "steel_converter_top")}</b></span>
+                        <span>ملزمة تحت: <b className="text-foreground">{getVal(s, "clampConverterBottom", "clamp_converter_bottom")}</b></span>
+                        <span>كليب تأريض: <b className="text-foreground">{getVal(s, "groundingClip", "grounding_clip")}</b></span>
+                        <span>صفيحة تأريض: <b className="text-foreground">{getVal(s, "groundingPlate", "grounding_plate")}</b></span>
+                        <span>سيخ تأريض: <b className="text-foreground">{getVal(s, "groundingRod", "grounding_rod")}</b></span>
+                        <span>سائل حراري: <b className="text-foreground">{getVal(s, "jointThermalLiquid", "joint_thermal_liquid")}</b></span>
+                        <span>كيبل 6ملي: <b className="text-foreground">{getVal(s, "bindingCable6mm", "binding_cable_6mm")}</b></span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs border-t pt-1.5 mt-1">
+                        <span>كيبل تأريض 10×2: <b className="text-foreground">{getVal(s, "groundingCable10x2mm", "grounding_cable_10x2mm")}</b></span>
+                        <span>كيبل 16×3: <b className="text-foreground">{getVal(s, "cable16x3mmLength", "cable_16x3mm_length")}</b></span>
+                        <span>كيبل 10×2: <b className="text-foreground">{getVal(s, "cable10x2mmLength", "cable_10x2mm_length")}</b></span>
+                        <span>مواسير إضافية: <b className="text-foreground">{getVal(s, "extraPipes", "extra_pipes")}</b></span>
+                        <span>كيبل إضافي: <b className="text-foreground">{getVal(s, "extraCable", "extra_cable")}</b></span>
+                      </div>
+                      {(s?.notes || well.notes) && (
+                        <div className="text-xs text-muted-foreground border-t pt-1 mt-1">
+                          ملاحظات: {s?.notes || well.notes}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center py-1">لا توجد بيانات منظومة شمسية</p>
+                  )
+                }
+                actions={[
+                  {
+                    icon: Edit,
+                    label: "تعديل المواد",
+                    onClick: () => setEditingWellId(well.id),
+                    color: "blue",
+                  },
+                ]}
+              />
+            );
+          })}
+        </UnifiedCardGrid>
       )}
 
       {editingWellId && (

@@ -181,13 +181,13 @@ export function UnifiedCard({
             )}
             <div className="min-w-0 flex-1">
               <h3 className={cn(
-                "font-extrabold text-foreground truncate",
-                compact ? "text-lg" : "text-xl"
+                "font-extrabold text-foreground leading-tight break-words",
+                compact ? "text-base" : "text-lg"
               )}>
                 {title}
               </h3>
               {subtitle && (
-                <p className="text-sm text-muted-foreground truncate mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   {subtitle}
                 </p>
               )}

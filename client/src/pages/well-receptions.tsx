@@ -15,9 +15,11 @@ import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
+import { format, addDays, subDays } from "date-fns";
+import { ar } from "date-fns/locale";
 import {
   ClipboardCheck, CheckCircle, XCircle, Clock, BarChart3, Download, Plus, Edit, Trash2, Loader,
-  MapPin, Calendar, UserCheck, Users, Wrench, TrendingUp
+  MapPin, Calendar, UserCheck, Users, Wrench, TrendingUp, ChevronRight, ChevronLeft
 } from "lucide-react";
 
 function toDateInputValue(val: any): string {
@@ -77,8 +79,9 @@ export default function WellReceptionsPage() {
 
   const [searchValue, setSearchValue] = useState("");
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    region: "all", receptionStatus: "all", status: "all", dateRange: undefined,
+    region: "all", receptionStatus: "all", status: "all",
   });
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [isExporting, setIsExporting] = useState(false);
   const [showReceptionDialog, setShowReceptionDialog] = useState(false);
   const [selectedWellId, setSelectedWellId] = useState<number | null>(null);
@@ -98,7 +101,24 @@ export default function WellReceptionsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue("");
-    setFilterValues({ region: "all", receptionStatus: "all", status: "all", dateRange: undefined });
+    setFilterValues({ region: "all", receptionStatus: "all", status: "all" });
+    setSelectedDate(undefined);
+  }, []);
+
+  const nextDate = useCallback(() => {
+    if (!selectedDate) return;
+    const date = addDays(new Date(selectedDate), 1);
+    setSelectedDate(format(date, "yyyy-MM-dd"));
+  }, [selectedDate]);
+
+  const prevDate = useCallback(() => {
+    if (!selectedDate) return;
+    const date = subDays(new Date(selectedDate), 1);
+    setSelectedDate(format(date, "yyyy-MM-dd"));
+  }, [selectedDate]);
+
+  const goToToday = useCallback(() => {
+    setSelectedDate(format(new Date(), "yyyy-MM-dd"));
   }, []);
 
   const { data: wellsData = [], isLoading, isFetching } = useQuery({
@@ -131,11 +151,6 @@ export default function WellReceptionsPage() {
   }, [setFloatingAction, wellsData]);
 
   const filteredWells = useMemo(() => {
-    const dateFrom = filterValues.dateRange?.from ? new Date(filterValues.dateRange.from) : null;
-    const dateTo = filterValues.dateRange?.to ? new Date(filterValues.dateRange.to) : null;
-    if (dateFrom) dateFrom.setHours(0, 0, 0, 0);
-    if (dateTo) dateTo.setHours(23, 59, 59, 999);
-
     return wellsData.filter((well: WellFullData) => {
       const matchesSearch =
         well.ownerName?.toLowerCase().includes(searchValue.toLowerCase()) ||
@@ -156,7 +171,7 @@ export default function WellReceptionsPage() {
       }
 
       let matchesDate = true;
-      if (dateFrom || dateTo) {
+      if (selectedDate) {
         const recDates = (well.receptions || []).map((r: any) =>
           r.receptionDate || r.reception_date || r.receivedAt || r.received_at
         ).filter(Boolean);
@@ -164,17 +179,15 @@ export default function WellReceptionsPage() {
           matchesDate = false;
         } else {
           matchesDate = recDates.some((d: string) => {
-            const date = new Date(d);
-            if (dateFrom && date < dateFrom) return false;
-            if (dateTo && date > dateTo) return false;
-            return true;
+            const dateStr = toDateInputValue(d);
+            return dateStr === selectedDate;
           });
         }
       }
 
       return matchesSearch && matchesRegion && matchesReceptionStatus && matchesStatus && matchesDate;
     });
-  }, [wellsData, searchValue, filterValues]);
+  }, [wellsData, searchValue, filterValues, selectedDate]);
 
   const stats = useMemo(() => {
     const total = wellsData.length;
@@ -228,9 +241,6 @@ export default function WellReceptionsPage() {
         { value: "failed", label: "مرفوض" },
       ],
       defaultValue: "all",
-    },
-    {
-      key: "dateRange", label: "فترة الاستلام", type: "date-range" as any, placeholder: "اختر الفترة",
     },
   ], []);
 
@@ -408,6 +418,58 @@ export default function WellReceptionsPage() {
         resultsSummary={resultsSummary}
       />
 
+      <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          onClick={prevDate}
+          title="اليوم السابق"
+          disabled={!selectedDate}
+          data-testid="button-prev-date"
+        >
+          <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+        </Button>
+        
+        <div className="flex flex-col items-center flex-1 cursor-pointer" onClick={goToToday} data-testid="button-today">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">سجل الاستلام</span>
+          <span className="text-sm font-black text-slate-900 dark:text-white arabic-numbers flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+            {selectedDate
+              ? format(new Date(selectedDate), "EEEE, d MMMM yyyy", { locale: ar })
+              : "جميع التواريخ"}
+          </span>
+          {!selectedDate && (
+            <span className="text-[9px] text-primary font-medium">اضغط للانتقال لليوم</span>
+          )}
+        </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          onClick={nextDate}
+          title="اليوم التالي"
+          disabled={!selectedDate}
+          data-testid="button-next-date"
+        >
+          <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+        </Button>
+      </div>
+      {selectedDate && (
+        <div className="flex justify-center">
+          <Button
+            variant="link"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={() => setSelectedDate(undefined)}
+            data-testid="button-clear-date"
+          >
+            عرض جميع التواريخ
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center p-12">
           <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -447,7 +509,7 @@ export default function WellReceptionsPage() {
                   { label: "العمق", value: `${well.wellDepth || 0}م`, icon: TrendingUp, color: "warning" as const },
                   { label: "الألواح", value: well.numberOfPanels || 0, icon: BarChart3, color: "success" as const },
                   { label: "القواعد", value: well.numberOfBases || 0, icon: Wrench, color: "info" as const },
-                  { label: "المواسير", value: well.numberOfPipes || 0, icon: Wrench, color: "success" as const },
+                  { label: "تاريخ الاستلام", value: formatDateSafe(latestReception?.receptionDate || latestReception?.reception_date || latestReception?.receivedAt || latestReception?.received_at), icon: Calendar, color: hasReceptions ? "success" as const : "muted" as const },
                   { label: "سجلات الاستلام", value: allReceptions.length, icon: ClipboardCheck, color: hasReceptions ? "success" as const : "info" as const },
                 ]}
                 footer={

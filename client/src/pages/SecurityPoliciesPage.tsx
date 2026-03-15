@@ -15,6 +15,7 @@ import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-s
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { formatDate } from "@/lib/utils";
 
 interface SecurityPolicy {
   id: string;
@@ -233,7 +234,7 @@ export function SecurityPoliciesPage() {
                           fields={[
                             { label: 'الفئة', value: policy.category, icon: Lock },
                             { label: 'الانتهاكات', value: policy.violationsCount, icon: AlertTriangle, color: policy.violationsCount > 0 ? 'danger' : 'success' },
-                            { label: 'آخر تحديث', value: new Date(policy.updated_at).toLocaleDateString('ar'), icon: Clock, color: 'muted' }
+                            { label: 'آخر تحديث', value: formatDate(policy.updated_at), icon: Clock, color: 'muted' }
                           ]}
                           actions={[
                             { icon: Eye, label: 'عرض التفاصيل', onClick: () => {} },

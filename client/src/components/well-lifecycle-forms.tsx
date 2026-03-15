@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Users, Sun, Truck, ClipboardCheck, ClipboardList, Calculator, Plus, Trash2, Loader, Edit, CheckCircle, PlayCircle, DollarSign } from "lucide-react";
@@ -1036,7 +1037,7 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
                 <p className="text-muted-foreground">ملاحظات الفحص: {rec.inspectionNotes || rec.inspection_notes}</p>
               )}
               {(rec.receivedAt || rec.received_at) && (
-                <p className="text-muted-foreground">تاريخ الاستلام: {new Date(rec.receivedAt || rec.received_at).toLocaleDateString('ar-SA')}</p>
+                <p className="text-muted-foreground">تاريخ الاستلام: {formatDate(rec.receivedAt || rec.received_at)}</p>
               )}
               {rec.notes && <p className="text-xs text-muted-foreground">{rec.notes}</p>}
             </div>

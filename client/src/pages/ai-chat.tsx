@@ -37,7 +37,7 @@ function escapeHtml(str: string): string {
 
 function generatePrintPDF(content: string, tableData: any[] | null, title?: string) {
   const reportTitle = escapeHtml(title || "تقرير من الوكيل الذكي");
-  const dateStr = escapeHtml(new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }));
+  const dateStr = escapeHtml(new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" }));
 
   let tableHTML = "";
   if (tableData && tableData.length > 0) {
@@ -96,7 +96,7 @@ function generatePrintPDF(content: string, tableData: any[] | null, title?: stri
   header.appendChild(h1);
   const dateDiv = doc.createElement('div');
   dateDiv.className = 'date';
-  dateDiv.textContent = new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+  dateDiv.textContent = new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
   header.appendChild(dateDiv);
   doc.body.appendChild(header);
 
@@ -134,7 +134,7 @@ function formatRelativeTime(date: string | Date | null | undefined): string {
   if (diffDays === 1) return "أمس";
   if (diffDays < 7) return `منذ ${diffDays} أيام`;
   if (diffDays < 30) return `منذ ${Math.floor(diffDays / 7)} أسابيع`;
-  return d.toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 }
 
 function extractOperationId(content: string): string | null {

@@ -38,8 +38,8 @@ function formatTimeAgo(timestamp: number): string {
 function formatDateTime(timestamp: number): string {
   if (!timestamp) return "-";
   const d = new Date(timestamp);
-  return d.toLocaleDateString('ar-YE', { year: 'numeric', month: '2-digit', day: '2-digit' }) +
-    ' ' + d.toLocaleTimeString('ar-YE', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' }) +
+    ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
 function getActionLabel(action: string): string {
@@ -626,9 +626,9 @@ function ServerAuditTab() {
                         <div className="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {new Date(log.createdAt).toLocaleDateString('ar-YE', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                            {new Date(log.createdAt).toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                             {' '}
-                            {new Date(log.createdAt).toLocaleTimeString('ar-YE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            {new Date(log.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                           </span>
                           {log.userName && (
                             <span className="flex items-center gap-1">

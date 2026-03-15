@@ -38,7 +38,7 @@ function toDateInputValue(val: any): string {
   return d.toISOString().split("T")[0];
 }
 
-function formatDateSafe(val: any, locale = "ar-SA"): string {
+function formatDateSafe(val: any, locale = "en-GB"): string {
   if (!val) return "-";
   const d = new Date(val);
   if (isNaN(d.getTime())) return "-";

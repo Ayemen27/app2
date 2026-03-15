@@ -261,7 +261,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     if (diffInMinutes < 60) return `منذ ${diffInMinutes} دقيقة`;
     if (diffInHours < 24) return `منذ ${diffInHours} ساعة`;
     if (diffInDays < 30) return `منذ ${diffInDays} يوم`;
-    return date.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
   };
 
   return (

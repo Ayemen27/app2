@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { formatDate } from "@/lib/utils";
 
 export default function UsersManagementPage() {
   const { toast } = useToast();
@@ -253,7 +254,7 @@ export default function UsersManagementPage() {
                 },
                 {
                   label: "تاريخ الانضمام",
-                  value: user.created_at ? new Date(user.created_at).toLocaleDateString('ar-YE') : '-',
+                  value: user.created_at ? formatDate(user.created_at) : '-',
                   icon: UserCheck,
                   color: "info"
                 }

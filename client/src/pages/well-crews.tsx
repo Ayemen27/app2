@@ -14,6 +14,7 @@ import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { createProfessionalReport } from "@/utils/axion-export";
+import { formatDate } from "@/lib/utils";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import {
   Users, Truck, Download, Loader, Plus, Edit, Trash2, BarChart3, Calendar, Wrench, MapPin, TrendingUp, Zap, ArrowUpDown, FileText
@@ -769,7 +770,7 @@ export default function WellCrewsPage() {
                                 {workDate ? (
                                   <span className="flex items-center gap-0.5">
                                     <Calendar className="h-3 w-3 text-muted-foreground" />
-                                    <b className="text-foreground">{new Date(workDate).toLocaleDateString('ar-SA')}</b>
+                                    <b className="text-foreground">{formatDate(workDate)}</b>
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground">بدون تاريخ</span>
@@ -812,7 +813,7 @@ export default function WellCrewsPage() {
                                   {tDate && (
                                     <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
                                       <Calendar className="h-3 w-3" />
-                                      {new Date(tDate).toLocaleDateString('ar-SA')}
+                                      {formatDate(tDate)}
                                     </span>
                                   )}
                                 </div>

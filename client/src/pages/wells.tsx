@@ -2,18 +2,18 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, X, CirclePlus, Wrench, TrendingUp, Download, Eye, Users, Truck, CheckCircle, DollarSign, FileText } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, Wrench, TrendingUp, Download, Eye, Users, Truck, CheckCircle, DollarSign, FileText, Sun, ClipboardCheck, RefreshCw } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import { UnifiedStats } from "@/components/ui/unified-stats";
-import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
-import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { WellLifecycleForms } from "@/components/well-lifecycle-forms";
 
@@ -37,6 +37,10 @@ interface Well {
   notes?: string;
   createdBy: string;
   created_at: string;
+  crewCount?: number;
+  transportCount?: number;
+  hasSolar?: boolean;
+  receptionStatus?: string | null;
 }
 
 const REGIONS = [
@@ -45,9 +49,15 @@ const REGIONS = [
 ];
 
 const STATUS_MAP = {
-  pending: { label: 'لم يبدأ', color: 'bg-gray-100 text-gray-800', badgeVariant: 'outline' },
-  in_progress: { label: 'قيد التنفيذ', color: 'bg-yellow-100 text-yellow-800', badgeVariant: 'warning' },
-  completed: { label: 'منجز', color: 'bg-green-100 text-green-800', badgeVariant: 'success' }
+  pending: { label: 'لم يبدأ', color: '#9ca3af', badgeVariant: 'outline' },
+  in_progress: { label: 'قيد التنفيذ', color: '#f59e0b', badgeVariant: 'warning' },
+  completed: { label: 'منجز', color: '#22c55e', badgeVariant: 'success' }
+};
+
+const RECEPTION_MAP: Record<string, string> = {
+  pending: 'بانتظار',
+  passed: 'تم الاستلام',
+  failed: 'مرفوض',
 };
 
 export default function WellsPage() {
@@ -55,35 +65,32 @@ export default function WellsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
-  
-  // إدارة المناطق
+
   const [regions, setRegions] = useState<string[]>(REGIONS);
-  
-  // استخدام UnifiedFilter للبحث والفلترة
-  const {
-    searchValue,
-    filterValues,
-    onSearchChange,
-    onFilterChange,
-    onReset,
-  } = useUnifiedFilter({
-    region: 'all',
-    status: 'all'
-  });
+  const [searchValue, setSearchValue] = useState('');
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({ region: 'all', status: 'all' });
+
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setSearchValue('');
+    setFilterValues({ region: 'all', status: 'all' });
+  }, []);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [formData, setFormData] = useState<Partial<Well>>({});
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedWell, setSelectedWell] = useState<Partial<Well> | null>(null);
-  
-  // إضافة خيارات جديدة
   const [showAddFanTypeDialog, setShowAddFanTypeDialog] = useState(false);
   const [newFanType, setNewFanType] = useState("");
   const [showAddPumpPowerDialog, setShowAddPumpPowerDialog] = useState(false);
   const [newPumpPower, setNewPumpPower] = useState("");
   const [lifecycleWell, setLifecycleWell] = useState<Well | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
-  // جلب بيانات الإكمال التلقائي
   const { data: ownerNames = [] } = useQuery({
     queryKey: QUERY_KEYS.autocompleteOwnerNames(selectedProjectId),
     queryFn: async () => {
@@ -111,21 +118,14 @@ export default function WellsPage() {
     enabled: !!selectedProjectId
   });
 
-  // تعيين الزر العائم عند دخول الصفحة
   useEffect(() => {
     const handleFloatingAction = () => {
       setShowAddDialog(true);
     };
-    
     setFloatingAction(handleFloatingAction, '+ بئر جديد');
-    
-    // تنظيف عند مغادرة الصفحة
-    return () => {
-      setFloatingAction(null);
-    };
+    return () => { setFloatingAction(null); };
   }, [setFloatingAction]);
 
-  // جلب الآبار
   const { data: wells = [], isLoading, isFetching } = useQuery({
     queryKey: QUERY_KEYS.wellsByProject(selectedProjectId),
     queryFn: async () => {
@@ -147,172 +147,87 @@ export default function WellsPage() {
     },
     enabled: !!selectedProjectId && selectedProjectId !== 'all',
     staleTime: 5 * 60 * 1000,
-    retry: 1
   });
 
-  // إضافة نوع مروحة جديد
   const addFanTypeMutation = useMutation({
-    mutationFn: async (value: string) => {
-      return apiRequest('/api/autocomplete', 'POST', {
-        category: 'fanTypes',
-        value
-      });
-    },
+    mutationFn: async (value: string) => apiRequest('/api/autocomplete', 'POST', { category: 'fanTypes', value }),
     onSuccess: () => {
-      toast({
-        title: "نجاح",
-        description: "تمت إضافة نوع المروحة بنجاح"
-      });
+      toast({ title: "نجاح", description: "تمت إضافة نوع المروحة بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteFanTypesPrefix });
       setShowAddFanTypeDialog(false);
       setNewFanType("");
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطأ",
-        description: error.message || "فشل في إضافة نوع المروحة",
-        variant: "destructive"
-      });
-    }
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في إضافة نوع المروحة", variant: "destructive" }); }
   });
 
-  // إضافة قوة مضخة جديدة
   const addPumpPowerMutation = useMutation({
-    mutationFn: async (value: string) => {
-      return apiRequest('/api/autocomplete', 'POST', {
-        category: 'pumpPowers',
-        value
-      });
-    },
+    mutationFn: async (value: string) => apiRequest('/api/autocomplete', 'POST', { category: 'pumpPowers', value }),
     onSuccess: () => {
-      toast({
-        title: "نجاح",
-        description: "تمت إضافة قوة المضخة بنجاح"
-      });
+      toast({ title: "نجاح", description: "تمت إضافة قوة المضخة بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompletePumpPowersPrefix });
       setShowAddPumpPowerDialog(false);
       setNewPumpPower("");
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطأ",
-        description: error.message || "فشل في إضافة قوة المضخة",
-        variant: "destructive"
-      });
-    }
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في إضافة قوة المضخة", variant: "destructive" }); }
   });
 
-  // إضافة اسم مالك جديد
   const addOwnerNameMutation = useMutation({
-    mutationFn: async (value: string) => {
-      return apiRequest('/api/autocomplete', 'POST', {
-        category: 'ownerNames',
-        value
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteOwnerNamesPrefix });
-    },
-    onError: (error: any) => {
-      console.error('خطأ في إضافة اسم المالك:', error);
-    }
+    mutationFn: async (value: string) => apiRequest('/api/autocomplete', 'POST', { category: 'ownerNames', value }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocompleteOwnerNamesPrefix }); },
+    onError: (error: any) => { console.error('خطأ في إضافة اسم المالك:', error); }
   });
 
-  // معالج تغيير اسم المالك مع الإضافة التلقائية
   const handleOwnerNameChange = (value: string) => {
     setFormData({ ...formData, ownerName: value });
-    // إذا لم تكن القيمة موجودة في القائمة، أضفها تلقائياً
     if (value.trim() && !ownerNames.includes(value)) {
       addOwnerNameMutation.mutate(value);
     }
   };
 
-  // إنشاء بئر
   const createWellMutation = useMutation({
     mutationFn: async (data: Partial<Well>) => {
-      if (!selectedProjectId || selectedProjectId === 'all') {
-        throw new Error('يرجى اختيار مشروع محدد أولاً');
-      }
-      return apiRequest('/api/wells', 'POST', {
-        ...data,
-        project_id: selectedProjectId
-      });
+      if (!selectedProjectId || selectedProjectId === 'all') throw new Error('يرجى اختيار مشروع محدد أولاً');
+      return apiRequest('/api/wells', 'POST', { ...data, project_id: selectedProjectId });
     },
     onSuccess: () => {
-      toast({
-        title: "نجاح",
-        description: "تم إنشاء البئر بنجاح"
-      });
+      toast({ title: "نجاح", description: "تم إنشاء البئر بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
       setShowAddDialog(false);
       setFormData({});
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطأ",
-        description: error.message || "فشل في إنشاء البئر",
-        variant: "destructive"
-      });
-    }
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في إنشاء البئر", variant: "destructive" }); }
   });
 
-  // تحديث بئر
   const updateWellMutation = useMutation({
     mutationFn: async (data: Partial<Well>) => {
       if (!selectedWell?.id) throw new Error('معرف البئر غير موجود');
-      return apiRequest(`/api/wells/${selectedWell.id}`, 'PUT', {
-        ...data,
-        project_id: selectedProjectId
-      });
+      return apiRequest(`/api/wells/${selectedWell.id}`, 'PUT', { ...data, project_id: selectedProjectId });
     },
     onSuccess: () => {
-      toast({
-        title: "نجاح",
-        description: "تم تحديث البئر بنجاح"
-      });
+      toast({ title: "نجاح", description: "تم تحديث البئر بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
       setShowEditDialog(false);
       setSelectedWell(null);
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطأ",
-        description: error.message || "فشل في تحديث البئر",
-        variant: "destructive"
-      });
-    }
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تحديث البئر", variant: "destructive" }); }
   });
 
-  // حذف بئر
   const deleteWellMutation = useMutation({
-    mutationFn: async (well_id: number) => {
-      return apiRequest(`/api/wells/${well_id}`, 'DELETE');
-    },
+    mutationFn: async (well_id: number) => apiRequest(`/api/wells/${well_id}`, 'DELETE'),
     onSuccess: () => {
-      toast({
-        title: "نجاح",
-        description: "تم حذف البئر بنجاح"
-      });
+      toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطأ",
-        description: error.message || "فشل في حذف البئر",
-        variant: "destructive"
-      });
-    }
+    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
   });
 
-  // فلترة الآبار
   const filteredWells = useMemo(() => {
     return wells.filter((well: any) => {
-      const matchesSearch = 
+      const matchesSearch =
         well.ownerName.toLowerCase().includes(searchValue.toLowerCase()) ||
         well.wellNumber.toString().includes(searchValue);
       const matchesRegion = filterValues.region === 'all' || well.region === filterValues.region;
       const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
-      
       return matchesSearch && matchesRegion && matchesStatus;
     });
   }, [wells, searchValue, filterValues]);
@@ -330,23 +245,241 @@ export default function WellsPage() {
       ? Math.round(validCompletions.reduce((sum: number, val: number) => sum + val, 0) / validCompletions.length)
       : 0;
 
-    const totalCrews = wells.reduce((sum: number, w: any) => {
-      const val = Number(w.crewCount);
-      return sum + (Number.isFinite(val) ? val : 0);
-    }, 0);
-    const totalTransport = wells.reduce((sum: number, w: any) => {
-      const val = Number(w.transportCount);
-      return sum + (Number.isFinite(val) ? val : 0);
-    }, 0);
-    const receptionDone = wells.filter((w: any) => w.receptionStatus === 'completed' || w.receptionStatus === 'done').length;
+    const totalCrews = wells.reduce((sum: number, w: any) => sum + (Number(w.crewCount) || 0), 0);
+    const totalTransport = wells.reduce((sum: number, w: any) => sum + (Number(w.transportCount) || 0), 0);
+    const withSolar = wells.filter((w: any) => w.hasSolar).length;
+    const receptionDone = wells.filter((w: any) => w.receptionStatus === 'passed').length;
 
-    return { total, completed, inProgress, pending, avgCompletion, totalCrews, totalTransport, receptionDone };
+    return { total, completed, inProgress, pending, avgCompletion, totalCrews, totalTransport, withSolar, receptionDone };
   }, [wells]);
+
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 4,
+      gap: 'sm',
+      items: [
+        { key: 'total', label: 'إجمالي الآبار', value: summaryData?.totalWells ?? stats.total, icon: BarChart3, color: 'blue' },
+        { key: 'completed', label: 'منجزة', value: summaryData?.completedWells ?? stats.completed, icon: CheckCircle, color: 'green' },
+        { key: 'inProgress', label: 'قيد التنفيذ', value: summaryData?.inProgressWells ?? stats.inProgress, icon: TrendingUp, color: 'orange' },
+        { key: 'pending', label: 'لم تبدأ', value: summaryData?.pendingWells ?? stats.pending, icon: MapPin, color: 'gray' },
+      ]
+    },
+    {
+      columns: 4,
+      gap: 'sm',
+      items: [
+        { key: 'crews', label: 'فرق العمل', value: stats.totalCrews, icon: Users, color: 'indigo' },
+        { key: 'transport', label: 'رحلات النقل', value: stats.totalTransport, icon: Truck, color: 'amber' },
+        { key: 'solar', label: 'طاقة شمسية', value: stats.withSolar, icon: Sun, color: 'yellow' },
+        { key: 'reception', label: 'تم الاستلام', value: stats.receptionDone, icon: ClipboardCheck, color: 'emerald' },
+      ]
+    }
+  ], [stats, summaryData]);
+
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'region',
+      label: 'المنطقة',
+      type: 'select',
+      placeholder: 'اختر المنطقة',
+      options: [{ value: 'all', label: 'جميع المناطق' }, ...regions.map(r => ({ value: r, label: r }))],
+      defaultValue: 'all'
+    },
+    {
+      key: 'status',
+      label: 'الحالة',
+      type: 'select',
+      placeholder: 'اختر الحالة',
+      options: [
+        { value: 'all', label: 'جميع الحالات' },
+        { value: 'pending', label: 'لم يبدأ' },
+        { value: 'in_progress', label: 'قيد التنفيذ' },
+        { value: 'completed', label: 'منجز' }
+      ],
+      defaultValue: 'all'
+    }
+  ], [regions]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (filteredWells.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const { generatePDF } = await import('@/utils/pdfGenerator');
+      const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
+      const getStatusColor = (s: string) => s === 'completed' ? '#16a34a' : s === 'in_progress' ? '#ca8a04' : '#6b7280';
+      const tableRows = filteredWells.map((well: any, idx: number) => `
+        <tr style="background:${idx % 2 === 0 ? '#fff' : '#F0F4F8'};">
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${idx + 1}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellNumber}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:right;font-size:10px;">${well.ownerName}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.region || '-'}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;"><span style="color:${getStatusColor(well.status)};font-weight:700;">${getStatusText(well.status)}</span></td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.completionPercentage || 0}%</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellDepth || 0}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPanels || 0}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPipes || 0}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfBases || 0}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.crewCount || 0}</td>
+          <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.transportCount || 0}</td>
+        </tr>
+      `).join('');
+      const html = `
+        <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
+          <div style="background:#1B2A4A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
+          <div style="background:#2E5090;color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">تقرير إدارة الآبار</div>
+          <div style="text-align:center;padding:6px 0;font-size:11px;color:#6B7280;">تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}</div>
+          <div style="display:flex;justify-content:center;gap:24px;padding:8px 16px;font-size:11px;background:#F0F4F8;margin:0 16px;border-radius:4px;">
+            <span>عدد الآبار: <b>${filteredWells.length}</b></span>
+            <span>منجزة: <b style="color:#16a34a;">${stats.completed}</b></span>
+            <span>قيد التنفيذ: <b style="color:#ca8a04;">${stats.inProgress}</b></span>
+            <span>فرق العمل: <b>${stats.totalCrews}</b></span>
+            <span>رحلات النقل: <b>${stats.totalTransport}</b></span>
+          </div>
+          <table style="width:calc(100% - 32px);border-collapse:collapse;margin:12px 16px;table-layout:auto;">
+            <thead>
+              <tr style="background:#1B2A4A;color:#fff;">
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">#</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">رقم البئر</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المالك</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المنطقة</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الحالة</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">التقدم</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">العمق</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الألواح</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المواسير</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">القواعد</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">فرق</th>
+                <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">نقل</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+          <div style="text-align:center;padding:8px 0;font-size:9px;color:#9CA3AF;border-top:1px solid #E5E7EB;margin:8px 16px 0;">
+            تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - ${new Date().toLocaleDateString('en-GB')} - ${new Date().toLocaleTimeString('en-GB')}
+          </div>
+        </div>
+      `;
+      const success = await generatePDF({ html, filename: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}`, orientation: 'landscape', format: 'A4' });
+      if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+    } finally { setIsExportingPdf(false); }
+  }, [filteredWells, stats, toast]);
+
+  const handleExportExcel = useCallback(async () => {
+    if (filteredWells.length === 0) return;
+    setIsExportingExcel(true);
+    try {
+      const { createProfessionalReport } = await import('@/utils/axion-export');
+      const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
+      const data = filteredWells.map((well: any, idx: number) => ({
+        index: idx + 1, wellNumber: well.wellNumber, ownerName: well.ownerName, region: well.region || '-',
+        wellDepth: well.wellDepth || 0, numberOfPanels: well.numberOfPanels || 0, numberOfBases: well.numberOfBases || 0,
+        numberOfPipes: well.numberOfPipes || 0, fanType: well.fanType || '-', pumpPower: well.pumpPower || '-',
+        waterLevel: well.waterLevel || '-', crewCount: well.crewCount || 0, transportCount: well.transportCount || 0,
+        hasSolar: well.hasSolar ? 'نعم' : 'لا', receptionStatus: RECEPTION_MAP[well.receptionStatus || ''] || '-',
+        status: getStatusText(well.status), completion: well.completionPercentage || 0,
+      }));
+      const success = await createProfessionalReport({
+        sheetName: 'إدارة الآبار', reportTitle: 'تقرير إدارة الآبار',
+        subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
+        infoLines: [`عدد الآبار: ${data.length}`, `منجزة: ${stats.completed}`, `قيد التنفيذ: ${stats.inProgress}`, `فرق العمل: ${stats.totalCrews}`, `رحلات النقل: ${stats.totalTransport}`],
+        columns: [
+          { header: '#', key: 'index', width: 5 },
+          { header: 'رقم البئر', key: 'wellNumber', width: 12 },
+          { header: 'المالك', key: 'ownerName', width: 20 },
+          { header: 'المنطقة', key: 'region', width: 16 },
+          { header: 'العمق (م)', key: 'wellDepth', width: 12, numFmt: '#,##0' },
+          { header: 'الألواح', key: 'numberOfPanels', width: 10, numFmt: '#,##0' },
+          { header: 'المواسير', key: 'numberOfPipes', width: 10, numFmt: '#,##0' },
+          { header: 'القواعد', key: 'numberOfBases', width: 10, numFmt: '#,##0' },
+          { header: 'نوع المروحة', key: 'fanType', width: 14 },
+          { header: 'قوة المضخة', key: 'pumpPower', width: 12 },
+          { header: 'مستوى الماء', key: 'waterLevel', width: 14 },
+          { header: 'فرق العمل', key: 'crewCount', width: 10, numFmt: '#,##0' },
+          { header: 'رحلات النقل', key: 'transportCount', width: 10, numFmt: '#,##0' },
+          { header: 'طاقة شمسية', key: 'hasSolar', width: 10 },
+          { header: 'الاستلام', key: 'receptionStatus', width: 12 },
+          { header: 'الحالة', key: 'status', width: 14 },
+          { header: 'الإنجاز %', key: 'completion', width: 12, numFmt: '#,##0' },
+        ],
+        data,
+        fileName: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}.xlsx`,
+      });
+      if (success) toast({ title: "نجاح", description: "تم تصدير ملف Excel بنجاح" });
+      else toast({ title: "خطأ", description: "فشل في تصدير ملف Excel", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message || "فشل في تصدير ملف Excel", variant: "destructive" });
+    } finally { setIsExportingExcel(false); }
+  }, [filteredWells, stats]);
+
+  const actionsConfig: ActionButton[] = useMemo(() => [
+    {
+      key: 'export-pdf',
+      icon: FileText,
+      label: 'تصدير PDF',
+      onClick: handleExportPdf,
+      variant: 'outline',
+      loading: isExportingPdf,
+      disabled: filteredWells.length === 0,
+      tooltip: 'تصدير تقرير PDF للآبار المعروضة',
+    },
+    {
+      key: 'export-excel',
+      icon: Download,
+      label: 'تصدير Excel',
+      onClick: handleExportExcel,
+      variant: 'outline',
+      loading: isExportingExcel,
+      disabled: filteredWells.length === 0,
+      tooltip: 'تصدير البيانات إلى ملف Excel',
+    }
+  ], [handleExportPdf, handleExportExcel, isExportingPdf, isExportingExcel, filteredWells.length]);
+
+  const resultsSummary = useMemo(() => ({
+    totalCount: wells.length,
+    filteredCount: filteredWells.length,
+    totalLabel: 'إجمالي الآبار',
+    filteredLabel: 'نتائج البحث',
+    totalValue: `${stats.avgCompletion}%`,
+    totalValueLabel: 'متوسط الإنجاز',
+  }), [wells.length, filteredWells.length, stats.avgCompletion]);
+
+  const getOwnerOptions = useCallback((currentValue?: string) => {
+    const opts = ownerNames.map((name: string) => ({ value: name, label: name }));
+    if (currentValue && !ownerNames.includes(currentValue)) {
+      opts.unshift({ value: currentValue, label: currentValue });
+    }
+    return opts;
+  }, [ownerNames]);
+
+  const getRegionOptions = useCallback((currentValue?: string) => {
+    const opts = regions.map(r => ({ value: r, label: r }));
+    if (currentValue && !regions.includes(currentValue)) {
+      opts.unshift({ value: currentValue, label: currentValue });
+    }
+    return opts;
+  }, [regions]);
+
+  const getFanTypeOptions = useCallback((currentValue?: string) => {
+    const opts = fanTypes.map((type: string) => ({ value: type, label: type }));
+    if (currentValue && !fanTypes.includes(currentValue)) {
+      opts.unshift({ value: currentValue, label: currentValue });
+    }
+    return opts;
+  }, [fanTypes]);
+
+  const getPumpPowerOptions = useCallback((currentValue?: string) => {
+    const opts = pumpPowers.map((power: any) => ({ value: String(power), label: String(power) }));
+    if (currentValue && !pumpPowers.map(String).includes(String(currentValue))) {
+      opts.unshift({ value: String(currentValue), label: String(currentValue) });
+    }
+    return opts;
+  }, [pumpPowers]);
 
   if (!selectedProjectId || selectedProjectId === 'all') {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-gray-500">يرجى اختيار مشروع محدد لعرض وإدارة الآبار</p>
+        <p className="text-gray-500" data-testid="text-select-project">يرجى اختيار مشروع محدد لعرض وإدارة الآبار</p>
       </div>
     );
   }
@@ -359,423 +492,112 @@ export default function WellsPage() {
     );
   }
 
-  return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* شريط الإحصائيات الموحد */}
-      <UnifiedStats
-        title="إحصائيات الآبار"
-        hideHeader={false}
-        stats={[
-          {
-            title: 'إجمالي الآبار',
-            value: summaryData?.totalWells ?? stats.total,
-            icon: BarChart3,
-            color: 'blue',
-            status: stats.total === 0 ? 'normal' : undefined
-          },
-          {
-            title: 'منجزة',
-            value: summaryData?.completedWells ?? stats.completed,
-            icon: CheckCircle,
-            color: 'green',
-            status: stats.completed > stats.inProgress ? 'normal' : 'warning'
-          },
-          {
-            title: 'قيد التنفيذ',
-            value: summaryData?.inProgressWells ?? stats.inProgress,
-            icon: Loader,
-            color: 'amber',
-            status: stats.inProgress > 0 ? 'normal' : undefined
-          },
-          {
-            title: 'لم تبدأ بعد',
-            value: summaryData?.pendingWells ?? stats.pending,
-            icon: MapPin,
-            color: 'gray',
-            status: stats.pending > stats.completed ? 'warning' : undefined
-          },
-          {
-            title: 'متوسط التقدم',
-            value: `${Number.isFinite(summaryData?.averageCompletion) ? summaryData.averageCompletion : stats.avgCompletion}%`,
-            icon: TrendingUp,
-            color: 'indigo'
-          },
-          {
-            title: 'عدد الطواقم',
-            value: stats.totalCrews,
-            icon: Users,
-            color: 'blue'
-          },
-          {
-            title: 'رحلات النقل',
-            value: stats.totalTransport,
-            icon: Truck,
-            color: 'amber'
-          },
-          {
-            title: 'تم الاستلام',
-            value: stats.receptionDone,
-            icon: CheckCircle,
-            color: 'green'
-          }
-        ]}
-        columns={4}
-        showStatus={true}
-      />
+  const renderWellForm = (data: Partial<Well>, setData: (d: Partial<Well>) => void, isEdit: boolean) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">رقم البئر *</Label>
+        <Input type="number" value={data.wellNumber || ''} onChange={(e) => setData({ ...data, wellNumber: parseInt(e.target.value) })} placeholder="أدخل رقم البئر" className="h-10 text-base" data-testid="input-well-number" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">اسم المالك *</Label>
+        <SearchableSelect value={data.ownerName || ''} onValueChange={(value) => { setData({ ...data, ownerName: value }); if (value.trim() && !ownerNames.includes(value)) addOwnerNameMutation.mutate(value); }} options={isEdit ? getOwnerOptions(data.ownerName) : ownerNames.map((n: string) => ({ value: n, label: n }))} placeholder="اختر أو اكتب اسم المالك" searchPlaceholder="ابحث عن اسم المالك..." showSearch={true} allowCustom={true} onCustomAdd={(v) => addOwnerNameMutation.mutate(v)} data-testid="select-owner-name" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">المنطقة *</Label>
+        <SearchableSelect value={data.region || ''} onValueChange={(value) => setData({ ...data, region: value })} options={isEdit ? getRegionOptions(data.region) : regions.map(r => ({ value: r, label: r }))} placeholder="اختر المنطقة" searchPlaceholder="ابحث عن المنطقة..." showSearch={true} data-testid="select-region" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
+        <Input type="number" value={data.wellDepth || ''} onChange={(e) => setData({ ...data, wellDepth: parseInt(e.target.value) })} placeholder="أدخل عمق البئر" className="h-10 text-base" data-testid="input-well-depth" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">عدد الألواح *</Label>
+        <Input type="number" value={data.numberOfPanels || ''} onChange={(e) => setData({ ...data, numberOfPanels: parseInt(e.target.value) })} placeholder="أدخل عدد الألواح" className="h-10 text-base" data-testid="input-panels" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">عدد القواعد *</Label>
+        <Input type="number" value={data.numberOfBases || ''} onChange={(e) => setData({ ...data, numberOfBases: parseInt(e.target.value) })} placeholder="أدخل عدد القواعد" className="h-10 text-base" data-testid="input-bases" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">عدد المواسير *</Label>
+        <Input type="number" value={data.numberOfPipes || ''} onChange={(e) => setData({ ...data, numberOfPipes: parseInt(e.target.value) })} placeholder="أدخل عدد المواسير" className="h-10 text-base" data-testid="input-pipes" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
+        <Input type="number" value={data.waterLevel || ''} onChange={(e) => setData({ ...data, waterLevel: parseInt(e.target.value) })} placeholder="أدخل مستوى الماء" className="h-10 text-base" data-testid="input-water-level" />
+      </div>
+      <div className="space-y-1">
+        <div className="flex items-center gap-1 mb-1">
+          <Label className="text-sm font-semibold flex-1">نوع المروحة</Label>
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddFanTypeDialog(true)} data-testid="button-add-fan-type">+ إضافة</Button>
+        </div>
+        <SearchableSelect value={data.fanType || ''} onValueChange={(value) => setData({ ...data, fanType: value })} options={isEdit ? getFanTypeOptions(data.fanType) : fanTypes.map((t: string) => ({ value: t, label: t }))} placeholder="اختر نوع المروحة" searchPlaceholder="ابحث عن نوع المروحة..." showSearch={true} data-testid="select-fan-type" />
+      </div>
+      <div className="space-y-1">
+        <div className="flex items-center gap-1 mb-1">
+          <Label className="text-sm font-semibold flex-1">قوة المضخة</Label>
+          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddPumpPowerDialog(true)} data-testid="button-add-pump-power">+ إضافة</Button>
+        </div>
+        <SearchableSelect value={data.pumpPower ? String(data.pumpPower) : ''} onValueChange={(value) => setData({ ...data, pumpPower: parseInt(value) })} options={isEdit ? getPumpPowerOptions(data.pumpPower ? String(data.pumpPower) : undefined) : pumpPowers.map((p: any) => ({ value: String(p), label: String(p) }))} placeholder="اختر قوة المضخة" searchPlaceholder="ابحث عن قوة المضخة..." showSearch={true} data-testid="select-pump-power" />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">الحالة</Label>
+        <SearchableSelect value={data.status || ''} onValueChange={(value) => setData({ ...data, status: value as any })} options={[ { value: 'pending', label: 'لم يبدأ' }, { value: 'in_progress', label: 'قيد التنفيذ' }, { value: 'completed', label: 'منجز' } ]} placeholder="اختر الحالة" showSearch={false} data-testid="select-status" />
+      </div>
+      {isEdit && (
+        <div className="space-y-1">
+          <Label className="text-sm font-semibold">نسبة الإنجاز (%)</Label>
+          <Input type="number" min="0" max="100" value={data.completionPercentage || ''} onChange={(e) => setData({ ...data, completionPercentage: parseInt(e.target.value) })} placeholder="أدخل نسبة الإنجاز" className="h-10 text-base" data-testid="input-completion" />
+        </div>
+      )}
+      <div className={`space-y-1 ${isEdit ? '' : 'md:col-span-2'}`}>
+        <Label className="text-sm font-semibold">الملاحظات</Label>
+        <Input value={data.notes || ''} onChange={(e) => setData({ ...data, notes: e.target.value })} placeholder="أضف ملاحظات اختيارية" className="h-10 text-base" data-testid="input-notes" />
+      </div>
+    </div>
+  );
 
-      {/* شريط البحث والفلترة الموحد */}
-      <UnifiedSearchFilter
+  return (
+    <div className="p-4 slide-in space-y-4">
+      <UnifiedFilterDashboard
+        hideHeader={true}
+        statsRows={statsRowsConfig}
         searchValue={searchValue}
-        onSearchChange={onSearchChange}
+        onSearchChange={setSearchValue}
         searchPlaceholder="ابحث باسم المالك أو رقم البئر..."
         showSearch={true}
-        filters={[
-          {
-            key: 'region',
-            label: 'المنطقة',
-            type: 'select',
-            placeholder: 'اختر المنطقة',
-            options: [{ value: 'all', label: 'جميع المناطق' }, ...regions.map(r => ({ value: r, label: r }))],
-            defaultValue: 'all'
-          },
-          {
-            key: 'status',
-            label: 'الحالة',
-            type: 'select',
-            placeholder: 'اختر الحالة',
-            options: [
-              { value: 'all', label: 'جميع الحالات' },
-              { value: 'pending', label: 'لم يبدأ' },
-              { value: 'in_progress', label: 'قيد التنفيذ' },
-              { value: 'completed', label: 'منجز' }
-            ],
-            defaultValue: 'all'
-          }
-        ]}
+        filters={filtersConfig}
         filterValues={filterValues}
-        onFilterChange={onFilterChange}
-        onReset={onReset}
-        showResetButton={true}
-        showActiveFilters={true}
-        compact={false}
+        onFilterChange={handleFilterChange}
+        onReset={handleReset}
+        onRefresh={() => {
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellsByProject(selectedProjectId) });
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellsSummary(selectedProjectId) });
+        }}
+        isRefreshing={isFetching}
+        actions={actionsConfig}
+        resultsSummary={resultsSummary}
       />
 
-      {/* أزرار التصدير */}
-      <div className="flex justify-end gap-2 flex-wrap">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            if (filteredWells.length === 0) return;
-            const { generatePDF } = await import('@/utils/pdfGenerator');
-            const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
-            const getStatusColor = (s: string) => s === 'completed' ? '#16a34a' : s === 'in_progress' ? '#ca8a04' : '#6b7280';
-
-            const tableRows = filteredWells.map((well: any, idx: number) => `
-              <tr style="background:${idx % 2 === 0 ? '#fff' : '#F0F4F8'};">
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${idx + 1}</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellNumber}</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:right;font-size:10px;">${well.ownerName}</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.region || '-'}</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;"><span style="color:${getStatusColor(well.status)};font-weight:700;">${getStatusText(well.status)}</span></td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.completionPercentage || 0}%</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellDepth || 0}</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPanels || 0}</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPipes || 0}</td>
-                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfBases || 0}</td>
-              </tr>
-            `).join('');
-
-            const html = `
-              <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
-                <div style="background:#1B2A4A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
-                <div style="background:#2E5090;color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">تقرير إدارة الآبار</div>
-                <div style="text-align:center;padding:6px 0;font-size:11px;color:#6B7280;">تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}</div>
-                <div style="display:flex;justify-content:center;gap:24px;padding:8px 16px;font-size:11px;background:#F0F4F8;margin:0 16px;border-radius:4px;">
-                  <span>عدد الآبار: <b>${filteredWells.length}</b></span>
-                  <span>منجزة: <b style="color:#16a34a;">${stats.completed}</b></span>
-                  <span>قيد التنفيذ: <b style="color:#ca8a04;">${stats.inProgress}</b></span>
-                  <span>لم تبدأ: <b style="color:#6b7280;">${stats.pending}</b></span>
-                  <span>متوسط التقدم: <b>${stats.avgCompletion}%</b></span>
-                </div>
-                <table style="width:calc(100% - 32px);border-collapse:collapse;margin:12px 16px;table-layout:auto;">
-                  <thead>
-                    <tr style="background:#1B2A4A;color:#fff;">
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">#</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">رقم البئر</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المالك</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المنطقة</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الحالة</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">التقدم</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">العمق (م)</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الألواح</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المواسير</th>
-                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">القواعد</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${tableRows}
-                  </tbody>
-                </table>
-                <div style="text-align:center;padding:8px 0;font-size:9px;color:#9CA3AF;border-top:1px solid #E5E7EB;margin:8px 16px 0;">
-                  تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - ${new Date().toLocaleDateString('en-GB')} - ${new Date().toLocaleTimeString('en-GB')}
-                </div>
-              </div>
-            `;
-
-            const success = await generatePDF({
-              html,
-              filename: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}`,
-              orientation: 'landscape',
-              format: 'A4',
-            });
-
-            if (success) {
-              toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
-            } else {
-              toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
-            }
-          }}
-          disabled={filteredWells.length === 0}
-          className="gap-2"
-          data-testid="button-export-wells-pdf"
-        >
-          <FileText className="h-4 w-4" />
-          تصدير PDF
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            if (filteredWells.length === 0) return;
-            const { createProfessionalReport } = await import('@/utils/axion-export');
-            const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
-            const data = filteredWells.map((well: any, idx: number) => ({
-              index: idx + 1,
-              wellNumber: well.wellNumber,
-              ownerName: well.ownerName,
-              region: well.region || '-',
-              wellDepth: well.wellDepth || 0,
-              numberOfPanels: well.numberOfPanels || 0,
-              numberOfBases: well.numberOfBases || 0,
-              numberOfPipes: well.numberOfPipes || 0,
-              fanType: well.fanType || '-',
-              pumpPower: well.pumpPower || '-',
-              waterLevel: well.waterLevel || '-',
-              status: getStatusText(well.status),
-              completion: well.completionPercentage || 0,
-            }));
-            await createProfessionalReport({
-              sheetName: 'إدارة الآبار',
-              reportTitle: 'تقرير إدارة الآبار',
-              subtitle: `تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}`,
-              infoLines: [`عدد الآبار: ${data.length}`, `منجزة: ${stats.completed}`, `قيد التنفيذ: ${stats.inProgress}`, `لم تبدأ: ${stats.pending}`],
-              columns: [
-                { header: '#', key: 'index', width: 5 },
-                { header: 'رقم البئر', key: 'wellNumber', width: 12 },
-                { header: 'المالك', key: 'ownerName', width: 20 },
-                { header: 'المنطقة', key: 'region', width: 16 },
-                { header: 'العمق (م)', key: 'wellDepth', width: 12, numFmt: '#,##0' },
-                { header: 'الألواح', key: 'numberOfPanels', width: 10, numFmt: '#,##0' },
-                { header: 'المواسير', key: 'numberOfPipes', width: 10, numFmt: '#,##0' },
-                { header: 'القواعد', key: 'numberOfBases', width: 10, numFmt: '#,##0' },
-                { header: 'نوع المروحة', key: 'fanType', width: 14 },
-                { header: 'قوة المضخة', key: 'pumpPower', width: 12 },
-                { header: 'مستوى الماء (م)', key: 'waterLevel', width: 14 },
-                { header: 'الحالة', key: 'status', width: 14 },
-                { header: 'الإنجاز %', key: 'completion', width: 12, numFmt: '#,##0' },
-              ],
-              data,
-              fileName: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}.xlsx`,
-            });
-          }}
-          disabled={filteredWells.length === 0}
-          className="gap-2"
-          data-testid="button-export-wells"
-        >
-          <Download className="h-4 w-4" />
-          تصدير Excel
-        </Button>
-      </div>
-
-      {/* نموذج إضافة بئر جديد */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader className="pb-2">
-            <DialogTitle>إضافة بئر جديد</DialogTitle>
-          </DialogHeader>
+          <DialogHeader className="pb-2"><DialogTitle>إضافة بئر جديد</DialogTitle></DialogHeader>
           <div className="overflow-y-auto flex-1 px-4 py-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">رقم البئر *</Label>
-                <Input
-                  type="number"
-                  value={formData.wellNumber || ''}
-                  onChange={(e) => setFormData({ ...formData, wellNumber: parseInt(e.target.value) })}
-                  placeholder="أدخل رقم البئر"
-                  className="h-10 text-base"
-                  autoWidth
-                  maxWidth={200}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">اسم المالك *</Label>
-                <SearchableSelect
-                  value={formData.ownerName || ''}
-                  onValueChange={handleOwnerNameChange}
-                  options={ownerNames.map((name: string) => ({ value: name, label: name }))}
-                  placeholder="اختر أو اكتب اسم المالك"
-                  searchPlaceholder="ابحث عن اسم المالك..."
-                  showSearch={true}
-                  allowCustom={true}
-                  onCustomAdd={(value) => addOwnerNameMutation.mutate(value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">المنطقة *</Label>
-                <SearchableSelect
-                  value={formData.region || ''}
-                  onValueChange={(value) => setFormData({ ...formData, region: value })}
-                  options={regions.map(region => ({ value: region, label: region }))}
-                  placeholder="اختر المنطقة"
-                  searchPlaceholder="ابحث عن المنطقة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
-                <Input
-                  type="number"
-                  value={formData.wellDepth || ''}
-                  onChange={(e) => setFormData({ ...formData, wellDepth: parseInt(e.target.value) })}
-                  placeholder="أدخل عمق البئر"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عدد الألواح *</Label>
-                <Input
-                  type="number"
-                  value={formData.numberOfPanels || ''}
-                  onChange={(e) => setFormData({ ...formData, numberOfPanels: parseInt(e.target.value) })}
-                  placeholder="أدخل عدد الألواح"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عدد القواعد *</Label>
-                <Input
-                  type="number"
-                  value={formData.numberOfBases || ''}
-                  onChange={(e) => setFormData({ ...formData, numberOfBases: parseInt(e.target.value) })}
-                  placeholder="أدخل عدد القواعد"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عدد المواسير *</Label>
-                <Input
-                  type="number"
-                  value={formData.numberOfPipes || ''}
-                  onChange={(e) => setFormData({ ...formData, numberOfPipes: parseInt(e.target.value) })}
-                  placeholder="أدخل عدد المواسير"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
-                <Input
-                  type="number"
-                  value={formData.waterLevel || ''}
-                  onChange={(e) => setFormData({ ...formData, waterLevel: parseInt(e.target.value) })}
-                  placeholder="أدخل مستوى الماء"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-1 mb-1">
-                  <Label className="text-sm font-semibold flex-1">نوع المروحة</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    onClick={() => setShowAddFanTypeDialog(true)}
-                  >
-                    + إضافة
-                  </Button>
-                </div>
-                <SearchableSelect
-                  value={formData.fanType || ''}
-                  onValueChange={(value) => setFormData({ ...formData, fanType: value })}
-                  options={fanTypes.map((type: string) => ({ value: type, label: type }))}
-                  placeholder="اختر نوع المروحة"
-                  searchPlaceholder="ابحث عن نوع المروحة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-1 mb-1">
-                  <Label className="text-sm font-semibold flex-1">قوة المضخة</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    onClick={() => setShowAddPumpPowerDialog(true)}
-                  >
-                    + إضافة
-                  </Button>
-                </div>
-                <SearchableSelect
-                  value={formData.pumpPower ? String(formData.pumpPower) : ''}
-                  onValueChange={(value) => setFormData({ ...formData, pumpPower: parseInt(value) })}
-                  options={pumpPowers.map((power: any) => ({ value: String(power), label: String(power) }))}
-                  placeholder="اختر قوة المضخة"
-                  searchPlaceholder="ابحث عن قوة المضخة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label className="text-sm font-semibold">الحالة</Label>
-                <SearchableSelect
-                  value={formData.status || ''}
-                  onValueChange={(value) => setFormData({ ...formData, status: value as any })}
-                  options={[
-                    { value: 'pending', label: 'لم يبدأ' },
-                    { value: 'in_progress', label: 'قيد التنفيذ' },
-                    { value: 'completed', label: 'منجز' }
-                  ]}
-                  placeholder="اختر الحالة"
-                  searchPlaceholder="ابحث عن الحالة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label className="text-sm font-semibold">الملاحظات</Label>
-                <Input
-                  value={formData.notes || ''}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="أضف ملاحظات اختيارية"
-                  className="h-10 text-base"
-                />
-              </div>
-            </div>
+            {renderWellForm(formData, setFormData, false)}
           </div>
           <div className="flex gap-2 justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowAddDialog(false)} size="sm">إلغاء</Button>
-            <Button 
+            <Button variant="outline" onClick={() => setShowAddDialog(false)} size="sm" data-testid="button-cancel-add">إلغاء</Button>
+            <Button
               onClick={() => {
                 if (!formData.wellNumber || !formData.ownerName || !formData.region || !formData.wellDepth || !formData.numberOfPanels || !formData.numberOfPipes || !formData.numberOfBases) {
-                  toast({
-                    title: "تنبيه",
-                    description: "يرجى ملء جميع الحقول الإجبارية",
-                    variant: "destructive"
-                  });
+                  toast({ title: "تنبيه", description: "يرجى ملء جميع الحقول الإجبارية", variant: "destructive" });
                   return;
                 }
                 createWellMutation.mutate(formData);
-              }} 
+              }}
               size="sm"
               disabled={createWellMutation.isPending || !formData.wellNumber || !formData.ownerName || !formData.region || !formData.wellDepth || !formData.numberOfPanels || !formData.numberOfPipes || !formData.numberOfBases}
+              data-testid="button-submit-add"
             >
               {createWellMutation.isPending ? 'جاري...' : 'إضافة'}
             </Button>
@@ -783,225 +605,41 @@ export default function WellsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* نموذج إضافة نوع مروحة جديد */}
       <Dialog open={showAddFanTypeDialog} onOpenChange={setShowAddFanTypeDialog}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>إضافة نوع مروحة جديد</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>اسم نوع المروحة</Label>
-              <Input
-                placeholder="مثال: مروحة سقفية"
-                value={newFanType}
-                onChange={(e) => setNewFanType(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addFanTypeMutation.mutate(newFanType)}
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowAddFanTypeDialog(false)} size="sm">إلغاء</Button>
-            <Button onClick={() => addFanTypeMutation.mutate(newFanType)} size="sm">
-              {addFanTypeMutation.isPending ? 'جاري...' : 'إضافة'}
-            </Button>
-          </div>
+          <DialogHeader><DialogTitle>إضافة نوع مروحة جديد</DialogTitle></DialogHeader>
+          <div className="space-y-4"><div><Label>اسم نوع المروحة</Label><Input placeholder="مثال: مروحة سقفية" value={newFanType} onChange={(e) => setNewFanType(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addFanTypeMutation.mutate(newFanType)} data-testid="input-new-fan-type" /></div></div>
+          <div className="flex gap-2 justify-end"><Button variant="outline" onClick={() => setShowAddFanTypeDialog(false)} size="sm">إلغاء</Button><Button onClick={() => addFanTypeMutation.mutate(newFanType)} size="sm" data-testid="button-save-fan-type">{addFanTypeMutation.isPending ? 'جاري...' : 'إضافة'}</Button></div>
         </DialogContent>
       </Dialog>
 
-      {/* نموذج إضافة قوة مضخة جديدة */}
       <Dialog open={showAddPumpPowerDialog} onOpenChange={setShowAddPumpPowerDialog}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>إضافة قوة مضخة جديدة</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>قوة المضخة</Label>
-              <Input
-                placeholder="مثال: 1.5 أو 2.0"
-                value={newPumpPower}
-                onChange={(e) => setNewPumpPower(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addPumpPowerMutation.mutate(newPumpPower)}
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowAddPumpPowerDialog(false)} size="sm">إلغاء</Button>
-            <Button onClick={() => addPumpPowerMutation.mutate(newPumpPower)} size="sm">
-              {addPumpPowerMutation.isPending ? 'جاري...' : 'إضافة'}
-            </Button>
-          </div>
+          <DialogHeader><DialogTitle>إضافة قوة مضخة جديدة</DialogTitle></DialogHeader>
+          <div className="space-y-4"><div><Label>قوة المضخة</Label><Input placeholder="مثال: 1.5 أو 2.0" value={newPumpPower} onChange={(e) => setNewPumpPower(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPumpPowerMutation.mutate(newPumpPower)} data-testid="input-new-pump-power" /></div></div>
+          <div className="flex gap-2 justify-end"><Button variant="outline" onClick={() => setShowAddPumpPowerDialog(false)} size="sm">إلغاء</Button><Button onClick={() => addPumpPowerMutation.mutate(newPumpPower)} size="sm" data-testid="button-save-pump-power">{addPumpPowerMutation.isPending ? 'جاري...' : 'إضافة'}</Button></div>
         </DialogContent>
       </Dialog>
 
-      {/* نموذج تعديل بئر */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader className="pb-2">
-            <DialogTitle>تعديل بيانات البئر</DialogTitle>
-          </DialogHeader>
+          <DialogHeader className="pb-2"><DialogTitle>تعديل بيانات البئر</DialogTitle></DialogHeader>
           <div className="overflow-y-auto flex-1 px-4 py-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">رقم البئر *</Label>
-                <Input
-                  type="number"
-                  value={selectedWell?.wellNumber || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, wellNumber: parseInt(e.target.value) })}
-                  placeholder="أدخل رقم البئر"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">اسم المالك *</Label>
-                <SearchableSelect
-                  value={selectedWell?.ownerName || ''}
-                  onValueChange={(value) => setSelectedWell({ ...selectedWell, ownerName: value })}
-                  options={ownerNames.map((name: string) => ({ value: name, label: name }))}
-                  placeholder="اختر اسم المالك"
-                  searchPlaceholder="ابحث عن اسم المالك..."
-                  showSearch={true}
-                  allowCustom={true}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">المنطقة *</Label>
-                <SearchableSelect
-                  value={selectedWell?.region || ''}
-                  onValueChange={(value) => setSelectedWell({ ...selectedWell, region: value })}
-                  options={regions.map(region => ({ value: region, label: region }))}
-                  placeholder="اختر المنطقة"
-                  searchPlaceholder="ابحث عن المنطقة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
-                <Input
-                  type="number"
-                  value={selectedWell?.wellDepth || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, wellDepth: parseInt(e.target.value) })}
-                  placeholder="أدخل عمق البئر"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عدد الألواح *</Label>
-                <Input
-                  type="number"
-                  value={selectedWell?.numberOfPanels || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPanels: parseInt(e.target.value) })}
-                  placeholder="أدخل عدد الألواح"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عدد القواعد *</Label>
-                <Input
-                  type="number"
-                  value={selectedWell?.numberOfBases || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, numberOfBases: parseInt(e.target.value) })}
-                  placeholder="أدخل عدد القواعد"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">عدد المواسير *</Label>
-                <Input
-                  type="number"
-                  value={selectedWell?.numberOfPipes || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, numberOfPipes: parseInt(e.target.value) })}
-                  placeholder="أدخل عدد المواسير"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">مستوى الماء (متر)</Label>
-                <Input
-                  type="number"
-                  value={selectedWell?.waterLevel || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, waterLevel: parseInt(e.target.value) })}
-                  placeholder="أدخل مستوى الماء"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">نوع المروحة</Label>
-                <SearchableSelect
-                  value={selectedWell?.fanType || ''}
-                  onValueChange={(value) => setSelectedWell({ ...selectedWell, fanType: value })}
-                  options={fanTypes.map((type: string) => ({ value: type, label: type }))}
-                  placeholder="اختر نوع المروحة"
-                  searchPlaceholder="ابحث عن نوع المروحة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">قوة المضخة</Label>
-                <SearchableSelect
-                  value={selectedWell?.pumpPower ? String(selectedWell.pumpPower) : ''}
-                  onValueChange={(value) => setSelectedWell({ ...selectedWell, pumpPower: parseInt(value) })}
-                  options={pumpPowers.map((power: any) => ({ value: String(power), label: String(power) }))}
-                  placeholder="اختر قوة المضخة"
-                  searchPlaceholder="ابحث عن قوة المضخة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">الحالة</Label>
-                <SearchableSelect
-                  value={selectedWell?.status || ''}
-                  onValueChange={(value) => setSelectedWell({ ...selectedWell, status: value as any })}
-                  options={[
-                    { value: 'pending', label: 'لم يبدأ' },
-                    { value: 'in_progress', label: 'قيد التنفيذ' },
-                    { value: 'completed', label: 'منجز' }
-                  ]}
-                  placeholder="اختر الحالة"
-                  searchPlaceholder="ابحث عن الحالة..."
-                  showSearch={true}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold">نسبة الإنجاز (%)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={selectedWell?.completionPercentage || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, completionPercentage: parseInt(e.target.value) })}
-                  placeholder="أدخل نسبة الإنجاز"
-                  className="h-10 text-base"
-                />
-              </div>
-              <div className="space-y-1 md:col-span-2">
-                <Label className="text-sm font-semibold">الملاحظات</Label>
-                <Input
-                  value={selectedWell?.notes || ''}
-                  onChange={(e) => setSelectedWell({ ...selectedWell, notes: e.target.value })}
-                  placeholder="أضف ملاحظات اختيارية"
-                  className="h-10 text-base"
-                />
-              </div>
-            </div>
+            {selectedWell && renderWellForm(selectedWell, (d) => setSelectedWell(d as Partial<Well>), true)}
           </div>
           <div className="flex gap-2 justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => setShowEditDialog(false)} size="sm">إلغاء</Button>
-            <Button 
+            <Button variant="outline" onClick={() => setShowEditDialog(false)} size="sm" data-testid="button-cancel-edit">إلغاء</Button>
+            <Button
               onClick={() => {
                 if (!selectedWell?.wellNumber || !selectedWell?.ownerName || !selectedWell?.region || !selectedWell?.wellDepth || !selectedWell?.numberOfPanels || !selectedWell?.numberOfPipes || !selectedWell?.numberOfBases) {
-                  toast({
-                    title: "تنبيه",
-                    description: "يرجى ملء جميع الحقول الإجبارية",
-                    variant: "destructive"
-                  });
+                  toast({ title: "تنبيه", description: "يرجى ملء جميع الحقول الإجبارية", variant: "destructive" });
                   return;
                 }
                 updateWellMutation.mutate(selectedWell || {});
-              }} 
+              }}
               size="sm"
               disabled={updateWellMutation.isPending || !selectedWell?.wellNumber || !selectedWell?.ownerName || !selectedWell?.region || !selectedWell?.wellDepth || !selectedWell?.numberOfPanels || !selectedWell?.numberOfPipes || !selectedWell?.numberOfBases}
+              data-testid="button-submit-edit"
             >
               {updateWellMutation.isPending ? 'جاري...' : 'حفظ'}
             </Button>
@@ -1009,7 +647,6 @@ export default function WellsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* قائمة الآبار بالبطاقات الموحدة */}
       <UnifiedCardGrid columns={2}>
         {filteredWells.map((well: any) => (
           <UnifiedCard
@@ -1017,6 +654,7 @@ export default function WellsPage() {
             title={`بئر #${well.wellNumber} - ${well.ownerName}`}
             subtitle={well.region}
             titleIcon={MapPin}
+            headerColor={STATUS_MAP[well.status as keyof typeof STATUS_MAP]?.color}
             badges={[
               {
                 label: STATUS_MAP[well.status as keyof typeof STATUS_MAP]?.label,
@@ -1025,20 +663,41 @@ export default function WellsPage() {
             ]}
             fields={[
               { label: 'المنطقة', value: well.region, icon: MapPin, color: 'info' as const },
+              { label: 'العمق', value: `${well.wellDepth}م`, icon: TrendingUp, color: 'warning' as const },
               { label: 'الألواح', value: well.numberOfPanels, icon: BarChart3, color: 'success' as const },
               { label: 'المواسير', value: well.numberOfPipes, icon: Wrench, color: 'success' as const },
-              { label: 'العمق', value: `${well.wellDepth}م`, icon: TrendingUp, color: 'warning' as const },
               { label: 'القواعد', value: well.numberOfBases, icon: BarChart3, color: 'info' as const },
               { label: 'مستوى الماء', value: well.waterLevel ? `${well.waterLevel}م` : '-', icon: TrendingUp, color: 'info' as const },
               { label: 'التقدم', value: `${Number.isFinite(Number(well.completionPercentage)) ? Number(well.completionPercentage) : 0}%`, emphasis: true, color: 'info' as const, icon: TrendingUp },
               ...(well.fanType ? [{ label: 'نوع المروحة', value: well.fanType, icon: Wrench, color: 'info' as const }] : []),
               ...(well.pumpPower ? [{ label: 'قوة المضخة', value: `${well.pumpPower}`, icon: Wrench, color: 'warning' as const }] : []),
-              ...(well.notes ? [{ label: 'الملاحظات', value: well.notes, color: 'muted' as const }] : [])
             ]}
+            footer={
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground flex-wrap pt-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="flex items-center gap-1" data-testid={`text-crew-count-${well.id}`}>
+                    <Users className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>فرق: <b className="text-foreground">{well.crewCount || 0}</b></span>
+                  </span>
+                  <span className="flex items-center gap-1" data-testid={`text-transport-count-${well.id}`}>
+                    <Truck className="h-3.5 w-3.5 text-amber-500" />
+                    <span>نقل: <b className="text-foreground">{well.transportCount || 0}</b></span>
+                  </span>
+                  <span className="flex items-center gap-1" data-testid={`text-solar-status-${well.id}`}>
+                    <Sun className="h-3.5 w-3.5 text-yellow-500" />
+                    <span>شمسية: <b className={well.hasSolar ? 'text-green-600' : 'text-muted-foreground'}>{well.hasSolar ? '✓' : '-'}</b></span>
+                  </span>
+                  <span className="flex items-center gap-1" data-testid={`text-reception-status-${well.id}`}>
+                    <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>الاستلام: <b className={well.receptionStatus === 'passed' ? 'text-green-600' : 'text-muted-foreground'}>{RECEPTION_MAP[well.receptionStatus || ''] || '-'}</b></span>
+                  </span>
+                </div>
+              </div>
+            }
             actions={[
               {
                 icon: Eye,
-                label: 'التفاصيل',
+                label: 'إدارة',
                 onClick: () => setLifecycleWell(well),
                 color: 'green'
               },
@@ -1046,7 +705,7 @@ export default function WellsPage() {
                 icon: Edit,
                 label: 'تعديل',
                 onClick: () => {
-                  setSelectedWell(well);
+                  setSelectedWell({ ...well });
                   setShowEditDialog(true);
                 },
                 color: 'blue'
@@ -1066,9 +725,11 @@ export default function WellsPage() {
         ))}
       </UnifiedCardGrid>
 
-      {filteredWells.length === 0 && (
+      {filteredWells.length === 0 && !isLoading && (
         <div className="text-center py-12">
-          <p className="text-gray-500">لا توجد آبار</p>
+          <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="text-gray-500 text-lg" data-testid="text-no-wells">لا توجد آبار</p>
+          <p className="text-gray-400 text-sm mt-1">أضف بئراً جديداً باستخدام الزر أدناه</p>
         </div>
       )}
 
@@ -1077,7 +738,11 @@ export default function WellsPage() {
           wellId={lifecycleWell.id}
           wellNumber={lifecycleWell.wellNumber}
           ownerName={lifecycleWell.ownerName}
-          onClose={() => setLifecycleWell(null)}
+          onClose={() => {
+            setLifecycleWell(null);
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellsByProject(selectedProjectId) });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellsSummary(selectedProjectId) });
+          }}
         />
       )}
     </div>

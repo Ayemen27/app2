@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { eq, and, sql, desc, asc, isNull } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, isNull, inArray } from 'drizzle-orm';
 import {
   wells, wellTasks, wellTaskAccounts, wellExpenses, wellAuditLogs,
   projects, users, workerAttendance, materialPurchases, transportationExpenses,
@@ -56,7 +56,55 @@ export class WellService {
       }
 
       const wellsList = await query.orderBy(wells.wellNumber);
-      return wellsList;
+
+      const wellIds = wellsList.map(w => w.id);
+      if (wellIds.length === 0) return wellsList;
+
+      const [crewCounts, transportCounts, solarStatuses, receptionStatuses] = await Promise.all([
+        db.select({
+          well_id: wellWorkCrews.well_id,
+          count: sql<number>`count(*)::int`,
+        }).from(wellWorkCrews)
+          .where(inArray(wellWorkCrews.well_id, wellIds))
+          .groupBy(wellWorkCrews.well_id),
+
+        db.select({
+          well_id: wellTransportDetails.well_id,
+          count: sql<number>`count(*)::int`,
+        }).from(wellTransportDetails)
+          .where(inArray(wellTransportDetails.well_id, wellIds))
+          .groupBy(wellTransportDetails.well_id),
+
+        db.select({
+          well_id: wellSolarComponents.well_id,
+          id: wellSolarComponents.id,
+        }).from(wellSolarComponents)
+          .where(inArray(wellSolarComponents.well_id, wellIds)),
+
+        db.execute(sql`
+          SELECT DISTINCT ON (well_id) well_id, inspection_status AS "inspectionStatus"
+          FROM well_receptions
+          WHERE well_id = ANY(${wellIds}::int[])
+          ORDER BY well_id, id DESC
+        `),
+      ]);
+
+      const crewMap = new Map(crewCounts.map(c => [c.well_id, c.count]));
+      const transportMap = new Map(transportCounts.map(t => [t.well_id, t.count]));
+      const solarSet = new Set(solarStatuses.map(s => s.well_id));
+      const receptionMap = new Map<number, string>();
+      const receptionRows = (receptionStatuses as any).rows || receptionStatuses;
+      for (const r of receptionRows) {
+        receptionMap.set(r.well_id, r.inspectionStatus || 'pending');
+      }
+
+      return wellsList.map(well => ({
+        ...well,
+        crewCount: crewMap.get(well.id) || 0,
+        transportCount: transportMap.get(well.id) || 0,
+        hasSolar: solarSet.has(well.id),
+        receptionStatus: receptionMap.get(well.id) || null,
+      }));
     } catch (error) {
       console.error('[WellService] Error fetching wells:', error);
       throw error;

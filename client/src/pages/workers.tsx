@@ -526,12 +526,6 @@ const WorkerCardWrapper = ({
             color: worker.phone ? "success" : "muted",
           },
           {
-            label: "المشاريع",
-            value: statsLoading ? '...' : projectsCount > 0 ? `${projectsCount} مشروع` : 'لا يوجد',
-            icon: Building,
-            color: projectsCount > 0 ? "info" : "muted",
-          },
-          {
             label: "أيام العمل",
             value: statsLoading ? '...' : `${stats?.totalWorkDays ?? 0} يوم`,
             icon: Calendar,
@@ -539,9 +533,14 @@ const WorkerCardWrapper = ({
           },
         ]}
         customSection={
-          !statsLoading && projectNames.length > 0 ? (
-            <div className="px-3 pb-2" data-testid={`worker-projects-${worker.id}`}>
-              <p className="text-[10px] text-muted-foreground mb-1.5 font-medium">المشاريع:</p>
+          <div className="px-3 pb-1 pt-1" data-testid={`worker-projects-${worker.id}`}>
+            <div className="flex items-center gap-1 mb-1">
+              <Building className="h-3 w-3 text-blue-500" />
+              <span className="text-[10px] text-muted-foreground font-medium">المشاريع:</span>
+            </div>
+            {statsLoading ? (
+              <span className="text-[10px] text-muted-foreground">...</span>
+            ) : projectNames.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {projectNames.map((p) => (
                   <Badge
@@ -554,8 +553,10 @@ const WorkerCardWrapper = ({
                   </Badge>
                 ))}
               </div>
-            </div>
-          ) : undefined
+            ) : (
+              <span className="text-[10px] text-muted-foreground">لا يوجد</span>
+            )}
+          </div>
         }
         actions={[
           {

@@ -70,7 +70,7 @@ export function MultiWellSelector({
     return well ? `بئر #${well.wellNumber}` : `بئر #${wellId}`;
   };
 
-  if (!project_id || wells.length === 0) {
+  if (!project_id) {
     return null;
   }
 
@@ -87,12 +87,16 @@ export function MultiWellSelector({
           type="button"
           variant="outline"
           className="w-full justify-between h-9 text-right font-normal"
-          onClick={() => !disabled && setIsOpen(!isOpen)}
-          disabled={disabled || isLoading}
+          onClick={() => !disabled && wells.length > 0 && setIsOpen(!isOpen)}
+          disabled={disabled || isLoading || wells.length === 0}
           data-testid="button-multi-well-selector"
         >
           <span className="truncate text-xs">
-            {value.length === 0 ? (
+            {isLoading ? (
+              <span className="text-muted-foreground">جاري تحميل الآبار...</span>
+            ) : wells.length === 0 ? (
+              <span className="text-muted-foreground">لا توجد آبار</span>
+            ) : value.length === 0 ? (
               <span className="text-muted-foreground">اختر الآبار...</span>
             ) : (
               <span className="flex items-center gap-1 flex-wrap">

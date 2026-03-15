@@ -18,7 +18,7 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: teams = [] } = useQuery<string[]>({
+  const { data: teams = [], isLoading } = useQuery<string[]>({
     queryKey: ['/api/wells/team-names', project_id],
     queryFn: async () => {
       try {
@@ -55,8 +55,6 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
     }
   };
 
-  if (teams.length === 0) return null;
-
   return (
     <div className="space-y-1" ref={dropdownRef}>
       {showLabel && (
@@ -70,11 +68,16 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
           type="button"
           variant="outline"
           className="w-full justify-between h-9 text-right font-normal"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => teams.length > 0 && setIsOpen(!isOpen)}
+          disabled={isLoading || teams.length === 0}
           data-testid="button-team-selector"
         >
           <span className="truncate text-xs">
-            {value.length === 0 ? (
+            {isLoading ? (
+              <span className="text-muted-foreground">جاري تحميل الفرق...</span>
+            ) : teams.length === 0 ? (
+              <span className="text-muted-foreground">لا توجد فرق</span>
+            ) : value.length === 0 ? (
               <span className="text-muted-foreground">اختر الفريق...</span>
             ) : (
               <span className="flex items-center gap-1 flex-wrap">

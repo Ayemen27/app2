@@ -2930,7 +2930,7 @@ function DailyExpensesContent() {
                 </div>
               </div>
               {isWellsProject && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   <MultiWellSelector
                     project_id={selectedProjectId}
                     value={selectedWellIds}
@@ -3147,7 +3147,7 @@ function DailyExpensesContent() {
             </div>
 
             {isWellsProject && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 <MultiWellSelector
                   project_id={selectedProjectId}
                   value={selectedWellIds}
@@ -3506,7 +3506,7 @@ function DailyExpensesContent() {
                         />
                       </div>
                       {isWellsProject && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <MultiWellSelector
                             project_id={selectedProjectId}
                             value={purchaseWellIds}

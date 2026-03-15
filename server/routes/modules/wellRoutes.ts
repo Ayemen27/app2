@@ -15,6 +15,11 @@ import {
   insertWellTransportDetailSchema,
   insertWellReceptionSchema
 } from '../../../shared/schema';
+import { generateWellReportExcel } from '../../services/reports/templates/WellReportExcel';
+import { generateWellReportHTML } from '../../services/reports/templates/WellReportPDF';
+import { db } from '../../db';
+import { projects, users } from '../../../shared/schema';
+import { eq } from 'drizzle-orm';
 
 export const wellRouter = express.Router();
 
@@ -90,6 +95,91 @@ wellRouter.get('/export/full-data', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ خطأ في جلب بيانات التصدير الكاملة:', error);
     res.status(500).json({ success: false, error: 'EXPORT_DATA_ERROR', message: error.message || 'فشل في جلب بيانات التصدير' });
+  }
+});
+
+/**
+ * GET /api/wells/reports/export - تصدير تقارير الآبار (Excel/PDF)
+ */
+wellRouter.get('/reports/export', async (req: Request, res: Response) => {
+  try {
+    const { project_id, format, report_type } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    if (!format || !['xlsx', 'pdf'].includes(format as string)) {
+      return res.status(400).json({ success: false, error: 'صيغة التصدير مطلوبة (xlsx أو pdf)' });
+    }
+
+    if (!project_id) {
+      return res.status(400).json({ success: false, error: 'معرف المشروع مطلوب' });
+    }
+
+    const filteredProjectId = project_id === 'all' ? undefined : (project_id as string);
+
+    if (!isAdminUser && filteredProjectId && !accessibleIds.includes(filteredProjectId)) {
+      return res.status(403).json({ success: false, error: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
+    let wellsData = await WellService.getWellsFullExportData(filteredProjectId);
+
+    if (!isAdminUser) {
+      const idSet = new Set(accessibleIds);
+      wellsData = wellsData.filter((w: any) => w.project_id && idSet.has(w.project_id));
+    }
+
+    let projectName = 'جميع المشاريع';
+    let engineerName = '';
+    if (filteredProjectId) {
+      const [proj] = await db.select().from(projects).where(
+        eq(projects.id, filteredProjectId)
+      ).limit(1);
+      if (proj) {
+        projectName = proj.name;
+        if (proj.engineerId) {
+          const [engineer] = await db.select().from(users).where(eq(users.id, proj.engineerId)).limit(1);
+          engineerName = engineer?.full_name || engineer?.username || '';
+        }
+      }
+    }
+
+    const validReportTypes = ['comprehensive', 'wells_only', 'crews_only', 'solar_only'];
+    const rType = validReportTypes.includes(report_type as string) ? (report_type as string) : 'comprehensive';
+
+    if (format === 'xlsx') {
+      const buffer = await generateWellReportExcel({
+        projectName,
+        projectId: filteredProjectId || 'all',
+        engineerName,
+        wells: wellsData,
+        reportType: rType as any,
+      });
+
+      const safeName = projectName.replace(/[^\u0600-\u06FFa-zA-Z0-9_\- ]/g, '').trim() || 'wells-report';
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(`تقرير-الآبار-${safeName}.xlsx`)}`);
+      return res.send(buffer);
+    }
+
+    if (format === 'pdf') {
+      const html = generateWellReportHTML({
+        projectName,
+        engineerName,
+        wells: wellsData,
+        reportType: rType as any,
+      });
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(html);
+    }
+  } catch (error: any) {
+    console.error('❌ خطأ في تصدير تقرير الآبار:', error);
+    res.status(500).json({
+      success: false,
+      error: 'WELL_REPORT_EXPORT_ERROR',
+      message: error.message || 'فشل في تصدير تقرير الآبار'
+    });
   }
 });
 

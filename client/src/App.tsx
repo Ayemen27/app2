@@ -51,6 +51,7 @@ const WellMaterialsPage = lazy(() => import("./pages/well-materials"));
 const WellCostReport = lazy(() => import("./pages/well-cost-report"));
 const WellAccounting = lazy(() => import("./pages/well-accounting"));
 const WellReceptionsPage = lazy(() => import("./pages/well-receptions"));
+const WellReportsPage = lazy(() => import("./pages/well-reports"));
 const DataHealthPage = lazy(() => import("./pages/DataHealthPage"));
 const DatabaseManager = lazy(() => import("./pages/DatabaseManager"));
 
@@ -347,6 +348,11 @@ function Router() {
       <Route path="/well-cost-report">
         <Suspense fallback={<PageLoader />}>
           <WellCostReport />
+        </Suspense>
+      </Route>
+      <Route path="/well-reports">
+        <Suspense fallback={<PageLoader />}>
+          <WellReportsPage />
         </Suspense>
       </Route>
       <Route path="/well-accounting">

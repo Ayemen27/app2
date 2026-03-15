@@ -280,6 +280,29 @@ export default function WorkerSettlementsPage() {
     return { amount, count };
   }, [preview, selectedWorkers, excludedProjects, getActiveProjects]);
 
+  const selectedFundTransfers = useMemo(() => {
+    if (!preview?.workers) return [];
+    const selected = preview.workers.filter((w) => selectedWorkers.has(w.workerId));
+    const totals = new Map<string, { fromProjectId: string; fromProjectName: string; toProjectId: string; amount: number }>();
+    for (const w of selected) {
+      const active = getActiveProjects(w);
+      for (const p of active) {
+        const existing = totals.get(p.projectId);
+        if (existing) {
+          existing.amount += p.balance;
+        } else {
+          totals.set(p.projectId, {
+            fromProjectId: p.projectId,
+            fromProjectName: p.projectName,
+            toProjectId: settlementProjectId,
+            amount: p.balance,
+          });
+        }
+      }
+    }
+    return Array.from(totals.values());
+  }, [preview, selectedWorkers, excludedProjects, getActiveProjects, settlementProjectId]);
+
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
     if (activeView === "new" && preview) {
       return [
@@ -304,7 +327,7 @@ export default function WorkerSettlementsPage() {
             {
               key: "transferCount",
               label: "عدد التحويلات",
-              value: preview.fundTransfers?.length || 0,
+              value: selectedFundTransfers.length,
               icon: ArrowLeftRight,
               color: "purple",
             },
@@ -693,7 +716,7 @@ export default function WorkerSettlementsPage() {
                 </Card>
               )}
 
-              {preview.fundTransfers && preview.fundTransfers.length > 0 && (
+              {selectedFundTransfers.length > 0 && (
                 <Card>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -701,7 +724,7 @@ export default function WorkerSettlementsPage() {
                       تحويلات الصناديق بين المشاريع
                     </div>
                     <div className="space-y-2">
-                      {preview.fundTransfers.map((ft, i) => {
+                      {selectedFundTransfers.map((ft, i) => {
                         const settlementProject = projects.find(p => p.id === ft.toProjectId);
                         return (
                           <div

@@ -473,21 +473,27 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         [actualFundTotals.size, settlementId]
       );
 
-      await client.query(
-        `INSERT INTO audit_logs (user_id, action, meta, created_at)
-         VALUES ($1, $2, $3, NOW())`,
-        [
-          userId,
-          'SETTLEMENT_EXECUTED',
-          JSON.stringify({
-            settlementId,
-            settlementProjectId: settlement_project_id,
-            workerCount: positiveWorkers.length,
-            totalAmount: positiveTotal,
-            transferCount: actualFundTotals.size,
-          }),
-        ]
-      );
+      try {
+        const numericUserId = userId ? parseInt(userId, 10) : null;
+        await client.query(
+          `INSERT INTO audit_logs (user_id, action, meta, created_at)
+           VALUES ($1, $2, $3, NOW())`,
+          [
+            isNaN(numericUserId as number) ? null : numericUserId,
+            'SETTLEMENT_EXECUTED',
+            JSON.stringify({
+              settlementId,
+              settlementProjectId: settlement_project_id,
+              workerCount: positiveWorkers.length,
+              totalAmount: positiveTotal,
+              transferCount: actualFundTotals.size,
+              triggeredBy: userId,
+            }),
+          ]
+        );
+      } catch (auditErr) {
+        console.warn('[Settlement] Failed to insert audit log, continuing:', auditErr);
+      }
 
       return {
         settlementId,

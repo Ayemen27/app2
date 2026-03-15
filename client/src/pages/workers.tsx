@@ -224,19 +224,20 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>أجور المشاريع - {worker.name}</DialogTitle>
-          <DialogDescription>إدارة الأجور اليومية حسب المشروع</DialogDescription>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-base sm:text-lg leading-tight truncate">أجور المشاريع - {worker.name}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">إدارة الأجور اليومية حسب المشروع</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm text-muted-foreground">
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <span className="text-xs sm:text-sm text-muted-foreground">
               الأجر الافتراضي: {formatCurrency(worker.dailyWage)}
             </span>
             <Button
               size="sm"
+              className="w-full sm:w-auto text-xs"
               onClick={() => { resetForm(); setShowWageForm(true); }}
               data-testid="button-add-project-wage"
             >
@@ -247,35 +248,34 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
 
           {showWageForm && (
             <Card>
-              <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">المشروع *</Label>
-                    <Select
-                      value={wageForm.project_id}
-                      onValueChange={(v) => setWageForm(prev => ({ ...prev, project_id: v }))}
-                    >
-                      <SelectTrigger data-testid="select-project">
-                        <SelectValue placeholder="اختر المشروع" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projectsList.map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">الأجر اليومي (ر.ي) *</Label>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      value={wageForm.dailyWage}
-                      onChange={(e) => setWageForm(prev => ({ ...prev, dailyWage: e.target.value }))}
-                      placeholder="0"
-                      data-testid="input-wage-amount"
-                    />
-                  </div>
+              <CardContent className="p-3 sm:p-4 space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">المشروع *</Label>
+                  <Select
+                    value={wageForm.project_id}
+                    onValueChange={(v) => setWageForm(prev => ({ ...prev, project_id: v }))}
+                  >
+                    <SelectTrigger data-testid="select-project" className="text-sm">
+                      <SelectValue placeholder="اختر المشروع" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectsList.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">الأجر اليومي (ر.ي) *</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={wageForm.dailyWage}
+                    onChange={(e) => setWageForm(prev => ({ ...prev, dailyWage: e.target.value }))}
+                    placeholder="0"
+                    className="text-sm"
+                    data-testid="input-wage-amount"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -284,6 +284,7 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
                       type="date"
                       value={wageForm.effectiveFrom}
                       onChange={(e) => setWageForm(prev => ({ ...prev, effectiveFrom: e.target.value }))}
+                      className="text-sm"
                       data-testid="input-effective-from"
                     />
                   </div>
@@ -293,6 +294,7 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
                       type="date"
                       value={wageForm.effectiveTo}
                       onChange={(e) => setWageForm(prev => ({ ...prev, effectiveTo: e.target.value }))}
+                      className="text-sm"
                       data-testid="input-effective-to"
                     />
                   </div>
@@ -300,13 +302,14 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
+                    className="flex-1 sm:flex-none text-xs"
                     onClick={handleSubmitWage}
                     disabled={createWageMutation.isPending || updateWageMutation.isPending}
                     data-testid="button-save-wage"
                   >
                     {createWageMutation.isPending || updateWageMutation.isPending ? 'جاري الحفظ...' : (editingWage ? 'تحديث' : 'حفظ')}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={resetForm}>إلغاء</Button>
+                  <Button size="sm" variant="outline" className="flex-1 sm:flex-none text-xs" onClick={resetForm}>إلغاء</Button>
                 </div>
               </CardContent>
             </Card>
@@ -323,55 +326,45 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
               <p className="text-sm text-muted-foreground">لا توجد أجور مخصصة للمشاريع</p>
             </div>
           ) : (
-            <div className="border rounded-lg">
-              <Table data-testid="table-project-wages">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">المشروع</TableHead>
-                    <TableHead className="text-right">الأجر اليومي</TableHead>
-                    <TableHead className="text-right">من</TableHead>
-                    <TableHead className="text-right">إلى</TableHead>
-                    <TableHead className="text-right">الحالة</TableHead>
-                    <TableHead className="text-right">إجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {wages.map((wage: WorkerProjectWageData) => (
-                    <TableRow key={wage.id}>
-                      <TableCell className="text-sm">{wage.projectName || getProjectName(wage.project_id)}</TableCell>
-                      <TableCell className="text-sm font-medium">{formatCurrency(wage.dailyWage)}</TableCell>
-                      <TableCell className="text-sm">{wage.effectiveFrom}</TableCell>
-                      <TableCell className="text-sm">{wage.effectiveTo || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={wage.is_active ? 'default' : 'secondary'} className="text-xs">
-                          {wage.is_active ? 'نشط' : 'غير نشط'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleEditWage(wage)}
-                            data-testid={`button-edit-wage-${wage.id}`}
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleDeleteWage(wage)}
-                            disabled={deleteWageMutation.isPending}
-                            data-testid={`button-delete-wage-${wage.id}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="space-y-2" data-testid="table-project-wages">
+              {wages.map((wage: WorkerProjectWageData) => (
+                <div key={wage.id} className="border rounded-lg p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{wage.projectName || getProjectName(wage.project_id)}</p>
+                      <p className="text-base font-bold text-primary mt-0.5">{formatCurrency(wage.dailyWage)}</p>
+                    </div>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Badge variant={wage.is_active ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {wage.is_active ? 'نشط' : 'معطل'}
+                      </Badge>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => handleEditWage(wage)}
+                        data-testid={`button-edit-wage-${wage.id}`}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => handleDeleteWage(wage)}
+                        disabled={deleteWageMutation.isPending}
+                        data-testid={`button-delete-wage-${wage.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>من: {wage.effectiveFrom}</span>
+                    <span>إلى: {wage.effectiveTo || 'مفتوح'}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

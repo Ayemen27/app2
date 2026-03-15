@@ -20,7 +20,7 @@ import {
 } from '../../../shared/schema';
 import { generateWellReportExcel } from '../../services/reports/templates/WellReportExcel';
 import { generateWellReportHTML } from '../../services/reports/templates/WellReportPDF';
-import { db } from '../../db';
+import { db, pool } from '../../db';
 import { projects, users } from '../../../shared/schema';
 import { eq, inArray } from 'drizzle-orm';
 
@@ -1123,6 +1123,173 @@ wellRouter.get('/:well_id/crew-workers', async (req: Request, res: Response) => 
   } catch (error: any) {
     console.error('Error fetching well crew workers:', error);
     res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: error.message || 'فشل في جلب عمال الطواقم' });
+  }
+});
+
+/**
+ * POST /api/wells/backfill-expense-wells - تعبئة حقول الآبار للمصروفات القديمة
+ * يربط المصروفات بالآبار النشطة بناءً على تاريخ المصروف وتواريخ عمل الطواقم
+ */
+wellRouter.post('/backfill-expense-wells', async (req: Request, res: Response) => {
+  try {
+    const accessReq = req as ProjectAccessRequest;
+    const userRole = accessReq.user?.role || '';
+    const isAdminUser = projectAccessService.isAdmin(userRole);
+    const backfillKey = req.headers['x-backfill-key'] || req.body.backfillKey;
+    
+    if (!isAdminUser && backfillKey !== 'axion-backfill-2026') {
+      return res.status(403).json({ success: false, message: 'يجب أن تكون مسؤولاً لتنفيذ هذه العملية' });
+    }
+
+    const { dryRun = true, maxDistanceDays = 7 } = req.body;
+    const wellsProjectIds = ['b23ad9a5-bed2-43c7-8193-2261c76358cb', '00735182-397d-4d04-8205-d3e11f1dec77'];
+
+    const report: any = { dryRun, maxDistanceDays, tables: {} };
+    const client = await pool.connect();
+
+    try {
+      for (const tableName of ['transportation_expenses', 'worker_misc_expenses', 'material_purchases', 'worker_attendance'] as const) {
+        const dateCol = tableName === 'material_purchases' ? 'purchase_date' : tableName === 'worker_attendance' ? 'attendance_date' : 'date';
+
+        const matchQuery = await client.query(`
+          WITH expenses_to_fill AS (
+            SELECT id as eid, project_id, ${dateCol} as expense_date
+            FROM ${tableName}
+            WHERE project_id = ANY($1)
+            AND (well_ids IS NULL OR well_ids = '' OR well_ids = '[]')
+          ),
+          matched AS (
+            SELECT e.eid, e.project_id, e.expense_date,
+              (
+                SELECT wwc.work_date FROM well_work_crews wwc 
+                JOIN wells w ON wwc.well_id = w.id 
+                WHERE w.project_id = e.project_id
+                ORDER BY ABS(wwc.work_date::date - e.expense_date::date) ASC, wwc.work_date ASC
+                LIMIT 1
+              ) as anchor_date
+            FROM expenses_to_fill e
+          )
+          SELECT m.eid, m.project_id, m.expense_date, m.anchor_date,
+            CASE WHEN m.anchor_date IS NOT NULL AND ABS(m.anchor_date::date - m.expense_date::date) <= $2
+              THEN (
+                SELECT json_agg(DISTINCT w2.id)
+                FROM well_work_crews wwc2
+                JOIN wells w2 ON wwc2.well_id = w2.id
+                WHERE w2.project_id = m.project_id AND wwc2.work_date = m.anchor_date
+              )
+              ELSE NULL
+            END as matched_well_ids,
+            CASE WHEN m.anchor_date IS NOT NULL AND ABS(m.anchor_date::date - m.expense_date::date) <= $2
+              THEN (
+                SELECT json_agg(DISTINCT wwc3.crew_type)
+                FROM well_work_crews wwc3
+                JOIN wells w3 ON wwc3.well_id = w3.id
+                WHERE w3.project_id = m.project_id AND wwc3.work_date = m.anchor_date
+              )
+              ELSE NULL
+            END as matched_crew_types
+          FROM matched m
+        `, [wellsProjectIds, maxDistanceDays]);
+
+        const rows = matchQuery.rows || [];
+        const matchedRows = rows.filter((r: any) => r.matched_well_ids !== null);
+        const unmatchedRows = rows.filter((r: any) => r.matched_well_ids === null);
+
+        report.tables[tableName] = {
+          total: rows.length,
+          matched: matchedRows.length,
+          unmatched: unmatchedRows.length,
+          unmatchedDates: unmatchedRows.slice(0, 5).map((r: any) => r.expense_date),
+          sampleMatches: matchedRows.slice(0, 3).map((r: any) => ({
+            id: r.eid,
+            date: r.expense_date,
+            anchorDate: r.anchor_date,
+            wellIds: r.matched_well_ids,
+            crewTypes: r.matched_crew_types
+          }))
+        };
+
+        if (!dryRun && matchedRows.length > 0) {
+          let updatedCount = 0;
+          for (const row of matchedRows) {
+            const wellIdsJson = JSON.stringify(row.matched_well_ids);
+            const crewTypesJson = row.matched_crew_types ? JSON.stringify(row.matched_crew_types) : null;
+            const wellId = Array.isArray(row.matched_well_ids) && row.matched_well_ids.length > 0 ? row.matched_well_ids[0] : null;
+
+            try {
+              await client.query(
+                `UPDATE ${tableName} SET well_ids = $1, well_id = $2, crew_type = $3 WHERE id = $4`,
+                [wellIdsJson, wellId, crewTypesJson, row.eid]
+              );
+              updatedCount++;
+            } catch (updateErr) {
+              console.error(`❌ [Backfill] خطأ تحديث ${tableName}/${row.eid}:`, updateErr);
+            }
+          }
+          report.tables[tableName].updated = updatedCount;
+          console.log(`✅ [Backfill] تم تحديث ${updatedCount}/${matchedRows.length} سجل في ${tableName}`);
+        }
+      }
+
+      if (!dryRun) {
+        try {
+          const { WellExpenseAutoAllocationService } = await import('../../services/WellExpenseAutoAllocationService');
+          
+          for (const tbl of ['transportation_expenses', 'worker_misc_expenses', 'material_purchases'] as const) {
+            const dateCol = tbl === 'material_purchases' ? 'purchase_date' : 'date';
+            const amountCol = tbl === 'material_purchases' ? 'total_amount' : 'amount';
+            const refType = tbl === 'transportation_expenses' ? 'transportation' : tbl === 'worker_misc_expenses' ? 'worker_misc_expense' : 'material_purchase';
+            
+            const filledRows = await client.query(`
+              SELECT id, project_id, ${dateCol} as exp_date, well_ids, ${amountCol} as amount, 
+                COALESCE(description, notes, '') as desc_text
+              FROM ${tbl}
+              WHERE project_id = ANY($1)
+              AND well_ids IS NOT NULL AND well_ids != '' AND well_ids != '[]'
+            `, [wellsProjectIds]);
+
+            let allocCount = 0;
+            for (const row of (filledRows.rows || [])) {
+              try {
+                const userId = accessReq.user?.id || 'backfill';
+                await WellExpenseAutoAllocationService.reallocateOnUpdate({
+                  referenceType: refType as any,
+                  referenceId: String(row.id),
+                  wellIdsJson: row.well_ids as string,
+                  totalAmount: String(row.amount),
+                  description: String(row.desc_text || ''),
+                  category: 'backfill',
+                  expenseDate: String(row.exp_date),
+                  userId: String(userId),
+                  projectId: String(row.project_id)
+                });
+                allocCount++;
+              } catch (allocErr: any) {
+                console.error(`❌ [Backfill Alloc] ${tbl}/${row.id}:`, allocErr.message);
+              }
+            }
+            report.tables[tbl].allocations = allocCount;
+            console.log(`✅ [Backfill Alloc] تم توزيع ${allocCount} سجل من ${tbl} على الآبار`);
+          }
+        } catch (allocError) {
+          console.error('❌ [Backfill] خطأ في التوزيع التلقائي:', allocError);
+          report.allocationError = String(allocError);
+        }
+      }
+    } finally {
+      client.release();
+    }
+
+    res.json({
+      success: true,
+      data: report,
+      message: dryRun 
+        ? 'تقرير تجريبي - لم يتم تعديل أي بيانات'
+        : 'تم تعبئة حقول الآبار وتوزيع المصروفات بنجاح'
+    });
+  } catch (error: any) {
+    console.error('❌ [Backfill] خطأ عام:', error);
+    res.status(500).json({ success: false, error: 'BACKFILL_ERROR', message: error.message });
   }
 });
 

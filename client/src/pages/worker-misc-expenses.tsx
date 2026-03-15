@@ -37,6 +37,7 @@ interface WorkerMiscExpensesProps {
 export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsProject = false }: WorkerMiscExpensesProps) {
   const [miscDescription, setMiscDescription] = useState("");
   const [miscAmount, setMiscAmount] = useState("");
+  const [miscNotes, setMiscNotes] = useState("");
   const [miscWellIds, setMiscWellIds] = useState<number[]>([]);
   const [miscCrewTypes, setMiscCrewTypes] = useState<string[]>([]);
   const [miscTeamNames, setMiscTeamNames] = useState<string[]>([]);
@@ -220,6 +221,7 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
         data: {
           description: miscDescription,
           amount: miscAmount,
+          notes: miscNotes || null,
           well_id: miscWellIds[0] || null,
           well_ids: miscWellIds.length > 0 ? JSON.stringify(miscWellIds) : null,
           crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null
@@ -229,6 +231,7 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
       createMiscExpenseMutation.mutate({
         description: miscDescription,
         amount: miscAmount,
+        notes: miscNotes || null,
         project_id,
         date: selectedDate,
         well_id: miscWellIds[0] || null,
@@ -241,14 +244,17 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
   const resetMiscExpenseForm = () => {
     setMiscDescription("");
     setMiscAmount("");
+    setMiscNotes("");
     setMiscWellIds([]);
     setMiscCrewTypes([]);
+    setMiscTeamNames([]);
     setEditingMiscId(null);
   };
 
   const handleEditMiscExpense = (expense: any) => {
     setMiscDescription(expense.description);
     setMiscAmount(expense.amount);
+    setMiscNotes(expense.notes || "");
     setMiscWellIds(expense.well_ids ? JSON.parse(expense.well_ids) : (expense.well_id ? [Number(expense.well_id)] : []));
     setMiscCrewTypes(expense.crew_type ? (expense.crew_type.startsWith('[') ? JSON.parse(expense.crew_type) : [expense.crew_type]) : []);
     setEditingMiscId(expense.id);
@@ -261,28 +267,6 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
 
   return (
     <div className="space-y-3">
-      {isWellsProject && (
-        <div className="grid grid-cols-3 gap-2">
-          <MultiWellSelector
-            project_id={project_id}
-            value={miscWellIds}
-            onChange={setMiscWellIds}
-            showLabel={false}
-            optional={true}
-          />
-          <TeamSelector
-            project_id={project_id}
-            value={miscTeamNames}
-            onChange={setMiscTeamNames}
-            showLabel={false}
-          />
-          <CrewTypeSelector
-            value={miscCrewTypes}
-            onChange={setMiscCrewTypes}
-            showLabel={false}
-          />
-        </div>
-      )}
       <div className="grid grid-cols-2 gap-3">
             <AutocompleteInput
               value={miscDescription}
@@ -299,6 +283,32 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
               className="text-center arabic-numbers"
             />
           </div>
+          <Input
+            value={miscNotes}
+            onChange={(e) => setMiscNotes(e.target.value)}
+            placeholder="ملاحظات إضافية"
+            className="text-right"
+            data-testid="input-misc-notes"
+          />
+      {isWellsProject && (
+        <div className="grid grid-cols-3 gap-2">
+          <MultiWellSelector
+            project_id={project_id}
+            value={miscWellIds}
+            onChange={setMiscWellIds}
+            optional={true}
+          />
+          <TeamSelector
+            project_id={project_id}
+            value={miscTeamNames}
+            onChange={setMiscTeamNames}
+          />
+          <CrewTypeSelector
+            value={miscCrewTypes}
+            onChange={setMiscCrewTypes}
+          />
+        </div>
+      )}
           <div className="flex gap-2">
             <Button 
               onClick={handleAddMiscExpense} 
@@ -333,6 +343,9 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
             <div key={expense.id || index} className="flex justify-between items-center p-2 bg-muted rounded">
               <div className="flex-1 min-w-0">
                 <span className="text-sm block">{expense.description}</span>
+                {expense.notes && (
+                  <span className="text-[10px] text-muted-foreground block">{expense.notes}</span>
+                )}
                 {getWellLabel(expense.well_id) && (
                   <span className="text-[10px] text-blue-600 dark:text-blue-400">{getWellLabel(expense.well_id)}</span>
                 )}

@@ -531,33 +531,18 @@ const WorkerCardWrapper = ({
             icon: Calendar,
             color: "warning",
           },
+          ...(statsLoading
+            ? [{ label: "المشاريع", value: "...", icon: Building, color: "info" as const }]
+            : projectNames.length > 0
+              ? projectNames.map((p, i) => ({
+                  label: projectNames.length === 1 ? "المشروع" : `مشروع ${i + 1}`,
+                  value: p.name,
+                  icon: Building,
+                  color: "info" as const,
+                }))
+              : [{ label: "المشاريع", value: "لا يوجد", icon: Building, color: "muted" as const }]
+          ),
         ]}
-        customSection={
-          <div className="px-3 pb-1 pt-1" data-testid={`worker-projects-${worker.id}`}>
-            <div className="flex items-center gap-1 mb-1">
-              <Building className="h-3 w-3 text-blue-500" />
-              <span className="text-[10px] text-muted-foreground font-medium">المشاريع:</span>
-            </div>
-            {statsLoading ? (
-              <span className="text-[10px] text-muted-foreground">...</span>
-            ) : projectNames.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {projectNames.map((p) => (
-                  <Badge
-                    key={p.id}
-                    variant="outline"
-                    className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-                    data-testid={`badge-project-${p.id}`}
-                  >
-                    {p.name}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <span className="text-[10px] text-muted-foreground">لا يوجد</span>
-            )}
-          </div>
-        }
         actions={[
           {
             icon: FileText,

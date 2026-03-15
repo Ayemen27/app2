@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest } from "@/lib/queryClient";
-import { Users, ChevronDown, X } from "lucide-react";
+import { Users, X, Search } from "lucide-react";
 
 interface TeamSelectorProps {
   project_id?: string;
@@ -16,7 +17,9 @@ interface TeamSelectorProps {
 
 export function TeamSelector({ project_id, value = [], onChange, showLabel = true }: TeamSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data: teams = [], isLoading } = useQuery<string[]>({
     queryKey: ['/api/wells/team-names', project_id],
@@ -41,11 +44,24 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setSearchTerm("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
+
+  const filteredTeams = useMemo(() => {
+    if (!searchTerm.trim()) return teams;
+    const term = searchTerm.toLowerCase().trim();
+    return teams.filter(team => team.toLowerCase().includes(term));
+  }, [teams, searchTerm]);
 
   const toggleTeam = (team: string) => {
     if (value.includes(team)) {
@@ -64,61 +80,77 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
         </Label>
       )}
       <div className="relative">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full justify-between h-9 text-right font-normal"
+        <div
+          className={`flex items-center border rounded-md h-9 px-2 cursor-pointer bg-background ${isLoading || teams.length === 0 ? 'opacity-50 pointer-events-none' : 'hover:border-primary/50'}`}
           onClick={() => teams.length > 0 && setIsOpen(!isOpen)}
-          disabled={isLoading || teams.length === 0}
           data-testid="button-team-selector"
         >
-          <span className="truncate text-xs">
+          <span className="truncate text-xs flex-1">
             {isLoading ? (
-              <span className="text-muted-foreground">جاري تحميل الفرق...</span>
+              <span className="text-muted-foreground">تحميل...</span>
             ) : teams.length === 0 ? (
-              <span className="text-muted-foreground">لا توجد فرق</span>
+              <span className="text-muted-foreground">لا توجد</span>
             ) : value.length === 0 ? (
-              <span className="text-muted-foreground">اختر الفريق...</span>
+              <span className="text-muted-foreground">اختر...</span>
             ) : (
-              <span className="flex items-center gap-1 flex-wrap">
-                {value.map(t => (
-                  <Badge key={t} variant="secondary" className="text-[10px] px-1.5 py-0 h-5 gap-0.5">
+              <span className="flex items-center gap-0.5 flex-wrap">
+                {value.slice(0, 1).map(t => (
+                  <Badge key={t} variant="secondary" className="text-[9px] px-1 py-0 h-4 gap-0.5 max-w-[80px] truncate">
                     {t}
                     <X
-                      className="h-2.5 w-2.5 cursor-pointer hover:text-destructive"
+                      className="h-2 w-2 cursor-pointer hover:text-destructive shrink-0"
                       onClick={(e) => { e.stopPropagation(); toggleTeam(t); }}
                     />
                   </Badge>
                 ))}
+                {value.length > 1 && (
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">+{value.length - 1}</Badge>
+                )}
               </span>
             )}
           </span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
-        </Button>
+          <Search className="h-3 w-3 shrink-0 opacity-40" />
+        </div>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
-            {teams.map((team) => (
-              <label
-                key={team}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-accent cursor-pointer text-sm"
-                data-testid={`checkbox-team-${team}`}
-              >
-                <Checkbox
-                  checked={value.includes(team)}
-                  onCheckedChange={() => toggleTeam(team)}
-                />
-                <span>{team}</span>
-              </label>
-            ))}
+          <div className="absolute z-50 mt-1 w-full bg-popover border rounded-md shadow-lg">
+            <div className="p-1.5 border-b">
+              <Input
+                ref={searchInputRef}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="بحث بالاسم..."
+                className="h-7 text-xs"
+                data-testid="input-team-search"
+              />
+            </div>
+            <div className="max-h-40 overflow-y-auto">
+              {filteredTeams.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-muted-foreground text-center">لا توجد نتائج</div>
+              ) : (
+                filteredTeams.map((team) => (
+                  <label
+                    key={team}
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-accent cursor-pointer text-xs"
+                    data-testid={`checkbox-team-${team}`}
+                  >
+                    <Checkbox
+                      checked={value.includes(team)}
+                      onCheckedChange={() => toggleTeam(team)}
+                    />
+                    <span className="truncate">{team}</span>
+                  </label>
+                ))
+              )}
+            </div>
             {value.length > 0 && (
-              <div className="border-t px-3 py-1.5">
+              <div className="border-t px-2 py-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="w-full text-xs h-7 text-muted-foreground"
-                  onClick={() => { onChange([]); setIsOpen(false); }}
+                  className="w-full text-[10px] h-6 text-muted-foreground"
+                  onClick={() => { onChange([]); setIsOpen(false); setSearchTerm(""); }}
                   data-testid="button-clear-teams"
                 >
                   مسح الكل

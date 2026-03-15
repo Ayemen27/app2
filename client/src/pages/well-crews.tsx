@@ -37,6 +37,12 @@ const CREW_TYPE_MAP: Record<string, string> = {
   panel_installation: "تركيب ألواح",
 };
 
+const CREW_TYPE_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
+  welding: { bg: "bg-orange-50/60 dark:bg-orange-950/20", border: "border-orange-200 dark:border-orange-800", badge: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700" },
+  steel_installation: { bg: "bg-blue-50/60 dark:bg-blue-950/20", border: "border-blue-200 dark:border-blue-800", badge: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
+  panel_installation: { bg: "bg-green-50/60 dark:bg-green-950/20", border: "border-green-200 dark:border-green-800", badge: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
+};
+
 const REGIONS = [
   'دار حمدين', 'بيت الشعيب', 'الشبيطا', 'الحندج',
   'محيران', 'جربياح', 'الربعي', 'بيت الزين'
@@ -524,9 +530,9 @@ export default function WellCrewsPage() {
                 key={well.id}
                 data-testid={`card-well-crews-${well.id}`}
                 title={`بئر #${well.wellNumber} - ${well.ownerName}`}
-                subtitle={well.region}
                 titleIcon={MapPin}
                 headerColor={crewCount > 0 ? "green" : "gray"}
+                compact
                 badges={[
                   { label: `${crewCount} فريق`, variant: crewCount > 0 ? "default" : "outline" as any },
                   ...(transportCount > 0 ? [{ label: `${transportCount} نقل`, variant: "secondary" as any }] : []),
@@ -572,20 +578,22 @@ export default function WellCrewsPage() {
                   },
                 ]}
                 footer={
-                  <div className="space-y-2 pt-1">
+                  <div className="space-y-1.5 pt-0.5">
                     {crewCount > 0 && (
                       <>
-                        <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                          <Users className="h-3.5 w-3.5 text-blue-500" /> الفرق ({crewCount})
+                        <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3 text-blue-500" /> الفرق ({crewCount})
                         </div>
                         {well.crews.map((crew: any) => {
-                          const crewType = CREW_TYPE_MAP[crew.crewType || crew.crew_type] || (crew.crewType || crew.crew_type);
+                          const crewTypeKey = crew.crewType || crew.crew_type || "";
+                          const crewType = CREW_TYPE_MAP[crewTypeKey] || crewTypeKey;
+                          const colors = CREW_TYPE_COLORS[crewTypeKey] || { bg: "bg-muted/30", border: "border-border", badge: "" };
                           const workDate = crew.workDate || crew.work_date;
                           return (
-                            <div key={`crew-${crew.id}`} className="border rounded-lg p-3 space-y-2 bg-muted/30" data-testid={`row-crew-${crew.id}`}>
+                            <div key={`crew-${crew.id}`} className={`border rounded-lg p-2.5 space-y-1.5 ${colors.bg} ${colors.border}`} data-testid={`row-crew-${crew.id}`}>
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant="outline" className="text-xs">{crewType}</Badge>
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-5 ${colors.badge}`}>{crewType}</Badge>
                                   <span className="text-xs font-semibold text-foreground">{crew.teamName || crew.team_name || '-'}</span>
                                   {workDate && (
                                     <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -624,13 +632,13 @@ export default function WellCrewsPage() {
 
                     {transportCount > 0 && (
                       <>
-                        <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1 mt-2">
-                          <Truck className="h-3.5 w-3.5 text-amber-500" /> النقل ({transportCount})
+                        <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1 mt-1">
+                          <Truck className="h-3 w-3 text-amber-500" /> النقل ({transportCount})
                         </div>
                         {well.transport.map((t: any) => {
                           const tDate = t.transportDate || t.transport_date;
                           return (
-                            <div key={`transport-${t.id}`} className="border rounded-lg p-3 space-y-2 bg-amber-50/50 dark:bg-amber-950/20" data-testid={`row-transport-${t.id}`}>
+                            <div key={`transport-${t.id}`} className="border rounded-lg p-2.5 space-y-1.5 bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800" data-testid={`row-transport-${t.id}`}>
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <Badge variant="outline" className="text-xs">{t.railType || t.rail_type || '-'}</Badge>

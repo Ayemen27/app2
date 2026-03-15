@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, X, CirclePlus, Wrench, TrendingUp, Download, Eye } from "lucide-react";
+import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, X, CirclePlus, Wrench, TrendingUp, Download, Eye, Users, Truck, CheckCircle, DollarSign, FileText } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
@@ -134,6 +134,18 @@ export default function WellsPage() {
       return response.data || [];
     },
     enabled: !!selectedProjectId,
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  const { data: summaryData } = useQuery({
+    queryKey: QUERY_KEYS.wellsSummary(selectedProjectId),
+    queryFn: async () => {
+      if (!selectedProjectId) return null;
+      const response = await apiRequest(`/api/wells/summary/${selectedProjectId}`);
+      return response.data || null;
+    },
+    enabled: !!selectedProjectId && selectedProjectId !== 'all',
     staleTime: 5 * 60 * 1000,
     retry: 1
   });
@@ -305,17 +317,30 @@ export default function WellsPage() {
     });
   }, [wells, searchValue, filterValues]);
 
-  // إحصائيات
   const stats = useMemo(() => {
-    return {
-      total: wells.length,
-      completed: wells.filter((w: any) => w.status === 'completed').length,
-      inProgress: wells.filter((w: any) => w.status === 'in_progress').length,
-      pending: wells.filter((w: any) => w.status === 'pending').length,
-      avgCompletion: wells.length > 0 
-        ? Math.round(wells.reduce((sum: number, w: any) => sum + (w.completionPercentage || 0), 0) / wells.length)
-        : 0
-    };
+    const total = wells.length;
+    const completed = wells.filter((w: any) => w.status === 'completed').length;
+    const inProgress = wells.filter((w: any) => w.status === 'in_progress').length;
+    const pending = wells.filter((w: any) => w.status === 'pending').length;
+
+    const validCompletions = wells
+      .map((w: any) => Number(w.completionPercentage))
+      .filter((val: number) => Number.isFinite(val));
+    const avgCompletion = validCompletions.length > 0
+      ? Math.round(validCompletions.reduce((sum: number, val: number) => sum + val, 0) / validCompletions.length)
+      : 0;
+
+    const totalCrews = wells.reduce((sum: number, w: any) => {
+      const val = Number(w.crewCount);
+      return sum + (Number.isFinite(val) ? val : 0);
+    }, 0);
+    const totalTransport = wells.reduce((sum: number, w: any) => {
+      const val = Number(w.transportCount);
+      return sum + (Number.isFinite(val) ? val : 0);
+    }, 0);
+    const receptionDone = wells.filter((w: any) => w.receptionStatus === 'completed' || w.receptionStatus === 'done').length;
+
+    return { total, completed, inProgress, pending, avgCompletion, totalCrews, totalTransport, receptionDone };
   }, [wells]);
 
   if (!selectedProjectId || selectedProjectId === 'all') {
@@ -343,40 +368,58 @@ export default function WellsPage() {
         stats={[
           {
             title: 'إجمالي الآبار',
-            value: stats.total,
+            value: summaryData?.totalWells ?? stats.total,
             icon: BarChart3,
             color: 'blue',
             status: stats.total === 0 ? 'normal' : undefined
           },
           {
             title: 'منجزة',
-            value: stats.completed,
-            icon: MapPin,
+            value: summaryData?.completedWells ?? stats.completed,
+            icon: CheckCircle,
             color: 'green',
             status: stats.completed > stats.inProgress ? 'normal' : 'warning'
           },
           {
             title: 'قيد التنفيذ',
-            value: stats.inProgress,
+            value: summaryData?.inProgressWells ?? stats.inProgress,
             icon: Loader,
             color: 'amber',
             status: stats.inProgress > 0 ? 'normal' : undefined
           },
           {
             title: 'لم تبدأ بعد',
-            value: stats.pending,
+            value: summaryData?.pendingWells ?? stats.pending,
             icon: MapPin,
             color: 'gray',
             status: stats.pending > stats.completed ? 'warning' : undefined
           },
           {
             title: 'متوسط التقدم',
-            value: `${stats.avgCompletion}%`,
-            icon: BarChart3,
+            value: `${Number.isFinite(summaryData?.averageCompletion) ? summaryData.averageCompletion : stats.avgCompletion}%`,
+            icon: TrendingUp,
             color: 'indigo'
+          },
+          {
+            title: 'عدد الطواقم',
+            value: stats.totalCrews,
+            icon: Users,
+            color: 'blue'
+          },
+          {
+            title: 'رحلات النقل',
+            value: stats.totalTransport,
+            icon: Truck,
+            color: 'amber'
+          },
+          {
+            title: 'تم الاستلام',
+            value: stats.receptionDone,
+            icon: CheckCircle,
+            color: 'green'
           }
         ]}
-        columns={3}
+        columns={4}
         showStatus={true}
       />
 
@@ -417,8 +460,89 @@ export default function WellsPage() {
         compact={false}
       />
 
-      {/* زر التصدير */}
-      <div className="flex justify-end">
+      {/* أزرار التصدير */}
+      <div className="flex justify-end gap-2 flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            if (filteredWells.length === 0) return;
+            const { generatePDF } = await import('@/utils/pdfGenerator');
+            const getStatusText = (s: string) => s === 'completed' ? 'منجز' : s === 'in_progress' ? 'قيد التنفيذ' : 'لم يبدأ';
+            const getStatusColor = (s: string) => s === 'completed' ? '#16a34a' : s === 'in_progress' ? '#ca8a04' : '#6b7280';
+
+            const tableRows = filteredWells.map((well: any, idx: number) => `
+              <tr style="background:${idx % 2 === 0 ? '#fff' : '#F0F4F8'};">
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${idx + 1}</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellNumber}</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:right;font-size:10px;">${well.ownerName}</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.region || '-'}</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;"><span style="color:${getStatusColor(well.status)};font-weight:700;">${getStatusText(well.status)}</span></td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.completionPercentage || 0}%</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.wellDepth || 0}</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPanels || 0}</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfPipes || 0}</td>
+                <td style="padding:6px 4px;border:1px solid #CBD5E1;text-align:center;font-size:10px;">${well.numberOfBases || 0}</td>
+              </tr>
+            `).join('');
+
+            const html = `
+              <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:794px;">
+                <div style="background:#1B2A4A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
+                <div style="background:#2E5090;color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">تقرير إدارة الآبار</div>
+                <div style="text-align:center;padding:6px 0;font-size:11px;color:#6B7280;">تاريخ الإصدار: ${new Date().toLocaleDateString('en-GB')}</div>
+                <div style="display:flex;justify-content:center;gap:24px;padding:8px 16px;font-size:11px;background:#F0F4F8;margin:0 16px;border-radius:4px;">
+                  <span>عدد الآبار: <b>${filteredWells.length}</b></span>
+                  <span>منجزة: <b style="color:#16a34a;">${stats.completed}</b></span>
+                  <span>قيد التنفيذ: <b style="color:#ca8a04;">${stats.inProgress}</b></span>
+                  <span>لم تبدأ: <b style="color:#6b7280;">${stats.pending}</b></span>
+                  <span>متوسط التقدم: <b>${stats.avgCompletion}%</b></span>
+                </div>
+                <table style="width:calc(100% - 32px);border-collapse:collapse;margin:12px 16px;table-layout:auto;">
+                  <thead>
+                    <tr style="background:#1B2A4A;color:#fff;">
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">#</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">رقم البئر</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المالك</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المنطقة</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الحالة</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">التقدم</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">العمق (م)</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">الألواح</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">المواسير</th>
+                      <th style="padding:6px 4px;border:1px solid #2E5090;font-size:9px;font-weight:800;text-align:center;">القواعد</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRows}
+                  </tbody>
+                </table>
+                <div style="text-align:center;padding:8px 0;font-size:9px;color:#9CA3AF;border-top:1px solid #E5E7EB;margin:8px 16px 0;">
+                  تم إنشاء هذا التقرير آلياً بواسطة نظام إدارة مشاريع البناء - ${new Date().toLocaleDateString('en-GB')} - ${new Date().toLocaleTimeString('en-GB')}
+                </div>
+              </div>
+            `;
+
+            const success = await generatePDF({
+              html,
+              filename: `تقرير_الآبار_${new Date().toISOString().split('T')[0]}`,
+              orientation: 'landscape',
+              format: 'A4',
+            });
+
+            if (success) {
+              toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
+            } else {
+              toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
+            }
+          }}
+          disabled={filteredWells.length === 0}
+          className="gap-2"
+          data-testid="button-export-wells-pdf"
+        >
+          <FileText className="h-4 w-4" />
+          تصدير PDF
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -435,7 +559,9 @@ export default function WellsPage() {
               numberOfPanels: well.numberOfPanels || 0,
               numberOfBases: well.numberOfBases || 0,
               numberOfPipes: well.numberOfPipes || 0,
+              fanType: well.fanType || '-',
               pumpPower: well.pumpPower || '-',
+              waterLevel: well.waterLevel || '-',
               status: getStatusText(well.status),
               completion: well.completionPercentage || 0,
             }));
@@ -450,6 +576,12 @@ export default function WellsPage() {
                 { header: 'المالك', key: 'ownerName', width: 20 },
                 { header: 'المنطقة', key: 'region', width: 16 },
                 { header: 'العمق (م)', key: 'wellDepth', width: 12, numFmt: '#,##0' },
+                { header: 'الألواح', key: 'numberOfPanels', width: 10, numFmt: '#,##0' },
+                { header: 'المواسير', key: 'numberOfPipes', width: 10, numFmt: '#,##0' },
+                { header: 'القواعد', key: 'numberOfBases', width: 10, numFmt: '#,##0' },
+                { header: 'نوع المروحة', key: 'fanType', width: 14 },
+                { header: 'قوة المضخة', key: 'pumpPower', width: 12 },
+                { header: 'مستوى الماء (م)', key: 'waterLevel', width: 14 },
                 { header: 'الحالة', key: 'status', width: 14 },
                 { header: 'الإنجاز %', key: 'completion', width: 12, numFmt: '#,##0' },
               ],
@@ -898,7 +1030,7 @@ export default function WellsPage() {
               { label: 'العمق', value: `${well.wellDepth}م`, icon: TrendingUp, color: 'warning' as const },
               { label: 'القواعد', value: well.numberOfBases, icon: BarChart3, color: 'info' as const },
               { label: 'مستوى الماء', value: well.waterLevel ? `${well.waterLevel}م` : '-', icon: TrendingUp, color: 'info' as const },
-              { label: 'التقدم', value: `${well.completionPercentage}%`, emphasis: true, color: 'info' as const, icon: TrendingUp },
+              { label: 'التقدم', value: `${Number.isFinite(Number(well.completionPercentage)) ? Number(well.completionPercentage) : 0}%`, emphasis: true, color: 'info' as const, icon: TrendingUp },
               ...(well.fanType ? [{ label: 'نوع المروحة', value: well.fanType, icon: Wrench, color: 'info' as const }] : []),
               ...(well.pumpPower ? [{ label: 'قوة المضخة', value: `${well.pumpPower}`, icon: Wrench, color: 'warning' as const }] : []),
               ...(well.notes ? [{ label: 'الملاحظات', value: well.notes, color: 'muted' as const }] : [])

@@ -541,6 +541,16 @@ wellRouter.put('/crews/:crewId', async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
     }
 
+    if (!isAdminUser && well.project_id) {
+      const user = getAuthUser(req);
+      const canEdit = await projectAccessService.checkProjectAccess(
+        user?.user_id || '', accessReq.user?.role || '', well.project_id, 'edit'
+      );
+      if (!canEdit) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية تعديل بيانات في هذا المشروع' });
+      }
+    }
+
     const crew = await WellService.updateCrew(crewId, req.body);
     res.json({ success: true, data: crew, message: 'تم تحديث طاقم العمل بنجاح' });
   } catch (error: any) {
@@ -699,6 +709,16 @@ wellRouter.put('/transport/:transportId', async (req: Request, res: Response) =>
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
     }
 
+    if (!isAdminUser && well.project_id) {
+      const user = getAuthUser(req);
+      const canEdit = await projectAccessService.checkProjectAccess(
+        user?.user_id || '', accessReq.user?.role || '', well.project_id, 'edit'
+      );
+      if (!canEdit) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية تعديل بيانات في هذا المشروع' });
+      }
+    }
+
     const detail = await WellService.updateTransportDetail(transportId, req.body);
     res.json({ success: true, data: detail, message: 'تم تحديث تفاصيل النقل بنجاح' });
   } catch (error: any) {
@@ -790,6 +810,16 @@ wellRouter.put('/receptions/:receptionId', async (req: Request, res: Response) =
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
     if (!isAdminUser && well.project_id && !accessibleIds.includes(well.project_id)) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا البئر' });
+    }
+
+    if (!isAdminUser && well.project_id) {
+      const user = getAuthUser(req);
+      const canEdit = await projectAccessService.checkProjectAccess(
+        user?.user_id || '', accessReq.user?.role || '', well.project_id, 'edit'
+      );
+      if (!canEdit) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية تعديل بيانات في هذا المشروع' });
+      }
     }
 
     const reception = await WellService.updateReception(receptionId, req.body);

@@ -116,6 +116,13 @@ The system features a consistent design with a professional navy/blue palette, E
 - **T006 ✅** New RTL Arabic well lifecycle forms component (`client/src/components/well-lifecycle-forms.tsx`): 4 tabbed sections (crews/solar/transport/reception) with full CRUD, Arabic labels matching Excel columns, data-testid attributes.
 - **Post-review fixes**: Added missing imports for new tables in WellService.ts, fixed Zod `error.errors→error.issues`, fixed WellExpenseService filter bug (chained `.where()` → combined `and()` to prevent well_id bypass).
 
+### Round 7 — Wells Page Professional Upgrade
+- **T001 ✅** Fixed NaN% bug in avgCompletion (Number() + Number.isFinite() + zero-guard). Added summary stats from `/api/wells/summary/:project_id` (total crews, transport, reception status).
+- **T002 ✅** Added Tasks tab (CRUD + status transitions) and Accounting tab (task accounting via POST /api/wells/tasks/:taskId/account) to well-lifecycle-forms.tsx. Expanded to 6 tabs with progress bar.
+- **T003 ✅** Edit functionality added to crews/transport/receptions sections (PUT APIs) with inline form editing.
+- **T004 ✅** PDF export (jspdf) + enhanced Excel export with additional columns (fan type, pump power, water level).
+- **Post-review fixes**: Fixed progress field mismatch (`percentage` → `completionPercentage`), fixed accounting API contract (`actualCost` → `amount`, `notes` → `description`), fixed accounting filter (`status === 'accounted'` → `isAccounted`), added `checkProjectAccess('edit')` to all 3 PUT endpoints (crews/transport/receptions). DB migration: added `crew_entitlements` and `transport_date` columns to `well_transport_details`.
+
 ### Known Recommendations (Deferred)
 - **Play Integrity (Android)**: Phase 1 of attestation plan — replace UA heuristics with cryptographic device verification. Requires Google Play Console setup.
 - **iOS App Attest**: Deferred until iOS client reaches production.

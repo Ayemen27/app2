@@ -117,6 +117,8 @@ export const QUERY_KEYS = {
     ["well", well_id] as const,
   wellsByProject: (project_id: string) =>
     ["wells", project_id] as const,
+  wellsSummary: (project_id: string) =>
+    ["wells-summary", project_id] as const,
 
   autocompleteCategory: (category: string) =>
     ["autocomplete", category] as const,
@@ -181,4 +183,8 @@ export const QUERY_KEYS = {
     ["well-transport-details", well_id] as const,
   wellReceptions: (well_id: string) =>
     ["well-receptions", well_id] as const,
+  wellProgress: (well_id: string) =>
+    ["well-progress", well_id] as const,
+  wellPendingAccounting: (well_id: string) =>
+    ["well-pending-accounting", well_id] as const,
 } as const;

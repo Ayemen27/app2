@@ -12,7 +12,14 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Sun, Truck, ClipboardCheck, Plus, Trash2, Loader, Edit } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Users, Sun, Truck, ClipboardCheck, ClipboardList, Calculator, Plus, Trash2, Loader, Edit, CheckCircle, PlayCircle, DollarSign } from "lucide-react";
+import {
+  WELL_TASK_TYPE_OPTIONS,
+  TASK_STATUS,
+  getTaskTypeLabel,
+  getTaskStatusLabel,
+} from "@/lib/wells-constants";
 
 interface WellLifecycleFormsProps {
   wellId: number;
@@ -75,6 +82,22 @@ export function WellLifecycleForms({ wellId, wellNumber, ownerName, onClose }: W
     },
   });
 
+  const { data: wellTasks = [], isLoading: tasksLoading } = useQuery({
+    queryKey: QUERY_KEYS.wellTasks(wellIdStr),
+    queryFn: async () => {
+      const res = await apiRequest(`/api/wells/${wellId}/tasks`);
+      return res.data || [];
+    },
+  });
+
+  const { data: progressData, isLoading: progressLoading } = useQuery({
+    queryKey: QUERY_KEYS.wellProgress(wellIdStr),
+    queryFn: async () => {
+      const res = await apiRequest(`/api/wells/${wellId}/progress`);
+      return res.data || null;
+    },
+  });
+
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
@@ -82,17 +105,28 @@ export function WellLifecycleForms({ wellId, wellNumber, ownerName, onClose }: W
           <DialogTitle data-testid="text-well-lifecycle-title">
             إدارة بئر #{wellNumber} - {ownerName}
           </DialogTitle>
+          {progressData && !progressLoading && (
+            <div className="pt-2 space-y-1">
+              <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                <span data-testid="text-well-progress-label">تقدم البئر</span>
+                <span data-testid="text-well-progress-value">{Number.isFinite(progressData.completionPercentage) ? progressData.completionPercentage : 0}%</span>
+              </div>
+              <Progress value={Number.isFinite(progressData.completionPercentage) ? progressData.completionPercentage : 0} className="h-2" data-testid="progress-well" />
+            </div>
+          )}
         </DialogHeader>
         <div className="overflow-y-auto flex-1">
           <Tabs defaultValue="crews" dir="rtl">
-            <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsList className="grid w-full grid-cols-6 mb-4">
               <TabsTrigger value="crews" data-testid="tab-crews" className="gap-1">
                 <Users className="h-4 w-4" />
-                طواقم العمل
+                <span className="hidden sm:inline">طواقم العمل</span>
+                <span className="sm:hidden">طواقم</span>
               </TabsTrigger>
               <TabsTrigger value="solar" data-testid="tab-solar" className="gap-1">
                 <Sun className="h-4 w-4" />
-                الطاقة الشمسية
+                <span className="hidden sm:inline">الطاقة الشمسية</span>
+                <span className="sm:hidden">شمسية</span>
               </TabsTrigger>
               <TabsTrigger value="transport" data-testid="tab-transport" className="gap-1">
                 <Truck className="h-4 w-4" />
@@ -101,6 +135,14 @@ export function WellLifecycleForms({ wellId, wellNumber, ownerName, onClose }: W
               <TabsTrigger value="reception" data-testid="tab-reception" className="gap-1">
                 <ClipboardCheck className="h-4 w-4" />
                 الاستلام
+              </TabsTrigger>
+              <TabsTrigger value="tasks" data-testid="tab-tasks" className="gap-1">
+                <ClipboardList className="h-4 w-4" />
+                المهام
+              </TabsTrigger>
+              <TabsTrigger value="accounting" data-testid="tab-accounting" className="gap-1">
+                <Calculator className="h-4 w-4" />
+                المحاسبة
               </TabsTrigger>
             </TabsList>
 
@@ -116,6 +158,12 @@ export function WellLifecycleForms({ wellId, wellNumber, ownerName, onClose }: W
             <TabsContent value="reception">
               <ReceptionSection wellId={wellId} receptions={receptions} isLoading={receptionsLoading} />
             </TabsContent>
+            <TabsContent value="tasks">
+              <TasksSection wellId={wellId} tasks={wellTasks} isLoading={tasksLoading} />
+            </TabsContent>
+            <TabsContent value="accounting">
+              <AccountingSection wellId={wellId} tasks={wellTasks} isLoading={tasksLoading} />
+            </TabsContent>
           </Tabs>
         </div>
       </DialogContent>
@@ -127,7 +175,8 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const emptyCrewForm = {
     crewType: "",
     teamName: "",
     workersCount: 0,
@@ -138,7 +187,31 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
     totalWages: "",
     workDate: "",
     notes: "",
-  });
+  };
+  const [form, setForm] = useState(emptyCrewForm);
+
+  const resetForm = () => {
+    setForm(emptyCrewForm);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const startEdit = (crew: any) => {
+    setForm({
+      crewType: crew.crewType || crew.crew_type || "",
+      teamName: crew.teamName || crew.team_name || "",
+      workersCount: crew.workersCount ?? crew.workers_count ?? 0,
+      mastersCount: crew.mastersCount ?? crew.masters_count ?? 0,
+      workDays: String(crew.workDays ?? crew.work_days ?? ""),
+      workerDailyWage: String(crew.workerDailyWage ?? crew.worker_daily_wage ?? ""),
+      masterDailyWage: String(crew.masterDailyWage ?? crew.master_daily_wage ?? ""),
+      totalWages: String(crew.totalWages ?? crew.total_wages ?? ""),
+      workDate: crew.workDate || crew.work_date || "",
+      notes: crew.notes || "",
+    });
+    setEditingId(crew.id);
+    setShowForm(true);
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -150,11 +223,24 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم إضافة طاقم العمل بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellCrews(String(wellId)) });
-      setShowForm(false);
-      setForm({ crewType: "", teamName: "", workersCount: 0, mastersCount: 0, workDays: "", workerDailyWage: "", masterDailyWage: "", totalWages: "", workDate: "", notes: "" });
+      resetForm();
     },
     onError: (error: any) => {
       toast({ title: "خطأ", description: error.message || "فشل في إضافة طاقم العمل", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ crewId, data }: { crewId: number; data: any }) => {
+      return apiRequest(`/api/wells/crews/${crewId}`, 'PUT', data);
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم تحديث طاقم العمل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellCrews(String(wellId)) });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في تحديث طاقم العمل", variant: "destructive" });
     },
   });
 
@@ -206,14 +292,24 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
               </div>
               {crew.notes && <p className="text-xs text-muted-foreground">{crew.notes}</p>}
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => { if (confirm("هل أنت متأكد من حذف هذا الطاقم؟")) deleteMutation.mutate(crew.id); }}
-              data-testid={`button-delete-crew-${crew.id}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => startEdit(crew)}
+                data-testid={`button-edit-crew-${crew.id}`}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => { if (confirm("هل أنت متأكد من حذف هذا الطاقم؟")) deleteMutation.mutate(crew.id); }}
+                data-testid={`button-delete-crew-${crew.id}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </Card>
       ))}
@@ -224,7 +320,7 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
 
       {showForm && (
         <Card className="p-4 space-y-4">
-          <h4 className="font-semibold text-sm">إضافة طاقم عمل جديد</h4>
+          <h4 className="font-semibold text-sm">{editingId ? "تعديل طاقم عمل" : "إضافة طاقم عمل جديد"}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-sm">نوع الطاقم *</Label>
@@ -326,14 +422,20 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={() => setShowForm(false)} data-testid="button-cancel-crew">إلغاء</Button>
+            <Button variant="outline" size="sm" onClick={resetForm} data-testid="button-cancel-crew">إلغاء</Button>
             <Button
               size="sm"
-              onClick={() => createMutation.mutate(form)}
-              disabled={!form.crewType || createMutation.isPending}
+              onClick={() => {
+                if (editingId) {
+                  updateMutation.mutate({ crewId: editingId, data: form });
+                } else {
+                  createMutation.mutate(form);
+                }
+              }}
+              disabled={!form.crewType || createMutation.isPending || updateMutation.isPending}
               data-testid="button-save-crew"
             >
-              {createMutation.isPending ? "جاري..." : "حفظ"}
+              {(createMutation.isPending || updateMutation.isPending) ? "جاري..." : editingId ? "تحديث" : "حفظ"}
             </Button>
           </div>
         </Card>
@@ -569,14 +671,35 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const emptyTransportForm = {
     railType: "",
     withPanels: false,
     transportPrice: "",
     crewEntitlements: "",
     transportDate: "",
     notes: "",
-  });
+  };
+  const [form, setForm] = useState(emptyTransportForm);
+
+  const resetForm = () => {
+    setForm(emptyTransportForm);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const startEdit = (td: any) => {
+    setForm({
+      railType: td.railType || td.rail_type || "",
+      withPanels: td.withPanels ?? td.with_panels ?? false,
+      transportPrice: String(td.transportPrice ?? td.transport_price ?? ""),
+      crewEntitlements: String(td.crewEntitlements ?? td.crew_entitlements ?? ""),
+      transportDate: td.transportDate || td.transport_date || "",
+      notes: td.notes || "",
+    });
+    setEditingId(td.id);
+    setShowForm(true);
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -588,11 +711,24 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم إضافة تفاصيل النقل بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTransportDetails(String(wellId)) });
-      setShowForm(false);
-      setForm({ railType: "", withPanels: false, transportPrice: "", crewEntitlements: "", transportDate: "", notes: "" });
+      resetForm();
     },
     onError: (error: any) => {
       toast({ title: "خطأ", description: error.message || "فشل في إضافة تفاصيل النقل", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ transportId, data }: { transportId: number; data: any }) => {
+      return apiRequest(`/api/wells/transport/${transportId}`, 'PUT', data);
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم تحديث تفاصيل النقل بنجاح" });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTransportDetails(String(wellId)) });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في تحديث تفاصيل النقل", variant: "destructive" });
     },
   });
 
@@ -642,14 +778,24 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
               </div>
               {td.notes && <p className="text-xs text-muted-foreground">{td.notes}</p>}
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => { if (confirm("هل أنت متأكد من حذف تفاصيل النقل؟")) deleteMutation.mutate(td.id); }}
-              data-testid={`button-delete-transport-${td.id}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => startEdit(td)}
+                data-testid={`button-edit-transport-${td.id}`}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => { if (confirm("هل أنت متأكد من حذف تفاصيل النقل؟")) deleteMutation.mutate(td.id); }}
+                data-testid={`button-delete-transport-${td.id}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </Card>
       ))}
@@ -660,7 +806,7 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
 
       {showForm && (
         <Card className="p-4 space-y-4">
-          <h4 className="font-semibold text-sm">إضافة تفاصيل نقل</h4>
+          <h4 className="font-semibold text-sm">{editingId ? "تعديل تفاصيل نقل" : "إضافة تفاصيل نقل"}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-sm">نوع السكة</Label>
@@ -716,14 +862,20 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={() => setShowForm(false)} data-testid="button-cancel-transport">إلغاء</Button>
+            <Button variant="outline" size="sm" onClick={resetForm} data-testid="button-cancel-transport">إلغاء</Button>
             <Button
               size="sm"
-              onClick={() => createMutation.mutate(form)}
-              disabled={createMutation.isPending}
+              onClick={() => {
+                if (editingId) {
+                  updateMutation.mutate({ transportId: editingId, data: form });
+                } else {
+                  createMutation.mutate(form);
+                }
+              }}
+              disabled={createMutation.isPending || updateMutation.isPending}
               data-testid="button-save-transport"
             >
-              {createMutation.isPending ? "جاري..." : "حفظ"}
+              {(createMutation.isPending || updateMutation.isPending) ? "جاري..." : editingId ? "تحديث" : "حفظ"}
             </Button>
           </div>
         </Card>
@@ -736,12 +888,31 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const emptyReceptionForm = {
     receiverName: "",
     inspectionStatus: "pending",
     inspectionNotes: "",
     notes: "",
-  });
+  };
+  const [form, setForm] = useState(emptyReceptionForm);
+
+  const resetForm = () => {
+    setForm(emptyReceptionForm);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const startEdit = (rec: any) => {
+    setForm({
+      receiverName: rec.receiverName || rec.receiver_name || "",
+      inspectionStatus: rec.inspectionStatus || rec.inspection_status || "pending",
+      inspectionNotes: rec.inspectionNotes || rec.inspection_notes || "",
+      notes: rec.notes || "",
+    });
+    setEditingId(rec.id);
+    setShowForm(true);
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -753,11 +924,24 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
     onSuccess: () => {
       toast({ title: "نجاح", description: "تم تسجيل الاستلام بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellReceptions(String(wellId)) });
-      setShowForm(false);
-      setForm({ receiverName: "", inspectionStatus: "pending", inspectionNotes: "", notes: "" });
+      resetForm();
     },
     onError: (error: any) => {
       toast({ title: "خطأ", description: error.message || "فشل في تسجيل الاستلام", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ receptionId, data }: { receptionId: number; data: any }) => {
+      return apiRequest(`/api/wells/receptions/${receptionId}`, 'PUT', data);
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم تحديث سجل الاستلام بنجاح" });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellReceptions(String(wellId)) });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في تحديث سجل الاستلام", variant: "destructive" });
     },
   });
 
@@ -818,14 +1002,24 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
               )}
               {rec.notes && <p className="text-xs text-muted-foreground">{rec.notes}</p>}
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => { if (confirm("هل أنت متأكد من حذف سجل الاستلام؟")) deleteMutation.mutate(rec.id); }}
-              data-testid={`button-delete-reception-${rec.id}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => startEdit(rec)}
+                data-testid={`button-edit-reception-${rec.id}`}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => { if (confirm("هل أنت متأكد من حذف سجل الاستلام؟")) deleteMutation.mutate(rec.id); }}
+                data-testid={`button-delete-reception-${rec.id}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </Card>
       ))}
@@ -836,7 +1030,7 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
 
       {showForm && (
         <Card className="p-4 space-y-4">
-          <h4 className="font-semibold text-sm">تسجيل استلام جديد</h4>
+          <h4 className="font-semibold text-sm">{editingId ? "تعديل سجل استلام" : "تسجيل استلام جديد"}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-sm">اسم المستلم *</Label>
@@ -877,17 +1071,421 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={() => setShowForm(false)} data-testid="button-cancel-reception">إلغاء</Button>
+            <Button variant="outline" size="sm" onClick={resetForm} data-testid="button-cancel-reception">إلغاء</Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (editingId) {
+                  updateMutation.mutate({ receptionId: editingId, data: form });
+                } else {
+                  createMutation.mutate(form);
+                }
+              }}
+              disabled={!form.receiverName || createMutation.isPending || updateMutation.isPending}
+              data-testid="button-save-reception"
+            >
+              {(createMutation.isPending || updateMutation.isPending) ? "جاري..." : editingId ? "تحديث" : "حفظ"}
+            </Button>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function TasksSection({ wellId, tasks, isLoading }: { wellId: number; tasks: any[]; isLoading: boolean }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const emptyForm = {
+    taskType: "",
+    description: "",
+    assignedTo: "",
+    estimatedCost: "",
+    notes: "",
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setShowForm(false);
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest(`/api/wells/${wellId}/tasks`, 'POST', data);
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم إنشاء المهمة بنجاح" });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(String(wellId)) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellProgress(String(wellId)) });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في إنشاء المهمة", variant: "destructive" });
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: number; status: string }) => {
+      return apiRequest(`/api/wells/tasks/${taskId}/status`, 'PATCH', { status });
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تم تحديث حالة المهمة بنجاح" });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(String(wellId)) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellProgress(String(wellId)) });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في تحديث الحالة", variant: "destructive" });
+    },
+  });
+
+  const getStatusVariant = (status: string): "default" | "secondary" | "outline" | "destructive" => {
+    switch (status) {
+      case TASK_STATUS.COMPLETED: return "default";
+      case TASK_STATUS.IN_PROGRESS: return "secondary";
+      case TASK_STATUS.ACCOUNTED: return "outline";
+      default: return "outline";
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center p-8"><Loader className="h-6 w-6 animate-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-base font-semibold">المهام ({tasks.length})</h3>
+        <Button size="sm" onClick={() => setShowForm(true)} data-testid="button-add-task">
+          <Plus className="h-4 w-4 ml-1" />
+          إضافة مهمة
+        </Button>
+      </div>
+
+      {tasks.map((task: any) => (
+        <Card key={task.id} className="p-4">
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold" data-testid={`text-task-type-${task.id}`}>
+                  {getTaskTypeLabel(task.taskType || task.task_type)}
+                </span>
+                <Badge variant={getStatusVariant(task.status)} data-testid={`badge-task-status-${task.id}`}>
+                  <span>{getTaskStatusLabel(task.status)}</span>
+                </Badge>
+              </div>
+              {(task.description) && (
+                <p className="text-sm text-muted-foreground" data-testid={`text-task-desc-${task.id}`}>{task.description}</p>
+              )}
+              <div className="text-sm text-muted-foreground flex gap-4 flex-wrap">
+                {(task.assignedTo || task.assigned_to) && <span>المكلف: {task.assignedTo || task.assigned_to}</span>}
+                {(task.estimatedCost || task.estimated_cost) && <span>التكلفة المقدرة: {Number(task.estimatedCost || task.estimated_cost || 0).toLocaleString()} ريال</span>}
+              </div>
+              {task.notes && <p className="text-xs text-muted-foreground">{task.notes}</p>}
+            </div>
+            <div className="flex gap-1 flex-wrap">
+              {task.status === TASK_STATUS.PENDING && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => statusMutation.mutate({ taskId: task.id, status: TASK_STATUS.IN_PROGRESS })}
+                  disabled={statusMutation.isPending}
+                  data-testid={`button-start-task-${task.id}`}
+                >
+                  <PlayCircle className="h-4 w-4 ml-1" />
+                  بدء
+                </Button>
+              )}
+              {task.status === TASK_STATUS.IN_PROGRESS && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => statusMutation.mutate({ taskId: task.id, status: TASK_STATUS.COMPLETED })}
+                  disabled={statusMutation.isPending}
+                  data-testid={`button-complete-task-${task.id}`}
+                >
+                  <CheckCircle className="h-4 w-4 ml-1" />
+                  إنجاز
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      ))}
+
+      {tasks.length === 0 && !showForm && (
+        <p className="text-center text-muted-foreground py-4" data-testid="text-no-tasks">لا توجد مهام مسجلة</p>
+      )}
+
+      {showForm && (
+        <Card className="p-4 space-y-4">
+          <h4 className="font-semibold text-sm">إضافة مهمة جديدة</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-sm">نوع المهمة *</Label>
+              <SearchableSelect
+                value={form.taskType}
+                onValueChange={(v) => setForm({ ...form, taskType: v })}
+                options={WELL_TASK_TYPE_OPTIONS}
+                placeholder="اختر نوع المهمة"
+                data-testid="select-task-type"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">المكلف</Label>
+              <Input
+                value={form.assignedTo}
+                onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
+                placeholder="اسم المكلف بالمهمة"
+                data-testid="input-task-assigned-to"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">التكلفة المقدرة</Label>
+              <Input
+                type="number"
+                value={form.estimatedCost}
+                onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })}
+                placeholder="0"
+                data-testid="input-task-estimated-cost"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">الوصف</Label>
+              <Input
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="وصف المهمة"
+                data-testid="input-task-description"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label className="text-sm">ملاحظات</Label>
+              <Input
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="ملاحظات اختيارية"
+                data-testid="input-task-notes"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={resetForm} data-testid="button-cancel-task">إلغاء</Button>
             <Button
               size="sm"
               onClick={() => createMutation.mutate(form)}
-              disabled={!form.receiverName || createMutation.isPending}
-              data-testid="button-save-reception"
+              disabled={!form.taskType || createMutation.isPending}
+              data-testid="button-save-task"
             >
               {createMutation.isPending ? "جاري..." : "حفظ"}
             </Button>
           </div>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function AccountingSection({ wellId, tasks, isLoading }: { wellId: number; tasks: any[]; isLoading: boolean }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [accountingTaskId, setAccountingTaskId] = useState<number | null>(null);
+  const [accountForm, setAccountForm] = useState({
+    actualCost: "",
+    paymentMethod: "cash",
+    receiptNumber: "",
+    notes: "",
+  });
+
+  const accountedTasks = tasks.filter((t: any) => t.isAccounted || t.is_accounted);
+  const completedTasks = tasks.filter((t: any) => t.status === TASK_STATUS.COMPLETED && !(t.isAccounted || t.is_accounted));
+
+  const totalEstimated = tasks.reduce((sum: number, t: any) => {
+    const cost = Number(t.estimatedCost || t.estimated_cost || 0);
+    return sum + (Number.isFinite(cost) ? cost : 0);
+  }, 0);
+
+  const totalAccounted = accountedTasks.reduce((sum: number, t: any) => {
+    const details = t.accountDetails || t.account_details;
+    const cost = Number(details?.amount || 0);
+    return sum + (Number.isFinite(cost) ? cost : 0);
+  }, 0);
+
+  const accountMutation = useMutation({
+    mutationFn: async ({ taskId, data }: { taskId: number; data: any }) => {
+      return apiRequest(`/api/wells/tasks/${taskId}/account`, 'POST', data);
+    },
+    onSuccess: () => {
+      toast({ title: "نجاح", description: "تمت محاسبة المهمة بنجاح" });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(String(wellId)) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellProgress(String(wellId)) });
+      setAccountingTaskId(null);
+      setAccountForm({ actualCost: "", paymentMethod: "cash", receiptNumber: "", notes: "" });
+    },
+    onError: (error: any) => {
+      toast({ title: "خطأ", description: error.message || "فشل في محاسبة المهمة", variant: "destructive" });
+    },
+  });
+
+  if (isLoading) {
+    return <div className="flex justify-center p-8"><Loader className="h-6 w-6 animate-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-base font-semibold">المحاسبة</h3>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <Card className="p-3 text-center">
+          <p className="text-xs text-muted-foreground">التكلفة المقدرة</p>
+          <p className="text-lg font-bold" data-testid="text-total-estimated">{totalEstimated.toLocaleString()} ريال</p>
+        </Card>
+        <Card className="p-3 text-center">
+          <p className="text-xs text-muted-foreground">تم محاسبته</p>
+          <p className="text-lg font-bold" data-testid="text-total-accounted">{totalAccounted.toLocaleString()} ريال</p>
+        </Card>
+        <Card className="p-3 text-center">
+          <p className="text-xs text-muted-foreground">معلقة للمحاسبة</p>
+          <p className="text-lg font-bold" data-testid="text-pending-count">{completedTasks.length}</p>
+        </Card>
+      </div>
+
+      {completedTasks.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-semibold text-sm">مهام بانتظار المحاسبة ({completedTasks.length})</h4>
+          {completedTasks.map((task: any) => (
+            <Card key={task.id} className="p-4">
+              <div className="flex items-start justify-between gap-2 flex-wrap">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold" data-testid={`text-accounting-task-${task.id}`}>
+                      {getTaskTypeLabel(task.taskType || task.task_type)}
+                    </span>
+                    <Badge variant="default" data-testid={`badge-accounting-status-${task.id}`}>
+                      <CheckCircle className="h-3 w-3 ml-1" />
+                      منجز
+                    </Badge>
+                  </div>
+                  {(task.estimatedCost || task.estimated_cost) && (
+                    <span className="text-sm text-muted-foreground">التكلفة المقدرة: {Number(task.estimatedCost || task.estimated_cost || 0).toLocaleString()} ريال</span>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setAccountingTaskId(task.id);
+                    setAccountForm({
+                      actualCost: String(task.estimatedCost || task.estimated_cost || ""),
+                      paymentMethod: "cash",
+                      receiptNumber: "",
+                      notes: "",
+                    });
+                  }}
+                  data-testid={`button-account-task-${task.id}`}
+                >
+                  <DollarSign className="h-4 w-4 ml-1" />
+                  محاسبة
+                </Button>
+              </div>
+
+              {accountingTaskId === task.id && (
+                <div className="mt-4 border-t pt-4 space-y-3">
+                  <h5 className="text-sm font-semibold">محاسبة المهمة</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm">التكلفة الفعلية *</Label>
+                      <Input
+                        type="number"
+                        value={accountForm.actualCost}
+                        onChange={(e) => setAccountForm({ ...accountForm, actualCost: e.target.value })}
+                        placeholder="0"
+                        data-testid="input-actual-cost"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">طريقة الدفع</Label>
+                      <SearchableSelect
+                        value={accountForm.paymentMethod}
+                        onValueChange={(v) => setAccountForm({ ...accountForm, paymentMethod: v })}
+                        options={[
+                          { value: "cash", label: "نقد" },
+                          { value: "transfer", label: "تحويل" },
+                          { value: "check", label: "شيك" },
+                        ]}
+                        placeholder="اختر طريقة الدفع"
+                        data-testid="select-payment-method"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">رقم الإيصال</Label>
+                      <Input
+                        value={accountForm.receiptNumber}
+                        onChange={(e) => setAccountForm({ ...accountForm, receiptNumber: e.target.value })}
+                        placeholder="رقم الإيصال"
+                        data-testid="input-receipt-number"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">ملاحظات</Label>
+                      <Input
+                        value={accountForm.notes}
+                        onChange={(e) => setAccountForm({ ...accountForm, notes: e.target.value })}
+                        placeholder="ملاحظات"
+                        data-testid="input-accounting-notes"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setAccountingTaskId(null)} data-testid="button-cancel-accounting">إلغاء</Button>
+                    <Button
+                      size="sm"
+                      onClick={() => accountMutation.mutate({ taskId: task.id, data: { amount: Number(accountForm.actualCost), paymentMethod: accountForm.paymentMethod, description: accountForm.notes } })}
+                      disabled={!accountForm.actualCost || accountMutation.isPending}
+                      data-testid="button-save-accounting"
+                    >
+                      {accountMutation.isPending ? "جاري..." : "تأكيد المحاسبة"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {accountedTasks.length > 0 && (
+        <div className="space-y-2">
+          <h4 className="font-semibold text-sm">مهام تمت محاسبتها ({accountedTasks.length})</h4>
+          {accountedTasks.map((task: any) => (
+            <Card key={task.id} className="p-4">
+              <div className="flex items-start justify-between gap-2 flex-wrap">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold" data-testid={`text-accounted-task-${task.id}`}>
+                      {getTaskTypeLabel(task.taskType || task.task_type)}
+                    </span>
+                    <Badge variant="outline" data-testid={`badge-accounted-status-${task.id}`}>
+                      <DollarSign className="h-3 w-3 ml-1" />
+                      تم محاسبته
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground flex gap-4 flex-wrap">
+                    <span>التكلفة الفعلية: {Number((task.accountDetails || task.account_details)?.amount || 0).toLocaleString()} ريال</span>
+                    {(task.accountDetails || task.account_details)?.paymentMethod && <span>الدفع: {(task.accountDetails || task.account_details).paymentMethod}</span>}
+                    {(task.accountDetails || task.account_details)?.notes && <span>ملاحظات: {(task.accountDetails || task.account_details).notes}</span>}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {completedTasks.length === 0 && accountedTasks.length === 0 && (
+        <p className="text-center text-muted-foreground py-4" data-testid="text-no-accounting">لا توجد مهام للمحاسبة. أضف مهام وأكملها أولاً.</p>
       )}
     </div>
   );

@@ -36,6 +36,7 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Notifications:** Comprehensive in-app notification system with creation, reading, and deletion capabilities.
 - **Data Integrity:** Robust handling for `NaN` values and empty timestamp strings, with financial operations using DB transactions for atomicity.
 - **Well Management System:** Expanded schema and services for managing well work crews, solar components, transport details, and receptions, including CRUD endpoints, Zod validation, project access control, and RTL Arabic forms.
+- **Data Import - التحيتا المرحلة الثانية:** 27 wells imported from Excel/PDF for project "ابار التحيتا المهندس محمد" (project_id: b23ad9a5). Includes 38+ crew records (steel/panel installation), 26 solar component records with cable lengths. Source files: المرحلة_الثانية_التحيتا, كشف_حسابات (7 files), كشف_تمتير_الكيبل, كشف_حصر_الحديد.
 
 ### Feature Specifications
 - **Biometric Login:** WebAuthn/FIDO2 for secure authentication.

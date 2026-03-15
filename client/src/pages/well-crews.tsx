@@ -60,7 +60,7 @@ export default function WellCrewsPage() {
 
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    region: 'all', crewType: 'all', status: 'all'
+    region: 'all', crewType: 'all', status: 'all', dateRange: undefined
   });
   const [showCrewForm, setShowCrewForm] = useState(false);
   const [showTransportForm, setShowTransportForm] = useState(false);
@@ -78,7 +78,7 @@ export default function WellCrewsPage() {
 
   const emptyTransportForm = {
     railType: "", withPanels: false, transportPrice: "",
-    crewDues: "", notes: "",
+    crewDues: "", transportDate: "", notes: "",
   };
   const [transportForm, setTransportForm] = useState(emptyTransportForm);
 
@@ -113,10 +113,15 @@ export default function WellCrewsPage() {
 
   const handleReset = useCallback(() => {
     setSearchValue('');
-    setFilterValues({ region: 'all', crewType: 'all', status: 'all' });
+    setFilterValues({ region: 'all', crewType: 'all', status: 'all', dateRange: undefined });
   }, []);
 
   const filteredData = useMemo(() => {
+    const dateFrom = filterValues.dateRange?.from ? new Date(filterValues.dateRange.from) : null;
+    const dateTo = filterValues.dateRange?.to ? new Date(filterValues.dateRange.to) : null;
+    if (dateFrom) dateFrom.setHours(0, 0, 0, 0);
+    if (dateTo) dateTo.setHours(23, 59, 59, 999);
+
     return (fullData as WellFullData[]).filter((well) => {
       const matchesSearch =
         well.ownerName?.toLowerCase().includes(searchValue.toLowerCase()) ||
@@ -125,7 +130,25 @@ export default function WellCrewsPage() {
       const matchesCrewType = filterValues.crewType === 'all' ||
         well.crews?.some((c: any) => (c.crewType || c.crew_type) === filterValues.crewType);
       const matchesStatus = filterValues.status === 'all' || well.status === filterValues.status;
-      return matchesSearch && matchesRegion && matchesCrewType && matchesStatus;
+
+      let matchesDate = true;
+      if (dateFrom || dateTo) {
+        const crewDates = (well.crews || []).map((c: any) => c.workDate || c.work_date).filter(Boolean);
+        const transportDates = (well.transport || []).map((t: any) => t.transportDate || t.transport_date).filter(Boolean);
+        const allDates = [...crewDates, ...transportDates];
+        if (allDates.length === 0) {
+          matchesDate = false;
+        } else {
+          matchesDate = allDates.some(d => {
+            const date = new Date(d);
+            if (dateFrom && date < dateFrom) return false;
+            if (dateTo && date > dateTo) return false;
+            return true;
+          });
+        }
+      }
+
+      return matchesSearch && matchesRegion && matchesCrewType && matchesStatus && matchesDate;
     });
   }, [fullData, searchValue, filterValues]);
 
@@ -187,6 +210,9 @@ export default function WellCrewsPage() {
       key: 'crewType', label: 'نوع الفريق', type: 'select', placeholder: 'اختر نوع الفريق',
       options: [{ value: 'all', label: 'جميع الأنواع' }, ...CREW_TYPES],
       defaultValue: 'all'
+    },
+    {
+      key: 'dateRange', label: 'الفترة الزمنية', type: 'date-range' as any, placeholder: 'اختر الفترة',
     },
   ], []);
 
@@ -310,6 +336,7 @@ export default function WellCrewsPage() {
       withPanels: transport.withPanels ?? transport.with_panels ?? false,
       transportPrice: String(transport.transportPrice ?? transport.transport_price ?? ""),
       crewDues: String(transport.crewDues ?? transport.crew_dues ?? ""),
+      transportDate: transport.transportDate || transport.transport_date || "",
       notes: transport.notes || "",
     });
     setEditingTransport(transport);
@@ -493,6 +520,7 @@ export default function WellCrewsPage() {
                     <tr className="bg-muted/50">
                       <th className="text-right p-2 text-xs font-medium border-b">نوع الفريق</th>
                       <th className="text-right p-2 text-xs font-medium border-b">اسم الفريق</th>
+                      <th className="text-center p-2 text-xs font-medium border-b">التاريخ</th>
                       <th className="text-center p-2 text-xs font-medium border-b">عمال</th>
                       <th className="text-center p-2 text-xs font-medium border-b">معلمين</th>
                       <th className="text-center p-2 text-xs font-medium border-b">أيام</th>
@@ -506,6 +534,7 @@ export default function WellCrewsPage() {
                       <tr key={`crew-${crew.id}`} className="border-b last:border-b-0" data-testid={`row-crew-${crew.id}`}>
                         <td className="p-2 text-xs">{CREW_TYPE_MAP[crew.crewType || crew.crew_type] || (crew.crewType || crew.crew_type)}</td>
                         <td className="p-2 text-xs">{crew.teamName || crew.team_name || '-'}</td>
+                        <td className="p-2 text-xs text-center">{(crew.workDate || crew.work_date) ? new Date(crew.workDate || crew.work_date).toLocaleDateString('ar-SA') : '-'}</td>
                         <td className="p-2 text-xs text-center">{crew.workersCount ?? crew.workers_count ?? 0}</td>
                         <td className="p-2 text-xs text-center">{crew.mastersCount ?? crew.masters_count ?? 0}</td>
                         <td className="p-2 text-xs text-center">{crew.workDays ?? crew.work_days ?? 0}</td>
@@ -535,6 +564,7 @@ export default function WellCrewsPage() {
                       <thead>
                         <tr className="bg-muted/30">
                           <th className="text-right p-2 text-xs font-medium border-b">نوع الريلات</th>
+                          <th className="text-center p-2 text-xs font-medium border-b">التاريخ</th>
                           <th className="text-center p-2 text-xs font-medium border-b">مع ألواح</th>
                           <th className="text-center p-2 text-xs font-medium border-b">سعر النقل</th>
                           <th className="text-center p-2 text-xs font-medium border-b">مستحقات الفريق</th>
@@ -546,6 +576,7 @@ export default function WellCrewsPage() {
                         {well.transport.map((t: any) => (
                           <tr key={`transport-${t.id}`} className="border-b last:border-b-0" data-testid={`row-transport-${t.id}`}>
                             <td className="p-2 text-xs">{t.railType || t.rail_type || '-'}</td>
+                            <td className="p-2 text-xs text-center">{(t.transportDate || t.transport_date) ? new Date(t.transportDate || t.transport_date).toLocaleDateString('ar-SA') : '-'}</td>
                             <td className="p-2 text-xs text-center">{(t.withPanels ?? t.with_panels) ? 'نعم' : 'لا'}</td>
                             <td className="p-2 text-xs text-center">{Number(t.transportPrice || t.transport_price || 0).toLocaleString()}</td>
                             <td className="p-2 text-xs text-center">{Number(t.crewDues || t.crew_dues || 0).toLocaleString()}</td>
@@ -708,6 +739,10 @@ export default function WellCrewsPage() {
                 />
                 مع ألواح
               </label>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">تاريخ النقل</Label>
+              <Input type="date" value={transportForm.transportDate} onChange={(e) => setTransportForm({ ...transportForm, transportDate: e.target.value })} data-testid="input-transport-date" />
             </div>
             <div className="space-y-1">
               <Label className="text-sm">سعر النقل</Label>

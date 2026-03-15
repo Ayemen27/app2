@@ -33,12 +33,9 @@ import {
   Eye,
   Play,
   AlertTriangle,
-  History,
   Plus,
   Building,
   User,
-  CheckCircle,
-  Wallet,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -49,34 +46,34 @@ interface Project {
   status: string;
 }
 
-interface WorkerBalance {
-  worker_id: string;
-  worker_name: string;
-  project_id: string;
-  project_name: string;
+interface WorkerProjectBalance {
+  projectId: string;
+  projectName: string;
   earned: number;
   paid: number;
   transferred: number;
   balance: number;
 }
 
+interface WorkerPreview {
+  workerId: string;
+  workerName: string;
+  projects: WorkerProjectBalance[];
+  totalBalance: number;
+}
+
 interface FundTransferPreview {
-  from_project_id: string;
-  from_project_name: string;
-  to_project_id: string;
-  to_project_name: string;
+  fromProjectId: string;
+  fromProjectName: string;
+  toProjectId: string;
   amount: number;
 }
 
 interface SettlementPreview {
-  workers: WorkerBalance[];
-  fund_transfers: FundTransferPreview[];
+  workers: WorkerPreview[];
+  fundTransfers: FundTransferPreview[];
+  totalSettlementAmount: number;
   warnings: string[];
-  summary: {
-    total_amount: number;
-    worker_count: number;
-    transfer_count: number;
-  };
 }
 
 interface SettlementRecord {
@@ -93,8 +90,10 @@ interface SettlementRecord {
 interface SettlementLine {
   worker_id: string;
   worker_name: string;
-  project_id: string;
-  project_name: string;
+  from_project_id: string;
+  from_project_name: string;
+  to_project_id: string;
+  to_project_name: string;
   amount: number;
 }
 
@@ -152,7 +151,7 @@ export default function WorkerSettlementsPage() {
     onSuccess: (data) => {
       setPreview(data);
       if (data?.workers) {
-        const uniqueWorkers = new Set(data.workers.map((w: WorkerBalance) => w.worker_id));
+        const uniqueWorkers = new Set(data.workers.map((w: WorkerPreview) => w.workerId));
         setSelectedWorkers(uniqueWorkers);
       }
     },
@@ -196,63 +195,49 @@ export default function WorkerSettlementsPage() {
     },
   });
 
-  const { data: settlementsData, isLoading: settlementsLoading } = useQuery<{
-    data: SettlementRecord[];
-    total: number;
-  }>({
+  const { data: settlementsData, isLoading: settlementsLoading } = useQuery<SettlementRecord[]>({
     queryKey: ["/api/worker-settlements", historyPage],
     queryFn: async () => {
       const res = await apiRequest(
         `/api/worker-settlements?page=${historyPage}&limit=20`,
         "GET"
       );
-      return res?.data ? res : { data: Array.isArray(res) ? res : [], total: 0 };
+      const raw = res?.data || res;
+      if (raw?.settlements && Array.isArray(raw.settlements)) return raw.settlements;
+      if (Array.isArray(raw)) return raw;
+      return [];
     },
     enabled: activeView === "history",
   });
 
-  const settlements = useMemo(() => {
-    if (Array.isArray(settlementsData?.data)) return settlementsData.data;
-    if (Array.isArray(settlementsData)) return settlementsData as unknown as SettlementRecord[];
-    return [];
-  }, [settlementsData]);
+  const settlements = settlementsData || [];
 
-  const { data: detailData, isLoading: detailLoading } = useQuery<SettlementRecord>({
+  const { data: detailData, isLoading: detailLoading } = useQuery<{ settlement: SettlementRecord; lines: SettlementLine[] }>({
     queryKey: ["/api/worker-settlements", expandedSettlement],
     queryFn: async () => {
       const res = await apiRequest(`/api/worker-settlements/${expandedSettlement}`, "GET");
-      return (res?.data || res) as SettlementRecord;
+      const raw = res?.data || res;
+      return raw as { settlement: SettlementRecord; lines: SettlementLine[] };
     },
     enabled: !!expandedSettlement,
   });
 
-  const groupedWorkers = useMemo(() => {
+  const filteredWorkers = useMemo(() => {
     if (!preview?.workers) return [];
-    const groups: Record<string, WorkerBalance[]> = {};
-    for (const w of preview.workers) {
-      if (!groups[w.worker_id]) groups[w.worker_id] = [];
-      groups[w.worker_id].push(w);
-    }
-    return Object.entries(groups);
-  }, [preview]);
-
-  const filteredGroupedWorkers = useMemo(() => {
-    if (!searchValue.trim()) return groupedWorkers;
-    return groupedWorkers.filter(([, balances]) =>
-      balances.some(
-        (b) =>
-          b.worker_name.toLowerCase().includes(searchValue.toLowerCase()) ||
-          b.project_name.toLowerCase().includes(searchValue.toLowerCase())
-      )
+    if (!searchValue.trim()) return preview.workers;
+    return preview.workers.filter((w) =>
+      w.workerName.toLowerCase().includes(searchValue.toLowerCase()) ||
+      w.projects.some((p) => p.projectName.toLowerCase().includes(searchValue.toLowerCase()))
     );
-  }, [groupedWorkers, searchValue]);
+  }, [preview, searchValue]);
 
   const selectedSummary = useMemo(() => {
     if (!preview?.workers) return { amount: 0, count: 0 };
-    const selected = preview.workers.filter((w) => selectedWorkers.has(w.worker_id));
-    const uniqueIds = new Set(selected.map((w) => w.worker_id));
-    const amount = selected.reduce((sum, w) => sum + Math.abs(w.balance), 0);
-    return { amount, count: uniqueIds.size };
+    const selected = preview.workers.filter((w) => selectedWorkers.has(w.workerId));
+    const amount = selected.reduce((sum, w) => {
+      return sum + w.projects.filter(p => p.balance > 0).reduce((s, p) => s + p.balance, 0);
+    }, 0);
+    return { amount, count: selected.length };
   }, [preview, selectedWorkers]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
@@ -265,21 +250,21 @@ export default function WorkerSettlementsPage() {
             {
               key: "totalAmount",
               label: "إجمالي التصفية",
-              value: formatCurrency(preview.summary?.total_amount || 0),
+              value: formatCurrency(preview.totalSettlementAmount || 0),
               icon: DollarSign,
               color: "green",
             },
             {
               key: "workerCount",
               label: "عدد العمال",
-              value: preview.summary?.worker_count || 0,
+              value: preview.workers?.length || 0,
               icon: Users,
               color: "blue",
             },
             {
               key: "transferCount",
               label: "عدد التحويلات",
-              value: preview.summary?.transfer_count || 0,
+              value: preview.fundTransfers?.length || 0,
               icon: ArrowLeftRight,
               color: "purple",
             },
@@ -388,7 +373,7 @@ export default function WorkerSettlementsPage() {
 
   const toggleAllWorkers = useCallback(() => {
     if (!preview?.workers) return;
-    const allWorkerIds = new Set(preview.workers.map((w) => w.worker_id));
+    const allWorkerIds = new Set(preview.workers.map((w) => w.workerId));
     if (selectedWorkers.size === allWorkerIds.size) {
       setSelectedWorkers(new Set());
     } else {
@@ -522,13 +507,13 @@ export default function WorkerSettlementsPage() {
                 <div className="flex items-center gap-2">
                   <Checkbox
                     checked={
-                      groupedWorkers.length > 0 &&
-                      selectedWorkers.size === new Set(preview.workers.map((w) => w.worker_id)).size
+                      filteredWorkers.length > 0 &&
+                      selectedWorkers.size === new Set(preview.workers.map((w) => w.workerId)).size
                     }
                     onCheckedChange={toggleAllWorkers}
                     data-testid="checkbox-select-all-workers"
                   />
-                  <span className="text-sm font-medium">تحديد الكل ({groupedWorkers.length} عامل)</span>
+                  <span className="text-sm font-medium">تحديد الكل ({preview.workers.length} عامل)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="no-default-hover-elevate no-default-active-elevate">
@@ -541,74 +526,74 @@ export default function WorkerSettlementsPage() {
               </div>
 
               <UnifiedCardGrid columns={2}>
-                {filteredGroupedWorkers.map(([workerId, balances]) => {
-                  const workerName = balances[0]?.worker_name || "عامل";
-                  const totalBalance = balances.reduce((s, b) => s + b.balance, 0);
-                  const isSelected = selectedWorkers.has(workerId);
+                {filteredWorkers.map((worker) => {
+                  const isSelected = selectedWorkers.has(worker.workerId);
+                  const totalEarned = worker.projects.reduce((s, p) => s + p.earned, 0);
+                  const totalPaidTransferred = worker.projects.reduce((s, p) => s + p.paid + p.transferred, 0);
 
                   return (
-                    <div key={workerId} className="relative">
+                    <div key={worker.workerId} className="relative">
                       <div
-                        className={`absolute top-3 right-3 z-10`}
+                        className="absolute top-3 right-3 z-10"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => toggleWorker(workerId)}
-                          data-testid={`checkbox-worker-${workerId}`}
+                          onCheckedChange={() => toggleWorker(worker.workerId)}
+                          data-testid={`checkbox-worker-${worker.workerId}`}
                         />
                       </div>
                       <UnifiedCard
-                        title={workerName}
-                        subtitle={`${balances.length} مشاريع`}
+                        title={worker.workerName}
+                        subtitle={`${worker.projects.length} ${worker.projects.length === 1 ? "مشروع" : "مشاريع"}`}
                         titleIcon={User}
                         headerColor={isSelected ? "#3b82f6" : "#94a3b8"}
                         badges={[
                           {
-                            label: totalBalance >= 0 ? "رصيد موجب" : "رصيد سالب",
-                            variant: totalBalance >= 0 ? "success" : "destructive",
+                            label: worker.totalBalance >= 0 ? "رصيد موجب" : "رصيد سالب",
+                            variant: worker.totalBalance >= 0 ? "success" : "destructive",
                           },
                         ]}
-                        fields={balances.map((b) => ({
-                          label: b.project_name,
-                          value: formatCurrency(b.balance),
+                        fields={worker.projects.map((p) => ({
+                          label: p.projectName,
+                          value: formatCurrency(p.balance),
                           icon: Building,
-                          color: (b.balance > 0 ? "success" : b.balance < 0 ? "danger" : "muted") as "success" | "danger" | "muted",
+                          color: (p.balance > 0 ? "success" : p.balance < 0 ? "danger" : "muted") as "success" | "danger" | "muted",
                         }))}
                         footer={
                           <div className="grid grid-cols-3 gap-2">
                             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
                               <p className="text-[10px] text-gray-500 dark:text-gray-400">المستحقات</p>
                               <p className="text-xs font-bold text-green-600 dark:text-green-400">
-                                {formatCurrency(balances.reduce((s, b) => s + b.earned, 0))}
+                                {formatCurrency(totalEarned)}
                               </p>
                             </div>
                             <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2 text-center">
                               <p className="text-[10px] text-gray-500 dark:text-gray-400">المدفوع</p>
                               <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
-                                {formatCurrency(balances.reduce((s, b) => s + b.paid + b.transferred, 0))}
+                                {formatCurrency(totalPaidTransferred)}
                               </p>
                             </div>
                             <div
-                              className={`${totalBalance >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"} rounded-lg p-2 text-center`}
+                              className={`${worker.totalBalance >= 0 ? "bg-blue-50 dark:bg-blue-900/20" : "bg-red-50 dark:bg-red-900/20"} rounded-lg p-2 text-center`}
                             >
                               <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
                               <p
-                                className={`text-xs font-bold ${totalBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}
+                                className={`text-xs font-bold ${worker.totalBalance >= 0 ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}
                               >
-                                {formatCurrency(totalBalance)}
+                                {formatCurrency(worker.totalBalance)}
                               </p>
                             </div>
                           </div>
                         }
-                        data-testid={`card-worker-settlement-${workerId}`}
+                        data-testid={`card-worker-settlement-${worker.workerId}`}
                       />
                     </div>
                   );
                 })}
               </UnifiedCardGrid>
 
-              {filteredGroupedWorkers.length === 0 && (
+              {filteredWorkers.length === 0 && (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
@@ -617,7 +602,7 @@ export default function WorkerSettlementsPage() {
                 </Card>
               )}
 
-              {preview.fund_transfers && preview.fund_transfers.length > 0 && (
+              {preview.fundTransfers && preview.fundTransfers.length > 0 && (
                 <Card>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -625,25 +610,28 @@ export default function WorkerSettlementsPage() {
                       تحويلات الصناديق بين المشاريع
                     </div>
                     <div className="space-y-2">
-                      {preview.fund_transfers.map((ft, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/30 border"
-                        >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <Badge variant="outline" className="shrink-0 no-default-hover-elevate no-default-active-elevate">
-                              {ft.from_project_name}
-                            </Badge>
-                            <ArrowLeftRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                            <Badge variant="outline" className="shrink-0 no-default-hover-elevate no-default-active-elevate">
-                              {ft.to_project_name}
-                            </Badge>
+                      {preview.fundTransfers.map((ft, i) => {
+                        const settlementProject = projects.find(p => p.id === ft.toProjectId);
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/30 border"
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
+                              <Badge variant="outline" className="shrink-0 no-default-hover-elevate no-default-active-elevate">
+                                {ft.fromProjectName}
+                              </Badge>
+                              <ArrowLeftRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <Badge variant="outline" className="shrink-0 no-default-hover-elevate no-default-active-elevate">
+                                {settlementProject?.name || "مشروع التصفية"}
+                              </Badge>
+                            </div>
+                            <span className="font-bold text-sm text-primary shrink-0">
+                              {formatCurrency(ft.amount)}
+                            </span>
                           </div>
-                          <span className="font-bold text-sm text-primary shrink-0">
-                            {formatCurrency(ft.amount)}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -770,7 +758,7 @@ export default function WorkerSettlementsPage() {
                               </div>
                             ) : detailData?.lines && detailData.lines.length > 0 ? (
                               <div className="space-y-1">
-                                {detailData.lines.map((line, i) => (
+                                {detailData.lines.map((line: SettlementLine, i: number) => (
                                   <div
                                     key={i}
                                     className="flex items-center justify-between p-2 rounded bg-muted/40 text-xs"
@@ -778,7 +766,7 @@ export default function WorkerSettlementsPage() {
                                     <div className="flex items-center gap-2">
                                       <User className="h-3 w-3 text-muted-foreground" />
                                       <span className="font-medium">{line.worker_name}</span>
-                                      <span className="text-muted-foreground">• {line.project_name}</span>
+                                      <span className="text-muted-foreground">• {line.from_project_name}</span>
                                     </div>
                                     <span className="font-bold text-primary">{formatCurrency(line.amount)}</span>
                                   </div>

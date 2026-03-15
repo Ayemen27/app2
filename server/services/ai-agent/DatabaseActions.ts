@@ -23,6 +23,10 @@ import {
   wells,
   wellTasks,
   wellExpenses,
+  wellWorkCrews,
+  wellSolarComponents,
+  wellTransportDetails,
+  wellReceptions,
   notifications,
   auditLogs,
 } from "@shared/schema";
@@ -1660,13 +1664,51 @@ export class DatabaseActions {
         return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "list_wells" };
       }
       const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
-      const result = hasFilter
-        ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!)).orderBy(wells.id)
-        : await db.select().from(wells).orderBy(wells.id);
+      const wellsData = hasFilter
+        ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!)).orderBy(wells.wellNumber)
+        : await db.select().from(wells).orderBy(wells.wellNumber);
+
+      const wellIds = wellsData.map(w => w.id);
+      let crewStats: any[] = [];
+      let solarStats: any[] = [];
+      if (wellIds.length > 0) {
+        crewStats = await db.select({
+          well_id: wellWorkCrews.well_id,
+          crewCount: sql<number>`count(*)`,
+          totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+        }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
+          .groupBy(wellWorkCrews.well_id);
+
+        solarStats = await db.select({
+          well_id: wellSolarComponents.well_id,
+          installationStatus: wellSolarComponents.installationStatus,
+        }).from(wellSolarComponents).where(inArray(wellSolarComponents.well_id, wellIds));
+      }
+
+      const crewMap: Record<number, any> = {};
+      crewStats.forEach(c => { crewMap[c.well_id] = c; });
+      const solarMap: Record<number, any> = {};
+      solarStats.forEach(s => { solarMap[s.well_id] = s; });
+
+      const projectIds = [...new Set(wellsData.map(w => w.project_id))];
+      const projectNames: Record<string, string> = {};
+      if (projectIds.length > 0) {
+        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
+        pList.forEach(p => { projectNames[p.id] = p.name; });
+      }
+
+      const enriched = wellsData.map(w => ({
+        ...w,
+        projectName: projectNames[w.project_id] || '-',
+        crewCount: crewMap[w.id]?.crewCount || 0,
+        totalCrewWages: parseFloat(crewMap[w.id]?.totalWages || '0'),
+        solarStatus: solarMap[w.id]?.installationStatus || 'no_data',
+      }));
+
       return {
         success: true,
-        data: result,
-        message: result.length > 0 ? `تم العثور على ${result.length} بئر` : "لا توجد آبار مسجلة",
+        data: enriched,
+        message: enriched.length > 0 ? `تم العثور على ${enriched.length} بئر` : "لا توجد آبار مسجلة",
         action: "list_wells",
       };
     } catch (error: any) {
@@ -1679,35 +1721,469 @@ export class DatabaseActions {
       if (allowedProjectIds && allowedProjectIds.length === 0) {
         return { success: true, data: null, message: "لا توجد مشاريع مرتبطة بحسابك", action: "well_details" };
       }
-      const wId = parseInt(wellId);
-      const [well] = await db.select().from(wells).where(eq(wells.id, wId));
-      if (!well) return { success: false, message: "البئر غير موجود", action: "well_details" };
 
-      if (allowedProjectIds && allowedProjectIds.length > 0 && !allowedProjectIds.includes(well.project_id)) {
+      let wellData;
+      const wId = parseInt(wellId);
+      const isNumeric = !isNaN(wId);
+      if (isNumeric && wId < 1000) {
+        const results = await db.select().from(wells).where(eq(wells.wellNumber, wId));
+        if (allowedProjectIds && allowedProjectIds.length > 0) {
+          wellData = results.find(w => allowedProjectIds.includes(w.project_id));
+        } else {
+          wellData = results[0];
+        }
+      }
+      if (!wellData && isNumeric && wId >= 1000) {
+        [wellData] = await db.select().from(wells).where(eq(wells.id, wId));
+      }
+      if (!wellData) {
+        const searchResults = await db.select().from(wells).where(like(wells.ownerName, `%${wellId}%`));
+        if (allowedProjectIds && allowedProjectIds.length > 0) {
+          wellData = searchResults.find(w => allowedProjectIds.includes(w.project_id));
+        } else {
+          wellData = searchResults[0];
+        }
+      }
+      if (!wellData) return { success: false, message: "البئر غير موجود", action: "well_details" };
+
+      if (allowedProjectIds && allowedProjectIds.length > 0 && !allowedProjectIds.includes(wellData.project_id)) {
         return { success: false, message: "ليس لديك صلاحية الوصول لهذا البئر", action: "well_details" };
       }
 
-      const tasks = await db.select().from(wellTasks).where(eq(wellTasks.well_id, wId)).orderBy(wellTasks.taskOrder);
-      const expenses = await db.select().from(wellExpenses).where(eq(wellExpenses.well_id, wId));
+      const actualId = wellData.id;
+      const [tasks, expenses, crews, solarArr, transport, receptions] = await Promise.all([
+        db.select().from(wellTasks).where(eq(wellTasks.well_id, actualId)).orderBy(wellTasks.taskOrder),
+        db.select().from(wellExpenses).where(eq(wellExpenses.well_id, actualId)),
+        db.select().from(wellWorkCrews).where(eq(wellWorkCrews.well_id, actualId)),
+        db.select().from(wellSolarComponents).where(eq(wellSolarComponents.well_id, actualId)),
+        db.select().from(wellTransportDetails).where(eq(wellTransportDetails.well_id, actualId)),
+        db.select().from(wellReceptions).where(eq(wellReceptions.well_id, actualId)),
+      ]);
 
+      const solar = solarArr[0] || null;
       const totalEstimated = tasks.reduce((s: number, t: any) => s + parseFloat(t.estimatedCost || '0'), 0);
       const totalActual = tasks.reduce((s: number, t: any) => s + parseFloat(t.actualCost || '0'), 0);
       const totalExpenses = expenses.reduce((s: number, e: any) => s + parseFloat(e.totalAmount || '0'), 0);
       const completedTasks = tasks.filter((t: any) => t.status === 'completed').length;
+      const totalCrewWages = crews.reduce((s: number, c: any) => s + parseFloat(c.totalWages || '0'), 0);
+
+      const [proj] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, wellData.project_id));
 
       return {
         success: true,
         data: {
-          well,
+          well: { ...wellData, projectName: proj?.name || '-' },
           tasks,
           expenses,
-          summary: { totalEstimated, totalActual, totalExpenses, completedTasks, totalTasks: tasks.length },
+          crews,
+          solar,
+          transport,
+          receptions,
+          summary: {
+            totalEstimated, totalActual, totalExpenses, completedTasks, totalTasks: tasks.length,
+            totalCrewWages, crewCount: crews.length,
+            hasSolar: !!solar, hasReception: receptions.length > 0,
+          },
         },
-        message: `تفاصيل البئر رقم ${well.wellNumber} - ${well.ownerName}`,
+        message: `تفاصيل البئر رقم ${wellData.wellNumber} - ${wellData.ownerName}`,
         action: "well_details",
       };
     } catch (error: any) {
       return { success: false, message: `خطأ: ${error.message}`, action: "well_details" };
+    }
+  }
+
+  async getWellCrews(wellIdentifier: string, allowedProjectIds?: string[]): Promise<ActionResult> {
+    try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "well_crews" };
+      }
+
+      let wellData;
+      const wNum = parseInt(wellIdentifier);
+      if (!isNaN(wNum) && wNum < 1000) {
+        const results = await db.select().from(wells).where(eq(wells.wellNumber, wNum));
+        if (allowedProjectIds && allowedProjectIds.length > 0) {
+          wellData = results.find(w => allowedProjectIds.includes(w.project_id));
+        } else {
+          wellData = results[0];
+        }
+      }
+      if (!wellData) {
+        const searchResults = await db.select().from(wells).where(like(wells.ownerName, `%${wellIdentifier}%`));
+        wellData = (allowedProjectIds && allowedProjectIds.length > 0)
+          ? searchResults.find(w => allowedProjectIds.includes(w.project_id))
+          : searchResults[0];
+      }
+      if (!wellData) return { success: false, message: "البئر غير موجود", action: "well_crews" };
+
+      if (allowedProjectIds && allowedProjectIds.length > 0 && !allowedProjectIds.includes(wellData.project_id)) {
+        return { success: false, message: "ليس لديك صلاحية", action: "well_crews" };
+      }
+
+      const crews = await db.select().from(wellWorkCrews).where(eq(wellWorkCrews.well_id, wellData.id));
+      const totalWages = crews.reduce((s, c) => s + parseFloat(c.totalWages || '0'), 0);
+
+      return {
+        success: true,
+        data: { well: wellData, crews, totalWages },
+        message: `فرق عمل البئر رقم ${wellData.wellNumber} - ${wellData.ownerName}`,
+        action: "well_crews",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "well_crews" };
+    }
+  }
+
+  async getWellSolar(wellIdentifier: string, allowedProjectIds?: string[]): Promise<ActionResult> {
+    try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: null, message: "لا توجد مشاريع مرتبطة بحسابك", action: "well_solar" };
+      }
+
+      let wellData;
+      const wNum = parseInt(wellIdentifier);
+      if (!isNaN(wNum) && wNum < 1000) {
+        const results = await db.select().from(wells).where(eq(wells.wellNumber, wNum));
+        wellData = (allowedProjectIds && allowedProjectIds.length > 0)
+          ? results.find(w => allowedProjectIds.includes(w.project_id))
+          : results[0];
+      }
+      if (!wellData) {
+        const searchResults = await db.select().from(wells).where(like(wells.ownerName, `%${wellIdentifier}%`));
+        wellData = (allowedProjectIds && allowedProjectIds.length > 0)
+          ? searchResults.find(w => allowedProjectIds.includes(w.project_id))
+          : searchResults[0];
+      }
+      if (!wellData) return { success: false, message: "البئر غير موجود", action: "well_solar" };
+
+      if (allowedProjectIds && allowedProjectIds.length > 0 && !allowedProjectIds.includes(wellData.project_id)) {
+        return { success: false, message: "ليس لديك صلاحية", action: "well_solar" };
+      }
+
+      const [solar] = await db.select().from(wellSolarComponents).where(eq(wellSolarComponents.well_id, wellData.id));
+
+      return {
+        success: true,
+        data: { well: wellData, solar: solar || null },
+        message: solar
+          ? `المنظومة الشمسية للبئر رقم ${wellData.wellNumber} - ${wellData.ownerName}`
+          : `لا توجد بيانات منظومة شمسية للبئر رقم ${wellData.wellNumber}`,
+        action: "well_solar",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "well_solar" };
+    }
+  }
+
+  async getWellAnalysis(allowedProjectIds?: string[]): Promise<ActionResult> {
+    try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: {}, message: "لا توجد مشاريع مرتبطة بحسابك", action: "well_analysis" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const allWells = hasFilter
+        ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!))
+        : await db.select().from(wells);
+
+      if (allWells.length === 0) {
+        return { success: true, data: {}, message: "لا توجد آبار مسجلة", action: "well_analysis" };
+      }
+
+      const wellIds = allWells.map(w => w.id);
+
+      const [crewAgg] = await db.select({
+        totalCrews: sql<number>`count(*)`,
+        totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+        totalWorkDays: sql<string>`coalesce(sum(${wellWorkCrews.workDays}::numeric), 0)`,
+      }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds));
+
+      const crewByType = await db.select({
+        crewType: wellWorkCrews.crewType,
+        count: sql<number>`count(*)`,
+        totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+      }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
+        .groupBy(wellWorkCrews.crewType);
+
+      const crewByTeam = await db.select({
+        teamName: wellWorkCrews.teamName,
+        count: sql<number>`count(*)`,
+        totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+        totalDays: sql<string>`coalesce(sum(${wellWorkCrews.workDays}::numeric), 0)`,
+      }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
+        .groupBy(wellWorkCrews.teamName).orderBy(sql`sum(${wellWorkCrews.totalWages}::numeric) desc`);
+
+      const [solarCount] = await db.select({
+        total: sql<number>`count(*)`,
+        installed: sql<number>`count(*) filter (where ${wellSolarComponents.installationStatus} = 'installed')`,
+      }).from(wellSolarComponents).where(inArray(wellSolarComponents.well_id, wellIds));
+
+      const [receptionCount] = await db.select({
+        total: sql<number>`count(*)`,
+        passed: sql<number>`count(*) filter (where ${wellReceptions.inspectionStatus} = 'passed')`,
+        failed: sql<number>`count(*) filter (where ${wellReceptions.inspectionStatus} = 'failed')`,
+      }).from(wellReceptions).where(inArray(wellReceptions.well_id, wellIds));
+
+      const statusCount = { pending: 0, in_progress: 0, completed: 0 };
+      let totalDepth = 0, totalPanels = 0, totalPipes = 0;
+      for (const w of allWells) {
+        const s = (w.status || 'pending') as keyof typeof statusCount;
+        if (s in statusCount) statusCount[s]++;
+        totalDepth += w.wellDepth || 0;
+        totalPanels += w.numberOfPanels || 0;
+        totalPipes += w.numberOfPipes || 0;
+      }
+
+      const projectIds = [...new Set(allWells.map(w => w.project_id))];
+      const projectNames: Record<string, string> = {};
+      if (projectIds.length > 0) {
+        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
+        pList.forEach(p => { projectNames[p.id] = p.name; });
+      }
+
+      const byProject: Record<string, { name: string, count: number, totalWages: number }> = {};
+      for (const w of allWells) {
+        if (!byProject[w.project_id]) {
+          byProject[w.project_id] = { name: projectNames[w.project_id] || '-', count: 0, totalWages: 0 };
+        }
+        byProject[w.project_id].count++;
+      }
+
+      return {
+        success: true,
+        data: {
+          totalWells: allWells.length,
+          statusCount,
+          totalDepth,
+          avgDepth: Math.round(totalDepth / allWells.length),
+          totalPanels,
+          totalPipes,
+          crews: {
+            totalCrews: crewAgg?.totalCrews || 0,
+            totalWages: parseFloat(crewAgg?.totalWages || '0'),
+            totalWorkDays: parseFloat(crewAgg?.totalWorkDays || '0'),
+            byType: crewByType.map(c => ({
+              type: c.crewType,
+              count: c.count,
+              totalWages: parseFloat(c.totalWages || '0'),
+            })),
+            byTeam: crewByTeam.map(c => ({
+              name: c.teamName || '-',
+              count: c.count,
+              totalWages: parseFloat(c.totalWages || '0'),
+              totalDays: parseFloat(c.totalDays || '0'),
+            })),
+          },
+          solar: {
+            total: solarCount?.total || 0,
+            installed: solarCount?.installed || 0,
+          },
+          receptions: {
+            total: receptionCount?.total || 0,
+            passed: receptionCount?.passed || 0,
+            failed: receptionCount?.failed || 0,
+          },
+          byProject: Object.values(byProject),
+        },
+        message: `تحليل شامل لـ ${allWells.length} بئر`,
+        action: "well_analysis",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "well_analysis" };
+    }
+  }
+
+  async getWellCrewsSummary(allowedProjectIds?: string[]): Promise<ActionResult> {
+    try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: { teams: [], totalCrews: 0, totalTeams: 0 }, message: "لا توجد مشاريع مرتبطة بحسابك", action: "well_crews_summary" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const allWells = hasFilter
+        ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!))
+        : await db.select().from(wells);
+
+      const wellIds = allWells.map(w => w.id);
+      if (wellIds.length === 0) {
+        return { success: true, data: { teams: [], totalCrews: 0, totalTeams: 0 }, message: "لا توجد آبار", action: "well_crews_summary" };
+      }
+
+      const allCrews = await db.select({
+        id: wellWorkCrews.id,
+        well_id: wellWorkCrews.well_id,
+        crewType: wellWorkCrews.crewType,
+        teamName: wellWorkCrews.teamName,
+        workersCount: wellWorkCrews.workersCount,
+        mastersCount: wellWorkCrews.mastersCount,
+        workDays: wellWorkCrews.workDays,
+        masterDailyWage: wellWorkCrews.masterDailyWage,
+        workerDailyWage: wellWorkCrews.workerDailyWage,
+        totalWages: wellWorkCrews.totalWages,
+        workDate: wellWorkCrews.workDate,
+        notes: wellWorkCrews.notes,
+      }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds));
+
+      const wellMap: Record<number, any> = {};
+      allWells.forEach(w => { wellMap[w.id] = w; });
+
+      const teamSummary: Record<string, {
+        name: string, wellsCount: number, totalWages: number, totalDays: number,
+        steelJobs: number, panelJobs: number, weldingJobs: number,
+        wells: string[],
+      }> = {};
+
+      for (const c of allCrews) {
+        const key = c.teamName || 'بدون اسم';
+        if (!teamSummary[key]) {
+          teamSummary[key] = { name: key, wellsCount: 0, totalWages: 0, totalDays: 0, steelJobs: 0, panelJobs: 0, weldingJobs: 0, wells: [] };
+        }
+        const ts = teamSummary[key];
+        ts.totalWages += parseFloat(c.totalWages || '0');
+        ts.totalDays += parseFloat(c.workDays || '0');
+        const wellName = wellMap[c.well_id]?.ownerName || `بئر ${c.well_id}`;
+        if (!ts.wells.includes(wellName)) {
+          ts.wells.push(wellName);
+          ts.wellsCount++;
+        }
+        if (c.crewType === 'steel_installation') ts.steelJobs++;
+        else if (c.crewType === 'panel_installation') ts.panelJobs++;
+        else if (c.crewType === 'welding') ts.weldingJobs++;
+      }
+
+      const sorted = Object.values(teamSummary).sort((a, b) => b.totalWages - a.totalWages);
+
+      return {
+        success: true,
+        data: { teams: sorted, totalCrews: allCrews.length, totalTeams: sorted.length },
+        message: `ملخص ${sorted.length} فريق عمل — ${allCrews.length} مهمة`,
+        action: "well_crews_summary",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "well_crews_summary" };
+    }
+  }
+
+  async getWellsComparison(allowedProjectIds?: string[]): Promise<ActionResult> {
+    try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "well_comparison" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const allWells = hasFilter
+        ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!))
+        : await db.select().from(wells);
+
+      const projectIds = [...new Set(allWells.map(w => w.project_id))];
+      if (projectIds.length < 2) {
+        return { success: true, data: [], message: "يلزم وجود مشروعين على الأقل للمقارنة", action: "well_comparison" };
+      }
+
+      const projectNames: Record<string, string> = {};
+      const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
+      pList.forEach(p => { projectNames[p.id] = p.name; });
+
+      const wellIds = allWells.map(w => w.id);
+      const allCrews = wellIds.length > 0
+        ? await db.select().from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
+        : [];
+      const allSolar = wellIds.length > 0
+        ? await db.select().from(wellSolarComponents).where(inArray(wellSolarComponents.well_id, wellIds))
+        : [];
+
+      const wellProjectMap: Record<number, string> = {};
+      allWells.forEach(w => { wellProjectMap[w.id] = w.project_id; });
+
+      const comparison = projectIds.map(pid => {
+        const pWells = allWells.filter(w => w.project_id === pid);
+        const pWellIds = pWells.map(w => w.id);
+        const pCrews = allCrews.filter(c => pWellIds.includes(c.well_id));
+        const pSolar = allSolar.filter(s => pWellIds.includes(s.well_id));
+
+        const totalDepth = pWells.reduce((s, w) => s + (w.wellDepth || 0), 0);
+        const totalPanels = pWells.reduce((s, w) => s + (w.numberOfPanels || 0), 0);
+        const totalCrewWages = pCrews.reduce((s, c) => s + parseFloat(c.totalWages || '0'), 0);
+        const completed = pWells.filter(w => w.status === 'completed').length;
+        const hasWaterLevel = pWells.filter(w => w.waterLevel != null).length;
+
+        return {
+          projectName: projectNames[pid] || pid,
+          wellCount: pWells.length,
+          completed,
+          pending: pWells.length - completed,
+          totalDepth,
+          avgDepth: pWells.length > 0 ? Math.round(totalDepth / pWells.length) : 0,
+          totalPanels,
+          crewRecords: pCrews.length,
+          totalCrewWages,
+          solarRecords: pSolar.length,
+          dataCompleteness: {
+            waterLevel: `${hasWaterLevel}/${pWells.length}`,
+            crews: `${new Set(pCrews.map(c => c.well_id)).size}/${pWells.length}`,
+            solar: `${pSolar.length}/${pWells.length}`,
+          },
+        };
+      });
+
+      return {
+        success: true,
+        data: comparison,
+        message: `مقارنة ${comparison.length} مشروع`,
+        action: "well_comparison",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "well_comparison" };
+    }
+  }
+
+  async searchWells(keyword: string, allowedProjectIds?: string[]): Promise<ActionResult> {
+    try {
+      if (allowedProjectIds && allowedProjectIds.length === 0) {
+        return { success: true, data: [], message: "لا توجد مشاريع مرتبطة بحسابك", action: "search_wells" };
+      }
+      const hasFilter = allowedProjectIds && allowedProjectIds.length > 0;
+      const conditions = [
+        sql`(${wells.ownerName} ILIKE ${'%' + keyword + '%'} OR ${wells.region} ILIKE ${'%' + keyword + '%'})`,
+      ];
+      if (hasFilter) {
+        conditions.push(inArray(wells.project_id, allowedProjectIds!));
+      }
+
+      const results = await db.select().from(wells).where(and(...conditions)).orderBy(wells.wellNumber);
+
+      const wellIds = results.map(w => w.id);
+      let crewCounts: any[] = [];
+      if (wellIds.length > 0) {
+        crewCounts = await db.select({
+          well_id: wellWorkCrews.well_id,
+          count: sql<number>`count(*)`,
+          totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+        }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds)).groupBy(wellWorkCrews.well_id);
+      }
+      const crewMap: Record<number, any> = {};
+      crewCounts.forEach(c => { crewMap[c.well_id] = c; });
+
+      const projectIds = [...new Set(results.map(w => w.project_id))];
+      const projectNames: Record<string, string> = {};
+      if (projectIds.length > 0) {
+        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
+        pList.forEach(p => { projectNames[p.id] = p.name; });
+      }
+
+      const enriched = results.map(w => ({
+        ...w,
+        projectName: projectNames[w.project_id] || '-',
+        crewCount: crewMap[w.id]?.count || 0,
+        totalCrewWages: parseFloat(crewMap[w.id]?.totalWages || '0'),
+      }));
+
+      return {
+        success: true,
+        data: enriched,
+        message: enriched.length > 0 ? `تم العثور على ${enriched.length} بئر بكلمة "${keyword}"` : `لا توجد نتائج للبحث "${keyword}"`,
+        action: "search_wells",
+      };
+    } catch (error: any) {
+      return { success: false, message: `خطأ: ${error.message}`, action: "search_wells" };
     }
   }
 

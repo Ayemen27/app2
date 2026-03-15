@@ -176,11 +176,12 @@ export default function WorkerSettlementsPage() {
           workerExclusions[workerId] = Array.from(projectIds);
         }
       });
+      const idempotencyKey = `settle-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       return apiRequest("/api/worker-settlements/execute", "POST", {
         settlement_project_id: settlementProjectId,
         worker_ids: Array.from(selectedWorkers),
         excluded_projects: workerExclusions,
-      });
+      }, 0, { 'x-idempotency-key': idempotencyKey });
     },
     onSuccess: () => {
       toast({

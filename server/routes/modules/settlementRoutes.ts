@@ -112,14 +112,46 @@ async function calculatePreviewData(
     transferMap.set(`${row.worker_id}:${row.project_id}`, parseFloat(row.total_transferred));
   }
 
+  let sParamIndex = 1;
+  let settlementParams: any[] = [];
+  let sProjectAccessFilter = '';
+  if (accessibleProjectIds.length > 0) {
+    const projectPlaceholders = accessibleProjectIds.map((_, i) => `$${sParamIndex + i}`).join(',');
+    sProjectAccessFilter = `AND wsl.from_project_id IN (${projectPlaceholders})`;
+    settlementParams = [...settlementParams, ...accessibleProjectIds];
+    sParamIndex += accessibleProjectIds.length;
+  }
+  let sWorkerFilter = '';
+  if (workerIds !== 'all') {
+    const placeholders = workerIds.map((_, i) => `$${sParamIndex + i}`).join(',');
+    sWorkerFilter = `AND wsl.worker_id IN (${placeholders})`;
+    settlementParams = [...settlementParams, ...workerIds];
+  }
+
+  const settledResult = await queryFn(
+    `SELECT wsl.worker_id, wsl.from_project_id as project_id,
+            COALESCE(SUM(CAST(wsl.amount AS DECIMAL(15,2))), 0) as total_settled
+     FROM worker_settlement_lines wsl
+     JOIN worker_settlements ws ON ws.id = wsl.settlement_id
+     WHERE ws.status = 'completed' ${sProjectAccessFilter} ${sWorkerFilter}
+     GROUP BY wsl.worker_id, wsl.from_project_id`,
+    settlementParams
+  );
+
+  const settledMap = new Map<string, number>();
+  for (const row of settledResult.rows) {
+    settledMap.set(`${row.worker_id}:${row.project_id}`, parseFloat(row.total_settled));
+  }
+
   const workerMap = new Map<string, WorkerSettlementPreviewFull>();
   const warnings: string[] = [];
 
   for (const row of earnedResult.rows) {
     const transferred = transferMap.get(`${row.worker_id}:${row.project_id}`) || 0;
+    const settled = settledMap.get(`${row.worker_id}:${row.project_id}`) || 0;
     const earned = parseFloat(row.total_earned);
     const paid = parseFloat(row.total_paid);
-    const balance = earned - paid - transferred;
+    const balance = earned - paid - transferred - settled;
 
     if (balance === 0) continue;
 
@@ -256,6 +288,37 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
     const workerExclusions: Record<string, string[]> = excluded_projects && typeof excluded_projects === 'object'
       ? excluded_projects : {};
 
+    const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+
+    if (idempotencyKey) {
+      const existingResult = await pool.query(
+        `SELECT id, total_amount, worker_count FROM worker_settlements 
+         WHERE notes LIKE '%' || $1 || '%' AND status = 'completed'
+         LIMIT 1`,
+        [idempotencyKey]
+      );
+      if (existingResult.rows.length > 0) {
+        return sendSuccess(res, {
+          settlementId: existingResult.rows[0].id,
+          workerCount: existingResult.rows[0].worker_count,
+          totalAmount: parseFloat(existingResult.rows[0].total_amount),
+          duplicate: true,
+        }, 'تم تنفيذ هذه التصفية مسبقاً');
+      }
+    }
+
+    const recentDuplicate = await pool.query(
+      `SELECT id FROM worker_settlements 
+       WHERE settlement_project_id = $1 
+         AND status = 'completed'
+         AND created_at > NOW() - INTERVAL '10 seconds'
+       LIMIT 1`,
+      [settlement_project_id]
+    );
+    if (recentDuplicate.rows.length > 0) {
+      return sendError(res, 'تم إرسال طلب تصفية مشابه مؤخراً، انتظر قليلاً', 409);
+    }
+
     const authUser = getAuthUser(req);
     const userId = authUser?.user_id || null;
 
@@ -300,7 +363,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           positiveWorkers.length,
           0,
           'completed',
-          notes || null,
+          idempotencyKey ? `${notes || ''}[idem:${idempotencyKey}]` : (notes || null),
           userId,
         ]
       );
@@ -360,7 +423,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         for (const proj of worker.projects) {
           if (!isProjectIncluded(worker.workerId, proj)) continue;
 
-          await client.query(
+          const debitResult = await client.query(
             `UPDATE worker_balances 
              SET current_balance = CAST(current_balance AS DECIMAL(15,2)) - $3,
                  last_updated = NOW()
@@ -368,18 +431,37 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             [worker.workerId, proj.projectId, proj.balance.toFixed(2)]
           );
 
+          if (debitResult.rowCount === 0) {
+            await client.query(
+              `INSERT INTO worker_balances (worker_id, project_id, total_earned, total_paid, total_transferred, current_balance, last_updated)
+               VALUES ($1, $2, $3, $4, '0', -$5, NOW())
+               ON CONFLICT (worker_id, project_id)
+               DO UPDATE SET
+                 current_balance = CAST(worker_balances.current_balance AS DECIMAL(15,2)) - $5,
+                 last_updated = NOW()`,
+              [
+                worker.workerId,
+                proj.projectId,
+                proj.earned.toFixed(2),
+                proj.paid.toFixed(2),
+                proj.balance.toFixed(2),
+              ]
+            );
+          }
+
           await client.query(
             `INSERT INTO worker_balances (worker_id, project_id, total_earned, total_paid, total_transferred, current_balance, last_updated)
-             VALUES ($1, $2, CAST($3 AS DECIMAL(15,2)) + $5, $4, '0', $5, NOW())
+             VALUES ($1, $2, $3, $4, '0', $5, NOW())
              ON CONFLICT (worker_id, project_id)
              DO UPDATE SET
                current_balance = CAST(worker_balances.current_balance AS DECIMAL(15,2)) + $5,
+               total_earned = CAST(worker_balances.total_earned AS DECIMAL(15,2)) + $5,
                last_updated = NOW()`,
             [
               worker.workerId,
               settlement_project_id,
-              proj.earned.toFixed(2),
-              proj.paid.toFixed(2),
+              proj.balance.toFixed(2),
+              '0',
               proj.balance.toFixed(2),
             ]
           );

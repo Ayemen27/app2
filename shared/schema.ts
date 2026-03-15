@@ -1496,7 +1496,7 @@ export const wellWorkCrews = pgTable("well_work_crews", {
   teamName: text("team_name"),
   workersCount: integer("workers_count").default(0).notNull(),
   mastersCount: integer("masters_count").default(0).notNull(),
-  workDays: decimal("work_days", { precision: 10, scale: 2 }).default('0').notNull(),
+  workDays: decimal("work_days", { precision: 10, scale: 4 }).default('0').notNull(),
   workerDailyWage: decimal("worker_daily_wage", { precision: 12, scale: 2 }),
   masterDailyWage: decimal("master_daily_wage", { precision: 12, scale: 2 }),
   totalWages: decimal("total_wages", { precision: 12, scale: 2 }),

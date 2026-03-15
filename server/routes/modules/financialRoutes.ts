@@ -29,9 +29,18 @@ financialRouter.use(requireAuth);
 financialRouter.use(attachAccessibleProjects);
 
 const financialReplayProtection = requireFreshRequest({ windowSec: 60 });
+const FINANCIAL_ROUTE_PREFIXES = [
+  '/financial-summary', '/daily-expense-summaries', '/fund-transfers', '/project-fund-transfers',
+  '/worker-transfers', '/worker-misc-expenses', '/worker-attendance', '/projects',
+  '/daily-project-transfers', '/suppliers', '/material-purchases', '/transportation-expenses',
+  '/materials', '/autocomplete',
+];
 financialRouter.use((req, res, next) => {
   if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
-    return financialReplayProtection(req, res, next);
+    const isFinancialRoute = FINANCIAL_ROUTE_PREFIXES.some(prefix => req.path.startsWith(prefix));
+    if (isFinancialRoute) {
+      return financialReplayProtection(req, res, next);
+    }
   }
   next();
 });

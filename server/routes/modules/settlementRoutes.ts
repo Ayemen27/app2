@@ -37,15 +37,26 @@ interface FundTransferPreview {
 async function calculatePreviewData(
   workerIds: string[] | 'all',
   settlementProjectId: string,
+  accessibleProjectIds: string[],
   queryFn: (text: string, params: any[]) => Promise<any>
 ) {
-  let workerFilter = '';
+  let paramIndex = 1;
   let workerParams: any[] = [settlementProjectId];
+  paramIndex++;
 
+  let projectAccessFilter = '';
+  if (accessibleProjectIds.length > 0) {
+    const projectPlaceholders = accessibleProjectIds.map((_, i) => `$${paramIndex + i}`).join(',');
+    projectAccessFilter = `AND wa.project_id IN (${projectPlaceholders})`;
+    workerParams = [...workerParams, ...accessibleProjectIds];
+    paramIndex += accessibleProjectIds.length;
+  }
+
+  let workerFilter = '';
   if (workerIds !== 'all') {
-    const placeholders = workerIds.map((_, i) => `$${i + 2}`).join(',');
+    const placeholders = workerIds.map((_, i) => `$${paramIndex + i}`).join(',');
     workerFilter = `AND w.id IN (${placeholders})`;
-    workerParams = [settlementProjectId, ...workerIds];
+    workerParams = [...workerParams, ...workerIds];
   }
 
   const earnedResult = await queryFn(
@@ -55,19 +66,35 @@ async function calculatePreviewData(
      FROM worker_attendance wa
      JOIN workers w ON w.id = wa.worker_id
      JOIN projects p ON p.id = wa.project_id
-     WHERE wa.project_id != $1 ${workerFilter}
+     WHERE wa.project_id != $1 ${projectAccessFilter} ${workerFilter}
      GROUP BY wa.worker_id, wa.project_id, p.name, w.name`,
     workerParams
   );
+
+  let transferParams: any[] = [settlementProjectId];
+  let tParamIndex = 2;
+  let tProjectAccessFilter = '';
+  if (accessibleProjectIds.length > 0) {
+    const projectPlaceholders = accessibleProjectIds.map((_, i) => `$${tParamIndex + i}`).join(',');
+    tProjectAccessFilter = `AND wt.project_id IN (${projectPlaceholders})`;
+    transferParams = [...transferParams, ...accessibleProjectIds];
+    tParamIndex += accessibleProjectIds.length;
+  }
+  let tWorkerFilter = '';
+  if (workerIds !== 'all') {
+    const placeholders = workerIds.map((_, i) => `$${tParamIndex + i}`).join(',');
+    tWorkerFilter = `AND w.id IN (${placeholders})`;
+    transferParams = [...transferParams, ...workerIds];
+  }
 
   const transferredResult = await queryFn(
     `SELECT wt.worker_id, wt.project_id,
             COALESCE(SUM(CAST(wt.amount AS DECIMAL(15,2))), 0) as total_transferred
      FROM worker_transfers wt
      JOIN workers w ON w.id = wt.worker_id
-     WHERE wt.project_id != $1 ${workerFilter}
+     WHERE wt.project_id != $1 ${tProjectAccessFilter} ${tWorkerFilter}
      GROUP BY wt.worker_id, wt.project_id`,
-    workerParams
+    transferParams
   );
 
   const transferMap = new Map<string, number>();
@@ -178,6 +205,7 @@ settlementRouter.get('/preview', async (req: Request, res: Response) => {
     const preview = await calculatePreviewData(
       parsedWorkerIds,
       settlement_project_id as string,
+      accessibleProjectIds,
       (text, params) => pool.query(text, params)
     );
 
@@ -217,6 +245,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       const preview = await calculatePreviewData(
         worker_ids,
         settlement_project_id,
+        accessibleProjectIds,
         (text, params) => client.query(text, params)
       );
 
@@ -356,18 +385,37 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
 settlementRouter.get('/', async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-    const offset = parseInt(req.query.offset as string) || 0;
+    const page = parseInt(req.query.page as string) || 1;
+    const offset = (page - 1) * limit;
+    const accessReq = req as ProjectAccessRequest;
+    const accessibleProjectIds = accessReq.accessibleProjectIds || [];
+
+    let accessFilter = '';
+    let params: any[] = [limit, offset];
+    if (accessibleProjectIds.length > 0) {
+      const placeholders = accessibleProjectIds.map((_, i) => `$${i + 3}`).join(',');
+      accessFilter = `WHERE ws.settlement_project_id IN (${placeholders})`;
+      params = [...params, ...accessibleProjectIds];
+    }
 
     const result = await pool.query(
       `SELECT ws.*, p.name as settlement_project_name
        FROM worker_settlements ws
        LEFT JOIN projects p ON p.id = ws.settlement_project_id
+       ${accessFilter}
        ORDER BY ws.created_at DESC
        LIMIT $1 OFFSET $2`,
-      [limit, offset]
+      params
     );
 
-    const countResult = await pool.query(`SELECT COUNT(*) as total FROM worker_settlements`);
+    let countParams: any[] = [];
+    let countFilter = '';
+    if (accessibleProjectIds.length > 0) {
+      const placeholders = accessibleProjectIds.map((_, i) => `$${i + 1}`).join(',');
+      countFilter = `WHERE settlement_project_id IN (${placeholders})`;
+      countParams = accessibleProjectIds;
+    }
+    const countResult = await pool.query(`SELECT COUNT(*) as total FROM worker_settlements ${countFilter}`, countParams);
     const total = parseInt(countResult.rows[0].total);
 
     return sendSuccess(res, {
@@ -383,6 +431,8 @@ settlementRouter.get('/', async (req: Request, res: Response) => {
 settlementRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const accessibleProjectIds = accessReq.accessibleProjectIds || [];
 
     const headerResult = await pool.query(
       `SELECT ws.*, p.name as settlement_project_name
@@ -394,6 +444,10 @@ settlementRouter.get('/:id', async (req: Request, res: Response) => {
 
     if (headerResult.rows.length === 0) {
       return sendError(res, 'التصفية غير موجودة', 404);
+    }
+
+    if (accessibleProjectIds.length > 0 && !accessibleProjectIds.includes(headerResult.rows[0].settlement_project_id)) {
+      return sendError(res, 'ليس لديك صلاحية الوصول لهذه التصفية', 403);
     }
 
     const linesResult = await pool.query(

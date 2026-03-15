@@ -852,4 +852,31 @@ wellRouter.delete('/receptions/:receptionId', async (req: Request, res: Response
   }
 });
 
+wellRouter.get('/export/full-data', async (req: Request, res: Response) => {
+  try {
+    const { project_id } = req.query;
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    const filteredProjectId = project_id === 'all' || !project_id ? undefined : (project_id as string);
+
+    if (!isAdminUser && filteredProjectId && !accessibleIds.includes(filteredProjectId)) {
+      return res.json({ success: true, data: [], message: 'لا توجد بيانات متاحة' });
+    }
+
+    let data = await WellService.getWellsFullExportData(filteredProjectId);
+
+    if (!isAdminUser) {
+      const idSet = new Set(accessibleIds);
+      data = data.filter((w: any) => w.project_id && idSet.has(w.project_id));
+    }
+
+    res.json({ success: true, data, message: `تم جلب بيانات ${data.length} بئر بنجاح` });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب بيانات التصدير الكاملة:', error);
+    res.status(500).json({ success: false, error: 'EXPORT_DATA_ERROR', message: error.message || 'فشل في جلب بيانات التصدير' });
+  }
+});
+
 export default wellRouter;

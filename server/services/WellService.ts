@@ -408,6 +408,48 @@ export class WellService {
     }
   }
 
+  static async getWellsFullExportData(project_id?: string) {
+    try {
+      const wellsList = project_id
+        ? await db.select().from(wells).where(eq(wells.project_id, project_id)).orderBy(wells.wellNumber)
+        : await db.select().from(wells).orderBy(wells.wellNumber);
+
+      const wellIds = wellsList.map(w => w.id);
+      if (wellIds.length === 0) return [];
+
+      const [allCrews, allSolar, allTransport, allReceptions, allTasks] = await Promise.all([
+        db.select().from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds)).orderBy(wellWorkCrews.well_id, wellWorkCrews.crewType),
+        db.select().from(wellSolarComponents).where(inArray(wellSolarComponents.well_id, wellIds)),
+        db.select().from(wellTransportDetails).where(inArray(wellTransportDetails.well_id, wellIds)).orderBy(wellTransportDetails.well_id),
+        db.select().from(wellReceptions).where(inArray(wellReceptions.well_id, wellIds)).orderBy(desc(wellReceptions.created_at)),
+        db.select().from(wellTasks).where(inArray(wellTasks.well_id, wellIds)).orderBy(wellTasks.well_id),
+      ]);
+
+      const crewsByWell = new Map<number, any[]>();
+      for (const c of allCrews) { const arr = crewsByWell.get(c.well_id) || []; arr.push(c); crewsByWell.set(c.well_id, arr); }
+      const solarByWell = new Map<number, any>();
+      for (const s of allSolar) { solarByWell.set(s.well_id, s); }
+      const transportByWell = new Map<number, any[]>();
+      for (const t of allTransport) { const arr = transportByWell.get(t.well_id) || []; arr.push(t); transportByWell.set(t.well_id, arr); }
+      const receptionsByWell = new Map<number, any[]>();
+      for (const r of allReceptions) { const arr = receptionsByWell.get(r.well_id) || []; arr.push(r); receptionsByWell.set(r.well_id, arr); }
+      const tasksByWell = new Map<number, any[]>();
+      for (const t of allTasks) { const arr = tasksByWell.get(t.well_id) || []; arr.push(t); tasksByWell.set(t.well_id, arr); }
+
+      return wellsList.map(well => ({
+        ...well,
+        crews: crewsByWell.get(well.id) || [],
+        solar: solarByWell.get(well.id) || null,
+        transport: transportByWell.get(well.id) || [],
+        receptions: receptionsByWell.get(well.id) || [],
+        tasks: tasksByWell.get(well.id) || [],
+      }));
+    } catch (error) {
+      console.error('[WellService] Error fetching full export data:', error);
+      throw error;
+    }
+  }
+
   static async getProjectWellsSummary(project_id: string) {
     try {
       const projectWells = await this.getAllWells(project_id);

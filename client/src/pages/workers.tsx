@@ -37,6 +37,7 @@ interface WorkerStats {
   totalTransfers: number;
   totalEarnings: number;
   projectsWorked: number;
+  projectNames?: { id: string; name: string }[];
   lastAttendanceDate: string | null;
   monthlyAttendanceRate: number;
 }
@@ -468,6 +469,7 @@ const WorkerCardWrapper = ({
 
   const stats = statsData?.data;
   const projectsCount = stats?.projectsWorked ?? 0;
+  const projectNames = stats?.projectNames ?? [];
 
   return (
     <div className="relative group">
@@ -536,6 +538,25 @@ const WorkerCardWrapper = ({
             color: "warning",
           },
         ]}
+        customSection={
+          !statsLoading && projectNames.length > 0 ? (
+            <div className="px-3 pb-2" data-testid={`worker-projects-${worker.id}`}>
+              <p className="text-[10px] text-muted-foreground mb-1.5 font-medium">المشاريع:</p>
+              <div className="flex flex-wrap gap-1">
+                {projectNames.map((p) => (
+                  <Badge
+                    key={p.id}
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                    data-testid={`badge-project-${p.id}`}
+                  >
+                    {p.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : undefined
+        }
         actions={[
           {
             icon: FileText,
@@ -629,11 +650,14 @@ export default function WorkersPage() {
     }).format(amount) + ' ر.ي';
   };
 
+  const projectParam = selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID ? selectedProjectId : undefined;
+
   const { data: workers = [], isLoading, refetch: refetchWorkers } = useQuery<Worker[]>({
-    queryKey: QUERY_KEYS.workers,
+    queryKey: [...QUERY_KEYS.workers, projectParam ?? 'all'],
     queryFn: async () => {
       try {
-        const res = await apiRequest('/api/workers', 'GET');
+        const url = projectParam ? `/api/workers?project_id=${projectParam}` : '/api/workers';
+        const res = await apiRequest(url, 'GET');
         
         let workersData = [];
         if (res && typeof res === 'object') {
@@ -696,13 +720,15 @@ export default function WorkersPage() {
     }
   }, [refetchWorkers, toast]);
 
+  const workersQueryKey = [...QUERY_KEYS.workers, projectParam ?? 'all'];
+
   const deleteWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest(`/api/workers/${id}`, "DELETE"),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.workers });
-      const previousData = queryClient.getQueryData<Worker[]>(QUERY_KEYS.workers);
+      await queryClient.cancelQueries({ queryKey: workersQueryKey });
+      const previousData = queryClient.getQueryData<Worker[]>(workersQueryKey);
       if (Array.isArray(previousData)) {
-        queryClient.setQueryData<Worker[]>(QUERY_KEYS.workers, 
+        queryClient.setQueryData<Worker[]>(workersQueryKey, 
           previousData.filter(worker => worker.id !== id)
         );
       }
@@ -717,7 +743,7 @@ export default function WorkersPage() {
     },
     onError: (error: any, _id, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(QUERY_KEYS.workers, context.previousData);
+        queryClient.setQueryData(workersQueryKey, context.previousData);
       }
       toast({
         title: "خطأ في حذف العامل",
@@ -735,10 +761,10 @@ export default function WorkersPage() {
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/workers/${id}`, "PATCH", data),
     onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.workers });
-      const previousData = queryClient.getQueryData<Worker[]>(QUERY_KEYS.workers);
+      await queryClient.cancelQueries({ queryKey: workersQueryKey });
+      const previousData = queryClient.getQueryData<Worker[]>(workersQueryKey);
       if (Array.isArray(previousData)) {
-        queryClient.setQueryData<Worker[]>(QUERY_KEYS.workers, 
+        queryClient.setQueryData<Worker[]>(workersQueryKey, 
           previousData.map(worker => 
             worker.id === id ? { ...worker, ...data } : worker
           )
@@ -756,7 +782,7 @@ export default function WorkersPage() {
     },
     onError: (error: any, _variables, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(QUERY_KEYS.workers, context.previousData);
+        queryClient.setQueryData(workersQueryKey, context.previousData);
       }
       toast({
         title: "خطأ",

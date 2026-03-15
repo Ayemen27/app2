@@ -274,6 +274,8 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
   try {
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const project_id = req.query.project_id as string | undefined;
+    const filterByProject = project_id && project_id !== 'all';
     
     let workersList;
     if (isAdminUser) {
@@ -288,8 +290,30 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
           .orderBy(workers.name);
       }
     }
-    console.log(`👷 [API] isAdmin: ${isAdminUser}, userId: ${accessReq.user?.user_id}, total: ${workersList.length}`);
-    console.log(`👷 [API] تم جلب ${workersList.length} عامل`);
+
+    if (filterByProject && workersList.length > 0) {
+      const workerIdsInProject = await db.selectDistinct({
+        worker_id: workerAttendance.worker_id
+      }).from(workerAttendance).where(eq(workerAttendance.project_id, project_id!));
+
+      const balanceWorkerIds = await db.selectDistinct({
+        worker_id: workerBalances.worker_id
+      }).from(workerBalances).where(
+        and(
+          eq(workerBalances.project_id, project_id!),
+          sql`CAST(${workerBalances.totalEarned} AS DECIMAL) > 0`
+        )
+      );
+
+      const projectWorkerIds = new Set([
+        ...workerIdsInProject.map(r => r.worker_id),
+        ...balanceWorkerIds.map(r => r.worker_id)
+      ]);
+
+      workersList = workersList.filter(w => projectWorkerIds.has(w.id));
+    }
+
+    console.log(`👷 [API] isAdmin: ${isAdminUser}, userId: ${accessReq.user?.user_id}, project: ${project_id || 'all'}, total: ${workersList.length}`);
     res.json({
       success: true,
       data: workersList,
@@ -2695,7 +2719,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     const totalTransfers = totalTransfersOnly + totalPaidWages;
     console.log(`💰 [API] إجمالي السحبيات (تحويلات ${totalTransfersOnly} + أجور ${totalPaidWages}): ${totalTransfers}`);
 
-    // حساب عدد المشاريع التي عمل بها العامل
+    // حساب عدد المشاريع التي عمل بها العامل وأسمائها
     const projectsWorkedResult = await db.select({
       projectsCount: sql`COUNT(DISTINCT ${workerAttendance.project_id})`
     })
@@ -2703,6 +2727,15 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     .where(attendanceWhereCondition);
 
     const projectsWorked = isAllProjects ? (Number(projectsWorkedResult[0]?.projectsCount) || 0) : (totalWorkDays > 0 ? 1 : 0);
+
+    const projectNamesResult = await db.execute(sql`
+      SELECT DISTINCT p.id, p.name
+      FROM worker_attendance wa
+      JOIN projects p ON p.id = wa.project_id
+      WHERE wa.worker_id = ${worker_id}
+      ORDER BY p.name
+    `);
+    const workerProjectNames = projectNamesResult.rows.map((r: any) => ({ id: r.id, name: r.name }));
 
     // حساب إجمالي المستحقات من dailyWage * workDays لضمان الدقة
     // نستخدم dailyWage من سجل الحضور نفسه (وليس من جدول العمال) لأنه قد يتغير بين المشاريع
@@ -2726,6 +2759,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       totalTransfers: totalTransfers,
       transfersCount: transfersCount,
       projectsWorked: projectsWorked,
+      projectNames: workerProjectNames,
       totalEarnings: totalEarnings,
       project_id: isAllProjects ? null : project_id,
       isFilteredByProject: !isAllProjects,

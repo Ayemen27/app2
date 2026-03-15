@@ -46,6 +46,7 @@ export interface UnifiedCardProps {
   fields: UnifiedCardField[];
   actions?: UnifiedCardAction[];
   footer?: React.ReactNode;
+  customSection?: React.ReactNode;
   className?: string;
   onClick?: () => void;
   isLoading?: boolean;
@@ -138,6 +139,7 @@ export function UnifiedCard({
   fields,
   actions = [],
   footer,
+  customSection,
   className,
   onClick,
   isLoading,
@@ -316,6 +318,8 @@ export function UnifiedCard({
           </div>
         )}
       </div>
+
+      {customSection}
 
       {footer && (
         <div className={cn(

@@ -559,60 +559,66 @@ function SolarEditDialog({
   };
 
   const [form, setForm] = useState(() => ({
-    inverter: existing?.inverter || "نعم",
-    collectionBox: existing?.collectionBox || existing?.collection_box || "نعم",
-    carbonCarrier: existing?.carbonCarrier || existing?.carbon_carrier || "نعم",
-    steelConverterTop: existing?.steelConverterTop || existing?.steel_converter_top || "نعم",
-    clampConverterBottom: existing?.clampConverterBottom || existing?.clamp_converter_bottom || "نعم",
-    bindingCable6mm: existing?.bindingCable6mm || existing?.binding_cable_6mm || "1",
-    groundingCable10x2mm: existing?.groundingCable10x2mm || existing?.grounding_cable_10x2mm || "",
-    jointThermalLiquid: existing?.jointThermalLiquid || existing?.joint_thermal_liquid || "نعم",
-    groundingClip: existing?.groundingClip || existing?.grounding_clip || "نعم",
-    groundingPlate: existing?.groundingPlate || existing?.grounding_plate || "نعم",
-    groundingRod: existing?.groundingRod || existing?.grounding_rod || "نعم",
-    cable16x3mmLength: existing?.cable16x3mmLength || existing?.cable_16x3mm_length || "",
-    cable10x2mmLength: existing?.cable10x2mmLength || existing?.cable_10x2mm_length || "",
-    fanCount: existing?.fanCount ?? existing?.fan_count ?? "",
-    submersiblePump: existing?.submersiblePump ?? existing?.submersible_pump ?? true,
-    installationStatus: existing?.installationStatus || existing?.installation_status || "not_installed",
-    installedComponents: parseInstalledComponents(existing),
-    extraPipes: existing?.extraPipes ?? existing?.extra_pipes ?? "",
-    extraPipesReason: existing?.extraPipesReason || existing?.extra_pipes_reason || "",
-    extraCable: existing?.extraCable ?? existing?.extra_cable ?? "",
-    extraCableReason: existing?.extraCableReason || existing?.extra_cable_reason || "",
-    notes: existing?.notes || "",
+    inverter: "1",
+    collectionBox: "1",
+    carbonCarrier: "1",
+    steelConverterTop: "1",
+    clampConverterBottom: "1",
+    bindingCable6mm: "1",
+    groundingCable10x2mm: "",
+    jointThermalLiquid: "1",
+    groundingClip: "1",
+    groundingPlate: "1",
+    groundingRod: "1",
+    cable16x3mmLength: "",
+    cable10x2mmLength: "",
+    fanCount: "1",
+    submersiblePump: true,
+    installationStatus: "not_installed",
+    installedComponents: [] as string[],
+    extraPipes: "0",
+    extraPipesReason: "",
+    extraCable: "0",
+    extraCableReason: "",
+    notes: "",
   }));
 
   const updateFormFromData = useCallback(
     (data: any) => {
       if (!data) return;
       setForm({
-        inverter: data.inverter || "نعم",
-        collectionBox: data.collectionBox || data.collection_box || "نعم",
-        carbonCarrier: data.carbonCarrier || data.carbon_carrier || "نعم",
-        steelConverterTop: data.steelConverterTop || data.steel_converter_top || "نعم",
-        clampConverterBottom: data.clampConverterBottom || data.clamp_converter_bottom || "نعم",
-        bindingCable6mm: data.bindingCable6mm || data.binding_cable_6mm || "1",
-        groundingCable10x2mm: data.groundingCable10x2mm || data.grounding_cable_10x2mm || "",
-        jointThermalLiquid: data.jointThermalLiquid || data.joint_thermal_liquid || "نعم",
-        groundingClip: data.groundingClip || data.grounding_clip || "نعم",
-        groundingPlate: data.groundingPlate || data.grounding_plate || "نعم",
-        groundingRod: data.groundingRod || data.grounding_rod || "نعم",
-        cable16x3mmLength: data.cable16x3mmLength || data.cable_16x3mm_length || "",
-        cable10x2mmLength: data.cable10x2mmLength || data.cable_10x2mm_length || "",
-        fanCount: data.fanCount ?? data.fan_count ?? "",
+        inverter: String(data.inverter ?? data.inverter ?? "1"),
+        collectionBox: String(data.collectionBox ?? data.collection_box ?? "1"),
+        carbonCarrier: String(data.carbonCarrier ?? data.carbon_carrier ?? "1"),
+        steelConverterTop: String(data.steelConverterTop ?? data.steel_converter_top ?? "1"),
+        clampConverterBottom: String(data.clampConverterBottom ?? data.clamp_converter_bottom ?? "1"),
+        bindingCable6mm: String(data.bindingCable6mm ?? data.binding_cable_6mm ?? "1"),
+        groundingCable10x2mm: String(data.groundingCable10x2mm ?? data.grounding_cable_10x2mm ?? ""),
+        jointThermalLiquid: String(data.jointThermalLiquid ?? data.joint_thermal_liquid ?? "1"),
+        groundingClip: String(data.groundingClip ?? data.grounding_clip ?? "1"),
+        groundingPlate: String(data.groundingPlate ?? data.grounding_plate ?? "1"),
+        groundingRod: String(data.groundingRod ?? data.grounding_rod ?? "1"),
+        cable16x3mmLength: String(data.cable16x3mmLength ?? data.cable_16x3mm_length ?? ""),
+        cable10x2mmLength: String(data.cable10x2mmLength ?? data.cable_10x2mm_length ?? ""),
+        fanCount: String(data.fanCount ?? data.fan_count ?? ""),
         submersiblePump: data.submersiblePump ?? data.submersible_pump ?? true,
         installationStatus: data.installationStatus || data.installation_status || "not_installed",
         installedComponents: parseInstalledComponents(data),
-        extraPipes: data.extraPipes ?? data.extra_pipes ?? "",
+        extraPipes: String(data.extraPipes ?? data.extra_pipes ?? ""),
         extraPipesReason: data.extraPipesReason || data.extra_pipes_reason || "",
-        extraCable: data.extraCable ?? data.extra_cable ?? "",
+        extraCable: String(data.extraCable ?? data.extra_cable ?? ""),
         extraCableReason: data.extraCableReason || data.extra_cable_reason || "",
         notes: data.notes || "",
       });
     },
     []
   );
+
+  useEffect(() => {
+    if (solarComponents) {
+      updateFormFromData(solarComponents);
+    }
+  }, [solarComponents, updateFormFromData]);
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -635,7 +641,16 @@ function SolarEditDialog({
     },
   });
 
-  const boolFields = [
+  const COUNT_OPTIONS = [
+    { value: "0", label: "0" },
+    { value: "1", label: "1" },
+    { value: "2", label: "2" },
+    { value: "3", label: "3" },
+    { value: "4", label: "4" },
+    { value: "5", label: "5" },
+  ];
+
+  const componentFields = [
     { key: "inverter", label: "أنفرتر" },
     { key: "collectionBox", label: "صندوق تجميع" },
     { key: "carbonCarrier", label: "شيال كربون" },
@@ -704,17 +719,14 @@ function SolarEditDialog({
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {boolFields.map((f) => (
+                {componentFields.map((f) => (
                   <div key={f.key} className="space-y-1">
                     <Label className="text-sm">{f.label}</Label>
                     <SearchableSelect
-                      value={(form as any)[f.key]}
+                      value={String((form as any)[f.key] ?? "1")}
                       onValueChange={(v) => setForm({ ...form, [f.key]: v })}
-                      options={[
-                        { value: "نعم", label: "نعم" },
-                        { value: "لا", label: "لا" },
-                      ]}
-                      placeholder="اختر"
+                      options={COUNT_OPTIONS}
+                      placeholder="العدد"
                       data-testid={`select-material-${f.key}`}
                     />
                   </div>

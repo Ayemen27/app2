@@ -20,10 +20,11 @@ import { Sun, Download, Loader, BarChart3, Zap, Wrench, Edit, RefreshCw, MapPin,
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 
 const INSTALLATION_STATUSES = [
-  { value: "installed", label: "مركب" },
-  { value: "in_progress", label: "قيد التنفيذ" },
   { value: "not_installed", label: "غير مركبة" },
+  { value: "in_progress", label: "قيد التنفيذ" },
   { value: "partial", label: "مركب جزئياً" },
+  { value: "installed", label: "مركب" },
+  { value: "completed", label: "منجز" },
 ];
 
 const INSTALLABLE_COMPONENTS = [
@@ -49,28 +50,34 @@ function getInstallationStatusLabel(status: string) {
 
 function getInstallationStatusColor(status: string) {
   switch (status) {
-    case "installed": return "green";
-    case "in_progress": return "orange";
-    case "partial": return "blue";
-    default: return "gray";
+    case "not_installed": return "#9ca3af";
+    case "in_progress": return "#f59e0b";
+    case "partial": return "#3b82f6";
+    case "installed": return "#22c55e";
+    case "completed": return "#059669";
+    default: return "#9ca3af";
+  }
+}
+
+function getInstallationStatusBadgeClass(status: string) {
+  switch (status) {
+    case "not_installed": return "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600";
+    case "in_progress": return "bg-amber-100 text-amber-800 border-amber-400 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-600";
+    case "partial": return "bg-blue-100 text-blue-800 border-blue-400 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-600";
+    case "installed": return "bg-green-100 text-green-800 border-green-400 dark:bg-green-900/40 dark:text-green-300 dark:border-green-600";
+    case "completed": return "bg-emerald-100 text-emerald-900 border-emerald-500 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-500";
+    default: return "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600";
   }
 }
 
 function getInstallationStatusIcon(status: string) {
   switch (status) {
-    case "installed": return CheckCircle;
+    case "not_installed": return XCircle;
     case "in_progress": return Clock;
     case "partial": return AlertCircle;
+    case "installed": return CheckCircle;
+    case "completed": return CheckCircle;
     default: return XCircle;
-  }
-}
-
-function getInstallationBadgeVariant(status: string): "default" | "destructive" | "outline" {
-  switch (status) {
-    case "installed": return "default";
-    case "partial": return "outline";
-    case "in_progress": return "outline";
-    default: return "destructive";
   }
 }
 
@@ -262,10 +269,11 @@ export default function WellMaterialsPage() {
         placeholder: "الكل",
         options: [
           { value: "all", label: "الكل" },
-          { value: "installed", label: "مركب" },
+          { value: "not_installed", label: "غير مركبة" },
           { value: "in_progress", label: "قيد التنفيذ" },
           { value: "partial", label: "مركب جزئياً" },
-          { value: "not_installed", label: "غير مركبة" },
+          { value: "installed", label: "مركب" },
+          { value: "completed", label: "منجز" },
           { value: "no_solar", label: "بدون منظومة" },
         ],
         defaultValue: "all",
@@ -452,14 +460,14 @@ export default function WellMaterialsPage() {
                 title={`بئر #${well.wellNumber} - ${well.ownerName}`}
                 subtitle={well.region}
                 titleIcon={MapPin}
-                headerColor={s ? getInstallationStatusColor(s?.installationStatus || s?.installation_status || "not_installed") : "gray"}
+                headerColor={s ? getInstallationStatusColor(s?.installationStatus || s?.installation_status || "not_installed") : "#9ca3af"}
                 badges={[
                   ...(s ? [{
                     label: getInstallationStatusLabel(s?.installationStatus || s?.installation_status || "not_installed"),
-                    variant: getInstallationBadgeVariant(s?.installationStatus || s?.installation_status || "not_installed") as any,
+                    className: getInstallationStatusBadgeClass(s?.installationStatus || s?.installation_status || "not_installed"),
                   }] : [{
                     label: "بدون منظومة",
-                    variant: "outline" as any,
+                    className: "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600",
                   }]),
                 ]}
                 fields={(() => {
@@ -512,31 +520,34 @@ export default function WellMaterialsPage() {
                       </div>
                       {(() => {
                         const extraPipesVal = Number(s?.extraPipes ?? s?.extra_pipes ?? 0);
-                        return extraPipesVal > 0 ? (
-                          <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 rounded-lg p-2 mt-1.5 flex items-center gap-2">
-                            <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                            <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
-                              مواسير إضافية: {extraPipesVal}
-                              {(s?.extraPipesReason || s?.extra_pipes_reason) && (
-                                <span className="font-normal text-blue-600 dark:text-blue-400 mr-1">({s.extraPipesReason || s.extra_pipes_reason})</span>
-                              )}
-                            </span>
-                          </div>
-                        ) : null;
-                      })()}
-                      {(() => {
                         const extraCableVal = Number(s?.extraCable ?? s?.extra_cable ?? 0);
-                        return extraCableVal > 0 ? (
-                          <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-700 rounded-lg p-2 mt-1.5 flex items-center gap-2 animate-pulse-once">
-                            <Zap className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
-                            <span className="text-xs font-bold text-orange-700 dark:text-orange-300">
-                              كيبل إضافي: {extraCableVal} م
-                              {(s?.extraCableReason || s?.extra_cable_reason) && (
-                                <span className="font-normal text-orange-600 dark:text-orange-400 mr-1">({s.extraCableReason || s.extra_cable_reason})</span>
-                              )}
-                            </span>
+                        if (extraPipesVal <= 0 && extraCableVal <= 0) return null;
+                        return (
+                          <div className="grid grid-cols-2 gap-2 mt-1.5">
+                            {extraPipesVal > 0 && (
+                              <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-700 rounded-lg p-2 flex items-center gap-2">
+                                <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                                  مواسير إضافية: {extraPipesVal}
+                                  {(s?.extraPipesReason || s?.extra_pipes_reason) && (
+                                    <span className="font-normal text-blue-600 dark:text-blue-400 mr-1">({s.extraPipesReason || s.extra_pipes_reason})</span>
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                            {extraCableVal > 0 && (
+                              <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-300 dark:border-orange-700 rounded-lg p-2 flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                                <span className="text-xs font-bold text-orange-700 dark:text-orange-300">
+                                  كيبل إضافي: {extraCableVal} م
+                                  {(s?.extraCableReason || s?.extra_cable_reason) && (
+                                    <span className="font-normal text-orange-600 dark:text-orange-400 mr-1">({s.extraCableReason || s.extra_cable_reason})</span>
+                                  )}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        ) : null;
+                        );
                       })()}
                       {(s?.notes || well.notes) && (
                         <div className="text-xs text-muted-foreground border-t pt-1 mt-1">
@@ -609,6 +620,18 @@ function SolarEditDialog({
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const [showAddInstallStatusDialog, setShowAddInstallStatusDialog] = useState(false);
+  const [newInstallStatusName, setNewInstallStatusName] = useState("");
+  const [customInstallStatuses, setCustomInstallStatuses] = useState<Array<{value: string; label: string}>>([]);
+
+  const allInstallationStatuses = useMemo(() => {
+    const base = [...INSTALLATION_STATUSES];
+    customInstallStatuses.forEach(cs => {
+      if (!base.some(b => b.value === cs.value)) base.push(cs);
+    });
+    return base;
+  }, [customInstallStatuses]);
   const wellIdStr = String(wellId);
 
   const { data: solarComponents, isLoading } = useQuery({
@@ -732,6 +755,7 @@ function SolarEditDialog({
   ];
 
   return (
+    <>
     <Dialog open={true} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
@@ -754,8 +778,14 @@ function SolarEditDialog({
                     onValueChange={(v) => {
                       setForm({ ...form, installationStatus: v, installedComponents: v === "partial" ? form.installedComponents : [] });
                     }}
-                    options={INSTALLATION_STATUSES}
+                    options={allInstallationStatuses}
                     placeholder="اختر حالة التركيب"
+                    allowCustom
+                    onCustomAdd={(v) => {
+                      setCustomInstallStatuses(prev => [...prev, { value: v, label: v }]);
+                    }}
+                    onAddNew={() => setShowAddInstallStatusDialog(true)}
+                    addNewLabel="إضافة حالة تركيب جديدة"
                     data-testid="select-installation-status"
                   />
                 </div>
@@ -930,5 +960,26 @@ function SolarEditDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={showAddInstallStatusDialog} onOpenChange={setShowAddInstallStatusDialog}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>إضافة حالة تركيب جديدة</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label className="text-sm">اسم الحالة</Label><Input placeholder="مثال: قيد الصيانة" value={newInstallStatusName} onChange={(e) => setNewInstallStatusName(e.target.value)} data-testid="input-new-install-status" /></div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" size="sm" onClick={() => setShowAddInstallStatusDialog(false)}>إلغاء</Button>
+          <Button size="sm" disabled={!newInstallStatusName.trim()} onClick={() => {
+            const val = newInstallStatusName.trim();
+            setCustomInstallStatuses(prev => [...prev, { value: val, label: val }]);
+            setForm((f: any) => ({ ...f, installationStatus: val }));
+            setNewInstallStatusName("");
+            setShowAddInstallStatusDialog(false);
+            toast({ title: "تم", description: `تمت إضافة حالة التركيب "${val}"` });
+          }} data-testid="button-save-new-install-status">إضافة</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

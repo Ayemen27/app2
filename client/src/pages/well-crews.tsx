@@ -94,6 +94,16 @@ export default function WellCrewsPage() {
   };
   const [transportForm, setTransportForm] = useState(emptyTransportForm);
 
+  const [showAddCrewTypeDialog, setShowAddCrewTypeDialog] = useState(false);
+  const [newCrewTypeName, setNewCrewTypeName] = useState("");
+  const [showAddTeamNameDialog, setShowAddTeamNameDialog] = useState(false);
+  const [newTeamNameValue, setNewTeamNameValue] = useState("");
+  const [showAddRailTypeDialog, setShowAddRailTypeDialog] = useState(false);
+  const [newRailTypeName, setNewRailTypeName] = useState("");
+
+  const [customCrewTypes, setCustomCrewTypes] = useState<Array<{value: string; label: string}>>([]);
+  const [customRailTypes, setCustomRailTypes] = useState<Array<{value: string; label: string}>>([]);
+
   const { data: fullData = [], isLoading } = useQuery({
     queryKey: ["wells-full-data", selectedProjectId],
     queryFn: async () => {
@@ -105,6 +115,33 @@ export default function WellCrewsPage() {
     enabled: !!selectedProjectId,
     staleTime: 2 * 60 * 1000,
   });
+
+  const teamNameOptions = useMemo(() => {
+    const names = new Set<string>();
+    (fullData as WellFullData[]).forEach(w => {
+      (w.crews || []).forEach((c: any) => {
+        const name = c.teamName || c.team_name;
+        if (name) names.add(name);
+      });
+    });
+    return Array.from(names).sort().map(n => ({ value: n, label: n }));
+  }, [fullData]);
+
+  const allCrewTypeOptions = useMemo(() => {
+    const merged = [...CREW_TYPES];
+    customCrewTypes.forEach(ct => {
+      if (!merged.some(m => m.value === ct.value)) merged.push(ct);
+    });
+    return merged;
+  }, [customCrewTypes]);
+
+  const allRailTypeOptions = useMemo(() => {
+    const base = [{ value: "new", label: "جديد" }, { value: "old", label: "قديم" }];
+    customRailTypes.forEach(ct => {
+      if (!base.some(b => b.value === ct.value)) base.push(ct);
+    });
+    return base;
+  }, [customRailTypes]);
 
   useEffect(() => {
     const handleFloatingAction = () => {
@@ -712,14 +749,31 @@ export default function WellCrewsPage() {
               <SearchableSelect
                 value={crewForm.crewType}
                 onValueChange={(v) => setCrewForm({ ...crewForm, crewType: v })}
-                options={CREW_TYPES}
+                options={allCrewTypeOptions}
                 placeholder="اختر نوع الطاقم"
+                allowCustom
+                onCustomAdd={(v) => {
+                  setCustomCrewTypes(prev => [...prev, { value: v, label: v }]);
+                }}
+                onAddNew={() => setShowAddCrewTypeDialog(true)}
+                addNewLabel="إضافة نوع طاقم جديد"
                 data-testid="select-crew-type"
               />
             </div>
             <div className="space-y-1">
               <Label className="text-sm">اسم الفريق</Label>
-              <Input value={crewForm.teamName} onChange={(e) => setCrewForm({ ...crewForm, teamName: e.target.value })} placeholder="اسم الفريق" data-testid="input-crew-team-name" />
+              <SearchableSelect
+                value={crewForm.teamName}
+                onValueChange={(v) => setCrewForm({ ...crewForm, teamName: v })}
+                options={teamNameOptions}
+                placeholder="اختر اسم الفريق"
+                searchPlaceholder="ابحث عن فريق..."
+                allowCustom
+                onCustomAdd={() => {}}
+                onAddNew={() => setShowAddTeamNameDialog(true)}
+                addNewLabel="إضافة فريق جديد"
+                data-testid="select-crew-team-name"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-sm">عدد العمال</Label>
@@ -796,8 +850,14 @@ export default function WellCrewsPage() {
               <SearchableSelect
                 value={transportForm.railType}
                 onValueChange={(v) => setTransportForm({ ...transportForm, railType: v })}
-                options={[{ value: "new", label: "جديد" }, { value: "old", label: "قديم" }]}
+                options={allRailTypeOptions}
                 placeholder="جديد / قديم"
+                allowCustom
+                onCustomAdd={(v) => {
+                  setCustomRailTypes(prev => [...prev, { value: v, label: v }]);
+                }}
+                onAddNew={() => setShowAddRailTypeDialog(true)}
+                addNewLabel="إضافة نوع ريلات جديد"
                 data-testid="select-transport-rail-type"
               />
             </div>
@@ -846,6 +906,65 @@ export default function WellCrewsPage() {
             >
               {(createTransportMutation.isPending || updateTransportMutation.isPending) ? "جاري..." : editingTransport ? "تحديث" : "حفظ"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddCrewTypeDialog} onOpenChange={setShowAddCrewTypeDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>إضافة نوع طاقم جديد</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-sm">اسم نوع الطاقم</Label><Input placeholder="مثال: تركيب كهرباء" value={newCrewTypeName} onChange={(e) => setNewCrewTypeName(e.target.value)} data-testid="input-new-crew-type" /></div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowAddCrewTypeDialog(false)}>إلغاء</Button>
+            <Button size="sm" disabled={!newCrewTypeName.trim()} onClick={() => {
+              const val = newCrewTypeName.trim();
+              setCustomCrewTypes(prev => [...prev, { value: val, label: val }]);
+              setCrewForm(f => ({ ...f, crewType: val }));
+              setNewCrewTypeName("");
+              setShowAddCrewTypeDialog(false);
+              toast({ title: "تم", description: `تمت إضافة نوع الطاقم "${val}"` });
+            }} data-testid="button-save-new-crew-type">إضافة</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddTeamNameDialog} onOpenChange={setShowAddTeamNameDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>إضافة فريق جديد</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-sm">اسم الفريق</Label><Input placeholder="مثال: فريق الجراحي" value={newTeamNameValue} onChange={(e) => setNewTeamNameValue(e.target.value)} data-testid="input-new-team-name" /></div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowAddTeamNameDialog(false)}>إلغاء</Button>
+            <Button size="sm" disabled={!newTeamNameValue.trim()} onClick={() => {
+              const val = newTeamNameValue.trim();
+              setCrewForm(f => ({ ...f, teamName: val }));
+              setNewTeamNameValue("");
+              setShowAddTeamNameDialog(false);
+              toast({ title: "تم", description: `تمت إضافة الفريق "${val}"` });
+            }} data-testid="button-save-new-team-name">إضافة</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddRailTypeDialog} onOpenChange={setShowAddRailTypeDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>إضافة نوع ريلات جديد</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-sm">نوع الريلات</Label><Input placeholder="مثال: مستعمل" value={newRailTypeName} onChange={(e) => setNewRailTypeName(e.target.value)} data-testid="input-new-rail-type" /></div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowAddRailTypeDialog(false)}>إلغاء</Button>
+            <Button size="sm" disabled={!newRailTypeName.trim()} onClick={() => {
+              const val = newRailTypeName.trim();
+              setCustomRailTypes(prev => [...prev, { value: val, label: val }]);
+              setTransportForm(f => ({ ...f, railType: val }));
+              setNewRailTypeName("");
+              setShowAddRailTypeDialog(false);
+              toast({ title: "تم", description: `تمت إضافة نوع الريلات "${val}"` });
+            }} data-testid="button-save-new-rail-type">إضافة</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -101,6 +101,12 @@ export default function WellReceptionsPage() {
     notes: "",
   });
 
+  const [showAddStatusDialog, setShowAddStatusDialog] = useState(false);
+  const [newStatusName, setNewStatusName] = useState("");
+  const [customStatuses, setCustomStatuses] = useState<Array<{value: string; label: string}>>([]);
+  const [showAddReceiverDialog, setShowAddReceiverDialog] = useState(false);
+  const [newReceiverName, setNewReceiverName] = useState("");
+
   const handleFilterChange = useCallback((key: string, value: any) => {
     setFilterValues((prev) => ({ ...prev, [key]: value }));
   }, []);
@@ -140,6 +146,25 @@ export default function WellReceptionsPage() {
     enabled: !!selectedProjectId,
     staleTime: 5 * 60 * 1000,
   });
+
+  const receiverNameOptions = useMemo(() => {
+    const names = new Set<string>();
+    (wellsData as WellFullData[]).forEach(w => {
+      (w.receptions || []).forEach((r: any) => {
+        const name = r.receiverName || r.receiver_name;
+        if (name) names.add(name);
+      });
+    });
+    return Array.from(names).sort().map(n => ({ value: n, label: n }));
+  }, [wellsData]);
+
+  const allInspectionStatuses = useMemo(() => {
+    const base = [...INSPECTION_STATUSES];
+    customStatuses.forEach(cs => {
+      if (!base.some(b => b.value === cs.value)) base.push(cs);
+    });
+    return base;
+  }, [customStatuses]);
 
   useEffect(() => {
     const handleFloatingAction = () => {
@@ -659,11 +684,17 @@ export default function WellReceptionsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-sm">اسم المستلم *</Label>
-                <Input
+                <SearchableSelect
                   value={receptionForm.receiverName}
-                  onChange={(e) => setReceptionForm({ ...receptionForm, receiverName: e.target.value })}
-                  placeholder="اسم المستلم"
-                  data-testid="input-reception-receiver-name"
+                  onValueChange={(v) => setReceptionForm({ ...receptionForm, receiverName: v })}
+                  options={receiverNameOptions}
+                  placeholder="اختر اسم المستلم"
+                  searchPlaceholder="ابحث عن مستلم..."
+                  allowCustom
+                  onCustomAdd={() => {}}
+                  onAddNew={() => setShowAddReceiverDialog(true)}
+                  addNewLabel="إضافة مستلم جديد"
+                  data-testid="select-reception-receiver-name"
                 />
               </div>
               <div className="space-y-1">
@@ -671,8 +702,14 @@ export default function WellReceptionsPage() {
                 <SearchableSelect
                   value={receptionForm.inspectionStatus}
                   onValueChange={(v) => setReceptionForm({ ...receptionForm, inspectionStatus: v })}
-                  options={INSPECTION_STATUSES}
+                  options={allInspectionStatuses}
                   placeholder="اختر حالة الفحص"
+                  allowCustom
+                  onCustomAdd={(v) => {
+                    setCustomStatuses(prev => [...prev, { value: v, label: v }]);
+                  }}
+                  onAddNew={() => setShowAddStatusDialog(true)}
+                  addNewLabel="إضافة حالة فحص جديدة"
                   data-testid="select-reception-inspection-status"
                 />
               </div>
@@ -734,6 +771,45 @@ export default function WellReceptionsPage() {
                   : editingReceptionId ? "تحديث" : "حفظ"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddReceiverDialog} onOpenChange={setShowAddReceiverDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>إضافة مستلم جديد</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-sm">اسم المستلم</Label><Input placeholder="مثال: م. أحمد" value={newReceiverName} onChange={(e) => setNewReceiverName(e.target.value)} data-testid="input-new-receiver-name" /></div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowAddReceiverDialog(false)}>إلغاء</Button>
+            <Button size="sm" disabled={!newReceiverName.trim()} onClick={() => {
+              const val = newReceiverName.trim();
+              setReceptionForm(f => ({ ...f, receiverName: val }));
+              setNewReceiverName("");
+              setShowAddReceiverDialog(false);
+              toast({ title: "تم", description: `تمت إضافة المستلم "${val}"` });
+            }} data-testid="button-save-new-receiver">إضافة</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddStatusDialog} onOpenChange={setShowAddStatusDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>إضافة حالة فحص جديدة</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-sm">اسم الحالة</Label><Input placeholder="مثال: تحت المراجعة" value={newStatusName} onChange={(e) => setNewStatusName(e.target.value)} data-testid="input-new-status" /></div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowAddStatusDialog(false)}>إلغاء</Button>
+            <Button size="sm" disabled={!newStatusName.trim()} onClick={() => {
+              const val = newStatusName.trim();
+              setCustomStatuses(prev => [...prev, { value: val, label: val }]);
+              setReceptionForm(f => ({ ...f, inspectionStatus: val }));
+              setNewStatusName("");
+              setShowAddStatusDialog(false);
+              toast({ title: "تم", description: `تمت إضافة حالة الفحص "${val}"` });
+            }} data-testid="button-save-new-status">إضافة</Button>
           </div>
         </DialogContent>
       </Dialog>

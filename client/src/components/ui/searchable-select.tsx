@@ -28,6 +28,8 @@ interface SearchableSelectProps {
   allowCustom?: boolean;
   onCustomAdd?: (value: string) => void;
   onDeleteOption?: (value: string) => void;
+  onAddNew?: () => void;
+  addNewLabel?: string;
 }
 
 export function SearchableSelect({
@@ -46,6 +48,8 @@ export function SearchableSelect({
   allowCustom = false,
   onCustomAdd,
   onDeleteOption,
+  onAddNew,
+  addNewLabel,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,8 +101,8 @@ export function SearchableSelect({
     }
   }, []);
 
-  return (
-    <div className={cn('w-full', className)}>
+  const selectElement = (
+    <div className={cn(onAddNew ? 'flex-1 min-w-0' : 'w-full', className)}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -250,6 +254,26 @@ export function SearchableSelect({
       </Popover>
     </div>
   );
+
+  if (onAddNew) {
+    return (
+      <div className="flex items-center gap-1.5 w-full">
+        {selectElement}
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className="h-10 w-10 shrink-0"
+          onClick={onAddNew}
+          title={addNewLabel || "إضافة جديد"}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  return selectElement;
 }
 
 export function WorkerSelect({

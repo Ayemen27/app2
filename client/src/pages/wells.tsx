@@ -530,11 +530,11 @@ export default function WellsPage() {
       </div>
       <div className="space-y-1">
         <Label className="text-sm font-semibold">اسم المالك *</Label>
-        <SearchableSelect value={data.ownerName || ''} onValueChange={(value) => { setData({ ...data, ownerName: value }); if (value.trim() && !ownerNames.includes(value)) addOwnerNameMutation.mutate(value); }} options={isEdit ? getOwnerOptions(data.ownerName) : ownerNames.map((n: string) => ({ value: n, label: n }))} placeholder="اختر أو اكتب اسم المالك" searchPlaceholder="ابحث عن اسم المالك..." showSearch={true} allowCustom={true} onCustomAdd={(v) => addOwnerNameMutation.mutate(v)} data-testid="select-owner-name" />
+        <SearchableSelect value={data.ownerName || ''} onValueChange={(value) => { setData({ ...data, ownerName: value }); if (value.trim() && !ownerNames.includes(value)) addOwnerNameMutation.mutate(value); }} options={isEdit ? getOwnerOptions(data.ownerName) : ownerNames.map((n: string) => ({ value: n, label: n }))} placeholder="اختر أو اكتب اسم المالك" searchPlaceholder="ابحث عن اسم المالك..." showSearch={true} allowCustom={true} onCustomAdd={(v) => addOwnerNameMutation.mutate(v)} onAddNew={() => { const name = prompt("أدخل اسم المالك الجديد"); if (name?.trim()) { addOwnerNameMutation.mutate(name.trim()); setData({ ...data, ownerName: name.trim() }); } }} addNewLabel="إضافة مالك جديد" data-testid="select-owner-name" />
       </div>
       <div className="space-y-1">
         <Label className="text-sm font-semibold">المنطقة *</Label>
-        <SearchableSelect value={data.region || ''} onValueChange={(value) => setData({ ...data, region: value })} options={isEdit ? getRegionOptions(data.region) : regions.map(r => ({ value: r, label: r }))} placeholder="اختر المنطقة" searchPlaceholder="ابحث عن المنطقة..." showSearch={true} data-testid="select-region" />
+        <SearchableSelect value={data.region || ''} onValueChange={(value) => setData({ ...data, region: value })} options={isEdit ? getRegionOptions(data.region) : regions.map(r => ({ value: r, label: r }))} placeholder="اختر المنطقة" searchPlaceholder="ابحث عن المنطقة..." showSearch={true} allowCustom={true} onCustomAdd={() => {}} onAddNew={() => { const region = prompt("أدخل اسم المنطقة الجديدة"); if (region?.trim()) { setData({ ...data, region: region.trim() }); } }} addNewLabel="إضافة منطقة جديدة" data-testid="select-region" />
       </div>
       <div className="space-y-1">
         <Label className="text-sm font-semibold">عمق البئر (متر) *</Label>
@@ -557,18 +557,12 @@ export default function WellsPage() {
         <Input type="number" value={data.waterLevel || ''} onChange={(e) => setData({ ...data, waterLevel: parseInt(e.target.value) })} placeholder="أدخل مستوى الماء" className="h-10 text-base" data-testid="input-water-level" />
       </div>
       <div className="space-y-1">
-        <div className="flex items-center gap-1 mb-1">
-          <Label className="text-sm font-semibold flex-1">نوع المروحة</Label>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddFanTypeDialog(true)} data-testid="button-add-fan-type">+ إضافة</Button>
-        </div>
-        <SearchableSelect value={data.fanType || ''} onValueChange={(value) => setData({ ...data, fanType: value })} options={isEdit ? getFanTypeOptions(data.fanType) : fanTypes.map((t: string) => ({ value: t, label: t }))} placeholder="اختر نوع المروحة" searchPlaceholder="ابحث عن نوع المروحة..." showSearch={true} data-testid="select-fan-type" />
+        <Label className="text-sm font-semibold">نوع المروحة</Label>
+        <SearchableSelect value={data.fanType || ''} onValueChange={(value) => setData({ ...data, fanType: value })} options={isEdit ? getFanTypeOptions(data.fanType) : fanTypes.map((t: string) => ({ value: t, label: t }))} placeholder="اختر نوع المروحة" searchPlaceholder="ابحث عن نوع المروحة..." showSearch={true} allowCustom={true} onCustomAdd={(v) => addFanTypeMutation.mutate(v)} onAddNew={() => setShowAddFanTypeDialog(true)} addNewLabel="إضافة نوع مروحة جديد" data-testid="select-fan-type" />
       </div>
       <div className="space-y-1">
-        <div className="flex items-center gap-1 mb-1">
-          <Label className="text-sm font-semibold flex-1">قوة المضخة</Label>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => setShowAddPumpPowerDialog(true)} data-testid="button-add-pump-power">+ إضافة</Button>
-        </div>
-        <SearchableSelect value={data.pumpPower ? String(data.pumpPower) : ''} onValueChange={(value) => setData({ ...data, pumpPower: parseInt(value) })} options={isEdit ? getPumpPowerOptions(data.pumpPower ? String(data.pumpPower) : undefined) : pumpPowers.map((p: any) => ({ value: String(p), label: String(p) }))} placeholder="اختر قوة المضخة" searchPlaceholder="ابحث عن قوة المضخة..." showSearch={true} data-testid="select-pump-power" />
+        <Label className="text-sm font-semibold">قوة المضخة</Label>
+        <SearchableSelect value={data.pumpPower ? String(data.pumpPower) : ''} onValueChange={(value) => setData({ ...data, pumpPower: parseInt(value) })} options={isEdit ? getPumpPowerOptions(data.pumpPower ? String(data.pumpPower) : undefined) : pumpPowers.map((p: any) => ({ value: String(p), label: String(p) }))} placeholder="اختر قوة المضخة" searchPlaceholder="ابحث عن قوة المضخة..." showSearch={true} allowCustom={true} onCustomAdd={(v) => addPumpPowerMutation.mutate(v)} onAddNew={() => setShowAddPumpPowerDialog(true)} addNewLabel="إضافة قوة مضخة جديدة" data-testid="select-pump-power" />
       </div>
       <div className="space-y-1">
         <Label className="text-sm font-semibold">الحالة</Label>

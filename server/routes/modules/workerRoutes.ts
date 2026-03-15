@@ -445,7 +445,7 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
 
     // إضافة رصيد مبدئي للعامل في جميع المشاريع النشطة لتجنب جلب الإحصائيات المكثف لاحقاً
     try {
-      const activeProjects = await db.execute(sql`SELECT id FROM projects WHERE status = 'active' OR status = 'in_progress'`);
+      const activeProjects = await pool.query(`SELECT id FROM projects WHERE status = 'active' OR status = 'in_progress'`);
       if (activeProjects.rows.length > 0) {
         const balanceEntries: WorkerBalanceEntry[] = activeProjects.rows.map((p: Record<string, unknown>) => ({
           worker_id: newWorker[0].id,
@@ -2703,13 +2703,14 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     const projectsWorked = isAllProjects ? (Number(projectsWorkedResult[0]?.projectsCount) || 0) : (totalWorkDays > 0 ? 1 : 0);
 
-    const projectNamesResult = await db.execute(sql`
-      SELECT DISTINCT p.id, p.name
-      FROM worker_attendance wa
-      JOIN projects p ON p.id = wa.project_id
-      WHERE wa.worker_id = ${worker_id}
-      ORDER BY p.name
-    `);
+    const projectNamesResult = await pool.query(
+      `SELECT DISTINCT p.id, p.name
+       FROM worker_attendance wa
+       JOIN projects p ON p.id = wa.project_id
+       WHERE wa.worker_id = $1
+       ORDER BY p.name`,
+      [worker_id]
+    );
     const workerProjectNames = projectNamesResult.rows.map((r: any) => ({ id: r.id, name: r.name }));
 
     // حساب إجمالي المستحقات من dailyWage * workDays لضمان الدقة

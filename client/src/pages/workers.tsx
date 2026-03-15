@@ -660,10 +660,9 @@ export default function WorkersPage() {
         return [] as Worker[];
       }
     },
-    staleTime: 30000, 
+    staleTime: 10000, 
     gcTime: 60000,   
     retry: 2,
-    placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: true, 
   });
 

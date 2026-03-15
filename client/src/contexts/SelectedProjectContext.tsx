@@ -123,12 +123,10 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
     
     const startTime = Date.now();
     
-    await queryClient.cancelQueries();
-    
     const invalidatePromises = ALL_QUERY_KEYS.map(key => 
       queryClient.invalidateQueries({ 
         queryKey: key, 
-        refetchType: 'all',
+        refetchType: 'none',
         exact: false 
       })
     );
@@ -140,20 +138,22 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
             const key = query.queryKey;
             return Array.isArray(key) && key.some(k => String(k) === project_id);
           },
-          refetchType: 'all'
+          refetchType: 'none'
         })
       );
     }
     
     await Promise.all(invalidatePromises);
     
-    await queryClient.refetchQueries({ 
-      type: 'active',
-      exact: false
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && key[0] === '/api/workers' && !query.isActive();
+      }
     });
     
     const duration = Date.now() - startTime;
-    console.log(`✅ [SelectedProjectContext] تم تحديث جميع البيانات في ${duration}ms`);
+    console.log(`✅ [SelectedProjectContext] تم إبطال الكاش في ${duration}ms`);
   }, [queryClient]);
 
   const selectProject = useCallback(async (project_id: string, projectName?: string) => {

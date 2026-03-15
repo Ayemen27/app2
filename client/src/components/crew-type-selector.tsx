@@ -50,7 +50,7 @@ export function CrewTypeSelector({ value = [], onChange, showLabel = true }: Cre
       {showLabel && (
         <Label className="text-xs font-bold text-foreground mb-1 flex items-center gap-1">
           <Wrench className="h-3 w-3" />
-          نوع العمل <span className="text-muted-foreground/60 font-normal">(اختياري - يمكن اختيار أكثر من نوع)</span>
+          نوع العمل
         </Label>
       )}
       <div className="relative">

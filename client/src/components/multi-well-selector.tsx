@@ -79,7 +79,7 @@ export function MultiWellSelector({
       {showLabel && (
         <Label className="text-xs font-bold text-foreground mb-1 flex items-center gap-1">
           <Droplets className="h-3 w-3" />
-          الآبار {optional && <span className="text-muted-foreground/60 font-normal">(اختياري - يمكن اختيار أكثر من بئر)</span>}
+          الآبار
         </Label>
       )}
       <div className="relative">

@@ -262,7 +262,7 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
   return (
     <div className="space-y-3">
       {isWellsProject && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <MultiWellSelector
             project_id={project_id}
             value={miscWellIds}

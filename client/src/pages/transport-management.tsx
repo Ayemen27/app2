@@ -636,7 +636,7 @@ export default function TransportManagement() {
                   </div>
 
                   {isWellsProject && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <div className="space-y-1">
                         <Label data-testid="label-well" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                           <Hash className="h-3 w-3" /> البئر

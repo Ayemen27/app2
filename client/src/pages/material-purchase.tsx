@@ -1242,7 +1242,7 @@ export default function MaterialPurchase() {
             </div>
 
             {isWellsProject && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <MultiWellSelector
                   project_id={selectedProjectId}
                   value={selectedWellIds}

@@ -60,7 +60,7 @@ export function TeamSelector({ project_id, value = [], onChange, showLabel = tru
       {showLabel && (
         <Label className="text-xs font-bold text-foreground mb-1 flex items-center gap-1">
           <Users className="h-3 w-3" />
-          الفريق <span className="text-muted-foreground/60 font-normal">(اختياري)</span>
+          الفريق
         </Label>
       )}
       <div className="relative">

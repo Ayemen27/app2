@@ -292,7 +292,7 @@ export default function EnhancedWorkerCard({
         </div>
 
         {localAttendance.isPresent && projectId && isWellsProject && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-3 gap-2 mb-3">
             <MultiWellSelector
               project_id={projectId}
               value={localAttendance.well_ids || []}

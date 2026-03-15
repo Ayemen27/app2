@@ -402,7 +402,7 @@ export const workerAttendance = pgTable("worker_attendance", {
   notes: text("notes"), // ملاحظات
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs e.g. "[1,5]" for multi-well
-  crew_type: varchar("crew_type", { length: 50 }), // welding, steel_installation, panel_installation
+  crew_type: varchar("crew_type", { length: 255 }), // welding, steel_installation, panel_installation
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueWorkerDate: sql`UNIQUE (worker_id, attendance_date, project_id)`,
@@ -462,7 +462,7 @@ export const materialPurchases = pgTable("material_purchases", {
   purchaseDate: text("purchase_date").notNull(), // YYYY-MM-DD format
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
-  crew_type: varchar("crew_type", { length: 50 }),
+  crew_type: varchar("crew_type", { length: 255 }),
   addToInventory: boolean("add_to_inventory").default(false), // إضافة المادة للمخزن/المعدات تلقائياً
   equipmentId: integer("equipment_id"), // ربط بالمعدة المنشأة تلقائياً (إن وجدت)
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -498,7 +498,7 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   notes: text("notes"),
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
-  crew_type: varchar("crew_type", { length: 50 }),
+  crew_type: varchar("crew_type", { length: 255 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   idxTransportationProjectId: index("idx_transportation_expenses_project_id").on(table.project_id),
@@ -622,7 +622,7 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   notes: text("notes"), // ملاحظات إضافية
   well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
-  crew_type: varchar("crew_type", { length: 50 }),
+  crew_type: varchar("crew_type", { length: 255 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   idxWorkerMiscExpensesProjectId: index("idx_worker_misc_expenses_project_id").on(table.project_id),
@@ -1500,7 +1500,7 @@ export type InsertMaterialCategory = z.infer<typeof insertMaterialCategorySchema
 export const wellWorkCrews = pgTable("well_work_crews", {
   id: serial("id").primaryKey(),
   well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
-  crewType: varchar("crew_type", { length: 50 }).notNull(), // welding, steel_installation, panel_installation
+  crewType: varchar("crew_type", { length: 255 }).notNull(), // welding, steel_installation, panel_installation
   teamName: text("team_name"),
   workersCount: integer("workers_count").default(0).notNull(),
   mastersCount: integer("masters_count").default(0).notNull(),
@@ -1523,7 +1523,7 @@ export const wellCrewWorkers = pgTable("well_crew_workers", {
   worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
   daily_wage_snapshot: decimal("daily_wage_snapshot", { precision: 12, scale: 2 }),
   work_days: decimal("work_days", { precision: 10, scale: 4 }),
-  crew_type: varchar("crew_type", { length: 50 }),
+  crew_type: varchar("crew_type", { length: 255 }),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });

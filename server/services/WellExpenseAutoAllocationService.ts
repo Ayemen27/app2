@@ -122,8 +122,59 @@ export class WellExpenseAutoAllocationService {
 
   static async reallocateOnUpdate(input: AllocationInput): Promise<void> {
     try {
-      await this.removeByReference(input.referenceType, input.referenceId);
-      await this.allocateOnCreate(input);
+      const requestedWellIds = parseWellIds(input.wellIdsJson);
+      const total = parseFloat(String(input.totalAmount)) || 0;
+
+      if (requestedWellIds.length === 0 || total <= 0) {
+        await this.removeByReference(input.referenceType, input.referenceId);
+        return;
+      }
+
+      const validWells = await db.select({ id: wells.id })
+        .from(wells)
+        .where(
+          input.projectId
+            ? and(eq(wells.project_id, input.projectId), inArray(wells.id, requestedWellIds))
+            : inArray(wells.id, requestedWellIds)
+        );
+      const validWellIds = validWells.map(w => w.id);
+
+      if (validWellIds.length === 0) {
+        await this.removeByReference(input.referenceType, input.referenceId);
+        return;
+      }
+
+      const expenseType = REFERENCE_TO_EXPENSE_TYPE[input.referenceType];
+      const amounts = distributeAmount(total, validWellIds.length);
+
+      const values = validWellIds.map((wellId, idx) => ({
+        well_id: wellId,
+        expenseType,
+        referenceType: input.referenceType,
+        referenceId: input.referenceId,
+        description: input.description,
+        category: input.category,
+        quantity: '1',
+        unit: 'حصة',
+        unitPrice: String(amounts[idx]),
+        totalAmount: String(amounts[idx]),
+        expenseDate: new Date(input.expenseDate),
+        createdBy: input.userId,
+        notes: `توزيع تلقائي - ${validWellIds.length} آبار`,
+      }));
+
+      await db.transaction(async (tx) => {
+        await tx.delete(wellExpenses)
+          .where(
+            and(
+              eq(wellExpenses.referenceType, input.referenceType),
+              eq(wellExpenses.referenceId, input.referenceId)
+            )
+          );
+        await tx.insert(wellExpenses).values(values);
+      });
+
+      console.log(`✅ [WellAutoAlloc] تم إعادة توزيع ${total} على ${validWellIds.length} بئر (${input.referenceType}/${input.referenceId})`);
     } catch (error) {
       console.error(`❌ [WellAutoAlloc] خطأ في إعادة التوزيع (${input.referenceType}/${input.referenceId}):`, error);
     }

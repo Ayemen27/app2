@@ -72,7 +72,10 @@ async function calculatePreviewData(
 
   const earnedResult = await queryFn(
     `SELECT wa.worker_id, wa.project_id, p.name as project_name, w.name as worker_name,
-            COALESCE(SUM(CAST(wa.total_pay AS DECIMAL(15,2))), 0) as total_earned,
+            COALESCE(SUM(
+              CAST(COALESCE(wa.daily_wage, '0') AS DECIMAL(15,2)) *
+              CAST(COALESCE(wa.work_days, '0') AS DECIMAL(15,2))
+            ), 0) as total_earned,
             COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL(15,2))), 0) as total_paid
      FROM worker_attendance wa
      JOIN workers w ON w.id = wa.worker_id

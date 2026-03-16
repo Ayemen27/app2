@@ -126,10 +126,11 @@ function DailyExpensesContent() {
     queryKey: QUERY_KEYS.autocompleteTransportCategories,
     queryFn: async () => {
       const res = await apiRequest("/api/autocomplete/transport-categories", "GET");
-      if (Array.isArray(res)) {
-        return res.map((item: any) => ({ value: item.value || item, label: item.value || item }));
-      }
-      return [];
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      return list.map((item: any) => ({
+        value: typeof item === 'string' ? item : (item.value || ''),
+        label: typeof item === 'string' ? item : (item.label || item.value || '')
+      })).filter((item: any) => item.value);
     }
   });
 

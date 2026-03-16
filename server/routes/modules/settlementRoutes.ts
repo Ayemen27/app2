@@ -404,6 +404,27 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
 
       const workerNames = positiveWorkers.map(w => w.workerName).join('، ');
 
+      for (const worker of positiveWorkers) {
+        for (const proj of worker.projects) {
+          if (!isProjectIncluded(worker.workerId, proj)) continue;
+
+          await client.query(
+            `INSERT INTO worker_transfers (id, worker_id, project_id, amount, transfer_method, transfer_date, notes, description, sender_name, recipient_name, created_at)
+             VALUES (gen_random_uuid(), $1, $2, CAST($3 AS DECIMAL(15,2)), 'settlement', $4, $5, $6, $7, $8, NOW())`,
+            [
+              worker.workerId,
+              proj.projectId,
+              proj.balance.toFixed(2),
+              today,
+              `تصفية حساب - ترحيل إلى مشروع التصفية`,
+              `تصفية حساب العامل ${worker.workerName} من مشروع ${proj.projectName}`,
+              proj.projectName,
+              worker.workerName,
+            ]
+          );
+        }
+      }
+
       for (const transfer of actualFundTotals.values()) {
         await client.query(
           `INSERT INTO project_fund_transfers (from_project_id, to_project_id, amount, description, transfer_reason, transfer_date)
@@ -417,59 +438,6 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             today,
           ]
         );
-      }
-
-      for (const worker of positiveWorkers) {
-        for (const proj of worker.projects) {
-          if (!isProjectIncluded(worker.workerId, proj)) continue;
-
-          const balanceAmount = proj.balance.toFixed(2);
-          const negativeBalance = (-proj.balance).toFixed(2);
-
-          const debitResult = await client.query(
-            `UPDATE worker_balances 
-             SET current_balance = CAST(current_balance AS DECIMAL(15,2)) - CAST($3 AS DECIMAL(15,2)),
-                 last_updated = NOW()
-             WHERE worker_id = $1 AND project_id = $2`,
-            [worker.workerId, proj.projectId, balanceAmount]
-          );
-
-          if (debitResult.rowCount === 0) {
-            await client.query(
-              `INSERT INTO worker_balances (worker_id, project_id, total_earned, total_paid, total_transferred, current_balance, last_updated)
-               VALUES ($1, $2, CAST($3 AS DECIMAL(15,2)), CAST($4 AS DECIMAL(15,2)), CAST('0' AS DECIMAL(15,2)), CAST($5 AS DECIMAL(15,2)), NOW())
-               ON CONFLICT (worker_id, project_id)
-               DO UPDATE SET
-                 current_balance = CAST(worker_balances.current_balance AS DECIMAL(15,2)) - CAST($6 AS DECIMAL(15,2)),
-                 last_updated = NOW()`,
-              [
-                worker.workerId,
-                proj.projectId,
-                proj.earned.toFixed(2),
-                proj.paid.toFixed(2),
-                negativeBalance,
-                balanceAmount,
-              ]
-            );
-          }
-
-          await client.query(
-            `INSERT INTO worker_balances (worker_id, project_id, total_earned, total_paid, total_transferred, current_balance, last_updated)
-             VALUES ($1, $2, CAST($3 AS DECIMAL(15,2)), CAST($4 AS DECIMAL(15,2)), CAST('0' AS DECIMAL(15,2)), CAST($5 AS DECIMAL(15,2)), NOW())
-             ON CONFLICT (worker_id, project_id)
-             DO UPDATE SET
-               current_balance = CAST(worker_balances.current_balance AS DECIMAL(15,2)) + CAST($5 AS DECIMAL(15,2)),
-               total_earned = CAST(worker_balances.total_earned AS DECIMAL(15,2)) + CAST($5 AS DECIMAL(15,2)),
-               last_updated = NOW()`,
-            [
-              worker.workerId,
-              settlement_project_id,
-              balanceAmount,
-              '0',
-              balanceAmount,
-            ]
-          );
-        }
       }
 
       await client.query(

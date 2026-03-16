@@ -861,9 +861,17 @@ export class DatabaseStorage implements IStorage {
         senderName: transfer.senderName
       });
       
+      const safeTransfer: any = { ...transfer };
+      if (typeof safeTransfer.transferDate === 'string') {
+        const dateStr = safeTransfer.transferDate.includes('T') ? safeTransfer.transferDate.split('T')[0] : safeTransfer.transferDate;
+        safeTransfer.transferDate = new Date(dateStr + 'T00:00:00');
+      }
+      if (safeTransfer.updated_at && typeof safeTransfer.updated_at === 'string') {
+        safeTransfer.updated_at = new Date(safeTransfer.updated_at);
+      }
       const [newTransfer] = await db
         .insert(fundTransfers)
-        .values(transfer)
+        .values(safeTransfer)
         .returning();
       
       if (!newTransfer) {
@@ -903,9 +911,17 @@ export class DatabaseStorage implements IStorage {
   async updateFundTransfer(id: string, transfer: Partial<InsertFundTransfer>): Promise<FundTransfer | undefined> {
     const [oldTransfer] = await db.select().from(fundTransfers).where(eq(fundTransfers.id, id));
     
+    const safeTransfer: any = { ...transfer };
+    if (typeof safeTransfer.transferDate === 'string') {
+      const dateStr = safeTransfer.transferDate.includes('T') ? safeTransfer.transferDate.split('T')[0] : safeTransfer.transferDate;
+      safeTransfer.transferDate = new Date(dateStr + 'T00:00:00');
+    }
+    if (safeTransfer.updated_at && typeof safeTransfer.updated_at === 'string') {
+      safeTransfer.updated_at = new Date(safeTransfer.updated_at);
+    }
     const [updated] = await db
       .update(fundTransfers)
-      .set(transfer)
+      .set(safeTransfer)
       .where(eq(fundTransfers.id, id))
       .returning();
     

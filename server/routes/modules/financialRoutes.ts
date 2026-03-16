@@ -477,9 +477,18 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       });
     }
 
+    const updateData: any = { ...validationResult.data };
+    if (typeof updateData.transferDate === 'string') {
+      const dateStr = updateData.transferDate.includes('T') ? updateData.transferDate.split('T')[0] : updateData.transferDate;
+      updateData.transferDate = new Date(dateStr + 'T00:00:00');
+    }
+    if (updateData.updated_at && typeof updateData.updated_at === 'string') {
+      updateData.updated_at = new Date(updateData.updated_at);
+    }
+
     const updatedTransfer = await db
       .update(fundTransfers)
-      .set(validationResult.data)
+      .set(updateData)
       .where(eq(fundTransfers.id, transferId))
       .returning();
 

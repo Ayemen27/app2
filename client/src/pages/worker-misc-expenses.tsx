@@ -107,7 +107,7 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
   }, [todayMiscExpenses]);
 
   const createMiscExpenseMutation = useMutation({
-    mutationFn: (data: { amount: string; description: string; project_id: string; date: string }) =>
+    mutationFn: (data: { amount: string; description: string; project_id: string; date: string; notes?: string | null; well_id?: number | null; well_ids?: string | null; crew_type?: string | null }) =>
       apiRequest("/api/worker-misc-expenses", "POST", data),
     onSuccess: async () => {
       // حفظ قيم الإكمال التلقائي
@@ -221,11 +221,11 @@ export default function WorkerMiscExpenses({ project_id, selectedDate, isWellsPr
         data: {
           description: miscDescription,
           amount: miscAmount,
-          notes: miscNotes || null,
+          notes: miscNotes || undefined,
           well_id: miscWellIds[0] || null,
           well_ids: miscWellIds.length > 0 ? JSON.stringify(miscWellIds) : null,
           crew_type: miscCrewTypes.length > 0 ? JSON.stringify(miscCrewTypes) : null
-        }
+        } as any
       });
     } else {
       createMiscExpenseMutation.mutate({

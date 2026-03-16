@@ -47,6 +47,7 @@ interface AttendanceData {
     well_ids?: number[];
     crewType?: string;
     crewTypes?: string[];
+    teamNames?: string[];
   };
 }
 

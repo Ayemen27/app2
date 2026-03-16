@@ -1095,7 +1095,7 @@ wellRouter.get('/:well_id/crew-workers', async (req: Request, res: Response) => 
     }
 
     const crews = await db.select().from(wellWorkCrews).where(eq(wellWorkCrews.well_id, wellId));
-    const crewIds = crews.map(c => c.id);
+    const crewIds = crews.map((c: any) => c.id);
 
     if (crewIds.length === 0) {
       return res.json({ success: true, data: [] });
@@ -1251,7 +1251,7 @@ wellRouter.post('/backfill-expense-wells', async (req: Request, res: Response) =
             let allocCount = 0;
             for (const row of (filledRows.rows || [])) {
               try {
-                const userId = accessReq.user?.id || 'backfill';
+                const userId = (accessReq.user as any)?.id || accessReq.user?.user_id || 'backfill';
                 await WellExpenseAutoAllocationService.reallocateOnUpdate({
                   referenceType: refType as any,
                   referenceId: String(row.id),

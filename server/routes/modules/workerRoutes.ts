@@ -382,11 +382,11 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
       );
 
       const projectWorkerIds = new Set([
-        ...workerIdsInProject.map(r => r.worker_id),
-        ...balanceWorkerIds.map(r => r.worker_id)
+        ...workerIdsInProject.map((r: any) => r.worker_id),
+        ...balanceWorkerIds.map((r: any) => r.worker_id)
       ]);
 
-      workersList = workersList.filter(w => projectWorkerIds.has(w.id));
+      workersList = workersList.filter((w: any) => projectWorkerIds.has(w.id));
     }
 
     console.log(`👷 [API] isAdmin: ${isAdminUser}, userId: ${accessReq.user?.user_id}, project: ${project_id || 'all'}, total: ${workersList.length}`);

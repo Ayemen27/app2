@@ -943,6 +943,7 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
       .orderBy(desc(workerTransfers.transferDate));
 
     // حساب الإجماليات - باستخدام الأجر المسجل في كل سجل حضور (وليس الأجر الحالي)
+    const totalWorkDays = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.workDays || '0'), 0);
     const totalEarned = attendanceRecords.reduce((sum: any, r: any) => {
       const dailyWage = parseFloat(r.dailyWage || '0');
       const workDays = parseFloat(r.workDays || '0');

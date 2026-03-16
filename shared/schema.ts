@@ -98,10 +98,8 @@ export const users = pgTable("users", {
   pendingSync: boolean("pending_sync").default(false),
   version: integer("version").default(1).notNull(), 
   lastModifiedBy: varchar("last_modified_by"),
-}, (table) => ({
-  // Define constraints if needed,
+}, (table): Record<string, any> => ({
     users_last_modified_by_fkey: foreignKey({ name: "users_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
-  
   }));
 
 // Update syncFields after users is defined
@@ -121,13 +119,12 @@ export const refreshTokens = pgTable("refresh_tokens", {
   deviceFingerprint: text("device_fingerprint"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   parentId: uuid("parent_id"),
-}, (table) => ({
+}, (table): Record<string, any> => ({
   idxRefreshTokensTokenHash: index("idx_refresh_tokens_token_hash").on(table.tokenHash),
   idxRefreshTokensUserId: index("idx_refresh_tokens_user_id").on(table.user_id),
     refresh_tokens_parent_id_fkey: foreignKey({ name: "refresh_tokens_parent_id_fkey", columns: [table.parentId], foreignColumns: [refreshTokens.id] }),
     refresh_tokens_replaced_by_fkey: foreignKey({ name: "refresh_tokens_replaced_by_fkey", columns: [table.replacedBy], foreignColumns: [refreshTokens.id] }),
     refresh_tokens_user_id_fkey: foreignKey({ name: "refresh_tokens_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("cascade")
-  
   }));
 
 // Audit Logs table (جدول سجلات التدقيق)
@@ -741,6 +738,9 @@ export const workerTypes = pgTable("worker_types", {
   usageCount: integer("usage_count").default(1).notNull(), // عدد مرات الاستخدام
   lastUsed: timestamp("last_used").defaultNow().notNull(), // آخر استخدام
   created_at: timestamp("created_at").defaultNow().notNull(),
+  isLocal: boolean("is_local").default(false),
+  synced: boolean("synced").default(true),
+  pendingSync: boolean("pending_sync").default(false),
 });
 
 // Autocomplete data table (بيانات الإكمال التلقائي)
@@ -884,6 +884,9 @@ export const printSettings = pgTable('print_settings', {
   // Timestamps
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
+  isLocal: boolean("is_local").default(false),
+  synced: boolean("synced").default(true),
+  pendingSync: boolean("pending_sync").default(false),
 });
 
 // Project fund transfers table (ترحيل الأموال بين المشاريع)
@@ -1368,6 +1371,9 @@ export const reportTemplates = pgTable('report_templates', {
   is_active: boolean('is_active').notNull().default(true),
   created_at: timestamp('created_at').defaultNow(),
   updated_at: timestamp('updated_at').defaultNow(),
+  isLocal: boolean("is_local").default(false),
+  synced: boolean("synced").default(true),
+  pendingSync: boolean("pending_sync").default(false),
 });
 
 export const insertReportTemplateSchema = createInsertSchema(reportTemplates).omit({

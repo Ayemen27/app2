@@ -254,7 +254,7 @@ const ProjectWagesDialog = ({ worker, isOpen, onClose }: {
                   <Label className="text-xs">المشروع *</Label>
                   <Select
                     value={wageForm.project_id}
-                    onValueChange={(v) => setWageForm(prev => ({ ...prev, project_id: v }))}
+                    onValueChange={(v: string) => setWageForm(prev => ({ ...prev, project_id: v }))}
                   >
                     <SelectTrigger data-testid="select-project" className="text-sm">
                       <SelectValue placeholder="اختر المشروع" />
@@ -560,7 +560,7 @@ const WorkerCardWrapper = ({
             icon: Briefcase,
             label: "أجور المشاريع",
             onClick: onShowProjectWages,
-            color: "purple",
+            color: "blue",
           },
           {
             icon: Edit2,

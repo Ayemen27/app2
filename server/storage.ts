@@ -1858,7 +1858,10 @@ export class DatabaseStorage implements IStorage {
       totalTransferred: totalTransferred.toString(),
       currentBalance: currentBalance.toString(),
       lastUpdated: new Date(),
-      created_at: new Date()
+      created_at: new Date(),
+      synced: null,
+      isLocal: null,
+      pendingSync: null
     };
     
     return balance;
@@ -2162,7 +2165,10 @@ export class DatabaseStorage implements IStorage {
         totalPaid: "0", 
         totalTransferred: "0",
         currentBalance: totalBalance.toString(),
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+        synced: null,
+        isLocal: null,
+        pendingSync: null
       };
       
       // جلب بيانات العامل

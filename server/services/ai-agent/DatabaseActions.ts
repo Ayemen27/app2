@@ -1675,7 +1675,7 @@ export class DatabaseActions {
         ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!)).orderBy(wells.wellNumber)
         : await db.select().from(wells).orderBy(wells.wellNumber);
 
-      const wellIds = wellsData.map(w => w.id);
+      const wellIds = wellsData.map((w: any) => w.id);
       let crewStats: any[] = [];
       let solarStats: any[] = [];
       if (wellIds.length > 0) {
@@ -1697,14 +1697,14 @@ export class DatabaseActions {
       const solarMap: Record<number, any> = {};
       solarStats.forEach(s => { solarMap[s.well_id] = s; });
 
-      const projectIds = [...new Set(wellsData.map(w => w.project_id))];
+      const projectIds = [...new Set(wellsData.map((w: any) => w.project_id))];
       const projectNames: Record<string, string> = {};
       if (projectIds.length > 0) {
-        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
-        pList.forEach(p => { projectNames[p.id] = p.name; });
+        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds as string[]));
+        pList.forEach((p: any) => { projectNames[p.id] = p.name; });
       }
 
-      const enriched = wellsData.map(w => ({
+      const enriched = wellsData.map((w: any) => ({
         ...w,
         projectName: projectNames[w.project_id] || '-',
         crewCount: crewMap[w.id]?.crewCount || 0,
@@ -1735,7 +1735,7 @@ export class DatabaseActions {
       if (isNumeric && wId < 1000) {
         const results = await db.select().from(wells).where(eq(wells.wellNumber, wId));
         if (allowedProjectIds && allowedProjectIds.length > 0) {
-          wellData = results.find(w => allowedProjectIds.includes(w.project_id));
+          wellData = results.find((w: any) => allowedProjectIds.includes(w.project_id));
         } else {
           wellData = results[0];
         }
@@ -1746,7 +1746,7 @@ export class DatabaseActions {
       if (!wellData) {
         const searchResults = await db.select().from(wells).where(like(wells.ownerName, `%${wellId}%`));
         if (allowedProjectIds && allowedProjectIds.length > 0) {
-          wellData = searchResults.find(w => allowedProjectIds.includes(w.project_id));
+          wellData = searchResults.find((w: any) => allowedProjectIds.includes(w.project_id));
         } else {
           wellData = searchResults[0];
         }
@@ -1811,7 +1811,7 @@ export class DatabaseActions {
       if (!isNaN(wNum) && wNum < 1000) {
         const results = await db.select().from(wells).where(eq(wells.wellNumber, wNum));
         if (allowedProjectIds && allowedProjectIds.length > 0) {
-          wellData = results.find(w => allowedProjectIds.includes(w.project_id));
+          wellData = results.find((w: any) => allowedProjectIds.includes(w.project_id));
         } else {
           wellData = results[0];
         }
@@ -1819,7 +1819,7 @@ export class DatabaseActions {
       if (!wellData) {
         const searchResults = await db.select().from(wells).where(like(wells.ownerName, `%${wellIdentifier}%`));
         wellData = (allowedProjectIds && allowedProjectIds.length > 0)
-          ? searchResults.find(w => allowedProjectIds.includes(w.project_id))
+          ? searchResults.find((w: any) => allowedProjectIds.includes(w.project_id))
           : searchResults[0];
       }
       if (!wellData) return { success: false, message: "البئر غير موجود", action: "well_crews" };
@@ -1829,7 +1829,7 @@ export class DatabaseActions {
       }
 
       const crews = await db.select().from(wellWorkCrews).where(eq(wellWorkCrews.well_id, wellData.id));
-      const totalWages = crews.reduce((s, c) => s + parseFloat(c.totalWages || '0'), 0);
+      const totalWages = crews.reduce((s: any, c: any) => s + parseFloat(c.totalWages || '0'), 0);
 
       return {
         success: true,
@@ -1853,13 +1853,13 @@ export class DatabaseActions {
       if (!isNaN(wNum) && wNum < 1000) {
         const results = await db.select().from(wells).where(eq(wells.wellNumber, wNum));
         wellData = (allowedProjectIds && allowedProjectIds.length > 0)
-          ? results.find(w => allowedProjectIds.includes(w.project_id))
+          ? results.find((w: any) => allowedProjectIds.includes(w.project_id))
           : results[0];
       }
       if (!wellData) {
         const searchResults = await db.select().from(wells).where(like(wells.ownerName, `%${wellIdentifier}%`));
         wellData = (allowedProjectIds && allowedProjectIds.length > 0)
-          ? searchResults.find(w => allowedProjectIds.includes(w.project_id))
+          ? searchResults.find((w: any) => allowedProjectIds.includes(w.project_id))
           : searchResults[0];
       }
       if (!wellData) return { success: false, message: "البئر غير موجود", action: "well_solar" };
@@ -1897,7 +1897,7 @@ export class DatabaseActions {
         return { success: true, data: {}, message: "لا توجد آبار مسجلة", action: "well_analysis" };
       }
 
-      const wellIds = allWells.map(w => w.id);
+      const wellIds = allWells.map((w: any) => w.id);
 
       const [crewAgg] = await db.select({
         totalCrews: sql<number>`count(*)`,
@@ -1941,11 +1941,11 @@ export class DatabaseActions {
         totalPipes += w.numberOfPipes || 0;
       }
 
-      const projectIds = [...new Set(allWells.map(w => w.project_id))];
+      const projectIds = [...new Set(allWells.map((w: any) => w.project_id))];
       const projectNames: Record<string, string> = {};
       if (projectIds.length > 0) {
-        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
-        pList.forEach(p => { projectNames[p.id] = p.name; });
+        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds as string[]));
+        pList.forEach((p: any) => { projectNames[p.id] = p.name; });
       }
 
       const byProject: Record<string, { name: string, count: number, totalWages: number }> = {};
@@ -1969,12 +1969,12 @@ export class DatabaseActions {
             totalCrews: crewAgg?.totalCrews || 0,
             totalWages: parseFloat(crewAgg?.totalWages || '0'),
             totalWorkDays: parseFloat(crewAgg?.totalWorkDays || '0'),
-            byType: crewByType.map(c => ({
+            byType: crewByType.map((c: any) => ({
               type: c.crewType,
               count: c.count,
               totalWages: parseFloat(c.totalWages || '0'),
             })),
-            byTeam: crewByTeam.map(c => ({
+            byTeam: crewByTeam.map((c: any) => ({
               name: c.teamName || '-',
               count: c.count,
               totalWages: parseFloat(c.totalWages || '0'),
@@ -2010,7 +2010,7 @@ export class DatabaseActions {
         ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!))
         : await db.select().from(wells);
 
-      const wellIds = allWells.map(w => w.id);
+      const wellIds = allWells.map((w: any) => w.id);
       if (wellIds.length === 0) {
         return { success: true, data: { teams: [], totalCrews: 0, totalTeams: 0 }, message: "لا توجد آبار", action: "well_crews_summary" };
       }
@@ -2031,7 +2031,7 @@ export class DatabaseActions {
       }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds));
 
       const wellMap: Record<number, any> = {};
-      allWells.forEach(w => { wellMap[w.id] = w; });
+      allWells.forEach((w: any) => { wellMap[w.id] = w; });
 
       const teamSummary: Record<string, {
         name: string, wellsCount: number, totalWages: number, totalDays: number,
@@ -2080,16 +2080,16 @@ export class DatabaseActions {
         ? await db.select().from(wells).where(inArray(wells.project_id, allowedProjectIds!))
         : await db.select().from(wells);
 
-      const projectIds = [...new Set(allWells.map(w => w.project_id))];
+      const projectIds = [...new Set(allWells.map((w: any) => w.project_id))];
       if (projectIds.length < 2) {
         return { success: true, data: [], message: "يلزم وجود مشروعين على الأقل للمقارنة", action: "well_comparison" };
       }
 
       const projectNames: Record<string, string> = {};
-      const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
-      pList.forEach(p => { projectNames[p.id] = p.name; });
+      const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds as string[]));
+      pList.forEach((p: any) => { projectNames[p.id] = p.name; });
 
-      const wellIds = allWells.map(w => w.id);
+      const wellIds = allWells.map((w: any) => w.id);
       const allCrews = wellIds.length > 0
         ? await db.select().from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
         : [];
@@ -2098,22 +2098,22 @@ export class DatabaseActions {
         : [];
 
       const wellProjectMap: Record<number, string> = {};
-      allWells.forEach(w => { wellProjectMap[w.id] = w.project_id; });
+      allWells.forEach((w: any) => { wellProjectMap[w.id] = w.project_id; });
 
       const comparison = projectIds.map(pid => {
-        const pWells = allWells.filter(w => w.project_id === pid);
-        const pWellIds = pWells.map(w => w.id);
-        const pCrews = allCrews.filter(c => pWellIds.includes(c.well_id));
-        const pSolar = allSolar.filter(s => pWellIds.includes(s.well_id));
+        const pWells = allWells.filter((w: any) => w.project_id === pid);
+        const pWellIds = pWells.map((w: any) => w.id);
+        const pCrews = allCrews.filter((c: any) => pWellIds.includes(c.well_id));
+        const pSolar = allSolar.filter((s: any) => pWellIds.includes(s.well_id));
 
-        const totalDepth = pWells.reduce((s, w) => s + (w.wellDepth || 0), 0);
-        const totalPanels = pWells.reduce((s, w) => s + (w.numberOfPanels || 0), 0);
-        const totalCrewWages = pCrews.reduce((s, c) => s + parseFloat(c.totalWages || '0'), 0);
-        const completed = pWells.filter(w => w.status === 'completed').length;
-        const hasWaterLevel = pWells.filter(w => w.waterLevel != null).length;
+        const totalDepth = pWells.reduce((s: any, w: any) => s + (w.wellDepth || 0), 0);
+        const totalPanels = pWells.reduce((s: any, w: any) => s + (w.numberOfPanels || 0), 0);
+        const totalCrewWages = pCrews.reduce((s: any, c: any) => s + parseFloat(c.totalWages || '0'), 0);
+        const completed = pWells.filter((w: any) => w.status === 'completed').length;
+        const hasWaterLevel = pWells.filter((w: any) => w.waterLevel != null).length;
 
         return {
-          projectName: projectNames[pid] || pid,
+          projectName: projectNames[pid as string] || pid,
           wellCount: pWells.length,
           completed,
           pending: pWells.length - completed,
@@ -2125,7 +2125,7 @@ export class DatabaseActions {
           solarRecords: pSolar.length,
           dataCompleteness: {
             waterLevel: `${hasWaterLevel}/${pWells.length}`,
-            crews: `${new Set(pCrews.map(c => c.well_id)).size}/${pWells.length}`,
+            crews: `${new Set(pCrews.map((c: any) => c.well_id)).size}/${pWells.length}`,
             solar: `${pSolar.length}/${pWells.length}`,
           },
         };
@@ -2157,7 +2157,7 @@ export class DatabaseActions {
 
       const results = await db.select().from(wells).where(and(...conditions)).orderBy(wells.wellNumber);
 
-      const wellIds = results.map(w => w.id);
+      const wellIds = results.map((w: any) => w.id);
       let crewCounts: any[] = [];
       if (wellIds.length > 0) {
         crewCounts = await db.select({
@@ -2169,14 +2169,14 @@ export class DatabaseActions {
       const crewMap: Record<number, any> = {};
       crewCounts.forEach(c => { crewMap[c.well_id] = c; });
 
-      const projectIds = [...new Set(results.map(w => w.project_id))];
+      const projectIds = [...new Set(results.map((w: any) => w.project_id))];
       const projectNames: Record<string, string> = {};
       if (projectIds.length > 0) {
-        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds));
-        pList.forEach(p => { projectNames[p.id] = p.name; });
+        const pList = await db.select({ id: projects.id, name: projects.name }).from(projects).where(inArray(projects.id, projectIds as string[]));
+        pList.forEach((p: any) => { projectNames[p.id] = p.name; });
       }
 
-      const enriched = results.map(w => ({
+      const enriched = results.map((w: any) => ({
         ...w,
         projectName: projectNames[w.project_id] || '-',
         crewCount: crewMap[w.id]?.count || 0,

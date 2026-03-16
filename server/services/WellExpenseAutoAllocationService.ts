@@ -69,14 +69,14 @@ export class WellExpenseAutoAllocationService {
             ? and(eq(wells.project_id, input.projectId), inArray(wells.id, requestedWellIds))
             : inArray(wells.id, requestedWellIds)
         );
-      const validWellIds = validWells.map(w => w.id);
+      const validWellIds = validWells.map((w: any) => w.id);
 
       if (validWellIds.length === 0) return;
 
       const expenseType = REFERENCE_TO_EXPENSE_TYPE[input.referenceType];
       const amounts = distributeAmount(total, validWellIds.length);
 
-      const values = validWellIds.map((wellId, idx) => ({
+      const values = validWellIds.map((wellId: any, idx: any) => ({
         well_id: wellId,
         expenseType,
         referenceType: input.referenceType,
@@ -137,7 +137,7 @@ export class WellExpenseAutoAllocationService {
             ? and(eq(wells.project_id, input.projectId), inArray(wells.id, requestedWellIds))
             : inArray(wells.id, requestedWellIds)
         );
-      const validWellIds = validWells.map(w => w.id);
+      const validWellIds = validWells.map((w: any) => w.id);
 
       if (validWellIds.length === 0) {
         await this.removeByReference(input.referenceType, input.referenceId);
@@ -147,7 +147,7 @@ export class WellExpenseAutoAllocationService {
       const expenseType = REFERENCE_TO_EXPENSE_TYPE[input.referenceType];
       const amounts = distributeAmount(total, validWellIds.length);
 
-      const values = validWellIds.map((wellId, idx) => ({
+      const values = validWellIds.map((wellId: any, idx: any) => ({
         well_id: wellId,
         expenseType,
         referenceType: input.referenceType,
@@ -163,7 +163,7 @@ export class WellExpenseAutoAllocationService {
         notes: `توزيع تلقائي - ${validWellIds.length} آبار`,
       }));
 
-      await db.transaction(async (tx) => {
+      await db.transaction(async (tx: any) => {
         await tx.delete(wellExpenses)
           .where(
             and(

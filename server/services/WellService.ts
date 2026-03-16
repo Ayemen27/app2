@@ -57,7 +57,7 @@ export class WellService {
 
       const wellsList = await query.orderBy(wells.wellNumber);
 
-      const wellIds = wellsList.map(w => w.id);
+      const wellIds = wellsList.map((w: any) => w.id);
       if (wellIds.length === 0) return wellsList;
 
       const [crewCounts, transportCounts, solarStatuses, receptionStatuses] = await Promise.all([
@@ -90,17 +90,17 @@ export class WellService {
         `),
       ]);
 
-      const crewMap = new Map(crewCounts.map(c => [c.well_id, c.count]));
-      const transportMap = new Map(transportCounts.map(t => [t.well_id, t.count]));
-      const solarSet = new Set(solarStatuses.map(s => s.well_id));
-      const solarExtraPipesMap = new Map(solarStatuses.map(s => [s.well_id, Number(s.extraPipes) || 0]));
+      const crewMap = new Map(crewCounts.map((c: any) => [c.well_id, c.count]));
+      const transportMap = new Map(transportCounts.map((t: any) => [t.well_id, t.count]));
+      const solarSet = new Set(solarStatuses.map((s: any) => s.well_id));
+      const solarExtraPipesMap = new Map(solarStatuses.map((s: any) => [s.well_id, Number(s.extraPipes) || 0]));
       const receptionMap = new Map<number, string>();
       const receptionRows = (receptionStatuses as any).rows || receptionStatuses;
       for (const r of receptionRows) {
         receptionMap.set(r.well_id, r.inspectionStatus || 'pending');
       }
 
-      return wellsList.map(well => ({
+      return wellsList.map((well: any) => ({
         ...well,
         crewCount: crewMap.get(well.id) || 0,
         transportCount: transportMap.get(well.id) || 0,
@@ -218,7 +218,7 @@ export class WellService {
         .where(eq(wellTasks.well_id, well_id))
         .orderBy(wellTasks.taskOrder);
 
-      return tasks.map(row => ({
+      return tasks.map((row: any) => ({
         ...row.task,
         isAccounted: row.account !== null,
         accountDetails: row.account,
@@ -378,7 +378,7 @@ export class WellService {
       }
 
       const results = await baseQuery.orderBy(asc(wellTasks.created_at));
-      return results.map(row => ({
+      return results.map((row: any) => ({
         ...row.task,
         well: row.well,
       }));
@@ -417,7 +417,7 @@ export class WellService {
         ? await db.select().from(wells).where(eq(wells.project_id, project_id)).orderBy(wells.wellNumber)
         : await db.select().from(wells).orderBy(wells.wellNumber);
 
-      const wellIds = wellsList.map(w => w.id);
+      const wellIds = wellsList.map((w: any) => w.id);
       if (wellIds.length === 0) return [];
 
       const [allCrews, allSolar, allTransport, allReceptions, allTasks] = await Promise.all([
@@ -439,7 +439,7 @@ export class WellService {
       const tasksByWell = new Map<number, any[]>();
       for (const t of allTasks) { const arr = tasksByWell.get(t.well_id) || []; arr.push(t); tasksByWell.set(t.well_id, arr); }
 
-      return wellsList.map(well => ({
+      return wellsList.map((well: any) => ({
         ...well,
         crews: crewsByWell.get(well.id) || [],
         solar: solarByWell.get(well.id) || null,
@@ -866,7 +866,7 @@ export class WellService {
   static async getWellCrewsCost(well_id: number): Promise<number> {
     try {
       const crews = await this.getWellCrews(well_id);
-      return crews.reduce((sum, c: any) => sum + (parseFloat(String(c.totalWages)) || 0), 0);
+      return crews.reduce((sum: any, c: any) => sum + (parseFloat(String(c.totalWages)) || 0), 0);
     } catch (error) {
       return 0;
     }
@@ -875,7 +875,7 @@ export class WellService {
   static async getWellTransportCost(well_id: number): Promise<number> {
     try {
       const details = await this.getWellTransportDetails(well_id);
-      return details.reduce((sum, d: any) => {
+      return details.reduce((sum: any, d: any) => {
         return sum + (parseFloat(String(d.transportPrice)) || 0) + (parseFloat(String(d.crewEntitlements)) || 0);
       }, 0);
     } catch (error) {

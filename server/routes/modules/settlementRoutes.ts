@@ -31,6 +31,7 @@ interface FundTransferPreview {
   fromProjectId: string;
   fromProjectName: string;
   toProjectId: string;
+  toProjectName: string;
   amount: number;
 }
 
@@ -210,14 +211,15 @@ async function calculatePreviewData(
   }
 
   const fundTransfers: FundTransferPreview[] = Array.from(projectTotals.values()).map(t => ({
-    fromProjectId: t.fromProjectId,
-    fromProjectName: t.fromProjectName,
-    toProjectId: settlementProjectId,
+    fromProjectId: settlementProjectId,
+    fromProjectName: settlementProjectName,
+    toProjectId: t.fromProjectId,
+    toProjectName: t.fromProjectName,
     amount: t.amount,
   }));
 
   const totalSettlementAmount = workers.reduce((sum, w) => {
-    return sum + w.projects.filter(p => !p.isSettlementProject).reduce((s, p) => s + (p.balance > 0 ? p.balance : 0), 0);
+    return sum + w.projects.reduce((s, p) => s + (p.balance > 0 ? p.balance : 0), 0);
   }, 0);
 
   return { workers, fundTransfers, totalSettlementAmount, warnings, settlementProjectName };
@@ -335,7 +337,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       }
 
       const isProjectIncluded = (workerId: string, proj: { projectId: string; balance: number; isSettlementProject: boolean }) => {
-        if (proj.isSettlementProject || proj.balance <= 0) return false;
+        if (proj.balance <= 0) return false;
         const excluded = workerExclusions[workerId];
         if (excluded && Array.isArray(excluded) && excluded.includes(proj.projectId)) return false;
         return true;
@@ -389,15 +391,17 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             ]
           );
 
-          const existing = actualFundTotals.get(proj.projectId);
-          if (existing) {
-            existing.amount += proj.balance;
-          } else {
-            actualFundTotals.set(proj.projectId, {
-              fromProjectId: proj.projectId,
-              fromProjectName: proj.projectName,
-              amount: proj.balance,
-            });
+          if (!proj.isSettlementProject) {
+            const existing = actualFundTotals.get(proj.projectId);
+            if (existing) {
+              existing.amount += proj.balance;
+            } else {
+              actualFundTotals.set(proj.projectId, {
+                fromProjectId: proj.projectId,
+                fromProjectName: proj.projectName,
+                amount: proj.balance,
+              });
+            }
           }
         }
       }
@@ -408,6 +412,13 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         for (const proj of worker.projects) {
           if (!isProjectIncluded(worker.workerId, proj)) continue;
 
+          const transferNotes = proj.isSettlementProject
+            ? `تصفية حساب - تسوية مباشرة في مشروع التصفية`
+            : `تصفية حساب - ترحيل إلى مشروع التصفية`;
+          const transferDesc = proj.isSettlementProject
+            ? `تصفية حساب العامل ${worker.workerName} مباشرة في مشروع التصفية ${proj.projectName}`
+            : `تصفية حساب العامل ${worker.workerName} من مشروع ${proj.projectName}`;
+
           await client.query(
             `INSERT INTO worker_transfers (id, worker_id, project_id, amount, transfer_method, transfer_date, notes, description, sender_name, recipient_name, created_at)
              VALUES (gen_random_uuid(), $1, $2, CAST($3 AS DECIMAL(15,2)), 'settlement', $4, $5, $6, $7, $8, NOW())`,
@@ -416,8 +427,8 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
               proj.projectId,
               proj.balance.toFixed(2),
               today,
-              `تصفية حساب - ترحيل إلى مشروع التصفية`,
-              `تصفية حساب العامل ${worker.workerName} من مشروع ${proj.projectName}`,
+              transferNotes,
+              transferDesc,
               proj.projectName,
               worker.workerName,
             ]
@@ -430,8 +441,8 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           `INSERT INTO project_fund_transfers (from_project_id, to_project_id, amount, description, transfer_reason, transfer_date)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [
-            transfer.fromProjectId,
             settlement_project_id,
+            transfer.fromProjectId,
             transfer.amount.toFixed(2),
             `تصفية حساب العمال: ${workerNames}`,
             'settlement',

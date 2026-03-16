@@ -239,7 +239,7 @@ export class ReportDataService {
         amount: safeNum(pf.amount),
         senderName: pf.fromProjectName || 'مشروع آخر',
         transferType: 'ترحيل من مشروع',
-        transferNumber: pf.description || pf.transferReason || '-',
+        transferNumber: pf.description || (pf.transferReason === 'settlement' ? 'تصفية حساب العمال' : pf.transferReason) || '-',
       })),
     ];
 
@@ -291,7 +291,7 @@ export class ReportDataService {
         id: typeof pf.id === 'string' ? parseInt(pf.id, 10) || 0 : 0,
         amount: safeNum(pf.amount),
         toProjectName: pf.toProjectName || 'مشروع آخر',
-        description: pf.description || pf.transferReason || '-',
+        description: pf.description || (pf.transferReason === 'settlement' ? 'تصفية حساب العمال' : pf.transferReason) || '-',
       })),
       totals: {
         totalWorkerWages,
@@ -830,7 +830,7 @@ export class ReportDataService {
         amount: safeNum(r.amount),
         fromProjectName: proj?.name || '-',
         toProjectName: r.toProjectName || '-',
-        reason: r.transferReason || '-',
+        reason: r.transferReason === 'settlement' ? 'تصفية حساب العمال' : (r.transferReason || '-'),
         direction: 'outgoing' as const,
       })),
       ...projectTransferInRows.map((r: any) => ({
@@ -838,7 +838,7 @@ export class ReportDataService {
         amount: safeNum(r.amount),
         fromProjectName: r.fromProjectName || '-',
         toProjectName: proj?.name || '-',
-        reason: r.transferReason || '-',
+        reason: r.transferReason === 'settlement' ? 'تصفية حساب العمال' : (r.transferReason || '-'),
         direction: 'incoming' as const,
       })),
     ].sort((a, b) => a.date.localeCompare(b.date));
@@ -1079,7 +1079,7 @@ export class ReportDataService {
       amount: safeNum(t.amount),
       fromProjectName: projectNameMap.get(t.fromProjectId) || '-',
       toProjectName: projectNameMap.get(t.toProjectId) || '-',
-      reason: t.transferReason || '-',
+      reason: t.transferReason === 'settlement' ? 'تصفية حساب العمال' : (t.transferReason || '-'),
     }));
 
     const totalInterProjectAmount = interProjectTransfers.reduce((s: any, t: any) => s + t.amount, 0);

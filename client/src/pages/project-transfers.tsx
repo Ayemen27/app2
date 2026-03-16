@@ -370,7 +370,7 @@ export default function ProjectTransfers() {
       fromProject: projects.find((p: any) => p.id === t.fromProjectId)?.name || 'غير محدد',
       toProject: projects.find((p: any) => p.id === t.toProjectId)?.name || 'غير محدد',
       amount: Number(t.amount),
-      reason: t.transferReason || '-',
+      reason: t.transferReason === 'settlement' ? 'تصفية حساب العمال' : (t.transferReason || '-'),
       description: t.description || '-',
       notes: t.notes || '',
     }));
@@ -473,9 +473,9 @@ export default function ProjectTransfers() {
                         },
                         {
                           label: "السبب",
-                          value: transfer.transferReason || "غير محدد",
+                          value: transfer.transferReason === 'settlement' ? 'تصفية حساب العمال' : (transfer.transferReason || "غير محدد"),
                           icon: FileText,
-                          color: "default"
+                          color: transfer.transferReason === 'settlement' ? "info" : "default"
                         },
                         {
                           label: "التاريخ",

@@ -4000,56 +4000,52 @@ function DailyExpensesContent() {
                             }`}
                             data-testid={`card-project-transfer-${transfer.id}`}
                           >
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between flex-wrap gap-1">
-                                  <span className="text-sm font-medium">
-                                    {transfer.toProjectId === selectedProjectId ? (
-                                      <span className="text-green-700 dark:text-green-400" data-testid={`text-transfer-direction-${transfer.id}`}>أموال واردة من: {transfer.fromProjectName}</span>
-                                    ) : (
-                                      <span className="text-red-700 dark:text-red-400" data-testid={`text-transfer-direction-${transfer.id}`}>أموال صادرة إلى: {transfer.toProjectName}</span>
-                                    )}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`font-bold arabic-numbers ${
-                                      transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
-                                    }`} data-testid={`text-transfer-amount-${transfer.id}`}>
-                                      {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
-                                    </span>
-                                    <div className="flex gap-1">
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        onClick={() => handleEditProjectTransfer(transfer)}
-                                        data-testid={`button-edit-project-transfer-${transfer.id}`}
-                                      >
-                                        <Edit2 className="h-3.5 w-3.5" />
-                                      </Button>
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          if (confirm("هل أنت متأكد من حذف هذا الترحيل؟")) {
-                                            deleteProjectTransferMutation.mutate(transfer.id);
-                                          }
-                                        }}
-                                        disabled={deleteProjectTransferMutation.isPending}
-                                        data-testid={`button-delete-project-transfer-${transfer.id}`}
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  <div>السبب: {transfer.transferReason || 'ترحيل أموال'}</div>
-                                  {transfer.description && (
-                                    <div className="mt-1">الوصف: {transfer.description}</div>
-                                  )}
-                                  <div className="mt-1">التاريخ: {formatDate(transfer.transferDate)}</div>
-                                </div>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className="text-sm font-medium truncate">
+                                {transfer.toProjectId === selectedProjectId ? (
+                                  <span className="text-green-700 dark:text-green-400" data-testid={`text-transfer-direction-${transfer.id}`}>واردة من: {transfer.fromProjectName}</span>
+                                ) : (
+                                  <span className="text-red-700 dark:text-red-400" data-testid={`text-transfer-direction-${transfer.id}`}>صادرة إلى: {transfer.toProjectName}</span>
+                                )}
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className={`font-bold text-sm arabic-numbers ${
+                                  transfer.toProjectId === selectedProjectId ? 'text-green-600' : 'text-red-600'
+                                }`} data-testid={`text-transfer-amount-${transfer.id}`}>
+                                  {transfer.toProjectId === selectedProjectId ? '+' : '-'}{formatCurrency(transfer.amount)}
+                                </span>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditProjectTransfer(transfer)} data-testid={`button-edit-project-transfer-${transfer.id}`}>
+                                  <Edit2 className="h-3 w-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { if (confirm("هل أنت متأكد من حذف هذا الترحيل؟")) { deleteProjectTransferMutation.mutate(transfer.id); } }} disabled={deleteProjectTransferMutation.isPending} data-testid={`button-delete-project-transfer-${transfer.id}`}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
                             </div>
+                            <div className="grid grid-cols-3 gap-2 text-[11px]">
+                              <div className="bg-white/60 dark:bg-gray-900/40 rounded px-2 py-1.5">
+                                <span className="text-muted-foreground block mb-0.5">السبب</span>
+                                <span className="font-medium text-foreground">{transfer.transferReason === 'settlement' ? 'تصفية حساب العمال' : (transfer.transferReason || 'ترحيل أموال')}</span>
+                              </div>
+                              <div className="bg-white/60 dark:bg-gray-900/40 rounded px-2 py-1.5">
+                                <span className="text-muted-foreground block mb-0.5">التاريخ</span>
+                                <span className="font-medium text-foreground">{formatDate(transfer.transferDate)}</span>
+                              </div>
+                              <div className="bg-white/60 dark:bg-gray-900/40 rounded px-2 py-1.5">
+                                <span className="text-muted-foreground block mb-0.5">النوع</span>
+                                {transfer.transferReason === 'settlement' ? (
+                                  <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">تصفية عمال</span>
+                                ) : (
+                                  <span className="font-medium text-foreground">ترحيل يدوي</span>
+                                )}
+                              </div>
+                            </div>
+                            {transfer.description && (
+                              <div className="mt-2 text-[11px] bg-white/60 dark:bg-gray-900/40 rounded px-2 py-1.5">
+                                <span className="text-muted-foreground">الوصف: </span>
+                                <span className="font-medium text-foreground">{transfer.description}</span>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -264,7 +264,7 @@ export default function WorkerSettlementsPage() {
   const getActiveProjects = useCallback((worker: WorkerPreview) => {
     const workerExcluded = excludedProjects.get(worker.workerId);
     return worker.projects.filter(p =>
-      !p.isSettlementProject && p.balance > 0 && !(workerExcluded?.has(p.projectId))
+      p.balance > 0 && !(workerExcluded?.has(p.projectId))
     );
   }, [excludedProjects]);
 
@@ -280,28 +280,34 @@ export default function WorkerSettlementsPage() {
     return { amount, count };
   }, [preview, selectedWorkers, excludedProjects, getActiveProjects]);
 
+  const settlementProjectName = useMemo(() => {
+    return projects.find(p => p.id === settlementProjectId)?.name || "مشروع التصفية";
+  }, [projects, settlementProjectId]);
+
   const selectedFundTransfers = useMemo(() => {
     if (!preview?.workers) return [];
     const selected = preview.workers.filter((w) => selectedWorkers.has(w.workerId));
-    const totals = new Map<string, { fromProjectId: string; fromProjectName: string; toProjectId: string; amount: number }>();
+    const totals = new Map<string, { fromProjectId: string; fromProjectName: string; toProjectId: string; toProjectName: string; amount: number }>();
     for (const w of selected) {
       const active = getActiveProjects(w);
       for (const p of active) {
+        if (p.isSettlementProject) continue;
         const existing = totals.get(p.projectId);
         if (existing) {
           existing.amount += p.balance;
         } else {
           totals.set(p.projectId, {
-            fromProjectId: p.projectId,
-            fromProjectName: p.projectName,
-            toProjectId: settlementProjectId,
+            fromProjectId: settlementProjectId,
+            fromProjectName: settlementProjectName,
+            toProjectId: p.projectId,
+            toProjectName: p.projectName,
             amount: p.balance,
           });
         }
       }
     }
     return Array.from(totals.values());
-  }, [preview, selectedWorkers, excludedProjects, getActiveProjects, settlementProjectId]);
+  }, [preview, selectedWorkers, excludedProjects, getActiveProjects, settlementProjectId, settlementProjectName]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
     if (activeView === "new" && preview) {
@@ -617,7 +623,7 @@ export default function WorkerSettlementsPage() {
                             <div className="space-y-1">
                               {worker.projects.map((p) => {
                                 const excluded = isProjectExcluded(worker.workerId, p.projectId);
-                                const canToggle = !p.isSettlementProject && p.balance > 0;
+                                const canToggle = p.balance > 0;
                                 return (
                                   <div
                                     key={p.projectId}
@@ -725,7 +731,6 @@ export default function WorkerSettlementsPage() {
                     </div>
                     <div className="space-y-2">
                       {selectedFundTransfers.map((ft, i) => {
-                        const settlementProject = projects.find(p => p.id === ft.toProjectId);
                         return (
                           <div
                             key={i}
@@ -737,7 +742,7 @@ export default function WorkerSettlementsPage() {
                               </Badge>
                               <ArrowLeftRight className="h-3 w-3 text-muted-foreground shrink-0" />
                               <Badge variant="outline" className="shrink-0 no-default-hover-elevate no-default-active-elevate">
-                                {settlementProject?.name || "مشروع التصفية"}
+                                {ft.toProjectName || "مشروع العمل"}
                               </Badge>
                             </div>
                             <span className="font-bold text-sm text-primary shrink-0">

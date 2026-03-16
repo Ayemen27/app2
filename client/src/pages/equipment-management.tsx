@@ -144,7 +144,16 @@ export function EquipmentManagement() {
   const stats = statsData?.data || {};
   const stockItems: InventoryItem[] = stockData?.data || [];
   const transactions: InventoryTransaction[] = transactionsData?.data || [];
-  const categories: string[] = categoriesData?.data || [];
+  const DEFAULT_CATEGORIES = [
+    'أسمنت', 'حديد', 'خشب', 'رمل', 'بلوك', 'بحص', 'دهانات', 'أدوات كهربائية',
+    'أدوات سباكة', 'مواسير', 'أسلاك', 'مسامير', 'براغي', 'عدد يدوية', 'معدات ثقيلة',
+    'مضخات', 'خراطيم', 'مواد عزل', 'بلاط', 'سيراميك', 'زجاج', 'ألمنيوم', 'وقود',
+    'زيوت', 'قطع غيار', 'أخرى'
+  ];
+  const dbCategories: string[] = categoriesData?.data || [];
+  const categories: string[] = dbCategories.length > 0
+    ? [...new Set([...dbCategories, ...DEFAULT_CATEGORIES])]
+    : DEFAULT_CATEGORIES;
   const reports = reportsData?.data || [];
   const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.data || projectsData?.projects || []);
   const equipmentList = Array.isArray(equipmentData) ? equipmentData : (equipmentData?.data || []);

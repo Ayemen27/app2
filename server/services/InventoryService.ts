@@ -417,6 +417,26 @@ export class InventoryService {
     return stats[0] || {};
   }
 
+  static async updateItem(itemId: number, data: { name: string; category?: string; unit: string; min_quantity?: number }): Promise<void> {
+    const existing = await pool.query('SELECT id FROM inventory_items WHERE id = $1', [itemId]);
+    if (existing.rows.length === 0) throw new Error('المادة غير موجودة');
+    await pool.query(
+      'UPDATE inventory_items SET name = $1, category = $2, unit = $3, min_quantity = $4 WHERE id = $5',
+      [data.name, data.category || null, data.unit, data.min_quantity || 0, itemId]
+    );
+  }
+
+  static async deleteItem(itemId: number): Promise<void> {
+    const existing = await pool.query('SELECT id FROM inventory_items WHERE id = $1', [itemId]);
+    if (existing.rows.length === 0) throw new Error('المادة غير موجودة');
+    const txCheck = await pool.query('SELECT COUNT(*) as cnt FROM inventory_transactions WHERE item_id = $1', [itemId]);
+    if (parseInt(txCheck.rows[0].cnt) > 0) {
+      throw new Error('لا يمكن حذف مادة لها حركات مخزنية. يمكنك تعديلها بدلاً من ذلك.');
+    }
+    await pool.query('DELETE FROM inventory_lots WHERE item_id = $1', [itemId]);
+    await pool.query('DELETE FROM inventory_items WHERE id = $1', [itemId]);
+  }
+
   static async getAllTransactions(filters?: { type?: string; dateFrom?: string; dateTo?: string; projectId?: string; supplierId?: string }): Promise<any[]> {
     let query = `
       SELECT 

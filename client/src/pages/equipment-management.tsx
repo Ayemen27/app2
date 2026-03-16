@@ -11,14 +11,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
-  Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign
+  Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign,
+  FileText, Download, Pencil, Trash2
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
+import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
+import { generateTablePDF } from '@/utils/pdfGenerator';
 import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
 import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
@@ -70,10 +73,17 @@ export function EquipmentManagement() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [reportGroupBy, setReportGroupBy] = useState("item");
 
+  const [stockStatusFilter, setStockStatusFilter] = useState("all");
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [showAddEquipmentDialog, setShowAddEquipmentDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [showMovementHistoryDialog, setShowMovementHistoryDialog] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
+  const [showEditItemDialog, setShowEditItemDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', category: '', unit: '', min_quantity: '' });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -139,14 +149,32 @@ export function EquipmentManagement() {
   const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.data || projectsData?.projects || []);
   const equipmentList = Array.isArray(equipmentData) ? equipmentData : (equipmentData?.data || []);
 
+  const filteredStockItems = useMemo(() => {
+    if (stockStatusFilter === 'all') return stockItems;
+    return stockItems.filter(item => {
+      const remaining = parseFloat(item.total_remaining || '0');
+      const minQty = parseFloat(item.min_quantity || '0');
+      if (stockStatusFilter === 'available') return remaining > minQty;
+      if (stockStatusFilter === 'low') return remaining > 0 && remaining <= minQty;
+      if (stockStatusFilter === 'out') return remaining <= 0;
+      return true;
+    });
+  }, [stockItems, stockStatusFilter]);
+
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
     {
-      columns: 4,
+      columns: 2,
       gap: 'sm',
       items: [
         { key: 'total_items', label: 'إجمالي المواد', value: stats.total_items || 0, icon: Package, color: 'blue' },
         { key: 'items_in_stock', label: 'مواد متوفرة', value: stats.items_in_stock || 0, icon: CheckCircle2, color: 'green' },
-        { key: 'stock_value', label: 'قيمة المخزون', value: formatCurrency(parseFloat(stats.total_stock_value || '0')), icon: DollarSign, color: 'amber' },
+      ]
+    },
+    {
+      columns: 2,
+      gap: 'sm',
+      items: [
+        { key: 'stock_value', label: 'قيمة المخزون', value: formatCurrency(parseFloat(stats.total_stock_value || '0')), icon: DollarSign, color: 'amber', unit: 'ر.ي' },
         { key: 'out_of_stock', label: 'نفذت من المخزن', value: stats.out_of_stock_items || 0, icon: AlertTriangle, color: 'red' },
       ]
     }
@@ -163,24 +191,176 @@ export function EquipmentManagement() {
         ...categories.map(c => ({ value: c, label: c })),
       ],
     },
+    {
+      key: 'stockStatus',
+      label: 'حالة المخزون',
+      type: 'select',
+      defaultValue: 'all',
+      options: [
+        { value: 'all', label: 'جميع الحالات' },
+        { value: 'available', label: 'متوفر', dotColor: 'bg-green-500' },
+        { value: 'low', label: 'منخفض', dotColor: 'bg-amber-500' },
+        { value: 'out', label: 'نفذ', dotColor: 'bg-red-500' },
+      ],
+    },
   ], [categories]);
 
   const filterValues = useMemo(() => ({
     category: categoryFilter,
-  }), [categoryFilter]);
+    stockStatus: stockStatusFilter,
+  }), [categoryFilter, stockStatusFilter]);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     if (key === 'category') setCategoryFilter(value);
+    if (key === 'stockStatus') setStockStatusFilter(value);
   }, []);
 
   const handleResetFilters = useCallback(() => {
     setSearchTerm('');
     setCategoryFilter('all');
+    setStockStatusFilter('all');
   }, []);
 
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
   }, [queryClient]);
+
+  const handleExportExcel = useCallback(async () => {
+    if (filteredStockItems.length === 0) return;
+    setIsExportingExcel(true);
+    try {
+      const { createProfessionalReport } = await import('@/utils/axion-export');
+
+      const totalReceived = filteredStockItems.reduce((s, i) => s + parseFloat(i.total_received || '0'), 0);
+      const totalIssued = filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued || '0'), 0);
+      const totalRemaining = filteredStockItems.reduce((s, i) => s + parseFloat(i.total_remaining || '0'), 0);
+      const totalValue = filteredStockItems.reduce((s, i) => s + parseFloat(i.stock_value || '0'), 0);
+
+      const success = await createProfessionalReport({
+        sheetName: 'تقرير المخزون',
+        reportTitle: 'تقرير المخزون - إدارة المعدات والمواد',
+        subtitle: `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-SA')}`,
+        infoLines: [
+          `عدد المواد: ${filteredStockItems.length}`,
+          `قيمة المخزون: ${formatCurrency(totalValue)}`,
+        ],
+        columns: [
+          { header: 'م', key: 'num', width: 6 },
+          { header: 'المادة', key: 'name', width: 28 },
+          { header: 'الفئة', key: 'category', width: 14 },
+          { header: 'الوحدة', key: 'unit', width: 10 },
+          { header: 'الوارد', key: 'received', width: 14, numFmt: '#,##0.0' },
+          { header: 'المنصرف', key: 'issued', width: 14, numFmt: '#,##0.0' },
+          { header: 'المتبقي', key: 'remaining', width: 14, numFmt: '#,##0.0' },
+          { header: 'القيمة', key: 'value', width: 16, numFmt: '#,##0.00' },
+          { header: 'الموردين', key: 'suppliers', width: 10 },
+        ],
+        data: filteredStockItems.map((item, idx) => ({
+          num: idx + 1,
+          name: item.name,
+          category: item.category || '-',
+          unit: item.unit,
+          received: parseFloat(item.total_received || '0'),
+          issued: parseFloat(item.total_issued || '0'),
+          remaining: parseFloat(item.total_remaining || '0'),
+          value: parseFloat(item.stock_value || '0'),
+          suppliers: parseInt(item.supplier_count || '0'),
+        })),
+        totals: {
+          label: 'الإجمالي',
+          values: {
+            received: totalReceived,
+            issued: totalIssued,
+            remaining: totalRemaining,
+            value: totalValue,
+          },
+        },
+        cellStyleFn: (record, colKey) => {
+          if (colKey === 'remaining' && record.remaining <= 0) return { fontColor: 'FFFF0000', bold: true };
+          if (colKey === 'received') return { fontColor: 'FF008000' };
+          if (colKey === 'issued') return { fontColor: 'FFFF0000' };
+          return null;
+        },
+        signatures: [
+          { title: 'أمين المستودع' },
+          { title: 'مدير المشروع' },
+          { title: 'المدير العام' },
+        ],
+        fileName: `تقرير_المخزون_${new Date().toISOString().split('T')[0]}.xlsx`,
+        orientation: 'landscape',
+      });
+      if (success) toast({ title: "تم تصدير Excel بنجاح" });
+      else toast({ title: "خطأ في التصدير", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    } finally { setIsExportingExcel(false); }
+  }, [filteredStockItems, stats, toast]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (filteredStockItems.length === 0) return;
+    setIsExportingPdf(true);
+    try {
+      const success = await generateTablePDF({
+        reportTitle: 'تقرير المخزون - إدارة المعدات والمواد',
+        subtitle: `عدد المواد: ${filteredStockItems.length} | تاريخ: ${new Date().toLocaleDateString('ar-SA')}`,
+        infoItems: [
+          { label: 'إجمالي المواد', value: stats.total_items || 0, color: '#3B82F6' },
+          { label: 'مواد متوفرة', value: stats.items_in_stock || 0, color: '#10B981' },
+          { label: 'قيمة المخزون', value: formatCurrency(parseFloat(stats.total_stock_value || '0')), color: '#F59E0B' },
+          { label: 'نفذت', value: stats.out_of_stock_items || 0, color: '#EF4444' },
+        ],
+        columns: [
+          { header: 'م', key: 'num', width: 5 },
+          { header: 'المادة', key: 'name', width: 25 },
+          { header: 'الفئة', key: 'category', width: 12 },
+          { header: 'الوحدة', key: 'unit', width: 8 },
+          { header: 'الوارد', key: 'received', width: 10, color: () => '#10B981' },
+          { header: 'المنصرف', key: 'issued', width: 10, color: () => '#EF4444' },
+          { header: 'المتبقي', key: 'remaining', width: 10, color: (val: any) => parseFloat(val) <= 0 ? '#EF4444' : '#1E293B' },
+          { header: 'الموردين', key: 'suppliers', width: 8 },
+        ],
+        data: filteredStockItems.map((item, idx) => ({
+          num: idx + 1,
+          name: item.name,
+          category: item.category || '-',
+          unit: item.unit,
+          received: parseFloat(item.total_received || '0').toFixed(1),
+          issued: parseFloat(item.total_issued || '0').toFixed(1),
+          remaining: parseFloat(item.total_remaining || '0').toFixed(1),
+          suppliers: item.supplier_count,
+        })),
+        filename: `تقرير_المخزون_${new Date().toISOString().split('T')[0]}`,
+        orientation: 'landscape',
+      });
+      if (success) toast({ title: "تم تصدير PDF بنجاح" });
+      else toast({ title: "خطأ في التصدير", variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+    } finally { setIsExportingPdf(false); }
+  }, [filteredStockItems, stats, toast]);
+
+  const actionsConfig: ActionButton[] = useMemo(() => [
+    {
+      key: 'export-pdf',
+      icon: FileText,
+      label: 'PDF',
+      onClick: handleExportPdf,
+      variant: 'outline',
+      loading: isExportingPdf,
+      disabled: filteredStockItems.length === 0,
+      tooltip: 'تصدير تقرير PDF',
+    },
+    {
+      key: 'export-excel',
+      icon: Download,
+      label: 'Excel',
+      onClick: handleExportExcel,
+      variant: 'outline',
+      loading: isExportingExcel,
+      disabled: filteredStockItems.length === 0,
+      tooltip: 'تصدير تقرير Excel',
+    },
+  ], [handleExportPdf, handleExportExcel, isExportingPdf, isExportingExcel, filteredStockItems.length]);
 
   const issueMutation = useMutation({
     mutationFn: (data: any) => apiRequest('/api/inventory/issue', 'POST', data),
@@ -206,6 +386,49 @@ export function EquipmentManagement() {
       toast({ title: "خطأ في الإضافة", description: err.message, variant: "destructive" });
     },
   });
+
+  const updateItemMutation = useMutation({
+    mutationFn: (data: { id: number; name: string; category: string; unit: string; min_quantity: string }) =>
+      apiRequest(`/api/inventory/items/${data.id}`, 'PUT', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      setShowEditItemDialog(false);
+      setEditingItem(null);
+      toast({ title: "تم تحديث المادة بنجاح" });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في التحديث", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/inventory/items/${id}`, 'DELETE'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      setShowDeleteConfirm(false);
+      setEditingItem(null);
+      toast({ title: "تم حذف المادة بنجاح" });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في الحذف", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleEditClick = useCallback((item: InventoryItem) => {
+    setEditingItem(item);
+    setEditForm({
+      name: item.name,
+      category: item.category || '',
+      unit: item.unit,
+      min_quantity: item.min_quantity || '0',
+    });
+    setShowEditItemDialog(true);
+  }, []);
+
+  const handleDeleteClick = useCallback((item: InventoryItem) => {
+    setEditingItem(item);
+    setShowDeleteConfirm(true);
+  }, []);
 
   const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN'), [transactions]);
   const outgoingTx = useMemo(() => transactions.filter(t => t.type === 'OUT' || t.type === 'ADJUSTMENT_OUT'), [transactions]);
@@ -244,6 +467,13 @@ export function EquipmentManagement() {
         searchPlaceholder="بحث في المواد..."
         onReset={handleResetFilters}
         onRefresh={handleRefresh}
+        actions={actionsConfig}
+        resultsSummary={{
+          totalCount: stockItems.length,
+          filteredCount: filteredStockItems.length,
+          totalLabel: 'إجمالي المواد',
+          filteredLabel: 'معروض',
+        }}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -269,15 +499,15 @@ export function EquipmentManagement() {
 
           {stockLoading ? (
             <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
-          ) : stockItems.length === 0 ? (
+          ) : filteredStockItems.length === 0 ? (
             <Card className="py-10 text-center text-gray-500">
               <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               <p>لا توجد مواد في المخزن</p>
               <Button data-testid="button-add-first" onClick={() => setShowReceiveDialog(true)} className="mt-3" variant="outline">إضافة مادة</Button>
             </Card>
           ) : (
-            <div className="grid gap-3">
-              {stockItems.map(item => {
+            <UnifiedCardGrid columns={1}>
+              {filteredStockItems.map(item => {
                 const remaining = parseFloat(item.total_remaining || '0');
                 const received = parseFloat(item.total_received || '0');
                 const percentUsed = received > 0 ? ((received - remaining) / received) * 100 : 0;
@@ -285,44 +515,40 @@ export function EquipmentManagement() {
                 const isOut = remaining <= 0;
 
                 return (
-                  <Card key={item.id} data-testid={`card-stock-item-${item.id}`} className={`hover:shadow-md transition-shadow ${isOut ? 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/20' : isLow ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20' : ''}`}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-gray-900 dark:text-white">{item.name}</h3>
-                            {item.category && <Badge variant="outline" className="text-xs">{item.category}</Badge>}
-                            {isOut && <Badge className="bg-red-500 text-white text-xs">نفذ</Badge>}
-                            {isLow && !isOut && <Badge className="bg-amber-500 text-white text-xs">منخفض</Badge>}
-                          </div>
-                          <div className="flex gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            <span>الوحدة: {item.unit}</span>
-                            <span>الوارد: <strong>{parseFloat(item.total_received || '0').toFixed(1)}</strong></span>
-                            <span>المنصرف: <strong>{parseFloat(item.total_issued || '0').toFixed(1)}</strong></span>
-                            <span>الموردين: {item.supplier_count}</span>
-                          </div>
-                          <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                            <div className={`h-2 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, 100 - percentUsed)}%` }}></div>
-                          </div>
-                        </div>
-                        <div className="text-left mr-4">
-                          <p className={`text-2xl font-bold ${isOut ? 'text-red-600' : isLow ? 'text-amber-600' : 'text-emerald-600'}`} data-testid={`text-remaining-${item.id}`}>
-                            {remaining.toFixed(1)}
-                          </p>
-                          <p className="text-xs text-gray-500">{item.unit} متبقي</p>
-                          <p className="text-xs text-gray-400 mt-1">{formatCurrency(parseFloat(item.stock_value || '0'))}</p>
-                        </div>
-                        <div className="flex flex-col gap-1 mr-3">
-                          <Button data-testid={`button-issue-${item.id}`} size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 text-xs" onClick={() => { setSelectedItem(item); setShowIssueDialog(true); }} disabled={isOut}>
-                            <ArrowUpFromLine className="w-3 h-3 ml-1" /> صرف
-                          </Button>
-                        </div>
+                  <UnifiedCard
+                    key={item.id}
+                    data-testid={`card-stock-item-${item.id}`}
+                    title={item.name}
+                    titleIcon={Package}
+                    compact
+                    headerColor={isOut ? '#ef4444' : isLow ? '#f59e0b' : '#10b981'}
+                    badges={[
+                      ...(item.category ? [{ label: item.category, variant: "outline" as const }] : []),
+                      ...(isOut ? [{ label: 'نفذ', variant: "destructive" as const }] : []),
+                      ...(isLow && !isOut ? [{ label: 'منخفض', variant: "warning" as const }] : []),
+                    ]}
+                    fields={[
+                      { label: "المتبقي", value: `${remaining.toFixed(1)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
+                      { label: "القيمة", value: formatCurrency(parseFloat(item.stock_value || '0')), color: "info" as const, icon: DollarSign },
+                      { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(1), icon: ArrowDownToLine, color: "success" as const },
+                      { label: "المنصرف", value: parseFloat(item.total_issued || '0').toFixed(1), icon: ArrowUpFromLine, color: "danger" as const },
+                      { label: "الوحدة", value: item.unit, icon: Box },
+                      { label: "الموردين", value: item.supplier_count, icon: Truck, color: "info" as const },
+                    ]}
+                    actions={[
+                      { icon: ArrowUpFromLine, label: "صرف", onClick: () => { setSelectedItem(item); setShowIssueDialog(true); }, color: "red" as const, disabled: isOut },
+                      { icon: Pencil, label: "تعديل", onClick: () => handleEditClick(item), color: "blue" as const },
+                      { icon: Trash2, label: "حذف", onClick: () => handleDeleteClick(item), color: "red" as const },
+                    ]}
+                    customSection={
+                      <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className={`h-2 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, 100 - percentUsed)}%` }} />
                       </div>
-                    </CardContent>
-                  </Card>
+                    }
+                  />
                 );
               })}
-            </div>
+            </UnifiedCardGrid>
           )}
         </TabsContent>
 
@@ -500,6 +726,62 @@ export function EquipmentManagement() {
         onSubmit={(data) => receiveMutation.mutate(data)}
         isPending={receiveMutation.isPending}
       />
+
+      <Dialog open={showEditItemDialog} onOpenChange={(open) => { if (!open) { setShowEditItemDialog(false); setEditingItem(null); } }}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تعديل المادة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>اسم المادة</Label>
+              <Input data-testid="input-edit-name" value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <Label>الفئة</Label>
+              <Input data-testid="input-edit-category" value={editForm.category} onChange={(e) => setEditForm(f => ({ ...f, category: e.target.value }))} />
+            </div>
+            <div>
+              <Label>الوحدة</Label>
+              <Input data-testid="input-edit-unit" value={editForm.unit} onChange={(e) => setEditForm(f => ({ ...f, unit: e.target.value }))} />
+            </div>
+            <div>
+              <Label>الحد الأدنى للمخزون</Label>
+              <Input data-testid="input-edit-min-qty" type="number" value={editForm.min_quantity} onChange={(e) => setEditForm(f => ({ ...f, min_quantity: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 mt-4">
+            <Button data-testid="button-cancel-edit" variant="outline" onClick={() => { setShowEditItemDialog(false); setEditingItem(null); }}>إلغاء</Button>
+            <Button data-testid="button-save-edit" disabled={updateItemMutation.isPending || !editForm.name || !editForm.unit} onClick={() => {
+              if (editingItem) updateItemMutation.mutate({ id: editingItem.id, ...editForm });
+            }}>
+              {updateItemMutation.isPending ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={(open) => { if (!open) { setShowDeleteConfirm(false); setEditingItem(null); } }}>
+        <DialogContent className="max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">تأكيد الحذف</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            هل أنت متأكد من حذف المادة <strong>"{editingItem?.name}"</strong>؟
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            لا يمكن حذف المواد التي لها حركات مخزنية (وارد/صادر).
+          </p>
+          <DialogFooter className="gap-2 mt-4">
+            <Button data-testid="button-cancel-delete" variant="outline" onClick={() => { setShowDeleteConfirm(false); setEditingItem(null); }}>إلغاء</Button>
+            <Button data-testid="button-confirm-delete" variant="destructive" disabled={deleteItemMutation.isPending} onClick={() => {
+              if (editingItem) deleteItemMutation.mutate(editingItem.id);
+            }}>
+              {deleteItemMutation.isPending ? 'جاري الحذف...' : 'حذف'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showAddEquipmentDialog && (
         <AddEquipmentDialog

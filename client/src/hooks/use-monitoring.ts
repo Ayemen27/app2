@@ -55,14 +55,14 @@ export function useMonitoring() {
 
   // Mutations
   const updateMetricsMutation = useMutation({
-    mutationFn: () => fetch('/api/metrics/update', { method: 'POST' }),
+    mutationFn: () => fetch('/api/metrics/update', { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.metrics });
     },
   });
 
   const runDiagnosticsMutation = useMutation({
-    mutationFn: () => fetch('/api/diagnostics/run', { method: 'POST' }),
+    mutationFn: () => fetch('/api/diagnostics/run', { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.diagnostics });
     },

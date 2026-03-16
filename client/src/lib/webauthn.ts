@@ -50,6 +50,8 @@ export async function registerBiometric(accessToken: string): Promise<{ success:
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
+      'x-request-nonce': crypto.randomUUID(),
+      'x-request-timestamp': new Date().toISOString(),
     },
   });
 
@@ -99,6 +101,8 @@ export async function registerBiometric(accessToken: string): Promise<{ success:
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
+      'x-request-nonce': crypto.randomUUID(),
+      'x-request-timestamp': new Date().toISOString(),
     },
     body: JSON.stringify({ credential: credentialJSON }),
   });
@@ -146,7 +150,7 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
     if (email) {
       const res = await fetch(`${apiBase}/api/webauthn/login/options`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
         body: JSON.stringify({ email }),
       });
       if (!res.ok) return false;
@@ -168,7 +172,7 @@ export async function loginWithBiometric(email?: string): Promise<any> {
 
   const optionsRes = await fetch(`${apiBase}/api/webauthn/login/options`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
     body: JSON.stringify({ email }),
   });
 
@@ -225,7 +229,7 @@ export async function loginWithBiometric(email?: string): Promise<any> {
 
   const verifyRes = await fetch(`${apiBase}/api/webauthn/login/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
     body: JSON.stringify({ credential: credentialJSON }),
   });
 

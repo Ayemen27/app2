@@ -51,7 +51,7 @@ export const initializeNativePush = async (_user_id: string) => {
       try {
         await fetch('/api/push/token', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
           body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
         });
       } catch (err) {

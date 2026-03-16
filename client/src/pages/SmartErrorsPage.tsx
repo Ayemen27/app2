@@ -115,7 +115,9 @@ const SmartErrorsPage: React.FC = () => {
       const response = await fetch('/api/smart-errors/test', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         }
       });
       

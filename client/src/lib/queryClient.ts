@@ -128,6 +128,11 @@ export async function apiRequest(
     headers.Authorization = `Bearer ${token}`;
   }
 
+  if (method !== 'GET') {
+    headers['x-request-nonce'] = crypto.randomUUID();
+    headers['x-request-timestamp'] = new Date().toISOString();
+  }
+
   const config: RequestInit = {
     method,
     headers,
@@ -201,6 +206,10 @@ export async function apiRequest(
                 retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
               }
               
+              if (method !== 'GET') {
+                retryHeaders['x-request-nonce'] = crypto.randomUUID();
+                retryHeaders['x-request-timestamp'] = new Date().toISOString();
+              }
               const retryConfig = {
                 ...config,
                 credentials: getFetchCredentials(),

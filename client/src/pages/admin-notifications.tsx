@@ -137,7 +137,7 @@ export default function AdminNotificationsPage() {
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders()
+        headers: { ...getAuthHeaders(), 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() }
       });
       if (!response.ok) throw new Error('فشل الحذف');
       return response.json();

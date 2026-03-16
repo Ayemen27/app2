@@ -154,6 +154,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           'Content-Type': 'application/json',
           ...getClientPlatformHeader(),
           ...getAuthHeaders(),
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         },
       });
 
@@ -187,6 +189,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           'Content-Type': 'application/json',
           ...getClientPlatformHeader(),
           ...getAuthHeaders(),
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         },
       });
 
@@ -221,6 +225,8 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
           'Content-Type': 'application/json',
           ...getClientPlatformHeader(),
           ...getAuthHeaders(),
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         },
       });
 

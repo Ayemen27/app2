@@ -217,7 +217,7 @@ async function tryServerProxyDownload(blob: Blob, fileName: string, mimeType: st
 
     const response = await fetch('/api/temp-download', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
       credentials: 'include',
       body: JSON.stringify({ base64Data, fileName, mimeType }),
     });

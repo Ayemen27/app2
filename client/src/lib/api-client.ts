@@ -3,6 +3,13 @@ import { ENV } from './env';
 import { getValidToken, isValidJwt, isTokenExpired } from './token-utils';
 import { shouldUseBearerAuth, getAccessToken, getRefreshToken, getFetchCredentials, getClientPlatformHeader, storeTokens, clearTokens } from '@/lib/auth-token-store';
 
+export function getReplayHeaders(): Record<string, string> {
+  return {
+    'x-request-nonce': crypto.randomUUID(),
+    'x-request-timestamp': new Date().toISOString(),
+  };
+}
+
 class ApiClient {
   private baseURL: string;
 
@@ -61,6 +68,12 @@ class ApiClient {
         const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
         headers['Authorization'] = `Bearer ${cleanToken}`;
         headers['x-auth-token'] = cleanToken;
+      }
+
+      const reqMethod = (options.method || 'GET').toUpperCase();
+      if (reqMethod !== 'GET') {
+        headers['x-request-nonce'] = crypto.randomUUID();
+        headers['x-request-timestamp'] = new Date().toISOString();
       }
 
       const response = await fetch(url, {
@@ -193,6 +206,11 @@ export async function apiRequest(
     const cleanToken = token.replace(/^["'](.+)["']$/, '$1');
     headers['Authorization'] = `Bearer ${cleanToken}`;
     headers['x-auth-token'] = cleanToken;
+  }
+
+  if (method !== 'GET') {
+    headers['x-request-nonce'] = crypto.randomUUID();
+    headers['x-request-timestamp'] = new Date().toISOString();
   }
 
   const controller = new AbortController();

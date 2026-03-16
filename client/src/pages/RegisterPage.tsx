@@ -190,7 +190,7 @@ export default function RegisterPage() {
     mutationFn: async (data: RegisterFormData) => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-request-nonce": crypto.randomUUID(), "x-request-timestamp": new Date().toISOString() },
         body: JSON.stringify(data),
       });
       if (!response.ok) {

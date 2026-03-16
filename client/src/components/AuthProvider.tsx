@@ -326,6 +326,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         headers: {
           'Content-Type': 'application/json',
           ...getClientPlatformHeader(),
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         },
         body: JSON.stringify({ email, password }),
         signal: controller.signal,
@@ -611,6 +613,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           headers: {
             ...getAuthHeaders(),
             ...getClientPlatformHeader(),
+            'x-request-nonce': crypto.randomUUID(),
+            'x-request-timestamp': new Date().toISOString(),
           },
         });
       } catch (error) {
@@ -699,6 +703,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             headers: {
               'Content-Type': 'application/json',
               ...getClientPlatformHeader(),
+              'x-request-nonce': crypto.randomUUID(),
+              'x-request-timestamp': new Date().toISOString(),
             },
             body: JSON.stringify({ refreshToken: refreshTokenValue }),
             signal: controller.signal,
@@ -823,6 +829,8 @@ export function useAuthenticatedRequest() {
   const { refreshToken } = useAuth();
 
   return async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const method = ((options.method || 'GET') as string).toUpperCase();
+    const replayHeaders = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
     const response = await fetch(url, {
       ...options,
       credentials: getFetchCredentials(),
@@ -830,12 +838,14 @@ export function useAuthenticatedRequest() {
         ...options.headers,
         ...getAuthHeaders(),
         ...getClientPlatformHeader(),
+        ...replayHeaders,
       },
     });
 
     if (response.status === 401 || response.status === 403) {
       const refreshed = await refreshToken();
       if (refreshed) {
+        const retryReplayHeaders = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
         return fetch(url, {
           ...options,
           credentials: getFetchCredentials(),
@@ -843,6 +853,7 @@ export function useAuthenticatedRequest() {
             ...options.headers,
             ...getAuthHeaders(),
             ...getClientPlatformHeader(),
+            ...retryReplayHeaders,
           },
         });
       }

@@ -124,6 +124,8 @@ export default function EmailVerificationPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         },
         body: JSON.stringify({
           user_id: user_id,
@@ -198,6 +200,8 @@ export default function EmailVerificationPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         },
         body: JSON.stringify({
           user_id: userInfo.id,

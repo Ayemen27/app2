@@ -84,6 +84,8 @@ export default function ResetPasswordPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-request-nonce': crypto.randomUUID(),
+          'x-request-timestamp': new Date().toISOString(),
         },
         body: JSON.stringify({
           token,

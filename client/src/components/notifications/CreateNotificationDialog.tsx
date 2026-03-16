@@ -163,7 +163,7 @@ export function CreateNotificationDialog({
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: { ...getAuthHeaders(), 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
         body: JSON.stringify({
           ...data,
           message: data.body, // Mapping for backward compatibility

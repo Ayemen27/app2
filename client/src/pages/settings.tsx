@@ -148,7 +148,7 @@ export default function SettingsPage() {
       const res = await fetch(`${apiBase}/api/preferences`, {
         method: 'PUT',
         credentials: getFetchCredentials(),
-        headers,
+        headers: { ...headers, 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
         body: JSON.stringify(prefs),
       });
 
@@ -247,7 +247,7 @@ export default function SettingsPage() {
       const res = await fetch(`${apiBase}/api/webauthn/credentials`, {
         method: 'DELETE',
         credentials: getFetchCredentials(),
-        headers: { ...getClientPlatformHeader(), ...getAuthHeaders() },
+        headers: { ...getClientPlatformHeader(), ...getAuthHeaders(), 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
       });
       if (res.ok) {
         setBiometricStatus('disabled');

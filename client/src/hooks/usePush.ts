@@ -130,6 +130,8 @@ export const usePush = (): UsePushReturn => {
                 'Content-Type': 'application/json',
                 ...getClientPlatformHeader(),
                 ...getAuthHeaders(),
+                'x-request-nonce': crypto.randomUUID(),
+                'x-request-timestamp': new Date().toISOString(),
               },
               body: JSON.stringify({ token }),
             });

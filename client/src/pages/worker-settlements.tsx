@@ -19,11 +19,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import type { StatsRowConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Scale,
   Users,
@@ -39,6 +40,8 @@ import {
   User,
   ChevronDown,
   ChevronUp,
+  History,
+  FileText,
 } from "lucide-react";
 
 interface Project {
@@ -196,7 +199,6 @@ export default function WorkerSettlementsPage() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
       setActiveView("history");
-      setFilterValues({ view: "history" });
     },
     onError: (error: any) => {
       toast({
@@ -375,29 +377,6 @@ export default function WorkerSettlementsPage() {
     return [];
   }, [activeView, preview, settlements]);
 
-  const filtersConfig: FilterConfig[] = useMemo(
-    () => [
-      {
-        key: "view",
-        label: "العرض",
-        type: "select",
-        defaultValue: "new",
-        options: [
-          { value: "new", label: "تصفية جديدة" },
-          { value: "history", label: "سجل التصفيات" },
-        ],
-      },
-    ],
-    []
-  );
-
-  const handleFilterChange = useCallback((key: string, value: any) => {
-    setFilterValues((prev) => ({ ...prev, [key]: value }));
-    if (key === "view") {
-      setActiveView(value as "new" | "history");
-    }
-  }, []);
-
   const handleResetFilters = useCallback(() => {
     setFilterValues({ view: "new" });
     setActiveView("new");
@@ -452,7 +431,6 @@ export default function WorkerSettlementsPage() {
 
   const handleNewSettlement = useCallback(() => {
     setActiveView("new");
-    setFilterValues({ view: "new" });
     setPreview(null);
     setSettlementProjectId("");
     setSelectedWorkers(new Set());
@@ -484,14 +462,27 @@ export default function WorkerSettlementsPage() {
 
   return (
     <div className="container mx-auto p-4 space-y-4" dir="rtl">
+      <Tabs value={activeView} onValueChange={(v) => setActiveView(v as "new" | "history")} className="w-full">
+        <TabsList className="w-full grid grid-cols-2 h-11 mb-4">
+          <TabsTrigger value="new" className="gap-1.5 text-sm" data-testid="tab-new-settlement">
+            <FileText className="h-4 w-4" />
+            تصفية جديدة
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5 text-sm" data-testid="tab-settlement-history">
+            <History className="h-4 w-4" />
+            سجل التصفيات
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <UnifiedFilterDashboard
         hideHeader={true}
         title=""
         subtitle=""
         statsRows={statsRowsConfig}
-        filters={filtersConfig}
+        filters={[]}
         filterValues={filterValues}
-        onFilterChange={handleFilterChange}
+        onFilterChange={() => {}}
         onSearchChange={setSearchValue}
         searchValue={searchValue}
         searchPlaceholder="ابحث عن عامل أو مشروع..."

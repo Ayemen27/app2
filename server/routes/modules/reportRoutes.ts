@@ -1165,6 +1165,11 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
       }
       const from = new Date(dateFrom as string);
       const to = new Date(dateTo as string);
+      const MAX_RANGE_DAYS = 90;
+      const rangeDays = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+      if (rangeDays > MAX_RANGE_DAYS) {
+        return res.status(400).json({ success: false, error: `نطاق التاريخ كبير جداً (${rangeDays} يوم). الحد الأقصى هو ${MAX_RANGE_DAYS} يوم` });
+      }
       const dates: string[] = [];
       const current = new Date(from);
       while (current <= to) {

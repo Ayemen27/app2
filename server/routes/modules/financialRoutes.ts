@@ -250,7 +250,8 @@ financialRouter.get('/fund-transfers', async (req: Request, res: Response) => {
       })
       .from(fundTransfers)
       .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
-      .orderBy(desc(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END)`));
+      .orderBy(desc(sql`(CASE WHEN transfer_date IS NULL OR transfer_date::text = '' THEN NULL ELSE transfer_date::date END)`))
+      .limit(5000);
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
@@ -639,7 +640,8 @@ financialRouter.get('/daily-project-transfers', async (req: Request, res: Respon
           sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END) = ${date}::date`
         )
       )
-      .orderBy(desc(projectFundTransfers.created_at));
+      .orderBy(desc(projectFundTransfers.created_at))
+      .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل مشروع للصفحة اليومية في ${duration}ms`);
@@ -736,9 +738,10 @@ financialRouter.get('/project-fund-transfers', async (req: Request, res: Respons
       const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
       transfers = await baseQuery
         .where(whereClause)
-        .orderBy(desc(sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END)`));
+        .orderBy(desc(sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END)`))
+        .limit(5000);
     } else {
-      transfers = await baseQuery.orderBy(desc(sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END)`));
+      transfers = await baseQuery.orderBy(desc(sql`(CASE WHEN ${projectFundTransfers.transferDate} IS NULL OR ${projectFundTransfers.transferDate}::text = '' THEN NULL ELSE ${projectFundTransfers.transferDate}::date END)`)).limit(5000);
     }
 
     const accessReq = req as ProjectAccessRequest;
@@ -1049,7 +1052,7 @@ financialRouter.get('/worker-transfers', async (req: Request, res: Response) => 
       query = query.where(eq(workerTransfers.project_id, project_id)) as typeof query; // Drizzle dynamic query builder limitation
     }
     
-    const transfers = await query.orderBy(desc(workerTransfers.transferDate));
+    const transfers = await query.orderBy(desc(workerTransfers.transferDate)).limit(5000);
 
     const filteredTransfers = isAdminUser
       ? transfers
@@ -1363,7 +1366,7 @@ financialRouter.get('/worker-misc-expenses', async (req: Request, res: Response)
   try {
     console.log('💸 [API] جلب جميع مصاريف العمال المتنوعة من قاعدة البيانات');
 
-    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc(workerMiscExpenses.date));
+    const expenses = await db.select().from(workerMiscExpenses).orderBy(desc(workerMiscExpenses.date)).limit(5000);
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
@@ -2014,7 +2017,7 @@ financialRouter.get('/material-purchases', async (req: Request, res: Response) =
       query = query.where(and(...conditions)) as typeof query; // Drizzle dynamic query builder limitation
     }
     
-    const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
+    const purchases = await query.orderBy(desc(materialPurchases.purchaseDate)).limit(5000);
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
@@ -2465,7 +2468,7 @@ financialRouter.get('/transportation-expenses', async (req: Request, res: Respon
       query = query.where(eq(transportationExpenses.project_id, project_id as string));
     }
     
-    const expenses = await query.orderBy(desc(transportationExpenses.date));
+    const expenses = await query.orderBy(desc(transportationExpenses.date)).limit(5000);
 
     const filteredExpenses = isAdminUser
       ? expenses
@@ -2927,7 +2930,8 @@ financialRouter.get('/worker-transfers-by-period', async (req: Request, res: Res
         eq(workerTransfers.project_id, project_id as string),
         eq(workerTransfers.worker_id, worker_id as string)
       ))
-      .orderBy(desc(workerTransfers.transferDate));
+      .orderBy(desc(workerTransfers.transferDate))
+      .limit(5000);
     
     console.log(`📌 [Transfers] عدد الحوالات الكاملة: ${transfers.length}`);
     
@@ -3027,7 +3031,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
         eq(workerAttendance.project_id, project_id as string),
         eq(workerAttendance.worker_id, worker_id as string)
       ))
-      .orderBy(desc(workerAttendance.date));
+      .orderBy(desc(workerAttendance.date))
+      .limit(5000);
     
     console.log(`🔍 [WorkerStatement] عدد سجلات الحضور الكاملة: ${attendanceRecords.length}`);
     
@@ -3235,7 +3240,7 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
 financialRouter.get('/material-purchases/date-range', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    const purchases = await db.select().from(materialPurchases).orderBy(desc(materialPurchases.purchaseDate));
+    const purchases = await db.select().from(materialPurchases).orderBy(desc(materialPurchases.purchaseDate)).limit(5000);
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');

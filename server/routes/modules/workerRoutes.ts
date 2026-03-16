@@ -1290,7 +1290,7 @@ workerRouter.get('/worker-misc-expenses', async (req: Request, res: Response) =>
       }
     }
 
-    const expenses = await query.orderBy(workerMiscExpenses.date);
+    const expenses = await query.orderBy(workerMiscExpenses.date).limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${expenses.length} مصروف متنوع في ${duration}ms`);
@@ -1886,7 +1886,8 @@ workerRouter.get('/worker-attendance', async (req: Request, res: Response) => {
     .from(workerAttendance)
     .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(whereCondition)
-    .orderBy(workerAttendance.attendanceDate);
+    .orderBy(workerAttendance.attendanceDate)
+    .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
@@ -1978,7 +1979,8 @@ workerRouter.get('/projects/:project_id/worker-attendance', async (req: Request,
     .from(workerAttendance)
     .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(whereCondition)
-    .orderBy(workerAttendance.attendanceDate);
+    .orderBy(workerAttendance.attendanceDate)
+    .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);

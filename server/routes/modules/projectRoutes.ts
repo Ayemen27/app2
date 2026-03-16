@@ -1291,7 +1291,8 @@ projectRouter.get('/all/fund-transfers', async (req: Request, res: Response) => 
     })
     .from(fundTransfers)
     .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
-    .orderBy(desc(fundTransfers.transferDate));
+    .orderBy(desc(fundTransfers.transferDate))
+    .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة من جميع المشاريع في ${duration}ms`);
@@ -1349,7 +1350,8 @@ projectRouter.get('/:project_id/fund-transfers', requireProjectAccess('view'), a
     .from(fundTransfers)
     .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
     .where(eq(fundTransfers.project_id, project_id))
-    .orderBy(desc(fundTransfers.transferDate));
+    .orderBy(desc(fundTransfers.transferDate))
+    .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة في ${duration}ms`);
@@ -1416,7 +1418,8 @@ projectRouter.get('/:project_id/worker-attendance', requireProjectAccess('view')
     .from(workerAttendance)
     .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(and(...conditions))
-    .orderBy(workerAttendance.date);
+    .orderBy(workerAttendance.date)
+    .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${attendance.length} سجل حضور في ${duration}ms`);
@@ -1497,7 +1500,7 @@ projectRouter.get('/:project_id/material-purchases', requireProjectAccess('view'
         query = query.where(eq(materialPurchases.purchaseDate, date as string)) as typeof query; // Drizzle dynamic query builder limitation
       }
       
-      purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
+      purchases = await query.orderBy(desc(materialPurchases.purchaseDate)).limit(5000);
     } else {
       // جلب مشتريات مشروع محدد مع اسم المشروع
       let query = db.select({
@@ -1533,7 +1536,7 @@ projectRouter.get('/:project_id/material-purchases', requireProjectAccess('view'
         conditions.push(eq(materialPurchases.purchaseDate, date as string));
       }
       
-      purchases = await query.where(and(...conditions)).orderBy(desc(materialPurchases.purchaseDate));
+      purchases = await query.where(and(...conditions)).orderBy(desc(materialPurchases.purchaseDate)).limit(5000);
     }
 
     const duration = Date.now() - startTime;
@@ -1609,7 +1612,7 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
       query = query.where(and(...conditions)) as typeof query; // Drizzle dynamic query builder limitation
     }
 
-    const purchases = await query.orderBy(desc(materialPurchases.purchaseDate));
+    const purchases = await query.orderBy(desc(materialPurchases.purchaseDate)).limit(5000);
 
     res.json({
       success: true,
@@ -1622,50 +1625,6 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
   }
 });
 
-    /**
-     * POST /api/projects/:project_id/material-purchases
-     * إضافة مشترية مواد لمشروع محدد
-     */
-    projectRouter.post('/:project_id/material-purchases', requireProjectAccess('add'), async (req: Request, res: Response) => {
-      const startTime = Date.now();
-      try {
-        const { project_id } = req.params;
-        const body = { ...req.body, project_id };
-
-        // Validation
-        const validationResult = insertMaterialPurchaseSchema.safeParse(body);
-        if (!validationResult.success) {
-          console.error('❌ [API] فشل في validation مشتريات المواد:', validationResult.error.flatten());
-          return res.status(400).json({
-            success: false,
-            error: 'بيانات غير صحيحة',
-            details: validationResult.error.flatten().fieldErrors,
-            processingTime: Date.now() - startTime
-          });
-        }
-
-        const purchaseData = {
-          ...validationResult.data,
-          unitPrice: validationResult.data.unitPrice || "0",
-          totalAmount: validationResult.data.totalAmount || "0"
-        };
-
-        const newPurchase = await db.insert(materialPurchases).values(purchaseData).returning();
-        
-        res.status(201).json({
-          success: true,
-          data: newPurchase[0],
-          message: 'تمت إضافة المشتريات بنجاح',
-          processingTime: Date.now() - startTime
-        });
-      } catch (error: any) {
-        res.status(500).json({
-          success: false,
-          error: safeErrorMessage(error, 'حدث خطأ داخلي'),
-          processingTime: Date.now() - startTime
-        });
-      }
-    });
 
     /**
      * 📊 جلب مصاريف النقل لمشروع محدد
@@ -1689,7 +1648,8 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
     const expenses = await db.select()
       .from(transportationExpenses)
       .where(eq(transportationExpenses.project_id, project_id))
-      .orderBy(transportationExpenses.date);
+      .orderBy(transportationExpenses.date)
+      .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${expenses.length} مصروف نقل في ${duration}ms`);
@@ -1735,7 +1695,8 @@ projectRouter.get('/:project_id/worker-misc-expenses', requireProjectAccess('vie
     const expenses = await db.select()
       .from(workerMiscExpenses)
       .where(eq(workerMiscExpenses.project_id, project_id))
-      .orderBy(workerMiscExpenses.date);
+      .orderBy(workerMiscExpenses.date)
+      .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${expenses.length} مصروف متنوع في ${duration}ms`);
@@ -1907,7 +1868,8 @@ projectRouter.get('/:project_id/worker-transfers', requireProjectAccess('view'),
     .from(workerTransfers)
     .leftJoin(workers, eq(workerTransfers.worker_id, workers.id))
     .where(eq(workerTransfers.project_id, project_id))
-    .orderBy(workerTransfers.transferDate);
+    .orderBy(workerTransfers.transferDate)
+    .limit(5000);
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} حولة عمال في ${duration}ms`);
@@ -2017,227 +1979,6 @@ projectRouter.get('/:project_id/actual-transfers', requireProjectAccess('view'),
   }
 });
 
-/**
- * 📊 جلب الملخص اليومي للمشروع - جلب الملخص المالي ليوم محدد
- * GET /api/projects/:id/daily-summary/:date
- */
-projectRouter.get('/:id/daily-summary/:date', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const { id: project_id, date } = req.params;
-
-    console.log(`📊 [API] طلب جلب الملخص اليومي للمشروع من المستخدم: ${req.user?.email}`);
-    console.log(`📋 [API] معاملات الطلب: project_id=${project_id}, date=${date}`);
-
-    // Validation للمعاملات
-    if (!project_id || !date) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] معاملات مطلوبة مفقودة:', { project_id, date });
-      return res.status(400).json({
-        success: false,
-        error: 'معاملات مطلوبة مفقودة',
-        message: 'معرف المشروع والتاريخ مطلوبان',
-        processingTime: duration
-      });
-    }
-
-    // تحويل صيغة ISO إلى YYYY-MM-DD
-    let normalizedDate = date;
-    if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
-      normalizedDate = date.split('T')[0];
-    }
-    
-    // التحقق من صحة تنسيق التاريخ (YYYY-MM-DD)
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(normalizedDate)) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] تنسيق التاريخ غير صحيح:', date);
-      return res.status(400).json({
-        success: false,
-        error: 'تنسيق التاريخ غير صحيح',
-        message: 'يجب أن يكون التاريخ بصيغة YYYY-MM-DD',
-        processingTime: duration
-      });
-    }
-    
-    // التحقق من وجود المشروع أولاً
-    console.log('🔍 [API] التحقق من وجود المشروع...');
-    const projectExists = await db.select().from(projects).where(eq(projects.id, project_id)).limit(1);
-
-    if (projectExists.length === 0) {
-      const duration = Date.now() - startTime;
-      console.error('❌ [API] المشروع غير موجود:', project_id);
-      return res.status(404).json({
-        success: false,
-        error: 'المشروع غير موجود',
-        message: `لم يتم العثور على مشروع بالمعرف: ${project_id}`,
-        processingTime: duration
-      });
-    }
-
-    // محاولة جلب البيانات من Materialized View أولاً (للأداء الأفضل)
-    console.log('💾 [API] جلب الملخص اليومي من قاعدة البيانات...');
-    let dailySummary = null;
-
-    try {
-      // محاولة استخدام Materialized View للأداء الأفضل
-      console.log('⚡ [API] محاولة جلب البيانات من daily_summary_mv...');
-      const mvResult = await db.execute(sql`
-        SELECT
-          id,
-          project_id,
-          summary_date,
-          carried_forward_amount,
-          total_fund_transfers,
-          total_worker_wages,
-          total_material_costs,
-          total_transportation_expenses,
-          total_worker_transfers,
-          total_worker_misc_expenses,
-          total_income,
-          total_expenses,
-          remaining_balance,
-          notes,
-          created_at,
-          updated_at,
-          project_name
-        FROM daily_summary_mv
-        WHERE project_id = ${project_id} AND summary_date = ${normalizedDate}
-        LIMIT 1
-      `);
-
-      if (mvResult.rows && mvResult.rows.length > 0) {
-        dailySummary = mvResult.rows[0];
-        console.log('✅ [API] تم جلب البيانات من Materialized View بنجاح');
-      }
-    } catch (mvError) {
-      console.log('⚠️ [API] Materialized View غير متاح، التبديل للجدول العادي...');
-      // Fallback للجدول العادي
-      const regularResult = await db.select({
-        id: dailyExpenseSummaries.id,
-        project_id: dailyExpenseSummaries.project_id,
-        summary_date: dailyExpenseSummaries.date,
-        carried_forward_amount: dailyExpenseSummaries.carriedForwardAmount,
-        total_fund_transfers: dailyExpenseSummaries.totalFundTransfers,
-        total_worker_wages: dailyExpenseSummaries.totalWorkerWages,
-        total_material_costs: dailyExpenseSummaries.totalMaterialCosts,
-        total_transportation_expenses: dailyExpenseSummaries.totalTransportationCosts,
-        total_worker_transfers: sql`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerTransfers} AS DECIMAL), 0)`,
-        total_worker_misc_expenses: sql`COALESCE(CAST(${dailyExpenseSummaries.totalWorkerMiscExpenses} AS DECIMAL), 0)`,
-        total_income: dailyExpenseSummaries.totalIncome,
-        total_expenses: dailyExpenseSummaries.totalExpenses,
-        remaining_balance: dailyExpenseSummaries.remainingBalance,
-        notes: dailyExpenseSummaries.notes,
-        created_at: dailyExpenseSummaries.created_at,
-        updated_at: dailyExpenseSummaries.updated_at,
-        project_name: projects.name
-      })
-      .from(dailyExpenseSummaries)
-      .leftJoin(projects, eq(dailyExpenseSummaries.project_id, projects.id))
-      .where(and(
-        eq(dailyExpenseSummaries.project_id, project_id),
-        eq(dailyExpenseSummaries.date, normalizedDate)
-      ))
-      .limit(1);
-
-      if (regularResult.length > 0) {
-        dailySummary = regularResult[0];
-        console.log('✅ [API] تم جلب البيانات من الجدول العادي بنجاح');
-      }
-    }
-
-    const duration = Date.now() - startTime;
-
-    if (!dailySummary) {
-      console.log(`📭 [API] لا توجد بيانات ملخص يومي للمشروع ${project_id} في تاريخ ${date} - إرجاع بيانات فارغة`);
-      // ✅ إصلاح: إرجاع بيانات فارغة بدلاً من 404
-      return res.json({
-        success: true,
-        data: {
-          id: null,
-          project_id,
-          date,
-          totalIncome: 0,
-          totalExpenses: 0,
-          remainingBalance: 0,
-          notes: null,
-          isEmpty: true,
-          message: `لا يوجد ملخص مالي محفوظ للمشروع في تاريخ ${date}`
-        },
-        processingTime: duration,
-        metadata: {
-          project_id,
-          date,
-          projectName: projectExists[0].name,
-          isEmptyResult: true
-        }
-      });
-    }
-
-    // تنسيق البيانات للإرجاع
-    const formattedSummary = {
-      id: dailySummary.id,
-      project_id: dailySummary.project_id,
-      projectName: dailySummary.project_name || projectExists[0].name,
-      date: dailySummary.summary_date || date,
-      financialSummary: {
-        carriedForwardAmount: parseFloat(String(dailySummary.carried_forward_amount || '0')),
-        totalFundTransfers: parseFloat(String(dailySummary.total_fund_transfers || '0')),
-        totalWorkerWages: parseFloat(String(dailySummary.total_worker_wages || '0')),
-        totalMaterialCosts: parseFloat(String(dailySummary.total_material_costs || '0')),
-        totalTransportationExpenses: parseFloat(String(dailySummary.total_transportation_expenses || '0')),
-        totalWorkerTransfers: parseFloat(String(dailySummary.total_worker_transfers || '0')),
-        totalWorkerMiscExpenses: parseFloat(String(dailySummary.total_worker_misc_expenses || '0')),
-        totalIncome: parseFloat(String(dailySummary.total_income || '0')),
-        totalExpenses: parseFloat(String(dailySummary.total_expenses || '0')),
-        remainingBalance: parseFloat(String(dailySummary.remaining_balance || '0'))
-      },
-      notes: String(dailySummary.notes || ''),
-      created_at: dailySummary.created_at,
-      updated_at: dailySummary.updated_at || dailySummary.created_at
-    };
-
-    console.log(`✅ [API] تم جلب الملخص اليومي بنجاح في ${duration}ms:`, {
-      project_id,
-      projectName: formattedSummary.projectName,
-      date,
-      totalIncome: formattedSummary.financialSummary.totalIncome,
-      totalExpenses: formattedSummary.financialSummary.totalExpenses,
-      remainingBalance: formattedSummary.financialSummary.remainingBalance
-    });
-
-    res.json({
-      success: true,
-      data: formattedSummary,
-      message: `تم جلب الملخص المالي للمشروع "${formattedSummary.projectName}" في تاريخ ${date} بنجاح`,
-      processingTime: duration
-    });
-
-  } catch (error: any) {
-    const duration = Date.now() - startTime;
-    console.error('❌ [API] خطأ في جلب الملخص اليومي:', error);
-
-    // تحليل نوع الخطأ لرسالة أفضل
-    let errorMessage = 'فشل في جلب الملخص اليومي';
-    let statusCode = 500;
-
-    if (error.code === '42P01') { // relation does not exist
-      errorMessage = 'جدول الملخصات اليومية غير موجود';
-      statusCode = 503;
-    } else if (error.code === '22008') { // invalid date format
-      errorMessage = 'تنسيق التاريخ غير صحيح';
-      statusCode = 400;
-    }
-
-    res.status(statusCode).json({
-      success: false,
-      data: null,
-      error: errorMessage,
-      message: error.error,
-      processingTime: duration
-    });
-  }
-});
 
 /**
  * 📊 جلب المصاريف اليومية للمشروع

@@ -118,7 +118,7 @@ export const refreshTokens = pgTable("refresh_tokens", {
 // Audit Logs table (جدول سجلات التدقيق)
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
-  user_id: varchar("user_id").references(() => users.id),
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
   action: text("action").notNull(),
   meta: jsonb("meta"),
   ipAddress: text("ip_address"),
@@ -160,7 +160,7 @@ export type Task = typeof tasks.$inferSelect;
 // Authentication User Sessions table (جدول جلسات المستخدمين)
 export const authUserSessions = pgTable("auth_user_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   sessionToken: varchar("session_token"),
   deviceFingerprint: varchar("device_fingerprint"),
   userAgent: text("user_agent"),
@@ -213,14 +213,14 @@ export type InsertAuthRequestNonce = z.infer<typeof insertAuthRequestNonceSchema
 // Notifications table (جدول الإشعارات)
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").references(() => users.id), // null if broadcast
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // null if broadcast
   title: text("title").notNull(),
   body: text("body").notNull(),
   message: text("message"), // Keeping for backward compatibility if needed, but 'body' is preferred
   type: text("type").notNull().default("system"),
   priority: integer("priority").default(3),
-  project_id: varchar("project_id").references(() => projects.id),
-  createdBy: varchar("created_by").references(() => users.id),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   recipients: text("recipients").array(), // For targeted multiple users
   payload: jsonb("payload"),
   meta: jsonb("meta"),
@@ -248,7 +248,7 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 // Email Verification Tokens table (جدول رموز التحقق من البريد الإلكتروني)
 export const emailVerificationTokens = pgTable("email_verification_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   email: text("email").notNull(), 
   token: varchar("token").notNull().unique(), 
   tokenHash: varchar("token_hash").notNull(), 
@@ -266,7 +266,7 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
 // Password Reset Tokens table (جدول رموز استرجاع كلمة المرور)
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   token: varchar("token").notNull().unique(), // الرمز المرسل للمستخدم
   tokenHash: varchar("token_hash").notNull(), // hash الرمز المحفوظ في قاعدة البيانات
   expiresAt: timestamp("expires_at").notNull(), // انتهاء صلاحية الرمز (عادة ساعة واحدة)
@@ -323,7 +323,7 @@ export const workers = pgTable("workers", {
   hireDate: text("hire_date"), // تاريخ التوظيف (YYYY-MM-DD)
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  created_by: varchar("created_by").references(() => users.id),
+  created_by: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   ...syncFields,
 }, (table) => ({
   uniqueWorkerPerUser: sql`UNIQUE ("name", "created_by")`,
@@ -353,7 +353,7 @@ export const wells = pgTable("wells", {
   completionDate: date("completion_date"), // تاريخ الانتهاء (nullable)
   notes: text("notes"),
   beneficiaryPhone: text("beneficiary_phone"),
-  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
   ...syncFields,
@@ -422,7 +422,7 @@ export const suppliers = pgTable("suppliers", {
   is_active: boolean("is_active").default(true).notNull(),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  created_by: varchar("created_by").references(() => users.id),
+  created_by: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
 }, (table) => ({
   uniqueSupplierPerUser: sql`UNIQUE ("name", "created_by")`,
 }));
@@ -532,7 +532,7 @@ export const workerProjectWages = pgTable("worker_project_wages", {
   effectiveFrom: text("effective_from").notNull(),
   effectiveTo: text("effective_to"),
   is_active: boolean("is_active").default(true).notNull(),
-  created_by: varchar("created_by").references(() => users.id),
+  created_by: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -561,7 +561,7 @@ export const workerBalances = pgTable("worker_balances", {
 export const dailyActivityLogs = pgTable("daily_activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  engineerId: varchar("engineer_id").notNull().references(() => users.id),
+  engineerId: varchar("engineer_id").notNull().references(() => users.id, { onDelete: "restrict" }),
   logDate: text("log_date").notNull(), // YYYY-MM-DD
   activityTitle: text("activity_title").notNull(),
   description: text("description"),
@@ -657,7 +657,7 @@ export const backupLogs = pgTable("backup_logs", {
   status: text("status").notNull(), // success, failed, in_progress
   destination: text("destination").notNull(), // local, gdrive, telegram, all
   errorMessage: text("error_message"),
-  triggeredBy: varchar("triggered_by").references(() => users.id),
+  triggeredBy: varchar("triggered_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -867,7 +867,7 @@ export const userProjectPermissions = pgTable("user_project_permissions", {
   canAdd: boolean("can_add").default(false).notNull(),
   canEdit: boolean("can_edit").default(false).notNull(),
   canDelete: boolean("can_delete").default(false).notNull(),
-  assignedBy: varchar("assigned_by").references(() => users.id),
+  assignedBy: varchar("assigned_by").references(() => users.id, { onDelete: "set null" }),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -878,9 +878,9 @@ export const userProjectPermissions = pgTable("user_project_permissions", {
 export const permissionAuditLogs = pgTable("permission_audit_logs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   action: varchar("action").notNull(), // assign, unassign, update_permissions
-  actorId: varchar("actor_id").notNull().references(() => users.id),
-  targetUserId: varchar("target_user_id").references(() => users.id),
-  project_id: varchar("project_id").references(() => projects.id),
+  actorId: varchar("actor_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  targetUserId: varchar("target_user_id").references(() => users.id, { onDelete: "set null" }),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
   oldPermissions: jsonb("old_permissions"), // الصلاحيات القديمة
   newPermissions: jsonb("new_permissions"), // الصلاحيات الجديدة
   ipAddress: inet("ip_address"),
@@ -1234,7 +1234,7 @@ export type ReportTemplate = typeof reportTemplates.$inferSelect;
 export const notificationReadStates = pgTable("notification_read_states", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   notificationId: text("notification_id").notNull(), // معرف الإشعار (مثل maintenance-tool-id)
-  user_id: varchar("user_id").references(() => users.id), // المستخدم الذي قرأ الإشعار (null للعام)
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "cascade" }), // المستخدم الذي قرأ الإشعار (null للعام)
   isRead: boolean("is_read").default(true).notNull(), // حالة القراءة
   readAt: timestamp("read_at").defaultNow().notNull(), // تاريخ القراءة
   deviceInfo: text("device_info"), // معلومات الجهاز للمراجعة
@@ -1271,7 +1271,7 @@ export const buildDeployments = pgTable("build_deployments", {
   duration: integer("duration"),
   startTime: timestamp("start_time").defaultNow().notNull(),
   endTime: timestamp("end_time"),
-  triggeredBy: varchar("triggered_by").references(() => users.id),
+  triggeredBy: varchar("triggered_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1407,7 +1407,7 @@ export const wellTaskAccounts = pgTable("well_task_accounts", {
   id: serial("id").primaryKey(),
   taskId: integer("task_id").notNull().unique().references(() => wellTasks.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  accountedBy: varchar("accounted_by").notNull().references(() => users.id),
+  accountedBy: varchar("accounted_by").notNull().references(() => users.id, { onDelete: "restrict" }),
   accountedAt: timestamp("accounted_at").defaultNow().notNull(),
   paymentMethod: varchar("payment_method", { length: 50 }),
   referenceNumber: varchar("reference_number", { length: 100 }),
@@ -1428,7 +1428,7 @@ export const wellExpenses = pgTable("well_expenses", {
   unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
   expenseDate: date("expense_date").notNull(),
-  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   notes: text("notes"),
 });
@@ -1443,7 +1443,7 @@ export const wellAuditLogs = pgTable("well_audit_logs", {
   entityId: integer("entity_id").notNull(),
   previousData: jsonb("previous_data"),
   newData: jsonb("new_data"),
-  user_id: varchar("user_id").notNull().references(() => users.id),
+  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
   ipAddress: inet("ip_address"),
   userAgent: text("user_agent"),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -1535,7 +1535,7 @@ export const wellWorkCrews = pgTable("well_work_crews", {
   crewDues: decimal("crew_dues", { precision: 12, scale: 2 }),
   workDate: date("work_date"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1578,7 +1578,7 @@ export const wellSolarComponents = pgTable("well_solar_components", {
   installationStatus: varchar("installation_status", { length: 30 }).default("not_installed"),
   installedComponents: text("installed_components"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1593,7 +1593,7 @@ export const wellTransportDetails = pgTable("well_transport_details", {
   crewEntitlements: decimal("crew_entitlements", { precision: 12, scale: 2 }),
   transportDate: date("transport_date"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1601,7 +1601,7 @@ export const wellTransportDetails = pgTable("well_transport_details", {
 export const wellReceptions = pgTable("well_receptions", {
   id: serial("id").primaryKey(),
   well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
-  receivedBy: varchar("received_by").references(() => users.id),
+  receivedBy: varchar("received_by").references(() => users.id, { onDelete: "set null" }),
   receiverName: text("receiver_name"),
   inspectionStatus: varchar("inspection_status", { length: 50 }).default("pending"), // pending, passed, failed
   inspectionNotes: text("inspection_notes"),
@@ -1609,7 +1609,7 @@ export const wellReceptions = pgTable("well_receptions", {
   receptionDate: date("reception_date"),
   engineers: text("engineers"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1670,16 +1670,16 @@ export const equipment = pgTable("equipment", {
   description: text("description"),
   purchaseDate: text("purchase_date"),
   purchasePrice: text("purchase_price"),
-  project_id: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
   imageUrl: text("image_url"),
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const equipmentMovements = pgTable("equipment_movements", {
   id: serial("id").primaryKey(),
-  equipmentId: integer("equipment_id").references(() => equipment.id),
-  fromProjectId: varchar("from_project_id").references(() => projects.id),
-  toProjectId: varchar("to_project_id").references(() => projects.id),
+  equipmentId: integer("equipment_id").references(() => equipment.id, { onDelete: "cascade" }),
+  fromProjectId: varchar("from_project_id").references(() => projects.id, { onDelete: "set null" }),
+  toProjectId: varchar("to_project_id").references(() => projects.id, { onDelete: "set null" }),
   quantity: integer("quantity").default(1).notNull(),
   movementDate: timestamp("movement_date").defaultNow(),
   reason: text("reason"),
@@ -1715,7 +1715,7 @@ export const accountTypes = pgTable("account_types", {
 export const journalEntries = pgTable("journal_entries", {
   id: uuid("id").defaultRandom().primaryKey(),
   entryNumber: serial("entry_number"),
-  project_id: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
   entryDate: text("entry_date").notNull(), // YYYY-MM-DD
   description: text("description").notNull(),
   sourceTable: text("source_table").notNull(), // fund_transfers, material_purchases, etc
@@ -1724,14 +1724,14 @@ export const journalEntries = pgTable("journal_entries", {
   reversalOfId: uuid("reversal_of_id"),
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
   status: text("status").default("posted"), // draft, posted, reversed
-  createdBy: varchar("created_by").references(() => users.id),
+  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
   created_at: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
 });
 
 export const journalLines = pgTable("journal_lines", {
   id: uuid("id").defaultRandom().primaryKey(),
-  journalEntryId: uuid("journal_entry_id").references(() => journalEntries.id).notNull(),
+  journalEntryId: uuid("journal_entry_id").references(() => journalEntries.id, { onDelete: "cascade" }).notNull(),
   accountCode: varchar("account_code", { length: 20 }).notNull(),
   debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
   creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
@@ -1741,14 +1741,14 @@ export const journalLines = pgTable("journal_lines", {
 
 export const financialAuditLog = pgTable("financial_audit_log", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
   action: text("action").notNull(), // create, update, delete, reverse
   entityType: text("entity_type").notNull(), // fund_transfer, material_purchase, etc
   entityId: text("entity_id").notNull(),
   previousData: jsonb("previous_data"),
   newData: jsonb("new_data"),
   changedFields: jsonb("changed_fields"),
-  user_id: varchar("user_id").references(() => users.id),
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
   userEmail: text("user_email"),
   reason: text("reason"),
   ipAddress: inet("ip_address"),
@@ -1757,13 +1757,13 @@ export const financialAuditLog = pgTable("financial_audit_log", {
 
 export const reconciliationRecords = pgTable("reconciliation_records", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: varchar("project_id").references(() => projects.id).notNull(),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
   reconciliationDate: text("reconciliation_date").notNull(), // YYYY-MM-DD
   ledgerBalance: decimal("ledger_balance", { precision: 15, scale: 2 }).notNull(),
   computedBalance: decimal("computed_balance", { precision: 15, scale: 2 }).notNull(),
   discrepancy: decimal("discrepancy", { precision: 15, scale: 2 }).notNull(),
   status: text("status").default("pending"), // pending, matched, discrepancy, resolved
-  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedBy: varchar("resolved_by").references(() => users.id, { onDelete: "set null" }),
   resolvedAt: timestamp("resolved_at"),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -1771,7 +1771,7 @@ export const reconciliationRecords = pgTable("reconciliation_records", {
 
 export const summaryInvalidations = pgTable("summary_invalidations", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: varchar("project_id").references(() => projects.id).notNull(),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
   invalidatedFrom: text("invalidated_from").notNull(), // YYYY-MM-DD
   reason: text("reason").notNull(),
   sourceTable: text("source_table"),
@@ -1805,7 +1805,7 @@ export type InsertSummaryInvalidation = z.infer<typeof insertSummaryInvalidation
 
 export const syncAuditLogs = pgTable("sync_audit_logs", {
   id: serial("id").primaryKey(),
-  user_id: varchar("user_id").references(() => users.id),
+  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
   userName: text("user_name"),
   module: varchar("module", { length: 50 }).notNull(),
   tableName: varchar("table_name", { length: 100 }).notNull(),
@@ -1820,7 +1820,7 @@ export const syncAuditLogs = pgTable("sync_audit_logs", {
   userAgent: text("user_agent"),
   durationMs: integer("duration_ms"),
   syncType: varchar("sync_type", { length: 30 }),
-  project_id: varchar("project_id").references(() => projects.id),
+  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
   projectName: text("project_name"),
   amount: decimal("amount", { precision: 15, scale: 2 }),
   created_at: timestamp("created_at").defaultNow().notNull(),

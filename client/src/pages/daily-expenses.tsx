@@ -1815,16 +1815,13 @@ function DailyExpensesContent() {
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/fund-transfers/${id}`, "PATCH", data),
     onSuccess: async (updatedTransfer, { id }) => {
-      // تحديث daily-expenses query حيث تأتي بيانات fund transfers
+      refreshAllData();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyExpenses(selectedProjectId, selectedDate) });
-      // تحديث previous-balance للأيام التالية لأن التعديل يؤثر على الرصيد
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.previousBalance(selectedProjectId) });
 
-      // حفظ قيم الإكمال التلقائي
       if (senderName) await saveAutocompleteValue('senderNames', senderName);
       if (transferNumber) await saveAutocompleteValue('transferNumbers', transferNumber);
 
-      // تحديث كاش autocomplete للتأكد من ظهور البيانات الجديدة
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
       resetFundTransferForm();
@@ -1922,12 +1919,10 @@ function DailyExpensesContent() {
     mutationFn: ({ id, data }: { id: string; data: any }) => 
       apiRequest(`/api/transportation-expenses/${id}`, "PATCH", data),
     onSuccess: async (updatedExpense, { id }) => {
-      // تحديث daily-expenses query حيث تأتي بيانات transportation expenses
+      refreshAllData();
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dailyExpenses(selectedProjectId, selectedDate) });
-      // تحديث previous-balance للأيام التالية لأن التعديل يؤثر على الرصيد
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.previousBalance(selectedProjectId) });
 
-      // حفظ قيم الإكمال التلقائي
       if (transportDescription && transportDescription.trim().length >= 2) {
         await saveAutocompleteValue('transportDescriptions', transportDescription);
       }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
 import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
@@ -75,6 +76,16 @@ export function EquipmentManagement() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { setFloatingAction, setSecondaryAction } = useFloatingButton();
+
+  useEffect(() => {
+    setFloatingAction(() => setShowReceiveDialog(true), "إضافة وارد");
+    setSecondaryAction(() => setShowIssueDialog(true), "صرف مادة", "destructive");
+    return () => {
+      setFloatingAction(null);
+      setSecondaryAction(null);
+    };
+  }, [setFloatingAction, setSecondaryAction]);
 
   const { data: statsData } = useQuery({
     queryKey: ['/api/inventory/stats'],
@@ -177,338 +188,302 @@ export function EquipmentManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 md:p-6" dir="rtl">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="text-page-title">إدارة المخزن والأصول</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">إدارة شاملة للمواد المخزنية والمعدات والأصول</p>
+    <div className="container mx-auto p-4 space-y-4" dir="rtl">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary" />
+              <span className="text-sm text-primary/80 dark:text-primary/70">إجمالي المواد</span>
+            </div>
+            <p className="text-2xl font-bold text-primary mt-1" data-testid="text-total-items">{stats.total_items || 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <span className="text-sm text-emerald-700 dark:text-emerald-300">مواد متوفرة</span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200 mt-1" data-testid="text-in-stock">{stats.items_in_stock || 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-amber-600" />
+              <span className="text-sm text-amber-700 dark:text-amber-300">قيمة المخزون</span>
+            </div>
+            <p className="text-lg font-bold text-amber-800 dark:text-amber-200 mt-1" data-testid="text-stock-value">{formatCurrency(parseFloat(stats.total_stock_value || '0'))}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              <span className="text-sm text-red-700 dark:text-red-300">نفذت من المخزن</span>
+            </div>
+            <p className="text-2xl font-bold text-red-800 dark:text-red-200 mt-1" data-testid="text-out-of-stock">{stats.out_of_stock_items || 0}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid grid-cols-5 w-full bg-white dark:bg-gray-800 shadow-sm" data-testid="tabs-inventory">
+          <TabsTrigger value="stock" className="flex items-center gap-1" data-testid="tab-stock">
+            <Box className="w-4 h-4" /> الرصيد
+          </TabsTrigger>
+          <TabsTrigger value="incoming" className="flex items-center gap-1" data-testid="tab-incoming">
+            <ArrowDownToLine className="w-4 h-4" /> الوارد
+          </TabsTrigger>
+          <TabsTrigger value="outgoing" className="flex items-center gap-1" data-testid="tab-outgoing">
+            <ArrowUpFromLine className="w-4 h-4" /> الصرف
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex items-center gap-1" data-testid="tab-reports">
+            <BarChart3 className="w-4 h-4" /> التقارير
+          </TabsTrigger>
+          <TabsTrigger value="assets" className="flex items-center gap-1" data-testid="tab-assets">
+            <Settings className="w-4 h-4" /> الأصول
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="stock" className="space-y-4">
+          <div className="flex gap-3 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input 
+                data-testid="input-search-stock"
+                placeholder="بحث في المواد..." 
+                value={searchTerm} 
+                onChange={e => setSearchTerm(e.target.value)}
+                className="pr-10"
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px]" data-testid="select-category-filter">
+                <SelectValue placeholder="الفئة" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الفئات</SelectItem>
+                {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex gap-2">
-            <Button data-testid="button-add-to-stock" onClick={() => setShowReceiveDialog(true)} className="bg-green-600 hover:bg-green-700">
-              <Plus className="w-4 h-4 ml-1" /> إضافة وارد
-            </Button>
-            <Button data-testid="button-issue-stock" onClick={() => setShowIssueDialog(true)} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
-              <Minus className="w-4 h-4 ml-1" /> صرف مادة
-            </Button>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-blue-600" />
-                <span className="text-sm text-blue-700 dark:text-blue-300">إجمالي المواد</span>
-              </div>
-              <p className="text-2xl font-bold text-blue-800 dark:text-blue-200 mt-1" data-testid="text-total-items">{stats.total_items || 0}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                <span className="text-sm text-green-700 dark:text-green-300">مواد متوفرة</span>
-              </div>
-              <p className="text-2xl font-bold text-green-800 dark:text-green-200 mt-1" data-testid="text-in-stock">{stats.items_in_stock || 0}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-amber-600" />
-                <span className="text-sm text-amber-700 dark:text-amber-300">قيمة المخزون</span>
-              </div>
-              <p className="text-lg font-bold text-amber-800 dark:text-amber-200 mt-1" data-testid="text-stock-value">{formatCurrency(parseFloat(stats.total_stock_value || '0'))}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                <span className="text-sm text-red-700 dark:text-red-300">نفذت من المخزن</span>
-              </div>
-              <p className="text-2xl font-bold text-red-800 dark:text-red-200 mt-1" data-testid="text-out-of-stock">{stats.out_of_stock_items || 0}</p>
-            </CardContent>
-          </Card>
-        </div>
+          {stockLoading ? (
+            <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
+          ) : stockItems.length === 0 ? (
+            <Card className="py-10 text-center text-gray-500">
+              <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>لا توجد مواد في المخزن</p>
+              <Button data-testid="button-add-first" onClick={() => setShowReceiveDialog(true)} className="mt-3" variant="outline">إضافة مادة</Button>
+            </Card>
+          ) : (
+            <div className="grid gap-3">
+              {stockItems.map(item => {
+                const remaining = parseFloat(item.total_remaining || '0');
+                const received = parseFloat(item.total_received || '0');
+                const percentUsed = received > 0 ? ((received - remaining) / received) * 100 : 0;
+                const isLow = remaining <= parseFloat(item.min_quantity || '0') && remaining > 0;
+                const isOut = remaining <= 0;
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-5 w-full bg-white dark:bg-gray-800 shadow-sm" data-testid="tabs-inventory">
-            <TabsTrigger value="stock" className="flex items-center gap-1" data-testid="tab-stock">
-              <Box className="w-4 h-4" /> الرصيد
-            </TabsTrigger>
-            <TabsTrigger value="incoming" className="flex items-center gap-1" data-testid="tab-incoming">
-              <ArrowDownToLine className="w-4 h-4" /> الوارد
-            </TabsTrigger>
-            <TabsTrigger value="outgoing" className="flex items-center gap-1" data-testid="tab-outgoing">
-              <ArrowUpFromLine className="w-4 h-4" /> الصرف
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-1" data-testid="tab-reports">
-              <BarChart3 className="w-4 h-4" /> التقارير
-            </TabsTrigger>
-            <TabsTrigger value="assets" className="flex items-center gap-1" data-testid="tab-assets">
-              <Settings className="w-4 h-4" /> الأصول
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="stock" className="space-y-4">
-            <div className="flex gap-3 items-center">
-              <div className="relative flex-1">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input 
-                  data-testid="input-search-stock"
-                  placeholder="بحث في المواد..." 
-                  value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="pr-10"
-                />
-              </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-category-filter">
-                  <SelectValue placeholder="الفئة" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الفئات</SelectItem>
-                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {stockLoading ? (
-              <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
-            ) : stockItems.length === 0 ? (
-              <Card className="py-10 text-center text-gray-500">
-                <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>لا توجد مواد في المخزن</p>
-                <Button data-testid="button-add-first" onClick={() => setShowReceiveDialog(true)} className="mt-3" variant="outline">إضافة مادة</Button>
-              </Card>
-            ) : (
-              <div className="grid gap-3">
-                {stockItems.map(item => {
-                  const remaining = parseFloat(item.total_remaining || '0');
-                  const received = parseFloat(item.total_received || '0');
-                  const percentUsed = received > 0 ? ((received - remaining) / received) * 100 : 0;
-                  const isLow = remaining <= parseFloat(item.min_quantity || '0') && remaining > 0;
-                  const isOut = remaining <= 0;
-
-                  return (
-                    <Card key={item.id} data-testid={`card-stock-item-${item.id}`} className={`hover:shadow-md transition-shadow ${isOut ? 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/20' : isLow ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20' : ''}`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-gray-900 dark:text-white">{item.name}</h3>
-                              {item.category && <Badge variant="outline" className="text-xs">{item.category}</Badge>}
-                              {isOut && <Badge className="bg-red-500 text-white text-xs">نفذ</Badge>}
-                              {isLow && !isOut && <Badge className="bg-amber-500 text-white text-xs">منخفض</Badge>}
-                            </div>
-                            <div className="flex gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
-                              <span>الوحدة: {item.unit}</span>
-                              <span>الوارد: <strong>{parseFloat(item.total_received || '0').toFixed(1)}</strong></span>
-                              <span>المنصرف: <strong>{parseFloat(item.total_issued || '0').toFixed(1)}</strong></span>
-                              <span>الموردين: {item.supplier_count}</span>
-                            </div>
-                            <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                              <div className={`h-2 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-green-500'}`} style={{ width: `${Math.min(100, 100 - percentUsed)}%` }}></div>
-                            </div>
-                          </div>
-                          <div className="text-left mr-4">
-                            <p className={`text-2xl font-bold ${isOut ? 'text-red-600' : isLow ? 'text-amber-600' : 'text-green-600'}`} data-testid={`text-remaining-${item.id}`}>
-                              {remaining.toFixed(1)}
-                            </p>
-                            <p className="text-xs text-gray-500">{item.unit} متبقي</p>
-                            <p className="text-xs text-gray-400 mt-1">{formatCurrency(parseFloat(item.stock_value || '0'))}</p>
-                          </div>
-                          <div className="flex flex-col gap-1 mr-3">
-                            <Button data-testid={`button-issue-${item.id}`} size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 text-xs" onClick={() => { setSelectedItem(item); setShowIssueDialog(true); }} disabled={isOut}>
-                              <ArrowUpFromLine className="w-3 h-3 ml-1" /> صرف
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="incoming" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">سجل الوارد</h2>
-              <Button data-testid="button-add-incoming" onClick={() => setShowReceiveDialog(true)} size="sm" className="bg-green-600 hover:bg-green-700">
-                <Plus className="w-4 h-4 ml-1" /> إضافة وارد
-              </Button>
-            </div>
-            <TransactionList transactions={incomingTx} loading={txLoading} getTypeBadge={getTypeBadge} emptyMessage="لا يوجد وارد مسجل" />
-          </TabsContent>
-
-          <TabsContent value="outgoing" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">سجل الصرف</h2>
-              <Button data-testid="button-add-issue" onClick={() => setShowIssueDialog(true)} size="sm" variant="outline" className="border-red-300 text-red-600">
-                <Minus className="w-4 h-4 ml-1" /> صرف مادة
-              </Button>
-            </div>
-            <TransactionList transactions={outgoingTx} loading={txLoading} getTypeBadge={getTypeBadge} emptyMessage="لا يوجد صرف مسجل" />
-          </TabsContent>
-
-          <TabsContent value="reports" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">تقارير المخزن</h2>
-              <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
-                <SelectTrigger className="w-[180px]" data-testid="select-report-group">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="item">حسب المادة</SelectItem>
-                  <SelectItem value="supplier">حسب المورد</SelectItem>
-                  <SelectItem value="project">حسب المشروع</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {reportGroupBy === 'item' && (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse" data-testid="table-report-items">
-                  <thead>
-                    <tr className="bg-gray-100 dark:bg-gray-700">
-                      <th className="p-3 text-right text-sm font-semibold">المادة</th>
-                      <th className="p-3 text-right text-sm font-semibold">الفئة</th>
-                      <th className="p-3 text-right text-sm font-semibold">الوحدة</th>
-                      <th className="p-3 text-center text-sm font-semibold">الوارد</th>
-                      <th className="p-3 text-center text-sm font-semibold">المنصرف</th>
-                      <th className="p-3 text-center text-sm font-semibold">الرصيد</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reports.map((r: any, i: number) => (
-                      <tr key={r.id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-3 font-medium">{r.name}</td>
-                        <td className="p-3 text-gray-500">{r.category || '-'}</td>
-                        <td className="p-3 text-gray-500">{r.unit}</td>
-                        <td className="p-3 text-center text-green-600 font-semibold">{parseFloat(r.total_in || 0).toFixed(1)}</td>
-                        <td className="p-3 text-center text-red-600 font-semibold">{parseFloat(r.total_out || 0).toFixed(1)}</td>
-                        <td className="p-3 text-center font-bold">{parseFloat(r.balance || 0).toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {reportGroupBy === 'supplier' && (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse" data-testid="table-report-suppliers">
-                  <thead>
-                    <tr className="bg-gray-100 dark:bg-gray-700">
-                      <th className="p-3 text-right text-sm font-semibold">المورد</th>
-                      <th className="p-3 text-center text-sm font-semibold">عدد المواد</th>
-                      <th className="p-3 text-center text-sm font-semibold">إجمالي الوارد</th>
-                      <th className="p-3 text-center text-sm font-semibold">المنصرف</th>
-                      <th className="p-3 text-center text-sm font-semibold">المتبقي</th>
-                      <th className="p-3 text-center text-sm font-semibold">القيمة الإجمالية</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reports.map((r: any, i: number) => (
-                      <tr key={r.supplier_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-3 font-medium">{r.supplier_name}</td>
-                        <td className="p-3 text-center">{r.item_count}</td>
-                        <td className="p-3 text-center text-green-600">{parseFloat(r.total_supplied || 0).toFixed(1)}</td>
-                        <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
-                        <td className="p-3 text-center font-bold">{parseFloat(r.total_remaining || 0).toFixed(1)}</td>
-                        <td className="p-3 text-center">{formatCurrency(parseFloat(r.total_value || 0))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {reportGroupBy === 'project' && (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse" data-testid="table-report-projects">
-                  <thead>
-                    <tr className="bg-gray-100 dark:bg-gray-700">
-                      <th className="p-3 text-right text-sm font-semibold">المشروع</th>
-                      <th className="p-3 text-center text-sm font-semibold">عدد المواد</th>
-                      <th className="p-3 text-center text-sm font-semibold">إجمالي المصروف</th>
-                      <th className="p-3 text-center text-sm font-semibold">التكلفة الإجمالية</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reports.map((r: any, i: number) => (
-                      <tr key={r.project_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="p-3 font-medium">{r.project_name}</td>
-                        <td className="p-3 text-center">{r.item_count}</td>
-                        <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
-                        <td className="p-3 text-center font-bold">{formatCurrency(parseFloat(r.total_cost || 0))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {reports.length === 0 && (
-              <Card className="py-10 text-center text-gray-500">
-                <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>لا توجد بيانات للتقارير</p>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="assets" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">المعدات والأصول</h2>
-              <Button data-testid="button-add-equipment" onClick={() => setShowAddEquipmentDialog(true)} size="sm">
-                <Plus className="w-4 h-4 ml-1" /> إضافة معدة
-              </Button>
-            </div>
-
-            {equipmentLoading ? (
-              <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
-            ) : equipmentList.length === 0 ? (
-              <Card className="py-10 text-center text-gray-500">
-                <Settings className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>لا توجد معدات مسجلة</p>
-              </Card>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {equipmentList.map((eq: any) => (
-                  <Card key={eq.id} data-testid={`card-equipment-${eq.id}`} className="hover:shadow-md transition-shadow">
+                return (
+                  <Card key={item.id} data-testid={`card-stock-item-${item.id}`} className={`hover:shadow-md transition-shadow ${isOut ? 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/20' : isLow ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20' : ''}`}>
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold">{eq.name}</h3>
-                          <p className="text-xs text-gray-500">{eq.code}</p>
-                          <div className="flex gap-1 mt-1">
-                            <Badge variant="outline" className="text-xs">{eq.type || 'عام'}</Badge>
-                            <Badge className={`text-xs ${eq.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                              {eq.status === 'active' ? 'نشط' : eq.status}
-                            </Badge>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900 dark:text-white">{item.name}</h3>
+                            {item.category && <Badge variant="outline" className="text-xs">{item.category}</Badge>}
+                            {isOut && <Badge className="bg-red-500 text-white text-xs">نفذ</Badge>}
+                            {isLow && !isOut && <Badge className="bg-amber-500 text-white text-xs">منخفض</Badge>}
                           </div>
-                          <p className="text-sm mt-1 text-gray-600">الكمية: {eq.quantity} {eq.unit}</p>
+                          <div className="flex gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span>الوحدة: {item.unit}</span>
+                            <span>الوارد: <strong>{parseFloat(item.total_received || '0').toFixed(1)}</strong></span>
+                            <span>المنصرف: <strong>{parseFloat(item.total_issued || '0').toFixed(1)}</strong></span>
+                            <span>الموردين: {item.supplier_count}</span>
+                          </div>
+                          <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div className={`h-2 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, 100 - percentUsed)}%` }}></div>
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowTransferDialog(true); }}>
-                            <Truck className="w-3 h-3 ml-1" /> نقل
-                          </Button>
-                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); }}>
-                            <RefreshCw className="w-3 h-3 ml-1" /> سجل
+                        <div className="text-left mr-4">
+                          <p className={`text-2xl font-bold ${isOut ? 'text-red-600' : isLow ? 'text-amber-600' : 'text-emerald-600'}`} data-testid={`text-remaining-${item.id}`}>
+                            {remaining.toFixed(1)}
+                          </p>
+                          <p className="text-xs text-gray-500">{item.unit} متبقي</p>
+                          <p className="text-xs text-gray-400 mt-1">{formatCurrency(parseFloat(item.stock_value || '0'))}</p>
+                        </div>
+                        <div className="flex flex-col gap-1 mr-3">
+                          <Button data-testid={`button-issue-${item.id}`} size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 text-xs" onClick={() => { setSelectedItem(item); setShowIssueDialog(true); }} disabled={isOut}>
+                            <ArrowUpFromLine className="w-3 h-3 ml-1" /> صرف
                           </Button>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="incoming" className="space-y-4">
+          <TransactionList transactions={incomingTx} loading={txLoading} getTypeBadge={getTypeBadge} emptyMessage="لا يوجد وارد مسجل" />
+        </TabsContent>
+
+        <TabsContent value="outgoing" className="space-y-4">
+          <TransactionList transactions={outgoingTx} loading={txLoading} getTypeBadge={getTypeBadge} emptyMessage="لا يوجد صرف مسجل" />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-4">
+          <div className="flex items-center justify-end">
+            <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
+              <SelectTrigger className="w-[180px]" data-testid="select-report-group">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="item">حسب المادة</SelectItem>
+                <SelectItem value="supplier">حسب المورد</SelectItem>
+                <SelectItem value="project">حسب المشروع</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {reportGroupBy === 'item' && (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse" data-testid="table-report-items">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="p-3 text-right text-sm font-semibold">المادة</th>
+                    <th className="p-3 text-right text-sm font-semibold">الفئة</th>
+                    <th className="p-3 text-right text-sm font-semibold">الوحدة</th>
+                    <th className="p-3 text-center text-sm font-semibold">الوارد</th>
+                    <th className="p-3 text-center text-sm font-semibold">المنصرف</th>
+                    <th className="p-3 text-center text-sm font-semibold">الرصيد</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((r: any, i: number) => (
+                    <tr key={r.id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="p-3 font-medium">{r.name}</td>
+                      <td className="p-3 text-gray-500">{r.category || '-'}</td>
+                      <td className="p-3 text-gray-500">{r.unit}</td>
+                      <td className="p-3 text-center text-green-600 font-semibold">{parseFloat(r.total_in || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-red-600 font-semibold">{parseFloat(r.total_out || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center font-bold">{parseFloat(r.balance || 0).toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {reportGroupBy === 'supplier' && (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse" data-testid="table-report-suppliers">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="p-3 text-right text-sm font-semibold">المورد</th>
+                    <th className="p-3 text-center text-sm font-semibold">عدد المواد</th>
+                    <th className="p-3 text-center text-sm font-semibold">إجمالي الوارد</th>
+                    <th className="p-3 text-center text-sm font-semibold">المنصرف</th>
+                    <th className="p-3 text-center text-sm font-semibold">المتبقي</th>
+                    <th className="p-3 text-center text-sm font-semibold">القيمة الإجمالية</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((r: any, i: number) => (
+                    <tr key={r.supplier_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="p-3 font-medium">{r.supplier_name}</td>
+                      <td className="p-3 text-center">{r.item_count}</td>
+                      <td className="p-3 text-center text-green-600">{parseFloat(r.total_supplied || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center font-bold">{parseFloat(r.total_remaining || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center">{formatCurrency(parseFloat(r.total_value || 0))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {reportGroupBy === 'project' && (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse" data-testid="table-report-projects">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="p-3 text-right text-sm font-semibold">المشروع</th>
+                    <th className="p-3 text-center text-sm font-semibold">عدد المواد</th>
+                    <th className="p-3 text-center text-sm font-semibold">إجمالي المصروف</th>
+                    <th className="p-3 text-center text-sm font-semibold">التكلفة الإجمالية</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((r: any, i: number) => (
+                    <tr key={r.project_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <td className="p-3 font-medium">{r.project_name}</td>
+                      <td className="p-3 text-center">{r.item_count}</td>
+                      <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
+                      <td className="p-3 text-center font-bold">{formatCurrency(parseFloat(r.total_cost || 0))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {reports.length === 0 && (
+            <Card className="py-10 text-center text-gray-500">
+              <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>لا توجد بيانات للتقارير</p>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="assets" className="space-y-4">
+          {equipmentLoading ? (
+            <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
+          ) : equipmentList.length === 0 ? (
+            <Card className="py-10 text-center text-gray-500">
+              <Settings className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p>لا توجد معدات مسجلة</p>
+              <Button data-testid="button-add-equipment-empty" onClick={() => setShowAddEquipmentDialog(true)} className="mt-3" variant="outline">إضافة معدة</Button>
+            </Card>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {equipmentList.map((eq: any) => (
+                <Card key={eq.id} data-testid={`card-equipment-${eq.id}`} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold">{eq.name}</h3>
+                        <p className="text-xs text-gray-500">{eq.code}</p>
+                        <div className="flex gap-1 mt-1">
+                          <Badge variant="outline" className="text-xs">{eq.type || 'عام'}</Badge>
+                          <Badge className={`text-xs ${eq.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {eq.status === 'active' ? 'نشط' : eq.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm mt-1 text-gray-600">الكمية: {eq.quantity} {eq.unit}</p>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowTransferDialog(true); }}>
+                          <Truck className="w-3 h-3 ml-1" /> نقل
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); }}>
+                          <RefreshCw className="w-3 h-3 ml-1" /> سجل
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <IssueDialog 
         open={showIssueDialog} 

@@ -3,9 +3,13 @@ import { createContext, useContext, useState, ReactNode, useCallback, useRef } f
 interface FloatingButtonContextType {
   setFloatingAction: (action: (() => void) | null, label?: string) => void;
   setRefreshAction: (action: (() => void) | null) => void;
+  setSecondaryAction: (action: (() => void) | null, label?: string, variant?: 'default' | 'destructive' | 'outline') => void;
   floatingAction: (() => void) | null;
   floatingLabel: string;
   refreshAction: (() => void) | null;
+  secondaryAction: (() => void) | null;
+  secondaryLabel: string;
+  secondaryVariant: 'default' | 'destructive' | 'outline';
   setShowAddButton: (show: boolean) => void;
   showAddButton: boolean;
 }
@@ -15,7 +19,10 @@ const FloatingButtonContext = createContext<FloatingButtonContextType | undefine
 export function FloatingButtonProvider({ children }: { children: ReactNode }) {
   const [floatingAction, setAction] = useState<(() => void) | null>(null);
   const [refreshAction, setRefreshActionState] = useState<(() => void) | null>(null);
+  const [secondaryAction, setSecondaryActionState] = useState<(() => void) | null>(null);
   const [floatingLabel, setLabel] = useState<string>('إضافة جديد');
+  const [secondaryLabel, setSecondaryLabel] = useState<string>('');
+  const [secondaryVariant, setSecondaryVariant] = useState<'default' | 'destructive' | 'outline'>('destructive');
   const [showAddButton, setShowAddButton] = useState<boolean>(false);
 
   const setFloatingAction = useCallback((action: (() => void) | null, label: string = 'إضافة جديد') => {
@@ -36,13 +43,32 @@ export function FloatingButtonProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setSecondaryAction = useCallback((action: (() => void) | null, label: string = '', variant: 'default' | 'destructive' | 'outline' = 'destructive') => {
+    setSecondaryActionState(prev => {
+      if (prev === action) return prev;
+      return action;
+    });
+    setSecondaryLabel(prev => {
+      if (prev === label) return prev;
+      return label;
+    });
+    setSecondaryVariant(prev => {
+      if (prev === variant) return prev;
+      return variant;
+    });
+  }, []);
+
   return (
     <FloatingButtonContext.Provider value={{
       setFloatingAction,
       setRefreshAction,
+      setSecondaryAction,
       floatingAction,
       floatingLabel,
       refreshAction,
+      secondaryAction,
+      secondaryLabel,
+      secondaryVariant,
       setShowAddButton,
       showAddButton,
     }}>

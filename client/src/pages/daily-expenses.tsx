@@ -2298,17 +2298,29 @@ function DailyExpensesContent() {
         });
       });
 
-      // إضافة مشتريات المواد (مصروف نقدي أو مؤجل)
+      // إضافة مشتريات المواد (نقد / آجل / مخزن)
       filteredMaterialPurchases.forEach((purchase: any) => {
         const material = materials.find((m: any) => m.id === purchase.material_id);
-        const isCash = purchase.purchaseType === 'نقد';
+        const pType = purchase.purchaseType || 'نقد';
+        const isCash = pType === 'نقد';
+        const isStorage = pType === 'مخزن' || pType === 'توريد' || pType === 'مخزني';
+        
+        let transactionType: string = 'deferred';
+        let transactionAmount = 0;
+        if (isCash) {
+          transactionType = 'expense';
+          transactionAmount = cleanNumber(purchase.paidAmount) > 0 ? cleanNumber(purchase.paidAmount) : cleanNumber(purchase.totalAmount);
+        } else if (isStorage) {
+          transactionType = 'storage';
+          transactionAmount = cleanNumber(purchase.totalAmount);
+        }
         
         transactions.push({
           id: purchase.id,
           date: purchase.date || selectedDate || new Date().toISOString().split('T')[0],
-          type: isCash ? 'expense' : 'deferred',
-          category: 'مشتريات مواد',
-          amount: isCash ? (cleanNumber(purchase.paidAmount) > 0 ? cleanNumber(purchase.paidAmount) : cleanNumber(purchase.totalAmount)) : 0,
+          type: transactionType,
+          category: isStorage ? 'توريد مخزن' : 'مشتريات مواد',
+          amount: transactionAmount,
           description: `شراء ${material?.name || 'مادة'}`,
           project_id: purchase.project_id,
           projectName: projects.find(p => p.id === purchase.project_id)?.name || 'غير محدد',

@@ -8,7 +8,7 @@ import {
 interface Transaction {
   id: string;
   date: string;
-  type: 'income' | 'expense' | 'deferred' | 'transfer_from_project';
+  type: 'income' | 'expense' | 'deferred' | 'transfer_from_project' | 'storage';
   category: string;
   amount: number;
   description: string;
@@ -38,6 +38,7 @@ const getTypeLabel = (type: string): string => {
     'income': 'دخل',
     'expense': 'مصروف',
     'deferred': 'آجل',
+    'storage': 'مخزن',
     'transfer_from_project': 'ترحيل وارد'
   };
   return labels[type] || type;
@@ -48,6 +49,7 @@ const TYPE_COLORS: Record<string, string> = {
   transfer_from_project: 'FF' + ALFATIHI_COLORS.incomeGreen,
   expense: 'FF' + ALFATIHI_COLORS.expenseRed,
   deferred: 'FF' + ALFATIHI_COLORS.deferredOrange,
+  storage: 'FF' + ALFATIHI_COLORS.accentBlue,
 };
 
 function applyStyle(cell: any, style: any) {
@@ -213,6 +215,49 @@ export async function exportTransactionsToExcel(
   totalRow.height = 22;
   currentRow++;
 
+  // === القسم 1: تفاصيل العهدة (أول قسم تفصيلي) ===
+  const custodyTransactions = transactions.filter(t => t.category === 'عهدة' && t.type === 'income');
+  if (custodyTransactions.length > 0) {
+    currentRow += 2;
+    currentRow = addSectionTitle(worksheet, currentRow, `تفاصيل العهدة (${custodyTransactions.length} سجل)`, COL_COUNT);
+
+    const cHeaders = ['#', 'التاريخ', 'المرسل', 'المشروع', 'طريقة التحويل', 'الوصف', 'المبلغ'];
+    const cHeaderRow = worksheet.getRow(currentRow);
+    cHeaders.forEach((header, idx) => {
+      cHeaderRow.getCell(idx + 1).value = header;
+      applyStyle(cHeaderRow.getCell(idx + 1), EXCEL_STYLES.tableHeader);
+    });
+    cHeaderRow.height = 22;
+    currentRow++;
+
+    let totalCustodyAmount = 0;
+    custodyTransactions.forEach((t, idx) => {
+      const row = worksheet.getRow(currentRow);
+      const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.greenLightRow;
+      totalCustodyAmount += t.amount;
+
+      [idx + 1, new Date(t.date).toLocaleDateString('en-GB'), t.recipientName || '-',
+        t.projectName || 'غير محدد', t.transferMethod || '-', t.description || '-', t.amount].forEach((val, ci) => {
+        const cell = row.getCell(ci + 1);
+        cell.value = val;
+        applyStyle(cell, style);
+        if (ci === 6 && typeof val === 'number') cell.numFmt = '#,##0';
+      });
+      row.height = 20;
+      currentRow++;
+    });
+
+    const cTotalRow = worksheet.getRow(currentRow);
+    worksheet.mergeCells(currentRow, 1, currentRow, 6);
+    cTotalRow.getCell(1).value = `إجمالي العهدة`;
+    cTotalRow.getCell(7).value = totalCustodyAmount;
+    cTotalRow.getCell(7).numFmt = '#,##0';
+    applyRowStyle(cTotalRow, EXCEL_STYLES.greenRow, 1, COL_COUNT);
+    cTotalRow.height = 22;
+    currentRow++;
+  }
+
+  // === القسم 2: تفاصيل أجور العمال ===
   const workerTransactions = transactions.filter(t => t.workerName && (t.workDays || t.dailyWage));
   if (workerTransactions.length > 0) {
     currentRow += 2;
@@ -255,6 +300,7 @@ export async function exportTransactionsToExcel(
     currentRow++;
   }
 
+  // === القسم 3: تفاصيل المواد والمشتريات ===
   const materialTransactions = transactions.filter(t => t.materialName || t.supplierName || (t.quantity && t.unitPrice));
   if (materialTransactions.length > 0) {
     currentRow += 2;
@@ -296,7 +342,11 @@ export async function exportTransactionsToExcel(
     currentRow++;
   }
 
-  const transferTransactions = transactions.filter(t => t.transferMethod && t.recipientName);
+  // === القسم 4: تفاصيل التحويلات (بدون العهدة لتجنب التكرار) ===
+  const transferTransactions = transactions.filter(t => 
+    (t.transferMethod && t.recipientName && t.category !== 'عهدة') ||
+    (t.category === 'حوالات عمال')
+  );
   if (transferTransactions.length > 0) {
     currentRow += 2;
     currentRow = addSectionTitle(worksheet, currentRow, `تفاصيل التحويلات (${transferTransactions.length} سجل)`, COL_COUNT);
@@ -316,8 +366,8 @@ export async function exportTransactionsToExcel(
       const style = idx % 2 === 0 ? EXCEL_STYLES.tableCell : EXCEL_STYLES.greenLightRow;
       totalTransferAmount += t.amount;
 
-      [idx + 1, new Date(t.date).toLocaleDateString('en-GB'), t.recipientName,
-        t.projectName || 'غير محدد', t.transferMethod, t.paymentType || '-', t.amount].forEach((val, ci) => {
+      [idx + 1, new Date(t.date).toLocaleDateString('en-GB'), t.recipientName || t.workerName || '-',
+        t.projectName || 'غير محدد', t.transferMethod || '-', t.paymentType || '-', t.amount].forEach((val, ci) => {
         const cell = row.getCell(ci + 1);
         cell.value = val;
         applyStyle(cell, style);

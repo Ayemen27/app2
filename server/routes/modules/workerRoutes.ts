@@ -2300,7 +2300,6 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
           remainingAmount: dataWithCalculatedFields.remainingAmount,
           paymentType: dataWithCalculatedFields.paymentType,
           notes: dataWithCalculatedFields.notes,
-          updated_at: new Date()
         }
       })
       .returning();

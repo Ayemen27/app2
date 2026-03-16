@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db, withTransaction } from '../../db.js';
-import { equipment, equipmentMovements, projects } from '@shared/schema.js';
+import { equipment, equipmentMovements, projects, insertEquipmentSchema } from '@shared/schema.js';
 import { eq, and, ilike, sql, desc, inArray, or, isNull } from 'drizzle-orm';
 import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
@@ -114,23 +114,28 @@ equipmentRouter.get('/:id', async (req: Request, res: Response) => {
 
 equipmentRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ success: false, message: 'اسم المعدة مطلوب' });
+    const validationResult = insertEquipmentSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات المعدة غير صحيحة',
+        details: validationResult.error.flatten().fieldErrors
+      });
     }
 
-    if (type && !VALID_EQUIPMENT_TYPES.includes(type)) {
+    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = validationResult.data;
+
+    if (type && !VALID_EQUIPMENT_TYPES.includes(type as any)) {
       return res.status(400).json({ success: false, message: `نوع المعدة غير صالح. القيم المسموحة: ${VALID_EQUIPMENT_TYPES.join(', ')}` });
     }
-    if (eqStatus && !VALID_EQUIPMENT_STATUSES.includes(eqStatus)) {
+    if (eqStatus && !VALID_EQUIPMENT_STATUSES.includes(eqStatus as any)) {
       return res.status(400).json({ success: false, message: `حالة المعدة غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_STATUSES.join(', ')}` });
     }
-    if (condition && !VALID_EQUIPMENT_CONDITIONS.includes(condition)) {
+    if (condition && !VALID_EQUIPMENT_CONDITIONS.includes(condition as any)) {
       return res.status(400).json({ success: false, message: `حالة المعدة الفنية غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_CONDITIONS.join(', ')}` });
     }
 
-    const qty = parseInt(quantity) || 1;
+    const qty = quantity ?? 1;
     if (qty < 1) {
       return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
     }
@@ -199,15 +204,24 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
       }
     }
 
-    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = req.body;
+    const validationResult = insertEquipmentSchema.partial().safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'بيانات تحديث المعدة غير صحيحة',
+        details: validationResult.error.flatten().fieldErrors
+      });
+    }
 
-    if (type !== undefined && type !== null && !VALID_EQUIPMENT_TYPES.includes(type)) {
+    const { name, sku, type, unit, quantity, status: eqStatus, condition, description, purchaseDate, purchasePrice, project_id, imageUrl } = validationResult.data;
+
+    if (type !== undefined && type !== null && !VALID_EQUIPMENT_TYPES.includes(type as any)) {
       return res.status(400).json({ success: false, message: `نوع المعدة غير صالح. القيم المسموحة: ${VALID_EQUIPMENT_TYPES.join(', ')}` });
     }
-    if (eqStatus !== undefined && eqStatus !== null && !VALID_EQUIPMENT_STATUSES.includes(eqStatus)) {
+    if (eqStatus !== undefined && eqStatus !== null && !VALID_EQUIPMENT_STATUSES.includes(eqStatus as any)) {
       return res.status(400).json({ success: false, message: `حالة المعدة غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_STATUSES.join(', ')}` });
     }
-    if (condition !== undefined && condition !== null && !VALID_EQUIPMENT_CONDITIONS.includes(condition)) {
+    if (condition !== undefined && condition !== null && !VALID_EQUIPMENT_CONDITIONS.includes(condition as any)) {
       return res.status(400).json({ success: false, message: `حالة المعدة الفنية غير صالحة. القيم المسموحة: ${VALID_EQUIPMENT_CONDITIONS.join(', ')}` });
     }
 
@@ -220,8 +234,8 @@ equipmentRouter.put('/:id', async (req: Request, res: Response) => {
 
     let qty = existing.quantity;
     if (quantity !== undefined) {
-      qty = parseInt(quantity);
-      if (isNaN(qty) || qty < 1) {
+      qty = quantity;
+      if (qty < 1) {
         return res.status(400).json({ success: false, message: 'العدد يجب أن يكون 1 على الأقل' });
       }
     }

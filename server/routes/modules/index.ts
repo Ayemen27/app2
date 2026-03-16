@@ -36,6 +36,7 @@ import permissionRouter from './permissionRoutes.js';
 import deploymentRouter from './deploymentRoutes.js';
 import recordTransferRouter from './recordTransferRoutes.js';
 import settlementRouter from './settlementRoutes.js';
+import inventoryRouter from './inventoryRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 import { telemetryRouter } from './telemetryRoutes.js';
 import { monitoringRouter } from '../../monitoring/routes.js';
@@ -170,6 +171,9 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/worker-settlements', settlementRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات تصفية حسابات العمال: /api/worker-settlements');
 
+  app.use('/api/inventory', inventoryRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات إدارة المخزن: /api/inventory');
+
   // مسارات الإكمال التلقائي الإضافية
   app.use('/api/worker-transfer-notes', autocompleteRouter);
   app.use('/api/worker-transfer-numbers', autocompleteRouter);
@@ -211,7 +215,7 @@ const REGISTERED_ROUTE_FILES = new Set([
   'whatsappAIRoutes',
   'notificationRoutes', 'reportRoutes', 'activityRoutes', 'aiRoutes',
   'syncRoutes', 'tasks', 'securityRoutes', 'backupRoutes',
-  'downloadProxyRoutes', 'ledgerRoutes', 'equipmentRoutes', 'syncAuditRoutes', 'index',
+  'downloadProxyRoutes', 'ledgerRoutes', 'equipmentRoutes', 'inventoryRoutes', 'syncAuditRoutes', 'index',
   'authRoutes',
   'systemRoutes',
   'webauthnRoutes',

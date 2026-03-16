@@ -2202,6 +2202,28 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       projectId: p.project_id,
     });
 
+    if (p.purchaseType === 'مخزن' || p.purchaseType === 'توريد' || p.purchaseType === 'مخزني') {
+      try {
+        const { InventoryService } = await import('../../services/InventoryService.js');
+        await InventoryService.receiveFromPurchase({
+          purchaseId: p.id,
+          materialName: p.materialName || '',
+          materialCategory: p.materialCategory || null,
+          unit: p.unit || p.materialUnit || 'قطعة',
+          quantity: parseFloat(p.quantity || '0'),
+          unitPrice: parseFloat(p.unitPrice || '0'),
+          totalAmount: parseFloat(p.totalAmount || '0'),
+          purchaseDate: p.purchaseDate,
+          supplierId: p.supplier_id || null,
+          projectId: p.project_id || null,
+          notes: p.notes || null,
+        });
+        console.log(`📦 [MaterialPurchases→Inventory] تم إضافة المشتراة ${p.id} تلقائياً للمخزن`);
+      } catch (invErr: any) {
+        console.error(`⚠️ [MaterialPurchases→Inventory] فشل إضافة المشتراة للمخزن:`, invErr.message);
+      }
+    }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم إضافة مشتراة جديدة في ${duration}ms`);
     

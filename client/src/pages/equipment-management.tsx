@@ -1,965 +1,789 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Wrench, Truck, PenTool, Settings, Eye, MapPin, Calendar, DollarSign, Activity, Edit, Trash2, X, FileSpreadsheet, FileText, Printer, BarChart3, History, CheckCircle2, Download, Package } from "lucide-react";
-import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
-import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
-import { useFloatingButton } from "@/components/layout/floating-button-context";
-import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
-import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
-import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
+  Search, Plus, Minus, TrendingUp, TrendingDown, Box, Truck, Users,
+  Calendar, Filter, Download, AlertTriangle, CheckCircle2, RefreshCw
+} from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { createProfessionalReport } from "@/utils/axion-export";
-import { QUERY_KEYS } from "@/constants/queryKeys";
+import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
+import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
+import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
 
-interface Equipment {
-  id: string;
+interface InventoryItem {
+  id: number;
   name: string;
-  code: string;
-  sku: string;
-  type: string;
+  category: string | null;
   unit: string;
-  quantity: number;
-  status: string;
-  condition: string;
-  currentProjectId: string | null;
-  project_id: string | null;
-  purchasePrice: string | number | null;
-  purchaseDate: string | null;
-  description?: string;
-  imageUrl?: string | null;
+  sku: string | null;
+  min_quantity: string;
+  is_active: boolean;
+  total_received: string;
+  total_remaining: string;
+  total_issued: string;
+  stock_value: string;
+  supplier_count: string;
+  last_receipt_date: string | null;
+}
+
+interface InventoryTransaction {
+  id: number;
+  item_id: number;
+  lot_id: number | null;
+  type: string;
+  quantity: string;
+  unit_cost: string;
+  total_cost: string;
+  from_project_id: string | null;
+  to_project_id: string | null;
+  transaction_date: string;
+  notes: string | null;
+  performed_by: string | null;
+  item_name: string;
+  item_unit: string;
+  item_category: string | null;
+  from_project_name: string | null;
+  to_project_name: string | null;
+  supplier_name: string | null;
 }
 
 export function EquipmentManagement() {
-  const [searchValue, setSearchValue] = useState("");
-  const [filterValues, setFilterValues] = useState<Record<string, any>>({
-    status: "all",
-    type: "all",
-    project: "all",
-  });
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("stock");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [txTypeFilter, setTxTypeFilter] = useState("all");
+  const [showIssueDialog, setShowIssueDialog] = useState(false);
+  const [showReceiveDialog, setShowReceiveDialog] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [reportGroupBy, setReportGroupBy] = useState("item");
+
+  const [showAddEquipmentDialog, setShowAddEquipmentDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [showMovementHistoryDialog, setShowMovementHistoryDialog] = useState(false);
-  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
-  const [showEquipmentModal, setShowEquipmentModal] = useState(false);
-  
-  const [isExporting, setIsExporting] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
 
   const queryClient = useQueryClient();
-  const { setFloatingAction } = useFloatingButton();
   const { toast } = useToast();
 
-  const handleFilterChange = useCallback((key: string, value: any) => {
-    setFilterValues(prev => ({ ...prev, [key]: value }));
-  }, []);
+  const { data: statsData } = useQuery({
+    queryKey: ['/api/inventory/stats'],
+  });
 
-  const handleResetFilters = useCallback(() => {
-    setSearchValue("");
-    setFilterValues({ status: "all", type: "all", project: "all" });
-    toast({
-      title: "تم إعادة التعيين",
-      description: "تم مسح جميع الفلاتر",
-    });
-  }, [toast]);
-
-  useEffect(() => {
-    const handleAddEquipment = () => setShowAddDialog(true);
-    setFloatingAction(handleAddEquipment, "إضافة معدة جديدة");
-    return () => setFloatingAction(null);
-  }, [setFloatingAction]);
-
-  const { data: equipment = [], isLoading, refetch: refetchEquipment } = useQuery({
-    queryKey: QUERY_KEYS.equipmentFiltered(searchValue, filterValues.status, filterValues.type, filterValues.project),
-    queryFn: async () => {
+  const { data: stockData, isLoading: stockLoading } = useQuery({
+    queryKey: ['/api/inventory/stock', categoryFilter, searchTerm],
+    queryFn: () => {
       const params = new URLSearchParams();
-      if (searchValue) params.append('searchTerm', searchValue);
-      if (filterValues.status !== 'all') params.append('status', filterValues.status);
-      if (filterValues.type !== 'all') params.append('type', filterValues.type);
-      if (filterValues.project !== 'all' && filterValues.project !== 'warehouse') {
-        params.append('project_id', filterValues.project);
-      } else if (filterValues.project === 'warehouse') {
-        params.append('project_id', '');
-      }
-      
-      try {
-        const result = await apiRequest(`/api/equipment?${params}`);
-        return result.data || result || [];
-      } catch (error) {
-        throw new Error('فشل في جلب المعدات');
-      }
+      if (categoryFilter && categoryFilter !== 'all') params.set('category', categoryFilter);
+      if (searchTerm) params.set('search', searchTerm);
+      return fetch(`/api/inventory/stock?${params}`).then(r => r.json());
     },
-    staleTime: 30 * 60 * 1000,
-    gcTime: 2 * 60 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    retry: 0,
-    enabled: true
   });
 
-  const { data: projects = [] } = useQuery({
-    queryKey: QUERY_KEYS.projects,
-    queryFn: async () => {
-      const response = await apiRequest('/api/projects', 'GET');
-      return response;
+  const { data: transactionsData, isLoading: txLoading } = useQuery({
+    queryKey: ['/api/inventory/transactions', txTypeFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (txTypeFilter && txTypeFilter !== 'all') params.set('type', txTypeFilter);
+      return fetch(`/api/inventory/transactions?${params}`).then(r => r.json());
     },
-    staleTime: 15 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    retry: 1,
-    retryDelay: 1000,
+    enabled: activeTab === 'incoming' || activeTab === 'outgoing' || activeTab === 'transactions',
   });
 
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await refetchEquipment();
-      toast({
-        title: "تم التحديث",
-        description: "تم تحديث البيانات بنجاح",
-      });
-    } catch (error) {
-      toast({
-        title: "خطأ",
-        description: "فشل تحديث البيانات",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [refetchEquipment, toast]);
+  const { data: categoriesData } = useQuery({
+    queryKey: ['/api/inventory/categories'],
+  });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await apiRequest(`/api/equipment/${id}`, "DELETE");
-    },
+  const { data: reportsData } = useQuery({
+    queryKey: ['/api/inventory/reports', reportGroupBy],
+    queryFn: () => fetch(`/api/inventory/reports?groupBy=${reportGroupBy}`).then(r => r.json()),
+    enabled: activeTab === 'reports',
+  });
+
+  const { data: projectsData } = useQuery({
+    queryKey: ['/api/projects'],
+  });
+
+  const { data: equipmentData, isLoading: equipmentLoading } = useQuery({
+    queryKey: ['/api/equipment'],
+    enabled: activeTab === 'assets',
+  });
+
+  const stats = statsData?.data || {};
+  const stockItems: InventoryItem[] = stockData?.data || [];
+  const transactions: InventoryTransaction[] = transactionsData?.data || [];
+  const categories: string[] = categoriesData?.data || [];
+  const reports = reportsData?.data || [];
+  const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.data || projectsData?.projects || []);
+  const equipmentList = Array.isArray(equipmentData) ? equipmentData : (equipmentData?.data || []);
+
+  const issueMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('POST', '/api/inventory/issue', data),
     onSuccess: () => {
-      queryClient.refetchQueries({ 
-        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'equipment'
-      });
-      toast({
-        title: "تم حذف المعدة بنجاح",
-        description: "تم حذف المعدة من النظام نهائياً"
-      });
-      setShowEquipmentModal(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      setShowIssueDialog(false);
+      setSelectedItem(null);
+      toast({ title: "تم الصرف بنجاح" });
     },
-    onError: (error: any) => {
-      toast({
-        title: "خطأ في حذف المعدة", 
-        description: error.message || "حدث خطأ أثناء حذف المعدة",
-        variant: "destructive"
-      });
-    }
+    onError: (err: any) => {
+      toast({ title: "خطأ في الصرف", description: err.message, variant: "destructive" });
+    },
   });
 
-  const stats = useMemo(() => ({
-    total: Array.isArray(equipment) ? equipment.length : 0,
-    totalUnits: Array.isArray(equipment) ? equipment.reduce((sum: number, e: Equipment) => sum + (e.quantity || 1), 0) : 0,
-    active: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'active' || e.status === 'available').length : 0,
-    assigned: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'assigned').length : 0,
-    maintenance: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'maintenance').length : 0,
-    outOfService: Array.isArray(equipment) ? equipment.filter((e: Equipment) => e.status === 'out_of_service' || e.status === 'lost').length : 0,
-    inWarehouse: Array.isArray(equipment) ? equipment.filter((e: Equipment) => !(e.currentProjectId || e.project_id)).length : 0,
-  }), [equipment]);
-
-  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
-    {
-      columns: 4,
-      gap: 'sm',
-      items: [
-        {
-          key: 'total',
-          label: 'إجمالي المعدات',
-          value: stats.total,
-          icon: Wrench,
-          color: 'blue',
-        },
-        {
-          key: 'totalUnits',
-          label: 'إجمالي الوحدات',
-          value: stats.totalUnits,
-          icon: Package,
-          color: 'indigo',
-        },
-        {
-          key: 'active',
-          label: 'متاحة',
-          value: stats.active,
-          icon: CheckCircle2,
-          color: 'green',
-        },
-        {
-          key: 'assigned',
-          label: 'مخصصة',
-          value: stats.assigned,
-          icon: MapPin,
-          color: 'purple',
-        },
-      ]
+  const receiveMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('POST', '/api/inventory/receive', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      setShowReceiveDialog(false);
+      toast({ title: "تم الإضافة بنجاح" });
     },
-    {
-      columns: 3,
-      gap: 'sm',
-      items: [
-        {
-          key: 'maintenance',
-          label: 'في الصيانة',
-          value: stats.maintenance,
-          icon: Settings,
-          color: 'orange',
-        },
-        {
-          key: 'outOfService',
-          label: 'خارج الخدمة',
-          value: stats.outOfService,
-          icon: Truck,
-          color: 'red',
-        },
-        {
-          key: 'inWarehouse',
-          label: 'في المستودع',
-          value: stats.inWarehouse,
-          icon: BarChart3,
-          color: 'gray',
-        },
-      ]
-    }
-  ], [stats]);
-
-  const filtersConfig: FilterConfig[] = useMemo(() => [
-    {
-      key: 'status',
-      label: 'الحالة',
-      type: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'all', label: 'جميع الحالات' },
-        { value: 'active', label: 'نشط' },
-        { value: 'available', label: 'متاحة' },
-        { value: 'assigned', label: 'مخصصة' },
-        { value: 'maintenance', label: 'صيانة' },
-        { value: 'out_of_service', label: 'خارج الخدمة' },
-        { value: 'inactive', label: 'غير نشط' },
-      ],
+    onError: (err: any) => {
+      toast({ title: "خطأ في الإضافة", description: err.message, variant: "destructive" });
     },
-    {
-      key: 'type',
-      label: 'الفئة',
-      type: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'all', label: 'جميع الفئات' },
-        { value: 'أدوات كهربائية', label: 'أدوات كهربائية' },
-        { value: 'أدوات يدوية', label: 'أدوات يدوية' },
-        { value: 'أدوات قياس', label: 'أدوات قياس' },
-        { value: 'معدات لحام', label: 'معدات لحام' },
-        { value: 'معدات حفر', label: 'معدات حفر' },
-        { value: 'معدات قطع', label: 'معدات قطع' },
-        { value: 'أدوات ربط', label: 'أدوات ربط' },
-        { value: 'مواد كهربائية', label: 'مواد كهربائية' },
-        { value: 'معدات أمان', label: 'معدات أمان' },
-        { value: 'أدوات نقل', label: 'أدوات نقل' },
-      ],
-    },
-    {
-      key: 'project',
-      label: 'المشروع',
-      type: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'all', label: 'جميع المواقع' },
-        { value: 'warehouse', label: 'المستودع' },
-        ...(Array.isArray(projects) ? projects.map((project: any) => ({
-          value: project.id,
-          label: project.name,
-        })) : []),
-      ],
-    },
-  ], [projects]);
+  });
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'active': 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-      'available': 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-      'assigned': 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-      'maintenance': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-      'out_of_service': 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-      'lost': 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-      'inactive': 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-    };
-    return colors[status] || colors.active;
-  };
+  const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN'), [transactions]);
+  const outgoingTx = useMemo(() => transactions.filter(t => t.type === 'OUT' || t.type === 'ADJUSTMENT_OUT'), [transactions]);
 
-  const getStatusText = (status: string) => {
-    const texts: Record<string, string> = {
-      'active': 'نشط',
-      'available': 'متاحة',
-      'assigned': 'مخصصة',
-      'maintenance': 'صيانة',
-      'out_of_service': 'خارج الخدمة',
-      'lost': 'مفقودة',
-      'inactive': 'غير نشط'
-    };
-    return texts[status] || status;
-  };
-
-  const getStatusBadgeVariant = (status: string): "success" | "warning" | "destructive" | "secondary" => {
-    const variants: Record<string, "success" | "warning" | "destructive" | "secondary"> = {
-      'active': 'success',
-      'available': 'success',
-      'assigned': 'secondary',
-      'maintenance': 'warning',
-      'out_of_service': 'destructive',
-      'lost': 'destructive',
-      'inactive': 'secondary'
-    };
-    return variants[status] || 'secondary';
-  };
-
-  const getHeaderColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'active': '#22c55e',
-      'maintenance': '#eab308',
-      'out_of_service': '#ef4444',
-      'inactive': '#6b7280'
-    };
-    return colors[status] || '#6b7280';
-  };
-
-  const handleEquipmentClick = (item: Equipment) => {
-    setSelectedEquipment(item);
-    setShowEquipmentModal(true);
-  };
-
-  const handleTransferClick = (item: Equipment, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setSelectedEquipment(item);
-    setShowTransferDialog(true);
-  };
-
-  const handleEditClick = (item: Equipment, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setSelectedEquipment(item);
-    setShowDetailsDialog(true);
-  };
-
-  const handleMovementHistoryClick = (item: Equipment, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setSelectedEquipment(item);
-    setShowMovementHistoryDialog(true);
-  };
-
-  const handleDeleteClick = (item: Equipment, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (confirm(`هل أنت متأكد من حذف المعدة "${item.name}" نهائياً؟\n\nلا يمكن التراجع عن هذا الإجراء.`)) {
-      deleteMutation.mutate(item.id);
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'IN': return 'وارد';
+      case 'OUT': return 'صادر';
+      case 'ADJUSTMENT_IN': return 'تسوية +';
+      case 'ADJUSTMENT_OUT': return 'تسوية -';
+      case 'TRANSFER': return 'تحويل';
+      default: return type;
     }
   };
 
-  const getFilteredEquipmentForReport = () => {
-    if (!Array.isArray(equipment)) return [];
-    return equipment;
-  };
-
-  const exportEquipmentToExcel = async () => {
-    const filteredEquipment = getFilteredEquipmentForReport();
-    
-    if (filteredEquipment.length === 0) {
-      toast({
-        title: "لا توجد معدات للتصدير",
-        description: "يرجى التأكد من الفلاتر المحددة",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      setIsExporting(true);
-      
-      const reportProjectName = filterValues.project === "all" ? "جميع المشاريع" : 
-                                filterValues.project === "warehouse" ? "المستودع" :
-                                (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined) || "مشروع محدد";
-
-      const totalValue = filteredEquipment.reduce((sum: number, e: Equipment) => sum + (Number(e.purchasePrice) || 0), 0);
-
-      const data = filteredEquipment.map((item: Equipment) => {
-        const eqProjectId = item.currentProjectId || item.project_id;
-        const projName = eqProjectId 
-          ? (Array.isArray(projects) ? projects.find((p: any) => p.id === eqProjectId)?.name : undefined) || 'مشروع غير معروف'
-          : 'المستودع';
-        return {
-          code: item.code || '-',
-          name: item.name,
-          quantity: item.quantity || 1,
-          unit: item.unit || 'قطعة',
-          type: item.type || 'غير محدد',
-          status: getStatusText(item.status),
-          location: projName,
-          purchasePrice: Number(item.purchasePrice) || 0,
-          purchaseDate: item.purchaseDate ? formatDate(item.purchaseDate) : 'غير محدد',
-          description: item.description || 'غير محدد',
-        };
-      });
-
-      const filenameProjectName = filterValues.project === "all" ? "جميع_المشاريع" : 
-                                  filterValues.project === "warehouse" ? "المستودع" :
-                                  (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined)?.replace(/\s/g, '_') || "مشروع_محدد";
-
-      const result = await createProfessionalReport({
-        sheetName: 'كشف المعدات',
-        reportTitle: 'كشف المعدات التفصيلي',
-        subtitle: `المشروع: ${reportProjectName}`,
-        infoLines: [
-          `تاريخ الإصدار: ${formatDate(new Date().toISOString().split('T')[0])}`,
-          `إجمالي المعدات: ${filteredEquipment.length}`,
-          `النشطة: ${filteredEquipment.filter((e: Equipment) => e.status === 'active').length}`,
-          `في الصيانة: ${filteredEquipment.filter((e: Equipment) => e.status === 'maintenance').length}`,
-          `القيمة الإجمالية: ${formatCurrency(totalValue)}`
-        ],
-        columns: [
-          { header: '#', key: 'index', width: 5 },
-          { header: 'الكود', key: 'code', width: 14 },
-          { header: 'اسم المعدة', key: 'name', width: 22 },
-          { header: 'العدد', key: 'quantity', width: 8, numFmt: '#,##0' },
-          { header: 'الحالة', key: 'status', width: 14 },
-          { header: 'الموقع', key: 'location', width: 22 },
-          { header: 'سعر الشراء', key: 'purchasePrice', width: 16, numFmt: '#,##0' },
-        ],
-        data: data.map((d, i) => ({ ...d, index: i + 1 })),
-        totals: {
-          label: `إجمالي المعدات: ${filteredEquipment.length}`,
-          values: { purchasePrice: totalValue }
-        },
-        signatures: [
-          { title: 'توقيع المهندس' },
-          { title: 'توقيع مدير المشروع' },
-          { title: 'توقيع المدير العام' }
-        ],
-        fileName: `كشف_المعدات_${filenameProjectName}_${new Date().toISOString().split('T')[0]}.xlsx`,
-      });
-      
-      if (result) {
-        toast({
-          title: "تم تصدير كشف المعدات بنجاح",
-          description: `تم حفظ الملف بنجاح`
-        });
-      } else {
-        toast({
-          title: "تعذر التنزيل",
-          description: "تم تجهيز الملف لكن فشل التنزيل. حاول مرة أخرى.",
-          variant: "destructive"
-        });
-      }
-      
-    } catch (error) {
-      console.error('خطأ في تصدير Excel:', error);
-      toast({
-        title: "خطأ في التصدير",
-        description: "حدث خطأ أثناء تصدير كشف المعدات",
-        variant: "destructive"
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const buildEquipmentReportHTML = (filteredEquipment: Equipment[], projectLabel: string) => {
-    const reportDate = new Date().toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
-    const totalValue = filteredEquipment.reduce((sum, e) => sum + (Number(e.purchasePrice) || 0), 0);
-    const totalUnits = filteredEquipment.reduce((sum, e) => sum + (e.quantity || 1), 0);
-    const activeCount = filteredEquipment.filter(e => e.status === 'active' || e.status === 'available').length;
-    const assignedCount = filteredEquipment.filter(e => e.status === 'assigned').length;
-    const maintenanceCount = filteredEquipment.filter(e => e.status === 'maintenance').length;
-
-    const rows = filteredEquipment.map((item: Equipment, idx: number) => {
-      const itemProjId = item.currentProjectId || item.project_id;
-      const itemProjectName = itemProjId
-        ? (Array.isArray(projects) ? projects.find((p: any) => p.id === itemProjId)?.name : undefined) || '\u0645\u0634\u0631\u0648\u0639 \u063a\u064a\u0631 \u0645\u0639\u0631\u0648\u0641'
-        : '\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639';
-      const bg = idx % 2 === 0 ? '' : 'background:#f1f5f9;';
-      const statusColor = (item.status === 'active' || item.status === 'available') ? '#16a34a' :
-                           item.status === 'assigned' ? '#7c3aed' :
-                           item.status === 'maintenance' ? '#ea580c' : '#dc2626';
-      return `<tr style="${bg}">
-        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;font-weight:600;color:#1e40af;">${item.code || '-'}</td>
-        <td style="padding:10px 8px;text-align:right;border:1px solid #cbd5e1;font-size:12px;font-weight:500;">${item.name}</td>
-        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${item.quantity || 1}</td>
-        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${item.unit || '\u0642\u0637\u0639\u0629'}</td>
-        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${item.type || '\u063a\u064a\u0631 \u0645\u062d\u062f\u062f'}</td>
-        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;"><span style="background:${statusColor}15;color:${statusColor};padding:3px 10px;border-radius:12px;font-weight:600;font-size:11px;">${getStatusText(item.status)}</span></td>
-        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:12px;">${itemProjectName}</td>
-        <td style="padding:10px 8px;text-align:left;border:1px solid #cbd5e1;font-size:12px;font-weight:500;">${item.purchasePrice ? formatCurrency(Number(item.purchasePrice)) : '-'}</td>
-        <td style="padding:10px 8px;text-align:center;border:1px solid #cbd5e1;font-size:11px;">${item.purchaseDate ? formatDate(item.purchaseDate) : '-'}</td>
-      </tr>`;
-    }).join('');
-
-    return `<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-  <meta charset="UTF-8">
-  <title>\u0643\u0634\u0641 \u0627\u0644\u0645\u0639\u062f\u0627\u062a - ${projectLabel}</title>
-  <style>
-    @page { margin: 1.5cm 1cm; size: A4 landscape; }
-    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; background: #fff; color: #1e293b; padding: 0; }
-    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: #fff; padding: 24px 30px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .header-right h1 { font-size: 20px; margin-bottom: 4px; }
-    .header-right p { font-size: 12px; opacity: 0.85; }
-    .header-left { text-align: left; font-size: 12px; opacity: 0.9; line-height: 1.8; }
-    .stats-bar { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
-    .stat-box { flex: 1; min-width: 120px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; text-align: center; }
-    .stat-box .val { font-size: 22px; font-weight: 700; color: #1e40af; }
-    .stat-box .lbl { font-size: 11px; color: #64748b; margin-top: 2px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-    thead th { background: #1e3a5f; color: #fff; padding: 12px 8px; text-align: center; font-size: 12px; font-weight: 700; border: 1px solid #1e3a5f; }
-    .footer { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-  </style>
-</head>
-<body>
-  <div class="page-wrap">
-    <div class="header">
-      <div class="header-right">
-        <h1>\u0627\u0644\u0641\u062a\u064a\u0646\u064a \u0644\u0644\u0645\u0642\u0627\u0648\u0644\u0627\u062a \u0627\u0644\u0639\u0627\u0645\u0629 \u0648\u0627\u0644\u0627\u0633\u062a\u0634\u0627\u0631\u0627\u062a \u0627\u0644\u0647\u0646\u062f\u0633\u064a\u0629</h1>
-        <p>\u0643\u0634\u0641 \u0627\u0644\u0645\u0639\u062f\u0627\u062a \u0627\u0644\u062a\u0641\u0635\u064a\u0644\u064a - ${projectLabel}</p>
-      </div>
-      <div class="header-left">
-        <div>\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0625\u0635\u062f\u0627\u0631: ${reportDate}</div>
-        <div>\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0639\u062f\u0627\u062a: ${filteredEquipment.length} | \u0627\u0644\u0648\u062d\u062f\u0627\u062a: ${totalUnits}</div>
-      </div>
-    </div>
-    <div class="stats-bar">
-      <div class="stat-box"><div class="val">${filteredEquipment.length}</div><div class="lbl">\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0639\u062f\u0627\u062a</div></div>
-      <div class="stat-box"><div class="val" style="color:#16a34a;">${activeCount}</div><div class="lbl">\u0645\u062a\u0627\u062d\u0629</div></div>
-      <div class="stat-box"><div class="val" style="color:#7c3aed;">${assignedCount}</div><div class="lbl">\u0645\u062e\u0635\u0635\u0629</div></div>
-      <div class="stat-box"><div class="val" style="color:#ea580c;">${maintenanceCount}</div><div class="lbl">\u0641\u064a \u0627\u0644\u0635\u064a\u0627\u0646\u0629</div></div>
-      <div class="stat-box"><div class="val" style="color:#1e40af;">${totalValue > 0 ? formatCurrency(totalValue) : '-'}</div><div class="lbl">\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0642\u064a\u0645\u0629</div></div>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:80px;">\u0627\u0644\u0643\u0648\u062f</th>
-          <th>\u0627\u0633\u0645 \u0627\u0644\u0645\u0639\u062f\u0629</th>
-          <th style="width:55px;">\u0627\u0644\u0639\u062f\u062f</th>
-          <th style="width:65px;">\u0627\u0644\u0648\u062d\u062f\u0629</th>
-          <th style="width:100px;">\u0627\u0644\u0641\u0626\u0629</th>
-          <th style="width:85px;">\u0627\u0644\u062d\u0627\u0644\u0629</th>
-          <th style="width:120px;">\u0627\u0644\u0645\u0648\u0642\u0639</th>
-          <th style="width:100px;">\u0633\u0639\u0631 \u0627\u0644\u0634\u0631\u0627\u0621</th>
-          <th style="width:90px;">\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0634\u0631\u0627\u0621</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="footer">\u062a\u0645 \u0627\u0644\u0625\u0635\u062f\u0627\u0631 \u0628\u0648\u0627\u0633\u0637\u0629 \u0646\u0638\u0627\u0645 AXION - ${reportDate}</div>
-  </div>
-</body>
-</html>`;
-  };
-
-  const getProjectLabel = () => {
-    if (filterValues.project === "all") return "\u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u0634\u0627\u0631\u064a\u0639";
-    if (filterValues.project === "warehouse") return "\u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639";
-    return (Array.isArray(projects) ? projects.find((p: any) => p.id === filterValues.project)?.name : undefined) || "\u0645\u0634\u0631\u0648\u0639 \u0645\u062d\u062f\u062f";
-  };
-
-  const openPrintWindow = (htmlContent: string) => {
-    const printWindow = window.open('', '_blank', 'width=1100,height=800');
-    if (!printWindow) {
-      toast({ title: "\u062a\u0639\u0630\u0631 \u0641\u062a\u062d \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u064a\u0631\u062c\u0649 \u0627\u0644\u0633\u0645\u0627\u062d \u0628\u0627\u0644\u0646\u0648\u0627\u0641\u0630 \u0627\u0644\u0645\u0646\u0628\u062b\u0642\u0629 \u0641\u064a \u0627\u0644\u0645\u062a\u0635\u0641\u062d", variant: "destructive" });
-      return false;
-    }
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); }, 400);
-    return true;
-  };
-
-  const exportEquipmentToPDF = () => {
-    const filteredEquipment = getFilteredEquipmentForReport();
-    if (filteredEquipment.length === 0) {
-      toast({ title: "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0639\u062f\u0627\u062a \u0644\u0644\u062a\u0635\u062f\u064a\u0631", description: "\u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0623\u0643\u062f \u0645\u0646 \u0627\u0644\u0641\u0644\u0627\u062a\u0631 \u0627\u0644\u0645\u062d\u062f\u062f\u0629", variant: "destructive" });
-      return;
-    }
-    try {
-      setIsExporting(true);
-      const htmlContent = buildEquipmentReportHTML(filteredEquipment, getProjectLabel());
-      const success = openPrintWindow(htmlContent);
-      if (success) {
-        toast({ title: "\u062c\u0627\u0647\u0632 \u0644\u0644\u062d\u0641\u0638 \u0643\u0640 PDF", description: "\u0627\u062e\u062a\u0631 '\u062d\u0641\u0638 \u0643\u0640 PDF' \u0645\u0646 \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629" });
-      }
-    } catch (error) {
-      console.error('\u062e\u0637\u0623 \u0641\u064a \u062a\u0635\u062f\u064a\u0631 PDF:', error);
-      toast({ title: "\u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u062a\u0635\u062f\u064a\u0631", description: "\u062d\u062f\u062b \u062e\u0637\u0623 \u0623\u062b\u0646\u0627\u0621 \u062a\u0635\u062f\u064a\u0631 \u0643\u0634\u0641 \u0627\u0644\u0645\u0639\u062f\u0627\u062a", variant: "destructive" });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const printEquipmentReport = () => {
-    const filteredEquipment = getFilteredEquipmentForReport();
-    if (filteredEquipment.length === 0) {
-      toast({ title: "\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0639\u062f\u0627\u062a \u0644\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u064a\u0631\u062c\u0649 \u0627\u0644\u062a\u0623\u0643\u062f \u0645\u0646 \u0627\u0644\u0641\u0644\u0627\u062a\u0631 \u0627\u0644\u0645\u062d\u062f\u062f\u0629", variant: "destructive" });
-      return;
-    }
-    try {
-      setIsExporting(true);
-      const htmlContent = buildEquipmentReportHTML(filteredEquipment, getProjectLabel());
-      const success = openPrintWindow(htmlContent);
-      if (success) {
-        toast({ title: "\u062c\u0627\u0647\u0632 \u0644\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u062a\u0645 \u0641\u062a\u062d \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629" });
-      }
-    } catch (error) {
-      console.error('\u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u0637\u0628\u0627\u0639\u0629:', error);
-      toast({ title: "\u062e\u0637\u0623 \u0641\u064a \u0627\u0644\u0637\u0628\u0627\u0639\u0629", description: "\u062d\u062f\u062b \u062e\u0637\u0623 \u0623\u062b\u0646\u0627\u0621 \u0641\u062a\u062d \u0646\u0627\u0641\u0630\u0629 \u0627\u0644\u0637\u0628\u0627\u0639\u0629", variant: "destructive" });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  if (isLoading) {
+  const getTypeBadge = (type: string) => {
+    const isIn = type === 'IN' || type === 'ADJUSTMENT_IN';
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-2 text-sm text-gray-500">جاري تحميل المعدات...</p>
-          </div>
-        </div>
-      </div>
+      <Badge data-testid={`badge-type-${type}`} className={isIn ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"}>
+        {isIn ? <ArrowDownToLine className="w-3 h-3 ml-1" /> : <ArrowUpFromLine className="w-3 h-3 ml-1" />}
+        {getTypeLabel(type)}
+      </Badge>
     );
-  }
+  };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-4" dir="rtl">
-      <UnifiedFilterDashboard
-        statsRows={statsRowsConfig}
-        searchValue={searchValue}
-        onSearchChange={setSearchValue}
-        searchPlaceholder="البحث بالاسم أو الكود..."
-        filters={filtersConfig}
-        filterValues={filterValues}
-        onFilterChange={handleFilterChange}
-        onReset={handleResetFilters}
-        onRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
-        actions={[
-          {
-            key: 'export-excel',
-            icon: FileSpreadsheet,
-            label: 'Excel',
-            onClick: exportEquipmentToExcel,
-            variant: 'outline',
-            disabled: equipment.length === 0 || isExporting,
-            loading: isExporting,
-            tooltip: 'تصدير إلى Excel'
-          },
-          {
-            key: 'export-pdf',
-            icon: FileText,
-            label: 'PDF',
-            onClick: exportEquipmentToPDF,
-            variant: 'outline',
-            disabled: equipment.length === 0 || isExporting,
-            loading: isExporting,
-            tooltip: 'تصدير كملف PDF'
-          },
-          {
-            key: 'print',
-            icon: Printer,
-            label: 'طباعة',
-            onClick: printEquipmentReport,
-            variant: 'outline',
-            disabled: equipment.length === 0 || isExporting,
-            tooltip: 'طباعة كشف المعدات'
-          }
-        ]}
-      />
-
-      {equipment.length === 0 ? (
-        <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-          <div className="text-gray-400">
-            <Wrench className="h-16 w-16 mx-auto opacity-50" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 md:p-6" dir="rtl">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white" data-testid="text-page-title">إدارة المخزن والأصول</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">إدارة شاملة للمواد المخزنية والمعدات والأصول</p>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mt-4">
-            لا توجد معدات
-          </h3>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
-            لم يتم العثور على أي معدات تطابق الفلاتر المحددة
-          </p>
-          <Button onClick={() => setShowAddDialog(true)} className="bg-blue-500 hover:bg-blue-600 text-white mt-4">
-            <Plus className="h-4 w-4 mr-2" />
-            إضافة معدة جديدة
-          </Button>
-        </Card>
-      ) : (
-        <UnifiedCardGrid columns={3}>
-          {Array.isArray(equipment) && equipment.map((item: Equipment) => {
-            const eqProjId = item.currentProjectId || item.project_id;
-            const projectName = eqProjId 
-              ? (Array.isArray(projects) ? projects.find((p: any) => p.id === eqProjId)?.name : undefined) || 'مشروع غير معروف'
-              : 'المستودع';
-            
-            return (
-              <UnifiedCard
-                key={item.id}
-                title={item.name}
-                subtitle={item.code}
-                titleIcon={Wrench}
-                headerColor={getHeaderColor(item.status)}
-                onClick={() => handleEquipmentClick(item)}
-                badges={[
-                  {
-                    label: getStatusText(item.status),
-                    variant: getStatusBadgeVariant(item.status),
-                  },
-                  ...(item.type ? [{
-                    label: item.type,
-                    variant: "secondary" as const,
-                  }] : []),
-                ]}
-                fields={[
-                  {
-                    label: "العدد",
-                    value: `${item.quantity || 1} ${item.unit || 'قطعة'}`,
-                    icon: Package,
-                    emphasis: (item.quantity || 1) > 1,
-                  },
-                  {
-                    label: "الموقع",
-                    value: projectName,
-                    icon: MapPin,
-                  },
-                  {
-                    label: "سعر الشراء",
-                    value: item.purchasePrice ? formatCurrency(Number(item.purchasePrice)) : "غير محدد",
-                    icon: DollarSign,
-                    emphasis: !!item.purchasePrice,
-                    color: item.purchasePrice ? "success" : "muted",
-                  },
-                  {
-                    label: "تاريخ الشراء",
-                    value: item.purchaseDate ? formatDate(item.purchaseDate) : "غير محدد",
-                    icon: Calendar,
-                  },
-                  ...(item.description ? [{
-                    label: "الوصف",
-                    value: item.description,
-                    icon: Wrench,
-                  }] : []),
-                ]}
-                actions={[
-                  {
-                    icon: Edit,
-                    label: "تعديل",
-                    onClick: () => handleEditClick(item),
-                  },
-                  {
-                    icon: History,
-                    label: "السجل",
-                    onClick: () => handleMovementHistoryClick(item),
-                  },
-                  {
-                    icon: Trash2,
-                    label: "حذف",
-                    variant: "ghost",
-                    onClick: () => handleDeleteClick(item),
-                  },
-                ]}
-                footer={
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTransferClick(item, e);
-                    }}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm"
-                    size="sm"
-                  >
-                    نقل المعدة
-                  </Button>
-                }
-                compact
-              />
-            );
-          })}
-        </UnifiedCardGrid>
-      )}
-
-      <AddEquipmentDialog 
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        projects={projects}
-      />
-
-      <AddEquipmentDialog 
-        open={showDetailsDialog}
-        onOpenChange={setShowDetailsDialog}
-        projects={projects}
-        equipment={selectedEquipment}
-      />
-
-      <TransferEquipmentDialog
-        equipment={selectedEquipment as any}
-        open={showTransferDialog}
-        onOpenChange={setShowTransferDialog}
-        projects={projects}
-      />
-
-      <EquipmentMovementHistoryDialog
-        equipment={selectedEquipment as any}
-        open={showMovementHistoryDialog}
-        onOpenChange={setShowMovementHistoryDialog}
-        projects={projects}
-      />
-
-      <Dialog open={showEquipmentModal} onOpenChange={setShowEquipmentModal}>
-        <DialogContent className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-3xl p-0 overflow-hidden border-0 shadow-2xl">
-          {selectedEquipment && (
-            <div className="relative">
-              <button
-                onClick={() => setShowEquipmentModal(false)}
-                className="absolute top-4 right-4 z-10 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-
-              <div className="relative h-48 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                <Wrench className="h-16 w-16 text-white opacity-50" />
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div className="text-center">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {selectedEquipment.name}
-                  </h2>
-                  <div className="flex items-center justify-center gap-2 mt-2">
-                    <Badge className={`text-xs ${getStatusColor(selectedEquipment.status)}`}>
-                      {getStatusText(selectedEquipment.status)}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {selectedEquipment.code}
-                    </Badge>
-                  </div>
-                </div>
-
-                {selectedEquipment.purchasePrice && (
-                  <div className="text-center bg-orange-100 dark:bg-orange-900/20 rounded-lg p-3">
-                    <div className="text-sm text-orange-600 dark:text-orange-400">السعر</div>
-                    <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                      {formatCurrency(Number(selectedEquipment.purchasePrice))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">العدد</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {selectedEquipment.quantity || 1} {selectedEquipment.unit || 'قطعة'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-green-500" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">الموقع الحالي</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {(selectedEquipment.currentProjectId || selectedEquipment.project_id)
-                          ? projects.find((p: any) => p.id === (selectedEquipment.currentProjectId || selectedEquipment.project_id))?.name || 'مشروع غير معروف'
-                          : 'المستودع'
-                        }
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    onClick={() => {
-                      setShowEquipmentModal(false);
-                      handleEditClick(selectedEquipment);
-                    }}
-                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-full py-3 font-medium text-sm"
-                  >
-                    تعديل
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowEquipmentModal(false);
-                      handleMovementHistoryClick(selectedEquipment);
-                    }}
-                    className="bg-purple-500 hover:bg-purple-600 text-white rounded-full py-3 font-medium text-sm flex items-center gap-1 justify-center"
-                  >
-                    <History className="w-4 h-4" />
-                    السجل
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowEquipmentModal(false);
-                      handleDeleteClick(selectedEquipment);
-                    }}
-                    disabled={deleteMutation.isPending}
-                    className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-full py-3 font-medium text-sm"
-                  >
-                    {deleteMutation.isPending ? "جاري الحذف..." : "حذف"}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowEquipmentModal(false);
-                      handleTransferClick(selectedEquipment);
-                    }}
-                    className="bg-green-500 hover:bg-green-600 text-white rounded-full py-3 font-medium text-sm"
-                  >
-                    نقل
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {enlargedImage && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setEnlargedImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-full">
-            <button
-              onClick={() => setEnlargedImage(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
-            >
-              <X size={24} />
-            </button>
-            <img 
-              src={enlargedImage} 
-              alt="صورة المعدة بالحجم الكامل"
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
-            />
+          <div className="flex gap-2">
+            <Button data-testid="button-add-to-stock" onClick={() => setShowReceiveDialog(true)} className="bg-green-600 hover:bg-green-700">
+              <Plus className="w-4 h-4 ml-1" /> إضافة وارد
+            </Button>
+            <Button data-testid="button-issue-stock" onClick={() => setShowIssueDialog(true)} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+              <Minus className="w-4 h-4 ml-1" /> صرف مادة
+            </Button>
           </div>
         </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-600" />
+                <span className="text-sm text-blue-700 dark:text-blue-300">إجمالي المواد</span>
+              </div>
+              <p className="text-2xl font-bold text-blue-800 dark:text-blue-200 mt-1" data-testid="text-total-items">{stats.total_items || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <span className="text-sm text-green-700 dark:text-green-300">مواد متوفرة</span>
+              </div>
+              <p className="text-2xl font-bold text-green-800 dark:text-green-200 mt-1" data-testid="text-in-stock">{stats.items_in_stock || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-amber-600" />
+                <span className="text-sm text-amber-700 dark:text-amber-300">قيمة المخزون</span>
+              </div>
+              <p className="text-lg font-bold text-amber-800 dark:text-amber-200 mt-1" data-testid="text-stock-value">{formatCurrency(parseFloat(stats.total_stock_value || '0'))}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <span className="text-sm text-red-700 dark:text-red-300">نفذت من المخزن</span>
+              </div>
+              <p className="text-2xl font-bold text-red-800 dark:text-red-200 mt-1" data-testid="text-out-of-stock">{stats.out_of_stock_items || 0}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid grid-cols-5 w-full bg-white dark:bg-gray-800 shadow-sm" data-testid="tabs-inventory">
+            <TabsTrigger value="stock" className="flex items-center gap-1" data-testid="tab-stock">
+              <Box className="w-4 h-4" /> الرصيد
+            </TabsTrigger>
+            <TabsTrigger value="incoming" className="flex items-center gap-1" data-testid="tab-incoming">
+              <ArrowDownToLine className="w-4 h-4" /> الوارد
+            </TabsTrigger>
+            <TabsTrigger value="outgoing" className="flex items-center gap-1" data-testid="tab-outgoing">
+              <ArrowUpFromLine className="w-4 h-4" /> الصرف
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-1" data-testid="tab-reports">
+              <BarChart3 className="w-4 h-4" /> التقارير
+            </TabsTrigger>
+            <TabsTrigger value="assets" className="flex items-center gap-1" data-testid="tab-assets">
+              <Settings className="w-4 h-4" /> الأصول
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="stock" className="space-y-4">
+            <div className="flex gap-3 items-center">
+              <div className="relative flex-1">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input 
+                  data-testid="input-search-stock"
+                  placeholder="بحث في المواد..." 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pr-10"
+                />
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-category-filter">
+                  <SelectValue placeholder="الفئة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الفئات</SelectItem>
+                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {stockLoading ? (
+              <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
+            ) : stockItems.length === 0 ? (
+              <Card className="py-10 text-center text-gray-500">
+                <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>لا توجد مواد في المخزن</p>
+                <Button data-testid="button-add-first" onClick={() => setShowReceiveDialog(true)} className="mt-3" variant="outline">إضافة مادة</Button>
+              </Card>
+            ) : (
+              <div className="grid gap-3">
+                {stockItems.map(item => {
+                  const remaining = parseFloat(item.total_remaining || '0');
+                  const received = parseFloat(item.total_received || '0');
+                  const percentUsed = received > 0 ? ((received - remaining) / received) * 100 : 0;
+                  const isLow = remaining <= parseFloat(item.min_quantity || '0') && remaining > 0;
+                  const isOut = remaining <= 0;
+
+                  return (
+                    <Card key={item.id} data-testid={`card-stock-item-${item.id}`} className={`hover:shadow-md transition-shadow ${isOut ? 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/20' : isLow ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/20' : ''}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-gray-900 dark:text-white">{item.name}</h3>
+                              {item.category && <Badge variant="outline" className="text-xs">{item.category}</Badge>}
+                              {isOut && <Badge className="bg-red-500 text-white text-xs">نفذ</Badge>}
+                              {isLow && !isOut && <Badge className="bg-amber-500 text-white text-xs">منخفض</Badge>}
+                            </div>
+                            <div className="flex gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                              <span>الوحدة: {item.unit}</span>
+                              <span>الوارد: <strong>{parseFloat(item.total_received || '0').toFixed(1)}</strong></span>
+                              <span>المنصرف: <strong>{parseFloat(item.total_issued || '0').toFixed(1)}</strong></span>
+                              <span>الموردين: {item.supplier_count}</span>
+                            </div>
+                            <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                              <div className={`h-2 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-green-500'}`} style={{ width: `${Math.min(100, 100 - percentUsed)}%` }}></div>
+                            </div>
+                          </div>
+                          <div className="text-left mr-4">
+                            <p className={`text-2xl font-bold ${isOut ? 'text-red-600' : isLow ? 'text-amber-600' : 'text-green-600'}`} data-testid={`text-remaining-${item.id}`}>
+                              {remaining.toFixed(1)}
+                            </p>
+                            <p className="text-xs text-gray-500">{item.unit} متبقي</p>
+                            <p className="text-xs text-gray-400 mt-1">{formatCurrency(parseFloat(item.stock_value || '0'))}</p>
+                          </div>
+                          <div className="flex flex-col gap-1 mr-3">
+                            <Button data-testid={`button-issue-${item.id}`} size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 text-xs" onClick={() => { setSelectedItem(item); setShowIssueDialog(true); }} disabled={isOut}>
+                              <ArrowUpFromLine className="w-3 h-3 ml-1" /> صرف
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="incoming" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">سجل الوارد</h2>
+              <Button data-testid="button-add-incoming" onClick={() => setShowReceiveDialog(true)} size="sm" className="bg-green-600 hover:bg-green-700">
+                <Plus className="w-4 h-4 ml-1" /> إضافة وارد
+              </Button>
+            </div>
+            <TransactionList transactions={incomingTx} loading={txLoading} getTypeBadge={getTypeBadge} emptyMessage="لا يوجد وارد مسجل" />
+          </TabsContent>
+
+          <TabsContent value="outgoing" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">سجل الصرف</h2>
+              <Button data-testid="button-add-issue" onClick={() => setShowIssueDialog(true)} size="sm" variant="outline" className="border-red-300 text-red-600">
+                <Minus className="w-4 h-4 ml-1" /> صرف مادة
+              </Button>
+            </div>
+            <TransactionList transactions={outgoingTx} loading={txLoading} getTypeBadge={getTypeBadge} emptyMessage="لا يوجد صرف مسجل" />
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">تقارير المخزن</h2>
+              <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
+                <SelectTrigger className="w-[180px]" data-testid="select-report-group">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="item">حسب المادة</SelectItem>
+                  <SelectItem value="supplier">حسب المورد</SelectItem>
+                  <SelectItem value="project">حسب المشروع</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {reportGroupBy === 'item' && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" data-testid="table-report-items">
+                  <thead>
+                    <tr className="bg-gray-100 dark:bg-gray-700">
+                      <th className="p-3 text-right text-sm font-semibold">المادة</th>
+                      <th className="p-3 text-right text-sm font-semibold">الفئة</th>
+                      <th className="p-3 text-right text-sm font-semibold">الوحدة</th>
+                      <th className="p-3 text-center text-sm font-semibold">الوارد</th>
+                      <th className="p-3 text-center text-sm font-semibold">المنصرف</th>
+                      <th className="p-3 text-center text-sm font-semibold">الرصيد</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map((r: any, i: number) => (
+                      <tr key={r.id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td className="p-3 font-medium">{r.name}</td>
+                        <td className="p-3 text-gray-500">{r.category || '-'}</td>
+                        <td className="p-3 text-gray-500">{r.unit}</td>
+                        <td className="p-3 text-center text-green-600 font-semibold">{parseFloat(r.total_in || 0).toFixed(1)}</td>
+                        <td className="p-3 text-center text-red-600 font-semibold">{parseFloat(r.total_out || 0).toFixed(1)}</td>
+                        <td className="p-3 text-center font-bold">{parseFloat(r.balance || 0).toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {reportGroupBy === 'supplier' && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" data-testid="table-report-suppliers">
+                  <thead>
+                    <tr className="bg-gray-100 dark:bg-gray-700">
+                      <th className="p-3 text-right text-sm font-semibold">المورد</th>
+                      <th className="p-3 text-center text-sm font-semibold">عدد المواد</th>
+                      <th className="p-3 text-center text-sm font-semibold">إجمالي الوارد</th>
+                      <th className="p-3 text-center text-sm font-semibold">المنصرف</th>
+                      <th className="p-3 text-center text-sm font-semibold">المتبقي</th>
+                      <th className="p-3 text-center text-sm font-semibold">القيمة الإجمالية</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map((r: any, i: number) => (
+                      <tr key={r.supplier_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td className="p-3 font-medium">{r.supplier_name}</td>
+                        <td className="p-3 text-center">{r.item_count}</td>
+                        <td className="p-3 text-center text-green-600">{parseFloat(r.total_supplied || 0).toFixed(1)}</td>
+                        <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
+                        <td className="p-3 text-center font-bold">{parseFloat(r.total_remaining || 0).toFixed(1)}</td>
+                        <td className="p-3 text-center">{formatCurrency(parseFloat(r.total_value || 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {reportGroupBy === 'project' && (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" data-testid="table-report-projects">
+                  <thead>
+                    <tr className="bg-gray-100 dark:bg-gray-700">
+                      <th className="p-3 text-right text-sm font-semibold">المشروع</th>
+                      <th className="p-3 text-center text-sm font-semibold">عدد المواد</th>
+                      <th className="p-3 text-center text-sm font-semibold">إجمالي المصروف</th>
+                      <th className="p-3 text-center text-sm font-semibold">التكلفة الإجمالية</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reports.map((r: any, i: number) => (
+                      <tr key={r.project_id || i} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td className="p-3 font-medium">{r.project_name}</td>
+                        <td className="p-3 text-center">{r.item_count}</td>
+                        <td className="p-3 text-center text-red-600">{parseFloat(r.total_issued || 0).toFixed(1)}</td>
+                        <td className="p-3 text-center font-bold">{formatCurrency(parseFloat(r.total_cost || 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {reports.length === 0 && (
+              <Card className="py-10 text-center text-gray-500">
+                <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>لا توجد بيانات للتقارير</p>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="assets" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">المعدات والأصول</h2>
+              <Button data-testid="button-add-equipment" onClick={() => setShowAddEquipmentDialog(true)} size="sm">
+                <Plus className="w-4 h-4 ml-1" /> إضافة معدة
+              </Button>
+            </div>
+
+            {equipmentLoading ? (
+              <div className="text-center py-10 text-gray-500">جاري التحميل...</div>
+            ) : equipmentList.length === 0 ? (
+              <Card className="py-10 text-center text-gray-500">
+                <Settings className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>لا توجد معدات مسجلة</p>
+              </Card>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {equipmentList.map((eq: any) => (
+                  <Card key={eq.id} data-testid={`card-equipment-${eq.id}`} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold">{eq.name}</h3>
+                          <p className="text-xs text-gray-500">{eq.code}</p>
+                          <div className="flex gap-1 mt-1">
+                            <Badge variant="outline" className="text-xs">{eq.type || 'عام'}</Badge>
+                            <Badge className={`text-xs ${eq.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {eq.status === 'active' ? 'نشط' : eq.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm mt-1 text-gray-600">الكمية: {eq.quantity} {eq.unit}</p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowTransferDialog(true); }}>
+                            <Truck className="w-3 h-3 ml-1" /> نقل
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setSelectedEquipment(eq); setShowMovementHistoryDialog(true); }}>
+                            <RefreshCw className="w-3 h-3 ml-1" /> سجل
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <IssueDialog 
+        open={showIssueDialog} 
+        onClose={() => { setShowIssueDialog(false); setSelectedItem(null); }}
+        selectedItem={selectedItem}
+        stockItems={stockItems}
+        projects={projects}
+        onSubmit={(data) => issueMutation.mutate(data)}
+        isPending={issueMutation.isPending}
+      />
+
+      <ReceiveDialog
+        open={showReceiveDialog}
+        onClose={() => setShowReceiveDialog(false)}
+        categories={categories}
+        projects={projects}
+        onSubmit={(data) => receiveMutation.mutate(data)}
+        isPending={receiveMutation.isPending}
+      />
+
+      {showAddEquipmentDialog && (
+        <AddEquipmentDialog
+          open={showAddEquipmentDialog}
+          onOpenChange={setShowAddEquipmentDialog}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['/api/equipment'] })}
+        />
+      )}
+
+      {showTransferDialog && selectedEquipment && (
+        <TransferEquipmentDialog
+          open={showTransferDialog}
+          onOpenChange={setShowTransferDialog}
+          equipment={selectedEquipment}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['/api/equipment'] })}
+        />
+      )}
+
+      {showMovementHistoryDialog && selectedEquipment && (
+        <EquipmentMovementHistoryDialog
+          open={showMovementHistoryDialog}
+          onOpenChange={setShowMovementHistoryDialog}
+          equipmentId={selectedEquipment.id}
+          equipmentName={selectedEquipment.name}
+        />
       )}
     </div>
+  );
+}
+
+function TransactionList({ transactions, loading, getTypeBadge, emptyMessage }: { transactions: InventoryTransaction[]; loading: boolean; getTypeBadge: (type: string) => JSX.Element; emptyMessage: string }) {
+  if (loading) return <div className="text-center py-10 text-gray-500">جاري التحميل...</div>;
+  if (transactions.length === 0) return (
+    <Card className="py-10 text-center text-gray-500">
+      <ArrowDownToLine className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+      <p>{emptyMessage}</p>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-2">
+      {transactions.map(tx => (
+        <Card key={tx.id} data-testid={`card-tx-${tx.id}`} className="hover:shadow-sm transition-shadow">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {getTypeBadge(tx.type)}
+                <div>
+                  <p className="font-medium text-sm">{tx.item_name}</p>
+                  <p className="text-xs text-gray-500">
+                    {tx.transaction_date}
+                    {tx.to_project_name && ` • ${tx.to_project_name}`}
+                    {tx.supplier_name && ` • ${tx.supplier_name}`}
+                  </p>
+                </div>
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-sm">{parseFloat(tx.quantity).toFixed(1)} {tx.item_unit}</p>
+                {parseFloat(tx.total_cost || '0') > 0 && (
+                  <p className="text-xs text-gray-500">{formatCurrency(parseFloat(tx.total_cost))}</p>
+                )}
+              </div>
+            </div>
+            {tx.notes && <p className="text-xs text-gray-400 mt-1 pr-2">{tx.notes}</p>}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function IssueDialog({ open, onClose, selectedItem, stockItems, projects, onSubmit, isPending }: {
+  open: boolean; onClose: () => void; selectedItem: InventoryItem | null;
+  stockItems: InventoryItem[]; projects: any[]; onSubmit: (data: any) => void; isPending: boolean;
+}) {
+  const [itemId, setItemId] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [toProjectId, setToProjectId] = useState('');
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState('');
+
+  const currentItem = selectedItem || stockItems.find(i => String(i.id) === itemId);
+  const available = currentItem ? parseFloat(currentItem.total_remaining || '0') : 0;
+
+  const handleSubmit = () => {
+    onSubmit({
+      itemId: selectedItem?.id || parseInt(itemId),
+      quantity: parseFloat(quantity),
+      toProjectId,
+      transactionDate,
+      notes: notes || undefined,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowUpFromLine className="w-5 h-5 text-red-500" />
+            صرف مادة من المخزن
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          {!selectedItem && (
+            <div>
+              <Label>المادة</Label>
+              <Select value={itemId} onValueChange={setItemId}>
+                <SelectTrigger data-testid="select-issue-item">
+                  <SelectValue placeholder="اختر المادة" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stockItems.filter(i => parseFloat(i.total_remaining || '0') > 0).map(i => (
+                    <SelectItem key={i.id} value={String(i.id)}>
+                      {i.name} ({parseFloat(i.total_remaining || '0').toFixed(1)} {i.unit})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {selectedItem && (
+            <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
+              <p className="font-semibold">{selectedItem.name}</p>
+              <p className="text-sm text-blue-600">المتاح: {available.toFixed(1)} {selectedItem.unit}</p>
+            </div>
+          )}
+          <div>
+            <Label>الكمية</Label>
+            <Input data-testid="input-issue-quantity" type="number" step="0.1" min="0.1" max={available} value={quantity} onChange={e => setQuantity(e.target.value)} placeholder={`الحد الأقصى: ${available}`} />
+            {parseFloat(quantity) > available && <p className="text-xs text-red-500 mt-1">الكمية أكبر من المتاح!</p>}
+          </div>
+          <div>
+            <Label>المشروع المستلم</Label>
+            <Select value={toProjectId} onValueChange={setToProjectId}>
+              <SelectTrigger data-testid="select-issue-project">
+                <SelectValue placeholder="اختر المشروع" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>التاريخ</Label>
+            <Input data-testid="input-issue-date" type="date" value={transactionDate} onChange={e => setTransactionDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>ملاحظات (اختياري)</Label>
+            <Textarea data-testid="input-issue-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+          <Button 
+            data-testid="button-submit-issue"
+            onClick={handleSubmit} 
+            disabled={isPending || !quantity || !toProjectId || parseFloat(quantity) > available || parseFloat(quantity) <= 0}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isPending ? 'جاري الصرف...' : 'تأكيد الصرف'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReceiveDialog({ open, onClose, categories, projects, onSubmit, isPending }: {
+  open: boolean; onClose: () => void; categories: string[]; projects: any[]; onSubmit: (data: any) => void; isPending: boolean;
+}) {
+  const [itemName, setItemName] = useState('');
+  const [category, setCategory] = useState('');
+  const [unit, setUnit] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [unitCost, setUnitCost] = useState('');
+  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().slice(0, 10));
+  const [projectId, setProjectId] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const handleSubmit = () => {
+    onSubmit({ itemName, category: category || undefined, unit, quantity, unitCost: unitCost || '0', receiptDate, projectId: projectId || undefined, notes: notes || undefined });
+    setItemName(''); setCategory(''); setUnit(''); setQuantity(''); setUnitCost(''); setNotes('');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ArrowDownToLine className="w-5 h-5 text-green-500" />
+            إضافة مادة للمخزن
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>اسم المادة</Label>
+            <Input data-testid="input-receive-name" value={itemName} onChange={e => setItemName(e.target.value)} placeholder="مثال: أسمنت بورتلاندي" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>الفئة</Label>
+              <Input data-testid="input-receive-category" value={category} onChange={e => setCategory(e.target.value)} placeholder="أسمنت، حديد..." list="categories-list" />
+              <datalist id="categories-list">
+                {categories.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            <div>
+              <Label>الوحدة</Label>
+              <Input data-testid="input-receive-unit" value={unit} onChange={e => setUnit(e.target.value)} placeholder="كيس، طن، متر..." />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>الكمية</Label>
+              <Input data-testid="input-receive-quantity" type="number" step="0.1" value={quantity} onChange={e => setQuantity(e.target.value)} />
+            </div>
+            <div>
+              <Label>سعر الوحدة</Label>
+              <Input data-testid="input-receive-cost" type="number" step="0.01" value={unitCost} onChange={e => setUnitCost(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label>التاريخ</Label>
+            <Input data-testid="input-receive-date" type="date" value={receiptDate} onChange={e => setReceiptDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>المشروع (اختياري)</Label>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger data-testid="select-receive-project">
+                <SelectValue placeholder="اختر المشروع" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">بدون مشروع</SelectItem>
+                {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>ملاحظات</Label>
+            <Textarea data-testid="input-receive-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>إلغاء</Button>
+          <Button 
+            data-testid="button-submit-receive"
+            onClick={handleSubmit}
+            disabled={isPending || !itemName || !unit || !quantity || parseFloat(quantity) <= 0}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {isPending ? 'جاري الإضافة...' : 'تأكيد الإضافة'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

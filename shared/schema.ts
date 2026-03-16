@@ -1924,6 +1924,77 @@ export const insertEquipmentMovementSchema = createInsertSchema(equipmentMovemen
 export type InsertEquipmentMovement = z.infer<typeof insertEquipmentMovementSchema>;
 
 // ========================
+// نظام إدارة المخزن (Inventory Management System)
+// FIFO-based stock management with lot tracking
+// ========================
+
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category"),
+  unit: text("unit").notNull().default("قطعة"),
+  sku: text("sku"),
+  minQuantity: decimal("min_quantity", { precision: 10, scale: 3 }).default('0'),
+  isActive: boolean("is_active").default(true).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idxInventoryItemsName: index("idx_inventory_items_name").on(table.name),
+  idxInventoryItemsCategory: index("idx_inventory_items_category").on(table.category),
+}));
+
+export const inventoryLots = pgTable("inventory_lots", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull().references(() => inventoryItems.id, { onDelete: "cascade" }),
+  supplierId: varchar("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+  purchaseId: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }),
+  receivedQty: decimal("received_qty", { precision: 10, scale: 3 }).notNull(),
+  remainingQty: decimal("remaining_qty", { precision: 10, scale: 3 }).notNull(),
+  unitCost: decimal("unit_cost", { precision: 15, scale: 2 }).notNull().default('0'),
+  receiptDate: text("receipt_date").notNull(),
+  projectId: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idxInventoryLotsItemId: index("idx_inventory_lots_item_id").on(table.itemId),
+  idxInventoryLotsSupplier: index("idx_inventory_lots_supplier").on(table.supplierId),
+  idxInventoryLotsDate: index("idx_inventory_lots_date").on(table.receiptDate),
+}));
+
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull().references(() => inventoryItems.id, { onDelete: "cascade" }),
+  lotId: integer("lot_id").references(() => inventoryLots.id, { onDelete: "set null" }),
+  type: text("type").notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  unitCost: decimal("unit_cost", { precision: 15, scale: 2 }).default('0'),
+  totalCost: decimal("total_cost", { precision: 15, scale: 2 }).default('0'),
+  fromProjectId: varchar("from_project_id").references(() => projects.id, { onDelete: "set null" }),
+  toProjectId: varchar("to_project_id").references(() => projects.id, { onDelete: "set null" }),
+  referenceType: text("reference_type"),
+  referenceId: text("reference_id"),
+  performedBy: text("performed_by"),
+  transactionDate: text("transaction_date").notNull(),
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idxInventoryTxItemDate: index("idx_inventory_tx_item_date").on(table.itemId, table.transactionDate),
+  idxInventoryTxType: index("idx_inventory_tx_type").on(table.type),
+  idxInventoryTxToProject: index("idx_inventory_tx_to_project").on(table.toProjectId),
+}));
+
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({ id: true, created_at: true });
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+
+export type InventoryLot = typeof inventoryLots.$inferSelect;
+export const insertInventoryLotSchema = createInsertSchema(inventoryLots).omit({ id: true, created_at: true });
+export type InsertInventoryLot = z.infer<typeof insertInventoryLotSchema>;
+
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({ id: true, created_at: true });
+export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
+
+// ========================
 // نظام دفتر الأستاذ والقيد المزدوج (Double-Entry Ledger System)
 // يتبع المعايير المحاسبية العالمية: GAAP/IFRS
 // ========================

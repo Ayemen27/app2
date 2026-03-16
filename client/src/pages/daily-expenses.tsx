@@ -3548,7 +3548,7 @@ function DailyExpensesContent() {
                     </div>
                     
                     {safeMaterialPurchases.length > 0 && (
-                      <div className="space-y-2">
+                      <div className="mt-3 space-y-2">
                         {safeMaterialPurchases.map((purchase: any, index: number) => {
                           const materialName = purchase.materialName || purchase.material?.name || 'مادة غير محددة';
                           const materialUnit = purchase.materialUnit || purchase.unit || purchase.material?.unit || 'وحدة';
@@ -3557,65 +3557,63 @@ function DailyExpensesContent() {
                           const isStorage = pType === 'مخزن' || pType === 'توريد' || pType === 'مخزني';
                           const isCredit = pType === 'آجل' || pType === 'أجل';
                           
-                          let borderClass = 'border-orange-200 dark:border-orange-900/30';
-                          let bgBadgeClass = 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400';
-                          let textPriceClass = 'text-orange-600';
+                          let borderColor = 'border-orange-200 dark:border-orange-900/30';
+                          let priceColor = 'text-orange-600 dark:text-orange-400';
+                          let badgeStyle = 'bg-orange-100/50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800';
                           
                           if (isCash) {
-                            borderClass = 'border-green-200 dark:border-green-900/30';
-                            bgBadgeClass = 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
-                            textPriceClass = 'text-green-600';
+                            borderColor = 'border-green-200 dark:border-green-900/30';
+                            priceColor = 'text-green-600 dark:text-green-400';
+                            badgeStyle = 'bg-green-100/50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
                           } else if (isStorage) {
-                            borderClass = 'border-blue-200 dark:border-blue-900/30';
-                            bgBadgeClass = 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
-                            textPriceClass = 'text-blue-600';
+                            borderColor = 'border-blue-200 dark:border-blue-900/30';
+                            priceColor = 'text-blue-600 dark:text-blue-400';
+                            badgeStyle = 'bg-blue-100/50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
                           }
                           
                           return (
-                            <div key={purchase.id || index} data-testid={`card-material-purchase-${purchase.id || index}`} className={`p-3 border-2 rounded-lg shadow-sm hover:shadow-md transition-shadow ${
-                              bgBadgeClass.split(' ')[0]
-                            } bg-opacity-5 ${borderClass}`}>
+                            <div key={purchase.id || index} data-testid={`card-material-purchase-${purchase.id || index}`} className={`p-3 bg-white dark:bg-slate-800 border ${borderColor} rounded-lg shadow-sm hover:shadow-md transition-shadow`}>
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1 space-y-1.5">
                                   <div className="flex items-center justify-between">
                                     <h4 className="font-semibold text-foreground text-sm" data-testid={`text-material-name-${purchase.id || index}`}>{materialName}</h4>
-                                    <span className={`font-bold arabic-numbers text-base ${textPriceClass}`} data-testid={`text-material-total-${purchase.id || index}`}>
+                                    <span className={`font-bold arabic-numbers text-base ${priceColor}`} data-testid={`text-material-total-${purchase.id || index}`}>
                                       {formatCurrency(purchase.totalAmount)}
                                     </span>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-2 text-xs">
-                                    <div className="text-muted-foreground">
-                                      <span>الكمية: </span>
-                                      <span className="font-medium text-foreground">{purchase.quantity} {materialUnit}</span>
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                      <span>السعر: </span>
-                                      <span className="font-medium text-foreground">{formatCurrency(purchase.unitPrice)}</span>
-                                    </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Badge variant="outline" className={`text-[10px] ${badgeStyle}`}>
+                                      {pType}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      {purchase.quantity} {materialUnit} × {formatCurrency(purchase.unitPrice)}
+                                    </span>
                                   </div>
                                   {purchase.supplierName && (
                                     <p className="text-xs text-muted-foreground">المورد: {purchase.supplierName}</p>
                                   )}
-                                  <div className={`inline-block text-xs font-semibold px-2 py-1 rounded ${bgBadgeClass}`}>
-                                    {pType}
-                                  </div>
+                                  {purchase.notes && (
+                                    <p className="text-xs text-muted-foreground">الملاحظات: {purchase.notes}</p>
+                                  )}
                                   {isAllProjects && purchase.projectName && (
-                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">{purchase.projectName}</div>
+                                    <div className="text-xs font-medium text-blue-600 dark:text-blue-400">📁 {purchase.projectName}</div>
                                   )}
                                 </div>
                                 <div className="flex gap-1 flex-shrink-0">
                                   <Button
                                     data-testid={`button-edit-material-purchase-${purchase.id || index}`}
-                                    size="icon"
+                                    size="sm"
                                     variant="ghost"
+                                    className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
                                     onClick={() => handleEditMaterialPurchase(purchase)}
                                   >
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     data-testid={`button-delete-material-purchase-${purchase.id || index}`}
-                                    size="icon"
+                                    size="sm"
                                     variant="ghost"
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
                                     onClick={() => deleteMaterialPurchaseMutation.mutate(purchase.id)}
                                     disabled={deleteMaterialPurchaseMutation.isPending}
                                   >
@@ -3630,10 +3628,10 @@ function DailyExpensesContent() {
                             </div>
                           );
                         })}
-                        <div className="text-left mt-2 pt-2 border-t space-y-1">
-                          <div>
-                            <span className="text-sm text-muted-foreground">المشتريات النقدية: </span>
-                            <span className="font-bold text-success arabic-numbers">
+                        <div className="text-left mt-3 pt-3 border-t space-y-2">
+                          <div className="bg-green-100 dark:bg-green-900/40 p-2 rounded-lg border border-green-200 dark:border-green-800">
+                            <span className="text-sm font-bold text-green-900 dark:text-green-100">المشتريات النقدية: </span>
+                            <span className="font-bold text-green-600 dark:text-green-400 arabic-numbers">
                               {formatCurrency(totals.totalMaterialCosts)}
                             </span>
                           </div>
@@ -3642,14 +3640,30 @@ function DailyExpensesContent() {
                               todayMaterialPurchases
                                 .filter((purchase: any) => purchase.purchaseType === "آجل")
                                 .reduce((sum: number, purchase: any) => sum + parseFloat(purchase.totalAmount || "0"), 0) : 0;
-                            return deferredAmount > 0 ? (
-                              <div>
-                                <span className="text-sm text-muted-foreground">المشتريات الآجلة: </span>
-                                <span className="font-bold text-orange-600 arabic-numbers">
-                                  {formatCurrency(deferredAmount)}
-                                </span>
-                              </div>
-                            ) : null;
+                            const storageAmount = Array.isArray(todayMaterialPurchases) ?
+                              todayMaterialPurchases
+                                .filter((purchase: any) => purchase.purchaseType === "مخزن" || purchase.purchaseType === "توريد" || purchase.purchaseType === "مخزني")
+                                .reduce((sum: number, purchase: any) => sum + parseFloat(purchase.totalAmount || "0"), 0) : 0;
+                            return (
+                              <>
+                                {deferredAmount > 0 && (
+                                  <div className="bg-orange-100 dark:bg-orange-900/40 p-2 rounded-lg border border-orange-200 dark:border-orange-800">
+                                    <span className="text-sm font-bold text-orange-900 dark:text-orange-100">المشتريات الآجلة: </span>
+                                    <span className="font-bold text-orange-600 dark:text-orange-400 arabic-numbers">
+                                      {formatCurrency(deferredAmount)}
+                                    </span>
+                                  </div>
+                                )}
+                                {storageAmount > 0 && (
+                                  <div className="bg-blue-100 dark:bg-blue-900/40 p-2 rounded-lg border border-blue-200 dark:border-blue-800">
+                                    <span className="text-sm font-bold text-blue-900 dark:text-blue-100">توريد المخزن: </span>
+                                    <span className="font-bold text-blue-600 dark:text-blue-400 arabic-numbers">
+                                      {formatCurrency(storageAmount)}
+                                    </span>
+                                  </div>
+                                )}
+                              </>
+                            );
                           })()}
                         </div>
                       </div>

@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -11,13 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
-  Search, Plus, Minus, TrendingUp, TrendingDown, Box, Truck, Users,
-  Calendar, Filter, Download, AlertTriangle, CheckCircle2, RefreshCw
+  Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { AddEquipmentDialog } from "@/components/equipment/add-equipment-dialog";
 import { TransferEquipmentDialog } from "@/components/equipment/transfer-equipment-dialog";
 import { EquipmentMovementHistoryDialog } from "@/components/equipment/equipment-movement-history-dialog";
@@ -138,6 +139,49 @@ export function EquipmentManagement() {
   const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.data || projectsData?.projects || []);
   const equipmentList = Array.isArray(equipmentData) ? equipmentData : (equipmentData?.data || []);
 
+  const statsRowsConfig: StatsRowConfig[] = useMemo(() => [
+    {
+      columns: 4,
+      gap: 'sm',
+      items: [
+        { key: 'total_items', label: 'إجمالي المواد', value: stats.total_items || 0, icon: Package, color: 'blue' },
+        { key: 'items_in_stock', label: 'مواد متوفرة', value: stats.items_in_stock || 0, icon: CheckCircle2, color: 'green' },
+        { key: 'stock_value', label: 'قيمة المخزون', value: formatCurrency(parseFloat(stats.total_stock_value || '0')), icon: DollarSign, color: 'amber' },
+        { key: 'out_of_stock', label: 'نفذت من المخزن', value: stats.out_of_stock_items || 0, icon: AlertTriangle, color: 'red' },
+      ]
+    }
+  ], [stats]);
+
+  const filtersConfig: FilterConfig[] = useMemo(() => [
+    {
+      key: 'category',
+      label: 'الفئة',
+      type: 'select',
+      defaultValue: 'all',
+      options: [
+        { value: 'all', label: 'كل الفئات' },
+        ...categories.map(c => ({ value: c, label: c })),
+      ],
+    },
+  ], [categories]);
+
+  const filterValues = useMemo(() => ({
+    category: categoryFilter,
+  }), [categoryFilter]);
+
+  const handleFilterChange = useCallback((key: string, value: any) => {
+    if (key === 'category') setCategoryFilter(value);
+  }, []);
+
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setCategoryFilter('all');
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+  }, [queryClient]);
+
   const issueMutation = useMutation({
     mutationFn: (data: any) => apiRequest('/api/inventory/issue', 'POST', data),
     onSuccess: () => {
@@ -189,44 +233,18 @@ export function EquipmentManagement() {
 
   return (
     <div className="container mx-auto p-4 space-y-4" dir="rtl">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-primary" />
-              <span className="text-sm text-primary/80 dark:text-primary/70">إجمالي المواد</span>
-            </div>
-            <p className="text-2xl font-bold text-primary mt-1" data-testid="text-total-items">{stats.total_items || 0}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <span className="text-sm text-emerald-700 dark:text-emerald-300">مواد متوفرة</span>
-            </div>
-            <p className="text-2xl font-bold text-emerald-800 dark:text-emerald-200 mt-1" data-testid="text-in-stock">{stats.items_in_stock || 0}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-amber-600" />
-              <span className="text-sm text-amber-700 dark:text-amber-300">قيمة المخزون</span>
-            </div>
-            <p className="text-lg font-bold text-amber-800 dark:text-amber-200 mt-1" data-testid="text-stock-value">{formatCurrency(parseFloat(stats.total_stock_value || '0'))}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-              <span className="text-sm text-red-700 dark:text-red-300">نفذت من المخزن</span>
-            </div>
-            <p className="text-2xl font-bold text-red-800 dark:text-red-200 mt-1" data-testid="text-out-of-stock">{stats.out_of_stock_items || 0}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <UnifiedFilterDashboard
+        hideHeader={true}
+        statsRows={statsRowsConfig}
+        filters={filtersConfig}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="بحث في المواد..."
+        onReset={handleResetFilters}
+        onRefresh={handleRefresh}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid grid-cols-5 w-full bg-white dark:bg-gray-800 shadow-sm" data-testid="tabs-inventory">
@@ -248,27 +266,6 @@ export function EquipmentManagement() {
         </TabsList>
 
         <TabsContent value="stock" className="space-y-4">
-          <div className="flex gap-3 items-center">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input 
-                data-testid="input-search-stock"
-                placeholder="بحث في المواد..." 
-                value={searchTerm} 
-                onChange={e => setSearchTerm(e.target.value)}
-                className="pr-10"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]" data-testid="select-category-filter">
-                <SelectValue placeholder="الفئة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الفئات</SelectItem>
-                {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
 
           {stockLoading ? (
             <div className="text-center py-10 text-gray-500">جاري التحميل...</div>

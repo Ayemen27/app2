@@ -6,7 +6,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lt, lte, desc, inArray } from 'drizzle-orm';
-import { db, withTransaction } from '../../db';
+import { db, pool, withTransaction } from '../../db';
 import {
   fundTransfers, projectFundTransfers, workerMiscExpenses, workerTransfers, suppliers, projects, materialPurchases, transportationExpenses, dailyExpenseSummaries, workers, workerAttendance, materials, equipment,
   insertFundTransferSchema, insertProjectFundTransferSchema, insertWorkerMiscExpenseSchema, insertWorkerTransferSchema, insertSupplierSchema, insertMaterialPurchaseSchema, insertTransportationExpenseSchema, insertMaterialSchema,
@@ -2220,7 +2220,12 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         });
         console.log(`📦 [MaterialPurchases→Inventory] تم إضافة المشتراة ${p.id} تلقائياً للمخزن`);
       } catch (invErr: any) {
-        console.error(`⚠️ [MaterialPurchases→Inventory] فشل إضافة المشتراة للمخزن:`, invErr.message);
+        console.error(`❌ [MaterialPurchases→Inventory] فشل إضافة المشتراة للمخزن:`, invErr.message);
+        await pool.query(`DELETE FROM material_purchases WHERE id = $1`, [p.id]);
+        return res.status(500).json({
+          success: false,
+          message: `فشل إضافة المشتراة للمخزن: ${invErr.message}. تم التراجع عن العملية بالكامل.`,
+        });
       }
     }
 

@@ -709,7 +709,7 @@ function ReceiveDialog({ open, onClose, categories, projects, onSubmit, isPendin
   const [notes, setNotes] = useState('');
 
   const handleSubmit = () => {
-    onSubmit({ itemName, category: category || undefined, unit, quantity, unitCost: unitCost || '0', receiptDate, projectId: projectId || undefined, notes: notes || undefined });
+    onSubmit({ itemName, category: category || undefined, unit, quantity, unitCost: unitCost || '0', receiptDate, projectId: (projectId && projectId !== 'none') ? projectId : undefined, notes: notes || undefined });
     setItemName(''); setCategory(''); setUnit(''); setQuantity(''); setUnitCost(''); setNotes('');
   };
 

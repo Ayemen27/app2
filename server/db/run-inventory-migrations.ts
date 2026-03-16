@@ -66,6 +66,28 @@ export async function runInventoryMigrations() {
 
     await client.query(`ALTER TABLE inventory_lots ADD COLUMN IF NOT EXISTS remaining_qty_check BOOLEAN GENERATED ALWAYS AS (remaining_qty >= 0) STORED`);
 
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE inventory_lots ADD CONSTRAINT chk_remaining_qty_non_negative CHECK (remaining_qty >= 0);
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$;
+    `);
+
+    await client.query(`
+      DO $$ BEGIN
+        CREATE UNIQUE INDEX idx_inventory_lots_purchase_id_unique ON inventory_lots(purchase_id) WHERE purchase_id IS NOT NULL;
+      EXCEPTION WHEN duplicate_table THEN NULL;
+      END $$;
+    `);
+
+    await client.query(`
+      DO $$ BEGIN
+        ALTER TABLE inventory_transactions ADD CONSTRAINT chk_tx_type_valid 
+          CHECK (type IN ('IN', 'OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'TRANSFER'));
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$;
+    `);
+
     const { rows: existingItems } = await client.query(`SELECT COUNT(*) as cnt FROM inventory_items`);
     if (parseInt(existingItems[0].cnt) === 0) {
       console.log('📦 بدء ترحيل البيانات التاريخية من المشتريات المخزنية...');

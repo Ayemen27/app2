@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import { requireAuth } from '../../middleware/auth.js';
 import { InventoryService } from '../../services/InventoryService.js';
 
 const inventoryRouter = Router();
+
+inventoryRouter.use(requireAuth);
 
 inventoryRouter.get('/stats', async (req, res) => {
   try {
@@ -154,6 +157,10 @@ inventoryRouter.post('/adjust', async (req, res) => {
 
     if (!itemId || !quantity || !type || !transactionDate) {
       return res.status(400).json({ success: false, message: 'البيانات ناقصة' });
+    }
+
+    if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'نوع التسوية غير صالح. يجب أن يكون ADJUSTMENT_IN أو ADJUSTMENT_OUT' });
     }
 
     await InventoryService.adjustStock({

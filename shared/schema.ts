@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial, doublePrecision, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, date, boolean, jsonb, uuid, inet, serial, doublePrecision, index, uniqueIndex, check, foreignKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7,13 +7,13 @@ import { z } from "zod";
 
 export const devices = pgTable("devices", {
   id: serial("id").primaryKey(),
-  deviceId: text("device_id").notNull().unique(),
+  deviceId: text("device_id").notNull().unique("devices_device_id_key"),
   model: text("model"),
-  manufacturer: text("manufacturer"),
+  manufacturer: varchar("manufacturer"),
   osVersion: text("os_version"),
   sdkVersion: integer("sdk_version"),
   appVersion: text("app_version"),
-  lastSeen: timestamp("last_seen").defaultNow(),
+  lastSeen: timestamp("last_seen", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
   metadata: jsonb("metadata"),
 });
 
@@ -26,10 +26,12 @@ export const crashes = pgTable("crashes", {
   severity: text("severity"),
   appState: jsonb("app_state"),
   metadata: jsonb("metadata"),
-  timestamp: timestamp("timestamp").defaultNow(),
+  timestamp: timestamp("timestamp", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
   appVersion: text("app_version"),
-  created_at: timestamp("created_at").defaultNow(),
-});
+  created_at: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    crashes_device_id_fkey: foreignKey({ name: "crashes_device_id_fkey", columns: [table.deviceId], foreignColumns: [devices.deviceId] })
+  }));
 
 export const metrics = pgTable("metrics", {
   id: serial("id").primaryKey(),
@@ -38,8 +40,10 @@ export const metrics = pgTable("metrics", {
   metricValue: doublePrecision("metric_value").notNull(),
   unit: text("unit"),
   attributes: jsonb("attributes"),
-  timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
-});
+  timestamp: timestamp("timestamp", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    metrics_device_id_fkey: foreignKey({ name: "metrics_device_id_fkey", columns: [table.deviceId], foreignColumns: [devices.deviceId] })
+  }));
 
 export const insertDeviceSchema = createInsertSchema(devices).omit({ id: true, lastSeen: true });
 export const insertCrashSchema = createInsertSchema(crashes).omit({ id: true, timestamp: true });
@@ -66,9 +70,9 @@ export const syncFields = {
 // Users table (جدول المستخدمين)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
+  email: text("email").notNull().unique("users_email_unique"),
   password: text("password").notNull(), 
-  password_algo: text("password_algo").default("argon2id").notNull(), // argon2id, legacy
+  password_algo: text("password_algo").default("argon2id"), // argon2id, legacy
   first_name: text("first_name"),
   last_name: text("last_name"),
   full_name: text("full_name"),
@@ -95,17 +99,19 @@ export const users = pgTable("users", {
   version: integer("version").default(1).notNull(), 
   lastModifiedBy: varchar("last_modified_by"),
 }, (table) => ({
-  // Define constraints if needed
-}));
+  // Define constraints if needed,
+    users_last_modified_by_fkey: foreignKey({ name: "users_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
+  
+  }));
 
 // Update syncFields after users is defined
-// (syncFields as any).lastModifiedBy = varchar("last_modified_by").references(() => users.id);
+// (syncFields as any).lastModifiedBy = varchar("last_modified_by");
 
 
 // Refresh Tokens table (جدول توكنات التحديث)
 export const refreshTokens = pgTable("refresh_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: text("user_id").notNull(),
   tokenHash: text("token_hash").notNull(),
   replacedBy: uuid("replaced_by"),
   revoked: boolean("revoked").default(false),
@@ -115,7 +121,14 @@ export const refreshTokens = pgTable("refresh_tokens", {
   deviceFingerprint: text("device_fingerprint"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   parentId: uuid("parent_id"),
-});
+}, (table) => ({
+  idxRefreshTokensTokenHash: index("idx_refresh_tokens_token_hash").on(table.tokenHash),
+  idxRefreshTokensUserId: index("idx_refresh_tokens_user_id").on(table.user_id),
+    refresh_tokens_parent_id_fkey: foreignKey({ name: "refresh_tokens_parent_id_fkey", columns: [table.parentId], foreignColumns: [refreshTokens.id] }),
+    refresh_tokens_replaced_by_fkey: foreignKey({ name: "refresh_tokens_replaced_by_fkey", columns: [table.replacedBy], foreignColumns: [refreshTokens.id] }),
+    refresh_tokens_user_id_fkey: foreignKey({ name: "refresh_tokens_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("cascade")
+  
+  }));
 
 // Audit Logs table (جدول سجلات التدقيق)
 export const auditLogs = pgTable("audit_logs", {
@@ -129,13 +142,16 @@ export const auditLogs = pgTable("audit_logs", {
   timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
   meta: jsonb("meta"),
   ipAddress: text("ip_address"),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+  created_at: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idxAuditLogsTimestamp: index("idx_audit_logs_timestamp").on(table.timestamp),
+  idxAuditLogsUserId: index("idx_audit_logs_user_id").on(table.user_id),
+}));
 
 // Emergency Users table (جدول مستخدمي الطوارئ - محلي فقط)
 export const emergencyUsers = pgTable("emergency_users", {
   id: varchar("id").primaryKey(),
-  email: text("email").notNull().unique(),
+  email: text("email").notNull().unique("emergency_users_email_key"),
   password: text("password").notNull(),
   name: text("name").notNull(),
   role: text("role").notNull().default("admin"),
@@ -167,7 +183,7 @@ export type Task = typeof tasks.$inferSelect;
 // Authentication User Sessions table (جدول جلسات المستخدمين)
 export const authUserSessions = pgTable("auth_user_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull(),
   sessionToken: varchar("session_token"),
   deviceFingerprint: varchar("device_fingerprint"),
   userAgent: text("user_agent"),
@@ -203,8 +219,8 @@ export const authUserSessions = pgTable("auth_user_sessions", {
 // Auth Request Nonces table (جدول حماية إعادة التشغيل)
 export const authRequestNonces = pgTable("auth_request_nonces", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  nonce: varchar("nonce", { length: 128 }).notNull().unique(),
-  user_id: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  nonce: varchar("nonce", { length: 128 }).notNull().unique("auth_request_nonces_nonce_key"),
+  user_id: varchar("user_id"),
   endpoint: text("endpoint").notNull(),
   method: varchar("method", { length: 10 }).notNull(),
   ipAddress: text("ip_address"),
@@ -214,7 +230,9 @@ export const authRequestNonces = pgTable("auth_request_nonces", {
 }, (table) => ({
   idxNonce: index("idx_auth_request_nonces_nonce").on(table.nonce),
   idxExpiresAt: index("idx_auth_request_nonces_expires").on(table.expiresAt),
-}));
+    auth_request_nonces_user_id_fkey: foreignKey({ name: "auth_request_nonces_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("cascade")
+  
+  }));
 
 export const insertAuthRequestNonceSchema = createInsertSchema(authRequestNonces).omit({ id: true, receivedAt: true });
 export type AuthRequestNonce = typeof authRequestNonces.$inferSelect;
@@ -223,14 +241,14 @@ export type InsertAuthRequestNonce = z.infer<typeof insertAuthRequestNonceSchema
 // Notifications table (جدول الإشعارات)
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // null if broadcast
+  user_id: varchar("user_id"), // null if broadcast
   title: text("title").notNull(),
   body: text("body").notNull(),
   message: text("message"), // Keeping for backward compatibility if needed, but 'body' is preferred
-  type: text("type").notNull().default("system"),
+  type: text("type").notNull(),
   priority: integer("priority").default(3).notNull(),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  project_id: varchar("project_id"),
+  createdBy: varchar("created_by"),
   recipients: text("recipients").array(), // For targeted multiple users
   payload: jsonb("payload"),
   meta: jsonb("meta"),
@@ -244,7 +262,12 @@ export const notifications = pgTable("notifications", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxNotificationsCreatedAt: index("idx_notifications_created_at").on(table.created_at),
+  idxNotificationsProjectId: index("idx_notifications_project_id").on(table.project_id),
+    notifications_user_id_fkey: foreignKey({ name: "notifications_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] })
+  
+  }));
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ 
   id: true, 
@@ -258,9 +281,9 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 // Email Verification Tokens table (جدول رموز التحقق من البريد الإلكتروني)
 export const emailVerificationTokens = pgTable("email_verification_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull(),
   email: text("email").notNull(), 
-  token: varchar("token").notNull().unique(), 
+  token: varchar("token").notNull(), 
   tokenHash: varchar("token_hash").notNull(), 
   verificationLink: text("verification_link").notNull(), 
   expiresAt: timestamp("expires_at").notNull(), 
@@ -269,7 +292,7 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
   ipAddress: inet("ip_address"), 
   userAgent: text("user_agent"), 
   attemptsCount: integer("attempts_count").default(0).notNull(), 
-  identifier: text("identifier").unique(), // المعرف الذكي الموحد (جهاز + بريد)
+  identifier: text("identifier").unique("email_verification_tokens_identifier_key"),
   metadata: jsonb("metadata"), // بيانات إضافية للتحقق الذكي
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
@@ -279,8 +302,8 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
 // Password Reset Tokens table (جدول رموز استرجاع كلمة المرور)
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  token: varchar("token").notNull().unique(), // الرمز المرسل للمستخدم
+  user_id: varchar("user_id").notNull(),
+  token: varchar("token").notNull(), // الرمز المرسل للمستخدم
   tokenHash: varchar("token_hash").notNull(), // hash الرمز المحفوظ في قاعدة البيانات
   expiresAt: timestamp("expires_at").notNull(), // انتهاء صلاحية الرمز (عادة ساعة واحدة)
   usedAt: timestamp("used_at"), // متى تم استخدام الرمز
@@ -295,7 +318,7 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
 // Project Types table (أنواع المشاريع) - يجب تعريفه قبل projects
 export const projectTypes = pgTable("project_types", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
   description: text("description"),
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -304,8 +327,8 @@ export const projectTypes = pgTable("project_types", {
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
 }, (table) => ({
-  uniqueProjectTypeName: sql`UNIQUE ("name")`,
-}));
+    project_types_last_modified_by_fkey: foreignKey({ name: "project_types_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
+  }));
 
 // Projects table
 export const projects = pgTable("projects", {
@@ -323,7 +346,7 @@ export const projects = pgTable("projects", {
   contactPhone: text("contact_phone"), // إعادة إضافة رقم الهاتف
   notes: text("notes"), // إعادة إضافة الملاحظات
   imageUrl: text("image_url"), // صورة المشروع (اختيارية)
-  project_type_id: integer("project_type_id").references(() => projectTypes.id, { onDelete: "set null" }), // نوع المشروع
+  project_type_id: integer("project_type_id"), // نوع المشروع
   is_active: boolean("is_active").default(true).notNull(), // إعادة إضافة الحالة النشطة
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(), // إعادة إضافة تحديث الوقت
@@ -332,8 +355,10 @@ export const projects = pgTable("projects", {
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
 }, (table) => ({
-  uniqueProjectName: sql`UNIQUE ("name")`,
-}));
+  idxProjectsCreatedAt: index("idx_projects_created_at").on(table.created_at),
+    projects_last_modified_by_fkey: foreignKey({ name: "projects_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
+  
+  }));
 
 // Workers table
 export const workers = pgTable("workers", {
@@ -345,18 +370,21 @@ export const workers = pgTable("workers", {
   hireDate: text("hire_date"), // تاريخ التوظيف (YYYY-MM-DD)
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  created_by: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  created_by: varchar("created_by"),
   ...syncFields,
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueWorkerPerUser: sql`UNIQUE ("name", "created_by")`,
-}));
+  uniqueWorkerPerUser: uniqueIndex("workers_name_created_by_unique").on(table.name, table.created_by),
+    workers_created_by_fkey: foreignKey({ name: "workers_created_by_fkey", columns: [table.created_by], foreignColumns: [users.id] }),
+    workers_last_modified_by_fkey: foreignKey({ name: "workers_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
+  
+  }));
 
 // Wells table (جدول الآبار) - يدير بيانات الآبار والملاك والمواقع والخصائص الفنية
 // تم تحسين هذا الجدول لدعم تتبع حالة الإنجاز ونسب التنفيذ تلقائياً
 export const wells = pgTable("wells", {
   id: serial("id").primaryKey(),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id", { length: 255 }).notNull(),
   wellNumber: integer("well_number").notNull(), // رقم البئر
   ownerName: text("owner_name").notNull(), // اسم المالك
   region: varchar("region", { length: 100 }).notNull(), // المنطقة
@@ -376,7 +404,7 @@ export const wells = pgTable("wells", {
   completionDate: date("completion_date"), // تاريخ الانتهاء (nullable)
   notes: text("notes"),
   beneficiaryPhone: text("beneficiary_phone"),
-  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+  createdBy: varchar("created_by", { length: 255 }).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
   ...syncFields,
@@ -384,8 +412,8 @@ export const wells = pgTable("wells", {
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
 }, (table) => ({
-  uniqueWellNumberInProject: sql`UNIQUE (project_id, well_number)`,
-}));
+    wells_last_modified_by_fkey: foreignKey({ name: "wells_last_modified_by_fkey", columns: [table.lastModifiedBy], foreignColumns: [users.id] })
+  }));
 
 // Fund transfers (تحويلات العهدة)
 export const fundTransfers = pgTable("fund_transfers", {
@@ -393,7 +421,7 @@ export const fundTransfers = pgTable("fund_transfers", {
   project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   senderName: text("sender_name"), // اسم المرسل
-  transferNumber: text("transfer_number").unique(), // رقم الحولة - فريد
+  transferNumber: text("transfer_number").unique("fund_transfers_transfer_number_unique"), // رقم الحولة - فريد
   transferType: text("transfer_type").notNull(), // حولة، تسليم يدوي، صراف
   transferDate: timestamp("transfer_date").notNull(),
   notes: text("notes"),
@@ -404,13 +432,14 @@ export const fundTransfers = pgTable("fund_transfers", {
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   idxFundTransfersProjectDate: index("idx_fund_transfers_project_date").on(table.project_id, table.transferDate),
-}));
+  chkFundAmountPositive: check("chk_fund_amount_positive", sql`amount > 0`),
+  }));
 
 // Worker attendance
 export const workerAttendance = pgTable("worker_attendance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull(),
+  worker_id: varchar("worker_id").notNull(),
   attendanceDate: text("attendance_date").notNull(), // YYYY-MM-DD format
   date: text("date"), // عمود إضافي للتاريخ - nullable
   startTime: text("start_time"), // HH:MM format
@@ -422,7 +451,7 @@ export const workerAttendance = pgTable("worker_attendance", {
   overtime: decimal("overtime", { precision: 5, scale: 2 }).default('0.00'),
   overtimeRate: decimal("overtime_rate", { precision: 15, scale: 2 }).default('0.00'),
   // أعمدة جديدة
-  workDays: decimal("work_days", { precision: 10, scale: 2 }).default('0.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5) - افتراضي 0
+  workDays: decimal("work_days", { precision: 3, scale: 2 }).default('0.00'), // عدد أيام العمل (مثل 0.5، 1.0، 1.5) - افتراضي 0
   dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(), // الأجر اليومي الكامل
   actualWage: decimal("actual_wage", { precision: 15, scale: 2 }), // الأجر الفعلي = dailyWage * workDays - nullable في قاعدة البيانات
   totalPay: decimal("total_pay", { precision: 15, scale: 2 }).notNull(), // إجمالي الدفع المطلوب = actualWage
@@ -430,7 +459,7 @@ export const workerAttendance = pgTable("worker_attendance", {
   remainingAmount: decimal("remaining_amount", { precision: 15, scale: 2 }).default('0'), // المتبقي في حساب العامل - nullable في قاعدة البيانات
   paymentType: text("payment_type").default("partial"), // "full" | "partial" | "credit" - nullable في قاعدة البيانات
   notes: text("notes"), // ملاحظات
-  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs e.g. "[1,5]" for multi-well
   crew_type: varchar("crew_type", { length: 255 }), // welding, steel_installation, panel_installation
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -438,10 +467,14 @@ export const workerAttendance = pgTable("worker_attendance", {
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
   description: text("description"),
+  updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueWorkerDate: sql`UNIQUE (worker_id, attendance_date, project_id)`,
+  uniqueWorkerDate: uniqueIndex("worker_attendance_worker_id_attendance_date_project_id_unique").on(table.worker_id, table.attendanceDate, table.project_id),
   idxAttendanceProjectDate: index("idx_worker_attendance_project_date").on(table.project_id, table.attendanceDate),
-  idxAttendanceWorkerDate: index("idx_worker_attendance_worker_date").on(table.worker_id, table.attendanceDate),
+  idxAttendanceWorkerId: index("idx_worker_attendance_worker_id").on(table.worker_id),
+  chkAttendanceDateFormat: check("chk_attendance_date_format", sql`attendance_date ~ '^\d{4}-\d{2}-\d{2}$'`),
+  chkAttendanceDateNotEmpty: check("chk_attendance_date_not_empty", sql`attendance_date <> ''`),
+  chkWorkDaysPositive: check("chk_work_days_positive", sql`work_days >= 0`),
 }));
 
 // Suppliers (الموردين)
@@ -456,14 +489,16 @@ export const suppliers = pgTable("suppliers", {
   is_active: boolean("is_active").default(true).notNull(),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-  created_by: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  created_by: varchar("created_by"),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueSupplierPerUser: sql`UNIQUE ("name", "created_by")`,
-}));
+  uniqueSupplierPerUser: uniqueIndex("suppliers_name_created_by_unique").on(table.name, table.created_by),
+    suppliers_created_by_fkey: foreignKey({ name: "suppliers_created_by_fkey", columns: [table.created_by], foreignColumns: [users.id] })
+  
+  }));
 
 // Materials
 export const materials = pgTable("materials", {
@@ -483,7 +518,7 @@ export const materialPurchases = pgTable("material_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   supplier_id: varchar("supplier_id").references(() => suppliers.id, { onDelete: "set null" }), // ربط بالمورد
-  material_id: varchar("material_id").references(() => materials.id, { onDelete: "set null" }), // إعادة إضافة المادة للتوافق
+  material_id: varchar("material_id"), // إعادة إضافة المادة للتوافق
   materialName: text("material_name").notNull(), // اسم المادة بدلاً من material_id
   materialCategory: text("material_category"), // فئة المادة (حديد، أسمنت، إلخ)
   materialUnit: text("material_unit"), // وحدة المادة الأساسية
@@ -502,7 +537,7 @@ export const materialPurchases = pgTable("material_purchases", {
   invoicePhoto: text("invoice_photo"), // base64 or file path
   notes: text("notes"),
   purchaseDate: text("purchase_date").notNull(), // YYYY-MM-DD format
-  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
   crew_type: varchar("crew_type", { length: 255 }),
   addToInventory: boolean("add_to_inventory").default(false), // إضافة المادة للمخزن/المعدات تلقائياً
@@ -514,17 +549,20 @@ export const materialPurchases = pgTable("material_purchases", {
   description: text("description"),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueInvoice: sql`UNIQUE (project_id, supplier_id, invoice_number, purchase_date)`,
   idxMaterialPurchasesProjectDate: index("idx_material_purchases_project_date").on(table.project_id, table.purchaseDate),
-  idxMaterialPurchasesSupplierId: index("idx_material_purchases_supplier_id").on(table.supplier_id),
+  idxMaterialPurchasesProjectPurchaseDate: index("idx_material_purchases_project_purchase_date").on(table.project_id, table.purchaseDate),
+  chkPurchaseDateFormat: check("chk_purchase_date_format", sql`purchase_date ~ '^\d{4}-\d{2}-\d{2}$'`),
+  chkPurchaseDateNotEmpty: check("chk_purchase_date_not_empty", sql`purchase_date <> ''`),
+  chkQuantityPositive: check("chk_quantity_positive", sql`quantity >= 0`),
+  chkTotalAmountNonNegative: check("chk_total_amount_non_negative", sql`total_amount >= 0`),
 }));
 
 // Supplier payments (مدفوعات الموردين)
 export const supplierPayments = pgTable("supplier_payments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  supplier_id: varchar("supplier_id").notNull().references(() => suppliers.id, { onDelete: "cascade" }),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  purchase_id: varchar("purchase_id").references(() => materialPurchases.id, { onDelete: "set null" }), // ربط بفاتورة محددة
+  supplier_id: varchar("supplier_id").notNull(),
+  project_id: varchar("project_id").notNull(),
+  purchase_id: varchar("purchase_id"), // ربط بفاتورة محددة
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   paymentMethod: text("payment_method").notNull().default("نقد"), // نقد، حوالة، شيك
   paymentDate: text("payment_date").notNull(), // YYYY-MM-DD format
@@ -534,19 +572,22 @@ export const supplierPayments = pgTable("supplier_payments", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxSupplierPaymentsSupplierId: index("idx_supplier_payments_supplier_id").on(table.supplier_id),
+  chkSuppAmountPositive: check("chk_supp_amount_positive", sql`amount > 0`),
+}));
 
 // Transportation expenses (أجور المواصلات)
 export const transportationExpenses = pgTable("transportation_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  worker_id: varchar("worker_id").references(() => workers.id, { onDelete: "set null" }), // optional, for worker-specific transport
+  project_id: varchar("project_id").notNull(),
+  worker_id: varchar("worker_id"), // optional, for worker-specific transport
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description").notNull(),
   category: text("category").notNull().default("other"), // نقل عمال، توريد مواد، صيانة، بترول، إلخ
   date: text("date").notNull(), // YYYY-MM-DD format
   notes: text("notes"),
-  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
   crew_type: varchar("crew_type", { length: 255 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -555,14 +596,18 @@ export const transportationExpenses = pgTable("transportation_expenses", {
   pendingSync: boolean("pending_sync").default(false),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  idxTransportationProjectId: index("idx_transportation_expenses_project_id").on(table.project_id),
+  idxTransportExpensesProjectDate: index("idx_transport_expenses_project_date").on(table.project_id, table.date),
+  idxTransportationExpensesProjectDate: index("idx_transportation_expenses_project_date").on(table.project_id, table.date),
+  chkDateFormat: check("chk_date_format", sql`date ~ '^\d{4}-\d{2}-\d{2}$'`),
+  chkDateNotEmpty: check("chk_date_not_empty", sql`date <> ''`),
+  chkTransAmountPositive: check("chk_trans_amount_positive", sql`amount > 0`),
 }));
 
 // Worker balance transfers (حوالات الحساب للأهالي)
 export const workerTransfers = pgTable("worker_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").notNull(),
+  project_id: varchar("project_id").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   transferNumber: text("transfer_number"), // رقم الحوالة
   senderName: text("sender_name"), // اسم المرسل
@@ -579,33 +624,39 @@ export const workerTransfers = pgTable("worker_transfers", {
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   idxWorkerTransfersProjectDate: index("idx_worker_transfers_project_date").on(table.project_id, table.transferDate),
-  idxWorkerTransfersWorkerId: index("idx_worker_transfers_worker_id").on(table.worker_id),
+  chkTransferDateFormat: check("chk_transfer_date_format", sql`transfer_date ~ '^\d{4}-\d{2}-\d{2}$'`),
+  chkTransferDateNotEmpty: check("chk_transfer_date_not_empty", sql`transfer_date <> ''`),
+  chkWorkerTransAmountPositive: check("chk_worker_trans_amount_positive", sql`amount > 0`),
 }));
 
 // Worker Project Wages (أجور العمال حسب المشروع)
 export const workerProjectWages = pgTable("worker_project_wages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").notNull(),
+  project_id: varchar("project_id").notNull(),
   dailyWage: decimal("daily_wage", { precision: 15, scale: 2 }).notNull(),
   effectiveFrom: text("effective_from").notNull(),
   effectiveTo: text("effective_to"),
   is_active: boolean("is_active").default(true).notNull(),
-  created_by: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  created_by: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
-  uniqueWorkerProjectEffective: sql`UNIQUE (worker_id, project_id, effective_from)`,
+  uniqueWorkerProjectEffective: uniqueIndex("worker_project_wages_worker_id_project_id_effective_from_key").on(table.worker_id, table.project_id, table.effectiveFrom),
   idxWorkerProjectWagesWorker: index("idx_worker_project_wages_worker").on(table.worker_id),
   idxWorkerProjectWagesProject: index("idx_worker_project_wages_project").on(table.project_id),
   idxWorkerProjectWagesEffective: index("idx_worker_project_wages_effective").on(table.worker_id, table.project_id, table.effectiveFrom),
-}));
+    worker_project_wages_created_by_fkey: foreignKey({ name: "worker_project_wages_created_by_fkey", columns: [table.created_by], foreignColumns: [users.id] }),
+    worker_project_wages_project_id_fkey: foreignKey({ name: "worker_project_wages_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade"),
+    worker_project_wages_worker_id_fkey: foreignKey({ name: "worker_project_wages_worker_id_fkey", columns: [table.worker_id], foreignColumns: [workers.id] }).onDelete("cascade")
+  
+  }));
 
 // Worker account balances (أرصدة حسابات العمال)
 export const workerBalances = pgTable("worker_balances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  worker_id: varchar("worker_id").notNull(),
+  project_id: varchar("project_id").notNull(),
   totalEarned: decimal("total_earned", { precision: 15, scale: 2 }).default('0').notNull(),
   totalPaid: decimal("total_paid", { precision: 15, scale: 2 }).default('0').notNull(),
   totalTransferred: decimal("total_transferred", { precision: 15, scale: 2 }).default('0').notNull(),
@@ -622,20 +673,20 @@ export const workerBalances = pgTable("worker_balances", {
 // Daily Activity Logs (سجلات النشاط اليومي)
 export const dailyActivityLogs = pgTable("daily_activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  engineerId: varchar("engineer_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  project_id: varchar("project_id").notNull(),
+  engineerId: varchar("engineer_id").notNull(),
   logDate: text("log_date").notNull(), // YYYY-MM-DD
   activityTitle: text("activity_title").notNull(),
   description: text("description"),
   progressPercentage: integer("progress_percentage").default(0),
-  weatherConditions: text("weather_conditions"), // حقول جديدة تم تحديدها في التفكير التحليلي
-  temperature: integer("temperature"),
-  humidity: integer("humidity"),
-  images: jsonb("images").default([]), // Array of image URLs/metadata
-  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط بالبئر
+  weatherConditions: text("weather_conditions"),
+  images: jsonb("images").default(sql`'[]'::jsonb`),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    daily_activity_logs_engineer_id_fkey: foreignKey({ name: "daily_activity_logs_engineer_id_fkey", columns: [table.engineerId], foreignColumns: [users.id] }),
+    daily_activity_logs_project_id_fkey: foreignKey({ name: "daily_activity_logs_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade")
+  }));
 
 export const insertDailyActivityLogSchema = createInsertSchema(dailyActivityLogs).omit({ id: true, created_at: true, updated_at: true });
 export type DailyActivityLog = typeof dailyActivityLogs.$inferSelect;
@@ -677,12 +728,16 @@ export const dailyExpenseSummaries = pgTable("daily_expense_summaries", {
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
   description: text("description"),
-});
+}, (table) => ({
+  uniqueProjectDate: uniqueIndex("unique_project_date").on(table.project_id, table.date),
+  idxDailyExpenseSummariesProjectDate: index("idx_daily_expense_summaries_project_date").on(table.project_id, table.date),
+  idxDailySummariesProjectDate: index("idx_daily_summaries_project_date").on(table.project_id, table.date),
+  }));
 
 // Worker types table (أنواع العمال)
 export const workerTypes = pgTable("worker_types", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull().unique(), // اسم نوع العامل
+  name: text("name").notNull().unique("worker_types_name_unique"), // اسم نوع العامل
   usageCount: integer("usage_count").default(1).notNull(), // عدد مرات الاستخدام
   lastUsed: timestamp("last_used").defaultNow().notNull(), // آخر استخدام
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -700,17 +755,19 @@ export const autocompleteData = pgTable("autocomplete_data", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxAutocompleteUserCategory: index("idx_autocomplete_user_category").on(table.user_id, table.category, table.usageCount),
+}));
 
 // Worker miscellaneous expenses table (نثريات العمال)
 export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  project_id: varchar("project_id").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description").notNull(), // وصف النثريات
   date: text("date").notNull(), // تاريخ النثريات
   notes: text("notes"), // ملاحظات إضافية
-  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }), // ربط ببئر محدد (اختياري)
+  well_id: integer("well_id"), // ربط ببئر محدد (اختياري)
   well_ids: text("well_ids"), // JSON array of well IDs for multi-well
   crew_type: varchar("crew_type", { length: 255 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -719,27 +776,29 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   pendingSync: boolean("pending_sync").default(false),
   updated_at: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  idxWorkerMiscExpensesProjectId: index("idx_worker_misc_expenses_project_id").on(table.project_id),
+  idxWorkerMiscExpensesProjectDate: index("idx_worker_misc_expenses_project_date").on(table.project_id, table.date),
+  chkMiscDateFormat: check("chk_misc_date_format", sql`date ~ '^\d{4}-\d{2}-\d{2}$'`),
+  chkMiscDateNotEmpty: check("chk_misc_date_not_empty", sql`date <> ''`),
 }));
 
 // Backup Logs Table (سجل النسخ الاحتياطي)
 export const backupLogs = pgTable("backup_logs", {
   id: serial("id").primaryKey(),
   filename: text("filename").notNull(),
-  size: decimal("size", { precision: 15, scale: 2 }), // بالحجم الميجابايت
-  status: text("status").notNull(), // success, failed, in_progress
-  destination: text("destination").notNull(), // local, gdrive, telegram, all
+  size: text("size"),
+  status: text("status").notNull(),
+  destination: text("destination").notNull(),
   errorMessage: text("error_message"),
-  triggeredBy: varchar("triggered_by").references(() => users.id, { onDelete: "set null" }),
-  created_at: timestamp("created_at").defaultNow().notNull(),
+  triggeredBy: uuid("triggered_by"),
+  created_at: timestamp("created_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Backup Settings Table (إعدادات النسخ الاحتياطي)
 export const backupSettings = pgTable("backup_settings", {
   id: serial("id").primaryKey(),
-  key: text("key").notNull(),
+  key: text("key").notNull().unique("backup_settings_key_key"),
   value: text("value").notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const insertBackupLogSchema = createInsertSchema(backupLogs);
@@ -754,14 +813,14 @@ export type InsertBackupSettings = z.infer<typeof insertBackupSettingsSchema>;
 export const monitoringData = pgTable("monitoring_data", {
   id: serial("id").primaryKey(),
   timestamp: timestamp("timestamp").defaultNow(),
-  type: varchar("type", { length: 255 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
   value: jsonb("value").notNull(),
 });
 
 export const systemLogs = pgTable("system_logs", {
   id: serial("id").primaryKey(),
   timestamp: timestamp("timestamp").defaultNow(),
-  level: varchar("level", { length: 50 }).notNull(),
+  level: varchar("level", { length: 20 }).notNull(),
   message: text("message").notNull(),
   context: jsonb("context"),
 });
@@ -830,8 +889,8 @@ export const printSettings = pgTable('print_settings', {
 // Project fund transfers table (ترحيل الأموال بين المشاريع)
 export const projectFundTransfers = pgTable("project_fund_transfers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  fromProjectId: varchar("from_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  toProjectId: varchar("to_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  fromProjectId: varchar("from_project_id").notNull(),
+  toProjectId: varchar("to_project_id").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   description: text("description"), // وصف الترحيل
   transferReason: text("transfer_reason"), // سبب الترحيل
@@ -841,12 +900,19 @@ export const projectFundTransfers = pgTable("project_fund_transfers", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxProjectFundTransfersFromDate: index("idx_project_fund_transfers_from_date").on(table.fromProjectId, table.transferDate),
+  idxProjectFundTransfersToDate: index("idx_project_fund_transfers_to_date").on(table.toProjectId, table.transferDate),
+  idxProjectFundTransfersFromProjectDate: index("idx_project_fund_transfers_from_project_date").on(table.fromProjectId, table.transferDate),
+  idxProjectFundTransfersToProjectDate: index("idx_project_fund_transfers_to_project_date").on(table.toProjectId, table.transferDate),
+  idxProjectFundTransfersTransferDate: index("idx_project_fund_transfers_transfer_date").on(table.transferDate),
+  chkProjectTransferDateNotEmpty: check("chk_project_transfer_date_not_empty", sql`transfer_date <> ''`),
+}));
 
 // Security Policies (سياسات الأمان)
 export const securityPolicies = pgTable("security_policies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  policyId: varchar("policy_id").notNull().unique(),
+  policyId: varchar("policy_id").notNull(),
   title: varchar("title", { length: 500 }).notNull(),
   description: text("description"),
   category: varchar("category", { length: 100 }).notNull(),
@@ -888,7 +954,7 @@ export const securityPolicySuggestions = pgTable("security_policy_suggestions", 
   status: varchar("status", { length: 50 }).notNull().default("pending"),
   reviewedBy: varchar("reviewed_by"),
   reviewedAt: timestamp("reviewed_at"),
-  implementedAs: varchar("implemented_as").references(() => securityPolicies.id, { onDelete: "set null" }),
+  implementedAs: varchar("implemented_as"),
   implementedAt: timestamp("implemented_at"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
@@ -900,7 +966,7 @@ export const securityPolicySuggestions = pgTable("security_policy_suggestions", 
 // Security Policy Implementations (تنفيذ سياسات الأمان)
 export const securityPolicyImplementations = pgTable("security_policy_implementations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  policyId: varchar("policy_id").notNull().references(() => securityPolicies.id, { onDelete: "cascade" }),
+  policyId: varchar("policy_id").notNull(),
   implementationId: varchar("implementation_id").notNull(),
   implementationType: varchar("implementation_type", { length: 100 }).notNull(),
   status: varchar("status", { length: 50 }).notNull().default("pending"),
@@ -922,8 +988,8 @@ export const securityPolicyImplementations = pgTable("security_policy_implementa
 // Security Policy Violations (انتهاكات سياسات الأمان)
 export const securityPolicyViolations = pgTable("security_policy_violations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  policyId: varchar("policy_id").notNull().references(() => securityPolicies.id, { onDelete: "cascade" }),
-  violationId: varchar("violation_id").notNull().unique(),
+  policyId: varchar("policy_id").notNull(),
+  violationId: varchar("violation_id").notNull(),
   violatedRule: varchar("violated_rule", { length: 500 }).notNull(),
   severity: varchar("severity", { length: 50 }).notNull().default("medium"),
   status: varchar("status", { length: 50 }).notNull().default("open"),
@@ -944,29 +1010,27 @@ export const securityPolicyViolations = pgTable("security_policy_violations", {
 // User Project Permissions table (صلاحيات المستخدمين على المشاريع)
 export const userProjectPermissions = pgTable("user_project_permissions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull(),
+  project_id: varchar("project_id").notNull(),
   canView: boolean("can_view").default(true).notNull(),
   canAdd: boolean("can_add").default(false).notNull(),
   canEdit: boolean("can_edit").default(false).notNull(),
   canDelete: boolean("can_delete").default(false).notNull(),
-  assignedBy: varchar("assigned_by").references(() => users.id, { onDelete: "set null" }),
+  assignedBy: varchar("assigned_by"),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-}, (table) => ({
-  uniqueUserProject: sql`UNIQUE (user_id, project_id)`
-}));
+});
 
 // Permission Audit Logs table (سجل تغييرات الصلاحيات)
 export const permissionAuditLogs = pgTable("permission_audit_logs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   action: varchar("action").notNull(), // assign, unassign, update_permissions
-  actorId: varchar("actor_id").notNull().references(() => users.id, { onDelete: "restrict" }),
-  targetUserId: varchar("target_user_id").references(() => users.id, { onDelete: "set null" }),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  actorId: varchar("actor_id").notNull(),
+  targetUserId: varchar("target_user_id"),
+  project_id: varchar("project_id"),
   oldPermissions: jsonb("old_permissions"), // الصلاحيات القديمة
   newPermissions: jsonb("new_permissions"), // الصلاحيات الجديدة
   ipAddress: inet("ip_address"),
@@ -1160,7 +1224,7 @@ export const whatsappStats = pgTable("whatsapp_stats", {
   totalMessages: integer("total_messages").default(0).notNull(),
   lastSync: timestamp("last_sync"),
   accuracy: text("accuracy").default("0%").notNull(),
-  status: text("status").default("disconnected").notNull(),
+  status: text("status").default("disconnected"),
   phoneNumber: text("phone_number"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
@@ -1180,14 +1244,17 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   status: text("status").default("received"),
   metadata: jsonb("metadata"),
-  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  user_id: varchar("user_id"),
+  project_id: varchar("project_id"),
   phone_number: varchar("phone_number", { length: 20 }),
   is_authorized: boolean("is_authorized").default(false),
   blocked_reason: text("blocked_reason"),
   intent: text("intent"),
   security_scope: jsonb("security_scope"),
-});
+}, (table) => ({
+    whatsapp_messages_project_id_fkey: foreignKey({ name: "whatsapp_messages_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("set null"),
+    whatsapp_messages_user_id_fkey: foreignKey({ name: "whatsapp_messages_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("set null")
+  }));
 
 export const insertWhatsAppMessageSchema = createInsertSchema(whatsappMessages).omit({ id: true, timestamp: true });
 export type WhatsAppMessage = typeof whatsappMessages.$inferSelect;
@@ -1197,12 +1264,14 @@ export type InsertWhatsAppMessage = z.infer<typeof insertWhatsAppMessageSchema>;
 export const whatsappSecurityEvents = pgTable("whatsapp_security_events", {
   id: serial("id").primaryKey(),
   phone_number: varchar("phone_number", { length: 20 }).notNull(),
-  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  user_id: varchar("user_id"),
   event_type: varchar("event_type").notNull(), // blocked, denied, sql_blocked, whitelist_rejected, unauthorized
   reason: text("reason"),
   metadata: jsonb("metadata"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    whatsapp_security_events_user_id_fkey: foreignKey({ name: "whatsapp_security_events_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("set null")
+  }));
 
 export const insertWhatsAppSecurityEventSchema = createInsertSchema(whatsappSecurityEvents).omit({ id: true, created_at: true });
 export type WhatsAppSecurityEvent = typeof whatsappSecurityEvents.$inferSelect;
@@ -1287,7 +1356,7 @@ export const reportTemplates = pgTable('report_templates', {
   // إعدادات الطباعة
   pageOrientation: text('page_orientation').notNull().default('portrait'), // portrait أو landscape
   pageSize: text('page_size').notNull().default('A4'),
-  margins: jsonb('margins').default({ top: 1, bottom: 1, left: 0.75, right: 0.75 }),
+  margins: jsonb('margins').default(sql`'{"top": 1, "left": 0.75, "right": 0.75, "bottom": 1}'::jsonb`),
 
   // تفعيل/إلغاء العناصر
   showHeader: boolean('show_header').notNull().default(true),
@@ -1324,7 +1393,7 @@ export type ReportTemplate = typeof reportTemplates.$inferSelect;
 export const notificationReadStates = pgTable("notification_read_states", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   notificationId: text("notification_id").notNull(), // معرف الإشعار (مثل maintenance-tool-id)
-  user_id: varchar("user_id").references(() => users.id, { onDelete: "cascade" }), // المستخدم الذي قرأ الإشعار (null للعام)
+  user_id: varchar("user_id"), // المستخدم الذي قرأ الإشعار (null للعام)
   isRead: boolean("is_read").default(true).notNull(), // حالة القراءة
   readAt: timestamp("read_at").defaultNow().notNull(), // تاريخ القراءة
   deviceInfo: text("device_info"), // معلومات الجهاز للمراجعة
@@ -1332,10 +1401,7 @@ export const notificationReadStates = pgTable("notification_read_states", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-}, (table) => ({
-  // قيد فريد لمنع تكرار الإدخال لنفس الإشعار والمستخدم
-  uniqueNotificationUser: sql`UNIQUE (notification_id, user_id)`
-}));
+});
 
 // Build & Deployment table (جدول عمليات البناء والنشر)
 export const buildDeployments = pgTable("build_deployments", {
@@ -1364,7 +1430,7 @@ export const buildDeployments = pgTable("build_deployments", {
   duration: integer("duration"),
   startTime: timestamp("start_time").defaultNow().notNull(),
   endTime: timestamp("end_time"),
-  triggeredBy: varchar("triggered_by").references(() => users.id, { onDelete: "set null" }),
+  triggeredBy: varchar("triggered_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
@@ -1373,12 +1439,14 @@ export const buildDeployments = pgTable("build_deployments", {
 
 export const deploymentEvents = pgTable("deployment_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  deploymentId: varchar("deployment_id").notNull().references(() => buildDeployments.id, { onDelete: "cascade" }),
+  deploymentId: varchar("deployment_id").notNull(),
   eventType: text("event_type").notNull(),
   message: text("message").notNull(),
   metadata: jsonb("metadata"),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
-});
+}, (table) => ({
+    deployment_events_deployment_id_fkey: foreignKey({ name: "deployment_events_deployment_id_fkey", columns: [table.deploymentId], foreignColumns: [buildDeployments.id] }).onDelete("cascade")
+  }));
 
 export const insertBuildDeploymentSchema = createInsertSchema(buildDeployments).omit({
   id: true,
@@ -1410,7 +1478,7 @@ export type NotificationReadState = typeof notificationReadStates.$inferSelect;
 // جلسات المحادثات
 export const aiChatSessions = pgTable("ai_chat_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull(),
   title: text("title").default("محادثة جديدة"),
   is_active: boolean("is_active").default(true).notNull(),
   lastMessageAt: timestamp("last_message_at"),
@@ -1425,7 +1493,7 @@ export const aiChatSessions = pgTable("ai_chat_sessions", {
 // رسائل المحادثات
 export const aiChatMessages = pgTable("ai_chat_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").notNull().references(() => aiChatSessions.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id").notNull(),
   role: text("role").notNull(), // user, assistant
   content: text("content").notNull(),
   model: text("model"), // gpt-4o, gemini-1.5-flash
@@ -1437,12 +1505,14 @@ export const aiChatMessages = pgTable("ai_chat_messages", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxAiChatMessagesSessionId: index("idx_ai_chat_messages_session_id").on(table.sessionId),
+  }));
 
 // إحصائيات استخدام النماذج
 export const aiUsageStats = pgTable("ai_usage_stats", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  user_id: varchar("user_id").notNull(),
   date: text("date").notNull(), // YYYY-MM-DD
   provider: text("provider").notNull(), // openai, gemini
   model: text("model").notNull(),
@@ -1490,32 +1560,34 @@ export type InsertAiUsageStats = z.infer<typeof insertAiUsageStatsSchema>;
 // 3. جدول مهام البئر (well_tasks)
 export const wellTasks = pgTable("well_tasks", {
   id: serial("id").primaryKey(),
-  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  well_id: integer("well_id").notNull(),
   taskType: varchar("task_type", { length: 50 }).notNull(), // نجارة، حفر، صبة، تركيب_ألواح، تركيب_مضخة، تمديدات، اختبار
   description: text("description"), // استرجاع الوصف
   estimatedCost: decimal("estimated_cost", { precision: 12, scale: 2 }), // استرجاع التكلفة التقديرية
   actualCost: decimal("actual_cost", { precision: 12, scale: 2 }), // استرجاع التكلفة الفعلية
   taskOrder: integer("task_order").notNull(), // ترتيب المهمة
   status: text("status").notNull().default("pending"), // pending, in_progress, completed
-  assignedWorkerId: varchar("assigned_worker_id").references(() => workers.id, { onDelete: "set null" }),
+  assignedWorkerId: varchar("assigned_worker_id", { length: 255 }),
   startDate: date("start_date"),
   completionDate: date("completion_date"),
-  completedBy: varchar("completed_by").references(() => users.id, { onDelete: "set null" }),
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }), // استرجاع المنشئ
+  completedBy: varchar("completed_by"),
+  createdBy: varchar("created_by", { length: 255 }),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxWellTasksWellId: index("idx_well_tasks_well_id").on(table.well_id),
+}));
 
 // 4. جدول محاسبة المهام (well_task_accounts)
 export const wellTaskAccounts = pgTable("well_task_accounts", {
   id: serial("id").primaryKey(),
-  taskId: integer("task_id").notNull().unique().references(() => wellTasks.id, { onDelete: "cascade" }),
+  taskId: integer("task_id").notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  accountedBy: varchar("accounted_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+  accountedBy: varchar("accounted_by", { length: 255 }).notNull(),
   accountedAt: timestamp("accounted_at").defaultNow().notNull(),
   paymentMethod: varchar("payment_method", { length: 50 }),
   referenceNumber: varchar("reference_number", { length: 100 }),
@@ -1528,7 +1600,7 @@ export const wellTaskAccounts = pgTable("well_task_accounts", {
 // 5. جدول مصاريف البئر (well_expenses)
 export const wellExpenses = pgTable("well_expenses", {
   id: serial("id").primaryKey(),
-  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  well_id: integer("well_id").notNull(),
   expenseType: varchar("expense_type", { length: 50 }).notNull(), // labor, operational_material, consumable_material, transport, service
   referenceType: varchar("reference_type", { length: 50 }), // worker_attendance, material_purchase, transport
   referenceId: varchar("reference_id"), // ID من الجدول المرجعي
@@ -1539,25 +1611,27 @@ export const wellExpenses = pgTable("well_expenses", {
   unitPrice: decimal("unit_price", { precision: 12, scale: 2 }).notNull(),
   totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
   expenseDate: date("expense_date").notNull(),
-  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "restrict" }),
+  createdBy: varchar("created_by", { length: 255 }).notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
   notes: text("notes"),
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxWellExpensesWellId: index("idx_well_expenses_well_id").on(table.well_id),
+}));
 
 // 6. جدول سجل تدقيق الآبار (well_audit_logs)
 export const wellAuditLogs = pgTable("well_audit_logs", {
   id: serial("id").primaryKey(),
-  well_id: integer("well_id").references(() => wells.id, { onDelete: "set null" }),
-  taskId: integer("task_id").references(() => wellTasks.id, { onDelete: "set null" }),
+  well_id: integer("well_id"),
+  taskId: integer("task_id"),
   action: varchar("action", { length: 50 }).notNull(), // create, update, delete, status_change, account
   entityType: varchar("entity_type", { length: 50 }).notNull(), // well, task, expense, account
   entityId: integer("entity_id").notNull(),
   previousData: jsonb("previous_data"),
   newData: jsonb("new_data"),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  user_id: varchar("user_id").notNull(),
   ipAddress: inet("ip_address"),
   userAgent: text("user_agent"),
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -1569,7 +1643,7 @@ export const wellAuditLogs = pgTable("well_audit_logs", {
 // 7. جدول تصنيفات المواد (material_categories)
 export const materialCategories = pgTable("material_categories", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
   nameAr: varchar("name_ar", { length: 100 }).notNull(),
   type: varchar("type", { length: 20 }).notNull(), // operational, consumable
   unit: varchar("unit", { length: 20 }).notNull(),
@@ -1643,11 +1717,11 @@ export type InsertMaterialCategory = z.infer<typeof insertMaterialCategorySchema
 // 8. جدول طواقم العمل (well_work_crews)
 export const wellWorkCrews = pgTable("well_work_crews", {
   id: serial("id").primaryKey(),
-  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  well_id: integer("well_id").notNull(),
   crewType: varchar("crew_type", { length: 255 }).notNull(), // welding, steel_installation, panel_installation
   teamName: text("team_name"),
-  workersCount: decimal("workers_count", { precision: 10, scale: 0 }).default('0').notNull(),
-  mastersCount: decimal("masters_count", { precision: 10, scale: 0 }).default('0').notNull(),
+  workersCount: decimal("workers_count", { precision: 10, scale: 4 }).default('0').notNull(),
+  mastersCount: decimal("masters_count", { precision: 10, scale: 4 }).default('0').notNull(),
   workDays: decimal("work_days", { precision: 10, scale: 4 }).default('0').notNull(),
   workerDailyWage: decimal("worker_daily_wage", { precision: 12, scale: 2 }),
   masterDailyWage: decimal("master_daily_wage", { precision: 12, scale: 2 }),
@@ -1655,27 +1729,35 @@ export const wellWorkCrews = pgTable("well_work_crews", {
   crewDues: decimal("crew_dues", { precision: 12, scale: 2 }),
   workDate: date("work_date"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    well_work_crews_created_by_fkey: foreignKey({ name: "well_work_crews_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+    well_work_crews_well_id_fkey: foreignKey({ name: "well_work_crews_well_id_fkey", columns: [table.well_id], foreignColumns: [wells.id] }).onDelete("cascade")
+  }));
 
 // 8b. جدول ربط العمال بطواقم الآبار (well_crew_workers)
 export const wellCrewWorkers = pgTable("well_crew_workers", {
   id: serial("id").primaryKey(),
-  crew_id: integer("crew_id").notNull().references(() => wellWorkCrews.id, { onDelete: "cascade" }),
-  worker_id: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
+  crew_id: integer("crew_id").notNull(),
+  worker_id: varchar("worker_id").notNull(),
   daily_wage_snapshot: decimal("daily_wage_snapshot", { precision: 12, scale: 2 }),
   work_days: decimal("work_days", { precision: 10, scale: 4 }),
-  crew_type: varchar("crew_type", { length: 255 }),
+  crew_type: varchar("crew_type", { length: 50 }),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  wellCrewWorkersCrewWorkerIdx: uniqueIndex("well_crew_workers_crew_worker_idx").on(table.crew_id, table.worker_id),
+    well_crew_workers_crew_id_fkey: foreignKey({ name: "well_crew_workers_crew_id_fkey", columns: [table.crew_id], foreignColumns: [wellWorkCrews.id] }).onDelete("cascade"),
+    well_crew_workers_worker_id_fkey: foreignKey({ name: "well_crew_workers_worker_id_fkey", columns: [table.worker_id], foreignColumns: [workers.id] }).onDelete("cascade")
+  
+  }));
 
 // 9. جدول مكونات الطاقة الشمسية (well_solar_components)
 export const wellSolarComponents = pgTable("well_solar_components", {
   id: serial("id").primaryKey(),
-  well_id: integer("well_id").notNull().unique().references(() => wells.id, { onDelete: "cascade" }),
+  well_id: integer("well_id").notNull().unique("well_solar_components_well_id_key"),
   inverter: text("inverter"),
   collectionBox: text("collection_box"),
   carbonCarrier: text("carbon_carrier"),
@@ -1698,30 +1780,36 @@ export const wellSolarComponents = pgTable("well_solar_components", {
   installationStatus: varchar("installation_status", { length: 30 }).default("not_installed"),
   installedComponents: text("installed_components"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    well_solar_components_created_by_fkey: foreignKey({ name: "well_solar_components_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+    well_solar_components_well_id_fkey: foreignKey({ name: "well_solar_components_well_id_fkey", columns: [table.well_id], foreignColumns: [wells.id] }).onDelete("cascade")
+  }));
 
 // 10. جدول تفاصيل النقل (well_transport_details)
 export const wellTransportDetails = pgTable("well_transport_details", {
   id: serial("id").primaryKey(),
-  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
+  well_id: integer("well_id").notNull(),
   railType: varchar("rail_type", { length: 20 }), // new, old
   withPanels: boolean("with_panels").default(false),
   transportPrice: decimal("transport_price", { precision: 12, scale: 2 }),
   crewEntitlements: decimal("crew_entitlements", { precision: 12, scale: 2 }),
   transportDate: date("transport_date"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    well_transport_details_created_by_fkey: foreignKey({ name: "well_transport_details_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+    well_transport_details_well_id_fkey: foreignKey({ name: "well_transport_details_well_id_fkey", columns: [table.well_id], foreignColumns: [wells.id] }).onDelete("cascade")
+  }));
 
 // 11. جدول استلام الآبار (well_receptions)
 export const wellReceptions = pgTable("well_receptions", {
   id: serial("id").primaryKey(),
-  well_id: integer("well_id").notNull().references(() => wells.id, { onDelete: "cascade" }),
-  receivedBy: varchar("received_by").references(() => users.id, { onDelete: "set null" }),
+  well_id: integer("well_id").notNull(),
+  receivedBy: varchar("received_by"),
   receiverName: text("receiver_name"),
   inspectionStatus: varchar("inspection_status", { length: 50 }).default("pending"), // pending, passed, failed
   inspectionNotes: text("inspection_notes"),
@@ -1729,9 +1817,13 @@ export const wellReceptions = pgTable("well_receptions", {
   receptionDate: date("reception_date"),
   engineers: text("engineers"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    well_receptions_created_by_fkey: foreignKey({ name: "well_receptions_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+    well_receptions_received_by_fkey: foreignKey({ name: "well_receptions_received_by_fkey", columns: [table.receivedBy], foreignColumns: [users.id] }),
+    well_receptions_well_id_fkey: foreignKey({ name: "well_receptions_well_id_fkey", columns: [table.well_id], foreignColumns: [wells.id] }).onDelete("cascade")
+  }));
 
 // Insert Schemas for new well tables
 export const insertWellWorkCrewSchema = createInsertSchema(wellWorkCrews).omit({
@@ -1790,22 +1882,32 @@ export const equipment = pgTable("equipment", {
   description: text("description"),
   purchaseDate: text("purchase_date"),
   purchasePrice: text("purchase_price"),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  project_id: varchar("project_id"),
   imageUrl: text("image_url"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxEquipmentCode: index("idx_equipment_code").on(table.code),
+    equipment_project_id_fkey: foreignKey({ name: "equipment_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] })
+  
+  }));
 
 export const equipmentMovements = pgTable("equipment_movements", {
   id: serial("id").primaryKey(),
-  equipmentId: integer("equipment_id").references(() => equipment.id, { onDelete: "cascade" }),
-  fromProjectId: varchar("from_project_id").references(() => projects.id, { onDelete: "set null" }),
-  toProjectId: varchar("to_project_id").references(() => projects.id, { onDelete: "set null" }),
+  equipmentId: integer("equipment_id"),
+  fromProjectId: varchar("from_project_id"),
+  toProjectId: varchar("to_project_id"),
   quantity: integer("quantity").default(1).notNull(),
   movementDate: timestamp("movement_date").defaultNow(),
   reason: text("reason"),
   performedBy: text("performed_by"),
   notes: text("notes"),
-});
+}, (table) => ({
+  idxEquipmentMovementsEquipmentId: index("idx_equipment_movements_equipment_id").on(table.equipmentId),
+    equipment_movements_equipment_id_fkey: foreignKey({ name: "equipment_movements_equipment_id_fkey", columns: [table.equipmentId], foreignColumns: [equipment.id] }),
+    equipment_movements_from_project_id_fkey: foreignKey({ name: "equipment_movements_from_project_id_fkey", columns: [table.fromProjectId], foreignColumns: [projects.id] }),
+    equipment_movements_to_project_id_fkey: foreignKey({ name: "equipment_movements_to_project_id_fkey", columns: [table.toProjectId], foreignColumns: [projects.id] })
+  
+  }));
 
 export type Equipment = typeof equipment.$inferSelect;
 export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, created_at: true });
@@ -1822,7 +1924,7 @@ export type InsertEquipmentMovement = z.infer<typeof insertEquipmentMovementSche
 
 export const accountTypes = pgTable("account_types", {
   id: serial("id").primaryKey(),
-  code: varchar("code", { length: 20 }).notNull().unique(),
+  code: varchar("code", { length: 20 }).notNull().unique("account_types_code_key"),
   nameAr: text("name_ar").notNull(),
   nameEn: text("name_en"),
   category: text("category").notNull(), // asset, liability, equity, revenue, expense
@@ -1835,7 +1937,7 @@ export const accountTypes = pgTable("account_types", {
 export const journalEntries = pgTable("journal_entries", {
   id: uuid("id").defaultRandom().primaryKey(),
   entryNumber: serial("entry_number"),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  project_id: varchar("project_id"),
   entryDate: text("entry_date").notNull(), // YYYY-MM-DD
   description: text("description").notNull(),
   sourceTable: text("source_table").notNull(), // fund_transfers, material_purchases, etc
@@ -1844,63 +1946,76 @@ export const journalEntries = pgTable("journal_entries", {
   reversalOfId: uuid("reversal_of_id"),
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).notNull(),
   status: text("status").default("posted"), // draft, posted, reversed
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   ...syncFields,
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+    journal_entries_created_by_fkey: foreignKey({ name: "journal_entries_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+    journal_entries_project_id_fkey: foreignKey({ name: "journal_entries_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] })
+  }));
 
 export const journalLines = pgTable("journal_lines", {
   id: uuid("id").defaultRandom().primaryKey(),
-  journalEntryId: uuid("journal_entry_id").references(() => journalEntries.id, { onDelete: "cascade" }).notNull(),
+  journalEntryId: uuid("journal_entry_id").notNull(),
   accountCode: varchar("account_code", { length: 20 }).notNull(),
   debitAmount: decimal("debit_amount", { precision: 15, scale: 2 }).default("0"),
   creditAmount: decimal("credit_amount", { precision: 15, scale: 2 }).default("0"),
   description: text("description"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    journal_lines_journal_entry_id_fkey: foreignKey({ name: "journal_lines_journal_entry_id_fkey", columns: [table.journalEntryId], foreignColumns: [journalEntries.id] })
+  }));
 
 export const financialAuditLog = pgTable("financial_audit_log", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  project_id: varchar("project_id"),
   action: text("action").notNull(), // create, update, delete, reverse
   entityType: text("entity_type").notNull(), // fund_transfer, material_purchase, etc
   entityId: text("entity_id").notNull(),
   previousData: jsonb("previous_data"),
   newData: jsonb("new_data"),
   changedFields: jsonb("changed_fields"),
-  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  user_id: varchar("user_id"),
   userEmail: text("user_email"),
   reason: text("reason"),
   ipAddress: inet("ip_address"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    financial_audit_log_project_id_fkey: foreignKey({ name: "financial_audit_log_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }),
+    financial_audit_log_user_id_fkey: foreignKey({ name: "financial_audit_log_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] })
+  }));
 
 export const reconciliationRecords = pgTable("reconciliation_records", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  project_id: varchar("project_id").notNull(),
   reconciliationDate: text("reconciliation_date").notNull(), // YYYY-MM-DD
   ledgerBalance: decimal("ledger_balance", { precision: 15, scale: 2 }).notNull(),
   computedBalance: decimal("computed_balance", { precision: 15, scale: 2 }).notNull(),
   discrepancy: decimal("discrepancy", { precision: 15, scale: 2 }).notNull(),
   status: text("status").default("pending"), // pending, matched, discrepancy, resolved
-  resolvedBy: varchar("resolved_by").references(() => users.id, { onDelete: "set null" }),
+  resolvedBy: varchar("resolved_by"),
   resolvedAt: timestamp("resolved_at"),
   notes: text("notes"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    reconciliation_records_project_id_fkey: foreignKey({ name: "reconciliation_records_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }),
+    reconciliation_records_resolved_by_fkey: foreignKey({ name: "reconciliation_records_resolved_by_fkey", columns: [table.resolvedBy], foreignColumns: [users.id] })
+  }));
 
 export const summaryInvalidations = pgTable("summary_invalidations", {
   id: uuid("id").defaultRandom().primaryKey(),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  project_id: varchar("project_id").notNull(),
   invalidatedFrom: text("invalidated_from").notNull(), // YYYY-MM-DD
   reason: text("reason").notNull(),
   sourceTable: text("source_table"),
   sourceId: text("source_id"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    summary_invalidations_project_id_fkey: foreignKey({ name: "summary_invalidations_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] })
+  }));
 
 export const insertAccountTypeSchema = createInsertSchema(accountTypes).omit({ id: true, created_at: true });
 export type AccountType = typeof accountTypes.$inferSelect;
@@ -1928,7 +2043,7 @@ export type InsertSummaryInvalidation = z.infer<typeof insertSummaryInvalidation
 
 export const syncAuditLogs = pgTable("sync_audit_logs", {
   id: serial("id").primaryKey(),
-  user_id: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  user_id: varchar("user_id"),
   userName: text("user_name"),
   module: varchar("module", { length: 50 }).notNull(),
   tableName: varchar("table_name", { length: 100 }).notNull(),
@@ -1943,11 +2058,20 @@ export const syncAuditLogs = pgTable("sync_audit_logs", {
   userAgent: text("user_agent"),
   durationMs: integer("duration_ms"),
   syncType: varchar("sync_type", { length: 30 }),
-  project_id: varchar("project_id").references(() => projects.id, { onDelete: "set null" }),
+  project_id: varchar("project_id"),
   projectName: text("project_name"),
   amount: decimal("amount", { precision: 15, scale: 2 }),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxSyncAuditCreatedAt: index("idx_sync_audit_created_at").on(table.created_at),
+  idxSyncAuditModule: index("idx_sync_audit_module").on(table.module),
+  idxSyncAuditProjectId: index("idx_sync_audit_project_id").on(table.project_id),
+  idxSyncAuditStatus: index("idx_sync_audit_status").on(table.status),
+  idxSyncAuditUserId: index("idx_sync_audit_user_id").on(table.user_id),
+    sync_audit_logs_project_id_fkey: foreignKey({ name: "sync_audit_logs_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }),
+    sync_audit_logs_user_id_fkey: foreignKey({ name: "sync_audit_logs_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] })
+  
+  }));
 
 export const insertSyncAuditLogSchema = createInsertSchema(syncAuditLogs).omit({ id: true, created_at: true });
 export type SyncAuditLog = typeof syncAuditLogs.$inferSelect;
@@ -1955,7 +2079,7 @@ export type InsertSyncAuditLog = z.infer<typeof insertSyncAuditLogSchema>;
 
 export const idempotencyKeys = pgTable("idempotency_keys", {
   id: serial("id").primaryKey(),
-  key: varchar("key", { length: 255 }).notNull().unique(),
+  key: varchar("key", { length: 255 }).notNull().unique("idempotency_keys_key_unique"),
   endpoint: varchar("endpoint", { length: 255 }).notNull(),
   method: varchar("method", { length: 10 }).notNull(),
   statusCode: integer("status_code").notNull(),
@@ -1971,8 +2095,8 @@ export type InsertIdempotencyKey = z.infer<typeof insertIdempotencyKeySchema>;
 // WebAuthn Credentials table (جدول بيانات اعتماد WebAuthn للمصادقة البيومترية)
 export const webauthnCredentials = pgTable("webauthn_credentials", {
   id: serial("id").primaryKey(),
-  user_id: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  credential_id: text("credential_id").notNull().unique(),
+  user_id: text("user_id").notNull(),
+  credential_id: text("credential_id").notNull().unique("webauthn_credentials_credential_id_key"),
   public_key: text("public_key").notNull(),
   counter: integer("counter").notNull().default(0),
   transports: text("transports").array(),
@@ -1989,7 +2113,7 @@ export type InsertWebAuthnCredential = z.infer<typeof insertWebAuthnCredentialSc
 export const webauthnChallenges = pgTable("webauthn_challenges", {
   id: serial("id").primaryKey(),
   user_id: text("user_id"),
-  challenge: text("challenge").notNull().unique(),
+  challenge: text("challenge").notNull().unique("webauthn_challenges_challenge_key"),
   type: text("type").notNull(),
   created_at: timestamp("created_at").defaultNow(),
   expires_at: timestamp("expires_at").notNull(),
@@ -2001,7 +2125,7 @@ export type InsertWebAuthnChallenge = z.infer<typeof insertWebAuthnChallengeSche
 
 export const userPreferences = pgTable("user_preferences", {
   id: serial("id").primaryKey(),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  user_id: varchar("user_id").notNull().unique("user_preferences_user_id_key"),
   language: text("language").default("ar").notNull(),
   auto_update: boolean("auto_update").default(true).notNull(),
   dark_mode: boolean("dark_mode").default(false).notNull(),
@@ -2011,7 +2135,9 @@ export const userPreferences = pgTable("user_preferences", {
   attendance_alerts: boolean("attendance_alerts").default(false).notNull(),
   app_lock: boolean("app_lock").default(false).notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+    user_preferences_user_id_fkey: foreignKey({ name: "user_preferences_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("cascade")
+  }));
 
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true, updated_at: true });
 export type UserPreferences = typeof userPreferences.$inferSelect;
@@ -2019,8 +2145,8 @@ export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 
 export const whatsappUserLinks = pgTable("whatsapp_user_links", {
   id: serial("id").primaryKey(),
-  user_id: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+  user_id: varchar("user_id").notNull().unique("whatsapp_user_links_user_id_key"),
+  phoneNumber: varchar("phone_number", { length: 20 }).notNull().unique("whatsapp_user_links_phone_number_key"),
   isActive: boolean("is_active").default(true).notNull(),
   linkedAt: timestamp("linked_at").defaultNow().notNull(),
   lastMessageAt: timestamp("last_message_at"),
@@ -2032,9 +2158,8 @@ export const whatsappUserLinks = pgTable("whatsapp_user_links", {
   canDelete: boolean("can_delete").default(true).notNull(),
   scopeAllProjects: boolean("scope_all_projects").default(true).notNull(),
 }, (table) => ({
-  uniquePhone: sql`UNIQUE (phone_number)`,
-  uniqueUser: sql`UNIQUE (user_id)`,
-}));
+    whatsapp_user_links_user_id_fkey: foreignKey({ name: "whatsapp_user_links_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("cascade")
+  }));
 
 export const insertWhatsappUserLinkSchema = createInsertSchema(whatsappUserLinks).omit({ id: true, linkedAt: true, lastMessageAt: true, totalMessages: true });
 export type WhatsappUserLink = typeof whatsappUserLinks.$inferSelect;
@@ -2042,13 +2167,16 @@ export type InsertWhatsappUserLink = z.infer<typeof insertWhatsappUserLinkSchema
 
 export const whatsappLinkProjects = pgTable("whatsapp_link_projects", {
   id: serial("id").primaryKey(),
-  linkId: integer("link_id").notNull().references(() => whatsappUserLinks.id, { onDelete: "cascade" }),
-  project_id: varchar("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  linkId: integer("link_id").notNull(),
+  project_id: varchar("project_id").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
-  uniqueLinkProject: sql`UNIQUE (link_id, project_id)`,
-}));
+  uniqueLinkProject: uniqueIndex("whatsapp_link_projects_link_id_project_id_key").on(table.linkId, table.project_id),
+    whatsapp_link_projects_link_id_fkey: foreignKey({ name: "whatsapp_link_projects_link_id_fkey", columns: [table.linkId], foreignColumns: [whatsappUserLinks.id] }).onDelete("cascade"),
+    whatsapp_link_projects_project_id_fkey: foreignKey({ name: "whatsapp_link_projects_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade")
+  
+  }));
 
 export const insertWhatsappLinkProjectSchema = createInsertSchema(whatsappLinkProjects).omit({ id: true, createdAt: true });
 export type WhatsappLinkProject = typeof whatsappLinkProjects.$inferSelect;
@@ -2059,11 +2187,13 @@ export const whatsappAllowedNumbers = pgTable("whatsapp_allowed_numbers", {
   phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
   label: varchar("label", { length: 100 }),
   isActive: boolean("is_active").default(true).notNull(),
-  addedBy: varchar("added_by").references(() => users.id, { onDelete: "set null" }),
+  addedBy: varchar("added_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
-  uniqueAllowedPhone: sql`UNIQUE (phone_number)`,
-}));
+  uniqueAllowedPhone: uniqueIndex("whatsapp_allowed_numbers_phone_number_key").on(table.phoneNumber),
+    whatsapp_allowed_numbers_added_by_fkey: foreignKey({ name: "whatsapp_allowed_numbers_added_by_fkey", columns: [table.addedBy], foreignColumns: [users.id] }).onDelete("set null")
+  
+  }));
 
 export const insertWhatsappAllowedNumberSchema = createInsertSchema(whatsappAllowedNumbers).omit({ id: true, createdAt: true });
 export type WhatsappAllowedNumber = typeof whatsappAllowedNumbers.$inferSelect;
@@ -2133,8 +2263,10 @@ export const whatsappBotSettings = pgTable("whatsapp_bot_settings", {
   autoReconnect: boolean("auto_reconnect").default(true).notNull(),
 
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedBy: varchar("updated_by").references(() => users.id, { onDelete: "set null" }),
-});
+  updatedBy: varchar("updated_by"),
+}, (table) => ({
+    whatsapp_bot_settings_updated_by_fkey: foreignKey({ name: "whatsapp_bot_settings_updated_by_fkey", columns: [table.updatedBy], foreignColumns: [users.id] }).onDelete("set null")
+  }));
 
 export const insertWhatsappBotSettingsSchema = createInsertSchema(whatsappBotSettings).omit({ id: true, updatedAt: true });
 export type WhatsappBotSettings = typeof whatsappBotSettings.$inferSelect;
@@ -2144,28 +2276,42 @@ export type InsertWhatsappBotSettings = z.infer<typeof insertWhatsappBotSettings
 export const workerSettlements = pgTable("worker_settlements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   settlementDate: text("settlement_date").notNull(),
-  settlementProjectId: varchar("settlement_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  settlementProjectId: varchar("settlement_project_id").notNull(),
   totalAmount: decimal("total_amount", { precision: 15, scale: 2 }).default('0').notNull(),
   workerCount: integer("worker_count").default(0).notNull(),
   transferCount: integer("transfer_count").default(0).notNull(),
   status: text("status").notNull().default("completed"),
   notes: text("notes"),
-  createdBy: varchar("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdBy: varchar("created_by"),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxWorkerSettlementsDate: index("idx_worker_settlements_date").on(table.settlementDate),
+  idxWorkerSettlementsProject: index("idx_worker_settlements_project").on(table.settlementProjectId),
+    worker_settlements_created_by_fkey: foreignKey({ name: "worker_settlements_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }).onDelete("set null"),
+    worker_settlements_settlement_project_id_fkey: foreignKey({ name: "worker_settlements_settlement_project_id_fkey", columns: [table.settlementProjectId], foreignColumns: [projects.id] }).onDelete("cascade")
+  
+  }));
 
 // Worker Settlement Lines (تفاصيل تصفية حساب العمال)
 export const workerSettlementLines = pgTable("worker_settlement_lines", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  settlementId: varchar("settlement_id").notNull().references(() => workerSettlements.id, { onDelete: "cascade" }),
-  workerId: varchar("worker_id").notNull().references(() => workers.id, { onDelete: "cascade" }),
-  fromProjectId: varchar("from_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  toProjectId: varchar("to_project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  settlementId: varchar("settlement_id").notNull(),
+  workerId: varchar("worker_id").notNull(),
+  fromProjectId: varchar("from_project_id").notNull(),
+  toProjectId: varchar("to_project_id").notNull(),
   amount: decimal("amount", { precision: 15, scale: 2 }).notNull(),
   balanceBefore: decimal("balance_before", { precision: 15, scale: 2 }).default('0').notNull(),
   balanceAfter: decimal("balance_after", { precision: 15, scale: 2 }).default('0').notNull(),
   created_at: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  idxWorkerSettlementLinesSettlement: index("idx_worker_settlement_lines_settlement").on(table.settlementId),
+  idxWorkerSettlementLinesWorker: index("idx_worker_settlement_lines_worker").on(table.workerId),
+    worker_settlement_lines_from_project_id_fkey: foreignKey({ name: "worker_settlement_lines_from_project_id_fkey", columns: [table.fromProjectId], foreignColumns: [projects.id] }).onDelete("cascade"),
+    worker_settlement_lines_settlement_id_fkey: foreignKey({ name: "worker_settlement_lines_settlement_id_fkey", columns: [table.settlementId], foreignColumns: [workerSettlements.id] }).onDelete("cascade"),
+    worker_settlement_lines_to_project_id_fkey: foreignKey({ name: "worker_settlement_lines_to_project_id_fkey", columns: [table.toProjectId], foreignColumns: [projects.id] }).onDelete("cascade"),
+    worker_settlement_lines_worker_id_fkey: foreignKey({ name: "worker_settlement_lines_worker_id_fkey", columns: [table.workerId], foreignColumns: [workers.id] }).onDelete("cascade")
+  
+  }));
 
 export const insertWorkerSettlementSchema = createInsertSchema(workerSettlements).omit({ id: true, created_at: true });
 export type WorkerSettlement = typeof workerSettlements.$inferSelect;

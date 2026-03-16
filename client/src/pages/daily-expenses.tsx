@@ -1345,7 +1345,8 @@ function DailyExpensesContent() {
       return;
     }
 
-    if (!purchaseUnitPrice || parseFloat(purchaseUnitPrice) <= 0) {
+    const isPriceRequired = purchaseType !== 'مخزن';
+    if (isPriceRequired && (!purchaseUnitPrice || parseFloat(purchaseUnitPrice) <= 0)) {
       toast({
         title: "خطأ",
         description: "يرجى إدخال سعر الوحدة",
@@ -1355,7 +1356,7 @@ function DailyExpensesContent() {
     }
 
     const qty = parseFloat(purchaseQuantity) || 0;
-    const price = parseFloat(purchaseUnitPrice) || 0;
+    const price = isPriceRequired ? (parseFloat(purchaseUnitPrice) || 0) : (parseFloat(purchaseUnitPrice || "0"));
     const total = purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : qty * price;
 
     const purchaseData: any = {
@@ -3448,7 +3449,7 @@ function DailyExpensesContent() {
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">سعر الوحدة *</Label>
+                          <Label className="text-xs">سعر الوحدة {purchaseType !== 'مخزن' ? '*' : ''}</Label>
                           <Input
                             data-testid="input-purchase-unit-price"
                             type="number"

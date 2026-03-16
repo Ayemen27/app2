@@ -75,6 +75,13 @@ export async function runInventoryMigrations() {
 
     await client.query(`
       DO $$ BEGIN
+        CREATE UNIQUE INDEX idx_inventory_items_name_unit_cat ON inventory_items(name, unit, COALESCE(category, ''));
+      EXCEPTION WHEN duplicate_table THEN NULL;
+      END $$;
+    `);
+
+    await client.query(`
+      DO $$ BEGIN
         CREATE UNIQUE INDEX idx_inventory_lots_purchase_id_unique ON inventory_lots(purchase_id) WHERE purchase_id IS NOT NULL;
       EXCEPTION WHEN duplicate_table THEN NULL;
       END $$;

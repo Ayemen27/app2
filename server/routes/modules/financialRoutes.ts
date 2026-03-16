@@ -2137,55 +2137,80 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
 
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
+    const isInventoryPurchase = purchaseData.purchaseType === 'مخزن' || purchaseData.purchaseType === 'توريد' || purchaseData.purchaseType === 'مخزني';
 
-    const { newPurchase, createdEquipment } = await db.transaction(async (tx: any) => {
-      const newPurchaseResult = await tx
-        .insert(materialPurchases)
-        .values(purchaseData)
-        .returning();
+    const { newPurchase, createdEquipment, inventoryResult } = await withTransaction(async (client) => {
+      const camelToSnake: Record<string, string> = {
+        materialName: 'material_name', materialCategory: 'material_category', materialUnit: 'material_unit',
+        unitPrice: 'unit_price', totalAmount: 'total_amount', purchaseType: 'purchase_type',
+        paidAmount: 'paid_amount', remainingAmount: 'remaining_amount', supplierName: 'supplier_name',
+        receiptNumber: 'receipt_number', invoiceNumber: 'invoice_number', invoiceDate: 'invoice_date',
+        dueDate: 'due_date', invoicePhoto: 'invoice_photo', purchaseDate: 'purchase_date',
+        addToInventory: 'add_to_inventory', equipmentId: 'equipment_id', isLocal: 'is_local',
+        supplierPhone: 'supplier_phone', crewType: 'crew_type',
+      };
+      const dbData: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(purchaseData)) {
+        dbData[camelToSnake[k] || k] = v;
+      }
 
-      const p = newPurchaseResult[0];
+      const cols = Object.keys(dbData).map(k => `"${k}"`).join(', ');
+      const vals = Object.keys(dbData).map((_, i) => `$${i + 1}`).join(', ');
+      const insertResult = await client.query(
+        `INSERT INTO material_purchases (${cols}) VALUES (${vals}) RETURNING *`,
+        Object.values(dbData)
+      );
+
+      const p = insertResult.rows[0];
       let eqResult = null;
 
       if (shouldAddToInventory) {
         const rawQty = parseInt(String(p.quantity || '1'), 10);
         const qty = Number.isNaN(rawQty) || rawQty < 1 ? 1 : rawQty;
-        const totalAmountVal = parseFloat(p.totalAmount || '0');
+        const totalAmountVal = parseFloat(p.total_amount || '0');
         const safePurchasePrice = Number.isNaN(totalAmountVal) || totalAmountVal < 0 ? '0' : String(totalAmountVal);
 
-        const [newEquipment] = await tx.insert(equipment).values({
-          name: p.materialName,
-          type: p.materialCategory || null,
-          unit: p.materialUnit || p.unit || 'قطعة',
-          quantity: qty,
-          status: 'available',
-          condition: 'excellent',
-          description: p.notes || null,
-          purchaseDate: p.purchaseDate,
-          purchasePrice: safePurchasePrice,
-          project_id: p.project_id,
-        }).returning();
+        const eqInsert = await client.query(
+          `INSERT INTO equipment (name, type, unit, quantity, status, condition, description, "purchaseDate", "purchasePrice", project_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+          [p.material_name, p.material_category || null, p.material_unit || p.unit || 'قطعة', qty, 'available', 'excellent', p.notes || null, p.purchase_date, safePurchasePrice, p.project_id]
+        );
+        const newEquipment = eqInsert.rows[0];
 
         const eqCode = `EQ-${String(newEquipment.id).padStart(5, '0')}`;
-        await tx.update(equipment)
-          .set({ code: eqCode })
-          .where(eq(equipment.id, newEquipment.id));
-
-        await tx.update(materialPurchases)
-          .set({ equipmentId: newEquipment.id, addToInventory: true })
-          .where(eq(materialPurchases.id, p.id));
+        await client.query(`UPDATE equipment SET code = $1 WHERE id = $2`, [eqCode, newEquipment.id]);
+        await client.query(`UPDATE material_purchases SET equipment_id = $1, add_to_inventory = true WHERE id = $2`, [newEquipment.id, p.id]);
 
         eqResult = { ...newEquipment, code: eqCode };
-        console.log(`📦 [MaterialPurchases→Equipment] تم إنشاء معدة #${newEquipment.id} (${newEquipment.name}) كود: ${eqCode} تلقائياً من المشتراة ${p.id}`);
+        console.log(`📦 [MaterialPurchases→Equipment] تم إنشاء معدة #${newEquipment.id} كود: ${eqCode} تلقائياً من المشتراة ${p.id}`);
       }
 
-      return { newPurchase: newPurchaseResult, createdEquipment: eqResult };
+      let invResult = null;
+      if (isInventoryPurchase) {
+        const { InventoryService } = await import('../../services/InventoryService.js');
+        invResult = await InventoryService.receiveFromPurchaseWithClient({
+          purchaseId: p.id,
+          materialName: p.material_name || '',
+          materialCategory: p.material_category || null,
+          unit: p.unit || p.material_unit || 'قطعة',
+          quantity: parseFloat(p.quantity || '0'),
+          unitPrice: parseFloat(p.unit_price || '0'),
+          totalAmount: parseFloat(p.total_amount || '0'),
+          purchaseDate: p.purchase_date,
+          supplierId: p.supplier_id || null,
+          projectId: p.project_id || null,
+          notes: p.notes || null,
+        }, client);
+        console.log(`📦 [MaterialPurchases→Inventory] تم إضافة المشتراة ${p.id} تلقائياً للمخزن (ذري)`);
+      }
+
+      return { newPurchase: [p], createdEquipment: eqResult, inventoryResult: invResult };
     });
 
     const p = newPurchase[0];
     FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordMaterialPurchase(
-        p.project_id, parseFloat(p.totalAmount || '0'), p.purchaseDate, p.id, p.purchaseType || 'نقد', getAuthUser(req)?.user_id
+        p.project_id, parseFloat(p.total_amount || '0'), p.purchase_date, p.id, p.purchase_type || 'نقد', getAuthUser(req)?.user_id
       ),
       'material-purchase/POST'
     );
@@ -2194,40 +2219,13 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       referenceType: 'material_purchase',
       referenceId: p.id,
       wellIdsJson: p.well_ids,
-      totalAmount: p.totalAmount || '0',
-      description: `مشتريات - ${p.materialName || ''}`,
+      totalAmount: p.total_amount || '0',
+      description: `مشتريات - ${p.material_name || ''}`,
       category: 'قيمة المواد',
-      expenseDate: p.purchaseDate,
+      expenseDate: p.purchase_date,
       userId: getAuthUser(req)?.user_id || 'system',
       projectId: p.project_id,
     });
-
-    if (p.purchaseType === 'مخزن' || p.purchaseType === 'توريد' || p.purchaseType === 'مخزني') {
-      try {
-        const { InventoryService } = await import('../../services/InventoryService.js');
-        await InventoryService.receiveFromPurchase({
-          purchaseId: p.id,
-          materialName: p.materialName || '',
-          materialCategory: p.materialCategory || null,
-          unit: p.unit || p.materialUnit || 'قطعة',
-          quantity: parseFloat(p.quantity || '0'),
-          unitPrice: parseFloat(p.unitPrice || '0'),
-          totalAmount: parseFloat(p.totalAmount || '0'),
-          purchaseDate: p.purchaseDate,
-          supplierId: p.supplier_id || null,
-          projectId: p.project_id || null,
-          notes: p.notes || null,
-        });
-        console.log(`📦 [MaterialPurchases→Inventory] تم إضافة المشتراة ${p.id} تلقائياً للمخزن`);
-      } catch (invErr: any) {
-        console.error(`❌ [MaterialPurchases→Inventory] فشل إضافة المشتراة للمخزن:`, invErr.message);
-        await pool.query(`DELETE FROM material_purchases WHERE id = $1`, [p.id]);
-        return res.status(500).json({
-          success: false,
-          message: `فشل إضافة المشتراة للمخزن: ${invErr.message}. تم التراجع عن العملية بالكامل.`,
-        });
-      }
-    }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [MaterialPurchases] تم إضافة مشتراة جديدة في ${duration}ms`);

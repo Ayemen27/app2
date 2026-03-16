@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
+import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess.js';
 import { InventoryService } from '../../services/InventoryService.js';
 
 const inventoryRouter = Router();
 
 inventoryRouter.use(requireAuth);
+inventoryRouter.use(attachAccessibleProjects);
 
 inventoryRouter.get('/stats', async (req, res) => {
   try {

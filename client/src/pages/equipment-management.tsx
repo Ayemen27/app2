@@ -128,7 +128,7 @@ export function EquipmentManagement() {
   const equipmentList = Array.isArray(equipmentData) ? equipmentData : (equipmentData?.data || []);
 
   const issueMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('POST', '/api/inventory/issue', data),
+    mutationFn: (data: any) => apiRequest('/api/inventory/issue', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
       setShowIssueDialog(false);
@@ -141,7 +141,7 @@ export function EquipmentManagement() {
   });
 
   const receiveMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('POST', '/api/inventory/receive', data),
+    mutationFn: (data: any) => apiRequest('/api/inventory/receive', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
       setShowReceiveDialog(false);
@@ -533,7 +533,7 @@ export function EquipmentManagement() {
         <AddEquipmentDialog
           open={showAddEquipmentDialog}
           onOpenChange={setShowAddEquipmentDialog}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['/api/equipment'] })}
+          projects={projects}
         />
       )}
 
@@ -542,7 +542,7 @@ export function EquipmentManagement() {
           open={showTransferDialog}
           onOpenChange={setShowTransferDialog}
           equipment={selectedEquipment}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['/api/equipment'] })}
+          projects={projects}
         />
       )}
 

@@ -3,17 +3,58 @@ import { pool } from "../db";
 export class InventoryService {
 
   static async findOrCreateItem(name: string, unit: string, category?: string | null): Promise<number> {
-    const { rows: existing } = await pool.query(
-      `SELECT id FROM inventory_items WHERE name = $1 AND unit = $2 AND COALESCE(category, '') = COALESCE($3, '')`,
-      [name, unit, category || '']
-    );
-    if (existing.length > 0) return existing[0].id;
-
-    const { rows: created } = await pool.query(
-      `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3) RETURNING id`,
+    const { rows } = await pool.query(
+      `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3)
+       ON CONFLICT (name, unit, COALESCE(category, '')) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id`,
       [name, category || null, unit]
     );
-    return created[0].id;
+    return rows[0].id;
+  }
+
+  private static async _receiveFromPurchaseInternal(purchaseData: {
+    purchaseId: string;
+    materialName: string;
+    materialCategory?: string | null;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+    totalAmount: number;
+    purchaseDate: string;
+    supplierId?: string | null;
+    projectId?: string | null;
+    notes?: string | null;
+  }, queryFn: (sql: string, params: any[]) => Promise<{ rows: any[] }>): Promise<{ itemId: number; lotId: number }> {
+    const { rows: existingLot } = await queryFn(
+      `SELECT id FROM inventory_lots WHERE purchase_id = $1`,
+      [purchaseData.purchaseId]
+    );
+    if (existingLot.length > 0) {
+      const { rows: lot } = await queryFn(`SELECT item_id FROM inventory_lots WHERE id = $1`, [existingLot[0].id]);
+      return { itemId: lot[0].item_id, lotId: existingLot[0].id };
+    }
+
+    const { rows: itemRows } = await queryFn(
+      `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3)
+       ON CONFLICT (name, unit, COALESCE(category, '')) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id`,
+      [purchaseData.materialName, purchaseData.materialCategory || null, purchaseData.unit]
+    );
+    const itemId = itemRows[0].id;
+
+    const { rows: newLot } = await queryFn(
+      `INSERT INTO inventory_lots (item_id, supplier_id, purchase_id, received_qty, remaining_qty, unit_cost, receipt_date, project_id, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      [itemId, purchaseData.supplierId || null, purchaseData.purchaseId, purchaseData.quantity, purchaseData.quantity, purchaseData.unitPrice, purchaseData.purchaseDate, purchaseData.projectId || null, purchaseData.notes || null]
+    );
+
+    await queryFn(
+      `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, to_project_id, reference_type, reference_id, transaction_date, notes)
+       VALUES ($1, $2, 'IN', $3, $4, $5, $6, 'purchase', $7, $8, $9)`,
+      [itemId, newLot[0].id, purchaseData.quantity, purchaseData.unitPrice, purchaseData.totalAmount, purchaseData.projectId || null, purchaseData.purchaseId, purchaseData.purchaseDate, `وارد من مشتراة: ${purchaseData.materialName}`]
+    );
+
+    return { itemId, lotId: newLot[0].id };
   }
 
   static async receiveFromPurchase(purchaseData: {
@@ -32,53 +73,31 @@ export class InventoryService {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-
-      const { rows: existingLot } = await client.query(
-        `SELECT id FROM inventory_lots WHERE purchase_id = $1`,
-        [purchaseData.purchaseId]
-      );
-      if (existingLot.length > 0) {
-        await client.query('COMMIT');
-        const { rows: lot } = await client.query(`SELECT item_id FROM inventory_lots WHERE id = $1`, [existingLot[0].id]);
-        return { itemId: lot[0].item_id, lotId: existingLot[0].id };
-      }
-
-      const { rows: existingItem } = await client.query(
-        `SELECT id FROM inventory_items WHERE name = $1 AND unit = $2 AND COALESCE(category, '') = COALESCE($3, '')`,
-        [purchaseData.materialName, purchaseData.unit, purchaseData.materialCategory || '']
-      );
-
-      let itemId: number;
-      if (existingItem.length > 0) {
-        itemId = existingItem[0].id;
-      } else {
-        const { rows: newItem } = await client.query(
-          `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3) RETURNING id`,
-          [purchaseData.materialName, purchaseData.materialCategory || null, purchaseData.unit]
-        );
-        itemId = newItem[0].id;
-      }
-
-      const { rows: newLot } = await client.query(
-        `INSERT INTO inventory_lots (item_id, supplier_id, purchase_id, received_qty, remaining_qty, unit_cost, receipt_date, project_id, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-        [itemId, purchaseData.supplierId || null, purchaseData.purchaseId, purchaseData.quantity, purchaseData.quantity, purchaseData.unitPrice, purchaseData.purchaseDate, purchaseData.projectId || null, purchaseData.notes || null]
-      );
-
-      await client.query(
-        `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, to_project_id, reference_type, reference_id, transaction_date, notes)
-         VALUES ($1, $2, 'IN', $3, $4, $5, $6, 'purchase', $7, $8, $9)`,
-        [itemId, newLot[0].id, purchaseData.quantity, purchaseData.unitPrice, purchaseData.totalAmount, purchaseData.projectId || null, purchaseData.purchaseId, purchaseData.purchaseDate, `وارد من مشتراة: ${purchaseData.materialName}`]
-      );
-
+      const result = await this._receiveFromPurchaseInternal(purchaseData, (sql, params) => client.query(sql, params));
       await client.query('COMMIT');
-      return { itemId, lotId: newLot[0].id };
+      return result;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+  }
+
+  static async receiveFromPurchaseWithClient(purchaseData: {
+    purchaseId: string;
+    materialName: string;
+    materialCategory?: string | null;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+    totalAmount: number;
+    purchaseDate: string;
+    supplierId?: string | null;
+    projectId?: string | null;
+    notes?: string | null;
+  }, client: { query: (sql: string, params: any[]) => Promise<{ rows: any[] }> }): Promise<{ itemId: number; lotId: number }> {
+    return this._receiveFromPurchaseInternal(purchaseData, (sql, params) => client.query(sql, params));
   }
 
   static async issueFromStock(data: {

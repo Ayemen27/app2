@@ -31,7 +31,6 @@ import {
   ArrowLeftRight,
   DollarSign,
   Loader2,
-  Eye,
   Play,
   AlertTriangle,
   Plus,
@@ -123,11 +122,9 @@ export default function WorkerSettlementsPage() {
   const [activeView, setActiveView] = useState<"new" | "history">("new");
   const [searchValue, setSearchValue] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [filterValues, setFilterValues] = useState<Record<string, string>>({
-    view: "new",
-  });
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
 
-  const [settlementProjectId, setSettlementProjectId] = useState("");
+  const settlementProjectId = selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID ? selectedProjectId : "";
   const [preview, setPreview] = useState<SettlementPreview | null>(null);
   const [selectedWorkers, setSelectedWorkers] = useState<Set<string>>(new Set());
   const [excludedProjects, setExcludedProjects] = useState<Map<string, Set<string>>>(new Map());
@@ -193,7 +190,6 @@ export default function WorkerSettlementsPage() {
         className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100",
       });
       setPreview(null);
-      setSettlementProjectId("");
       setSelectedWorkers(new Set());
       queryClient.invalidateQueries({ queryKey: ["/api/worker-settlements"] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
@@ -383,32 +379,32 @@ export default function WorkerSettlementsPage() {
     setSearchValue("");
   }, []);
 
+  useEffect(() => {
+    if (settlementProjectId && activeView === "new") {
+      setPreview(null);
+      setSelectedWorkers(new Set());
+      setExcludedProjects(new Map());
+      previewMutation.mutate(settlementProjectId);
+    } else if (!settlementProjectId) {
+      setPreview(null);
+      setSelectedWorkers(new Set());
+    }
+  }, [settlementProjectId]);
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
       if (activeView === "history") {
         await queryClient.invalidateQueries({ queryKey: ["/api/worker-settlements"] });
       }
-      if (preview && settlementProjectId) {
+      if (settlementProjectId && activeView === "new") {
         previewMutation.mutate(settlementProjectId);
       }
       toast({ title: "تم التحديث", description: "تم تحديث البيانات بنجاح" });
     } finally {
       setIsRefreshing(false);
     }
-  }, [activeView, preview, settlementProjectId]);
-
-  const handlePreview = useCallback(() => {
-    if (!settlementProjectId) {
-      toast({
-        title: "خطأ",
-        description: "الرجاء اختيار مشروع التصفية",
-        variant: "destructive",
-      });
-      return;
-    }
-    previewMutation.mutate(settlementProjectId);
-  }, [settlementProjectId]);
+  }, [activeView, settlementProjectId]);
 
   const toggleWorker = useCallback((workerId: string) => {
     setSelectedWorkers((prev) => {
@@ -432,9 +428,11 @@ export default function WorkerSettlementsPage() {
   const handleNewSettlement = useCallback(() => {
     setActiveView("new");
     setPreview(null);
-    setSettlementProjectId("");
     setSelectedWorkers(new Set());
-  }, []);
+    if (settlementProjectId) {
+      previewMutation.mutate(settlementProjectId);
+    }
+  }, [settlementProjectId]);
 
   useEffect(() => {
     setFloatingAction(handleNewSettlement, "تصفية جديدة");
@@ -494,50 +492,16 @@ export default function WorkerSettlementsPage() {
 
       {activeView === "new" && (
         <div className="space-y-4">
-          <Card>
-            <CardContent className="p-4 space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
-                <div className="flex-1 w-full sm:w-auto space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">مشروع التصفية</label>
-                  <Select
-                    value={settlementProjectId}
-                    onValueChange={(v) => {
-                      setSettlementProjectId(v);
-                      setPreview(null);
-                      setSelectedWorkers(new Set());
-                    }}
-                  >
-                    <SelectTrigger data-testid="select-settlement-project" className="text-sm">
-                      <SelectValue placeholder="اختر مشروع التصفية" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(projects) &&
-                        projects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  onClick={handlePreview}
-                  disabled={!settlementProjectId || previewMutation.isPending}
-                  className="w-full sm:w-auto"
-                  data-testid="button-preview-settlement"
-                >
-                  {previewMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                  ) : (
-                    <Eye className="h-4 w-4 ml-2" />
-                  )}
-                  معاينة التصفية
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {!settlementProjectId && (
+            <Card>
+              <CardContent className="text-center py-12">
+                <Scale className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">اختر مشروع التصفية من الشريط العلوي للبدء</p>
+              </CardContent>
+            </Card>
+          )}
 
-          {previewMutation.isPending && (
+          {settlementProjectId && previewMutation.isPending && (
             <Card>
               <CardContent className="text-center py-12">
                 <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />

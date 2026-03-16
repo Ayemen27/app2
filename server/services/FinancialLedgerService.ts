@@ -105,6 +105,16 @@ export class FinancialLedgerService {
           { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع نقدي' },
         ]
       });
+    } else if (purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني') {
+      return this.createJournalEntry({
+        project_id, entryDate: date,
+        description: `توريد مواد للمخزن بقيمة ${amount}`,
+        sourceTable: 'material_purchases', sourceId,
+        createdBy,
+        lines: [
+          { accountCode: ACCOUNT_CODES.MATERIAL_EXPENSE, debitAmount: amount, creditAmount: 0, description: 'توريد مواد للمخزن' },
+        ]
+      });
     } else {
       return this.createJournalEntry({
         project_id, entryDate: date,

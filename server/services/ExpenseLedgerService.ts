@@ -15,6 +15,7 @@ import { sql } from 'drizzle-orm';
 export interface ExpenseSummary {
   materialExpenses: number;      // مصاريف المواد (النقدية فقط)
   materialExpensesCredit: number; // مصاريف المواد (الآجلة)
+  materialExpensesStorage: number; // مصاريف المواد (المخزن)
   workerWages: number;           // أجور العمال
   transportExpenses: number;     // مصاريف النقل
   workerTransfers: number;       // تحويلات العمال
@@ -179,13 +180,13 @@ export class ExpenseLedgerService {
       );
 
       // بناء الاستعلامات بناءً على نوع الفلترة
-      let materialCashStats, materialCreditStats, workerWagesStats, transportStats;
+      let materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats;
       let workerTransfersStats, miscExpensesStats, fundTransfersStats;
       let outgoingTransfersStats, incomingTransfersStats, workersStatsResult;
 
       if (isCumulative) {
         // استعلامات بدون فلتر تاريخ
-        [materialCashStats, materialCreditStats, workerWagesStats, transportStats,
+        [materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats,
          workerTransfersStats, miscExpensesStats, fundTransfersStats,
          outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
@@ -196,6 +197,7 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل')`, [project_id]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'مخزن' OR purchase_type = 'توريد' OR purchase_type = 'مخزني')`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND (CAST(paid_amount AS DECIMAL) > 0 OR CAST(work_days AS DECIMAL) > 0)`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1`, [project_id]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1`, [project_id]),
@@ -207,7 +209,7 @@ export class ExpenseLedgerService {
         ]);
       } else if (cleanDate) {
         // استعلامات مع فلتر تاريخ محدد
-        [materialCashStats, materialCreditStats, workerWagesStats, transportStats,
+        [materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats,
          workerTransfersStats, miscExpensesStats, fundTransfersStats,
          outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
@@ -218,6 +220,7 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date = $2::date`, [project_id, cleanDate]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'مخزن' OR purchase_type = 'توريد' OR purchase_type = 'مخزني') AND purchase_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND (CAST(paid_amount AS DECIMAL) > 0 OR CAST(work_days AS DECIMAL) > 0) AND attendance_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
@@ -229,7 +232,7 @@ export class ExpenseLedgerService {
         ]);
       } else {
         // استعلامات مع نطاق تاريخ
-        [materialCashStats, materialCreditStats, workerWagesStats, transportStats,
+        [materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats,
          workerTransfersStats, miscExpensesStats, fundTransfersStats,
          outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
@@ -240,6 +243,7 @@ export class ExpenseLedgerService {
             END
           ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND purchase_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL) - CAST(paid_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'آجل' OR purchase_type = 'اجل') AND purchase_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'مخزن' OR purchase_type = 'توريد' OR purchase_type = 'مخزني') AND purchase_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) as total, COUNT(DISTINCT attendance_date) as completed_days FROM worker_attendance WHERE project_id = $1 AND (CAST(paid_amount AS DECIMAL) > 0 OR CAST(work_days AS DECIMAL) > 0) AND attendance_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
@@ -257,6 +261,7 @@ export class ExpenseLedgerService {
 
       const materialExpenses = this.cleanDbValue(materialCashStats.rows[0]?.total);
       const materialExpensesCredit = this.cleanDbValue(materialCreditStats.rows[0]?.total);
+      const materialExpensesStorage = this.cleanDbValue(materialStorageStats?.rows[0]?.total);
       const workerWages = this.cleanDbValue(workerWagesStats.rows[0]?.total);
       const transportExpenses = this.cleanDbValue(transportStats.rows[0]?.total);
       const workerTransfers = this.cleanDbValue(workerTransfersStats.rows[0]?.total);
@@ -282,6 +287,7 @@ export class ExpenseLedgerService {
         expenses: { 
           materialExpenses, 
           materialExpensesCredit, 
+          materialExpensesStorage,
           workerWages, 
           transportExpenses, 
           workerTransfers, 
@@ -358,6 +364,7 @@ export class ExpenseLedgerService {
         carriedForwardBalance: 0,
         totalIncomeWithCarried: 0,
         materialExpensesCredit: 0,
+        materialExpensesStorage: 0,
         workerWages: 0,
         transportExpenses: 0,
         workerTransfers: 0,
@@ -378,6 +385,7 @@ export class ExpenseLedgerService {
         totals.carriedForwardBalance += (p.income.carriedForwardBalance || 0);
         totals.totalIncomeWithCarried += (p.income.totalIncomeWithCarried || 0);
         totals.materialExpensesCredit += p.expenses.materialExpensesCredit;
+        totals.materialExpensesStorage += (p.expenses.materialExpensesStorage || 0);
         totals.workerWages += p.expenses.workerWages;
         totals.transportExpenses += p.expenses.transportExpenses;
         totals.workerTransfers += p.expenses.workerTransfers;

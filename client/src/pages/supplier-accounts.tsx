@@ -589,15 +589,27 @@ export default function SupplierAccountsPage() {
                   title={materialName}
                   subtitle={projectName}
                   titleIcon={Package}
-                  headerColor={remaining === 0 ? "#22c55e" : purchase.purchaseType === "نقد" ? "#3b82f6" : "#ef4444"}
+                  headerColor={
+                    (purchase.purchaseType === 'مخزن' || purchase.purchaseType === 'توريد' || purchase.purchaseType === 'مخزني')
+                      ? "#3b82f6"
+                      : remaining === 0 ? "#22c55e" 
+                      : purchase.purchaseType === "نقد" ? "#3b82f6" 
+                      : "#ef4444"
+                  }
                   badges={[
                     { 
-                      label: remaining === 0 ? 'مسدد' : 'مؤجل', 
-                      variant: remaining === 0 ? 'success' : 'destructive' 
+                      label: (purchase.purchaseType === 'مخزن' || purchase.purchaseType === 'توريد' || purchase.purchaseType === 'مخزني')
+                        ? 'مخزن'
+                        : remaining === 0 ? 'مسدد' : 'مؤجل', 
+                      variant: (purchase.purchaseType === 'مخزن' || purchase.purchaseType === 'توريد' || purchase.purchaseType === 'مخزني')
+                        ? 'default'
+                        : remaining === 0 ? 'success' : 'destructive' 
                     },
                     { 
                       label: purchase.purchaseType, 
-                      variant: purchase.purchaseType === "نقد" ? 'default' : 'warning' 
+                      variant: purchase.purchaseType === "نقد" ? 'default' 
+                        : (purchase.purchaseType === 'مخزن' || purchase.purchaseType === 'توريد' || purchase.purchaseType === 'مخزني') ? 'default'
+                        : 'warning' 
                     }
                   ]}
                   actions={[
@@ -672,7 +684,9 @@ export default function SupplierAccountsPage() {
                       value: formatCurrency(
                         purchase.purchaseType === 'نقد' 
                           ? purchase.totalAmount 
-                          : (purchase.paidAmount || "0")
+                          : (purchase.purchaseType === 'مخزن' || purchase.purchaseType === 'توريد' || purchase.purchaseType === 'مخزني')
+                            ? "0"
+                            : (purchase.paidAmount || "0")
                       ),
                       icon: TrendingUp,
                       color: "success",
@@ -680,12 +694,12 @@ export default function SupplierAccountsPage() {
                     {
                       label: "المتبقي",
                       value: formatCurrency(
-                        purchase.purchaseType === 'نقد' 
+                        (purchase.purchaseType === 'نقد' || purchase.purchaseType === 'مخزن' || purchase.purchaseType === 'توريد' || purchase.purchaseType === 'مخزني')
                           ? 0 
                           : (purchase.remainingAmount || "0")
                       ),
                       icon: TrendingDown,
-                      color: (purchase.purchaseType === 'نقد' ? 0 : remaining) > 0 ? "danger" : "success",
+                      color: (purchase.purchaseType === 'نقد' || purchase.purchaseType === 'مخزن' || purchase.purchaseType === 'توريد' || purchase.purchaseType === 'مخزني') ? "success" : (remaining > 0 ? "danger" : "success"),
                       emphasis: true,
                     },
                     ]}

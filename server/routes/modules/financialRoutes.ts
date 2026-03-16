@@ -3201,7 +3201,7 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
     const purchasesList = await purchasesQuery;
     
     // حساب الإحصائيات
-    let cashTotal = 0, creditTotal = 0, totalPaid = 0, totalDebt = 0;
+    let cashTotal = 0, creditTotal = 0, storageTotal = 0, totalPaid = 0, totalDebt = 0;
     
     purchasesList.forEach((p: any) => {
       const totalAmount = parseFloat(p.totalAmount || '0');
@@ -3210,11 +3210,13 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
       
       if (p.purchaseType === 'نقد') {
         cashTotal += totalAmount;
-        totalPaid += totalAmount; // المشتريات النقدية مدفوعة بالكامل
+        totalPaid += totalAmount;
       } else if (p.purchaseType === 'أجل' || p.purchaseType === 'آجل') {
         creditTotal += totalAmount;
         totalDebt += remainingAmount;
         totalPaid += paidAmount;
+      } else if (p.purchaseType === 'مخزن' || p.purchaseType === 'توريد' || p.purchaseType === 'مخزني') {
+        storageTotal += totalAmount;
       }
     });
     
@@ -3225,6 +3227,7 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
         totalSuppliers: suppliersList.length,
         totalCashPurchases: cashTotal.toFixed(2),
         totalCreditPurchases: creditTotal.toFixed(2),
+        totalStoragePurchases: storageTotal.toFixed(2),
         totalDebt: totalDebt.toFixed(2),
         totalPaid: totalPaid.toFixed(2),
         remainingDebt: totalDebt.toFixed(2),

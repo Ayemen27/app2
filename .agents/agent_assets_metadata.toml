@@ -6,3 +6,9 @@ id = "I5CJlmZsybkSRRv3VZuI0"
 uri = "file://reports/phase3-final-report-ar.md"
 type = "text"
 title = "التقرير النهائي المحدّث - بعد مراجعة المهندس المعماري"
+
+[[outputs]]
+id = "Q5BxQCbVsWgwjxRECJOzf"
+uri = "file://reports/phase3-alignment-test-results-ar.md"
+type = "text"
+title = "تقرير نتائج اختبار التطابق - بدون فقدان بيانات"

@@ -130,7 +130,7 @@ export const refreshTokens = pgTable("refresh_tokens", {
 // Audit Logs table (جدول سجلات التدقيق)
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
-  user_id: integer("user_id"),
+  user_id: text("user_id"),
   action: text("action").notNull(),
   entityName: text("entity_name"),
   entityId: text("entity_id"),

@@ -139,7 +139,7 @@ export const executeSql = async (sqlQuery: string, params: any[] = [], userId?: 
     try {
       await pool.query(
         'INSERT INTO audit_logs (user_id, action, meta, created_at) VALUES ($1, $2, $3, NOW())',
-        [userId ? (typeof userId === 'number' ? userId : (Number.isFinite(Number(userId)) ? Number(userId) : null)) : null, 'SQL_EXECUTION', JSON.stringify({ query: sqlQuery, rowCount: result.rowCount })]
+        [userId ? String(userId) : null, 'SQL_EXECUTION', JSON.stringify({ query: sqlQuery, rowCount: result.rowCount })]
       );
     } catch (auditError) {
       console.error('❌ [Audit] فشل تسجيل التدقيق:', auditError);

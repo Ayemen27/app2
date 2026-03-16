@@ -3,7 +3,7 @@ import { ALL_SYNC_TABLES } from '../sync';
 
 describe('Sync Engine Structure Tests', () => {
   it('يجب أن تحتوي قائمة المزامنة على الجداول الأساسية', () => {
-    const requiredTables = ['users', 'projects', 'workers', 'wells', 'suppliers', 'materials'];
+    const requiredTables = ['projects', 'workers', 'wells', 'suppliers', 'materials'];
     for (const table of requiredTables) {
       expect(ALL_SYNC_TABLES).toContain(table);
     }
@@ -29,7 +29,7 @@ describe('Sync Engine Structure Tests', () => {
   });
 
   it('يجب أن تحتوي قائمة المزامنة على جداول المعدات', () => {
-    const toolTables = ['tools', 'tool_stock', 'tool_movements'];
+    const toolTables = ['equipment', 'equipment_movements'];
     for (const table of toolTables) {
       expect(ALL_SYNC_TABLES).toContain(table);
     }

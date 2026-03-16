@@ -460,12 +460,11 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       );
 
       try {
-        const numericUserId = userId ? (Number.isFinite(Number(userId)) ? Number(userId) : null) : null;
         await client.query(
           `INSERT INTO audit_logs (user_id, action, meta, created_at)
            VALUES ($1, $2, $3, NOW())`,
           [
-            isNaN(numericUserId as number) ? null : numericUserId,
+            userId || null,
             'SETTLEMENT_EXECUTED',
             JSON.stringify({
               settlementId,

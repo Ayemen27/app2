@@ -4491,8 +4491,7 @@ export class DatabaseStorage implements IStorage {
   async getAuditLogs(user_id?: string | number, action?: string): Promise<AuditLog[]> {
     const conditions = [];
     if (user_id) {
-      const numId = typeof user_id === 'number' ? user_id : (Number.isFinite(Number(user_id)) ? Number(user_id) : null);
-      if (numId !== null) conditions.push(eq(auditLogs.user_id, numId));
+      conditions.push(eq(auditLogs.user_id, String(user_id)));
     }
     if (action) conditions.push(eq(auditLogs.action, action));
     

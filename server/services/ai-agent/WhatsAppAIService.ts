@@ -923,6 +923,7 @@ export class WhatsAppAIService {
       const dailyWage = worker[0]?.dailyWage || "0";
 
       const todayDate = new Date().toISOString().split('T')[0];
+      const computedTotalPay = (parseFloat(dailyWage) * parseFloat(workDays!)).toString();
       const [attendance] = await db.insert(workerAttendance).values({
         project_id: projectId!,
         worker_id: workerId!,
@@ -930,7 +931,7 @@ export class WhatsAppAIService {
         date: todayDate,
         workDays: workDays!,
         dailyWage: dailyWage.toString(),
-        totalPay: amount!,
+        totalPay: computedTotalPay,
         paidAmount: amount!,
         notes: `📱 واتساب | ${userName} | ${expenseType}`
       }).returning();
@@ -2192,7 +2193,6 @@ export class WhatsAppAIService {
         projectId: workerAttendance.project_id,
         date: workerAttendance.attendanceDate,
         paidAmount: workerAttendance.paidAmount,
-        totalPay: workerAttendance.totalPay,
       }).from(workerAttendance)
         .where(inArray(workerAttendance.project_id, userProjectIds))
         .orderBy(desc(workerAttendance.attendanceDate), desc(workerAttendance.created_at))
@@ -2217,7 +2217,7 @@ export class WhatsAppAIService {
         const projInfo = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, att.projectId)).limit(1);
         const wName = workerInfo[0]?.name || 'غير معروف';
         const pName = projInfo[0]?.name || '';
-        const amount = parseFloat(att.paidAmount || att.totalPay || '0');
+        const amount = parseFloat(att.paidAmount || '0');
         entries.push({
           type: 'wage',
           date: att.date,

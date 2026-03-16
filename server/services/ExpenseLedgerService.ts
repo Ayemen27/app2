@@ -304,7 +304,14 @@ export class ExpenseLedgerService {
         },
         cashBalance, 
         totalBalance,
-        transportExpenses,
+        counts: {
+          materialPurchases: this.cleanDbValue(materialCashStats.rows[0]?.count, 'integer'),
+          workerAttendance: this.cleanDbValue(workerWagesStats.rows[0]?.count, 'integer'),
+          transportationExpenses: this.cleanDbValue(transportStats.rows[0]?.count, 'integer'),
+          workerTransfers: this.cleanDbValue(workerTransfersStats.rows[0]?.count, 'integer'),
+          miscExpenses: this.cleanDbValue(miscExpensesStats.rows[0]?.count, 'integer'),
+          fundTransfers: this.cleanDbValue(fundTransfersStats.rows[0]?.count, 'integer'),
+        },
         lastUpdated: new Date().toISOString()
       };
     } catch (error) {

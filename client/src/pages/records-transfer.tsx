@@ -174,13 +174,13 @@ function transformDailyExpensesToRecords(data: any, projectId: string): Transfer
   if (d.workerAttendance) {
     for (const r of d.workerAttendance) {
       const paid = parseFloat(r.paidAmount || "0");
-      const wage = parseFloat(r.actualWage || r.dailyWage || "0");
+      const dailyWage = parseFloat(r.dailyWage || "0");
       const workDays = parseFloat(r.workDays || "0");
-      const total = wage * workDays;
+      const total = dailyWage * workDays;
       const amount = paid > 0 ? paid : total;
       if (amount <= 0) continue;
       const parts = [`أيام: ${r.workDays || "0"}`];
-      parts.push(`يومي: ${formatCurrency(wage)}`);
+      parts.push(`يومي: ${formatCurrency(dailyWage)}`);
       parts.push(`مستحق: ${formatCurrency(total)}`);
       if (paid > 0) parts.push(`مدفوع: ${formatCurrency(paid)}`);
       records.push({

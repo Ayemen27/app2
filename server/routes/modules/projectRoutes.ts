@@ -162,13 +162,13 @@ projectRouter.get('/with-stats', async (req: Request, res: Response) => {
               totalBalance: summary.totalBalance,
               activeWorkers: summary.workers.activeWorkers,
               completedDays: summary.workers.completedDays,
-              materialPurchases: summary.counts?.materialPurchases || 0,
+              materialPurchases: summary.expenses?.materialExpenses || 0,
               materialExpensesCredit: summary.expenses?.materialExpensesCredit || 0,
-              totalTransportation: summary.expenses?.totalTransportation || 0,
-              totalMiscExpenses: summary.expenses?.totalMiscExpenses || 0,
-              totalWorkerWages: summary.expenses?.totalWorkerWages || 0,
-              totalFundTransfers: summary.expenses?.totalFundTransfers || 0,
-              totalWorkerTransfers: summary.expenses?.totalWorkerTransfers || 0,
+              totalTransportation: summary.expenses?.transportExpenses || 0,
+              totalMiscExpenses: summary.expenses?.miscExpenses || 0,
+              totalWorkerWages: summary.expenses?.workerWages || 0,
+              totalFundTransfers: summary.income?.fundTransfers || 0,
+              totalWorkerTransfers: summary.expenses?.workerTransfers || 0,
               lastActivity: project.created_at.toISOString()
             }
           };
@@ -385,7 +385,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       .map(group => {
         const totalFundTransfers = group.fundTransfers.reduce((sum, t) => sum + Number(t.amount || 0), 0);
         const totalWorkerWages = group.workerAttendance.reduce((sum, w) => sum + Number(w.paidAmount || 0), 0);
-        const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => sum + Number(m.totalAmount || 0), 0);
+        const totalMaterialCosts = group.materialPurchases.reduce((sum, m) => {
+          const purchaseType = String(m.purchaseType || '');
+          const isCash = purchaseType === 'نقداً' || purchaseType === 'نقد';
+          if (!isCash) return sum;
+          const paid = Number(m.paidAmount || 0);
+          return sum + (paid > 0 ? paid : Number(m.totalAmount || 0));
+        }, 0);
         const totalTransportation = group.transportationExpenses.reduce((sum, t) => sum + Number(t.amount || 0), 0);
         const totalWorkerTransfers = group.workerTransfers.reduce((sum, w) => sum + Number(w.amount || 0), 0);
         const totalMiscExpenses = group.miscExpenses.reduce((sum, m) => sum + Number(m.amount || 0), 0);
@@ -426,7 +432,13 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       SELECT
         COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1), 0) as total_fund_transfers,
         COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) AND date = $1), 0) as total_worker_wages,
-        COALESCE((SELECT SUM(CAST(total_amount AS DECIMAL(15,2))) FROM material_purchases WHERE purchase_date = $1), 0) as total_material_costs,
+        COALESCE((SELECT SUM(
+          CASE 
+            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL(15,2))
+            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL(15,2))
+            ELSE 0
+          END
+        ) FROM material_purchases WHERE purchase_date = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')), 0) as total_material_costs,
         COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses WHERE date = $1), 0) as total_transportation,
         COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1), 0) as total_worker_transfers,
         COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses WHERE date = $1), 0) as total_misc_expenses

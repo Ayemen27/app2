@@ -106,7 +106,7 @@ async function calculatePreviewData(
             COALESCE(SUM(CAST(wt.amount AS DECIMAL(15,2))), 0) as total_transferred
      FROM worker_transfers wt
      JOIN workers w ON w.id = wt.worker_id
-     WHERE 1=1 ${tProjectAccessFilter} ${tWorkerFilter}
+     WHERE 1=1 AND (wt.transfer_method IS NULL OR wt.transfer_method != 'settlement') ${tProjectAccessFilter} ${tWorkerFilter}
      GROUP BY wt.worker_id, wt.project_id`,
     transferParams
   );

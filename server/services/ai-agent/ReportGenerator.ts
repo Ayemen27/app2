@@ -860,7 +860,8 @@ export class ReportGenerator {
       let rows: any[];
       try {
         const result = await client.query(
-          `SELECT wa.attendance_date, wa.work_days, wa.daily_wage, wa.total_pay,
+          `SELECT wa.attendance_date, wa.work_days, wa.daily_wage,
+                  (CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)) as earned,
                   wa.paid_amount, wa.remaining_amount, wa.work_description, wa.is_present,
                   wa.hours_worked, wa.overtime, wa.start_time, wa.end_time, wa.notes,
                   w.name as worker_name, w.type as worker_type, w.phone as worker_phone,

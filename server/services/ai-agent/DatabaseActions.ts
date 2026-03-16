@@ -2320,7 +2320,7 @@ export class DatabaseActions {
         type: sql<string>`'حضور'`,
         description: sql<string>`${workers.name} || ' - ' || ${workerAttendance.workDays} || ' يوم'`,
         date: workerAttendance.attendanceDate,
-        amount: workerAttendance.totalPay,
+        amount: sql<string>`(${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric)::text`,
       }).from(workerAttendance)
         .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
         .where(attFilter!)

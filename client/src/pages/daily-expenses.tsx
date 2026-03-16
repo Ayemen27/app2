@@ -2311,7 +2311,7 @@ function DailyExpensesContent() {
           date: purchase.date || selectedDate || new Date().toISOString().split('T')[0],
           type: isCash ? 'expense' : 'deferred',
           category: 'مشتريات مواد',
-          amount: isCash ? cleanNumber(purchase.totalAmount) : 0,
+          amount: isCash ? (cleanNumber(purchase.paidAmount) > 0 ? cleanNumber(purchase.paidAmount) : cleanNumber(purchase.totalAmount)) : 0,
           description: `شراء ${material?.name || 'مادة'}`,
           project_id: purchase.project_id,
           projectName: projects.find(p => p.id === purchase.project_id)?.name || 'غير محدد',

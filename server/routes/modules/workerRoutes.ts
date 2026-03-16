@@ -276,12 +276,18 @@ async function recalculateAttendanceAndBalances(
       `UPDATE worker_balances wb
        SET
          total_earned = COALESCE((
-           SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+           SELECT SUM(
+             CAST(COALESCE(wa.daily_wage, '0') AS DECIMAL(15,2)) *
+             CAST(COALESCE(wa.work_days, '0') AS DECIMAL(15,2))
+           )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
          ), 0),
          current_balance = COALESCE((
-           SELECT SUM(CAST(total_pay AS DECIMAL(15,2)))
+           SELECT SUM(
+             CAST(COALESCE(wa.daily_wage, '0') AS DECIMAL(15,2)) *
+             CAST(COALESCE(wa.work_days, '0') AS DECIMAL(15,2))
+           )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
          ), 0) - COALESCE(wb.total_paid, 0) - COALESCE(wb.total_transferred, 0),

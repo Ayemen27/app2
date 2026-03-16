@@ -141,7 +141,7 @@ export class ReportGenerator {
       const attendanceRecords = data.attendance?.records || [];
       let runningBalance = 0;
       for (const rec of attendanceRecords) {
-        const earned = parseFloat(rec.totalPay || '0');
+        const earned = parseFloat(rec.dailyWage || '0') * parseFloat(rec.workDays || '0');
         const paid = parseFloat(rec.paidAmount || '0');
         runningBalance += earned - paid;
         const row = worksheet.addRow([
@@ -887,7 +887,8 @@ export class ReportGenerator {
 
       for (const r of rows) {
         const days = parseFloat(r.work_days || "0");
-        const earned = parseFloat(r.total_pay || "0");
+        const dw = parseFloat(r.daily_wage || "0");
+        const earned = dw * days;
         const paid = parseFloat(r.paid_amount || "0");
         grandTotalDays += days;
         grandTotalEarned += earned;
@@ -1011,7 +1012,7 @@ export class ReportGenerator {
           rec.worker_type || "-",
           parseFloat(rec.work_days || "0"),
           parseFloat(rec.daily_wage || "0"),
-          parseFloat(rec.total_pay || "0"),
+          parseFloat(rec.daily_wage || "0") * parseFloat(rec.work_days || "0"),
           parseFloat(rec.paid_amount || "0"),
           rec.work_description || "-",
         ]);

@@ -942,20 +942,23 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
       .where(and(...transferConditions))
       .orderBy(desc(workerTransfers.transferDate));
 
-    // حساب الإجماليات - باستخدام الأجر الحالي للعامل
-    const currentDailyWage = parseFloat(workerInfo[0].dailyWage || '0');
-    const totalWorkDays = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.workDays || '0'), 0);
-    const totalEarned = currentDailyWage * totalWorkDays;
+    // حساب الإجماليات - باستخدام الأجر المسجل في كل سجل حضور (وليس الأجر الحالي)
+    const totalEarned = attendanceRecords.reduce((sum: any, r: any) => {
+      const dailyWage = parseFloat(r.dailyWage || '0');
+      const workDays = parseFloat(r.workDays || '0');
+      return sum + (dailyWage * workDays);
+    }, 0);
     const totalPaid = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.paidAmount || '0'), 0);
     const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
     const remainingBalance = totalEarned - totalPaid - totalTransfers;
 
-    // بيانات الرسم البياني - باستخدام الأجر الحالي
+    // بيانات الرسم البياني - باستخدام الأجر المسجل في كل سجل
     const chartData = attendanceRecords.map((r: any) => {
+      const dailyWage = parseFloat(r.dailyWage || '0');
       const workDays = parseFloat(r.workDays || '0');
       return {
         date: r.date,
-        earned: currentDailyWage * workDays,
+        earned: dailyWage * workDays,
         paid: parseFloat(r.paidAmount || '0'),
         workDays: workDays
       };

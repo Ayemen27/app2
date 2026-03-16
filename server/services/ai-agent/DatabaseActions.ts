@@ -395,7 +395,11 @@ export class DatabaseActions {
       }
 
       const totalDays = result.reduce((sum: number, r: any) => sum + parseFloat(r.workDays || "0"), 0);
-      const totalEarned = result.reduce((sum: number, r: any) => sum + parseFloat(r.totalPay || "0"), 0);
+      const totalEarned = result.reduce((sum: number, r: any) => {
+        const dw = parseFloat(r.dailyWage || "0");
+        const wd = parseFloat(r.workDays || "0");
+        return sum + (dw * wd);
+      }, 0);
       const totalPaid = result.reduce((sum: number, r: any) => sum + parseFloat(r.paidAmount || "0"), 0);
 
       return {
@@ -1441,7 +1445,10 @@ export class DatabaseActions {
 
       const attCondition = hasFilter ? inArray(workerAttendance.project_id, allowedProjectIds!) : undefined;
       const [attendanceStats] = await db.select({
-        totalWages: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0)`,
+        totalWages: sql<string>`coalesce(sum(
+          case when ${workerAttendance.dailyWage}::text != 'NaN' and ${workerAttendance.workDays}::text != 'NaN'
+          then ${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric else 0 end
+        ), 0)`,
         totalPaid: sql<string>`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
       }).from(workerAttendance).where(attCondition!);
 
@@ -2202,14 +2209,20 @@ export class DatabaseActions {
         name: workers.name,
         type: workers.type,
         dailyWage: workers.dailyWage,
-        totalEarned: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0)`,
+        totalEarned: sql<string>`coalesce(sum(
+          case when ${workerAttendance.dailyWage}::text != 'NaN' and ${workerAttendance.workDays}::text != 'NaN'
+          then ${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric else 0 end
+        ), 0)`,
         totalPaid: sql<string>`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
         totalDays: sql<string>`coalesce(sum(case when ${workerAttendance.workDays}::text != 'NaN' then ${workerAttendance.workDays}::numeric else 0 end), 0)`,
       })
       .from(workers)
       .leftJoin(workerAttendance, joinCondition)
       .groupBy(workers.id, workers.name, workers.type, workers.dailyWage)
-      .orderBy(sql`sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end) desc nulls last`)
+      .orderBy(sql`sum(
+        case when ${workerAttendance.dailyWage}::text != 'NaN' and ${workerAttendance.workDays}::text != 'NaN'
+        then ${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric else 0 end
+      ) desc nulls last`)
       .limit(limit);
 
       return {
@@ -2239,7 +2252,10 @@ export class DatabaseActions {
 
         const [funds] = await db.select({ total: sql<string>`coalesce(sum(${fundTransfers.amount}::numeric), 0)` })
           .from(fundTransfers).where(eq(fundTransfers.project_id, project.id));
-        const [wages] = await db.select({ total: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0)` })
+        const [wages] = await db.select({ total: sql<string>`coalesce(sum(
+          case when ${workerAttendance.dailyWage}::text != 'NaN' and ${workerAttendance.workDays}::text != 'NaN'
+          then ${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric else 0 end
+        ), 0)` })
           .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
         const [mats] = await db.select({ total: sql<string>`coalesce(sum(case when ${materialPurchases.totalAmount}::text != 'NaN' then ${materialPurchases.totalAmount}::numeric else 0 end), 0)` })
           .from(materialPurchases).where(eq(materialPurchases.project_id, project.id));
@@ -2378,7 +2394,7 @@ export class DatabaseActions {
         )
         SELECT 
           to_char(m.month, 'YYYY-MM') as month,
-          coalesce((SELECT sum(case when total_pay::text != 'NaN' then total_pay::numeric else 0 end) FROM worker_attendance WHERE date_trunc('month', attendance_date::date) = m.month ${projectFilter}), 0) as wages,
+          coalesce((SELECT sum(case when daily_wage::text != 'NaN' and work_days::text != 'NaN' then daily_wage::numeric * work_days::numeric else 0 end) FROM worker_attendance WHERE date_trunc('month', attendance_date::date) = m.month ${projectFilter}), 0) as wages,
           coalesce((SELECT sum(case when total_amount::text != 'NaN' then total_amount::numeric else 0 end) FROM material_purchases WHERE date_trunc('month', purchase_date::date) = m.month ${projectFilter}), 0) as materials,
           coalesce((SELECT sum(case when amount::text != 'NaN' then amount::numeric else 0 end) FROM transportation_expenses WHERE date_trunc('month', date::date) = m.month ${projectFilter}), 0) as transport
         FROM months m
@@ -2463,20 +2479,26 @@ export class DatabaseActions {
         ? and(eq(workers.id, workerAttendance.worker_id), inArray(workerAttendance.project_id, allowedProjectIds!))
         : eq(workers.id, workerAttendance.worker_id);
 
+      const earnedExpr = sql`coalesce(sum(
+        case when ${workerAttendance.dailyWage}::text != 'NaN' and ${workerAttendance.workDays}::text != 'NaN'
+        then ${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric else 0 end
+      ), 0)`;
+      const paidExpr = sql`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`;
+
       const result = await db.select({
         id: workers.id,
         name: workers.name,
         type: workers.type,
-        totalEarned: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0)`,
-        totalPaid: sql<string>`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
-        balance: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0) - coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
+        totalEarned: earnedExpr,
+        totalPaid: paidExpr,
+        balance: sql`${earnedExpr} - ${paidExpr}`,
       })
       .from(workers)
       .leftJoin(workerAttendance, joinCondition)
       .where(eq(workers.is_active, true))
       .groupBy(workers.id, workers.name, workers.type)
-      .having(sql`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0) - coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0) > 0`)
-      .orderBy(sql`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0) - coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0) desc`);
+      .having(sql`${earnedExpr} - ${paidExpr} > 0`)
+      .orderBy(sql`${earnedExpr} - ${paidExpr} desc`);
 
       const totalUnpaid = result.reduce((s: number, r: any) => s + parseFloat(r.balance || '0'), 0);
 
@@ -2507,7 +2529,10 @@ export class DatabaseActions {
       for (const project of allProjects) {
         const [funds] = await db.select({ total: sql<string>`coalesce(sum(${fundTransfers.amount}::numeric), 0)` })
           .from(fundTransfers).where(eq(fundTransfers.project_id, project.id));
-        const [wages] = await db.select({ total: sql<string>`coalesce(sum(case when ${workerAttendance.totalPay}::text != 'NaN' then ${workerAttendance.totalPay}::numeric else 0 end), 0)` })
+        const [wages] = await db.select({ total: sql<string>`coalesce(sum(
+          case when ${workerAttendance.dailyWage}::text != 'NaN' and ${workerAttendance.workDays}::text != 'NaN'
+          then ${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric else 0 end
+        ), 0)` })
           .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
         const [mats] = await db.select({ total: sql<string>`coalesce(sum(case when ${materialPurchases.totalAmount}::text != 'NaN' then ${materialPurchases.totalAmount}::numeric else 0 end), 0)` })
           .from(materialPurchases).where(eq(materialPurchases.project_id, project.id));

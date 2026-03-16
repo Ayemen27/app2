@@ -2266,7 +2266,10 @@ export class WhatsAppAIService {
       const topWorkers = await db.select({
         workerId: workerAttendance.worker_id,
         totalPaid: sql<string>`COALESCE(SUM(${workerAttendance.paidAmount}::numeric), 0)`,
-        totalPay: sql<string>`COALESCE(SUM(${workerAttendance.totalPay}::numeric), 0)`,
+        totalPay: sql<string>`COALESCE(SUM(
+          CASE WHEN ${workerAttendance.dailyWage}::text != 'NaN' AND ${workerAttendance.workDays}::text != 'NaN'
+          THEN ${workerAttendance.dailyWage}::numeric * ${workerAttendance.workDays}::numeric ELSE 0 END
+        ), 0)`,
         daysCount: sql<string>`COUNT(*)`,
       }).from(workerAttendance)
         .where(inArray(workerAttendance.project_id, userProjectIds))

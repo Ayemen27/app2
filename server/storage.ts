@@ -4482,9 +4482,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAuditLogs(user_id?: string, action?: string): Promise<AuditLog[]> {
+  async getAuditLogs(user_id?: string | number, action?: string): Promise<AuditLog[]> {
     const conditions = [];
-    if (user_id) conditions.push(eq(auditLogs.user_id, user_id));
+    if (user_id) conditions.push(eq(auditLogs.user_id, typeof user_id === 'string' ? parseInt(user_id, 10) : user_id));
     if (action) conditions.push(eq(auditLogs.action, action));
     
     return await db.select().from(auditLogs)

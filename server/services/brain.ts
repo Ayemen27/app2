@@ -106,7 +106,7 @@ export class BrainService {
             .where(and(
               gte(metrics.timestamp, startTime),
               eq(metrics.metricName, rule.condition.metricName || "api_latency"),
-              gte(metrics.value, (rule.condition.valueThreshold || 1000).toString())
+              gte(metrics.metricValue, rule.condition.valueThreshold || 1000)
             ))
             .limit(50);
 
@@ -146,7 +146,7 @@ export class BrainService {
             .where(and(
               gte(metrics.timestamp, startTime),
               sql`${metrics.metricName} IN (${sql.join(metricNames.map(m => sql.raw(`'${m}'`)), sql.raw(','))})`,
-              gte(metrics.value, (rule.condition.valueThreshold || 90).toString())
+              gte(metrics.metricValue, rule.condition.valueThreshold || 90)
             ))
             .limit(50);
 

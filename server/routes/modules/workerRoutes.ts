@@ -138,14 +138,14 @@ async function syncAttendanceToWellCrews(attendanceRecord: any) {
           ).limit(1);
 
           if (existingWorkerLink.length === 0) {
-            const wCount = existingCrews[0].workersCount + (isMaster ? 0 : 1);
-            const mCount = existingCrews[0].mastersCount + (isMaster ? 1 : 0);
+            const wCount = Number(existingCrews[0].workersCount) + (isMaster ? 0 : 1);
+            const mCount = Number(existingCrews[0].mastersCount) + (isMaster ? 1 : 0);
             const existingTotal = parseFloat(existingCrews[0].totalWages || '0');
             const newTotal = existingTotal + splitWage;
 
             await db.update(wellWorkCrews).set({
-              workersCount: wCount,
-              mastersCount: mCount,
+              workersCount: wCount.toString(),
+              mastersCount: mCount.toString(),
               totalWages: newTotal.toString(),
               updated_at: new Date(),
             }).where(eq(wellWorkCrews.id, crewId));
@@ -154,8 +154,8 @@ async function syncAttendanceToWellCrews(attendanceRecord: any) {
           const newCrew = await db.insert(wellWorkCrews).values({
             well_id: wellId,
             crewType: crewType,
-            workersCount: isMaster ? 0 : 1,
-            mastersCount: isMaster ? 1 : 0,
+            workersCount: (isMaster ? 0 : 1).toString(),
+            mastersCount: (isMaster ? 1 : 0).toString(),
             workDays: splitWorkDays.toString(),
             workerDailyWage: isMaster ? null : dailyWage.toString(),
             masterDailyWage: isMaster ? dailyWage.toString() : null,

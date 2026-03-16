@@ -1,0 +1,82 @@
+-- T005 Phase D: Validate all NOT VALID constraints
+-- Run this AFTER Phase B and C have been applied.
+-- VALIDATE CONSTRAINT only takes a SHARE UPDATE EXCLUSIVE lock (allows reads/writes)
+-- but may take time on large tables as it scans all rows.
+-- Run during low-traffic periods.
+
+-- Phase B constraints (SET NULL / RESTRICT)
+-- NOTE: audit_logs.user_id FK skipped due to type mismatch (integer vs varchar)
+ALTER TABLE equipment VALIDATE CONSTRAINT equipment_project_id_fkey;
+ALTER TABLE equipment_movements VALIDATE CONSTRAINT equipment_movements_from_project_id_fkey;
+ALTER TABLE equipment_movements VALIDATE CONSTRAINT equipment_movements_to_project_id_fkey;
+ALTER TABLE financial_audit_log VALIDATE CONSTRAINT financial_audit_log_project_id_fkey;
+ALTER TABLE financial_audit_log VALIDATE CONSTRAINT financial_audit_log_user_id_fkey;
+ALTER TABLE journal_entries VALIDATE CONSTRAINT journal_entries_created_by_fkey;
+ALTER TABLE journal_entries VALIDATE CONSTRAINT journal_entries_project_id_fkey;
+ALTER TABLE notifications VALIDATE CONSTRAINT notifications_user_id_fkey;
+ALTER TABLE notifications VALIDATE CONSTRAINT notifications_project_id_fkey;
+ALTER TABLE notifications VALIDATE CONSTRAINT notifications_created_by_fkey;
+ALTER TABLE reconciliation_records VALIDATE CONSTRAINT reconciliation_records_resolved_by_fkey;
+ALTER TABLE suppliers VALIDATE CONSTRAINT suppliers_created_by_fkey;
+ALTER TABLE sync_audit_logs VALIDATE CONSTRAINT sync_audit_logs_project_id_fkey;
+ALTER TABLE sync_audit_logs VALIDATE CONSTRAINT sync_audit_logs_user_id_fkey;
+ALTER TABLE well_receptions VALIDATE CONSTRAINT well_receptions_created_by_fkey;
+ALTER TABLE well_receptions VALIDATE CONSTRAINT well_receptions_received_by_fkey;
+ALTER TABLE well_solar_components VALIDATE CONSTRAINT well_solar_components_created_by_fkey;
+ALTER TABLE well_transport_details VALIDATE CONSTRAINT well_transport_details_created_by_fkey;
+ALTER TABLE well_work_crews VALIDATE CONSTRAINT well_work_crews_created_by_fkey;
+ALTER TABLE worker_project_wages VALIDATE CONSTRAINT worker_project_wages_created_by_fkey;
+ALTER TABLE workers VALIDATE CONSTRAINT workers_created_by_fkey;
+ALTER TABLE worker_attendance VALIDATE CONSTRAINT worker_attendance_well_id_fkey;
+ALTER TABLE supplier_payments VALIDATE CONSTRAINT supplier_payments_purchase_id_fkey;
+ALTER TABLE transportation_expenses VALIDATE CONSTRAINT transportation_expenses_worker_id_fkey;
+ALTER TABLE transportation_expenses VALIDATE CONSTRAINT transportation_expenses_well_id_fkey;
+ALTER TABLE material_purchases VALIDATE CONSTRAINT material_purchases_material_id_fkey;
+ALTER TABLE material_purchases VALIDATE CONSTRAINT material_purchases_well_id_fkey;
+ALTER TABLE well_tasks VALIDATE CONSTRAINT well_tasks_assigned_worker_id_fkey;
+ALTER TABLE well_tasks VALIDATE CONSTRAINT well_tasks_completed_by_fkey;
+ALTER TABLE well_tasks VALIDATE CONSTRAINT well_tasks_created_by_fkey;
+ALTER TABLE well_audit_logs VALIDATE CONSTRAINT well_audit_logs_well_id_fkey;
+ALTER TABLE well_audit_logs VALIDATE CONSTRAINT well_audit_logs_task_id_fkey;
+ALTER TABLE backup_logs VALIDATE CONSTRAINT backup_logs_triggered_by_fkey;
+ALTER TABLE build_deployments VALIDATE CONSTRAINT build_deployments_triggered_by_fkey;
+ALTER TABLE projects VALIDATE CONSTRAINT projects_project_type_id_fkey;
+ALTER TABLE user_project_permissions VALIDATE CONSTRAINT user_project_permissions_assigned_by_fkey;
+ALTER TABLE permission_audit_logs VALIDATE CONSTRAINT permission_audit_logs_target_user_id_fkey;
+ALTER TABLE permission_audit_logs VALIDATE CONSTRAINT permission_audit_logs_project_id_fkey;
+ALTER TABLE security_policy_suggestions VALIDATE CONSTRAINT security_policy_suggestions_implemented_as_fkey;
+ALTER TABLE worker_misc_expenses VALIDATE CONSTRAINT worker_misc_expenses_well_id_fkey;
+ALTER TABLE daily_activity_logs VALIDATE CONSTRAINT daily_activity_logs_engineer_id_fkey;
+ALTER TABLE wells VALIDATE CONSTRAINT wells_created_by_fkey;
+ALTER TABLE well_task_accounts VALIDATE CONSTRAINT well_task_accounts_accounted_by_fkey;
+ALTER TABLE well_expenses VALIDATE CONSTRAINT well_expenses_created_by_fkey;
+ALTER TABLE well_audit_logs VALIDATE CONSTRAINT well_audit_logs_user_id_fkey;
+ALTER TABLE permission_audit_logs VALIDATE CONSTRAINT permission_audit_logs_actor_id_fkey;
+
+-- Phase C constraints (CASCADE)
+ALTER TABLE equipment_movements VALIDATE CONSTRAINT equipment_movements_equipment_id_fkey;
+ALTER TABLE journal_lines VALIDATE CONSTRAINT journal_lines_journal_entry_id_fkey;
+ALTER TABLE reconciliation_records VALIDATE CONSTRAINT reconciliation_records_project_id_fkey;
+ALTER TABLE summary_invalidations VALIDATE CONSTRAINT summary_invalidations_project_id_fkey;
+ALTER TABLE worker_attendance VALIDATE CONSTRAINT worker_attendance_project_id_fkey;
+ALTER TABLE worker_attendance VALIDATE CONSTRAINT worker_attendance_worker_id_fkey;
+ALTER TABLE supplier_payments VALIDATE CONSTRAINT supplier_payments_supplier_id_fkey;
+ALTER TABLE supplier_payments VALIDATE CONSTRAINT supplier_payments_project_id_fkey;
+ALTER TABLE transportation_expenses VALIDATE CONSTRAINT transportation_expenses_project_id_fkey;
+ALTER TABLE worker_transfers VALIDATE CONSTRAINT worker_transfers_worker_id_fkey;
+ALTER TABLE worker_transfers VALIDATE CONSTRAINT worker_transfers_project_id_fkey;
+ALTER TABLE worker_balances VALIDATE CONSTRAINT worker_balances_worker_id_fkey;
+ALTER TABLE worker_balances VALIDATE CONSTRAINT worker_balances_project_id_fkey;
+ALTER TABLE worker_misc_expenses VALIDATE CONSTRAINT worker_misc_expenses_project_id_fkey;
+ALTER TABLE wells VALIDATE CONSTRAINT wells_project_id_fkey;
+ALTER TABLE well_tasks VALIDATE CONSTRAINT well_tasks_well_id_fkey;
+ALTER TABLE well_task_accounts VALIDATE CONSTRAINT well_task_accounts_task_id_fkey;
+ALTER TABLE well_expenses VALIDATE CONSTRAINT well_expenses_well_id_fkey;
+ALTER TABLE email_verification_tokens VALIDATE CONSTRAINT email_verification_tokens_user_id_fkey;
+ALTER TABLE password_reset_tokens VALIDATE CONSTRAINT password_reset_tokens_user_id_fkey;
+ALTER TABLE auth_user_sessions VALIDATE CONSTRAINT auth_user_sessions_user_id_fkey;
+ALTER TABLE notification_read_states VALIDATE CONSTRAINT notification_read_states_user_id_fkey;
+ALTER TABLE user_project_permissions VALIDATE CONSTRAINT user_project_permissions_user_id_fkey;
+ALTER TABLE user_project_permissions VALIDATE CONSTRAINT user_project_permissions_project_id_fkey;
+ALTER TABLE security_policy_implementations VALIDATE CONSTRAINT security_policy_implementations_policy_id_fkey;
+ALTER TABLE security_policy_violations VALIDATE CONSTRAINT security_policy_violations_policy_id_fkey;

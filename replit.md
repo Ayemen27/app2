@@ -51,6 +51,15 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Professional Reports:** Generation of detailed financial and operational reports in Excel and PDF.
 - **Real-time Notifications:** In-app notification system with varying priorities.
 
+### Phase 3 DB-Schema Alignment (Completed)
+- **Schema.ts aligned to production DB** (DB is source of truth, no DB migrations run)
+- **Type fixes:** audit_logs.user_id (varchar→integer), users.is_active (text→boolean), fund_transfers.transferDate (text→timestamp), metrics.metricValue column name, monitoring_data/system_logs/backup_settings restructured, well_work_crews counts (integer→decimal), refresh_tokens.parentId added
+- **Sync columns:** Added is_local/synced/pending_sync to 35+ tables matching DB
+- **Missing columns:** Added updated_at, description, metadata columns to 12+ tables
+- **Code fixes:** brain.ts metrics references, auth.ts/authRoutes.ts boolean handling, storage.ts audit_logs integer handling
+- **FK migration scripts:** Prepared in migrations/T005-phase-{A,B,C,D}*.sql (NOT executed — requires manual review, orphan detection first)
+- **Reports:** T001 drift report, T006 limit review in reports/
+
 ## External Dependencies
 - **Monitoring:** OpenTelemetry and Sentry.
 - **WhatsApp:** Baileys library.

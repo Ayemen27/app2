@@ -406,7 +406,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       first_name: user.first_name || undefined,
       last_name: user.last_name || undefined,
       role: user.role || 'user', // استخدام الدور من قاعدة البيانات مباشرة
-      is_active: String(user.is_active) === 'true' ? true : false,
+      is_active: user.is_active === true,
       mfa_enabled: user.mfa_enabled || undefined,
       sessionId: sessionId || ''
     };

@@ -838,8 +838,8 @@ authRouter.get('/users', requireAuth, async (req: any, res: Response) => {
       );
     }
     if (role) conditions.push(eq(users.role, role as string));
-    if (status === 'active') conditions.push(eq(users.is_active, 'true'));
-    if (status === 'inactive') conditions.push(eq(users.is_active, 'false'));
+    if (status === 'active') conditions.push(eq(users.is_active, true));
+    if (status === 'inactive') conditions.push(eq(users.is_active, false));
     if (verified === 'verified') conditions.push(sql`${users.email_verified_at} IS NOT NULL`);
     if (verified === 'unverified') conditions.push(sql`${users.email_verified_at} IS NULL`);
 
@@ -926,7 +926,7 @@ authRouter.patch('/users/:user_id', requireAuth, async (req: any, res: Response)
     if (first_name !== undefined) updateData.first_name = first_name;
     if (last_name !== undefined) updateData.last_name = last_name;
     if (role !== undefined) updateData.role = role;
-    if (is_active !== undefined) updateData.is_active = is_active;
+    if (is_active !== undefined) updateData.is_active = is_active === true || is_active === 'true';
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ success: false, message: 'لا توجد بيانات للتحديث' });

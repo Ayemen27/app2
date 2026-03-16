@@ -54,6 +54,7 @@ ALTER TABLE well_audit_logs VALIDATE CONSTRAINT well_audit_logs_user_id_fkey;
 ALTER TABLE permission_audit_logs VALIDATE CONSTRAINT permission_audit_logs_actor_id_fkey;
 
 -- Phase C constraints (CASCADE)
+-- NOTE: daily_expense_summaries FK already exists in DB - no new constraint added, no validation needed
 ALTER TABLE equipment_movements VALIDATE CONSTRAINT equipment_movements_equipment_id_fkey;
 ALTER TABLE journal_lines VALIDATE CONSTRAINT journal_lines_journal_entry_id_fkey;
 ALTER TABLE reconciliation_records VALIDATE CONSTRAINT reconciliation_records_project_id_fkey;

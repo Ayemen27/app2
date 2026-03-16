@@ -8,8 +8,8 @@
 -- These FKs EXIST in DB but have wrong onDelete behavior
 -- ============================================================
 
--- audit_logs.user_id -> users.id (schema wants SET NULL)
-SELECT 'audit_logs.user_id' AS fk, COUNT(*) AS orphans FROM audit_logs a WHERE a.user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = a.user_id::text);
+-- audit_logs.user_id -> users.id (SKIPPED: type mismatch integer vs varchar/UUID - cannot create FK)
+-- SELECT 'audit_logs.user_id' AS fk, COUNT(*) AS orphans FROM audit_logs a WHERE a.user_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = a.user_id::text);
 
 -- equipment.project_id -> projects.id (schema wants SET NULL)
 SELECT 'equipment.project_id' AS fk, COUNT(*) AS orphans FROM equipment e WHERE e.project_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.id = e.project_id);

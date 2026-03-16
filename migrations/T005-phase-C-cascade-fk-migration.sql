@@ -71,7 +71,10 @@ ALTER TABLE worker_balances ADD CONSTRAINT worker_balances_worker_id_fkey FOREIG
 ALTER TABLE worker_balances ADD CONSTRAINT worker_balances_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE NOT VALID;
 
 -- daily_expense_summaries.project_id -> CASCADE
-ALTER TABLE daily_expense_summaries ADD CONSTRAINT daily_expense_summaries_project_id_fkey2 FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE NOT VALID;
+-- SKIPPED: FK constraint 'daily_expense_summaries_project_id_projects_id_fk' already exists in DB
+-- To change to CASCADE, first DROP the existing constraint then re-add:
+-- ALTER TABLE daily_expense_summaries DROP CONSTRAINT daily_expense_summaries_project_id_projects_id_fk;
+-- ALTER TABLE daily_expense_summaries ADD CONSTRAINT daily_expense_summaries_project_id_projects_id_fk FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE NOT VALID;
 
 -- worker_misc_expenses.project_id -> CASCADE
 ALTER TABLE worker_misc_expenses ADD CONSTRAINT worker_misc_expenses_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE NOT VALID;

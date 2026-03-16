@@ -341,10 +341,13 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
 
     console.log('✅ [API] نجح validation تحويل العهدة');
 
-    // معالجة التاريخ لضمان أنه نصي بصيغة YYYY-MM-DD
-    const transferData = { ...validationResult.data };
-    if (typeof transferData.transferDate === 'string' && transferData.transferDate.includes('T')) {
-      transferData.transferDate = transferData.transferDate.split('T')[0];
+    const transferData: any = { ...validationResult.data };
+    if (typeof transferData.transferDate === 'string') {
+      const dateStr = transferData.transferDate.includes('T') ? transferData.transferDate.split('T')[0] : transferData.transferDate;
+      transferData.transferDate = new Date(dateStr + 'T00:00:00');
+    }
+    if (transferData.updated_at && typeof transferData.updated_at === 'string') {
+      transferData.updated_at = new Date(transferData.updated_at);
     }
 
     // التحقق المسبق من رقم التحويل لمنع أخطاء التكرار

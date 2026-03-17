@@ -83,6 +83,8 @@ export interface TablePDFOptions {
   totals?: { label: string; values: Record<string, string | number> };
   filename: string;
   orientation?: 'portrait' | 'landscape';
+  headerColor?: string;
+  accentColor?: string;
 }
 
 export async function generateTablePDF(options: TablePDFOptions): Promise<boolean> {
@@ -90,8 +92,11 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
   const colCount = options.columns.length;
   const totalWeight = options.columns.reduce((s, c) => s + (c.width || 10), 0);
 
-  const thStyle = `padding:5px 3px;border:1px solid #2E5090;font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;font-weight:800;text-align:center;white-space:nowrap;`;
-  const tdStyle = (alt: boolean) => `padding:4px 3px;border:1px solid #CBD5E1;text-align:center;font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;${alt ? 'background:#F0F4F8;' : ''}`;
+  const hdrColor = options.headerColor || '#2E5090';
+  const accColor = options.accentColor || '#1B2A4A';
+
+  const thStyle = `padding:5px 3px;border:1px solid ${hdrColor};font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;font-weight:800;text-align:center;white-space:nowrap;`;
+  const tdStyle = (alt: boolean) => `padding:4px 3px;border:1px solid #CBD5E1;text-align:center;font-size:${colCount > 14 ? '7' : colCount > 10 ? '8' : '9'}px;${alt ? 'background:#F8FAFC;' : ''}`;
 
   const colWidths = options.columns.map(c => `${((c.width || 10) / totalWeight * 100).toFixed(1)}%`);
 
@@ -113,15 +118,15 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
   if (options.totals) {
     const cells = options.columns.map((col, i) => {
       const val = options.totals!.values[col.key];
-      if (i === 0) return `<td style="padding:5px 3px;border:1px solid #1B2A4A;font-size:9px;font-weight:800;color:#fff;text-align:center;" colspan="1">${options.totals!.label}</td>`;
-      if (val !== undefined) return `<td style="padding:5px 3px;border:1px solid #1B2A4A;font-size:9px;font-weight:800;color:#fff;text-align:center;">${typeof val === 'number' ? val.toLocaleString() : val}</td>`;
-      return `<td style="padding:5px 3px;border:1px solid #1B2A4A;font-size:9px;color:#fff;"></td>`;
+      if (i === 0) return `<td style="padding:5px 3px;border:1px solid ${accColor};font-size:9px;font-weight:800;color:#fff;text-align:center;" colspan="1">${options.totals!.label}</td>`;
+      if (val !== undefined) return `<td style="padding:5px 3px;border:1px solid ${accColor};font-size:9px;font-weight:800;color:#fff;text-align:center;">${typeof val === 'number' ? val.toLocaleString() : val}</td>`;
+      return `<td style="padding:5px 3px;border:1px solid ${accColor};font-size:9px;color:#fff;"></td>`;
     }).join('');
-    totalsRow = `<tr style="background:#1B2A4A;">${cells}</tr>`;
+    totalsRow = `<tr style="background:${accColor};">${cells}</tr>`;
   }
 
   const infoHtml = options.infoItems?.length ? `
-    <div style="display:flex;justify-content:center;gap:20px;padding:6px 16px;font-size:11px;background:#F0F4F8;margin:0 16px;border-radius:4px;flex-wrap:wrap;">
+    <div style="display:flex;justify-content:center;gap:20px;padding:8px 16px;font-size:11px;background:#F8FAFC;margin:0 16px;border-radius:6px;flex-wrap:wrap;border:1px solid #E2E8F0;">
       ${options.infoItems.map(item => `<span>${item.label}: <b${item.color ? ` style="color:${item.color};"` : ''}>${item.value}</b></span>`).join('')}
     </div>
   ` : '';
@@ -129,13 +134,13 @@ export async function generateTablePDF(options: TablePDFOptions): Promise<boolea
   const html = `
     <div dir="rtl" lang="ar" style="font-family:'Cairo','Segoe UI',Tahoma,sans-serif;background:#fff;padding:0;margin:0;width:${containerWidth}px;">
       <div style="background:#1B2A4A;color:#fff;text-align:center;padding:10px 0;font-size:16px;font-weight:800;">الفتيني للمقاولات العامة والاستشارات الهندسية</div>
-      <div style="background:#2E5090;color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">${options.reportTitle}</div>
+      <div style="background:${hdrColor};color:#fff;text-align:center;padding:8px 0;font-size:14px;font-weight:700;">${options.reportTitle}</div>
       ${options.subtitle ? `<div style="text-align:center;padding:5px 0;font-size:11px;color:#6B7280;">${options.subtitle}</div>` : ''}
       ${infoHtml}
       <table style="width:calc(100% - 32px);border-collapse:collapse;margin:10px 16px;table-layout:fixed;">
         <colgroup>${colWidths.map(w => `<col style="width:${w}">`).join('')}</colgroup>
         <thead>
-          <tr style="background:#1B2A4A;color:#fff;">${headerCells}</tr>
+          <tr style="background:${accColor};color:#fff;">${headerCells}</tr>
         </thead>
         <tbody>
           ${dataRows}

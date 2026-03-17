@@ -10,7 +10,8 @@ inventoryRouter.use(attachAccessibleProjects);
 
 inventoryRouter.get('/stats', async (req, res) => {
   try {
-    const stats = await InventoryService.getInventoryStats();
+    const { projectId } = req.query;
+    const stats = await InventoryService.getInventoryStats(projectId as string);
     res.json({ success: true, data: stats });
   } catch (error: any) {
     console.error('❌ خطأ في إحصائيات المخزن:', error);
@@ -20,10 +21,11 @@ inventoryRouter.get('/stats', async (req, res) => {
 
 inventoryRouter.get('/stock', async (req, res) => {
   try {
-    const { category, search } = req.query;
+    const { category, search, projectId } = req.query;
     const stock = await InventoryService.getCurrentStock({
       category: category as string,
       search: search as string,
+      projectId: projectId as string,
     });
     res.json({ success: true, data: stock });
   } catch (error: any) {
@@ -126,8 +128,8 @@ inventoryRouter.post('/receive', async (req, res) => {
   try {
     const { itemName, category, unit, quantity, unitCost, receiptDate, supplierId, projectId, notes } = req.body;
 
-    if (!itemName || !unit || !quantity || !receiptDate) {
-      return res.status(400).json({ success: false, message: 'البيانات ناقصة' });
+    if (!itemName || !category?.trim() || !unit || !quantity || !receiptDate) {
+      return res.status(400).json({ success: false, message: !category?.trim() ? 'يرجى تحديد فئة المادة' : 'البيانات ناقصة' });
     }
 
     const itemId = await InventoryService.findOrCreateItem(itemName, unit, category);
@@ -149,6 +151,30 @@ inventoryRouter.post('/receive', async (req, res) => {
     res.json({ success: true, data: result, message: 'تم الإضافة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في إضافة للمخزن:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+inventoryRouter.post('/return', async (req, res) => {
+  try {
+    const { itemId, quantity, fromProjectId, transactionDate, performedBy, notes } = req.body;
+
+    if (!itemId || !quantity || !fromProjectId || !transactionDate) {
+      return res.status(400).json({ success: false, message: 'البيانات ناقصة: المادة والكمية والمشروع والتاريخ مطلوبة' });
+    }
+
+    await InventoryService.returnToStock({
+      itemId: parseInt(itemId),
+      quantity: parseFloat(quantity),
+      fromProjectId,
+      transactionDate,
+      performedBy,
+      notes,
+    });
+
+    res.json({ success: true, message: 'تم إرجاع المادة بنجاح' });
+  } catch (error: any) {
+    console.error('❌ خطأ في إرجاع المادة:', error);
     res.status(400).json({ success: false, message: error.message });
   }
 });
@@ -207,6 +233,17 @@ inventoryRouter.delete('/items/:id', async (req, res) => {
     res.json({ success: true, message: 'تم حذف المادة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في حذف المادة:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+inventoryRouter.delete('/transactions/:id', async (req, res) => {
+  try {
+    const txId = parseInt(req.params.id);
+    await InventoryService.deleteTransaction(txId);
+    res.json({ success: true, message: 'تم حذف المعاملة بنجاح' });
+  } catch (error: any) {
+    console.error('❌ خطأ في حذف المعاملة:', error);
     res.status(400).json({ success: false, message: error.message });
   }
 });

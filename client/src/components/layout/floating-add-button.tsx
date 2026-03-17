@@ -3,12 +3,26 @@ import { Button } from "@/components/ui/button";
 import { useFloatingButton } from "./floating-button-context";
 import { cn } from "@/lib/utils";
 
+const colorPresets: Record<string, string> = {
+  green: "bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700",
+  red: "bg-gradient-to-br from-red-500 via-red-600 to-rose-600 hover:from-red-600 hover:via-red-700 hover:to-rose-700",
+  blue: "bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700",
+  cyan: "bg-gradient-to-br from-cyan-500 via-cyan-600 to-teal-600 hover:from-cyan-600 hover:via-cyan-700 hover:to-teal-700",
+  orange: "bg-gradient-to-br from-orange-500 via-amber-600 to-yellow-600 hover:from-orange-600 hover:via-amber-700 hover:to-yellow-700",
+  purple: "bg-gradient-to-br from-violet-500 via-purple-600 to-fuchsia-600 hover:from-violet-600 hover:via-purple-700 hover:to-fuchsia-700",
+  slate: "bg-gradient-to-br from-slate-500 via-slate-600 to-gray-600 hover:from-slate-600 hover:via-slate-700 hover:to-gray-700",
+};
+
+const defaultGradient = "bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700";
+
 export default function FloatingAddButton() {
-  const { floatingAction, floatingLabel, refreshAction, showAddButton, secondaryAction, secondaryLabel, secondaryVariant } = useFloatingButton();
+  const { floatingAction, floatingLabel, floatingColor, refreshAction, showAddButton, secondaryAction, secondaryLabel, secondaryVariant } = useFloatingButton();
   
   if (!floatingAction && !refreshAction && !showAddButton && !secondaryAction) {
     return null;
   }
+
+  const mainGradient = floatingColor && colorPresets[floatingColor] ? colorPresets[floatingColor] : defaultGradient;
 
   return (
     <div className="fixed bottom-[calc(90px+env(safe-area-inset-bottom,0px))] right-6 z-[110] flex flex-col gap-3 pointer-events-auto items-center">
@@ -46,7 +60,10 @@ export default function FloatingAddButton() {
           onClick={() => {
             if (floatingAction) floatingAction();
           }}
-          className="h-12 w-12 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 border-0 text-white"
+          className={cn(
+            "h-12 w-12 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-110 border-0 text-white",
+            mainGradient
+          )}
           size="icon"
           title={floatingLabel}
           data-testid="button-floating-add"

@@ -713,10 +713,10 @@ export default function MaterialPurchase() {
     // التحقق من البيانات المطلوبة - نسمح بسعر 0 في حالة "مخزن"
     const isPriceRequired = paymentType !== "مخزن";
     
-    if (!selectedProjectId || !materialName || !materialUnit || !quantity || (isPriceRequired && !unitPrice)) {
+    if (!selectedProjectId || !materialName || !materialCategory?.trim() || !materialUnit || !quantity || (isPriceRequired && !unitPrice)) {
       toast({
         title: "خطأ",
-        description: "يرجى ملء جميع البيانات المطلوبة",
+        description: !materialCategory?.trim() ? "يرجى تحديد فئة المادة" : "يرجى ملء جميع البيانات المطلوبة",
         variant: "destructive",
       });
       return;

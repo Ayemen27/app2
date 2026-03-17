@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useRef } from 'react';
 
 interface FloatingButtonContextType {
-  setFloatingAction: (action: (() => void) | null, label?: string) => void;
+  setFloatingAction: (action: (() => void) | null, label?: string, color?: string) => void;
   setRefreshAction: (action: (() => void) | null) => void;
   setSecondaryAction: (action: (() => void) | null, label?: string, variant?: 'default' | 'destructive' | 'outline') => void;
   floatingAction: (() => void) | null;
   floatingLabel: string;
+  floatingColor: string;
   refreshAction: (() => void) | null;
   secondaryAction: (() => void) | null;
   secondaryLabel: string;
@@ -21,11 +22,12 @@ export function FloatingButtonProvider({ children }: { children: ReactNode }) {
   const [refreshAction, setRefreshActionState] = useState<(() => void) | null>(null);
   const [secondaryAction, setSecondaryActionState] = useState<(() => void) | null>(null);
   const [floatingLabel, setLabel] = useState<string>('إضافة جديد');
+  const [floatingColor, setColor] = useState<string>('');
   const [secondaryLabel, setSecondaryLabel] = useState<string>('');
   const [secondaryVariant, setSecondaryVariant] = useState<'default' | 'destructive' | 'outline'>('destructive');
   const [showAddButton, setShowAddButton] = useState<boolean>(false);
 
-  const setFloatingAction = useCallback((action: (() => void) | null, label: string = 'إضافة جديد') => {
+  const setFloatingAction = useCallback((action: (() => void) | null, label: string = 'إضافة جديد', color: string = '') => {
     setAction(prevAction => {
       if (prevAction === action) return prevAction;
       return action;
@@ -33,6 +35,10 @@ export function FloatingButtonProvider({ children }: { children: ReactNode }) {
     setLabel(prevLabel => {
       if (prevLabel === label) return prevLabel;
       return label;
+    });
+    setColor(prevColor => {
+      if (prevColor === color) return prevColor;
+      return color;
     });
   }, []);
 
@@ -65,6 +71,7 @@ export function FloatingButtonProvider({ children }: { children: ReactNode }) {
       setSecondaryAction,
       floatingAction,
       floatingLabel,
+      floatingColor,
       refreshAction,
       secondaryAction,
       secondaryLabel,

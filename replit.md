@@ -90,6 +90,11 @@ The system features a consistent design with a professional navy/blue palette, E
 - **restoreBackup Central Fix:** `restoreBackup(target='central')` now creates a separate Pool from `DATABASE_URL_CENTRAL` instead of incorrectly using local pool.
 - **Redacted Backup Integrity:** External redacted copies now include correct schemas, sequences, and a recalculated checksum matching the redacted data.
 
+### Phase 5b Streaming Backup v5.0 (Completed)
+- **Streaming Exporter (`server/services/backup/streaming-exporter.ts`):** Cursor-based PostgreSQL export (FETCH 500 batches) producing directory structure: `manifest.json` + `schema.sql` + `sequences.sql` + `tables/<table>.ndjson.gz`. SHA-256 checksum per table on raw NDJSON. Stream backpressure handling (await drain). No full-memory load.
+- **Streaming Restorer (`server/services/backup/streaming-restorer.ts`):** Line-by-line `readline` streaming from gzipped NDJSON. Batch INSERT (100 rows) with parameterized `ON CONFLICT DO NOTHING`. Checksum verification on decompressed content (matching exporter). Partial restore by table name. Fully atomic transaction: schema DDL + `session_replication_role='replica'` + TRUNCATE CASCADE + INSERT + sequences + COMMIT (ROLLBACK on error).
+- **BackupService Integration:** `runBackup(triggeredBy, format)` accepts `'json'|'streaming'`. `restoreBackup` auto-detects streaming directories via `manifest.json`. `listBackups` returns both `.json.gz` files and `backup-*` directories with `format` field. `deleteBackup` and `enforceRetentionPolicy` handle both files and directories. Route passes `format` from request body.
+
 ### Phase 3 DB-Schema Alignment (Completed)
 - **Schema.ts aligned to production DB** (DB is source of truth, no DB migrations run)
 - **Type fixes:** audit_logs.user_id (varchar→integer), users.is_active (text→boolean), fund_transfers.transferDate (text→timestamp), metrics.metricValue column name, monitoring_data/system_logs/backup_settings restructured, well_work_crews counts (integer→decimal), refresh_tokens.parentId added

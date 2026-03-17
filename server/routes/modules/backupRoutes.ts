@@ -11,8 +11,9 @@ router.use(requireAdmin);
 
 router.post("/run", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
   const triggeredBy = getAuthUser(req)?.user_id || 'unknown';
-  console.log(`🚀 [Backup] نسخ يدوي بواسطة: ${triggeredBy}`);
-  const result = await BackupService.runBackup(triggeredBy);
+  const format = req.body?.format === 'streaming' ? 'streaming' : 'json';
+  console.log(`🚀 [Backup] نسخ يدوي بواسطة: ${triggeredBy} | صيغة: ${format}`);
+  const result = await BackupService.runBackup(triggeredBy, format as 'json' | 'streaming');
   res.json(result);
 }));
 

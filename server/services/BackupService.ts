@@ -9,6 +9,8 @@ import { GoogleDriveService } from './GoogleDriveService';
 import { getFullTableDDL, getSequencesDDL } from './backup/ddl-generator';
 import { computeChecksum, verifyChecksum, validateBackupStructure, validateDecompressedSize, redactSensitiveData } from './backup/integrity-checker';
 import { restoreData } from './backup/restore-engine';
+import { exportStreamingBackup } from './backup/streaming-exporter';
+import { restoreStreamingBackup } from './backup/streaming-restorer';
 
 const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 const MAX_RETENTION = Number(process.env.BACKUP_MAX_RETENTION) || 20;
@@ -121,7 +123,7 @@ export class BackupService {
     }
   }
 
-  static async runBackup(triggeredBy: string = 'manual'): Promise<any> {
+  static async runBackup(triggeredBy: string = 'manual', format: 'json' | 'streaming' = 'json'): Promise<any> {
     if (this.status.isRunning) {
       return { 
         success: false, 
@@ -136,9 +138,46 @@ export class BackupService {
 
     try {
       await this.initialize();
-      console.log(`💾 [BackupService] بدء النسخ الاحتياطي (${triggeredBy})...`);
+      console.log(`💾 [BackupService] بدء النسخ الاحتياطي (${triggeredBy}, format=${format})...`);
 
       const { pool } = await import('../db');
+
+      if (format === 'streaming') {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupDirName = `backup-${timestamp}`;
+        const backupDir = path.join(BACKUPS_DIR, backupDirName);
+
+        const exportReport = await exportStreamingBackup(pool, backupDir);
+
+        this.status.lastSuccessAt = new Date().toISOString();
+        this.status.totalSuccess++;
+        this.status.lastError = null;
+        this.status.isRunning = false;
+
+        await this.enforceRetentionPolicy();
+
+        const durationMs = Date.now() - startTime;
+        console.log(`✅ [BackupService] نسخ احتياطي streaming ناجح: ${backupDirName}`);
+        console.log(`   📊 ${exportReport.manifest.totalTables} جدول | ${exportReport.totalRows} صف | ${(exportReport.totalSizeBytes / 1024 / 1024).toFixed(2)} MB | ${durationMs}ms`);
+
+        return {
+          success: true,
+          message: `تم النسخ الاحتياطي لـ ${exportReport.manifest.totalTables} جدول (${exportReport.totalRows} صف) بنجاح (streaming)`,
+          filename: backupDirName,
+          path: backupDir,
+          format: 'streaming-dir',
+          totalRows: exportReport.totalRows,
+          tablesCount: exportReport.manifest.totalTables,
+          sizeBytes: exportReport.totalSizeBytes,
+          sizeMB: (exportReport.totalSizeBytes / 1024 / 1024).toFixed(2),
+          durationMs,
+          triggeredBy,
+          driveUploaded: false,
+          telegramSent: false,
+          hasSequences: true,
+        };
+      }
+
       const tables = await this.getAllTables();
       
       if (tables.length === 0) {
@@ -232,6 +271,7 @@ export class BackupService {
         message: `تم النسخ الاحتياطي لـ ${Object.keys(backupData).length} جدول (${totalRows} صف) بنجاح${skippedWarning}`,
         filename: gzFilename,
         path: gzPath,
+        format: 'json.gz',
         totalRows,
         tablesCount: Object.keys(backupData).length,
         sizeBytes: compressedSize,
@@ -406,7 +446,7 @@ export class BackupService {
       return { success: false, message: 'يوجد عملية نسخ/استعادة قيد التشغيل' };
     }
 
-    if (!this.isValidFilename(filename)) {
+    if (!this.isValidFilename(filename) && !this.isValidStreamingDirName(filename)) {
       return { success: false, message: 'اسم ملف غير صالح' };
     }
 
@@ -418,6 +458,65 @@ export class BackupService {
       if (!backupPath.startsWith(BACKUPS_DIR) || !fs.existsSync(backupPath)) {
         this.status.isRunning = false;
         throw new Error('ملف النسخة الاحتياطية غير موجود');
+      }
+
+      const isStreamingDir = fs.statSync(backupPath).isDirectory() &&
+        fs.existsSync(path.join(backupPath, 'manifest.json'));
+
+      if (isStreamingDir) {
+        let targetPool;
+        let shouldClosePool = false;
+        const { pool } = await import('../db');
+
+        if (target === 'local') {
+          targetPool = pool;
+        } else if (target === 'central') {
+          const centralUrl = process.env.DATABASE_URL_CENTRAL;
+          if (centralUrl) {
+            const { Pool } = await import('pg');
+            targetPool = new Pool({ connectionString: centralUrl.trim().replace(/^["']|["']$/g, ''), connectionTimeoutMillis: 10000 });
+            shouldClosePool = true;
+          } else {
+            targetPool = pool;
+            console.warn('⚠️ [Restore] DATABASE_URL_CENTRAL غير معرّف - استخدام القاعدة المحلية');
+          }
+        } else {
+          const dbs = await this.getAvailableDatabases();
+          const selectedDb = dbs.find(d => d.id === target.toLowerCase());
+          if (!selectedDb) throw new Error(`قاعدة البيانات ${target} غير معروفة`);
+          const { Pool } = await import('pg');
+          targetPool = new Pool({ connectionString: selectedDb.url, connectionTimeoutMillis: 10000 });
+          shouldClosePool = true;
+        }
+
+        try {
+          const report = await restoreStreamingBackup(targetPool, backupPath, {
+            target,
+            failFast: true,
+          });
+
+          this.status.isRunning = false;
+          const durationMs = Date.now() - startTime;
+
+          const successCount = report.tableReports.filter(r => r.status === 'success').length;
+          const failedCount = report.tableReports.filter(r => r.status === 'failed' || r.status === 'skipped').length;
+
+          console.log(`✅ [BackupService] استعادة streaming ناجحة: ${successCount} جدول | ${report.totalRowsInserted} صف | ${durationMs}ms`);
+
+          return {
+            success: true,
+            message: `تمت الاستعادة (streaming): ${successCount} جدول (${report.totalRowsInserted} صف) في ${(durationMs / 1000).toFixed(1)} ثانية`,
+            report: report.tableReports,
+            format: 'streaming-dir',
+            durationMs,
+            tablesRestored: report.tablesRestored,
+            tablesFailed: failedCount,
+            totalRows: report.totalRowsInserted,
+            partialRestore: report.partialRestore,
+          };
+        } finally {
+          if (shouldClosePool) await targetPool.end();
+        }
       }
 
       if (filename.endsWith('.gz')) {
@@ -525,6 +624,7 @@ export class BackupService {
           success: true,
           message: `تمت الاستعادة: ${successCount} جدول (${report.totalRowsInserted} صف)${report.tablesCreated > 0 ? ` | ${report.tablesCreated} جدول جديد تم إنشاؤه` : ''} في ${(durationMs / 1000).toFixed(1)} ثانية`,
           report: report.tableReports,
+          format: 'json.gz',
           durationMs,
           tablesRestored: successCount,
           tablesCreated: report.tablesCreated,
@@ -550,47 +650,93 @@ export class BackupService {
   static async listBackups() {
     try {
       await this.initialize();
-      const files = fs.readdirSync(BACKUPS_DIR);
-      const logs = files
-        .filter(f => f.startsWith('backup-') && (f.endsWith('.json.gz') || f.endsWith('.json') || f.endsWith('.db')))
-        .map((f) => {
-          try {
-            const filePath = path.join(BACKUPS_DIR, f);
-            const stats = fs.statSync(filePath);
+      const entries = fs.readdirSync(BACKUPS_DIR);
+      const logs: any[] = [];
 
-            let meta: any = null;
-            if (f.endsWith('.json') && stats.size < 500 * 1024) {
-              try {
-                const content = fs.readFileSync(filePath, 'utf-8');
-                const parsed = JSON.parse(content);
-                if (parsed.meta) meta = parsed.meta;
-                else if (parsed.version) meta = parsed;
-              } catch (_) {}
-            }
+      for (const f of entries) {
+        try {
+          const filePath = path.join(BACKUPS_DIR, f);
+          const stats = fs.statSync(filePath);
 
-            return {
+          if (stats.isDirectory() && f.startsWith('backup-')) {
+            const manifestPath = path.join(filePath, 'manifest.json');
+            if (!fs.existsSync(manifestPath)) continue;
+
+            let manifest: any = null;
+            let totalSize = 0;
+            try {
+              manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+              const dirEntries = this.getDirSizeRecursive(filePath);
+              totalSize = dirEntries;
+            } catch (_) {}
+
+            logs.push({
               filename: f,
-              size: (stats.size / (1024 * 1024)).toFixed(2),
-              sizeBytes: stats.size,
-              compressed: f.endsWith('.gz'),
-              format: f.endsWith('.gz') ? 'json.gz' : f.endsWith('.json') ? 'json' : 'sqlite',
+              size: (totalSize / (1024 * 1024)).toFixed(2),
+              sizeBytes: totalSize,
+              compressed: true,
+              format: 'streaming-dir',
               status: 'success',
-              created_at: stats.mtime.toISOString(),
-              tablesCount: meta?.tablesCount || (meta?.tables ? Object.keys(meta.tables || {}).length : null),
-              totalRows: meta?.totalRows || null,
-              durationMs: meta?.durationMs || null,
-            };
-          } catch (e) {
-            return null;
+              created_at: manifest?.timestamp || stats.mtime.toISOString(),
+              tablesCount: manifest?.totalTables || (manifest?.tables ? Object.keys(manifest.tables || {}).length : null),
+              totalRows: manifest?.totalRows || null,
+              durationMs: manifest?.durationMs || null,
+            });
+            continue;
           }
-        })
-        .filter((log): log is NonNullable<typeof log> => log !== null)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+          if (!f.startsWith('backup-') || !(f.endsWith('.json.gz') || f.endsWith('.json') || f.endsWith('.db'))) {
+            continue;
+          }
+
+          let meta: any = null;
+          if (f.endsWith('.json') && stats.size < 500 * 1024) {
+            try {
+              const content = fs.readFileSync(filePath, 'utf-8');
+              const parsed = JSON.parse(content);
+              if (parsed.meta) meta = parsed.meta;
+              else if (parsed.version) meta = parsed;
+            } catch (_) {}
+          }
+
+          logs.push({
+            filename: f,
+            size: (stats.size / (1024 * 1024)).toFixed(2),
+            sizeBytes: stats.size,
+            compressed: f.endsWith('.gz'),
+            format: f.endsWith('.gz') ? 'json.gz' : f.endsWith('.json') ? 'json' : 'sqlite',
+            status: 'success',
+            created_at: stats.mtime.toISOString(),
+            tablesCount: meta?.tablesCount || (meta?.tables ? Object.keys(meta.tables || {}).length : null),
+            totalRows: meta?.totalRows || null,
+            durationMs: meta?.durationMs || null,
+          });
+        } catch (e) {
+          continue;
+        }
+      }
+
+      logs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       return { success: true, logs, total: logs.length };
     } catch (error: any) {
       return { success: false, message: error.message, logs: [], total: 0 };
     }
+  }
+
+  private static getDirSizeRecursive(dirPath: string): number {
+    let totalSize = 0;
+    const items = fs.readdirSync(dirPath);
+    for (const item of items) {
+      const itemPath = path.join(dirPath, item);
+      const itemStats = fs.statSync(itemPath);
+      if (itemStats.isDirectory()) {
+        totalSize += this.getDirSizeRecursive(itemPath);
+      } else {
+        totalSize += itemStats.size;
+      }
+    }
+    return totalSize;
   }
 
   private static isValidFilename(filename: string): boolean {
@@ -602,9 +748,18 @@ export class BackupService {
     return true;
   }
 
+  private static isValidStreamingDirName(filename: string): boolean {
+    if (!filename) return false;
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) return false;
+    if (!(/^backup-[\w\-]+$/.test(filename))) return false;
+    const resolved = path.resolve(BACKUPS_DIR, filename);
+    if (!resolved.startsWith(BACKUPS_DIR)) return false;
+    return true;
+  }
+
   static async deleteBackup(filename: string): Promise<any> {
     try {
-      if (!this.isValidFilename(filename)) {
+      if (!this.isValidFilename(filename) && !this.isValidStreamingDirName(filename)) {
         return { success: false, message: 'اسم ملف غير صالح' };
       }
 
@@ -614,9 +769,13 @@ export class BackupService {
       }
 
       const stats = fs.statSync(filePath);
-      fs.unlinkSync(filePath);
-
-      console.log(`🗑️ [BackupService] حذف نسخة: ${filename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+      if (stats.isDirectory()) {
+        fs.rmSync(filePath, { recursive: true, force: true });
+        console.log(`🗑️ [BackupService] حذف نسخة streaming: ${filename}`);
+      } else {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ [BackupService] حذف نسخة: ${filename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+      }
       return { success: true, message: `تم حذف النسخة ${filename} بنجاح` };
     } catch (error: any) {
       return { success: false, message: error.message };
@@ -786,13 +945,18 @@ export class BackupService {
           name: f,
           path: path.join(BACKUPS_DIR, f),
           mtime: fs.statSync(path.join(BACKUPS_DIR, f)).mtime.getTime(),
+          isDir: fs.statSync(path.join(BACKUPS_DIR, f)).isDirectory(),
         }))
         .sort((a, b) => b.mtime - a.mtime);
 
       if (files.length > MAX_RETENTION) {
         const toDelete = files.slice(MAX_RETENTION);
         for (const file of toDelete) {
-          fs.unlinkSync(file.path);
+          if (file.isDir) {
+            fs.rmSync(file.path, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(file.path);
+          }
           console.log(`🗑️ [Retention] حذف نسخة قديمة: ${file.name}`);
         }
         console.log(`📋 [Retention] تم حذف ${toDelete.length} نسخة قديمة (الاحتفاظ بآخر ${MAX_RETENTION})`);

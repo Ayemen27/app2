@@ -318,7 +318,7 @@ settlementRouter.get('/preview', async (req: Request, res: Response) => {
 
 settlementRouter.post('/execute', async (req: Request, res: Response) => {
   try {
-    const { worker_ids, settlement_project_id, notes, excluded_projects } = req.body;
+    const { worker_ids, settlement_project_id, notes, excluded_projects, settlement_date } = req.body;
     const accessReq = req as ProjectAccessRequest;
     const accessibleProjectIds = accessReq.accessibleProjectIds || [];
 

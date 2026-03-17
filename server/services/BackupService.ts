@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { createGzip, createGunzip } from 'zlib';
+import { createGzip, createGunzip, gunzipSync } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { Readable, Writable } from 'stream';
 import cron from 'node-cron';
@@ -711,14 +711,55 @@ export class BackupService {
           }
           if (!meta && f.endsWith('.json.gz')) {
             try {
-              const { gunzipSync } = require('zlib');
               const decompressed = gunzipSync(fs.readFileSync(filePath));
               const parsed = JSON.parse(decompressed.toString('utf-8'));
               if (parsed.meta) {
                 meta = parsed.meta;
+              } else if (parsed.version && parsed.data) {
+                const tables = parsed.data || {};
+                const tableNames = Object.keys(tables);
+                let totalRows = 0;
+                const tableCounts: Record<string, number> = {};
+                for (const t of tableNames) {
+                  const count = Array.isArray(tables[t]) ? tables[t].length : 0;
+                  tableCounts[t] = count;
+                  totalRows += count;
+                }
+                meta = {
+                  version: parsed.version || '3.0',
+                  timestamp: parsed.timestamp || stats.mtime.toISOString(),
+                  totalRows,
+                  tablesCount: tableNames.length,
+                  tables: tableCounts,
+                  compressed: true,
+                  environment: parsed.environment || 'unknown',
+                };
+              } else if (parsed.data && typeof parsed.data === 'object') {
+                const tables = parsed.data;
+                const tableNames = Object.keys(tables);
+                let totalRows = 0;
+                const tableCounts: Record<string, number> = {};
+                for (const t of tableNames) {
+                  const count = Array.isArray(tables[t]) ? tables[t].length : 0;
+                  tableCounts[t] = count;
+                  totalRows += count;
+                }
+                meta = {
+                  version: 'legacy',
+                  timestamp: stats.mtime.toISOString(),
+                  totalRows,
+                  tablesCount: tableNames.length,
+                  tables: tableCounts,
+                  compressed: true,
+                  environment: 'unknown',
+                };
+              }
+              if (meta) {
                 try { fs.writeFileSync(sidecarPath, JSON.stringify(meta), 'utf-8'); } catch (_) {}
               }
-            } catch (_) {}
+            } catch (gzErr: any) {
+              console.warn(`⚠️ [BackupService] فشل قراءة meta من ${f}: ${gzErr.message}`);
+            }
           } else if (!meta && f.endsWith('.json') && stats.size < 500 * 1024) {
             try {
               const content = fs.readFileSync(filePath, 'utf-8');

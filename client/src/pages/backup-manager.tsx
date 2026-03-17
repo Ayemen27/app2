@@ -298,6 +298,12 @@ export default function BackupManager() {
     return `${(ms / 1000).toFixed(1)}s`;
   };
 
+  const getTriggeredByLabel = (triggeredBy: string | null): string => {
+    if (!triggeredBy) return 'النظام';
+    if (triggeredBy === 'auto' || triggeredBy === 'scheduler' || triggeredBy === 'unknown') return 'تلقائي';
+    return triggeredBy;
+  };
+
   const formatTimeAgo = (dateStr: string | null) => {
     if (!dateStr) return 'لم يتم بعد';
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -434,8 +440,42 @@ export default function BackupManager() {
             key: "export-pdf",
             icon: FileText,
             label: "تصدير PDF",
-            onClick: () => {
-              toast({ title: "قريباً", description: "تصدير PDF للنسخ الاحتياطية قيد التطوير" });
+            onClick: async () => {
+              try {
+                const { generateTablePDF } = await import('@/utils/pdfGenerator');
+                const data = filteredLogs.map((log, idx) => ({
+                  num: idx + 1,
+                  filename: log.filename.replace('backup-', '').replace('.json.gz', ''),
+                  size: log.size + ' MB',
+                  tablesCount: log.tablesCount ?? '-',
+                  totalRows: log.totalRows ? log.totalRows.toLocaleString() : '-',
+                  duration: formatDuration(log.durationMs),
+                  date: formatDate(log.created_at),
+                  status: log.status === 'success' ? 'ناجحة' : 'فاشلة',
+                  triggeredBy: getTriggeredByLabel(log.triggeredBy),
+                }));
+                await generateTablePDF({
+                  reportTitle: 'تقرير النسخ الاحتياطية',
+                  subtitle: `إجمالي: ${filteredLogs.length} نسخة | الحجم الكلي: ${storageInfo?.totalSizeMB || '-'} MB`,
+                  columns: [
+                    { header: '#', key: 'num', width: 3 },
+                    { header: 'اسم النسخة', key: 'filename', width: 18 },
+                    { header: 'الحجم', key: 'size', width: 7 },
+                    { header: 'الجداول', key: 'tablesCount', width: 6 },
+                    { header: 'الصفوف', key: 'totalRows', width: 8 },
+                    { header: 'المدة', key: 'duration', width: 6 },
+                    { header: 'التاريخ', key: 'date', width: 10 },
+                    { header: 'الحالة', key: 'status', width: 6 },
+                    { header: 'المسؤول', key: 'triggeredBy', width: 8 },
+                  ],
+                  data,
+                  filename: `تقرير_النسخ_الاحتياطية_${new Date().toISOString().split('T')[0]}`,
+                  orientation: 'landscape',
+                });
+                toast({ title: "تم التصدير", description: "تم إنشاء ملف PDF بنجاح" });
+              } catch (err: any) {
+                toast({ title: "فشل التصدير", description: err.message, variant: "destructive" });
+              }
             },
             variant: "outline" as const,
             disabled: filteredLogs.length === 0,
@@ -444,8 +484,37 @@ export default function BackupManager() {
             key: "export-excel",
             icon: Download,
             label: "تصدير Excel",
-            onClick: () => {
-              toast({ title: "قريباً", description: "تصدير Excel للنسخ الاحتياطية قيد التطوير" });
+            onClick: async () => {
+              try {
+                const { exportToExcel } = await import('@/components/excel-export-utils');
+                const data = filteredLogs.map((log, idx) => ({
+                  num: idx + 1,
+                  filename: log.filename,
+                  size: log.size,
+                  tablesCount: log.tablesCount ?? '-',
+                  totalRows: log.totalRows ?? '-',
+                  duration: formatDuration(log.durationMs),
+                  date: formatDate(log.created_at),
+                  status: log.status === 'success' ? 'ناجحة' : 'فاشلة',
+                  format: log.format,
+                  triggeredBy: getTriggeredByLabel(log.triggeredBy),
+                }));
+                await exportToExcel(data, `تقرير_النسخ_الاحتياطية_${new Date().toISOString().split('T')[0]}`, 'النسخ الاحتياطية', [
+                  { key: 'num', header: '#', width: 6 },
+                  { key: 'filename', header: 'اسم النسخة', width: 40 },
+                  { key: 'size', header: 'الحجم (MB)', width: 12 },
+                  { key: 'tablesCount', header: 'الجداول', width: 10 },
+                  { key: 'totalRows', header: 'الصفوف', width: 12 },
+                  { key: 'duration', header: 'المدة', width: 10 },
+                  { key: 'date', header: 'التاريخ', width: 15 },
+                  { key: 'status', header: 'الحالة', width: 10 },
+                  { key: 'format', header: 'الصيغة', width: 12 },
+                  { key: 'triggeredBy', header: 'المسؤول', width: 15 },
+                ]);
+                toast({ title: "تم التصدير", description: "تم إنشاء ملف Excel بنجاح" });
+              } catch (err: any) {
+                toast({ title: "فشل التصدير", description: err.message, variant: "destructive" });
+              }
             },
             variant: "outline" as const,
             disabled: filteredLogs.length === 0,
@@ -511,7 +580,7 @@ export default function BackupManager() {
                   { label: 'الصفوف', value: log.totalRows ? log.totalRows.toLocaleString() : '-', icon: Activity, color: 'warning' },
                   { label: 'المدة', value: formatDuration(log.durationMs), icon: Clock, color: 'muted' },
                   { label: 'التاريخ', value: formatDate(log.created_at), icon: Calendar, color: 'info' },
-                  { label: 'المسؤول', value: log.triggeredBy === 'auto' || log.triggeredBy === 'scheduler' ? 'تلقائي' : log.triggeredBy || 'غير محدد', icon: User, color: log.triggeredBy === 'auto' || log.triggeredBy === 'scheduler' ? 'muted' : 'info' },
+                  { label: 'المسؤول', value: getTriggeredByLabel(log.triggeredBy), icon: User, color: !log.triggeredBy || log.triggeredBy === 'auto' || log.triggeredBy === 'scheduler' || log.triggeredBy === 'unknown' ? 'muted' : 'info' },
                 ]}
                 actions={[
                   { icon: Download, label: 'تنزيل', onClick: () => handleDownload(log.filename), color: 'blue' },

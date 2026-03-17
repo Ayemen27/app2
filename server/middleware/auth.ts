@@ -71,14 +71,25 @@ export const authRateLimit = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// Rate Limiting للعمليات الحساسة
+// Rate Limiting للعمليات الحساسة (إنشاء/حذف/استعادة)
 export const sensitiveOperationsRateLimit = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 دقائق
-  max: 5, // 5 عمليات فقط
+  windowMs: 5 * 60 * 1000,
+  max: 20,
   message: {
     success: false,
     message: 'تم تجاوز الحد المسموح للعمليات الحساسة، يرجى المحاولة بعد 5 دقائق',
     retryAfter: 5 * 60
+  }
+});
+
+// Rate Limiting للقراءة والاستعلام (أكثر تساهلاً)
+export const readOperationsRateLimit = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 120,
+  message: {
+    success: false,
+    message: 'تم تجاوز حد الاستعلامات، يرجى المحاولة بعد دقيقة',
+    retryAfter: 60
   }
 });
 

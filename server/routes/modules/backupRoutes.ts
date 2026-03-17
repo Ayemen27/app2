@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { BackupService } from "../../services/BackupService";
-import { authenticate, requireAdmin, sensitiveOperationsRateLimit } from "../../middleware/auth";
-import { getAuthUser } from "../../internal/auth-user.js";
+import { authenticate, requireAdmin, sensitiveOperationsRateLimit, readOperationsRateLimit } from "../../middleware/auth";
+import { getAuthUser, getUserDisplayName } from "../../internal/auth-user.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 
 const router = Router();
@@ -10,9 +10,10 @@ router.use(authenticate);
 router.use(requireAdmin);
 
 router.post("/run", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
-  const triggeredBy = getAuthUser(req)?.user_id || 'unknown';
+  const user = getAuthUser(req);
+  const triggeredBy = getUserDisplayName(user);
   const format = req.body?.format === 'streaming' ? 'streaming' : 'json';
-  console.log(`🚀 [Backup] نسخ يدوي بواسطة: ${triggeredBy} | صيغة: ${format}`);
+  console.log(`🚀 [Backup] نسخ يدوي بواسطة: ${triggeredBy} (${user?.user_id}) | صيغة: ${format}`);
   const result = await BackupService.runBackup(triggeredBy, format as 'json' | 'streaming');
   res.json(result);
 }));
@@ -25,7 +26,7 @@ router.post("/restore", sensitiveOperationsRateLimit, asyncHandler(async (req: R
   }
 
   const user = getAuthUser(req);
-  console.log(`🔄 [Backup] استعادة بواسطة: ${user?.user_id || 'unknown'} | ملف: ${fileName} | هدف: ${target || 'local'}`);
+  console.log(`🔄 [Backup] استعادة بواسطة: ${getUserDisplayName(user)} | ملف: ${fileName} | هدف: ${target || 'local'}`);
 
   const result = await BackupService.restoreBackup(fileName, target || 'local');
   if (result.success) {
@@ -35,7 +36,7 @@ router.post("/restore", sensitiveOperationsRateLimit, asyncHandler(async (req: R
   }
 }));
 
-router.get("/download/:filename", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
+router.get("/download/:filename", readOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
   const { filename } = req.params;
   const filePath = BackupService.getBackupFilePath(filename);
   
@@ -56,7 +57,7 @@ router.get("/download/:filename", sensitiveOperationsRateLimit, asyncHandler(asy
 router.delete("/:filename", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
   const { filename } = req.params;
   const user = getAuthUser(req);
-  console.log(`🗑️ [Backup] حذف بواسطة: ${user?.user_id || 'unknown'} | ملف: ${filename}`);
+  console.log(`🗑️ [Backup] حذف بواسطة: ${getUserDisplayName(user)} | ملف: ${filename}`);
   
   const result = await BackupService.deleteBackup(filename);
   if (result.success) {
@@ -72,7 +73,7 @@ router.post("/test-connection", sensitiveOperationsRateLimit, asyncHandler(async
   res.json(result);
 }));
 
-router.post("/analyze", sensitiveOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
+router.post("/analyze", readOperationsRateLimit, asyncHandler(async (req: Request, res: Response) => {
   const { target } = req.body;
   const result = await BackupService.analyzeDatabase(target || 'local');
   res.json(result);
@@ -84,7 +85,7 @@ router.get("/databases", asyncHandler(async (_req: Request, res: Response) => {
   res.json({ success: true, data: safeDbs });
 }));
 
-router.get("/logs", sensitiveOperationsRateLimit, asyncHandler(async (_req: Request, res: Response) => {
+router.get("/logs", readOperationsRateLimit, asyncHandler(async (_req: Request, res: Response) => {
   const result = await BackupService.listBackups();
   if (!result.success) {
     res.status(500).json({ success: false, data: [], message: result.message || 'فشل جلب السجلات' });
@@ -93,7 +94,7 @@ router.get("/logs", sensitiveOperationsRateLimit, asyncHandler(async (_req: Requ
   res.json({ success: true, data: result.logs || [], total: result.total || 0 });
 }));
 
-router.get("/status", sensitiveOperationsRateLimit, asyncHandler(async (_req: Request, res: Response) => {
+router.get("/status", readOperationsRateLimit, asyncHandler(async (_req: Request, res: Response) => {
   const status = BackupService.getAutoBackupStatus();
   const storage = await BackupService.getStorageInfo();
   res.json({ success: true, data: { ...status, storage: storage.success ? storage : null } });

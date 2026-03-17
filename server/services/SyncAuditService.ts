@@ -300,6 +300,8 @@ export class SyncAuditService {
       success: sql<number>`count(*) filter (where status = 'success')::int`,
       failed: sql<number>`count(*) filter (where status = 'failed')::int`,
       duplicate: sql<number>`count(*) filter (where status = 'duplicate')::int`,
+      conflict: sql<number>`count(*) filter (where status = 'conflict')::int`,
+      skipped: sql<number>`count(*) filter (where status = 'skipped')::int`,
       todayCount: sql<number>`count(*) filter (where created_at >= current_date)::int`,
       lastSyncAt: sql<string>`max(created_at)::text`,
     }).from(syncAuditLogs);

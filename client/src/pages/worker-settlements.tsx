@@ -216,6 +216,7 @@ export default function WorkerSettlementsPage() {
         settlement_project_id: settlementProjectId,
         worker_ids: Array.from(selectedWorkers),
         excluded_projects: workerExclusions,
+        settlement_date: historyDate,
       }, 0, { 'x-idempotency-key': idempotencyKey });
     },
     onSuccess: () => {

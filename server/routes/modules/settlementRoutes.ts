@@ -427,7 +427,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         }
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = settlement_date || new Date().toISOString().split('T')[0];
 
       const positiveTotal = eligibleWorkers.reduce((sum, w) => {
         return sum + w.projects.filter(p => isProjectIncluded(w.workerId, p)).reduce((s, p) => s + p.cappedSettlementAmount, 0);
@@ -728,7 +728,7 @@ settlementRouter.delete('/:id', async (req: Request, res: Response) => {
         `DELETE FROM worker_transfers 
          WHERE transfer_method = 'settlement' 
          AND transfer_date = $1 
-         AND worker_id = ANY($2::uuid[])`,
+         AND worker_id = ANY($2::text[])`,
         [settlement.settlement_date, workerIds]
       );
 

@@ -188,6 +188,31 @@ function generateDayPage(report: DailyReportData, carryForward: number, dayIndex
     html += `</tbody></table>`;
   }
 
+  const invIssued = report.inventoryIssued || [];
+  if (invIssued.length > 0) {
+    const totalIssuedQty = invIssued.reduce((s, inv) => s + inv.issuedQty, 0);
+    html += pdfSectionTitle('مواد المخزن المصروفة');
+    html += `<table><thead><tr>
+      <th style="width:24px;">م</th><th>اسم المادة</th><th style="width:60px;">الفئة</th>
+      <th style="width:45px;">الوحدة</th><th style="width:60px;">المصروف</th>
+      <th style="width:60px;">إجمالي التوريد</th><th style="width:60px;">المتبقي</th><th>ملاحظات</th>
+    </tr></thead><tbody>`;
+    invIssued.forEach((inv, idx) => {
+      html += `<tr>
+        <td>${idx + 1}</td>
+        <td style="text-align:right;">${escapeHtml(inv.itemName)}</td>
+        <td>${escapeHtml(inv.category)}</td>
+        <td>${escapeHtml(inv.unit)}</td>
+        <td style="font-weight:700;color:${PDF_COLORS.red};">${formatNum(inv.issuedQty)}</td>
+        <td>${formatNum(inv.receivedQty)}</td>
+        <td style="color:${inv.remainingQty > 0 ? PDF_COLORS.green : PDF_COLORS.red};">${formatNum(inv.remainingQty)}</td>
+        <td style="text-align:right;font-size:9px;">${escapeHtml(inv.notes) || '-'}</td>
+      </tr>`;
+    });
+    html += pdfTotalRow([`الإجمالي (${invIssued.length} مادة)`, '', '', formatNum(totalIssuedQty), '', '', ''], 1);
+    html += `</tbody></table>`;
+  }
+
   html += pdfSectionTitle('ملخص اليوم المالي');
   html += `<table class="summary-table" style="width:100%;">
     <tr><td class="label-cell">ترحيل من اليوم السابق</td><td class="value-cell">${formatNum(carryForward)} YER</td></tr>

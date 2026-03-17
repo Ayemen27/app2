@@ -285,6 +285,25 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
       row++;
     }
 
+    const invIssued = report.inventoryIssued || [];
+    if (invIssued.length > 0) {
+      row++;
+      row = xlSectionHeader(ws, row, 'مواد المخزن المصروفة', COL_COUNT);
+      row = xlTableHeader(ws, row, ['م', 'المادة (الوحدة)', 'الفئة', 'المصروف', 'التوريد', 'المتبقي']);
+      invIssued.forEach((inv: any, idx: number) => {
+        row = xlDataRow(ws, row, [
+          idx + 1,
+          `${inv.itemName || '-'} (${inv.unit || '-'})`,
+          inv.category || '-',
+          inv.issuedQty || 0,
+          inv.receivedQty || 0,
+          inv.remainingQty || 0,
+        ], idx % 2 === 1);
+      });
+      const totalIssuedQty = invIssued.reduce((s: number, inv: any) => s + (inv.issuedQty || 0), 0);
+      row = xlTotalsRow(ws, row, [`الإجمالي (${invIssued.length} مادة)`, '', '', String(totalIssuedQty), '', '']);
+    }
+
     if (workerTransfers.length > 0) {
       row++;
       row = xlSectionHeader(ws, row, 'حوالات العمال', COL_COUNT);

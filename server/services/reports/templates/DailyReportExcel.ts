@@ -197,6 +197,34 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
     [[1, 5], [7, 9]], COL_COUNT);
   row++;
 
+  const invIssued = data.inventoryIssued || [];
+  if (invIssued.length > 0) {
+    row = xlSectionHeader(ws, row, 'مواد المخزن المصروفة', COL_COUNT);
+    row = xlTableHeader(ws, row, ['#', 'اسم المادة', 'الفئة', 'الوحدة', 'المصروف', 'إجمالي التوريد', 'المتبقي', 'المشروع', 'ملاحظات']);
+    invIssued.forEach((rec, idx) => {
+      const r = ws.getRow(row);
+      const vals = [idx + 1, rec.itemName, rec.category, rec.unit, rec.issuedQty, rec.receivedQty, rec.remainingQty, rec.projectName, rec.notes || '-'];
+      vals.forEach((v, i) => {
+        r.getCell(i + 1).value = v;
+        const isTextCol = i === 1 || i === 2 || i === 3 || i === 7 || i === 8;
+        r.getCell(i + 1).alignment = { horizontal: isTextCol ? 'right' : 'center', vertical: 'middle', wrapText: true };
+        r.getCell(i + 1).font = { size: 10, name: 'Calibri' };
+        r.getCell(i + 1).border = BORDER;
+        if (i === 4) r.getCell(i + 1).font = { size: 10, name: 'Calibri', bold: true, color: { argb: COLORS.red } };
+        if (idx % 2 === 1) {
+          r.getCell(i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+        }
+      });
+      r.height = 24;
+      row++;
+    });
+    const totalIssuedQty = invIssued.reduce((s, inv) => s + inv.issuedQty, 0);
+    row = xlMergedTotalsRow(ws, row,
+      [{ col: 1, value: `الإجمالي (${invIssued.length} مادة)` }, { col: 5, value: formatNum(totalIssuedQty) }],
+      [[1, 4], [6, 9]], COL_COUNT);
+    row++;
+  }
+
   row = xlSectionHeader(ws, row, 'مصاريف النقل', COL_COUNT);
   row = xlMergedHeader(ws, row,
     [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'الوصف' }, { col: 6, text: 'اسم العامل' }],

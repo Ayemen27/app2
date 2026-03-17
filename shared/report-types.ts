@@ -73,6 +73,18 @@ export interface FundTransferRecord {
   transferNumber: string;
 }
 
+export interface InventoryIssuedRecord {
+  id: number;
+  itemName: string;
+  category: string;
+  unit: string;
+  issuedQty: number;
+  receivedQty: number;
+  remainingQty: number;
+  projectName: string;
+  notes: string;
+}
+
 export interface DailyReportData {
   reportType: 'daily';
   generatedAt: string;
@@ -91,6 +103,7 @@ export interface DailyReportData {
   miscExpenses: MiscExpenseRecord[];
   workerTransfers: WorkerTransferRecord[];
   fundTransfers: FundTransferRecord[];
+  inventoryIssued?: InventoryIssuedRecord[];
   projectTransfersOut?: {
     id: number;
     amount: number;

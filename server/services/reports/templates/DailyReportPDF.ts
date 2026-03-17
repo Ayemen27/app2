@@ -85,6 +85,20 @@ export function generateDailyReportHTML(data: DailyReportData): string {
     </tr>`
   ).join('');
 
+  const invIssued = data.inventoryIssued || [];
+  const inventoryRows = invIssued.map((inv, idx) =>
+    `<tr>
+      <td>${idx + 1}</td>
+      <td style="text-align:right;">${escapeHtml(inv.itemName)}</td>
+      <td>${escapeHtml(inv.category)}</td>
+      <td>${escapeHtml(inv.unit)}</td>
+      <td style="font-weight:700;color:${PDF_COLORS.red};">${formatNum(inv.issuedQty)}</td>
+      <td>${formatNum(inv.receivedQty)}</td>
+      <td style="color:${inv.remainingQty > 0 ? PDF_COLORS.green : PDF_COLORS.red};">${formatNum(inv.remainingQty)}</td>
+      <td style="text-align:right;font-size:9px;">${escapeHtml(inv.notes) || '-'}</td>
+    </tr>`
+  ).join('');
+
   let body = '';
   body += pdfHeader('الفتيني للمقاولات العامة والاستشارات الهندسية', 'التقرير اليومي التفصيلي');
   body += pdfInfoBar(
@@ -129,6 +143,18 @@ export function generateDailyReportHTML(data: DailyReportData): string {
       <th style="width:70px;">الإجمالي</th><th style="width:70px;">المدفوع</th><th>المورد</th>
     </tr></thead><tbody>${materialRows}
     ${pdfTotalRow(['الإجمالي', formatNum(data.totals.totalMaterials), '-'], 5)}
+    </tbody></table>`;
+  }
+
+  if (invIssued.length > 0) {
+    const totalIssuedQty = invIssued.reduce((s, inv) => s + inv.issuedQty, 0);
+    body += pdfSectionTitle('مواد المخزن المصروفة');
+    body += `<table><thead><tr>
+      <th style="width:30px;">م</th><th>اسم المادة</th><th style="width:70px;">الفئة</th>
+      <th style="width:50px;">الوحدة</th><th style="width:65px;">الكمية المصروفة</th>
+      <th style="width:65px;">إجمالي التوريد</th><th style="width:65px;">المتبقي</th><th>ملاحظات</th>
+    </tr></thead><tbody>${inventoryRows}
+    ${pdfTotalRow([`الإجمالي (${invIssued.length} مادة)`, '', '', formatNum(totalIssuedQty), '', '', ''], 1)}
     </tbody></table>`;
   }
 

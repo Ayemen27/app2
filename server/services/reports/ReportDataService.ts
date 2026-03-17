@@ -28,7 +28,9 @@ import type {
   MiscExpenseRecord,
   WorkerTransferRecord,
   FundTransferRecord,
+  InventoryIssuedRecord,
 } from '../../../shared/report-types';
+import { pool } from '../../db';
 
 const SAFE_DATE_EXPR = (col: any) =>
   sql`(CASE WHEN ${col} IS NULL OR ${col}::text = '' OR ${col}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${col}::date END)`;
@@ -170,6 +172,46 @@ export class ReportDataService {
         ),
     ]);
 
+    const inventoryIssuedResult = await pool.query(`
+      WITH lot_totals AS (
+        SELECT item_id,
+               SUM(received_qty) AS total_received,
+               SUM(remaining_qty) AS total_remaining
+        FROM inventory_lots
+        GROUP BY item_id
+      )
+      SELECT
+        t.id,
+        i.name AS item_name,
+        COALESCE(i.category, '-') AS category,
+        i.unit,
+        t.quantity AS issued_qty,
+        COALESCE(lt.total_received, 0) AS received_qty,
+        COALESCE(lt.total_remaining, 0) AS remaining_qty,
+        COALESCE(p.name, '-') AS project_name,
+        COALESCE(t.notes, '') AS notes
+      FROM inventory_transactions t
+      JOIN inventory_items i ON i.id = t.item_id
+      LEFT JOIN lot_totals lt ON lt.item_id = i.id
+      LEFT JOIN projects p ON p.id = t.to_project_id
+      WHERE t.type = 'OUT'
+        AND t.transaction_date = $1
+        ${projectId ? `AND (t.from_project_id = $2 OR t.to_project_id = $2)` : ''}
+      ORDER BY t.id
+    `, projectId ? [date, projectId] : [date]);
+
+    const inventoryIssued: InventoryIssuedRecord[] = inventoryIssuedResult.rows.map((r: any) => ({
+      id: Number(r.id),
+      itemName: r.item_name || '-',
+      category: r.category || '-',
+      unit: r.unit || '-',
+      issuedQty: Number(r.issued_qty) || 0,
+      receivedQty: Number(r.received_qty) || 0,
+      remainingQty: Number(r.remaining_qty) || 0,
+      projectName: r.project_name || '-',
+      notes: r.notes || '',
+    }));
+
     const proj = projectInfo[0];
 
     const attendance: AttendanceRecord[] = attendanceData.map((a: any) => {
@@ -287,6 +329,7 @@ export class ReportDataService {
       miscExpenses,
       workerTransfers: workerTransfersList,
       fundTransfers: fundTransfersList,
+      inventoryIssued,
       projectTransfersOut: projectFundTransfersOutData.map((pf: any) => ({
         id: typeof pf.id === 'string' ? parseInt(pf.id, 10) || 0 : 0,
         amount: safeNum(pf.amount),

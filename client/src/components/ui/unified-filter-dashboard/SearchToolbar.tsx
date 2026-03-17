@@ -3,7 +3,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import * as SelectPrimitive from "@radix-ui/react-select";
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -152,14 +153,14 @@ export function SearchToolbar({
               {filter.label}
             </Label>
             <div className="border-2 border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all">
-              <Select
+              <SelectPrimitive.Root
                 value={String(value || filter.defaultValue || 'all')}
                 onValueChange={(v: any) => onFilterChange?.(filter.key, v)}
               >
                 <SelectTrigger className="h-14 border-0 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-right text-sm font-medium">
                   <SelectValue placeholder={filter.placeholder || filter.label} />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl shadow-2xl border-slate-200 dark:border-slate-800">
+                <SelectContent className="rounded-2xl shadow-2xl border-slate-200 dark:border-slate-800 z-[99999]">
                   {filter.options?.map((option) => (
                     <SelectItem key={option.value} value={String(option.value)} className="rounded-xl my-1 py-3 text-right">
                       <span className="flex items-center gap-2">
@@ -169,7 +170,7 @@ export function SearchToolbar({
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+              </SelectPrimitive.Root>
             </div>
           </div>
         );
@@ -279,13 +280,13 @@ export function SearchToolbar({
             dir="rtl"
             onPointerDownOutside={(e) => {
               const target = e.target as HTMLElement;
-              if (target.closest('.rdp') || target.closest('[role="listbox"]') || target.closest('.relative')) {
+              if (target.closest('.rdp') || target.closest('[role="listbox"]') || target.closest('[role="option"]') || target.closest('[data-radix-select-viewport]') || target.closest('.relative')) {
                 e.preventDefault();
               }
             }}
             onInteractOutside={(e) => {
               const target = e.target as HTMLElement;
-              if (target.closest('.rdp') || target.closest('[role="listbox"]')) {
+              if (target.closest('.rdp') || target.closest('[role="listbox"]') || target.closest('[role="option"]') || target.closest('[data-radix-select-viewport]')) {
                 e.preventDefault();
               }
             }}

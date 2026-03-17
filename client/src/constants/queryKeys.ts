@@ -62,6 +62,8 @@ export const QUERY_KEYS = {
     ["/api/worker-transfers", project_id, isAllProjects].filter(v => v !== undefined) as any[],
   workerStats: (worker_id: string, project_id?: string) =>
     ["/api/workers", worker_id, "stats", project_id].filter(Boolean) as string[],
+  workerBalances: (project_id?: string) =>
+    ["/api/workers/balances", project_id].filter(Boolean) as string[],
   projectAttendance: (project_id: string) =>
     ["/api/projects", project_id, "attendance"] as const,
   dailyExpensesComplex: (projectSelector: string, dateKey?: string, date?: string) =>

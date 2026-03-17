@@ -615,6 +615,7 @@ export default function WorkersPage() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     status: "all",
     type: "all",
+    balance: "all",
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [togglingWorkerId, setTogglingWorkerId] = useState<string | null>(null);
@@ -634,7 +635,7 @@ export default function WorkersPage() {
 
   const handleResetFilters = useCallback(() => {
     setSearchValue("");
-    setFilterValues({ status: "all", type: "all" });
+    setFilterValues({ status: "all", type: "all", balance: "all" });
     toast({
       title: "تم إعادة التعيين",
       description: "تم مسح جميع الفلاتر",
@@ -696,6 +697,24 @@ export default function WorkersPage() {
     gcTime: 1800000,  
     retry: 1,
     placeholderData: (previousData) => previousData,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: workerBalances = {} } = useQuery<Record<string, number>>({
+    queryKey: QUERY_KEYS.workerBalances(selectedProjectId ?? undefined),
+    queryFn: async () => {
+      try {
+        const projectParam2 = selectedProjectId === ALL_PROJECTS_ID ? undefined : selectedProjectId;
+        const url = projectParam2 ? `/api/workers/balances?project_id=${projectParam2}` : '/api/workers/balances';
+        const response = await apiRequest(url, 'GET');
+        return response?.data || {};
+      } catch {
+        return {};
+      }
+    },
+    staleTime: 30000,
+    gcTime: 60000,
+    retry: 1,
     refetchOnWindowFocus: false,
   });
 
@@ -804,9 +823,25 @@ export default function WorkersPage() {
                            (filterValues.status === 'active' && worker.is_active) ||
                            (filterValues.status === 'inactive' && !worker.is_active);
       const matchesType = filterValues.type === 'all' || worker.type === filterValues.type;
-      return matchesSearch && matchesStatus && matchesType;
+      
+      const balanceFilter = filterValues.balance || 'all';
+      let matchesBalance = true;
+      if (balanceFilter !== 'all') {
+        const balance = workerBalances[worker.id] ?? 0;
+        if (balanceFilter === 'has_balance') {
+          matchesBalance = balance !== 0;
+        } else if (balanceFilter === 'positive') {
+          matchesBalance = balance > 0;
+        } else if (balanceFilter === 'negative') {
+          matchesBalance = balance < 0;
+        } else if (balanceFilter === 'zero') {
+          matchesBalance = balance === 0;
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesType && matchesBalance;
     });
-  }, [workers, searchValue, filterValues]);
+  }, [workers, searchValue, filterValues, workerBalances]);
 
   const stats = useMemo(() => ({
     total: Array.isArray(workers) ? workers.length : 0,
@@ -858,6 +893,19 @@ export default function WorkersPage() {
       options: [
         { value: 'all', label: 'جميع الأنواع' },
         ...workerTypeOptions,
+      ],
+    },
+    {
+      key: 'balance',
+      label: 'المبلغ المتبقي',
+      type: 'select',
+      defaultValue: 'all',
+      options: [
+        { value: 'all', label: 'جميع العمال' },
+        { value: 'has_balance', label: 'لديهم رصيد متبقي' },
+        { value: 'positive', label: 'رصيد موجب (مستحقات)' },
+        { value: 'negative', label: 'رصيد سالب (سلف)' },
+        { value: 'zero', label: 'رصيد صفري' },
       ],
     },
   ], [workerTypeOptions]);
@@ -943,6 +991,7 @@ export default function WorkersPage() {
         subtitle=""
         statsRows={statsRowsConfig}
         filters={filtersConfig}
+        filterValues={filterValues}
         onFilterChange={handleFilterChange}
         onSearchChange={setSearchValue}
         searchValue={searchValue}

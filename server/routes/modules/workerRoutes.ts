@@ -581,6 +581,55 @@ workerRouter.get('/workers/search/:query', async (req: Request, res: Response) =
 });
 
 /**
+ * 📊 جلب أرصدة جميع العمال دفعة واحدة
+ * GET /api/workers/balances
+ */
+workerRouter.get('/workers/balances', async (req: Request, res: Response) => {
+  try {
+    const project_id = req.query.project_id as string | undefined;
+    const isAllProjects = !project_id || project_id === 'all';
+
+    const params: any[] = isAllProjects ? [] : [project_id];
+    const waFilter = isAllProjects ? '' : 'AND wa.project_id = $1';
+    const wtFilter = isAllProjects ? '' : 'AND wt.project_id = $1';
+
+    const result = await pool.query(`
+      SELECT 
+        w.id as worker_id,
+        COALESCE((
+          SELECT SUM(CAST(COALESCE(wa.daily_wage, '0') AS DECIMAL) * CAST(COALESCE(wa.work_days, '0') AS DECIMAL))
+          FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
+        ), 0) as total_earnings,
+        COALESCE((
+          SELECT SUM(CAST(wt.amount AS DECIMAL))
+          FROM worker_transfers wt WHERE wt.worker_id = w.id AND (wt.transfer_method IS NULL OR wt.transfer_method != 'settlement') ${wtFilter}
+        ), 0) + COALESCE((
+          SELECT SUM(CAST(COALESCE(wa.paid_amount, '0') AS DECIMAL))
+          FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
+        ), 0) as total_withdrawals,
+        COALESCE((
+          SELECT SUM(CAST(wt.amount AS DECIMAL))
+          FROM worker_transfers wt WHERE wt.worker_id = w.id AND wt.transfer_method = 'settlement' ${wtFilter}
+        ), 0) as total_settled
+      FROM workers w
+    `, params);
+
+    const balances: Record<string, number> = {};
+    for (const row of result.rows) {
+      const earnings = Math.round(Number(row.total_earnings) || 0);
+      const withdrawals = Math.round(Number(row.total_withdrawals) || 0);
+      const settled = Math.round(Number(row.total_settled) || 0);
+      balances[row.worker_id] = earnings - withdrawals - settled;
+    }
+
+    res.json({ success: true, data: balances });
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب أرصدة العمال:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * 🔍 جلب عامل محدد
  * GET /api/workers/:id
  */

@@ -12,6 +12,7 @@
 import { db, pool, withTransaction } from '../db';
 import { journalEntries, journalLines, financialAuditLog, reconciliationRecords, summaryInvalidations, projects } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import type pg from 'pg';
 
 const ACCOUNT_CODES = {
   CASH: '1100',
@@ -28,7 +29,7 @@ const ACCOUNT_CODES = {
 
 export class FinancialLedgerService {
 
-  static async createJournalEntry(params: {
+  private static async _createJournalEntryWithClient(client: pg.PoolClient, params: {
     project_id: string;
     entryDate: string;
     description: string;
@@ -51,31 +52,57 @@ export class FinancialLedgerService {
       throw new Error(`قيد غير متوازن: مدين=${totalDebit}, دائن=${totalCredit}`);
     }
 
-    const [entry] = await db.insert(journalEntries).values({
-      project_id: params.project_id,
-      entryDate: params.entryDate,
-      description: params.description,
-      sourceTable: params.sourceTable,
-      sourceId: params.sourceId,
-      entryType: params.entryType || 'original',
-      reversalOfId: params.reversalOfId || undefined,
-      totalAmount: totalDebit.toFixed(2),
-      status: 'posted',
-      createdBy: params.createdBy || undefined,
-    }).returning();
-
-    await db.insert(journalLines).values(
-      params.lines.map(line => ({
-        journalEntryId: entry.id,
-        accountCode: line.accountCode,
-        debitAmount: line.debitAmount.toFixed(2),
-        creditAmount: line.creditAmount.toFixed(2),
-        description: line.description,
-      }))
+    const entryResult = await client.query(
+      `INSERT INTO journal_entries (project_id, entry_date, description, source_table, source_id, entry_type, reversal_of_id, total_amount, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [
+        params.project_id,
+        params.entryDate,
+        params.description,
+        params.sourceTable,
+        params.sourceId,
+        params.entryType || 'original',
+        params.reversalOfId || null,
+        totalDebit.toFixed(2),
+        'posted',
+        params.createdBy || null,
+      ]
     );
+    const entry = entryResult.rows[0];
 
-    console.log(`📒 [Ledger] قيد #${entry.entryNumber}: ${params.description} (${totalDebit.toFixed(2)})`);
+    for (const line of params.lines) {
+      await client.query(
+        `INSERT INTO journal_lines (journal_entry_id, account_code, debit_amount, credit_amount, description) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          entry.id,
+          line.accountCode,
+          line.debitAmount.toFixed(2),
+          line.creditAmount.toFixed(2),
+          line.description || null,
+        ]
+      );
+    }
+
+    console.log(`📒 [Ledger] قيد #${entry.entry_number}: ${params.description} (${totalDebit.toFixed(2)})`);
     return entry.id;
+  }
+
+  static async createJournalEntry(params: {
+    project_id: string;
+    entryDate: string;
+    description: string;
+    sourceTable: string;
+    sourceId: string;
+    entryType?: string;
+    reversalOfId?: string;
+    lines: Array<{
+      accountCode: string;
+      debitAmount: number;
+      creditAmount: number;
+      description?: string;
+    }>;
+    createdBy?: string;
+  }): Promise<string> {
+    return withTransaction(async (client) => this._createJournalEntryWithClient(client, params));
   }
 
   static async recordFundTransfer(project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
@@ -190,26 +217,28 @@ export class FinancialLedgerService {
   }
 
   static async recordProjectTransfer(fromProjectId: string, toProjectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
-    await this.createJournalEntry({
-      project_id: fromProjectId, entryDate: date,
-      description: `تحويل صادر لمشروع آخر بقيمة ${amount}`,
-      sourceTable: 'project_fund_transfers', sourceId,
-      createdBy,
-      lines: [
-        { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_OUT, debitAmount: amount, creditAmount: 0 },
-        { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount },
-      ]
-    });
+    await withTransaction(async (client) => {
+      await this._createJournalEntryWithClient(client, {
+        project_id: fromProjectId, entryDate: date,
+        description: `تحويل صادر لمشروع آخر بقيمة ${amount}`,
+        sourceTable: 'project_fund_transfers', sourceId,
+        createdBy,
+        lines: [
+          { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_OUT, debitAmount: amount, creditAmount: 0 },
+          { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount },
+        ]
+      });
 
-    await this.createJournalEntry({
-      project_id: toProjectId, entryDate: date,
-      description: `تحويل وارد من مشروع آخر بقيمة ${amount}`,
-      sourceTable: 'project_fund_transfers', sourceId,
-      createdBy,
-      lines: [
-        { accountCode: ACCOUNT_CODES.CASH, debitAmount: amount, creditAmount: 0 },
-        { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_IN, debitAmount: 0, creditAmount: amount },
-      ]
+      await this._createJournalEntryWithClient(client, {
+        project_id: toProjectId, entryDate: date,
+        description: `تحويل وارد من مشروع آخر بقيمة ${amount}`,
+        sourceTable: 'project_fund_transfers', sourceId,
+        createdBy,
+        lines: [
+          { accountCode: ACCOUNT_CODES.CASH, debitAmount: amount, creditAmount: 0 },
+          { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_IN, debitAmount: 0, creditAmount: amount },
+        ]
+      });
     });
     await this.invalidateSummaries(fromProjectId, date, 'تسجيل قيد: تحويل صادر بين مشاريع', 'project_fund_transfers', sourceId);
     await this.invalidateSummaries(toProjectId, date, 'تسجيل قيد: تحويل وارد بين مشاريع', 'project_fund_transfers', sourceId);
@@ -240,7 +269,7 @@ export class FinancialLedgerService {
         throw new Error('فشل تحديث حالة القيد - ربما تم عكسه بواسطة عملية أخرى');
       }
 
-      return this.createJournalEntry({
+      return this._createJournalEntryWithClient(client, {
         project_id: original.project_id || '',
         entryDate: original.entry_date,
         description: `عكس: ${original.description} - السبب: ${reason}`,

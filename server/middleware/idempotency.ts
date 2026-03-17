@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { db } from '../db.js';
+import { db, pool } from '../db.js';
 import { idempotencyKeys } from '@shared/schema';
 import { eq, lt } from 'drizzle-orm';
 import { getAuthUser } from '../internal/auth-user.js';
@@ -39,12 +39,10 @@ async function handleIdempotency(compositeKey: string, req: Request, res: Respon
   const expiresAt = new Date(Date.now() + KEY_TTL_HOURS * 60 * 60 * 1000);
 
   try {
-    const claimResult = await db.execute(sql`
-      INSERT INTO idempotency_keys (key, endpoint, method, status_code, response_body, expires_at)
-      VALUES (${compositeKey}, ${req.originalUrl || req.path}, ${req.method}, ${PENDING_STATUS_CODE}, null, ${expiresAt})
-      ON CONFLICT (key) DO NOTHING
-      RETURNING id
-    `);
+    const claimResult = await pool.query(
+      'INSERT INTO idempotency_keys (key, endpoint, method, status_code, response_body, expires_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (key) DO NOTHING RETURNING id',
+      [compositeKey, req.originalUrl || req.path, req.method, PENDING_STATUS_CODE, null, expiresAt]
+    );
 
     const claimed = (claimResult as any).rows?.length > 0 || (claimResult as any).rowCount > 0;
 
@@ -57,7 +55,7 @@ async function handleIdempotency(compositeKey: string, req: Request, res: Respon
         const record = existing[0];
 
         if (record.expiresAt && new Date(record.expiresAt) < new Date()) {
-          await db.delete(idempotencyKeys).where(eq(idempotencyKeys.key, compositeKey)).catch(() => {});
+          await pool.query('DELETE FROM idempotency_keys WHERE key = $1', [compositeKey]).catch(() => {});
           return next();
         }
 
@@ -86,15 +84,12 @@ async function handleIdempotency(compositeKey: string, req: Request, res: Respon
     const statusCode = res.statusCode || 200;
 
     if (statusCode >= 200 && statusCode < 300) {
-      db.update(idempotencyKeys)
-        .set({ statusCode, responseBody: body })
-        .where(eq(idempotencyKeys.key, compositeKey))
+      pool.query('UPDATE idempotency_keys SET status_code = $1, response_body = $2 WHERE key = $3', [statusCode, JSON.stringify(body), compositeKey])
         .catch((err: any) => {
           console.error('[Idempotency] فشل تحديث المفتاح:', err);
         });
     } else {
-      db.delete(idempotencyKeys)
-        .where(eq(idempotencyKeys.key, compositeKey))
+      pool.query('DELETE FROM idempotency_keys WHERE key = $1', [compositeKey])
         .catch(() => {});
     }
 
@@ -105,8 +100,8 @@ async function handleIdempotency(compositeKey: string, req: Request, res: Respon
 }
 
 export async function cleanupExpiredKeys(): Promise<number> {
-  const result = await db.delete(idempotencyKeys).where(lt(idempotencyKeys.expiresAt, new Date()));
-  return (result as { rowCount?: number }).rowCount || 0;
+  const result = await pool.query('DELETE FROM idempotency_keys WHERE expires_at < $1', [new Date()]);
+  return result.rowCount || 0;
 }
 
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;

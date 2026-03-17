@@ -373,7 +373,7 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل العهدة بنجاح في ${duration}ms`);
 
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordFundTransfer(
         newTransfer[0].project_id,
         parseFloat(newTransfer[0].amount),
@@ -493,7 +493,7 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       .returning();
 
     const t = updatedTransfer[0];
-    FinancialLedgerService.safeRecord(async () => {
+    await FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'تعديل تحويل عهدة', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordFundTransfer(
         t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
@@ -560,7 +560,7 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا التحويل' });
     }
 
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('fund_transfers', transferId, 'حذف تحويل عهدة', getAuthUser(req)?.user_id).then(() => ''),
       'fund-transfer/DELETE'
     );
@@ -852,7 +852,7 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
     const newTransfer = await db.insert(projectFundTransfers).values(validationResult.data).returning();
 
     const record = newTransfer[0];
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       async () => {
         await FinancialLedgerService.recordProjectTransfer(
           record.fromProjectId, record.toProjectId, parseFloat(record.amount), record.transferDate, record.id, getAuthUser(req)?.user_id
@@ -937,7 +937,7 @@ financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: 
       }
     }
 
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'project-fund-transfers/DELETE'
     );
@@ -1019,7 +1019,7 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
     }
 
     const t = updatedTransfer[0];
-    FinancialLedgerService.safeRecord(async () => {
+    await FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('project_fund_transfers', id, 'تعديل تحويل مشروع', getAuthUser(req)?.user_id);
       await FinancialLedgerService.recordProjectTransfer(
         t.fromProjectId, t.toProjectId, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
@@ -1138,7 +1138,7 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
     const newTransfer = await db.insert(workerTransfers).values(validationResult.data).returning();
 
     const wt = newTransfer[0];
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordWorkerTransfer(
         wt.project_id, parseFloat(wt.amount), wt.transferDate, wt.id, getAuthUser(req)?.user_id
       ),
@@ -1239,7 +1239,7 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
       .returning();
 
     const t = updatedTransfer[0];
-    FinancialLedgerService.safeRecord(async () => {
+    await FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordWorkerTransfer(
         t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
@@ -1316,7 +1316,7 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
       recipientName: transferToDelete.recipientName
     });
 
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'worker-transfers/DELETE'
     );
@@ -1465,7 +1465,7 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
     const newExpense = await db.insert(workerMiscExpenses).values(validationResult.data).returning();
 
     const record = newExpense[0];
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordMiscExpense(
         record.project_id, parseFloat(record.amount), record.date, record.id, getAuthUser(req)?.user_id
       ),
@@ -1578,7 +1578,7 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
       .returning();
 
     const t = updatedExpense[0];
-    FinancialLedgerService.safeRecord(async () => {
+    await FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordMiscExpense(
         t.project_id, parseFloat(t.amount), t.date, t.id, getAuthUser(req)?.user_id
@@ -1667,7 +1667,7 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
       description: expenseToDelete.description
     });
 
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
       'worker-misc-expenses/DELETE'
     );
@@ -2208,7 +2208,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     });
 
     const p = newPurchase[0];
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordMaterialPurchase(
         p.project_id, parseFloat(p.total_amount || '0'), p.purchase_date, p.id, p.purchase_type || 'نقد', getAuthUser(req)?.user_id
       ),
@@ -2407,7 +2407,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     }
 
     const mp = updated[0];
-    FinancialLedgerService.safeRecord(async () => {
+    await FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('material_purchases', purchaseId, 'تعديل مشتراة', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordMaterialPurchase(
         mp.project_id, parseFloat(mp.totalAmount || '0'), mp.purchaseDate, mp.id, mp.purchaseType || 'نقد', getAuthUser(req)?.user_id
@@ -2479,7 +2479,7 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
       console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
     }
 
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'حذف مشتراة', getAuthUser(req)?.user_id).then(() => ''),
       'material-purchase/DELETE'
     );
@@ -2589,7 +2589,7 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
       .returning();
     
     const te = newExpense[0];
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.recordTransportExpense(
         te.project_id, parseFloat(te.amount || '0'), te.date, te.id, getAuthUser(req)?.user_id
       ),
@@ -2706,7 +2706,7 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
     }
     
     const tu = updated[0];
-    FinancialLedgerService.safeRecord(async () => {
+    await FinancialLedgerService.safeRecord(async () => {
       await FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'تعديل نفقة نقل', getAuthUser(req)?.user_id);
       return FinancialLedgerService.recordTransportExpense(
         tu.project_id, parseFloat(tu.amount || '0'), tu.date, tu.id, getAuthUser(req)?.user_id
@@ -2761,7 +2761,7 @@ financialRouter.delete('/transportation-expenses/:id', async (req: Request, res:
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
-    FinancialLedgerService.safeRecord(
+    await FinancialLedgerService.safeRecord(
       () => FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'حذف نفقة نقل', getAuthUser(req)?.user_id).then(() => ''),
       'transport-expense/DELETE'
     );

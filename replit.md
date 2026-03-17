@@ -95,6 +95,11 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Streaming Restorer (`server/services/backup/streaming-restorer.ts`):** Line-by-line `readline` streaming from gzipped NDJSON. Batch INSERT (100 rows) with parameterized `ON CONFLICT DO NOTHING`. Checksum verification on decompressed content (matching exporter). Partial restore by table name. Fully atomic transaction: schema DDL + `session_replication_role='replica'` + TRUNCATE CASCADE + INSERT + sequences + COMMIT (ROLLBACK on error).
 - **BackupService Integration:** `runBackup(triggeredBy, format)` accepts `'json'|'streaming'`. `restoreBackup` auto-detects streaming directories via `manifest.json`. `listBackups` returns both `.json.gz` files and `backup-*` directories with `format` field. `deleteBackup` and `enforceRetentionPolicy` handle both files and directories. Route passes `format` from request body.
 
+### Phase 6 Financial Integrity & Write-Path Hardening (Completed)
+- **Financial Atomicity (Critical Fix):** `createJournalEntry()` now wraps header+lines inserts in `withTransaction`. New private `_createJournalEntryWithClient(client, params)` uses `client.query()` with parameterized SQL. `reverseEntry()` now calls `_createJournalEntryWithClient` inside its existing transaction (no nested independent transaction). `recordProjectTransfer()` wraps both outbound+inbound entries in a single `withTransaction` for full atomicity.
+- **Ledger Posting Await (High Fix):** All 18 `FinancialLedgerService.safeRecord()` calls in `financialRoutes.ts` are now `await`ed. Eliminates fire-and-forget behavior that could cause silent accounting drift.
+- **db.execute→pool.query Migration (High Fix):** `idempotency.ts` and `NotificationQueueWorker.ts` converted all INSERT/UPDATE/DELETE mutations from `db.execute(sql\`...\`)` to `pool.query()` with parameterized SQL. Read operations kept as-is.
+
 ### Phase 3 DB-Schema Alignment (Completed)
 - **Schema.ts aligned to production DB** (DB is source of truth, no DB migrations run)
 - **Type fixes:** audit_logs.user_id (varchar→integer), users.is_active (text→boolean), fund_transfers.transferDate (text→timestamp), metrics.metricValue column name, monitoring_data/system_logs/backup_settings restructured, well_work_crews counts (integer→decimal), refresh_tokens.parentId added

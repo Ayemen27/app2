@@ -3,7 +3,7 @@
  * تدعم retry mechanism وexponential backoff وdead-letter queue
  */
 
-import { db } from "../db";
+import { db, pool } from "../db";
 import { sql, eq, and, lte } from "drizzle-orm";
 import { pgTable, serial, text, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { 
@@ -194,11 +194,10 @@ export class NotificationQueueWorker {
    */
   private async lockQueueItem(itemId: string): Promise<boolean> {
     try {
-      const result = await db.execute(sql`
-        UPDATE notification_queue 
-        SET status = 'processing', last_attempt_at = NOW()
-        WHERE id = ${itemId} AND status = 'pending'
-      `);
+      const result = await pool.query(
+        'UPDATE notification_queue SET status = $1, last_attempt_at = NOW() WHERE id = $2 AND status = $3',
+        ['processing', itemId, 'pending']
+      );
       
       return (result.rowCount || 0) > 0;
     } catch (error) {
@@ -455,16 +454,10 @@ export class NotificationQueueWorker {
     channelUsed: string;
   }): Promise<void> {
     try {
-      await db.execute(sql`
-        INSERT INTO notification_metrics (
-          notification_id, recipient_id, delivery_method, status, 
-          sent_at, latency_ms, failure_reason, retry_count, channel_used
-        ) VALUES (
-          ${data.notificationId}, ${data.recipientId}, ${data.deliveryMethod}, 
-          ${data.status}, ${data.sentAt}, ${data.latencyMs}, 
-          ${data.failureReason || null}, ${data.retryCount || 0}, ${data.channelUsed}
-        )
-      `);
+      await pool.query(
+        'INSERT INTO notification_metrics (notification_id, recipient_id, delivery_method, status, sent_at, latency_ms, failure_reason, retry_count, channel_used) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+        [data.notificationId, data.recipientId, data.deliveryMethod, data.status, data.sentAt, data.latencyMs, data.failureReason || null, data.retryCount || 0, data.channelUsed]
+      );
     } catch (error) {
       console.error("خطأ في تسجيل المقياس:", error);
     }

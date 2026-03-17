@@ -577,34 +577,54 @@ settlementRouter.get('/', async (req: Request, res: Response) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const page = parseInt(req.query.page as string) || 1;
     const offset = (page - 1) * limit;
+    const dateFilter = req.query.date as string | undefined;
     const accessReq = req as ProjectAccessRequest;
     const accessibleProjectIds = accessReq.accessibleProjectIds || [];
 
-    let accessFilter = '';
+    const conditions: string[] = [];
     let params: any[] = [limit, offset];
+    let paramIndex = 3;
+
     if (accessibleProjectIds.length > 0) {
-      const placeholders = accessibleProjectIds.map((_, i) => `$${i + 3}`).join(',');
-      accessFilter = `WHERE ws.settlement_project_id IN (${placeholders})`;
+      const placeholders = accessibleProjectIds.map((_, i) => `$${paramIndex + i}`).join(',');
+      conditions.push(`ws.settlement_project_id IN (${placeholders})`);
       params = [...params, ...accessibleProjectIds];
+      paramIndex += accessibleProjectIds.length;
     }
+
+    if (dateFilter && /^\d{4}-\d{2}-\d{2}$/.test(dateFilter)) {
+      conditions.push(`ws.created_at::date = $${paramIndex}`);
+      params.push(dateFilter);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const result = await pool.query(
       `SELECT ws.*, p.name as settlement_project_name
        FROM worker_settlements ws
        LEFT JOIN projects p ON p.id = ws.settlement_project_id
-       ${accessFilter}
+       ${whereClause}
        ORDER BY ws.created_at DESC
        LIMIT $1 OFFSET $2`,
       params
     );
 
+    let countConditions: string[] = [];
     let countParams: any[] = [];
-    let countFilter = '';
+    let countParamIndex = 1;
     if (accessibleProjectIds.length > 0) {
-      const placeholders = accessibleProjectIds.map((_, i) => `$${i + 1}`).join(',');
-      countFilter = `WHERE settlement_project_id IN (${placeholders})`;
-      countParams = accessibleProjectIds;
+      const placeholders = accessibleProjectIds.map((_, i) => `$${countParamIndex + i}`).join(',');
+      countConditions.push(`settlement_project_id IN (${placeholders})`);
+      countParams = [...accessibleProjectIds];
+      countParamIndex += accessibleProjectIds.length;
     }
+    if (dateFilter && /^\d{4}-\d{2}-\d{2}$/.test(dateFilter)) {
+      countConditions.push(`created_at::date = $${countParamIndex}`);
+      countParams.push(dateFilter);
+      countParamIndex++;
+    }
+    const countFilter = countConditions.length > 0 ? `WHERE ${countConditions.join(' AND ')}` : '';
     const countResult = await pool.query(`SELECT COUNT(*) as total FROM worker_settlements ${countFilter}`, countParams);
     const total = parseInt(countResult.rows[0].total);
 

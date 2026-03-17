@@ -25,6 +25,8 @@ import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-projec
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
 import {
   Scale,
   Users,
@@ -39,6 +41,9 @@ import {
   User,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
   History,
   FileText,
 } from "lucide-react";
@@ -123,6 +128,33 @@ export default function WorkerSettlementsPage() {
   const [searchValue, setSearchValue] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
+  const [historyDate, setHistoryDate] = useState<string>(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+
+  const nextHistoryDate = useCallback(() => {
+    const [y, m, d] = historyDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d + 1);
+    const ny = date.getFullYear();
+    const nm = String(date.getMonth() + 1).padStart(2, '0');
+    const nd = String(date.getDate()).padStart(2, '0');
+    setHistoryDate(`${ny}-${nm}-${nd}`);
+    setHistoryPage(1);
+  }, [historyDate]);
+
+  const prevHistoryDate = useCallback(() => {
+    const [y, m, d] = historyDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d - 1);
+    const ny = date.getFullYear();
+    const nm = String(date.getMonth() + 1).padStart(2, '0');
+    const nd = String(date.getDate()).padStart(2, '0');
+    setHistoryDate(`${ny}-${nm}-${nd}`);
+    setHistoryPage(1);
+  }, [historyDate]);
 
   const settlementProjectId = selectedProjectId && selectedProjectId !== ALL_PROJECTS_ID ? selectedProjectId : "";
   const [preview, setPreview] = useState<SettlementPreview | null>(null);
@@ -206,10 +238,10 @@ export default function WorkerSettlementsPage() {
   });
 
   const { data: settlementsData, isLoading: settlementsLoading } = useQuery<SettlementRecord[]>({
-    queryKey: ["/api/worker-settlements", historyPage],
+    queryKey: ["/api/worker-settlements", historyPage, historyDate],
     queryFn: async () => {
       const res = await apiRequest(
-        `/api/worker-settlements?page=${historyPage}&limit=20`,
+        `/api/worker-settlements?page=${historyPage}&limit=20&date=${historyDate}`,
         "GET"
       );
       const raw = res?.data || res;
@@ -472,6 +504,40 @@ export default function WorkerSettlementsPage() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {activeView === "history" && (
+        <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md" data-testid="date-navigator">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={prevHistoryDate}
+            title="اليوم السابق"
+            data-testid="button-prev-date"
+          >
+            <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          </Button>
+          
+          <div className="flex flex-col items-center flex-1">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">سجل التصفيات</span>
+            <span className="text-sm font-black text-slate-900 dark:text-white arabic-numbers flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              {(() => { const [y,m,d] = historyDate.split('-').map(Number); return format(new Date(y, m-1, d), "EEEE, d MMMM yyyy", { locale: ar }); })()}
+            </span>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+            onClick={nextHistoryDate}
+            title="اليوم التالي"
+            data-testid="button-next-date"
+          >
+            <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          </Button>
+        </div>
+      )}
 
       <UnifiedFilterDashboard
         hideHeader={true}

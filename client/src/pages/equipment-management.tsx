@@ -236,39 +236,57 @@ export function EquipmentManagement() {
     }
   ], [stats]);
 
-  const filtersConfig: FilterConfig[] = useMemo(() => [
-    {
-      key: 'category',
-      label: 'الفئة',
-      type: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'all', label: 'كل الفئات' },
-        ...categories.map(c => ({ value: c, label: c })),
-      ],
-    },
-    {
-      key: 'stockStatus',
-      label: 'حالة المخزون',
-      type: 'select',
-      defaultValue: 'all',
-      options: [
-        { value: 'all', label: 'جميع الحالات' },
-        { value: 'available', label: 'متوفر', dotColor: 'bg-green-500' },
-        { value: 'low', label: 'منخفض', dotColor: 'bg-amber-500' },
-        { value: 'out', label: 'نفذ', dotColor: 'bg-red-500' },
-      ],
-    },
-  ], [categories]);
+  const filtersConfig: FilterConfig[] = useMemo(() => {
+    const baseFilters: FilterConfig[] = [
+      {
+        key: 'category',
+        label: 'الفئة',
+        type: 'select',
+        defaultValue: 'all',
+        options: [
+          { value: 'all', label: 'كل الفئات' },
+          ...categories.map(c => ({ value: c, label: c })),
+        ],
+      },
+      {
+        key: 'stockStatus',
+        label: 'حالة المخزون',
+        type: 'select',
+        defaultValue: 'all',
+        options: [
+          { value: 'all', label: 'جميع الحالات' },
+          { value: 'available', label: 'متوفر', dotColor: 'bg-green-500' },
+          { value: 'low', label: 'منخفض', dotColor: 'bg-amber-500' },
+          { value: 'out', label: 'نفذ', dotColor: 'bg-red-500' },
+        ],
+      },
+    ];
+    if (activeTab === 'reports') {
+      baseFilters.push({
+        key: 'reportGroupBy',
+        label: 'تجميع حسب',
+        type: 'select',
+        defaultValue: 'item',
+        options: [
+          { value: 'item', label: 'حسب المادة' },
+          { value: 'supplier', label: 'حسب المورد' },
+          { value: 'project', label: 'حسب المشروع' },
+        ],
+      });
+    }
+    return baseFilters;
+  }, [categories, activeTab]);
 
   const filterValues = useMemo(() => ({
     category: categoryFilter,
     stockStatus: stockStatusFilter,
-  }), [categoryFilter, stockStatusFilter]);
+    reportGroupBy: reportGroupBy,
+  }), [categoryFilter, stockStatusFilter, reportGroupBy]);
 
   const handleFilterChange = useCallback((key: string, value: any) => {
     if (key === 'category') setCategoryFilter(value);
     if (key === 'stockStatus') setStockStatusFilter(value);
+    if (key === 'reportGroupBy') setReportGroupBy(value);
   }, []);
 
   const handleResetFilters = useCallback(() => {
@@ -849,19 +867,6 @@ export function EquipmentManagement() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          <div className="flex items-center justify-end">
-            <Select value={reportGroupBy} onValueChange={setReportGroupBy}>
-              <SelectTrigger className="w-[180px]" data-testid="select-report-group">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="item">حسب المادة</SelectItem>
-                <SelectItem value="supplier">حسب المورد</SelectItem>
-                <SelectItem value="project">حسب المشروع</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           {reportGroupBy === 'item' && (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse" data-testid="table-report-items">

@@ -536,7 +536,7 @@ export class InventoryService {
           COALESCE(SUM(CASE WHEN it.type = 'OUT' THEN it.quantity ELSE 0 END), 0) as total_issued,
           COALESCE(SUM(CASE WHEN it.type = 'OUT' THEN it.total_cost ELSE 0 END), 0) as total_cost
         FROM projects p
-        JOIN inventory_transactions it ON it.to_project_id = p.id
+        JOIN inventory_transactions it ON (it.to_project_id = p.id OR it.from_project_id = p.id)
       `;
       const params: any[] = [];
       let paramIdx = 1;
@@ -566,8 +566,9 @@ export class InventoryService {
     const conditions: string[] = [];
 
     if (filters?.projectId) {
-      conditions.push(`it.to_project_id = $${paramIdx++}`);
+      conditions.push(`(it.to_project_id = $${paramIdx} OR it.from_project_id = $${paramIdx})`);
       params.push(filters.projectId);
+      paramIdx++;
     }
     if (filters?.dateFrom) {
       conditions.push(`it.transaction_date >= $${paramIdx++}`);

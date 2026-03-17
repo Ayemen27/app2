@@ -417,17 +417,8 @@ export default function SyncManagementPage() {
         disabled: auditLogs.length === 0,
         tooltip: 'تصدير PDF',
       },
-      {
-        key: 'clear-tab',
-        icon: Trash2,
-        label: 'حذف الكل',
-        onClick: handleClearTab,
-        variant: 'destructive' as const,
-        disabled: auditLogs.length === 0 || deleteMutation.isPending || deleteByStatusMutation.isPending || deleteAllMutation.isPending,
-        tooltip: activeTab === 'server-audit' ? 'حذف جميع السجلات' : 'حذف سجلات هذا التبويب',
-      },
     ];
-  }, [auditLogs.length, activeTab, deleteMutation.isPending, deleteByStatusMutation.isPending, deleteAllMutation.isPending]);
+  }, [auditLogs.length]);
 
   const resultsSummary: ResultsSummaryConfig | undefined = useMemo(() => {
     if (!auditData) return undefined;

@@ -247,7 +247,7 @@ export class BackupService {
         hasSequences: sequencesDDL.length > 0,
       };
 
-      await this.postBackupActions(result, gzPath, backupData);
+      await this.postBackupActions(result, gzPath, backupData, schemasDDL, sequencesDDL);
 
       return result;
     } catch (error: any) {
@@ -267,10 +267,9 @@ export class BackupService {
     }
   }
 
-  private static async createRedactedBackup(originalData: Record<string, any[]>, meta: any, schemas: any, sequences: any): Promise<string | null> {
+  private static async createRedactedBackup(redactedData: Record<string, any[]>, meta: any, schemas: any, sequences: any): Promise<string | null> {
     try {
-      const redacted = redactSensitiveData(originalData, 'external');
-      const redactedPayload = JSON.stringify({ meta, schemas, sequences, data: redacted });
+      const redactedPayload = JSON.stringify({ meta, schemas, sequences, data: redactedData });
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const redactedPath = path.join(BACKUPS_DIR, `.redacted-${timestamp}.json.gz`);
 
@@ -293,14 +292,17 @@ export class BackupService {
     }
   }
 
-  private static async postBackupActions(result: any, filePath: string, backupData?: Record<string, any[]>): Promise<void> {
+  private static async postBackupActions(result: any, filePath: string, backupData?: Record<string, any[]>, schemas?: Record<string, string>, sequences?: string[]): Promise<void> {
     const hasSensitive = backupData ? Object.keys(backupData).some(t => ['users', 'refresh_tokens', 'sessions'].includes(t)) : false;
     let externalFilePath = filePath;
     let redactedPath: string | null = null;
 
     if (hasSensitive && backupData) {
       console.log('🔒 [BackupService] إنشاء نسخة محجوبة للإرسال الخارجي...');
-      redactedPath = await this.createRedactedBackup(backupData, result, {}, []);
+      const redactedData = redactSensitiveData(backupData, 'external');
+      const redactedChecksum = computeChecksum(JSON.stringify(redactedData));
+      const redactedMeta = { ...result, checksum: redactedChecksum, redacted: true };
+      redactedPath = await this.createRedactedBackup(redactedData, redactedMeta, schemas || {}, sequences || []);
       if (redactedPath) {
         externalFilePath = redactedPath;
         console.log('✅ [BackupService] تم إنشاء نسخة محجوبة (كلمات المرور/التوكنات محذوفة)');
@@ -470,8 +472,18 @@ export class BackupService {
       let shouldClosePool = false;
       const { pool } = await import('../db');
 
-      if (target === 'local' || target === 'central') {
+      if (target === 'local') {
         targetPool = pool;
+      } else if (target === 'central') {
+        const centralUrl = process.env.DATABASE_URL_CENTRAL;
+        if (centralUrl) {
+          const { Pool } = await import('pg');
+          targetPool = new Pool({ connectionString: centralUrl.trim().replace(/^["']|["']$/g, ''), connectionTimeoutMillis: 10000 });
+          shouldClosePool = true;
+        } else {
+          targetPool = pool;
+          console.warn('⚠️ [Restore] DATABASE_URL_CENTRAL غير معرّف - استخدام القاعدة المحلية');
+        }
       } else {
         const dbs = await this.getAvailableDatabases();
         const selectedDb = dbs.find(d => d.id === target.toLowerCase());

@@ -87,6 +87,8 @@ The system features a consistent design with a professional navy/blue palette, E
 - **TRUNCATE Order Fix:** `session_replication_role = 'replica'` is set BEFORE TRUNCATE (not after), and TRUNCATE uses CASCADE to handle FK dependencies safely.
 - **Row Count Verification:** Restore engine now logs warnings when actual inserted rows differ from expected, and includes the discrepancy in the report.
 - **analyzeDatabase Central Fix:** Now uses `DATABASE_URL_CENTRAL` environment variable for 'central' target instead of falling back to local pool.
+- **restoreBackup Central Fix:** `restoreBackup(target='central')` now creates a separate Pool from `DATABASE_URL_CENTRAL` instead of incorrectly using local pool.
+- **Redacted Backup Integrity:** External redacted copies now include correct schemas, sequences, and a recalculated checksum matching the redacted data.
 
 ### Phase 3 DB-Schema Alignment (Completed)
 - **Schema.ts aligned to production DB** (DB is source of truth, no DB migrations run)

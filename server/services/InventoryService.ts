@@ -750,6 +750,92 @@ export class InventoryService {
     }
   }
 
+  static async updateTransaction(txId: number, data: { quantity?: number; notes?: string; transactionDate?: string }): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows } = await client.query(
+        `SELECT * FROM inventory_transactions WHERE id = $1 FOR UPDATE`, [txId]
+      );
+      if (rows.length === 0) throw new Error('المعاملة غير موجودة');
+
+      const tx = rows[0];
+
+      if (tx.reference_type === 'purchase' || tx.reference_type === 'purchase_update') {
+        throw new Error('لا يمكن تعديل معاملة مرتبطة بمشتراة. عدّل المشتراة مباشرة.');
+      }
+
+      const newQty = data.quantity !== undefined && data.quantity !== null ? data.quantity : parseFloat(tx.quantity);
+      const oldQty = parseFloat(tx.quantity);
+      const qtyDiff = newQty - oldQty;
+
+      if (newQty <= 0) throw new Error('الكمية يجب أن تكون أكبر من صفر');
+
+      if (qtyDiff !== 0 && tx.lot_id) {
+        if (tx.type === 'IN' || tx.type === 'ADJUSTMENT_IN' || tx.type === 'RETURN') {
+          const { rows: lot } = await client.query(
+            `SELECT remaining_qty, received_qty FROM inventory_lots WHERE id = $1 FOR UPDATE`, [tx.lot_id]
+          );
+          if (lot.length > 0) {
+            const newRemaining = parseFloat(lot[0].remaining_qty) + qtyDiff;
+            if (newRemaining < 0) {
+              throw new Error(`لا يمكن تقليل الكمية - تم صرف جزء منها. الحد الأدنى: ${(oldQty - parseFloat(lot[0].remaining_qty)).toFixed(1)}`);
+            }
+            await client.query(
+              `UPDATE inventory_lots SET remaining_qty = $1, received_qty = received_qty + $2 WHERE id = $3`,
+              [newRemaining, qtyDiff, tx.lot_id]
+            );
+          }
+        } else if (tx.type === 'OUT' || tx.type === 'ADJUSTMENT_OUT') {
+          const { rows: lot } = await client.query(
+            `SELECT remaining_qty FROM inventory_lots WHERE id = $1 FOR UPDATE`, [tx.lot_id]
+          );
+          if (lot.length > 0) {
+            const newRemaining = parseFloat(lot[0].remaining_qty) - qtyDiff;
+            if (newRemaining < 0) {
+              throw new Error(`لا يمكن زيادة الكمية - الرصيد المتاح في الدفعة: ${(parseFloat(lot[0].remaining_qty) + oldQty).toFixed(1)}`);
+            }
+            await client.query(
+              `UPDATE inventory_lots SET remaining_qty = $1 WHERE id = $2`,
+              [newRemaining, tx.lot_id]
+            );
+          }
+        }
+      }
+
+      const unitCost = parseFloat(tx.unit_cost || '0');
+      const newTotalCost = newQty * unitCost;
+
+      const setClauses: string[] = [];
+      const values: any[] = [];
+      let paramIdx = 1;
+
+      setClauses.push(`quantity = $${paramIdx}`); values.push(newQty); paramIdx++;
+      setClauses.push(`total_cost = $${paramIdx}`); values.push(newTotalCost); paramIdx++;
+
+      if (data.notes !== undefined) {
+        setClauses.push(`notes = $${paramIdx}`); values.push(data.notes); paramIdx++;
+      }
+      if (data.transactionDate) {
+        setClauses.push(`transaction_date = $${paramIdx}`); values.push(data.transactionDate); paramIdx++;
+      }
+
+      values.push(txId);
+      await client.query(
+        `UPDATE inventory_transactions SET ${setClauses.join(', ')} WHERE id = $${paramIdx}`,
+        values
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   static async deleteTransaction(txId: number): Promise<void> {
     const client = await pool.connect();
     try {

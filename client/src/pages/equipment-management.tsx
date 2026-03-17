@@ -91,6 +91,8 @@ export function EquipmentManagement() {
   const [showMovementHistoryDialog, setShowMovementHistoryDialog] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
   const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [showEditTxDialog, setShowEditTxDialog] = useState(false);
+  const [editingTx, setEditingTx] = useState<InventoryTransaction | null>(null);
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -278,6 +280,10 @@ export function EquipmentManagement() {
   const handleRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
   }, [queryClient]);
+
+  const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN' || t.type === 'RETURN'), [transactions]);
+  const outgoingTx = useMemo(() => transactions.filter(t => t.type === 'OUT' || t.type === 'ADJUSTMENT_OUT'), [transactions]);
+  const returnTx = useMemo(() => transactions.filter(t => t.type === 'RETURN'), [transactions]);
 
   const tabExportConfig = useMemo(() => {
     const dateStr = new Date().toLocaleDateString('ar-SA');
@@ -686,6 +692,20 @@ export function EquipmentManagement() {
     },
   });
 
+  const updateTxMutation = useMutation({
+    mutationFn: (data: { id: number; quantity: number; notes: string; transactionDate: string }) =>
+      apiRequest(`/api/inventory/transactions/${data.id}`, 'PATCH', data),
+    onSuccess: () => {
+      invalidateAll();
+      setShowEditTxDialog(false);
+      setEditingTx(null);
+      toast({ title: "تم تعديل المعاملة بنجاح" });
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ في التعديل", description: err.message, variant: "destructive" });
+    },
+  });
+
   const returnMutation = useMutation({
     mutationFn: (data: any) => apiRequest('/api/inventory/return', 'POST', data),
     onSuccess: () => {
@@ -714,10 +734,6 @@ export function EquipmentManagement() {
     setEditingItem(item);
     setShowDeleteConfirm(true);
   }, []);
-
-  const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN' || t.type === 'RETURN'), [transactions]);
-  const outgoingTx = useMemo(() => transactions.filter(t => t.type === 'OUT' || t.type === 'ADJUSTMENT_OUT'), [transactions]);
-  const returnTx = useMemo(() => transactions.filter(t => t.type === 'RETURN'), [transactions]);
 
   return (
     <div className="container mx-auto p-4 space-y-4" dir="rtl">
@@ -821,15 +837,15 @@ export function EquipmentManagement() {
         </TabsContent>
 
         <TabsContent value="incoming" className="space-y-4">
-          <TransactionList transactions={incomingTx} loading={txLoading} emptyMessage="لا يوجد وارد مسجل" onDelete={(id) => deleteTxMutation.mutate(id)} deletingId={deleteTxMutation.isPending ? (deleteTxMutation.variables as number) : undefined} />
+          <TransactionList transactions={incomingTx} loading={txLoading} emptyMessage="لا يوجد وارد مسجل" onDelete={(id) => deleteTxMutation.mutate(id)} deletingId={deleteTxMutation.isPending ? (deleteTxMutation.variables as number) : undefined} onEdit={(tx) => { setEditingTx(tx); setShowEditTxDialog(true); }} />
         </TabsContent>
 
         <TabsContent value="outgoing" className="space-y-4">
-          <TransactionList transactions={outgoingTx} loading={txLoading} emptyMessage="لا يوجد صرف مسجل" onDelete={(id) => deleteTxMutation.mutate(id)} deletingId={deleteTxMutation.isPending ? (deleteTxMutation.variables as number) : undefined} />
+          <TransactionList transactions={outgoingTx} loading={txLoading} emptyMessage="لا يوجد صرف مسجل" onDelete={(id) => deleteTxMutation.mutate(id)} deletingId={deleteTxMutation.isPending ? (deleteTxMutation.variables as number) : undefined} onEdit={(tx) => { setEditingTx(tx); setShowEditTxDialog(true); }} />
         </TabsContent>
 
         <TabsContent value="returns" className="space-y-4">
-          <TransactionList transactions={returnTx} loading={txLoading} emptyMessage="لا يوجد مرتجع مسجل" onDelete={(id) => deleteTxMutation.mutate(id)} deletingId={deleteTxMutation.isPending ? (deleteTxMutation.variables as number) : undefined} />
+          <TransactionList transactions={returnTx} loading={txLoading} emptyMessage="لا يوجد مرتجع مسجل" onDelete={(id) => deleteTxMutation.mutate(id)} deletingId={deleteTxMutation.isPending ? (deleteTxMutation.variables as number) : undefined} onEdit={(tx) => { setEditingTx(tx); setShowEditTxDialog(true); }} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
@@ -1111,13 +1127,22 @@ export function EquipmentManagement() {
         onSubmit={(data) => returnMutation.mutate(data)}
         isPending={returnMutation.isPending}
       />
+
+      <EditTransactionDialog
+        open={showEditTxDialog}
+        onClose={() => { setShowEditTxDialog(false); setEditingTx(null); }}
+        transaction={editingTx}
+        onSubmit={(data) => updateTxMutation.mutate(data)}
+        isPending={updateTxMutation.isPending}
+      />
     </div>
   );
 }
 
-function TransactionList({ transactions, loading, emptyMessage, onDelete, deletingId }: { 
+function TransactionList({ transactions, loading, emptyMessage, onDelete, deletingId, onEdit }: { 
   transactions: InventoryTransaction[]; loading: boolean; emptyMessage: string;
   onDelete?: (id: number) => void; deletingId?: number;
+  onEdit?: (tx: InventoryTransaction) => void;
 }) {
   if (loading) return <div className="text-center py-10 text-gray-500">جاري التحميل...</div>;
   if (transactions.length === 0) return (
@@ -1169,6 +1194,12 @@ function TransactionList({ transactions, loading, emptyMessage, onDelete, deleti
               ...(tx.notes ? [{ label: "ملاحظات", value: tx.notes }] : []),
             ]}
             actions={[
+              ...(!isPurchaseLinked && onEdit ? [{
+                icon: Pencil,
+                label: "تعديل",
+                onClick: () => onEdit(tx),
+                color: "blue" as const,
+              }] : []),
               ...(!isPurchaseLinked && onDelete ? [{
                 icon: Trash2,
                 label: "حذف",
@@ -1454,6 +1485,104 @@ function ReturnDialog({ open, onClose, stockItems, projects, onSubmit, isPending
             className="bg-blue-600 hover:bg-blue-700"
           >
             {isPending ? 'جاري الإرجاع...' : 'تأكيد الإرجاع'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditTransactionDialog({ open, onClose, transaction, onSubmit, isPending }: {
+  open: boolean; onClose: () => void;
+  transaction: InventoryTransaction | null;
+  onSubmit: (data: { id: number; quantity: number; notes: string; transactionDate: string }) => void;
+  isPending: boolean;
+}) {
+  const [quantity, setQuantity] = useState('');
+  const [notes, setNotes] = useState('');
+  const [transactionDate, setTransactionDate] = useState('');
+
+  useEffect(() => {
+    if (transaction) {
+      setQuantity(String(parseFloat(transaction.quantity)));
+      setNotes(transaction.notes || '');
+      const dateStr = typeof transaction.transaction_date === 'string' ? transaction.transaction_date.split('T')[0] : '';
+      setTransactionDate(dateStr);
+    }
+  }, [transaction]);
+
+  if (!transaction) return null;
+
+  const handleSubmit = () => {
+    if (!quantity || parseFloat(quantity) <= 0) return;
+    onSubmit({
+      id: transaction.id,
+      quantity: parseFloat(quantity),
+      notes,
+      transactionDate,
+    });
+  };
+
+  const typeLabels: Record<string, string> = {
+    'IN': 'وارد', 'OUT': 'صادر', 'RETURN': 'مرتجع',
+    'ADJUSTMENT_IN': 'تسوية +', 'ADJUSTMENT_OUT': 'تسوية -', 'TRANSFER': 'تحويل',
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="w-5 h-5 text-blue-500" />
+            تعديل معاملة
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+            <p><span className="text-gray-500">المادة:</span> <span className="font-medium">{transaction.item_name}</span></p>
+            <p><span className="text-gray-500">النوع:</span> <span className="font-medium">{typeLabels[transaction.type] || transaction.type}</span></p>
+            {transaction.to_project_name && (
+              <p><span className="text-gray-500">المشروع:</span> <span className="font-medium">{transaction.to_project_name}</span></p>
+            )}
+          </div>
+          <div>
+            <Label>الكمية</Label>
+            <Input
+              data-testid="input-edit-tx-quantity"
+              type="number"
+              step="0.1"
+              min="0.1"
+              value={quantity}
+              onChange={e => setQuantity(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>التاريخ</Label>
+            <Input
+              data-testid="input-edit-tx-date"
+              type="date"
+              value={transactionDate}
+              onChange={e => setTransactionDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>ملاحظات</Label>
+            <Input
+              data-testid="input-edit-tx-notes"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="ملاحظات (اختياري)"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            data-testid="btn-save-edit-tx"
+            onClick={handleSubmit}
+            disabled={isPending || !quantity || parseFloat(quantity) <= 0}
+            className="w-full"
+          >
+            {isPending ? 'جاري الحفظ...' : 'حفظ التعديلات'}
           </Button>
         </DialogFooter>
       </DialogContent>

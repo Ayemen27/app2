@@ -237,6 +237,18 @@ inventoryRouter.delete('/items/:id', async (req, res) => {
   }
 });
 
+inventoryRouter.patch('/transactions/:id', async (req, res) => {
+  try {
+    const txId = parseInt(req.params.id);
+    const { quantity, notes, transactionDate } = req.body;
+    await InventoryService.updateTransaction(txId, { quantity, notes, transactionDate });
+    res.json({ success: true, message: 'تم تعديل المعاملة بنجاح' });
+  } catch (error: any) {
+    console.error('❌ خطأ في تعديل المعاملة:', error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
 inventoryRouter.delete('/transactions/:id', async (req, res) => {
   try {
     const txId = parseInt(req.params.id);

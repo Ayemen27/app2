@@ -413,13 +413,17 @@ export class InventoryService {
     let paramIdx = 1;
     let projectCondition = '';
     let projectConditionLot = '';
+    let projectConditionTx = '';
 
     if (filters?.projectId) {
       projectCondition = ` AND il.project_id = $${paramIdx}`;
       projectConditionLot = ` AND il2.project_id = $${paramIdx}`;
+      projectConditionTx = ` AND (it2.to_project_id = $${paramIdx} OR it2.from_project_id = $${paramIdx})`;
       params.push(filters.projectId);
       paramIdx++;
     }
+
+    const projectConditionTxReturn = projectConditionTx.replace(/it2\./g, 'it3.');
 
     let query = `
       SELECT 
@@ -428,11 +432,11 @@ export class InventoryService {
         COALESCE(SUM(il.remaining_qty), 0) as total_remaining,
         COALESCE(SUM(il.received_qty), 0) - COALESCE(SUM(il.remaining_qty), 0) as total_issued,
         COALESCE(SUM(il.remaining_qty * il.unit_cost), 0) as stock_value,
-        COALESCE((SELECT SUM(it2.quantity) FROM inventory_transactions it2 WHERE it2.item_id = ii.id AND it2.type IN ('OUT', 'ADJUSTMENT_OUT')), 0) as total_issued_gross,
-        COALESCE((SELECT SUM(it3.quantity) FROM inventory_transactions it3 WHERE it3.item_id = ii.id AND it3.type = 'RETURN'), 0) as total_returned,
+        COALESCE((SELECT SUM(it2.quantity) FROM inventory_transactions it2 WHERE it2.item_id = ii.id AND it2.type IN ('OUT', 'ADJUSTMENT_OUT')${projectConditionTx}), 0) as total_issued_gross,
+        COALESCE((SELECT SUM(it3.quantity) FROM inventory_transactions it3 WHERE it3.item_id = ii.id AND it3.type = 'RETURN'${projectConditionTxReturn}), 0) as total_returned,
         (SELECT COUNT(DISTINCT il2.supplier_id) FROM inventory_lots il2 WHERE il2.item_id = ii.id AND il2.supplier_id IS NOT NULL${projectConditionLot}) as supplier_count,
         MAX(il.receipt_date) as last_receipt_date,
-        MAX(p.name) as project_name
+        (SELECT string_agg(DISTINCT p2.name, '، ') FROM inventory_lots il3 JOIN projects p2 ON p2.id = il3.project_id WHERE il3.item_id = ii.id${projectConditionLot.replace(/il2\./g, 'il3.')}) as project_name
       FROM inventory_items ii
       LEFT JOIN inventory_lots il ON il.item_id = ii.id${projectCondition}
       LEFT JOIN projects p ON p.id = il.project_id

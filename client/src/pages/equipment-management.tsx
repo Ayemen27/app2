@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, Settings, 
   Box, Truck, AlertTriangle, CheckCircle2, RefreshCw, DollarSign,
-  FileText, Download, Pencil, Trash2
+  FileText, Download, Pencil, Trash2, FolderKanban
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
@@ -383,6 +383,7 @@ export function EquipmentManagement() {
           { header: 'المتبقي', key: 'remaining', width: 14, numFmt: '#,##0.0' },
           { header: 'القيمة', key: 'value', width: 16, numFmt: '#,##0.00' },
           { header: 'الموردين', key: 'suppliers', width: 10 },
+          ...(!projectId ? [{ header: 'المشروع', key: 'project_name', width: 22 }] : []),
         ],
         getData: () => filteredStockItems.map((item, idx) => ({
           num: idx + 1,
@@ -395,6 +396,7 @@ export function EquipmentManagement() {
           remaining: parseFloat(item.total_remaining || '0'),
           value: parseFloat(item.stock_value || '0'),
           suppliers: parseInt(item.supplier_count || '0'),
+          project_name: item.project_name || '-',
         })),
         totals: {
           label: 'الإجمالي',
@@ -550,7 +552,7 @@ export function EquipmentManagement() {
       },
     };
     return configs;
-  }, [filteredStockItems, stats, incomingTx, outgoingTx, returnTx, reports, reportGroupBy, equipmentList]);
+  }, [filteredStockItems, stats, incomingTx, outgoingTx, returnTx, reports, reportGroupBy, equipmentList, projectId]);
 
   const handleExportExcel = useCallback(async () => {
     const config = tabExportConfig[activeTab];
@@ -836,6 +838,7 @@ export function EquipmentManagement() {
                       ...(isLow && !isOut ? [{ label: 'منخفض', variant: "warning" as const }] : []),
                     ]}
                     fields={[
+                      ...(!projectId && item.project_name ? [{ label: "المشروع", value: item.project_name, icon: FolderKanban, color: "info" as const }] : []),
                       { label: "المتبقي", value: `${remaining.toFixed(1)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
                       { label: "القيمة", value: formatCurrency(parseFloat(item.stock_value || '0')), color: "info" as const, icon: DollarSign },
                       { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(1), icon: ArrowDownToLine, color: "success" as const },
@@ -1201,7 +1204,8 @@ function TransactionList({ transactions, loading, emptyMessage, onDelete, deleti
               { label: "الكمية", value: `${parseFloat(tx.quantity).toFixed(1)} ${tx.item_unit}`, emphasis: true, color: isIn ? "success" as const : "danger" as const },
               ...(cost > 0 ? [{ label: "القيمة", value: formatCurrency(cost), icon: DollarSign, color: "info" as const }] : []),
               { label: "التاريخ", value: typeof tx.transaction_date === 'string' ? tx.transaction_date.split('T')[0] : tx.transaction_date },
-              ...(tx.to_project_name ? [{ label: "المشروع", value: tx.to_project_name }] : []),
+              ...(tx.to_project_name ? [{ label: "المشروع", value: tx.to_project_name, icon: FolderKanban, color: "info" as const }] : []),
+              ...(tx.from_project_name && tx.from_project_name !== tx.to_project_name ? [{ label: "من مشروع", value: tx.from_project_name, icon: FolderKanban }] : []),
               ...(tx.supplier_name ? [{ label: "المورد", value: tx.supplier_name, icon: Truck }] : []),
               ...(tx.notes ? [{ label: "ملاحظات", value: tx.notes }] : []),
             ]}

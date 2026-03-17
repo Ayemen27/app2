@@ -267,23 +267,59 @@ export class BackupService {
     }
   }
 
+  private static async createRedactedBackup(originalData: Record<string, any[]>, meta: any, schemas: any, sequences: any): Promise<string | null> {
+    try {
+      const redacted = redactSensitiveData(originalData, 'external');
+      const redactedPayload = JSON.stringify({ meta, schemas, sequences, data: redacted });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const redactedPath = path.join(BACKUPS_DIR, `.redacted-${timestamp}.json.gz`);
+
+      await pipeline(
+        Readable.from(Buffer.from(redactedPayload, 'utf-8')),
+        createGzip({ level: 6 }),
+        fs.createWriteStream(redactedPath)
+      );
+
+      return redactedPath;
+    } catch (e: any) {
+      console.warn(`⚠️ [BackupService] فشل إنشاء نسخة محجوبة: ${e.message}`);
+      return null;
+    }
+  }
+
+  private static cleanupRedactedFile(filePath: string | null): void {
+    if (filePath && fs.existsSync(filePath)) {
+      try { fs.unlinkSync(filePath); } catch (_) {}
+    }
+  }
+
   private static async postBackupActions(result: any, filePath: string, backupData?: Record<string, any[]>): Promise<void> {
-    if (backupData) {
-      const hasSensitive = Object.keys(backupData).some(t => ['users', 'refresh_tokens', 'sessions'].includes(t));
-      if (hasSensitive) {
-        console.log('🔒 [BackupService] البيانات الحساسة ستُحجب في النسخ الخارجية (Telegram/Drive)');
+    const hasSensitive = backupData ? Object.keys(backupData).some(t => ['users', 'refresh_tokens', 'sessions'].includes(t)) : false;
+    let externalFilePath = filePath;
+    let redactedPath: string | null = null;
+
+    if (hasSensitive && backupData) {
+      console.log('🔒 [BackupService] إنشاء نسخة محجوبة للإرسال الخارجي...');
+      redactedPath = await this.createRedactedBackup(backupData, result, {}, []);
+      if (redactedPath) {
+        externalFilePath = redactedPath;
+        console.log('✅ [BackupService] تم إنشاء نسخة محجوبة (كلمات المرور/التوكنات محذوفة)');
+      } else {
+        console.warn('⚠️ [BackupService] فشل إنشاء النسخة المحجوبة - إرسال إشعار نصي فقط');
       }
     }
 
     try {
       if (GoogleDriveService.isEnabled()) {
         console.log('☁️ [BackupService] رفع النسخة إلى Google Drive...');
-        const driveResult = await GoogleDriveService.uploadBackupFile(filePath, result.filename);
+        const uploadPath = hasSensitive && redactedPath ? redactedPath : filePath;
+        const driveResult = await GoogleDriveService.uploadBackupFile(uploadPath, result.filename);
         result.driveUploaded = driveResult.success;
         result.driveUrl = driveResult.webViewLink || null;
         result.driveFileId = driveResult.fileId || null;
+        result.driveRedacted = hasSensitive && !!redactedPath;
         if (driveResult.success) {
-          console.log(`✅ [BackupService] تم الرفع إلى Drive: ${driveResult.fileId}`);
+          console.log(`✅ [BackupService] تم الرفع إلى Drive: ${driveResult.fileId}${result.driveRedacted ? ' (محجوبة)' : ''}`);
         } else {
           console.warn(`⚠️ [BackupService] فشل الرفع إلى Drive: ${driveResult.message}`);
         }
@@ -300,33 +336,41 @@ export class BackupService {
         const fileSizeMB = result.sizeBytes ? result.sizeBytes / (1024 * 1024) : 0;
         const TELEGRAM_FILE_LIMIT_MB = 50;
 
-        if (fileSizeMB > 0 && fileSizeMB <= TELEGRAM_FILE_LIMIT_MB && result.success) {
+        const now = new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' });
+        const driveStatus = result.driveUploaded
+          ? `✅ Google Drive`
+          : `⚠️ Drive غير مرفوع`;
+        const redactedNote = hasSensitive ? '\n🔒 البيانات الحساسة محجوبة' : '';
+
+        const caption = [
+          `💾 <b>نسخة احتياطية - AXION</b>`,
+          `📊 ${result.tablesCount} جدول | ${result.totalRows} سجل`,
+          `💿 ${result.sizeMB} MB | ضغط ${result.compressionRatio}`,
+          `⏱ ${((result.durationMs || 0) / 1000).toFixed(1)} ثانية`,
+          `🔧 ${result.triggeredBy === 'auto' ? 'تلقائي' : 'يدوي'} | ☁️ ${driveStatus}`,
+          `🕐 ${now}${redactedNote}`,
+        ].join('\n');
+
+        if (hasSensitive && !redactedPath) {
+          console.log('🔒 [BackupService] تخطي إرسال الملف لـ Telegram (بيانات حساسة + فشل إنشاء نسخة محجوبة)');
+          const sent = await TelegramService.sendBackupNotification(result);
+          result.telegramSent = sent;
+          result.telegramFileSent = false;
+        } else if (fileSizeMB > 0 && fileSizeMB <= TELEGRAM_FILE_LIMIT_MB && result.success) {
           console.log(`📤 [BackupService] إرسال ملف النسخة إلى Telegram (${fileSizeMB.toFixed(2)} MB)...`);
 
-          const now = new Date().toLocaleString('ar-SA', { timeZone: 'Asia/Riyadh' });
-          const driveStatus = result.driveUploaded
-            ? `✅ Google Drive`
-            : `⚠️ Drive غير مرفوع`;
-
-          const caption = [
-            `💾 <b>نسخة احتياطية - AXION</b>`,
-            `📊 ${result.tablesCount} جدول | ${result.totalRows} سجل`,
-            `💿 ${result.sizeMB} MB | ضغط ${result.compressionRatio}`,
-            `⏱ ${((result.durationMs || 0) / 1000).toFixed(1)} ثانية`,
-            `🔧 ${result.triggeredBy === 'auto' ? 'تلقائي' : 'يدوي'} | ☁️ ${driveStatus}`,
-            `🕐 ${now}`,
-          ].join('\n');
-
+          const telegramPath = hasSensitive && redactedPath ? redactedPath : filePath;
           const fileSent = await TelegramService.sendDocument({
-            filePath,
+            filePath: telegramPath,
             caption,
             parseMode: 'HTML',
           });
           result.telegramSent = fileSent;
           result.telegramFileSent = fileSent;
+          result.telegramRedacted = hasSensitive && !!redactedPath;
 
           if (fileSent) {
-            console.log('✅ [BackupService] تم إرسال ملف النسخة إلى Telegram');
+            console.log(`✅ [BackupService] تم إرسال ملف النسخة إلى Telegram${result.telegramRedacted ? ' (محجوبة)' : ''}`);
           } else {
             console.warn('⚠️ [BackupService] فشل إرسال الملف - إرسال الإشعار النصي فقط');
             const sent = await TelegramService.sendBackupNotification(result);
@@ -351,6 +395,8 @@ export class BackupService {
       result.telegramSent = false;
       result.telegramFileSent = false;
     }
+
+    this.cleanupRedactedFile(redactedPath);
   }
 
   static async restoreBackup(filename: string, target: string = 'local'): Promise<any> {
@@ -644,8 +690,17 @@ export class BackupService {
       let shouldClosePool = false;
       const { pool } = await import('../db');
 
-      if (target === 'local' || target === 'central') {
+      if (target === 'local') {
         targetPool = pool;
+      } else if (target === 'central') {
+        const centralUrl = process.env.DATABASE_URL_CENTRAL;
+        if (centralUrl) {
+          const { Pool } = await import('pg');
+          targetPool = new Pool({ connectionString: centralUrl.trim().replace(/^["']|["']$/g, ''), connectionTimeoutMillis: 10000 });
+          shouldClosePool = true;
+        } else {
+          targetPool = pool;
+        }
       } else {
         const dbs = await this.getAvailableDatabases();
         const selectedDb = dbs.find(d => d.id === target.toLowerCase());

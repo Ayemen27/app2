@@ -83,6 +83,10 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Silent Partial Backup Prevention:** Failed table reads are logged as errors and tracked in `meta.skippedTables`. Backup fails if ALL tables fail.
 - **analyzeDatabase Fix:** Now respects `target` parameter (was hardcoded to local).
 - **Backup Version:** Bumped from 3.0 to 4.0 with new `checksum`, `skippedTables`, and `sequences` fields.
+- **Redaction Applied for External Copies:** `postBackupActions` now creates a temporary redacted `.gz` file with passwords/tokens replaced by `[REDACTED]` before uploading to Telegram/Drive. Temp file is cleaned up after upload.
+- **TRUNCATE Order Fix:** `session_replication_role = 'replica'` is set BEFORE TRUNCATE (not after), and TRUNCATE uses CASCADE to handle FK dependencies safely.
+- **Row Count Verification:** Restore engine now logs warnings when actual inserted rows differ from expected, and includes the discrepancy in the report.
+- **analyzeDatabase Central Fix:** Now uses `DATABASE_URL_CENTRAL` environment variable for 'central' target instead of falling back to local pool.
 
 ### Phase 3 DB-Schema Alignment (Completed)
 - **Schema.ts aligned to production DB** (DB is source of truth, no DB migrations run)

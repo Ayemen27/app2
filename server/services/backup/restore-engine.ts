@@ -70,6 +70,8 @@ export async function restoreData(
     }
   }
 
+  await client.query(`SET session_replication_role = 'replica'`);
+
   for (const tableName of backupTables) {
     const tableNameLower = tableName.toLowerCase();
     const tableRes = await client.query(
@@ -77,11 +79,9 @@ export async function restoreData(
       [tableNameLower]
     );
     if (tableRes.rows[0].exists) {
-      await client.query(`TRUNCATE TABLE "${tableNameLower}" RESTART IDENTITY`);
+      await client.query(`TRUNCATE TABLE "${tableNameLower}" RESTART IDENTITY CASCADE`);
     }
   }
-
-  await client.query(`SET session_replication_role = 'replica'`);
 
   try {
     for (const [tableName, rows] of Object.entries(data)) {
@@ -134,7 +134,11 @@ export async function restoreData(
       }
 
       totalRowsInserted += insertedCount;
-      tableReports.push({ table: tableName, rows: insertedCount, status: 'success' });
+      const expectedRows = rows.length;
+      if (insertedCount < expectedRows) {
+        console.warn(`⚠️ [Restore] ${tableName}: تم إدراج ${insertedCount}/${expectedRows} صف (${expectedRows - insertedCount} مكرر أو مفقود)`);
+      }
+      tableReports.push({ table: tableName, rows: insertedCount, status: 'success', error: insertedCount < expectedRows ? `${expectedRows - insertedCount} صف لم يُدرج` : undefined });
     }
   } finally {
     await client.query(`SET session_replication_role = 'DEFAULT'`);

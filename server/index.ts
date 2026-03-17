@@ -755,6 +755,7 @@ console.log('🔧 بيئة التشغيل:', NODE_ENV);
 import { BackupService } from "./services/BackupService";
 import { FinancialLedgerService } from "./services/FinancialLedgerService";
 import { closePdfBrowser } from "./services/reports/HtmlToPdfService";
+import { CentralLogService } from "./services/CentralLogService";
 
 import { getWhatsAppBot } from "./services/ai-agent/WhatsAppBot";
 
@@ -805,6 +806,62 @@ const activeIntervals: NodeJS.Timeout[] = [];
         }
       }, 60000);
       activeIntervals.push(reconciliationInterval);
+
+      const centralLog = CentralLogService.getInstance();
+      centralLog.ensureTable().catch(err => console.error('⚠️ [CentralLog] فشل إنشاء الجدول:', err));
+
+      const purgeInterval = setInterval(() => {
+        const now = new Date();
+        if (now.getHours() === 3 && now.getMinutes() === 0) {
+          console.log('🧹 [CentralLog] بدء التنظيف اليومي للسجلات...');
+          centralLog.purge({ debug: 3, info: 14, warn: 60, error: 180, critical: 180 })
+            .then(result => console.log(`✅ [CentralLog] تم حذف ${result.deleted} سجل`))
+            .catch(err => console.error('❌ [CentralLog] خطأ في التنظيف:', err));
+        }
+      }, 60000);
+      activeIntervals.push(purgeInterval);
+
+      const monitoringInterval = setInterval(async () => {
+        try {
+          const mem = process.memoryUsage();
+          const cpu = process.cpuUsage();
+          let dbConnections = 0;
+          try {
+            dbConnections = (pool as any).totalCount || (pool as any)._clients?.length || 0;
+          } catch {}
+
+          const monitoringPayload = {
+            heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+            heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+            rssMB: Math.round(mem.rss / 1024 / 1024),
+            externalMB: Math.round(mem.external / 1024 / 1024),
+            cpuUser: cpu.user,
+            cpuSystem: cpu.system,
+            dbConnections,
+            uptimeSeconds: Math.round(process.uptime()),
+          };
+
+          try {
+            await pool.query(
+              `INSERT INTO monitoring_data (type, value) VALUES ($1, $2)`,
+              ['health_check', JSON.stringify(monitoringPayload)]
+            );
+          } catch {}
+
+          centralLog.logDomain({
+            source: 'system',
+            module: 'نظام',
+            action: 'health_check',
+            level: 'info',
+            status: 'success',
+            message: `فحص صحة النظام: ذاكرة ${monitoringPayload.heapUsedMB}MB, اتصالات DB ${dbConnections}`,
+            details: monitoringPayload,
+          });
+        } catch (err) {
+          console.error('⚠️ [Monitoring] خطأ في جمع بيانات المراقبة:', err);
+        }
+      }, 300000);
+      activeIntervals.push(monitoringInterval);
 
       setTimeout(async () => {
         const SCHEMA_CHECK_TIMEOUT = 15000;
@@ -859,6 +916,17 @@ const activeIntervals: NodeJS.Timeout[] = [];
       } catch (err) {
         console.error('❌ [Shutdown] Error stopping WhatsApp bot:', err);
       }
+
+      try {
+        await CentralLogService.getInstance().flush();
+        console.log('✅ [Shutdown] Central logs flushed');
+      } catch (err) {
+        console.error('❌ [Shutdown] Error flushing central logs:', err);
+      }
+
+      try {
+        CentralLogService.getInstance().destroy();
+      } catch {}
 
       try {
         await closePdfBrowser();

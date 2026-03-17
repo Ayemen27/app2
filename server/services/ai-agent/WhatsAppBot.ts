@@ -851,6 +851,20 @@ export class WhatsAppBot {
         reason,
         metadata: metadata || null,
       });
+
+      try {
+        const { CentralLogService } = await import('../CentralLogService');
+        CentralLogService.getInstance().log({
+          level: 'warn',
+          source: 'whatsapp',
+          module: 'أمان',
+          action: eventType,
+          status: 'failed',
+          actorUserId: userId || undefined,
+          message: `حدث أمني واتساب: ${eventType} - ${reason}`,
+          details: { phone_number: phoneNumber, event_type: eventType, reason, metadata },
+        });
+      } catch {}
     } catch (err) {
       console.error('[WhatsAppBot] Failed to log security event:', err);
     }

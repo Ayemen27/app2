@@ -109,6 +109,29 @@ The system features a consistent design with a professional navy/blue palette, E
 - **FK migration scripts:** Prepared in migrations/T005-phase-{A,B,C,D}*.sql (NOT executed — requires manual review, orphan detection first)
 - **Reports:** T001 drift report, T006 limit review in reports/
 
+### Central Log Bank (بنك السجلات المركزي) — Completed
+- **Architecture:** PostgreSQL-based centralized log system (no external dependencies like ELK/Graylog).
+- **Table:** `central_event_logs` with 7 optimized indexes (BRIN on event_time, B-Tree composites on level/module/source/project/actor, GIN on details JSONB).
+- **Service:** `CentralLogService` (singleton, `server/services/CentralLogService.ts`):
+  - In-memory queue with batch INSERT (200 records or every 2 seconds).
+  - `log()` (non-blocking), `logError()`, `logHttp()` (5xx always, 4xx 20% sample, slow >1500ms), `logDomain()`.
+  - `redactSensitive()` strips password/token/secret/authorization/cookie/apiKey/jwt recursively.
+  - Fail-safe: insert errors go to console.error, never throw.
+  - `purge()` with retention policy: debug 3d, info 14d, warn 60d, error/critical 180d. Auto-runs daily at 3:00 AM.
+- **Dual-Write Sources (8 total):**
+  1. SyncAuditService → source: 'sync' (logOperation + logBulkSync)
+  2. requestLoggingMiddleware → source: 'api' (5xx/4xx/slow requests)
+  3. WhatsAppBot.logSecurityEvent → source: 'whatsapp'
+  4. Auth middleware → source: 'auth' (login/logout/auth_failed)
+  5. FinancialLedgerService → source: 'finance' (journal entries, reversals)
+  6. ProjectAccessService → source: 'auth', module: 'صلاحيات' (permission changes)
+  7. WellService → source: 'wells' (create/update/delete wells/tasks)
+  8. Pino Logger (warn/error) → source: 'system'
+- **Monitoring Job:** Every 5 minutes collects CPU/RAM/DB metrics → monitoring_data + central_event_logs.
+- **API Routes:** `/api/central-logs` (list with filters), `/api/central-logs/stats`, `/api/central-logs/export` (CSV/JSON), `/api/central-logs/purge`.
+- **Frontend:** `/admin/central-logs` page with stats cards, filters (level/source/module/status/project/search/date), expandable JSON details, pagination, CSV/JSON export, auto-refresh 30s. Arabic RTL.
+- **Critical DB Note:** CentralLogService uses `pool.query()` with parameterized SQL for writes (not Drizzle ORM).
+
 ## External Dependencies
 - **Monitoring:** OpenTelemetry and Sentry.
 - **WhatsApp:** Baileys library.

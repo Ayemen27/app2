@@ -1,6 +1,7 @@
 import { db } from '../db.js';
 import { syncAuditLogs, users, projects } from '../../shared/schema.js';
 import { desc, eq, sql, and, gte, lte, ilike } from 'drizzle-orm';
+import { CentralLogService } from './CentralLogService.js';
 
 const MODULE_MAP: Record<string, string> = {
   'fund-transfers': 'مالية',
@@ -164,6 +165,26 @@ export class SyncAuditService {
         projectName: params.projectName || null,
         amount: params.amount != null ? String(params.amount) : (params.payload?.amount ? String(params.payload.amount) : null),
       });
+
+      try {
+        CentralLogService.getInstance().log({
+          level: params.status === 'failed' ? 'error' : params.status === 'conflict' ? 'warn' : 'info',
+          source: 'sync',
+          module,
+          action: params.action,
+          status: params.status,
+          actorUserId: params.user_id || undefined,
+          project_id: params.project_id || params.payload?.project_id || undefined,
+          entityType: table,
+          entityId: params.recordId || params.payload?.id || params.newValues?.id || undefined,
+          ipAddress: params.ipAddress || undefined,
+          userAgent: params.userAgent || undefined,
+          durationMs: params.durationMs || undefined,
+          message: description,
+          details: { oldValues: params.oldValues, newValues: params.newValues || params.payload, errorMessage: params.errorMessage, syncType: params.syncType },
+          amount: params.amount != null ? params.amount : (params.payload?.amount ? Number(params.payload.amount) : undefined),
+        });
+      } catch {}
     } catch (error) {
       console.error('⚠️ [SyncAudit] فشل تسجيل عملية التدقيق:', error);
     }
@@ -217,6 +238,22 @@ export class SyncAuditService {
         durationMs: params.durationMs,
         syncType: params.syncType,
       });
+
+      try {
+        CentralLogService.getInstance().log({
+          level: params.status === 'failed' ? 'error' : 'info',
+          source: 'sync',
+          module: 'مزامنة',
+          action: 'bulk_sync',
+          status: params.status,
+          actorUserId: params.user_id || undefined,
+          ipAddress: params.ipAddress || undefined,
+          userAgent: params.userAgent || undefined,
+          durationMs: params.durationMs,
+          message: description,
+          details: { tablesCount: params.tablesCount, totalRecords: params.totalRecords, isDelta: params.isDelta, deltaTablesCount: params.deltaTablesCount, fullTablesCount: params.fullTablesCount, errorMessage: params.errorMessage, syncType: params.syncType },
+        });
+      } catch {}
     } catch (error) {
       console.error('⚠️ [SyncAudit] فشل تسجيل عملية المزامنة الجماعية:', error);
     }

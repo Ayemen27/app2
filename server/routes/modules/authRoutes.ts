@@ -27,6 +27,7 @@ import { requireFreshRequest } from '../../middleware/replay-protection.js';
 import { EmergencyAuthService } from '../../services/emergency-auth-service.js';
 import { storage } from '../../storage.js';
 import { getAuthUser } from '../../internal/auth-user.js';
+import { CentralLogService } from '../../services/CentralLogService.js';
 
 interface DbUserRow {
   id: string;
@@ -191,6 +192,22 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
 
     if (!passwordMatch) {
       console.log('❌ [AUTH] كلمة مرور خاطئة للمستخدم:', email);
+
+      try {
+        CentralLogService.getInstance().log({
+          level: 'warn',
+          source: 'auth',
+          module: 'أمان',
+          action: 'auth_failed',
+          status: 'failed',
+          actorUserId: user.id,
+          ipAddress: req.ip || req.connection?.remoteAddress || undefined,
+          userAgent: req.get('user-agent') || undefined,
+          message: `فشل تسجيل الدخول - كلمة مرور خاطئة: ${email}`,
+          details: { email, reason: 'invalid_password' },
+        });
+      } catch {}
+
       return res.status(401).json({
         success: false,
         message: 'بيانات تسجيل الدخول غير صحيحة'
@@ -261,6 +278,21 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
     });
 
     res.json(responseData);
+
+    try {
+      CentralLogService.getInstance().log({
+        level: 'info',
+        source: 'auth',
+        module: 'أمان',
+        action: 'login',
+        status: 'success',
+        actorUserId: user.id,
+        ipAddress: req.ip || req.connection?.remoteAddress || undefined,
+        userAgent: req.get('user-agent') || undefined,
+        message: `تسجيل دخول ناجح: ${user.email}`,
+        details: { email: user.email, role: user.role },
+      });
+    } catch {}
 
   } catch (error: any) {
     console.error('❌ [AUTH] خطأ في تسجيل الدخول:', error);
@@ -442,6 +474,21 @@ authRouter.post('/logout', requireAuth, async (req: AuthenticatedRequest, res: R
     }
 
     clearAuthCookies(res);
+
+    try {
+      CentralLogService.getInstance().log({
+        level: 'info',
+        source: 'auth',
+        module: 'أمان',
+        action: 'logout',
+        status: 'success',
+        actorUserId: userId || undefined,
+        ipAddress: req.ip || req.connection?.remoteAddress || undefined,
+        userAgent: req.get('user-agent') || undefined,
+        message: `تسجيل خروج: ${req.user?.email || userId}`,
+        details: { email: req.user?.email },
+      });
+    } catch {}
 
     res.json({
       success: true,

@@ -37,6 +37,7 @@ import deploymentRouter from './deploymentRoutes.js';
 import recordTransferRouter from './recordTransferRoutes.js';
 import settlementRouter from './settlementRoutes.js';
 import inventoryRouter from './inventoryRoutes.js';
+import centralLogRouter from './centralLogRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 import { telemetryRouter } from './telemetryRoutes.js';
 import { monitoringRouter } from '../../monitoring/routes.js';
@@ -174,6 +175,9 @@ export function registerOrganizedRoutes(app: Express) {
   app.use('/api/inventory', inventoryRouter);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات إدارة المخزن: /api/inventory');
 
+  app.use('/api/central-logs', centralLogRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات بنك السجلات المركزي: /api/central-logs');
+
   // مسارات الإكمال التلقائي الإضافية
   app.use('/api/worker-transfer-notes', autocompleteRouter);
   app.use('/api/worker-transfer-numbers', autocompleteRouter);
@@ -225,6 +229,7 @@ const REGISTERED_ROUTE_FILES = new Set([
   'telemetryRoutes',
   'recordTransferRoutes',
   'settlementRoutes',
+  'centralLogRoutes',
 ]);
 
 export async function checkForUnregisteredRouters() {

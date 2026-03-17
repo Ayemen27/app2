@@ -2401,6 +2401,32 @@ export const insertWorkerSettlementLineSchema = createInsertSchema(workerSettlem
 export type WorkerSettlementLine = typeof workerSettlementLines.$inferSelect;
 export type InsertWorkerSettlementLine = z.infer<typeof insertWorkerSettlementLineSchema>;
 
+export const centralEventLogs = pgTable("central_event_logs", {
+  id: serial("id").primaryKey(),
+  eventTime: timestamp("event_time", { withTimezone: true }).defaultNow().notNull(),
+  level: varchar("level", { length: 10 }).notNull(),
+  source: varchar("source", { length: 30 }).notNull(),
+  module: varchar("module", { length: 50 }),
+  action: varchar("action", { length: 50 }),
+  status: varchar("status", { length: 20 }),
+  actorUserId: varchar("actor_user_id", { length: 255 }),
+  project_id: varchar("project_id", { length: 255 }),
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId: text("entity_id"),
+  requestId: uuid("request_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  durationMs: integer("duration_ms"),
+  message: text("message").notNull(),
+  details: jsonb("details"),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertCentralEventLogSchema = createInsertSchema(centralEventLogs).omit({ id: true, eventTime: true, created_at: true });
+export type CentralEventLog = typeof centralEventLogs.$inferSelect;
+export type InsertCentralEventLog = z.infer<typeof insertCentralEventLogSchema>;
+
 export const SYNCABLE_TABLES = [
   'project_types', 'projects', 'workers', 'wells',
   'fund_transfers', 'worker_attendance', 'suppliers', 'materials', 'material_purchases',

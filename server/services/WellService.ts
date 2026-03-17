@@ -5,6 +5,7 @@ import {
   projects, users, workerAttendance, materialPurchases, transportationExpenses,
   wellWorkCrews, wellSolarComponents, wellTransportDetails, wellReceptions
 } from '../../shared/schema';
+import { CentralLogService } from './CentralLogService';
 
 export interface CreateWellDTO {
   project_id: string;
@@ -152,6 +153,20 @@ export class WellService {
         createdBy: data.createdBy,
       }).returning();
 
+      CentralLogService.getInstance().logDomain({
+        source: 'wells',
+        module: 'آبار',
+        action: 'create',
+        level: 'info',
+        status: 'success',
+        actorUserId: data.createdBy,
+        project_id: data.project_id,
+        entityType: 'well',
+        entityId: String(newWell[0].id),
+        message: `إنشاء بئر جديد رقم ${data.wellNumber} - ${data.ownerName}`,
+        details: { wellNumber: data.wellNumber, ownerName: data.ownerName, region: data.region },
+      });
+
       return newWell[0];
     } catch (error) {
       console.error('[WellService] Error creating well:', error);
@@ -177,6 +192,18 @@ export class WellService {
         .where(eq(wells.id, well_id))
         .returning();
 
+      CentralLogService.getInstance().logDomain({
+        source: 'wells',
+        module: 'آبار',
+        action: 'update',
+        level: 'info',
+        status: 'success',
+        entityType: 'well',
+        entityId: String(well_id),
+        message: `تحديث بئر #${well_id}`,
+        details: { updatedFields: Object.keys(data) },
+      });
+
       return updated[0];
     } catch (error) {
       console.error('[WellService] Error updating well:', error);
@@ -187,6 +214,17 @@ export class WellService {
   static async deleteWell(well_id: number) {
     try {
       await db.delete(wells).where(eq(wells.id, well_id));
+
+      CentralLogService.getInstance().logDomain({
+        source: 'wells',
+        module: 'آبار',
+        action: 'delete',
+        level: 'warn',
+        status: 'success',
+        entityType: 'well',
+        entityId: String(well_id),
+        message: `حذف بئر #${well_id}`,
+      });
     } catch (error) {
       console.error('[WellService] Error deleting well:', error);
       throw error;
@@ -260,6 +298,19 @@ export class WellService {
         user_id,
       });
 
+      CentralLogService.getInstance().logDomain({
+        source: 'wells',
+        module: 'آبار',
+        action: 'create_task',
+        level: 'info',
+        status: 'success',
+        actorUserId: user_id,
+        entityType: 'well_task',
+        entityId: String(newTask[0].id),
+        message: `إنشاء مهمة جديدة: ${data.taskType} للبئر #${well_id}`,
+        details: { well_id, taskType: data.taskType, description: data.description },
+      });
+
       return newTask[0];
     } catch (error) {
       console.error('[WellService] Error creating task:', error);
@@ -290,6 +341,19 @@ export class WellService {
           previousData: { status: previousStatus },
           newData: { status },
           user_id,
+        });
+
+        CentralLogService.getInstance().logDomain({
+          source: 'wells',
+          module: 'آبار',
+          action: 'status_change',
+          level: 'info',
+          status: 'success',
+          actorUserId: user_id,
+          entityType: 'well_task',
+          entityId: String(taskId),
+          message: `تغيير حالة مهمة #${taskId}: ${previousStatus} → ${status}`,
+          details: { well_id: updated[0].well_id, taskId, previousStatus, newStatus: status },
         });
       }
 
@@ -342,6 +406,20 @@ export class WellService {
         entityId: account[0].id,
         newData: data,
         user_id: accountedByUserId,
+      });
+
+      CentralLogService.getInstance().logDomain({
+        source: 'wells',
+        module: 'آبار',
+        action: 'account_task',
+        level: 'info',
+        status: 'success',
+        actorUserId: accountedByUserId,
+        entityType: 'well_task_account',
+        entityId: String(account[0].id),
+        message: `محاسبة مهمة #${taskId} بمبلغ ${data.amount}`,
+        amount: data.amount,
+        details: { well_id: taskData.well_id, taskId, amount: data.amount, paymentMethod: data.paymentMethod },
       });
 
       return account[0];

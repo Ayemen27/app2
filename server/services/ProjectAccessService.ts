@@ -2,6 +2,7 @@ import { db } from "../db";
 import { projects, userProjectPermissions, permissionAuditLogs, users } from "@shared/schema";
 import { eq, and, or, inArray, sql } from "drizzle-orm";
 import { NotificationService } from "./NotificationService";
+import { CentralLogService } from "./CentralLogService";
 
 export type PermissionAction = "view" | "add" | "edit" | "delete";
 
@@ -397,6 +398,22 @@ class ProjectAccessService {
         newPermissions: newPermissions as Record<string, boolean> | null,
         ipAddress: ipAddress || null,
         userAgent: userAgent || null,
+      });
+
+      CentralLogService.getInstance().logDomain({
+        source: 'auth',
+        module: 'صلاحيات',
+        action: 'permission_change',
+        level: action === 'unassign' ? 'warn' : 'info',
+        status: 'success',
+        actorUserId: actorId,
+        project_id: projectId,
+        entityType: 'permission',
+        entityId: targetUserId,
+        message: `تغيير صلاحيات: ${action} للمستخدم ${targetUserId} على مشروع ${projectId}`,
+        details: { action, targetUserId, oldPermissions, newPermissions },
+        ipAddress: ipAddress,
+        userAgent: userAgent,
       });
     } catch (err) {
       console.error("[PermissionAudit] Failed to create audit log:", err);

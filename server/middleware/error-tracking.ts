@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { advancedErrorTracker } from '../services/advanced-error-tracker';
+import { CentralLogService } from '../services/CentralLogService';
 
 interface TrackedRequest extends Request {
   startTime?: number;
@@ -78,17 +79,28 @@ export function requestLoggingMiddleware() {
     // تسجيل بداية الطلب
     console.log(`📥 [${new Date().toLocaleTimeString('ar-SA')}] ${req.method} ${req.path} - IP: ${req.ip}`);
 
-    // تسجيل انتهاء الطلب
     res.on('finish', () => {
       const duration = Date.now() - ((req as TrackedRequest).startTime || Date.now());
       const statusEmoji = res.statusCode >= 500 ? '🚨' : res.statusCode >= 400 ? '⚠️' : '✅';
       
       console.log(`📤 [${new Date().toLocaleTimeString('ar-SA')}] ${statusEmoji} ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
       
-      // تسجيل تفصيلي للأخطاء
       if (res.statusCode >= 400) {
         console.log(`🔍 تفاصيل إضافية: User-Agent: ${req.get('User-Agent')}, Referer: ${req.get('Referer') || 'غير محدد'}`);
       }
+
+      try {
+        CentralLogService.getInstance().logHttp({
+          method: req.method,
+          path: req.path,
+          statusCode: res.statusCode,
+          durationMs: duration,
+          actorUserId: (req as any).user?.user_id || undefined,
+          ipAddress: req.ip || req.connection?.remoteAddress || undefined,
+          userAgent: req.get('User-Agent') || undefined,
+          query: req.query,
+        });
+      } catch {}
     });
 
     // Mark the function as warm for cold start detection

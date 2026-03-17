@@ -13,6 +13,7 @@ import { db, pool, withTransaction } from '../db';
 import { journalEntries, journalLines, financialAuditLog, reconciliationRecords, summaryInvalidations, projects } from '@shared/schema';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import type pg from 'pg';
+import { CentralLogService } from './CentralLogService';
 
 const ACCOUNT_CODES = {
   CASH: '1100',
@@ -83,6 +84,22 @@ export class FinancialLedgerService {
     }
 
     console.log(`📒 [Ledger] قيد #${entry.entry_number}: ${params.description} (${totalDebit.toFixed(2)})`);
+
+    CentralLogService.getInstance().logDomain({
+      source: 'finance',
+      module: 'مالية',
+      action: params.entryType || 'journal_entry',
+      level: 'info',
+      status: 'success',
+      actorUserId: params.createdBy,
+      project_id: params.project_id,
+      entityType: 'journal_entry',
+      entityId: entry.id,
+      message: `قيد محاسبي: ${params.description}`,
+      amount: totalDebit,
+      details: { sourceTable: params.sourceTable, sourceId: params.sourceId, entryNumber: entry.entry_number },
+    });
+
     return entry.id;
   }
 
@@ -313,6 +330,20 @@ export class FinancialLedgerService {
         userEmail: params.userEmail,
         reason: params.reason,
       });
+
+      CentralLogService.getInstance().logDomain({
+        source: 'finance',
+        module: 'مالية',
+        action: params.action,
+        level: 'info',
+        status: 'success',
+        actorUserId: params.user_id,
+        project_id: params.project_id,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        message: `عملية مالية: ${params.action} على ${params.entityType} #${params.entityId}${params.reason ? ` - ${params.reason}` : ''}`,
+        details: { previousData: params.previousData, newData: params.newData, changedFields: params.changedFields, reason: params.reason },
+      });
     } catch (error) {
       console.error('⚠️ [AuditLog] فشل في تسجيل التدقيق:', error);
     }
@@ -334,6 +365,20 @@ export class FinancialLedgerService {
         await this.invalidateSummaries(entry.project_id || '', entry.entryDate, reason, sourceTable, sourceId);
       }
       console.log(`🔄 [Ledger] عكس ${existing.length} قيد لـ ${sourceTable}/${sourceId}: ${reason}`);
+
+      CentralLogService.getInstance().logDomain({
+        source: 'finance',
+        module: 'مالية',
+        action: 'reversal',
+        level: 'warn',
+        status: 'success',
+        actorUserId: createdBy,
+        entityType: 'journal_entry',
+        entityId: existing[0].id,
+        message: `عكس ${existing.length} قيد لـ ${sourceTable}/${sourceId}: ${reason}`,
+        details: { sourceTable, sourceId, reason, reversedCount: existing.length },
+      });
+
       return existing[0].id;
     } catch (error) {
       console.error(`⚠️ [Ledger] فشل عكس قيود ${sourceTable}/${sourceId}:`, error);

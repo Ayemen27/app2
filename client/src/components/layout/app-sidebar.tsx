@@ -2,7 +2,7 @@ import {
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
   ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText, KeyRound,
-  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale
+  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale, ScrollText
 } from "lucide-react";
 import { 
   Sidebar,
@@ -115,6 +115,7 @@ const sections: SidebarSection[] = [
       { title: "نظام الرصد", icon: Activity, url: "/admin/monitoring" },
       { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },
       { title: "مقارنة المزامنة", icon: GitCompare, url: "/sync-comparison" },
+      { title: "بنك السجلات", icon: ScrollText, url: "/admin/central-logs" },
     ]
   },
   {

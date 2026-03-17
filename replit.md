@@ -66,6 +66,9 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Paginated Sync (P1):** New `POST /api/sync/paginated` endpoint with cursor-based keyset pagination. Replaces monolithic 50,000-row LIMIT with configurable pageSize (100-10,000, default 5,000). Supports `cursor`, `lastSyncTime`, and `pageSize` params. Returns `nextCursor` and `hasMore` for incremental fetching. New `GET /api/sync/tables` endpoint lists all syncable tables with their date column capabilities. Backward-compatible: existing full-backup endpoints continue to work unchanged.
 - **Validation Middleware:** Created reusable `validateRequest()` middleware in `server/middleware/validateRequest.ts`. Supports body, query, and params schema validation. Returns structured error responses with location and path info.
 - **Table name fix:** `autocomplete` batch table mapping corrected to `autocomplete_data` matching actual DB table name.
+- **wells.created_by fix:** Removed `created_by` from server-managed column blacklist and added it to insert allowlists for wells, workers, and suppliers tables (required notNull field).
+- **Non-admin delete/update fix:** Batch sync now derives `project_id` from existing DB record for PATCH/PUT/DELETE operations when payload lacks it, enabling offline delete queues that send `{id}` only.
+- **Empty columns guard:** Insert operations now reject with clear error if all payload columns are filtered out after sanitization, preventing invalid SQL generation.
 
 ### Phase 3 DB-Schema Alignment (Completed)
 - **Schema.ts aligned to production DB** (DB is source of truth, no DB migrations run)

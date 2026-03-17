@@ -709,7 +709,7 @@ syncRouter.get('/stats', async (req: Request, res: Response) => {
 const SAFE_COLUMN_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 const SERVER_MANAGED_COLUMNS = new Set([
-  'created_at', 'updated_at', 'created_by',
+  'created_at', 'updated_at',
   'is_local', 'synced', 'pending_sync', 'version', 'last_modified_by',
 ]);
 
@@ -743,11 +743,11 @@ const ALLOWED_COLUMNS_BY_TABLE: Record<string, { insert: Set<string>; update: Se
     update: new Set(['name', 'description', 'location', 'client_name', 'budget', 'start_date', 'end_date', 'status', 'engineer_id', 'manager_name', 'contact_phone', 'notes', 'image_url', 'project_type_id', 'is_active']),
   },
   workers: {
-    insert: new Set(['id', 'name', 'type', 'daily_wage', 'phone', 'hire_date', 'is_active']),
+    insert: new Set(['id', 'name', 'type', 'daily_wage', 'phone', 'hire_date', 'is_active', 'created_by']),
     update: new Set(['name', 'type', 'daily_wage', 'phone', 'hire_date', 'is_active']),
   },
   suppliers: {
-    insert: new Set(['id', 'name', 'contact_person', 'phone', 'address', 'payment_terms', 'is_active', 'notes']),
+    insert: new Set(['id', 'name', 'contact_person', 'phone', 'address', 'payment_terms', 'is_active', 'notes', 'created_by']),
     update: new Set(['name', 'contact_person', 'phone', 'address', 'payment_terms', 'is_active', 'notes']),
   },
   materials: {
@@ -755,7 +755,7 @@ const ALLOWED_COLUMNS_BY_TABLE: Record<string, { insert: Set<string>; update: Se
     update: new Set(['name', 'category', 'unit']),
   },
   wells: {
-    insert: new Set(['project_id', 'well_number', 'owner_name', 'region', 'number_of_bases', 'base_count', 'number_of_panels', 'panel_count', 'well_depth', 'water_level', 'number_of_pipes', 'pipe_count', 'fan_type', 'pump_power', 'status', 'completion_percentage', 'start_date', 'completion_date', 'notes', 'beneficiary_phone']),
+    insert: new Set(['project_id', 'well_number', 'owner_name', 'region', 'number_of_bases', 'base_count', 'number_of_panels', 'panel_count', 'well_depth', 'water_level', 'number_of_pipes', 'pipe_count', 'fan_type', 'pump_power', 'status', 'completion_percentage', 'start_date', 'completion_date', 'notes', 'beneficiary_phone', 'created_by']),
     update: new Set(['well_number', 'owner_name', 'region', 'number_of_bases', 'base_count', 'number_of_panels', 'panel_count', 'well_depth', 'water_level', 'number_of_pipes', 'pipe_count', 'fan_type', 'pump_power', 'status', 'completion_percentage', 'start_date', 'completion_date', 'notes', 'beneficiary_phone']),
   },
   project_types: {
@@ -914,7 +914,13 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       }
 
       if (!userIsAdmin && !TABLES_WITHOUT_PROJECT_ID.has(tableName)) {
-        const projectId = payload?.project_id;
+        let projectId = payload?.project_id;
+        if (!projectId && (action === 'PATCH' || action === 'PUT' || action === 'DELETE') && payload?.id) {
+          const existing = await client.query(`SELECT project_id FROM "${tableName}" WHERE id = $1 LIMIT 1`, [payload.id]);
+          if (existing.rows.length > 0) {
+            projectId = (existing.rows[0] as Record<string, unknown>).project_id as string;
+          }
+        }
         if (!projectId) {
           throw new Error(`عملية ${i}: project_id مطلوب للجدول ${tableName}`);
         }
@@ -948,6 +954,10 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         if (dateCols.includes('created_at') && !columns.includes('created_at')) {
           columns.push('created_at');
           values.push(new Date().toISOString());
+        }
+
+        if (columns.length === 0) {
+          throw new Error(`عملية ${i}: لا توجد أعمدة صالحة للإدراج في الجدول ${tableName}`);
         }
 
         const placeholders = columns.map((_, idx) => `$${idx + 1}`);

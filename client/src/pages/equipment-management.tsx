@@ -39,6 +39,8 @@ interface InventoryItem {
   total_received: string;
   total_remaining: string;
   total_issued: string;
+  total_issued_gross: string;
+  total_returned: string;
   stock_value: string;
   supplier_count: string;
   last_receipt_date: string | null;
@@ -299,7 +301,7 @@ export function EquipmentManagement() {
     queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
   }, [queryClient]);
 
-  const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN' || t.type === 'RETURN'), [transactions]);
+  const incomingTx = useMemo(() => transactions.filter(t => t.type === 'IN' || t.type === 'ADJUSTMENT_IN'), [transactions]);
   const outgoingTx = useMemo(() => transactions.filter(t => t.type === 'OUT' || t.type === 'ADJUSTMENT_OUT'), [transactions]);
   const returnTx = useMemo(() => transactions.filter(t => t.type === 'RETURN'), [transactions]);
 
@@ -377,6 +379,7 @@ export function EquipmentManagement() {
           { header: 'الوحدة', key: 'unit', width: 10 },
           { header: 'الوارد', key: 'received', width: 14, numFmt: '#,##0.0' },
           { header: 'المنصرف', key: 'issued', width: 14, numFmt: '#,##0.0' },
+          { header: 'المرتجع', key: 'returned', width: 14, numFmt: '#,##0.0' },
           { header: 'المتبقي', key: 'remaining', width: 14, numFmt: '#,##0.0' },
           { header: 'القيمة', key: 'value', width: 16, numFmt: '#,##0.00' },
           { header: 'الموردين', key: 'suppliers', width: 10 },
@@ -387,7 +390,8 @@ export function EquipmentManagement() {
           category: item.category || '-',
           unit: item.unit,
           received: parseFloat(item.total_received || '0'),
-          issued: parseFloat(item.total_issued || '0'),
+          issued: parseFloat(item.total_issued_gross || item.total_issued || '0'),
+          returned: parseFloat(item.total_returned || '0'),
           remaining: parseFloat(item.total_remaining || '0'),
           value: parseFloat(item.stock_value || '0'),
           suppliers: parseInt(item.supplier_count || '0'),
@@ -396,7 +400,8 @@ export function EquipmentManagement() {
           label: 'الإجمالي',
           values: {
             received: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_received || '0'), 0).toFixed(1),
-            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued || '0'), 0).toFixed(1),
+            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued_gross || i.total_issued || '0'), 0).toFixed(1),
+            returned: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_returned || '0'), 0).toFixed(1),
             remaining: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_remaining || '0'), 0).toFixed(1),
           },
         },
@@ -404,7 +409,8 @@ export function EquipmentManagement() {
           label: 'الإجمالي',
           values: {
             received: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_received || '0'), 0),
-            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued || '0'), 0),
+            issued: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_issued_gross || i.total_issued || '0'), 0),
+            returned: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_returned || '0'), 0),
             remaining: filteredStockItems.reduce((s, i) => s + parseFloat(i.total_remaining || '0'), 0),
             value: filteredStockItems.reduce((s, i) => s + parseFloat(i.stock_value || '0'), 0),
           },
@@ -833,7 +839,8 @@ export function EquipmentManagement() {
                       { label: "المتبقي", value: `${remaining.toFixed(1)} ${item.unit}`, emphasis: true, color: isOut ? "danger" as const : isLow ? "warning" as const : "success" as const },
                       { label: "القيمة", value: formatCurrency(parseFloat(item.stock_value || '0')), color: "info" as const, icon: DollarSign },
                       { label: "الوارد", value: parseFloat(item.total_received || '0').toFixed(1), icon: ArrowDownToLine, color: "success" as const },
-                      { label: "المنصرف", value: parseFloat(item.total_issued || '0').toFixed(1), icon: ArrowUpFromLine, color: "danger" as const },
+                      { label: "المنصرف", value: parseFloat(item.total_issued_gross || item.total_issued || '0').toFixed(1), icon: ArrowUpFromLine, color: "danger" as const },
+                      ...(parseFloat(item.total_returned || '0') > 0 ? [{ label: "المرتجع", value: parseFloat(item.total_returned || '0').toFixed(1), icon: RefreshCw, color: "info" as const }] : []),
                       { label: "الوحدة", value: item.unit, icon: Box },
                       { label: "الموردين", value: item.supplier_count, icon: Truck, color: "info" as const },
                     ]}
@@ -1452,7 +1459,7 @@ function ReturnDialog({ open, onClose, stockItems, projects, onSubmit, isPending
               </SelectContent>
             </Select>
             {selectedItem && (
-              <p className="text-xs text-gray-500 mt-1">المنصرف: {parseFloat(selectedItem.total_issued || '0').toFixed(1)} {selectedItem.unit}</p>
+              <p className="text-xs text-gray-500 mt-1">المنصرف: {parseFloat(selectedItem.total_issued_gross || selectedItem.total_issued || '0').toFixed(1)} {selectedItem.unit}</p>
             )}
           </div>
           <div>

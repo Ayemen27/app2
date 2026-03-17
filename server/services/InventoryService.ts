@@ -198,7 +198,7 @@ export class InventoryService {
       }
 
       await txClient.query(
-        `DELETE FROM inventory_transactions WHERE reference_type = 'purchase_update' AND reference_id = $1`,
+        `DELETE FROM inventory_transactions WHERE reference_type IN ('purchase', 'purchase_update') AND reference_id = $1`,
         [purchaseData.purchaseId]
       );
 
@@ -409,6 +409,18 @@ export class InventoryService {
   }
 
   static async getCurrentStock(filters?: { category?: string; search?: string; projectId?: string }): Promise<any[]> {
+    const params: any[] = [];
+    let paramIdx = 1;
+    let projectCondition = '';
+    let projectConditionLot = '';
+
+    if (filters?.projectId) {
+      projectCondition = ` AND il.project_id = $${paramIdx}`;
+      projectConditionLot = ` AND il2.project_id = $${paramIdx}`;
+      params.push(filters.projectId);
+      paramIdx++;
+    }
+
     let query = `
       SELECT 
         ii.id, ii.name, ii.category, ii.unit, ii.sku, ii.min_quantity, ii.is_active,
@@ -416,21 +428,17 @@ export class InventoryService {
         COALESCE(SUM(il.remaining_qty), 0) as total_remaining,
         COALESCE(SUM(il.received_qty), 0) - COALESCE(SUM(il.remaining_qty), 0) as total_issued,
         COALESCE(SUM(il.remaining_qty * il.unit_cost), 0) as stock_value,
-        (SELECT COUNT(DISTINCT il2.supplier_id) FROM inventory_lots il2 WHERE il2.item_id = ii.id AND il2.supplier_id IS NOT NULL${filters?.projectId ? ' AND il2.project_id = $__PID__' : ''}) as supplier_count,
+        COALESCE((SELECT SUM(it2.quantity) FROM inventory_transactions it2 WHERE it2.item_id = ii.id AND it2.type IN ('OUT', 'ADJUSTMENT_OUT')), 0) as total_issued_gross,
+        COALESCE((SELECT SUM(it3.quantity) FROM inventory_transactions it3 WHERE it3.item_id = ii.id AND it3.type = 'RETURN'), 0) as total_returned,
+        (SELECT COUNT(DISTINCT il2.supplier_id) FROM inventory_lots il2 WHERE il2.item_id = ii.id AND il2.supplier_id IS NOT NULL${projectConditionLot}) as supplier_count,
         MAX(il.receipt_date) as last_receipt_date,
         MAX(p.name) as project_name
       FROM inventory_items ii
-      LEFT JOIN inventory_lots il ON il.item_id = ii.id
+      LEFT JOIN inventory_lots il ON il.item_id = ii.id${projectCondition}
       LEFT JOIN projects p ON p.id = il.project_id
       WHERE ii.is_active = true
     `;
-    const params: any[] = [];
-    let paramIdx = 1;
 
-    if (filters?.projectId) {
-      query += ` AND il.project_id = $${paramIdx++}`;
-      params.push(filters.projectId);
-    }
     if (filters?.category) {
       query += ` AND ii.category = $${paramIdx++}`;
       params.push(filters.category);
@@ -441,10 +449,6 @@ export class InventoryService {
     }
 
     query += ` GROUP BY ii.id ORDER BY ii.name ASC`;
-
-    if (filters?.projectId) {
-      query = query.replace('$__PID__', `$1`);
-    }
 
     const { rows } = await pool.query(query, params);
     return rows;

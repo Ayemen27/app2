@@ -510,6 +510,10 @@ export class InventoryService {
       const params: any[] = [];
       let paramIdx = 1;
 
+      if (filters?.projectId) {
+        query += ` AND il.id IN (SELECT lot_id FROM inventory_transactions WHERE to_project_id = $${paramIdx++} AND lot_id IS NOT NULL)`;
+        params.push(filters.projectId);
+      }
       if (filters?.dateFrom) {
         query += ` AND il.receipt_date >= $${paramIdx++}`;
         params.push(filters.dateFrom);
@@ -525,7 +529,7 @@ export class InventoryService {
     }
 
     if (groupBy === 'project') {
-      const { rows } = await pool.query(`
+      let query = `
         SELECT 
           p.id as project_id, p.name as project_name,
           COUNT(DISTINCT it.item_id) as item_count,
@@ -533,9 +537,17 @@ export class InventoryService {
           COALESCE(SUM(CASE WHEN it.type = 'OUT' THEN it.total_cost ELSE 0 END), 0) as total_cost
         FROM projects p
         JOIN inventory_transactions it ON it.to_project_id = p.id
-        GROUP BY p.id, p.name
-        ORDER BY total_cost DESC
-      `);
+      `;
+      const params: any[] = [];
+      let paramIdx = 1;
+
+      if (filters?.projectId) {
+        query += ` WHERE p.id = $${paramIdx++}`;
+        params.push(filters.projectId);
+      }
+
+      query += ` GROUP BY p.id, p.name ORDER BY total_cost DESC`;
+      const { rows } = await pool.query(query, params);
       return rows;
     }
 
@@ -551,18 +563,27 @@ export class InventoryService {
     `;
     const params: any[] = [];
     let paramIdx = 1;
+    const conditions: string[] = [];
 
+    if (filters?.projectId) {
+      conditions.push(`it.to_project_id = $${paramIdx++}`);
+      params.push(filters.projectId);
+    }
     if (filters?.dateFrom) {
-      query += ` AND it.transaction_date >= $${paramIdx++}`;
+      conditions.push(`it.transaction_date >= $${paramIdx++}`);
       params.push(filters.dateFrom);
     }
     if (filters?.dateTo) {
-      query += ` AND it.transaction_date <= $${paramIdx++}`;
+      conditions.push(`it.transaction_date <= $${paramIdx++}`);
       params.push(filters.dateTo);
     }
     if (filters?.category) {
-      query += ` AND ii.category = $${paramIdx++}`;
+      conditions.push(`ii.category = $${paramIdx++}`);
       params.push(filters.category);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
     query += ` GROUP BY ii.id ORDER BY ii.name ASC`;

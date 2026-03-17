@@ -10,13 +10,14 @@ import {
   AlertTriangle, Zap, History,
   ChevronDown, ChevronUp, Copy, Server, User,
   ChevronLeft, ChevronRight, Shield,
-  FileSpreadsheet, FileText
+  FileSpreadsheet, FileText, Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import type { StatsRowConfig, FilterConfig as DashFilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { API_ENDPOINTS } from "@/constants/api";
 import { createProfessionalReport } from "@/utils/axion-export";
@@ -238,6 +239,69 @@ export default function SyncManagementPage() {
     refetchAudit();
   };
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/sync-audit/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.syncAuditLogs });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.syncAuditStats });
+      toast({ title: "تم الحذف", description: "تم حذف السجل بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "خطأ", description: "فشل حذف السجل", variant: "destructive" });
+    },
+  });
+
+  const deleteByStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      return apiRequest(`/api/sync-audit/by-status/${status}`, "DELETE");
+    },
+    onSuccess: (_data, status) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.syncAuditLogs });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.syncAuditStats });
+      toast({ title: "تم التنظيف", description: `تم حذف جميع سجلات "${statusLabels[status] || status}"` });
+    },
+    onError: () => {
+      toast({ title: "خطأ", description: "فشل حذف السجلات", variant: "destructive" });
+    },
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/sync-audit/all", "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.syncAuditLogs });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.syncAuditStats });
+      toast({ title: "تم التنظيف", description: "تم حذف جميع السجلات" });
+    },
+    onError: () => {
+      toast({ title: "خطأ", description: "فشل حذف السجلات", variant: "destructive" });
+    },
+  });
+
+  const handleDeleteLog = (id: number) => {
+    if (confirm("هل تريد حذف هذا السجل؟")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleClearTab = () => {
+    const tabStatus = tabStatusMap[activeTab];
+    if (activeTab === 'server-audit') {
+      if (confirm("هل تريد حذف جميع السجلات نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) {
+        deleteAllMutation.mutate();
+      }
+    } else if (tabStatus) {
+      const statuses = Array.isArray(tabStatus) ? tabStatus : [tabStatus];
+      const label = statuses.map(s => statusLabels[s] || s).join(' و ');
+      if (confirm(`هل تريد حذف جميع السجلات بحالة "${label}"؟`)) {
+        statuses.forEach(s => deleteByStatusMutation.mutate(s));
+      }
+    }
+  };
+
   const actionLabels: Record<string, string> = {
     'create': 'إضافة', 'update': 'تعديل', 'delete': 'حذف',
     'full_backup': 'نسخة كاملة', 'delta_sync': 'مزامنة تفاضلية', 'instant_sync': 'مزامنة فورية',
@@ -353,8 +417,17 @@ export default function SyncManagementPage() {
         disabled: auditLogs.length === 0,
         tooltip: 'تصدير PDF',
       },
+      {
+        key: 'clear-tab',
+        icon: Trash2,
+        label: 'حذف الكل',
+        onClick: handleClearTab,
+        variant: 'destructive' as const,
+        disabled: auditLogs.length === 0 || deleteMutation.isPending || deleteByStatusMutation.isPending || deleteAllMutation.isPending,
+        tooltip: activeTab === 'server-audit' ? 'حذف جميع السجلات' : 'حذف سجلات هذا التبويب',
+      },
     ];
-  }, [auditLogs.length]);
+  }, [auditLogs.length, activeTab, deleteMutation.isPending, deleteByStatusMutation.isPending, deleteAllMutation.isPending]);
 
   const resultsSummary: ResultsSummaryConfig | undefined = useMemo(() => {
     if (!auditData) return undefined;
@@ -446,6 +519,8 @@ export default function SyncManagementPage() {
                   log={log}
                   isExpanded={expandedAudit.has(log.id)}
                   onToggle={() => toggleAuditExpand(log.id)}
+                  onDelete={() => handleDeleteLog(log.id)}
+                  isDeleting={deleteMutation.isPending}
                 />
               ))}
             </div>
@@ -484,7 +559,7 @@ export default function SyncManagementPage() {
   );
 }
 
-function AuditLogCard({ log, isExpanded, onToggle }: { log: any; isExpanded: boolean; onToggle: () => void }) {
+function AuditLogCard({ log, isExpanded, onToggle, onDelete, isDeleting }: { log: any; isExpanded: boolean; onToggle: () => void; onDelete: () => void; isDeleting: boolean }) {
   const logDate = log.created_at || log.createdAt;
   const { date: formattedDate, time: formattedTime } = formatDateSafe(logDate);
   const userName = log.userName || log.user_name || '';
@@ -523,7 +598,17 @@ function AuditLogCard({ log, isExpanded, onToggle }: { log: any; isExpanded: boo
             {getAuditActionBadge(log.action)}
             <Badge variant="outline" className="text-[10px]">{log.module}</Badge>
           </div>
-          <div className="shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              disabled={isDeleting}
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              data-testid={`button-delete-log-${log.id}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
             {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
           </div>
         </div>

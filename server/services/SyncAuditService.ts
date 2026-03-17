@@ -331,6 +331,21 @@ export class SyncAuditService {
     }, [] as { value: string; label: string }[]);
   }
 
+  static async deleteLog(id: number): Promise<boolean> {
+    const result = await db.delete(syncAuditLogs).where(eq(syncAuditLogs.id, id));
+    return ((result as { rowCount?: number }).rowCount || 0) > 0;
+  }
+
+  static async deleteByStatus(status: string): Promise<{ deletedCount: number }> {
+    const result = await db.delete(syncAuditLogs).where(eq(syncAuditLogs.status, status));
+    return { deletedCount: (result as { rowCount?: number }).rowCount || 0 };
+  }
+
+  static async deleteAll(): Promise<{ deletedCount: number }> {
+    const result = await db.delete(syncAuditLogs);
+    return { deletedCount: (result as { rowCount?: number }).rowCount || 0 };
+  }
+
   static async purgeLogs(olderThanDays: number = 90): Promise<{ deletedCount: number }> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);

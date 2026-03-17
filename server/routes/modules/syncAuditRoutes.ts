@@ -59,6 +59,52 @@ router.get('/size-info', async (_req: Request, res: Response) => {
   }
 });
 
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'معرّف غير صالح' });
+    }
+    const deleted = await SyncAuditService.deleteLog(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'السجل غير موجود' });
+    }
+    res.json({ success: true, message: 'تم حذف السجل بنجاح' });
+  } catch (error) {
+    console.error('خطأ في حذف السجل:', error);
+    res.status(500).json({ success: false, message: 'خطأ في حذف السجل' });
+  }
+});
+
+router.delete('/by-status/:status', async (req: Request, res: Response) => {
+  try {
+    const { status } = req.params;
+    const result = await SyncAuditService.deleteByStatus(status);
+    res.json({
+      success: true,
+      message: `تم حذف ${result.deletedCount} سجل بحالة "${status}"`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('خطأ في حذف السجلات:', error);
+    res.status(500).json({ success: false, message: 'خطأ في حذف السجلات' });
+  }
+});
+
+router.delete('/all', async (_req: Request, res: Response) => {
+  try {
+    const result = await SyncAuditService.deleteAll();
+    res.json({
+      success: true,
+      message: `تم حذف جميع السجلات (${result.deletedCount})`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('خطأ في حذف جميع السجلات:', error);
+    res.status(500).json({ success: false, message: 'خطأ في حذف جميع السجلات' });
+  }
+});
+
 router.post('/purge', async (req: Request, res: Response) => {
   try {
     const { olderThanDays = 90 } = req.body;

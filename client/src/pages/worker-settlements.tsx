@@ -340,7 +340,7 @@ export default function WorkerSettlementsPage() {
   }, [preview, selectedWorkers, excludedProjects, getActiveProjects, settlementProjectId, settlementProjectName]);
 
   const statsRowsConfig: StatsRowConfig[] = useMemo(() => {
-    if (activeView === "new" && preview) {
+    if (activeView === "new") {
       return [
         {
           columns: 3,
@@ -349,14 +349,14 @@ export default function WorkerSettlementsPage() {
             {
               key: "totalAmount",
               label: "إجمالي التصفية",
-              value: formatCurrency(preview.totalSettlementAmount || 0),
+              value: formatCurrency(preview?.totalSettlementAmount || 0),
               icon: DollarSign,
               color: "green",
             },
             {
               key: "workerCount",
               label: "عدد العمال",
-              value: preview.workers?.length || 0,
+              value: preview?.workers?.length || 0,
               icon: Users,
               color: "blue",
             },
@@ -505,39 +505,39 @@ export default function WorkerSettlementsPage() {
         </TabsList>
       </Tabs>
 
-      {activeView === "history" && (
-        <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md" data-testid="date-navigator">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-            onClick={prevHistoryDate}
-            title="اليوم السابق"
-            data-testid="button-prev-date"
-          >
-            <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-          </Button>
-          
-          <div className="flex flex-col items-center flex-1">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">سجل التصفيات</span>
-            <span className="text-sm font-black text-slate-900 dark:text-white arabic-numbers flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-primary" />
-              {(() => { const [y,m,d] = historyDate.split('-').map(Number); return format(new Date(y, m-1, d), "EEEE, d MMMM yyyy", { locale: ar }); })()}
-            </span>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-            onClick={nextHistoryDate}
-            title="اليوم التالي"
-            data-testid="button-next-date"
-          >
-            <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-          </Button>
+      <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm mx-auto w-full max-w-md" data-testid="date-navigator">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          onClick={prevHistoryDate}
+          title="اليوم السابق"
+          data-testid="button-prev-date"
+        >
+          <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+        </Button>
+        
+        <div className="flex flex-col items-center flex-1">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+            {activeView === "new" ? "تصفية حساب العمال" : "سجل التصفيات"}
+          </span>
+          <span className="text-sm font-black text-slate-900 dark:text-white arabic-numbers flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+            {(() => { const [y,m,d] = historyDate.split('-').map(Number); return format(new Date(y, m-1, d), "EEEE, d MMMM yyyy", { locale: ar }); })()}
+          </span>
         </div>
-      )}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          onClick={nextHistoryDate}
+          title="اليوم التالي"
+          data-testid="button-next-date"
+        >
+          <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+        </Button>
+      </div>
 
       <UnifiedFilterDashboard
         hideHeader={true}
@@ -550,7 +550,7 @@ export default function WorkerSettlementsPage() {
         onSearchChange={setSearchValue}
         searchValue={searchValue}
         searchPlaceholder="ابحث عن عامل أو مشروع..."
-        showSearch={activeView === "new" && !!preview}
+        showSearch={true}
         onReset={handleResetFilters}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}

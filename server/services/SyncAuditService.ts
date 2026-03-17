@@ -235,7 +235,7 @@ export class SyncAuditService {
     dateTo?: string;
   }) {
     const page = Math.max(1, params.page || 1);
-    const limit = Math.min(100, Math.max(1, params.limit || 50));
+    const limit = Math.min(200, Math.max(1, params.limit || 50));
     const offset = (page - 1) * limit;
 
     const conditions: any[] = [];
@@ -322,5 +322,35 @@ export class SyncAuditService {
       }
       return acc;
     }, [] as { value: string; label: string }[]);
+  }
+
+  static async purgeLogs(olderThanDays: number = 90): Promise<{ deletedCount: number }> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+
+    const result = await db.delete(syncAuditLogs).where(
+      lte(syncAuditLogs.created_at, cutoffDate)
+    );
+    const deletedCount = (result as { rowCount?: number }).rowCount || 0;
+    return { deletedCount };
+  }
+
+  static async archiveLogs(olderThanDays: number = 90): Promise<{ archivedCount: number }> {
+    const result = await this.purgeLogs(olderThanDays);
+    return { archivedCount: result.deletedCount };
+  }
+
+  static async getLogsSizeInfo(): Promise<{ totalLogs: number; oldestLog: string | null; newestLog: string | null }> {
+    const [result] = await db.select({
+      totalLogs: sql<number>`count(*)::int`,
+      oldestLog: sql<string>`min(created_at)::text`,
+      newestLog: sql<string>`max(created_at)::text`,
+    }).from(syncAuditLogs);
+
+    return {
+      totalLogs: result?.totalLogs || 0,
+      oldestLog: result?.oldestLog || null,
+      newestLog: result?.newestLog || null,
+    };
   }
 }

@@ -2145,6 +2145,9 @@ export const syncAuditLogs = pgTable("sync_audit_logs", {
   idxSyncAuditProjectId: index("idx_sync_audit_project_id").on(table.project_id),
   idxSyncAuditStatus: index("idx_sync_audit_status").on(table.status),
   idxSyncAuditUserId: index("idx_sync_audit_user_id").on(table.user_id),
+  idxSyncAuditModuleStatusCreatedAt: index("idx_sync_audit_module_status_created_at").on(table.module, table.status, table.created_at),
+  idxSyncAuditUserCreatedAt: index("idx_sync_audit_user_created_at").on(table.user_id, table.created_at),
+  idxSyncAuditActionCreatedAt: index("idx_sync_audit_action_created_at").on(table.action, table.created_at),
     sync_audit_logs_project_id_fkey: foreignKey({ name: "sync_audit_logs_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }),
     sync_audit_logs_user_id_fkey: foreignKey({ name: "sync_audit_logs_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] })
   

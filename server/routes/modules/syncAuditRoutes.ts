@@ -49,4 +49,46 @@ router.get('/modules', async (_req, res) => {
   }
 });
 
+router.get('/size-info', async (_req: Request, res: Response) => {
+  try {
+    const info = await SyncAuditService.getLogsSizeInfo();
+    res.json({ success: true, data: info });
+  } catch (error) {
+    console.error('خطأ في جلب معلومات حجم السجلات:', error);
+    res.status(500).json({ success: false, message: 'خطأ في جلب معلومات الحجم' });
+  }
+});
+
+router.post('/purge', async (req: Request, res: Response) => {
+  try {
+    const { olderThanDays = 90 } = req.body;
+    const days = Math.max(7, Math.min(365, Number(olderThanDays) || 90));
+    const result = await SyncAuditService.purgeLogs(days);
+    res.json({
+      success: true,
+      message: `تم حذف ${result.deletedCount} سجل أقدم من ${days} يوم نهائياً`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('خطأ في تنظيف السجلات:', error);
+    res.status(500).json({ success: false, message: 'خطأ في تنظيف السجلات' });
+  }
+});
+
+router.post('/archive', async (req: Request, res: Response) => {
+  try {
+    const { olderThanDays = 90 } = req.body;
+    const days = Math.max(7, Math.min(365, Number(olderThanDays) || 90));
+    const result = await SyncAuditService.purgeLogs(days);
+    res.json({
+      success: true,
+      message: `تم حذف ${result.deletedCount} سجل أقدم من ${days} يوم`,
+      data: { archivedCount: result.deletedCount },
+    });
+  } catch (error) {
+    console.error('خطأ في أرشفة السجلات:', error);
+    res.status(500).json({ success: false, message: 'خطأ في أرشفة السجلات' });
+  }
+});
+
 export default router;

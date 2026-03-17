@@ -9,7 +9,8 @@ import {
   Calendar, Building2, CheckCircle2, XCircle,
   RotateCcw, AlertTriangle, Zap, History,
   ChevronDown, ChevronUp, Copy, Server, User,
-  ChevronLeft, ChevronRight, Shield
+  ChevronLeft, ChevronRight, Shield,
+  Download, FileSpreadsheet, FileText
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -18,6 +19,9 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { API_ENDPOINTS } from "@/constants/api";
+import { createProfessionalReport } from "@/utils/axion-export";
+import { generateTablePDF } from "@/utils/pdfGenerator";
+import type { ActionButton, ResultsSummaryConfig } from "@/components/ui/unified-filter-dashboard/types";
 
 function formatTimeAgo(timestamp: number): string {
   if (!timestamp) return "غير محدد";
@@ -129,7 +133,7 @@ export default function SyncManagementPage() {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [auditPage, setAuditPage] = useState(1);
   const [searchValue, setSearchValue] = useState('');
-  const [filterValues, setFilterValues] = useState<Record<string, any>>({ action: 'all', status: 'all', module: 'all' });
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({ action: 'all', status: 'all', module: 'all', dateRange: undefined });
 
   const isAuditTab = activeTab === 'server-audit';
   const isHistoryTab = activeTab === 'history';
@@ -157,6 +161,8 @@ export default function SyncManagementPage() {
     status: filterValues.status !== 'all' ? filterValues.status : undefined,
     action: filterValues.action !== 'all' ? filterValues.action : undefined,
     search: searchValue || undefined,
+    dateFrom: filterValues.dateRange?.from ? new Date(filterValues.dateRange.from).toISOString().split('T')[0] : undefined,
+    dateTo: filterValues.dateRange?.to ? new Date(filterValues.dateRange.to).toISOString().split('T')[0] : undefined,
   }), [auditPage, filterValues, searchValue]);
 
   const queryString = useMemo(() => {
@@ -274,6 +280,11 @@ export default function SyncManagementPage() {
 
     if (isAuditTab) {
       baseFilters.push({
+        key: 'dateRange',
+        label: 'الفترة الزمنية',
+        type: 'date-range' as const,
+      });
+      baseFilters.push({
         key: 'module',
         label: 'القسم',
         options: [
@@ -367,7 +378,7 @@ export default function SyncManagementPage() {
 
   const handleReset = () => {
     setSearchValue('');
-    setFilterValues({ action: 'all', status: 'all', module: 'all' });
+    setFilterValues({ action: 'all', status: 'all', module: 'all', dateRange: undefined });
     if (isAuditTab) setAuditPage(1);
   };
 
@@ -378,6 +389,136 @@ export default function SyncManagementPage() {
       refreshData();
     }
   };
+
+  const actionLabels: Record<string, string> = {
+    'create': 'إضافة', 'update': 'تعديل', 'delete': 'حذف',
+    'full_backup': 'نسخة كاملة', 'delta_sync': 'مزامنة تفاضلية', 'instant_sync': 'مزامنة فورية',
+    'batch_sync': 'مزامنة دفعية',
+  };
+  const statusLabels: Record<string, string> = {
+    'success': 'ناجح', 'failed': 'فاشل', 'duplicate': 'مكرر', 'skipped': 'متخطى', 'conflict': 'تعارض',
+  };
+
+  const handleExportExcel = async () => {
+    if (auditLogs.length === 0) {
+      toast({ title: "لا توجد بيانات", description: "لا توجد سجلات للتصدير" });
+      return;
+    }
+    try {
+      const exportData = auditLogs.map((log: any) => ({
+        id: log.id,
+        action: actionLabels[log.action] || log.action,
+        status: statusLabels[log.status] || log.status,
+        module: log.module,
+        tableName: log.tableName || log.table_name || '',
+        description: log.description,
+        userName: log.userName || log.user_name || '',
+        recordId: log.recordId || log.record_id || '',
+        durationMs: log.durationMs || log.duration_ms || '',
+        ipAddress: log.ipAddress || log.ip_address || '',
+        date: formatDateSafe(log.created_at || log.createdAt).date,
+        time: formatDateSafe(log.created_at || log.createdAt).time,
+      }));
+
+      await createProfessionalReport({
+        sheetName: 'سجل التدقيق',
+        reportTitle: 'تقرير تدقيق المزامنة',
+        subtitle: `${pagination.total} سجل - تاريخ التصدير: ${new Date().toLocaleDateString('ar-SA')}`,
+        columns: [
+          { header: '#', key: 'id', width: 8 },
+          { header: 'العملية', key: 'action', width: 12 },
+          { header: 'الحالة', key: 'status', width: 10 },
+          { header: 'القسم', key: 'module', width: 12 },
+          { header: 'الجدول', key: 'tableName', width: 15 },
+          { header: 'الوصف', key: 'description', width: 30 },
+          { header: 'المستخدم', key: 'userName', width: 15 },
+          { header: 'التاريخ', key: 'date', width: 12 },
+          { header: 'الوقت', key: 'time', width: 10 },
+          { header: 'المدة (ms)', key: 'durationMs', width: 10 },
+        ],
+        data: exportData,
+        fileName: `تقرير_تدقيق_المزامنة_${new Date().toISOString().split('T')[0]}`,
+      });
+      toast({ title: "تم التصدير", description: "تم تصدير التقرير بصيغة Excel بنجاح" });
+    } catch (err) {
+      toast({ title: "خطأ", description: "فشل تصدير التقرير", variant: "destructive" });
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (auditLogs.length === 0) {
+      toast({ title: "لا توجد بيانات", description: "لا توجد سجلات للتصدير" });
+      return;
+    }
+    try {
+      const exportData = auditLogs.map((log: any) => ({
+        id: log.id,
+        action: actionLabels[log.action] || log.action,
+        status: statusLabels[log.status] || log.status,
+        module: log.module,
+        description: (log.description || '').substring(0, 40),
+        userName: log.userName || log.user_name || '',
+        date: formatDateSafe(log.created_at || log.createdAt).date,
+        time: formatDateSafe(log.created_at || log.createdAt).time,
+      }));
+
+      await generateTablePDF({
+        reportTitle: 'تقرير تدقيق المزامنة',
+        subtitle: `${pagination.total} سجل`,
+        columns: [
+          { header: '#', key: 'id', width: 6 },
+          { header: 'العملية', key: 'action', width: 10 },
+          { header: 'الحالة', key: 'status', width: 8, color: (val: any) => val === 'فاشل' ? '#DC2626' : val === 'ناجح' ? '#16A34A' : undefined },
+          { header: 'القسم', key: 'module', width: 10 },
+          { header: 'الوصف', key: 'description', width: 25 },
+          { header: 'المستخدم', key: 'userName', width: 12 },
+          { header: 'التاريخ', key: 'date', width: 10 },
+          { header: 'الوقت', key: 'time', width: 8 },
+        ],
+        data: exportData,
+        filename: `تقرير_تدقيق_المزامنة_${new Date().toISOString().split('T')[0]}`,
+        orientation: 'landscape',
+      });
+      toast({ title: "تم التصدير", description: "تم تصدير التقرير بصيغة PDF بنجاح" });
+    } catch (err) {
+      toast({ title: "خطأ", description: "فشل تصدير التقرير", variant: "destructive" });
+    }
+  };
+
+  const dashboardActions: ActionButton[] = useMemo(() => {
+    if (!isAuditTab) return [];
+    return [
+      {
+        key: 'export-excel',
+        icon: FileSpreadsheet,
+        label: 'Excel',
+        onClick: handleExportExcel,
+        variant: 'outline' as const,
+        disabled: auditLogs.length === 0,
+        tooltip: 'تصدير Excel',
+      },
+      {
+        key: 'export-pdf',
+        icon: FileText,
+        label: 'PDF',
+        onClick: handleExportPDF,
+        variant: 'outline' as const,
+        disabled: auditLogs.length === 0,
+        tooltip: 'تصدير PDF',
+      },
+    ];
+  }, [isAuditTab, auditLogs.length]);
+
+  const resultsSummary: ResultsSummaryConfig | undefined = useMemo(() => {
+    if (!isAuditTab || !auditData) return undefined;
+    return {
+      totalCount: pagination.total,
+      filteredCount: auditLogs.length,
+      totalLabel: 'إجمالي السجلات',
+      filteredLabel: 'معروض',
+      unit: 'سجل',
+    };
+  }, [isAuditTab, auditData, pagination.total, auditLogs.length]);
 
   return (
     <div className="space-y-4 pb-20" data-testid="page-sync-management">
@@ -393,6 +534,8 @@ export default function SyncManagementPage() {
         onReset={handleReset}
         onRefresh={handleRefresh}
         isRefreshing={auditLoading || isSyncing}
+        actions={dashboardActions}
+        resultsSummary={resultsSummary}
       />
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); handleReset(); }} className="w-full" dir="rtl">

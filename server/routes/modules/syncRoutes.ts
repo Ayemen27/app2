@@ -41,7 +41,50 @@ async function getTableDateColumns(table: string): Promise<string[]> {
   return cols;
 }
 
-async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: Record<string, unknown>[]; error?: string; deltaApplied?: boolean }> {
+function isTransientError(error: any): boolean {
+  const msg = String(error?.message || error || '').toLowerCase();
+  const code = error?.code || '';
+  return (
+    msg.includes('econnreset') ||
+    msg.includes('etimedout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('connection terminated') ||
+    msg.includes('deadlock') ||
+    msg.includes('too many clients') ||
+    msg.includes('connection timeout') ||
+    msg.includes('server closed the connection') ||
+    code === '40001' ||
+    code === '40P01' ||
+    code === '57P01' ||
+    code === '08006' ||
+    code === '08001'
+  );
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 200
+): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      if (attempt < maxRetries && isTransientError(error)) {
+        const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 100;
+        console.warn(`[Sync] خطأ مؤقت (محاولة ${attempt + 1}/${maxRetries + 1}): ${error.message} - إعادة بعد ${Math.round(delay)}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw lastError;
+}
+
+async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: Record<string, unknown>[]; error?: string; deltaApplied?: boolean; retries?: number }> {
   if (!ALL_DATABASE_TABLES.includes(table)) {
     return { table, rows: [], error: 'Invalid table name' };
   }
@@ -73,7 +116,9 @@ async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ t
     }
 
     query += ' LIMIT 50000';
-    const result = await pool.query(query, params);
+    const finalQuery = query;
+    const finalParams = params;
+    const result = await retryWithBackoff(() => pool.query(finalQuery, finalParams));
     return { table, rows: result.rows, deltaApplied };
   } catch (e: any) {
     return { table, rows: [], error: e.message };
@@ -591,9 +636,15 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
     const results: unknown[] = [];
     const projectAccessCache = new Map<string, boolean>();
 
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] as string;
+    const userAgent = req.headers['user-agent'];
+    const userName = getUserDisplayName(authUser);
+    const auditPromises: Promise<void>[] = [];
+
     for (let i = 0; i < operations.length; i++) {
       const op = operations[i];
       const { action, endpoint, payload } = op;
+      const opStartTime = Date.now();
 
       if (!action || !endpoint) {
         throw new Error(`عملية ${i} غير صالحة: action و endpoint مطلوبان`);
@@ -629,6 +680,8 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       }
 
       const requiresProjectScope = !userIsAdmin && !TABLES_WITHOUT_PROJECT_ID.has(tableName);
+      const actionMap: Record<string, string> = { 'POST': 'create', 'PATCH': 'update', 'PUT': 'update', 'DELETE': 'delete' };
+      const auditAction = actionMap[action] || action.toLowerCase();
 
       if (action === 'POST') {
         if (!payload || !payload.id) {
@@ -650,17 +703,28 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         const placeholders = columns.map((_, idx) => `$${idx + 1}`);
         const query = `INSERT INTO "${tableName}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (id) DO NOTHING RETURNING *`;
         const result = await client.query(query, values);
-        results.push({ index: i, success: true, data: result.rows[0] || payload });
+        const inserted = result.rows[0];
+        const status = inserted ? 'success' : 'duplicate';
+        results.push({ index: i, success: true, data: inserted || payload });
+
+        auditPromises.push(SyncAuditService.logOperation({
+          user_id: userId, userName, action: auditAction, endpoint, tableName,
+          recordId: payload.id, status, newValues: inserted || payload,
+          ipAddress, userAgent, durationMs: Date.now() - opStartTime,
+          syncType: 'batch', project_id: payload.project_id,
+        }));
       } else if (action === 'PATCH' || action === 'PUT') {
         if (!payload || !payload.id) {
           throw new Error(`عملية ${i}: payload.id مطلوب للتعديل`);
         }
         const { id, _metadata, ...updateFields } = payload;
 
+        let oldValues: any = null;
         if (requiresProjectScope) {
-          const existing = await client.query(`SELECT "project_id" FROM "${tableName}" WHERE id = $1`, [id]);
+          const existing = await client.query(`SELECT * FROM "${tableName}" WHERE id = $1`, [id]);
           if (existing.rows.length > 0) {
-            const actualProjectId = (existing.rows[0] as Record<string, unknown>).project_id as string;
+            oldValues = existing.rows[0];
+            const actualProjectId = (oldValues as Record<string, unknown>).project_id as string;
             if (actualProjectId && !projectAccessCache.get(actualProjectId)) {
               const hasAccess = userId
                 ? await projectAccessService.checkProjectAccess(userId, authUser!.role, actualProjectId, 'edit')
@@ -670,12 +734,22 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
               }
             }
           }
+        } else {
+          const existing = await client.query(`SELECT * FROM "${tableName}" WHERE id = $1`, [id]);
+          if (existing.rows.length > 0) oldValues = existing.rows[0];
         }
 
         const clientTimestamp = _metadata?.clientTimestamp || op._metadata?.clientTimestamp;
         const { columns, values: colValues } = sanitizeColumns(updateFields);
         if (columns.length === 0) {
           results.push({ index: i, success: true, data: payload });
+          auditPromises.push(SyncAuditService.logOperation({
+            user_id: userId, userName, action: auditAction, endpoint, tableName,
+            recordId: id, status: 'skipped', oldValues, newValues: payload,
+            ipAddress, userAgent, durationMs: Date.now() - opStartTime,
+            syncType: 'batch', project_id: payload.project_id,
+            description: 'تخطي - لا حقول للتعديل',
+          }));
           continue;
         }
 
@@ -709,11 +783,30 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
           if (existingRow.rows.length > 0) {
             console.log(`[Sync-Batch] LWW conflict resolved (server wins) for ${tableName} id=${id}`);
             results.push({ index: i, success: true, conflictResolved: true, resolution: 'server_wins', data: existingRow.rows[0] });
+            auditPromises.push(SyncAuditService.logOperation({
+              user_id: userId, userName, action: auditAction, endpoint, tableName,
+              recordId: id, status: 'conflict', oldValues, newValues: existingRow.rows[0],
+              ipAddress, userAgent, durationMs: Date.now() - opStartTime,
+              syncType: 'batch', project_id: payload.project_id,
+              description: 'تعارض - الخادم أحدث (LWW)',
+            }));
           } else {
             results.push({ index: i, success: true, data: payload });
+            auditPromises.push(SyncAuditService.logOperation({
+              user_id: userId, userName, action: auditAction, endpoint, tableName,
+              recordId: id, status: 'success', oldValues, newValues: payload,
+              ipAddress, userAgent, durationMs: Date.now() - opStartTime,
+              syncType: 'batch', project_id: payload.project_id,
+            }));
           }
         } else {
           results.push({ index: i, success: true, data: result.rows[0] || payload });
+          auditPromises.push(SyncAuditService.logOperation({
+            user_id: userId, userName, action: auditAction, endpoint, tableName,
+            recordId: id, status: 'success', oldValues, newValues: result.rows[0] || payload,
+            ipAddress, userAgent, durationMs: Date.now() - opStartTime,
+            syncType: 'batch', project_id: payload.project_id,
+          }));
         }
       } else if (action === 'DELETE') {
         const id = payload?.id || parts[parts.length - 1];
@@ -721,29 +814,41 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
           throw new Error(`عملية ${i}: id مطلوب للحذف`);
         }
 
-        if (requiresProjectScope) {
-          const existing = await client.query(`SELECT "project_id" FROM "${tableName}" WHERE id = $1`, [id]);
-          if (existing.rows.length > 0) {
-            const actualProjectId = (existing.rows[0] as Record<string, unknown>).project_id as string;
-            if (actualProjectId && !projectAccessCache.get(actualProjectId)) {
-              const hasAccess = userId
-                ? await projectAccessService.checkProjectAccess(userId, authUser!.role, actualProjectId, 'edit')
-                : false;
-              if (!hasAccess) {
-                throw new Error(`عملية ${i}: ليس لديك صلاحية حذف سجل ينتمي للمشروع ${actualProjectId}`);
-              }
+        let oldValues: any = null;
+        const existingBefore = await client.query(`SELECT * FROM "${tableName}" WHERE id = $1`, [id]);
+        if (existingBefore.rows.length > 0) oldValues = existingBefore.rows[0];
+
+        if (requiresProjectScope && oldValues) {
+          const actualProjectId = (oldValues as Record<string, unknown>).project_id as string;
+          if (actualProjectId && !projectAccessCache.get(actualProjectId)) {
+            const hasAccess = userId
+              ? await projectAccessService.checkProjectAccess(userId, authUser!.role, actualProjectId, 'edit')
+              : false;
+            if (!hasAccess) {
+              throw new Error(`عملية ${i}: ليس لديك صلاحية حذف سجل ينتمي للمشروع ${actualProjectId}`);
             }
           }
         }
 
         await client.query(`DELETE FROM "${tableName}" WHERE id = $1`, [id]);
         results.push({ index: i, success: true });
+
+        auditPromises.push(SyncAuditService.logOperation({
+          user_id: userId, userName, action: auditAction, endpoint, tableName,
+          recordId: id, status: 'success', oldValues,
+          ipAddress, userAgent, durationMs: Date.now() - opStartTime,
+          syncType: 'batch', project_id: oldValues?.project_id || payload?.project_id,
+        }));
       } else {
         throw new Error(`عملية ${i}: action غير مدعوم: ${action}`);
       }
     }
 
     await client.query('COMMIT');
+
+    Promise.all(auditPromises).catch(err => {
+      console.error('[Sync-Batch] خطأ في تسجيل التدقيق:', err);
+    });
 
     const duration = Date.now() - startTime;
     console.log(`[Sync-Batch] اكتملت الدفعة بنجاح (${operations.length} عملية في ${duration}ms)`);
@@ -761,6 +866,16 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
   } catch (error: unknown) {
     await client.query('ROLLBACK');
     console.error('[Sync-Batch] فشل الدفعة - تم التراجع:', error instanceof Error ? error.message : String(error));
+
+    SyncAuditService.logOperation({
+      user_id: userId, userName: getUserDisplayName(authUser),
+      action: 'batch_sync', tableName: 'sync_batch',
+      status: 'failed', errorMessage: error instanceof Error ? error.message : String(error),
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+      durationMs: Date.now() - startTime, syncType: 'batch',
+    }).catch(() => {});
+
     return res.status(500).json({
       success: false,
       message: `فشل تنفيذ الدفعة: ${error instanceof Error ? error.message : String(error)}`,

@@ -450,7 +450,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       );
       const settlementId = settlementResult.rows[0].id;
 
-      const actualFundTotals = new Map<string, { fromProjectId: string; fromProjectName: string; amount: number }>();
+      const actualFundTotals = new Map<string, { fromProjectId: string; fromProjectName: string; amount: number; workerNames: string[] }>();
 
       for (const worker of eligibleWorkers) {
         for (const proj of worker.projects) {
@@ -477,18 +477,20 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             const existing = actualFundTotals.get(proj.projectId);
             if (existing) {
               existing.amount = Math.round(existing.amount + settlementAmount);
+              if (!existing.workerNames.includes(worker.workerName)) {
+                existing.workerNames.push(worker.workerName);
+              }
             } else {
               actualFundTotals.set(proj.projectId, {
                 fromProjectId: proj.projectId,
                 fromProjectName: proj.projectName,
                 amount: Math.round(settlementAmount),
+                workerNames: [worker.workerName],
               });
             }
           }
         }
       }
-
-      const workerNames = eligibleWorkers.map(w => w.workerName).join('، ');
 
       for (const worker of eligibleWorkers) {
         for (const proj of worker.projects) {
@@ -520,6 +522,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       }
 
       for (const transfer of actualFundTotals.values()) {
+        const projectWorkerNames = transfer.workerNames.join('، ');
         await client.query(
           `INSERT INTO project_fund_transfers (from_project_id, to_project_id, amount, description, transfer_reason, transfer_date)
            VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -527,7 +530,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             settlement_project_id,
             transfer.fromProjectId,
             Math.round(transfer.amount).toString(),
-            `تصفية حساب العمال: ${workerNames}`,
+            `تصفية حساب العمال: ${projectWorkerNames}`,
             'settlement',
             today,
           ]
@@ -688,6 +691,96 @@ settlementRouter.get('/:id', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('[Settlement] Error getting settlement details:', error);
     return sendError(res, 'فشل في جلب تفاصيل التصفية', 500);
+  }
+});
+
+settlementRouter.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const accessReq = req as ProjectAccessRequest;
+    const accessibleProjectIds = accessReq.accessibleProjectIds || [];
+    const userId = getAuthUser(req)?.id || null;
+
+    const headerResult = await pool.query(
+      `SELECT * FROM worker_settlements WHERE id = $1`,
+      [id]
+    );
+
+    if (headerResult.rows.length === 0) {
+      return sendError(res, 'التصفية غير موجودة', 404);
+    }
+
+    const settlement = headerResult.rows[0];
+
+    if (accessibleProjectIds.length > 0 && !accessibleProjectIds.includes(settlement.settlement_project_id)) {
+      return sendError(res, 'ليس لديك صلاحية لحذف هذه التصفية', 403);
+    }
+
+    const result = await withTransaction(async (client) => {
+      const lines = await client.query(
+        `SELECT * FROM worker_settlement_lines WHERE settlement_id = $1`,
+        [id]
+      );
+
+      const workerIds = [...new Set(lines.rows.map((l: any) => l.worker_id))];
+
+      await client.query(
+        `DELETE FROM worker_transfers 
+         WHERE transfer_method = 'settlement' 
+         AND transfer_date = $1 
+         AND worker_id = ANY($2::uuid[])`,
+        [settlement.settlement_date, workerIds]
+      );
+
+      await client.query(
+        `DELETE FROM project_fund_transfers 
+         WHERE transfer_reason = 'settlement' 
+         AND transfer_date = $1
+         AND (from_project_id = $2 OR to_project_id = $2)`,
+        [settlement.settlement_date, settlement.settlement_project_id]
+      );
+
+      await client.query(
+        `DELETE FROM worker_settlement_lines WHERE settlement_id = $1`,
+        [id]
+      );
+
+      await client.query(
+        `DELETE FROM worker_settlements WHERE id = $1`,
+        [id]
+      );
+
+      try {
+        await client.query(
+          `INSERT INTO audit_logs (user_id, action, meta, created_at)
+           VALUES ($1, $2, $3, NOW())`,
+          [
+            userId,
+            'SETTLEMENT_DELETED',
+            JSON.stringify({
+              settlementId: id,
+              settlementProjectId: settlement.settlement_project_id,
+              totalAmount: settlement.total_amount,
+              workerCount: settlement.worker_count,
+              deletedBy: userId,
+            }),
+          ]
+        );
+      } catch (auditErr) {
+        console.warn('[Settlement] Failed to insert audit log for delete:', auditErr);
+      }
+
+      return {
+        deletedLines: lines.rows.length,
+        workerCount: workerIds.length,
+      };
+    });
+
+    console.log(`🗑️ [Settlement] تم حذف التصفية ${id} بنجاح - ${result.deletedLines} سطر، ${result.workerCount} عامل`);
+    return sendSuccess(res, result, 'تم حذف التصفية بنجاح وعكس جميع التحويلات المرتبطة');
+  } catch (error: any) {
+    console.error('[Settlement] ❌ Delete ERROR:', error?.message || error);
+    return sendError(res, 'فشل في حذف التصفية', 500);
   }
 });
 

@@ -46,6 +46,7 @@ import {
   Calendar,
   History,
   FileText,
+  Trash2,
 } from "lucide-react";
 
 interface Project {
@@ -162,6 +163,8 @@ export default function WorkerSettlementsPage() {
   const [excludedProjects, setExcludedProjects] = useState<Map<string, Set<string>>>(new Map());
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [expandedSettlement, setExpandedSettlement] = useState<string | null>(null);
+  const [deleteSettlementId, setDeleteSettlementId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const [historyPage, setHistoryPage] = useState(1);
 
@@ -232,6 +235,32 @@ export default function WorkerSettlementsPage() {
       toast({
         title: "خطأ في التصفية",
         description: error?.message || "فشل في تنفيذ التصفية",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (settlementId: string) => {
+      return apiRequest(`/api/worker-settlements/${settlementId}`, "DELETE");
+    },
+    onSuccess: () => {
+      toast({
+        title: "تم الحذف",
+        description: "تم حذف التصفية وعكس جميع التحويلات المرتبطة بها",
+        className: "bg-green-50 border-green-200 text-green-800 dark:bg-green-900 dark:border-green-700 dark:text-green-100",
+      });
+      setShowDeleteDialog(false);
+      setDeleteSettlementId(null);
+      setExpandedSettlement(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/worker-settlements"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workers });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projects });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "خطأ في الحذف",
+        description: error?.message || "فشل في حذف التصفية",
         variant: "destructive",
       });
     },
@@ -887,6 +916,15 @@ export default function WorkerSettlementsPage() {
                           onClick: () => setExpandedSettlement((prev) => (prev === s.id ? null : s.id)),
                           color: "blue",
                         },
+                        {
+                          icon: Trash2,
+                          label: "حذف التصفية",
+                          onClick: () => {
+                            setDeleteSettlementId(s.id);
+                            setShowDeleteDialog(true);
+                          },
+                          color: "red",
+                        },
                       ]}
                       footer={
                         expandedSettlement === s.id ? (
@@ -951,6 +989,42 @@ export default function WorkerSettlementsPage() {
           )}
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-right">حذف التصفية</AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
+              هل أنت متأكد من حذف هذه التصفية؟ سيتم عكس جميع التحويلات المرتبطة بها (تحويلات العمال وتحويلات الصناديق). هذا الإجراء لا يمكن التراجع عنه.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel data-testid="button-cancel-delete">إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (deleteSettlementId) {
+                  deleteMutation.mutate(deleteSettlementId);
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  جاري الحذف...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 ml-2" />
+                  حذف التصفية
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

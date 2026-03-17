@@ -2304,7 +2304,7 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
 
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';
 
-    const [existing] = await db.select({ equipmentId: materialPurchases.equipmentId, addToInventory: materialPurchases.addToInventory, project_id: materialPurchases.project_id })
+    const [existing] = await db.select({ equipmentId: materialPurchases.equipmentId, addToInventory: materialPurchases.addToInventory, project_id: materialPurchases.project_id, purchaseType: materialPurchases.purchaseType })
       .from(materialPurchases).where(eq(materialPurchases.id, req.params.id));
 
     if (!existing) {
@@ -2326,6 +2326,12 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     const alreadyHasEquipment = !!existing.equipmentId;
     const preservedAddToInventory = alreadyHasEquipment ? true : (shouldAddToInventory ? false : (existing.addToInventory ?? false));
     const purchaseId = req.params.id;
+
+    const oldPurchaseType = existing.purchaseType;
+    const newPurchaseType = validated.purchaseType || oldPurchaseType;
+    const isStorageType = (t: string | null) => t === 'مخزن' || t === 'توريد' || t === 'مخزني';
+    const wasInventoryPurchase = isStorageType(oldPurchaseType);
+    const isInventoryPurchase = isStorageType(newPurchaseType);
 
     const { updated, createdEquipment } = await db.transaction(async (tx: any) => {
       const updatedResult = await tx
@@ -2374,6 +2380,31 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
 
       return { updated: updatedResult, createdEquipment: eqResult };
     });
+
+    if (wasInventoryPurchase || isInventoryPurchase) {
+      const { InventoryService } = await import('../../services/InventoryService.js');
+      const mp = updated[0];
+
+      if (wasInventoryPurchase && !isInventoryPurchase) {
+        await InventoryService.reverseFromPurchase(purchaseId);
+        console.log(`📦 [MaterialPurchases→Inventory/PATCH] تم عكس المخزن - تغيير النوع من مخزن لـ ${newPurchaseType}`);
+      } else if (isInventoryPurchase) {
+        await InventoryService.updateFromPurchase({
+          purchaseId: purchaseId,
+          materialName: mp.materialName || '',
+          materialCategory: mp.materialCategory || null,
+          unit: mp.unit || mp.materialUnit || 'قطعة',
+          quantity: parseFloat(mp.quantity || '0'),
+          unitPrice: parseFloat(mp.unitPrice || '0'),
+          totalAmount: parseFloat(mp.totalAmount || '0'),
+          purchaseDate: mp.purchaseDate,
+          supplierId: mp.supplierId || null,
+          projectId: mp.project_id || null,
+          notes: mp.notes || null,
+        });
+        console.log(`📦 [MaterialPurchases→Inventory/PATCH] تم تحديث المخزن للمشتراة ${purchaseId}`);
+      }
+    }
 
     const mp = updated[0];
     FinancialLedgerService.safeRecord(async () => {
@@ -2437,6 +2468,15 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
     if (!isAdminUser && existingPurchase[0].project_id && !accessibleIds.includes(existingPurchase[0].project_id)) {
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+    }
+
+    const purchaseType = existingPurchase[0].purchaseType;
+    const isInventoryPurchase = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
+
+    if (isInventoryPurchase) {
+      const { InventoryService } = await import('../../services/InventoryService.js');
+      await InventoryService.reverseFromPurchase(req.params.id);
+      console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
     }
 
     FinancialLedgerService.safeRecord(

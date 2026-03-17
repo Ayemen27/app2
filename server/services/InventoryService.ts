@@ -84,6 +84,151 @@ export class InventoryService {
     }
   }
 
+  static async reverseFromPurchase(purchaseId: string): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: lots } = await client.query(
+        `SELECT id, item_id, received_qty, remaining_qty FROM inventory_lots WHERE purchase_id = $1`,
+        [purchaseId]
+      );
+
+      if (lots.length === 0) {
+        await client.query('COMMIT');
+        return;
+      }
+
+      for (const lot of lots) {
+        await client.query(
+          `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, reference_type, reference_id, transaction_date, notes)
+           VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, 0, 0, 'purchase_reversal', $4, NOW(), 'عكس مخزون - حذف مشتراة')`,
+          [lot.item_id, lot.id, parseFloat(lot.remaining_qty), purchaseId]
+        );
+
+        await client.query(
+          `UPDATE inventory_lots SET remaining_qty = 0 WHERE id = $1`,
+          [lot.id]
+        );
+      }
+
+      await client.query('COMMIT');
+      console.log(`📦 [Inventory] تم عكس المخزن للمشتراة ${purchaseId} (${lots.length} دفعة)`);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async reverseFromPurchaseWithClient(purchaseId: string, queryClient: { query: (sql: string, params: any[]) => Promise<{ rows: any[] }> }): Promise<void> {
+    const { rows: lots } = await queryClient.query(
+      `SELECT id, item_id, remaining_qty FROM inventory_lots WHERE purchase_id = $1`,
+      [purchaseId]
+    );
+
+    if (lots.length === 0) return;
+
+    for (const lot of lots) {
+      await queryClient.query(
+        `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, reference_type, reference_id, transaction_date, notes)
+         VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, 0, 0, 'purchase_reversal', $4, NOW(), 'عكس مخزون - حذف مشتراة')`,
+        [lot.item_id, lot.id, parseFloat(lot.remaining_qty), purchaseId]
+      );
+
+      await queryClient.query(
+        `UPDATE inventory_lots SET remaining_qty = 0 WHERE id = $1`,
+        [lot.id]
+      );
+    }
+    console.log(`📦 [Inventory] تم عكس المخزن للمشتراة ${purchaseId} (ذري)`);
+  }
+
+  static async updateFromPurchase(purchaseData: {
+    purchaseId: string;
+    materialName: string;
+    materialCategory?: string | null;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+    totalAmount: number;
+    purchaseDate: string;
+    supplierId?: string | null;
+    projectId?: string | null;
+    notes?: string | null;
+  }): Promise<{ itemId: number; lotId: number }> {
+    const txClient = await pool.connect();
+    try {
+      await txClient.query('BEGIN');
+      const queryFn = (sql: string, params: any[]) => txClient.query(sql, params);
+
+      const { rows: oldLots } = await txClient.query(
+        `SELECT id, item_id, received_qty, remaining_qty FROM inventory_lots WHERE purchase_id = $1 FOR UPDATE`,
+        [purchaseData.purchaseId]
+      );
+
+      let totalConsumed = 0;
+      for (const lot of oldLots) {
+        const received = parseFloat(lot.received_qty);
+        const remaining = parseFloat(lot.remaining_qty);
+        totalConsumed += (received - remaining);
+      }
+
+      if (purchaseData.quantity < totalConsumed) {
+        await txClient.query('ROLLBACK');
+        throw new Error(`لا يمكن تقليل الكمية إلى ${purchaseData.quantity} - تم صرف ${totalConsumed} بالفعل من المخزن`);
+      }
+
+      for (const lot of oldLots) {
+        const remaining = parseFloat(lot.remaining_qty);
+        if (remaining > 0) {
+          await txClient.query(
+            `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, reference_type, reference_id, transaction_date, notes)
+             VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, 0, 0, 'purchase_update', $4, NOW(), 'تحديث مشتراة - عكس رصيد متبقي')`,
+            [lot.item_id, lot.id, remaining, purchaseData.purchaseId]
+          );
+        }
+        await txClient.query(`UPDATE inventory_lots SET remaining_qty = 0 WHERE id = $1`, [lot.id]);
+      }
+
+      for (const lot of oldLots) {
+        await txClient.query(`DELETE FROM inventory_lots WHERE id = $1`, [lot.id]);
+      }
+
+      const newRemainingQty = purchaseData.quantity - totalConsumed;
+
+      const { rows: itemRows } = await queryFn(
+        `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3)
+         ON CONFLICT (name, unit, COALESCE(category, '')) DO UPDATE SET name = EXCLUDED.name
+         RETURNING id`,
+        [purchaseData.materialName, purchaseData.materialCategory || null, purchaseData.unit]
+      );
+      const itemId = itemRows[0].id;
+
+      const { rows: newLot } = await queryFn(
+        `INSERT INTO inventory_lots (item_id, supplier_id, purchase_id, received_qty, remaining_qty, unit_cost, receipt_date, project_id, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        [itemId, purchaseData.supplierId || null, purchaseData.purchaseId, purchaseData.quantity, newRemainingQty, purchaseData.unitPrice, purchaseData.purchaseDate, purchaseData.projectId || null, purchaseData.notes || null]
+      );
+
+      await queryFn(
+        `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, to_project_id, reference_type, reference_id, transaction_date, notes)
+         VALUES ($1, $2, 'IN', $3, $4, $5, $6, 'purchase_update', $7, $8, $9)`,
+        [itemId, newLot[0].id, purchaseData.quantity, purchaseData.unitPrice, purchaseData.totalAmount, purchaseData.projectId || null, purchaseData.purchaseId, purchaseData.purchaseDate, `تحديث مشتراة: ${purchaseData.materialName} (مستهلك: ${totalConsumed}, متبقي: ${newRemainingQty})`]
+      );
+
+      await txClient.query('COMMIT');
+      console.log(`📦 [Inventory] تحديث مشتراة ${purchaseData.purchaseId}: كمية جديدة=${purchaseData.quantity}, مستهلك=${totalConsumed}, متبقي=${newRemainingQty}`);
+      return { itemId, lotId: newLot[0].id };
+    } catch (error) {
+      await txClient.query('ROLLBACK');
+      throw error;
+    } finally {
+      txClient.release();
+    }
+  }
+
   static async receiveFromPurchaseWithClient(purchaseData: {
     purchaseId: string;
     materialName: string;
@@ -417,13 +562,75 @@ export class InventoryService {
     return stats[0] || {};
   }
 
-  static async updateItem(itemId: number, data: { name: string; category?: string; unit: string; min_quantity?: number }): Promise<void> {
-    const existing = await pool.query('SELECT id FROM inventory_items WHERE id = $1', [itemId]);
-    if (existing.rows.length === 0) throw new Error('المادة غير موجودة');
-    await pool.query(
-      'UPDATE inventory_items SET name = $1, category = $2, unit = $3, min_quantity = $4 WHERE id = $5',
-      [data.name, data.category || null, data.unit, data.min_quantity || 0, itemId]
-    );
+  static async updateItem(itemId: number, data: { name: string; category?: string; unit: string; min_quantity?: number; adjustment_quantity?: number }): Promise<void> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const existing = await client.query('SELECT id FROM inventory_items WHERE id = $1 FOR UPDATE', [itemId]);
+      if (existing.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('المادة غير موجودة');
+      }
+
+      await client.query(
+        'UPDATE inventory_items SET name = $1, category = $2, unit = $3, min_quantity = $4 WHERE id = $5',
+        [data.name, data.category || null, data.unit, data.min_quantity || 0, itemId]
+      );
+
+      if (data.adjustment_quantity !== undefined && data.adjustment_quantity !== null) {
+        const targetQty = Number(data.adjustment_quantity);
+        const { rows: currentRows } = await client.query(
+          `SELECT COALESCE(SUM(remaining_qty), 0) as current_remaining FROM inventory_lots WHERE item_id = $1`,
+          [itemId]
+        );
+        const currentRemaining = parseFloat(currentRows[0].current_remaining);
+        const diff = targetQty - currentRemaining;
+
+        if (Math.abs(diff) > 0.001) {
+          if (diff > 0) {
+            await client.query(
+              `INSERT INTO inventory_lots (item_id, received_qty, remaining_qty, unit_cost, receipt_date, notes)
+               VALUES ($1, $2, $3, 0, NOW(), 'تسوية مخزون - زيادة')`,
+              [itemId, diff, diff]
+            );
+            await client.query(
+              `INSERT INTO inventory_transactions (item_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
+               VALUES ($1, 'ADJUSTMENT_IN', $2, 0, 0, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
+              [itemId, diff]
+            );
+          } else {
+            const absAdjust = Math.abs(diff);
+            const { rows: lots } = await client.query(
+              `SELECT id, remaining_qty FROM inventory_lots WHERE item_id = $1 AND remaining_qty > 0 ORDER BY receipt_date ASC FOR UPDATE`,
+              [itemId]
+            );
+            let remaining = absAdjust;
+            for (const lot of lots) {
+              if (remaining <= 0) break;
+              const deduct = Math.min(remaining, parseFloat(lot.remaining_qty));
+              await client.query(
+                `UPDATE inventory_lots SET remaining_qty = remaining_qty - $1 WHERE id = $2`,
+                [deduct, lot.id]
+              );
+              remaining -= deduct;
+            }
+            await client.query(
+              `INSERT INTO inventory_transactions (item_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
+               VALUES ($1, 'ADJUSTMENT_OUT', $2, 0, 0, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
+              [itemId, absAdjust]
+            );
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   static async deleteItem(itemId: number): Promise<void> {

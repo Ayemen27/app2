@@ -100,6 +100,15 @@ export function generateDailyReportHTML(data: DailyReportData): string {
   );
   body += pdfKpiStrip(kpis);
 
+  if (data.fundTransfers.length > 0) {
+    body += pdfSectionTitle('التحويلات المالية');
+    body += `<table><thead><tr>
+      <th style="width:30px;">م</th><th>المرسل</th><th style="width:80px;">النوع</th><th style="width:100px;">رقم التحويل</th><th style="width:80px;">المبلغ</th>
+    </tr></thead><tbody>${fundTransferRows}
+    ${pdfTotalRow(['الإجمالي', formatNum(data.totals.totalFundTransfers)], 4)}
+    </tbody></table>`;
+  }
+
   if (data.attendance.length > 0) {
     body += pdfSectionTitle('سجل الحضور والعمالة');
     body += `<table><thead><tr>
@@ -167,15 +176,6 @@ export function generateDailyReportHTML(data: DailyReportData): string {
     });
     body += pdfTotalRow(['الإجمالي', formatNum(totalPtOut)], 3);
     body += `</tbody></table>`;
-  }
-
-  if (data.fundTransfers.length > 0) {
-    body += pdfSectionTitle('التحويلات المالية');
-    body += `<table><thead><tr>
-      <th style="width:30px;">م</th><th>المرسل</th><th style="width:80px;">النوع</th><th style="width:100px;">رقم التحويل</th><th style="width:80px;">المبلغ</th>
-    </tr></thead><tbody>${fundTransferRows}
-    ${pdfTotalRow(['الإجمالي', formatNum(data.totals.totalFundTransfers)], 4)}
-    </tbody></table>`;
   }
 
   body += pdfSectionTitle('ملخص اليوم المالي');

@@ -184,11 +184,15 @@ inventoryRouter.post('/adjust', async (req, res) => {
 inventoryRouter.put('/items/:id', async (req, res) => {
   try {
     const itemId = parseInt(req.params.id);
-    const { name, category, unit, min_quantity } = req.body;
+    const { name, category, unit, min_quantity, adjustment_quantity } = req.body;
     if (!name || !unit) {
       return res.status(400).json({ success: false, message: 'اسم المادة والوحدة مطلوبان' });
     }
-    await InventoryService.updateItem(itemId, { name, category, unit, min_quantity: parseFloat(min_quantity || '0') });
+    const updateData: any = { name, category, unit, min_quantity: parseFloat(min_quantity || '0') };
+    if (adjustment_quantity !== undefined && adjustment_quantity !== null && adjustment_quantity !== '') {
+      updateData.adjustment_quantity = parseFloat(adjustment_quantity);
+    }
+    await InventoryService.updateItem(itemId, updateData);
     res.json({ success: true, message: 'تم تحديث المادة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في تحديث المادة:', error);

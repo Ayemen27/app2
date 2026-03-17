@@ -123,6 +123,20 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
   kpiLabelRow.height = 20;
   row += 3;
 
+  row = xlSectionHeader(ws, row, 'التحويلات المالية (العهدة الواردة)', COL_COUNT);
+  row = xlMergedHeader(ws, row,
+    [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'المرسل' }, { col: 5, text: 'نوع التحويل' }, { col: 7, text: 'رقم التحويل' }],
+    [[3, 4], [5, 6], [7, 9]], COL_COUNT);
+  data.fundTransfers.forEach((rec, idx) => {
+    row = xlMergedDataRow(ws, row,
+      [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.senderName, rightAlign: true }, { col: 5, value: rec.transferType }, { col: 7, value: rec.transferNumber }],
+      [[3, 4], [5, 6], [7, 9]], COL_COUNT, idx % 2 === 1);
+  });
+  row = xlMergedTotalsRow(ws, row,
+    [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalFundTransfers) }],
+    [[1, 1], [3, 9]], COL_COUNT);
+  row++;
+
   row = xlSectionHeader(ws, row, 'سجل الحضور والأجور', COL_COUNT);
   row = xlTableHeader(ws, row, ['#', 'اسم العامل', 'النوع', 'أيام العمل', 'الأجر اليومي', 'إجمالي الأجر', 'المدفوع', 'المتبقي', 'الوصف']);
   data.attendance.forEach((rec, idx) => {
@@ -242,20 +256,6 @@ export async function generateDailyReportExcel(data: DailyReportData): Promise<B
       [[1, 6], [7, 9]], COL_COUNT);
     row++;
   }
-
-  row = xlSectionHeader(ws, row, 'تحويلات العهدة', COL_COUNT);
-  row = xlMergedHeader(ws, row,
-    [{ col: 1, text: '#' }, { col: 2, text: 'المبلغ' }, { col: 3, text: 'المرسل' }, { col: 5, text: 'نوع التحويل' }, { col: 7, text: 'رقم التحويل' }],
-    [[3, 4], [5, 6], [7, 9]], COL_COUNT);
-  data.fundTransfers.forEach((rec, idx) => {
-    row = xlMergedDataRow(ws, row,
-      [{ col: 1, value: idx + 1 }, { col: 2, value: formatNum(rec.amount) }, { col: 3, value: rec.senderName, rightAlign: true }, { col: 5, value: rec.transferType }, { col: 7, value: rec.transferNumber }],
-      [[3, 4], [5, 6], [7, 9]], COL_COUNT, idx % 2 === 1);
-  });
-  row = xlMergedTotalsRow(ws, row,
-    [{ col: 1, value: 'الإجمالي' }, { col: 2, value: formatNum(data.totals.totalFundTransfers) }],
-    [[1, 1], [3, 9]], COL_COUNT);
-  row++;
 
   row = xlSectionHeader(ws, row, 'ملخص اليوم', COL_COUNT);
   const summaryItems = [

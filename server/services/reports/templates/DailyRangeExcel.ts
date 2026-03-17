@@ -224,31 +224,7 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
     row = xlKpiBar(ws, row, kpis, COL_COUNT);
 
     row++;
-    if (expenses.length > 0) {
-      row = xlSectionHeader(ws, row, 'جدول المصروفات', COL_COUNT);
-      row = xlTableHeader(ws, row, ['م', 'القسم', 'البيان', 'أيام العمل', 'المبلغ (YER)', 'ملاحظات']);
-      expenses.forEach((e, idx) => {
-        row = xlDataRow(ws, row, [idx + 1, e.category, e.description, e.workDays, formatNum(e.amount), e.notes], idx % 2 === 1);
-      });
-
-      const totR = ws.getRow(row);
-      ws.mergeCells(row, 1, row, 3);
-      totR.getCell(1).value = 'إجمالي المصروفات';
-      totR.getCell(4).value = '';
-      totR.getCell(5).value = formatNum(totalExpenses);
-      totR.getCell(6).value = `${expenses.length} عملية`;
-      for (let c = 1; c <= COL_COUNT; c++) {
-        totR.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
-        totR.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
-        totR.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
-        totR.getCell(c).border = BORDER;
-      }
-      totR.height = 28;
-      row++;
-    }
-
     if (fundTransfers.length > 0) {
-      row++;
       const secR = ws.getRow(row);
       ws.mergeCells(row, 1, row, COL_COUNT);
       secR.getCell(1).value = 'العهدة (الوارد للصندوق)';
@@ -282,6 +258,30 @@ export async function generateDailyRangeExcel(reports: DailyReportData[]): Promi
         ftR.getCell(c).border = BORDER;
       }
       ftR.height = 26;
+      row++;
+    }
+
+    if (expenses.length > 0) {
+      row++;
+      row = xlSectionHeader(ws, row, 'جدول المصروفات', COL_COUNT);
+      row = xlTableHeader(ws, row, ['م', 'القسم', 'البيان', 'أيام العمل', 'المبلغ (YER)', 'ملاحظات']);
+      expenses.forEach((e, idx) => {
+        row = xlDataRow(ws, row, [idx + 1, e.category, e.description, e.workDays, formatNum(e.amount), e.notes], idx % 2 === 1);
+      });
+
+      const totR = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 3);
+      totR.getCell(1).value = 'إجمالي المصروفات';
+      totR.getCell(4).value = '';
+      totR.getCell(5).value = formatNum(totalExpenses);
+      totR.getCell(6).value = `${expenses.length} عملية`;
+      for (let c = 1; c <= COL_COUNT; c++) {
+        totR.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+        totR.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+        totR.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        totR.getCell(c).border = BORDER;
+      }
+      totR.height = 28;
       row++;
     }
 

@@ -83,7 +83,7 @@ export function EquipmentManagement() {
   const [showEditItemDialog, setShowEditItemDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', category: '', unit: '', min_quantity: '' });
+  const [editForm, setEditForm] = useState({ name: '', category: '', unit: '', min_quantity: '', adjustment_quantity: '' });
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -394,7 +394,7 @@ export function EquipmentManagement() {
   });
 
   const updateItemMutation = useMutation({
-    mutationFn: (data: { id: number; name: string; category: string; unit: string; min_quantity: string }) =>
+    mutationFn: (data: { id: number; name: string; category: string; unit: string; min_quantity: string; adjustment_quantity?: string }) =>
       apiRequest(`/api/inventory/items/${data.id}`, 'PUT', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
@@ -427,6 +427,7 @@ export function EquipmentManagement() {
       category: item.category || '',
       unit: item.unit,
       min_quantity: item.min_quantity || '0',
+      adjustment_quantity: parseFloat(item.total_remaining || '0').toString(),
     });
     setShowEditItemDialog(true);
   }, []);
@@ -745,11 +746,23 @@ export function EquipmentManagement() {
             </div>
             <div>
               <Label>الفئة</Label>
-              <Input data-testid="input-edit-category" value={editForm.category} onChange={(e) => setEditForm(f => ({ ...f, category: e.target.value }))} />
+              <Input data-testid="input-edit-category" value={editForm.category} onChange={(e) => setEditForm(f => ({ ...f, category: e.target.value }))} list="edit-categories-list" />
+              <datalist id="edit-categories-list">
+                {categories.map(c => <option key={c} value={c} />)}
+              </datalist>
             </div>
             <div>
               <Label>الوحدة</Label>
               <Input data-testid="input-edit-unit" value={editForm.unit} onChange={(e) => setEditForm(f => ({ ...f, unit: e.target.value }))} />
+            </div>
+            <div>
+              <Label>الكمية الحالية ({editingItem?.unit || 'وحدة'})</Label>
+              <Input data-testid="input-edit-quantity" type="number" step="0.001" value={editForm.adjustment_quantity} onChange={(e) => setEditForm(f => ({ ...f, adjustment_quantity: e.target.value }))} />
+              {editingItem && parseFloat(editForm.adjustment_quantity || '0') !== parseFloat(editingItem.total_remaining || '0') && (
+                <p className="text-xs text-amber-600 mt-1">
+                  سيتم إنشاء تسوية مخزنية: الكمية الحالية {parseFloat(editingItem.total_remaining || '0').toFixed(1)} → {parseFloat(editForm.adjustment_quantity || '0').toFixed(1)}
+                </p>
+              )}
             </div>
             <div>
               <Label>الحد الأدنى للمخزون</Label>
@@ -759,7 +772,17 @@ export function EquipmentManagement() {
           <DialogFooter className="gap-2 mt-4">
             <Button data-testid="button-cancel-edit" variant="outline" onClick={() => { setShowEditItemDialog(false); setEditingItem(null); }}>إلغاء</Button>
             <Button data-testid="button-save-edit" disabled={updateItemMutation.isPending || !editForm.name || !editForm.unit} onClick={() => {
-              if (editingItem) updateItemMutation.mutate({ id: editingItem.id, ...editForm });
+              if (editingItem) {
+                const hasQuantityChange = parseFloat(editForm.adjustment_quantity || '0') !== parseFloat(editingItem.total_remaining || '0');
+                updateItemMutation.mutate({
+                  id: editingItem.id,
+                  name: editForm.name,
+                  category: editForm.category,
+                  unit: editForm.unit,
+                  min_quantity: editForm.min_quantity,
+                  ...(hasQuantityChange ? { adjustment_quantity: editForm.adjustment_quantity } : {}),
+                });
+              }
             }}>
               {updateItemMutation.isPending ? 'جاري الحفظ...' : 'حفظ التعديلات'}
             </Button>

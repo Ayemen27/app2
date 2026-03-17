@@ -166,11 +166,11 @@ async function calculatePreviewData(
   for (const row of earnedResult.rows) {
     const transferred = transferMap.get(`${row.worker_id}:${row.project_id}`) || 0;
     const settled = settledMap.get(`${row.worker_id}:${row.project_id}`) || 0;
-    const earned = parseFloat(row.total_earned);
-    const paid = parseFloat(row.total_paid);
-    const balance = earned - paid - transferred - settled;
+    const earned = Math.round(parseFloat(row.total_earned));
+    const paid = Math.round(parseFloat(row.total_paid));
+    const balance = Math.round(earned - paid - Math.round(transferred) - Math.round(settled));
 
-    if (Math.abs(balance) < 0.01) continue;
+    if (Math.abs(balance) < 1) continue;
 
     if (!workerMap.has(row.worker_id)) {
       workerMap.set(row.worker_id, {
@@ -205,7 +205,7 @@ async function calculatePreviewData(
     }
 
     if (balance < 0) {
-      warnings.push(`العامل ${row.worker_name} لديه رصيد سالب (${balance.toFixed(2)}) في مشروع ${row.project_name} — سيتم خصمه من الصافي`);
+      warnings.push(`العامل ${row.worker_name} لديه رصيد سالب (${balance}) في مشروع ${row.project_name} — سيتم خصمه من الصافي`);
     }
   }
 
@@ -214,7 +214,7 @@ async function calculatePreviewData(
     worker.netSettlementAmount = netBalance;
 
     if (worker.totalBalance <= 0 && worker.totalPositiveBalance > 0) {
-      warnings.push(`العامل ${worker.workerName}: الصافي الكلي سالب أو صفر (${worker.totalBalance.toFixed(2)}) — لا يمكن تصفيته. الأرصدة السالبة (${worker.totalNegativeBalance.toFixed(2)}) أكبر من الموجبة (${worker.totalPositiveBalance.toFixed(2)})`);
+      warnings.push(`العامل ${worker.workerName}: الصافي الكلي سالب أو صفر (${Math.round(worker.totalBalance)}) — لا يمكن تصفيته. الأرصدة السالبة (${Math.round(worker.totalNegativeBalance)}) أكبر من الموجبة (${Math.round(worker.totalPositiveBalance)})`);
     }
 
     if (netBalance > 0 && worker.totalPositiveBalance > 0) {
@@ -226,17 +226,17 @@ async function calculatePreviewData(
       }
 
       const cappedSum = worker.projects.reduce((s, p) => s + p.cappedSettlementAmount, 0);
-      const diff = netBalance - cappedSum;
+      const diff = Math.round(netBalance - cappedSum);
       if (Math.abs(diff) > 0) {
         const largestPositive = worker.projects.reduce((max, p) =>
           p.cappedSettlementAmount > (max?.cappedSettlementAmount || 0) ? p : max, worker.projects[0]);
         if (largestPositive) {
-          largestPositive.cappedSettlementAmount = largestPositive.cappedSettlementAmount + diff;
+          largestPositive.cappedSettlementAmount = Math.round(largestPositive.cappedSettlementAmount + diff);
         }
       }
 
       if (ratio < 1) {
-        warnings.push(`العامل ${worker.workerName}: تم تخفيض مبلغ التصفية من ${worker.totalPositiveBalance.toFixed(2)} إلى ${netBalance.toFixed(2)} بسبب أرصدة سالبة في مشاريع أخرى (${worker.totalNegativeBalance.toFixed(2)})`);
+        warnings.push(`العامل ${worker.workerName}: تم تخفيض مبلغ التصفية من ${Math.round(worker.totalPositiveBalance)} إلى ${Math.round(netBalance)} بسبب أرصدة سالبة في مشاريع أخرى (${Math.round(worker.totalNegativeBalance)})`);
       }
     }
   }
@@ -476,12 +476,12 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           if (!proj.isSettlementProject) {
             const existing = actualFundTotals.get(proj.projectId);
             if (existing) {
-              existing.amount += settlementAmount;
+              existing.amount = Math.round(existing.amount + settlementAmount);
             } else {
               actualFundTotals.set(proj.projectId, {
                 fromProjectId: proj.projectId,
                 fromProjectName: proj.projectName,
-                amount: settlementAmount,
+                amount: Math.round(settlementAmount),
               });
             }
           }

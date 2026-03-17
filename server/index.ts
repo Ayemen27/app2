@@ -348,6 +348,7 @@ io.on('connection', (socket) => {
   });
 });
 
+
 // ✅ **Routes Registration**
 app.get("/api/health", (req: Request, res: Response): void => {
   const connectionStatus = getConnectionHealthStatus();

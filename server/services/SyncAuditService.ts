@@ -357,11 +357,6 @@ export class SyncAuditService {
     return { deletedCount };
   }
 
-  static async archiveLogs(olderThanDays: number = 90): Promise<{ archivedCount: number }> {
-    const result = await this.purgeLogs(olderThanDays);
-    return { archivedCount: result.deletedCount };
-  }
-
   static async getLogsSizeInfo(): Promise<{ totalLogs: number; oldestLog: string | null; newestLog: string | null }> {
     const [result] = await db.select({
       totalLogs: sql<number>`count(*)::int`,

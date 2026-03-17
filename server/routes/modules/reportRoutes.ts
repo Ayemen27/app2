@@ -553,14 +553,14 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         .map((a: any) => {
           const days = parseFloat(a.workDays || '0');
           const wage = parseFloat(a.dailyWage || '0');
-          const earnedAmount = days * wage;
+          const earnedAmount = Math.round(days * wage);
           
           return {
             date: a.attendanceDate,
             type: 'عمل',
             description: a.workDescription || (days > 0 ? 'تنفيذ مهام العمل الموكلة' : 'تسجيل حضور'),
             amount: earnedAmount,
-            paid: parseFloat(a.paidAmount || '0'),
+            paid: Math.round(parseFloat(a.paidAmount || '0')),
             workDays: days,
             projectName: a.projectName || '-',
             reference: 'حضور'
@@ -571,7 +571,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         type: 'حوالة',
         description: `حوالة لـ ${t.recipientName}`,
         amount: 0,
-        paid: parseFloat(t.amount || '0'),
+        paid: Math.round(parseFloat(t.amount || '0')),
         workDays: 0,
         projectName: t.projectName || '-',
         reference: t.transferNumber || 'حوالة'
@@ -582,6 +582,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
     let runningBalance = 0;
     const finalStatement = statement.map(item => {
       runningBalance += (item.amount - item.paid);
+      runningBalance = Math.round(runningBalance);
       return { ...item, balance: runningBalance };
     });
 
@@ -593,10 +594,10 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         worker: worker[0],
         statement: finalStatement,
         summary: {
-          totalEarned: finalStatement.reduce((sum, i) => sum + i.amount, 0),
-          totalPaid: finalStatement.reduce((sum, i) => sum + i.paid, 0),
+          totalEarned: Math.round(finalStatement.reduce((sum, i) => sum + i.amount, 0)),
+          totalPaid: Math.round(finalStatement.reduce((sum, i) => sum + i.paid, 0)),
           totalWorkDays: totalWorkDays,
-          finalBalance: runningBalance
+          finalBalance: Math.round(runningBalance)
         }
       }
     });

@@ -21,6 +21,7 @@ import {
   Activity,
   Server,
   FileArchive,
+  User,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +59,7 @@ interface BackupLog {
   tablesCount: number | null;
   totalRows: number | null;
   durationMs: number | null;
+  triggeredBy: string | null;
 }
 
 interface BackupStatus {
@@ -509,6 +511,7 @@ export default function BackupManager() {
                   { label: 'الصفوف', value: log.totalRows ? log.totalRows.toLocaleString() : '-', icon: Activity, color: 'warning' },
                   { label: 'المدة', value: formatDuration(log.durationMs), icon: Clock, color: 'muted' },
                   { label: 'التاريخ', value: formatDate(log.created_at), icon: Calendar, color: 'info' },
+                  { label: 'المسؤول', value: log.triggeredBy === 'auto' || log.triggeredBy === 'scheduler' ? 'تلقائي' : log.triggeredBy || 'غير محدد', icon: User, color: log.triggeredBy === 'auto' || log.triggeredBy === 'scheduler' ? 'muted' : 'info' },
                 ]}
                 actions={[
                   { icon: Download, label: 'تنزيل', onClick: () => handleDownload(log.filename), color: 'blue' },

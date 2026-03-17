@@ -41,6 +41,7 @@ interface BackupMeta {
   environment: string;
   checksum?: string;
   skippedTables?: string[];
+  triggeredBy?: string;
 }
 
 export class BackupService {
@@ -149,6 +150,13 @@ export class BackupService {
 
         const exportReport = await exportStreamingBackup(pool, backupDir);
 
+        const manifestPath = path.join(backupDir, 'manifest.json');
+        try {
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+          manifest.triggeredBy = triggeredBy;
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+        } catch (_) {}
+
         this.status.lastSuccessAt = new Date().toISOString();
         this.status.totalSuccess++;
         this.status.lastError = null;
@@ -238,6 +246,7 @@ export class BackupService {
         environment: process.env.NODE_ENV || 'development',
         checksum: dataChecksum,
         skippedTables: skippedTables.length > 0 ? skippedTables : undefined,
+        triggeredBy,
       };
 
       const fullData = JSON.stringify({ meta, schemas: schemasDDL, sequences: sequencesDDL, data: backupData });
@@ -249,6 +258,8 @@ export class BackupService {
         createGzip({ level: 6 }),
         fs.createWriteStream(gzPath)
       );
+
+      try { fs.writeFileSync(gzPath + '.meta', JSON.stringify(meta), 'utf-8'); } catch (_) {}
 
       const stats = fs.statSync(gzPath);
       const originalSize = Buffer.byteLength(fullData, 'utf-8');
@@ -681,16 +692,34 @@ export class BackupService {
               tablesCount: manifest?.totalTables || (manifest?.tables ? Object.keys(manifest.tables || {}).length : null),
               totalRows: manifest?.totalRows || null,
               durationMs: manifest?.durationMs || null,
+              triggeredBy: manifest?.triggeredBy || null,
             });
             continue;
           }
 
+          if (f.endsWith('.meta')) continue;
           if (!f.startsWith('backup-') || !(f.endsWith('.json.gz') || f.endsWith('.json') || f.endsWith('.db'))) {
             continue;
           }
 
           let meta: any = null;
-          if (f.endsWith('.json') && stats.size < 500 * 1024) {
+          const sidecarPath = filePath + '.meta';
+          if (fs.existsSync(sidecarPath)) {
+            try {
+              meta = JSON.parse(fs.readFileSync(sidecarPath, 'utf-8'));
+            } catch (_) {}
+          }
+          if (!meta && f.endsWith('.json.gz')) {
+            try {
+              const { gunzipSync } = require('zlib');
+              const decompressed = gunzipSync(fs.readFileSync(filePath));
+              const parsed = JSON.parse(decompressed.toString('utf-8'));
+              if (parsed.meta) {
+                meta = parsed.meta;
+                try { fs.writeFileSync(sidecarPath, JSON.stringify(meta), 'utf-8'); } catch (_) {}
+              }
+            } catch (_) {}
+          } else if (!meta && f.endsWith('.json') && stats.size < 500 * 1024) {
             try {
               const content = fs.readFileSync(filePath, 'utf-8');
               const parsed = JSON.parse(content);
@@ -706,10 +735,11 @@ export class BackupService {
             compressed: f.endsWith('.gz'),
             format: f.endsWith('.gz') ? 'json.gz' : f.endsWith('.json') ? 'json' : 'sqlite',
             status: 'success',
-            created_at: stats.mtime.toISOString(),
+            created_at: meta?.timestamp || stats.mtime.toISOString(),
             tablesCount: meta?.tablesCount || (meta?.tables ? Object.keys(meta.tables || {}).length : null),
             totalRows: meta?.totalRows || null,
             durationMs: meta?.durationMs || null,
+            triggeredBy: meta?.triggeredBy || null,
           });
         } catch (e) {
           continue;
@@ -774,6 +804,8 @@ export class BackupService {
         console.log(`🗑️ [BackupService] حذف نسخة streaming: ${filename}`);
       } else {
         fs.unlinkSync(filePath);
+        const sidecar = filePath + '.meta';
+        if (fs.existsSync(sidecar)) fs.unlinkSync(sidecar);
         console.log(`🗑️ [BackupService] حذف نسخة: ${filename} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
       }
       return { success: true, message: `تم حذف النسخة ${filename} بنجاح` };
@@ -940,7 +972,7 @@ export class BackupService {
   private static async enforceRetentionPolicy() {
     try {
       const files = fs.readdirSync(BACKUPS_DIR)
-        .filter(f => f.startsWith('backup-'))
+        .filter(f => f.startsWith('backup-') && !f.endsWith('.meta'))
         .map(f => ({
           name: f,
           path: path.join(BACKUPS_DIR, f),
@@ -956,10 +988,25 @@ export class BackupService {
             fs.rmSync(file.path, { recursive: true, force: true });
           } else {
             fs.unlinkSync(file.path);
+            const sidecar = file.path + '.meta';
+            if (fs.existsSync(sidecar)) fs.unlinkSync(sidecar);
           }
           console.log(`🗑️ [Retention] حذف نسخة قديمة: ${file.name}`);
         }
         console.log(`📋 [Retention] تم حذف ${toDelete.length} نسخة قديمة (الاحتفاظ بآخر ${MAX_RETENTION})`);
+      }
+
+      const allFiles = fs.readdirSync(BACKUPS_DIR);
+      for (const f of allFiles) {
+        if (!f.endsWith('.meta')) continue;
+        const baseName = f.replace(/\.meta$/, '');
+        const basePath = path.join(BACKUPS_DIR, baseName);
+        if (!fs.existsSync(basePath)) {
+          try {
+            fs.unlinkSync(path.join(BACKUPS_DIR, f));
+            console.log(`🧹 [Retention] حذف sidecar يتيم: ${f}`);
+          } catch {}
+        }
       }
     } catch (error: any) {
       console.warn('⚠️ [Retention] فشل تطبيق سياسة الاحتفاظ:', error.message);

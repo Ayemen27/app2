@@ -425,6 +425,8 @@ export class InventoryService {
 
     const projectConditionTxReturn = projectConditionTx.replace(/it2\./g, 'it3.');
 
+    const joinType = filters?.projectId ? 'JOIN' : 'LEFT JOIN';
+
     let query = `
       SELECT 
         ii.id, ii.name, ii.category, ii.unit, ii.sku, ii.min_quantity, ii.is_active,
@@ -438,7 +440,7 @@ export class InventoryService {
         MAX(il.receipt_date) as last_receipt_date,
         (SELECT string_agg(DISTINCT p2.name, '، ') FROM inventory_lots il3 JOIN projects p2 ON p2.id = il3.project_id WHERE il3.item_id = ii.id${projectConditionLot.replace(/il2\./g, 'il3.')}) as project_name
       FROM inventory_items ii
-      LEFT JOIN inventory_lots il ON il.item_id = ii.id${projectCondition}
+      ${joinType} inventory_lots il ON il.item_id = ii.id${projectCondition}
       LEFT JOIN projects p ON p.id = il.project_id
       WHERE ii.is_active = true
     `;

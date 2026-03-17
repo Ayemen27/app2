@@ -13,6 +13,7 @@ import { SyncAuditService } from '../../services/SyncAuditService.js';
 import { SYNCABLE_TABLES } from '../../../shared/schema.js';
 import { getAuthUser, isAdmin, getUserDisplayName } from '../../internal/auth-user.js';
 import { projectAccessService } from '../../services/ProjectAccessService.js';
+import { z } from 'zod';
 
 export const syncRouter = express.Router();
 
@@ -84,13 +85,54 @@ async function retryWithBackoff<T>(
   throw lastError;
 }
 
-async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ table: string; rows: Record<string, unknown>[]; error?: string; deltaApplied?: boolean; retries?: number }> {
+const TABLE_PK_CACHE = new Map<string, string>();
+
+async function getTablePrimaryKey(table: string): Promise<string> {
+  if (TABLE_PK_CACHE.has(table)) return TABLE_PK_CACHE.get(table)!;
+  const result = await pool.query(
+    `SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE i.indrelid = $1::regclass AND i.indisprimary`,
+    [table]
+  );
+  const pk = result.rows.length > 0 ? (result.rows[0] as { attname: string }).attname : 'id';
+  TABLE_PK_CACHE.set(table, pk);
+  return pk;
+}
+
+interface FetchTableOptions {
+  table: string;
+  lastSyncTime?: string;
+  cursor?: string;
+  pageSize?: number;
+}
+
+interface FetchTableResult {
+  table: string;
+  rows: Record<string, unknown>[];
+  error?: string;
+  deltaApplied?: boolean;
+  nextCursor?: string | null;
+  hasMore?: boolean;
+  totalFetched?: number;
+}
+
+const DEFAULT_PAGE_SIZE = 5000;
+const MAX_PAGE_SIZE = 10000;
+
+async function fetchTableData(table: string, lastSyncTime?: string): Promise<FetchTableResult> {
+  return fetchTableDataPaginated({ table, lastSyncTime });
+}
+
+async function fetchTableDataPaginated(opts: FetchTableOptions): Promise<FetchTableResult> {
+  const { table, lastSyncTime, cursor } = opts;
+  const pageSize = Math.min(opts.pageSize || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+
   if (!ALL_DATABASE_TABLES.includes(table)) {
     return { table, rows: [], error: 'Invalid table name' };
   }
   try {
     const params: unknown[] = [];
-    let query = `SELECT * FROM "${table}"`;
+    let paramIndex = 1;
+    const conditions: string[] = [];
     let deltaApplied = false;
 
     if (lastSyncTime) {
@@ -101,25 +143,47 @@ async function fetchTableData(table: string, lastSyncTime?: string): Promise<{ t
       const isoTime = parsed.toISOString();
       const cols = await getTableDateColumns(table);
       if (cols.includes('updated_at') && cols.includes('created_at')) {
-        query += ` WHERE (updated_at > $1 OR created_at > $1)`;
+        conditions.push(`(updated_at > $${paramIndex} OR created_at > $${paramIndex})`);
         params.push(isoTime);
+        paramIndex++;
         deltaApplied = true;
       } else if (cols.includes('updated_at')) {
-        query += ` WHERE updated_at > $1`;
+        conditions.push(`updated_at > $${paramIndex}`);
         params.push(isoTime);
+        paramIndex++;
         deltaApplied = true;
       } else if (cols.includes('created_at')) {
-        query += ` WHERE created_at > $1`;
+        conditions.push(`created_at > $${paramIndex}`);
         params.push(isoTime);
+        paramIndex++;
         deltaApplied = true;
       }
     }
 
-    query += ' LIMIT 50000';
-    const finalQuery = query;
-    const finalParams = params;
-    const result = await retryWithBackoff(() => pool.query(finalQuery, finalParams));
-    return { table, rows: result.rows, deltaApplied };
+    const pk = await getTablePrimaryKey(table);
+
+    if (cursor) {
+      conditions.push(`"${pk}" > $${paramIndex}`);
+      const numericCursor = /^\d+$/.test(cursor) ? Number(cursor) : cursor;
+      params.push(numericCursor);
+      paramIndex++;
+    }
+
+    let query = `SELECT * FROM "${table}"`;
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    query += ` ORDER BY "${pk}" ASC LIMIT $${paramIndex}`;
+    params.push(pageSize + 1);
+
+    const result = await retryWithBackoff(() => pool.query(query, params));
+    const hasMore = result.rows.length > pageSize;
+    const rows = hasMore ? result.rows.slice(0, pageSize) : result.rows;
+    const nextCursor = hasMore && rows.length > 0
+      ? String((rows[rows.length - 1] as Record<string, unknown>)[pk])
+      : null;
+
+    return { table, rows, deltaApplied, nextCursor, hasMore, totalFetched: rows.length };
   } catch (e: any) {
     return { table, rows: [], error: e.message };
   }
@@ -313,6 +377,118 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
       error: error instanceof Error ? error.message : String(error),
       message: "حدث خطأ غير متوقع في الخادم"
     });
+  }
+});
+
+/**
+ * 📄 المزامنة بالصفحات (Paginated Sync)
+ * POST /api/sync/paginated
+ * جلب بيانات جدول واحد بنظام الصفحات (cursor-based)
+ */
+const paginatedSyncSchema = z.object({
+  table: z.string().min(1).max(100),
+  lastSyncTime: z.string().optional(),
+  cursor: z.string().optional(),
+  pageSize: z.number().int().min(100).max(MAX_PAGE_SIZE).optional(),
+});
+
+syncRouter.post('/paginated', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+
+  const parsed = paginatedSyncSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      message: 'بيانات الطلب غير صالحة',
+      errors: parsed.error.issues.map(e => ({ path: e.path.join('.'), message: e.message })),
+    });
+  }
+
+  const { table, lastSyncTime, cursor, pageSize } = parsed.data;
+  const startTime = Date.now();
+
+  if (!ALL_DATABASE_TABLES.includes(table)) {
+    return res.status(400).json({ success: false, message: `جدول غير صالح: ${table}` });
+  }
+
+  try {
+    const result = await fetchTableDataPaginated({ table, lastSyncTime, cursor, pageSize });
+    const duration = Date.now() - startTime;
+
+    SyncAuditService.logOperation({
+      user_id: getAuthUser(req)?.user_id,
+      userName: getUserDisplayName(getAuthUser(req)),
+      action: 'paginated_sync',
+      tableName: table,
+      status: result.error ? 'failed' : 'success',
+      ipAddress: req.ip || req.headers['x-forwarded-for'] as string,
+      userAgent: req.headers['user-agent'],
+      durationMs: duration,
+      syncType: 'paginated',
+      description: `صفحة: ${result.totalFetched || 0} سجل${result.hasMore ? ' (يوجد المزيد)' : ' (آخر صفحة)'}`,
+    }).catch(() => {});
+
+    if (result.error) {
+      return res.status(500).json({ success: false, message: result.error });
+    }
+
+    return res.status(200).json({
+      success: true,
+      table: result.table,
+      data: result.rows,
+      pagination: {
+        cursor: result.nextCursor,
+        hasMore: result.hasMore,
+        pageSize: pageSize || DEFAULT_PAGE_SIZE,
+        fetched: result.totalFetched,
+      },
+      deltaApplied: result.deltaApplied,
+      metadata: {
+        duration,
+        timestamp: Date.now(),
+        version: '4.0-paginated',
+      },
+    });
+  } catch (error: unknown) {
+    console.error(`❌ [Sync-Paginated] خطأ في جلب ${table}:`, error);
+    return res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+/**
+ * 📋 قائمة الجداول المتاحة للمزامنة بالصفحات
+ * GET /api/sync/tables
+ */
+syncRouter.get('/tables', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+
+  try {
+    const tableInfo: { name: string; hasUpdatedAt: boolean; hasCreatedAt: boolean }[] = [];
+    for (const table of ALL_DATABASE_TABLES) {
+      const cols = await getTableDateColumns(table as string);
+      tableInfo.push({
+        name: table as string,
+        hasUpdatedAt: cols.includes('updated_at'),
+        hasCreatedAt: cols.includes('created_at'),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      tables: tableInfo,
+      totalTables: tableInfo.length,
+      defaultPageSize: DEFAULT_PAGE_SIZE,
+      maxPageSize: MAX_PAGE_SIZE,
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) });
   }
 });
 
@@ -525,21 +701,6 @@ syncRouter.get('/stats', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * 📋 الحصول على قائمة الجداول المدعومة
- * GET /api/sync/tables
- */
-syncRouter.get('/tables', async (req: Request, res: Response) => {
-  if (!isAdmin(req)) {
-    return res.status(403).json({ success: false, message: 'Admin access required' });
-  }
-  return res.status(200).json({
-    success: true,
-    tables: ALL_DATABASE_TABLES,
-    count: ALL_DATABASE_TABLES.length,
-    version: '2.0'
-  });
-});
 
 /**
  * 🔄 Atomic Batch Sync
@@ -547,18 +708,112 @@ syncRouter.get('/tables', async (req: Request, res: Response) => {
  */
 const SAFE_COLUMN_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-function sanitizeColumns(payload: Record<string, any>): { columns: string[]; values: any[] } {
+const SERVER_MANAGED_COLUMNS = new Set([
+  'created_at', 'updated_at', 'created_by',
+  'is_local', 'synced', 'pending_sync', 'version', 'last_modified_by',
+]);
+
+const ALLOWED_COLUMNS_BY_TABLE: Record<string, { insert: Set<string>; update: Set<string> }> = {
+  fund_transfers: {
+    insert: new Set(['id', 'project_id', 'amount', 'sender_name', 'transfer_number', 'transfer_type', 'transfer_date', 'notes']),
+    update: new Set(['amount', 'sender_name', 'transfer_number', 'transfer_type', 'transfer_date', 'notes']),
+  },
+  worker_attendance: {
+    insert: new Set(['id', 'project_id', 'worker_id', 'attendance_date', 'date', 'start_time', 'end_time', 'work_description', 'is_present', 'hours_worked', 'overtime', 'overtime_rate', 'work_days', 'daily_wage', 'actual_wage', 'total_pay', 'paid_amount', 'remaining_amount', 'payment_type', 'notes', 'well_id', 'well_ids', 'crew_type', 'description']),
+    update: new Set(['attendance_date', 'date', 'start_time', 'end_time', 'work_description', 'is_present', 'hours_worked', 'overtime', 'overtime_rate', 'work_days', 'daily_wage', 'actual_wage', 'total_pay', 'paid_amount', 'remaining_amount', 'payment_type', 'notes', 'well_id', 'well_ids', 'crew_type', 'description']),
+  },
+  transportation_expenses: {
+    insert: new Set(['id', 'project_id', 'worker_id', 'amount', 'description', 'category', 'date', 'notes', 'well_id', 'well_ids', 'crew_type']),
+    update: new Set(['amount', 'description', 'category', 'date', 'notes', 'worker_id', 'well_id', 'well_ids', 'crew_type']),
+  },
+  material_purchases: {
+    insert: new Set(['id', 'project_id', 'supplier_id', 'material_id', 'material_name', 'material_category', 'material_unit', 'quantity', 'unit', 'unit_price', 'total_amount', 'purchase_type', 'paid_amount', 'remaining_amount', 'supplier_name', 'receipt_number', 'invoice_number', 'invoice_date', 'due_date', 'invoice_photo', 'notes', 'purchase_date', 'well_id', 'well_ids', 'crew_type', 'add_to_inventory', 'equipment_id', 'description']),
+    update: new Set(['supplier_id', 'material_id', 'material_name', 'material_category', 'material_unit', 'quantity', 'unit', 'unit_price', 'total_amount', 'purchase_type', 'paid_amount', 'remaining_amount', 'supplier_name', 'receipt_number', 'invoice_number', 'invoice_date', 'due_date', 'invoice_photo', 'notes', 'purchase_date', 'well_id', 'well_ids', 'crew_type', 'add_to_inventory', 'equipment_id', 'description']),
+  },
+  worker_transfers: {
+    insert: new Set(['id', 'worker_id', 'project_id', 'amount', 'transfer_number', 'sender_name', 'recipient_name', 'recipient_phone', 'transfer_method', 'transfer_date', 'notes', 'description']),
+    update: new Set(['amount', 'transfer_number', 'sender_name', 'recipient_name', 'recipient_phone', 'transfer_method', 'transfer_date', 'notes', 'description']),
+  },
+  worker_misc_expenses: {
+    insert: new Set(['id', 'project_id', 'amount', 'description', 'date', 'notes', 'well_id', 'well_ids', 'crew_type']),
+    update: new Set(['amount', 'description', 'date', 'notes', 'well_id', 'well_ids', 'crew_type']),
+  },
+  projects: {
+    insert: new Set(['id', 'name', 'description', 'location', 'client_name', 'budget', 'start_date', 'end_date', 'status', 'engineer_id', 'manager_name', 'contact_phone', 'notes', 'image_url', 'project_type_id', 'is_active']),
+    update: new Set(['name', 'description', 'location', 'client_name', 'budget', 'start_date', 'end_date', 'status', 'engineer_id', 'manager_name', 'contact_phone', 'notes', 'image_url', 'project_type_id', 'is_active']),
+  },
+  workers: {
+    insert: new Set(['id', 'name', 'type', 'daily_wage', 'phone', 'hire_date', 'is_active']),
+    update: new Set(['name', 'type', 'daily_wage', 'phone', 'hire_date', 'is_active']),
+  },
+  suppliers: {
+    insert: new Set(['id', 'name', 'contact_person', 'phone', 'address', 'payment_terms', 'is_active', 'notes']),
+    update: new Set(['name', 'contact_person', 'phone', 'address', 'payment_terms', 'is_active', 'notes']),
+  },
+  materials: {
+    insert: new Set(['id', 'name', 'category', 'unit']),
+    update: new Set(['name', 'category', 'unit']),
+  },
+  wells: {
+    insert: new Set(['project_id', 'well_number', 'owner_name', 'region', 'number_of_bases', 'base_count', 'number_of_panels', 'panel_count', 'well_depth', 'water_level', 'number_of_pipes', 'pipe_count', 'fan_type', 'pump_power', 'status', 'completion_percentage', 'start_date', 'completion_date', 'notes', 'beneficiary_phone']),
+    update: new Set(['well_number', 'owner_name', 'region', 'number_of_bases', 'base_count', 'number_of_panels', 'panel_count', 'well_depth', 'water_level', 'number_of_pipes', 'pipe_count', 'fan_type', 'pump_power', 'status', 'completion_percentage', 'start_date', 'completion_date', 'notes', 'beneficiary_phone']),
+  },
+  project_types: {
+    insert: new Set(['name', 'description', 'is_active']),
+    update: new Set(['name', 'description', 'is_active']),
+  },
+  supplier_payments: {
+    insert: new Set(['id', 'supplier_id', 'project_id', 'purchase_id', 'amount', 'payment_method', 'payment_date', 'reference_number', 'notes']),
+    update: new Set(['amount', 'payment_method', 'payment_date', 'reference_number', 'notes', 'purchase_id']),
+  },
+  autocomplete_data: {
+    insert: new Set(['id', 'category', 'value', 'user_id', 'usage_count']),
+    update: new Set(['value', 'usage_count']),
+  },
+};
+
+function sanitizeColumns(
+  payload: Record<string, any>,
+  tableName: string,
+  action: 'insert' | 'update'
+): { columns: string[]; values: any[] } {
   const columns: string[] = [];
   const values: any[] = [];
+
+  const tableAllowlist = ALLOWED_COLUMNS_BY_TABLE[tableName];
+  if (!tableAllowlist) {
+    throw new Error(`لا توجد قائمة أعمدة مسموحة للجدول: ${tableName}`);
+  }
+  const allowedSet = action === 'insert' ? tableAllowlist.insert : tableAllowlist.update;
+
   for (const [key, value] of Object.entries(payload)) {
     if (!SAFE_COLUMN_REGEX.test(key)) {
       throw new Error(`اسم عمود غير صالح: ${key}`);
+    }
+    if (SERVER_MANAGED_COLUMNS.has(key)) {
+      continue;
+    }
+    if (!allowedSet.has(key)) {
+      continue;
     }
     columns.push(key);
     values.push(value);
   }
   return { columns, values };
 }
+
+const batchOperationSchema = z.object({
+  action: z.enum(['POST', 'PATCH', 'PUT', 'DELETE']),
+  endpoint: z.string().min(1).max(500),
+  payload: z.record(z.unknown()).optional(),
+  _metadata: z.object({
+    clientTimestamp: z.string().optional(),
+  }).optional(),
+});
+
+const batchRequestSchema = z.object({
+  operations: z.array(batchOperationSchema).min(1).max(200),
+});
 
 const ALLOWED_BATCH_TABLES: Record<string, string> = {
   'fund-transfers': 'fund_transfers',
@@ -582,34 +837,30 @@ const ALLOWED_BATCH_TABLES: Record<string, string> = {
   'project_types': 'project_types',
   'supplier-payments': 'supplier_payments',
   'supplier_payments': 'supplier_payments',
-  'autocomplete': 'autocomplete',
+  'autocomplete': 'autocomplete_data',
+  'autocomplete_data': 'autocomplete_data',
 };
 
-const TABLES_WITHOUT_PROJECT_ID = new Set(['project_types', 'autocomplete']);
+const TABLES_WITHOUT_PROJECT_ID = new Set(['project_types', 'autocomplete_data']);
 
 syncRouter.post('/batch', async (req: Request, res: Response) => {
+  const parsed = batchRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      success: false,
+      message: 'بيانات الطلب غير صالحة',
+      errors: parsed.error.issues.map(e => ({ path: e.path.join('.'), message: e.message })),
+    });
+  }
+
+  const authUser = getAuthUser(req);
+  const userId = authUser?.user_id;
+  const userIsAdmin = isAdmin(req);
+  const startTime = Date.now();
+
   const client = await pool.connect();
   try {
-    const { operations } = req.body;
-
-    if (!operations || !Array.isArray(operations) || operations.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'يجب إرسال مصفوفة من العمليات'
-      });
-    }
-
-    const MAX_BATCH_OPS = 200;
-    if (operations.length > MAX_BATCH_OPS) {
-      return res.status(400).json({
-        success: false,
-        message: `عدد العمليات يتجاوز الحد الأقصى المسموح (${MAX_BATCH_OPS})`
-      });
-    }
-
-    const authUser = getAuthUser(req);
-    const userId = authUser?.user_id;
-    const userIsAdmin = isAdmin(req);
+    const { operations } = parsed.data;
 
     if (!userIsAdmin) {
       const hasGlobalTableOp = operations.some((op: any) => {
@@ -629,7 +880,6 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
     }
 
     console.log(`[Sync-Batch] بدء معالجة دفعة ذرية (${operations.length} عملية)...`);
-    const startTime = Date.now();
 
     await client.query('BEGIN');
 
@@ -688,7 +938,7 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
           throw new Error(`عملية ${i}: payload.id مطلوب للإنشاء`);
         }
         const { _metadata: _postMeta, ...insertFields } = payload;
-        const { columns, values } = sanitizeColumns(insertFields);
+        const { columns, values } = sanitizeColumns(insertFields as Record<string, any>, tableName, 'insert');
 
         const dateCols = await getTableDateColumns(tableName);
         if (dateCols.includes('updated_at') && !columns.includes('updated_at')) {
@@ -740,7 +990,7 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         }
 
         const clientTimestamp = _metadata?.clientTimestamp || op._metadata?.clientTimestamp;
-        const { columns, values: colValues } = sanitizeColumns(updateFields);
+        const { columns, values: colValues } = sanitizeColumns(updateFields as Record<string, any>, tableName, 'update');
         if (columns.length === 0) {
           results.push({ index: i, success: true, data: payload });
           auditPromises.push(SyncAuditService.logOperation({

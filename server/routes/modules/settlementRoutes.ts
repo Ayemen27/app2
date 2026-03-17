@@ -37,6 +37,7 @@ interface FundTransferPreview {
 
 interface WorkerProjectBalanceWithFlag extends WorkerProjectBalance {
   isSettlementProject: boolean;
+  cappedSettlementAmount: number;
 }
 
 interface WorkerSettlementPreviewFull {
@@ -44,6 +45,9 @@ interface WorkerSettlementPreviewFull {
   workerName: string;
   projects: WorkerProjectBalanceWithFlag[];
   totalBalance: number;
+  totalPositiveBalance: number;
+  totalNegativeBalance: number;
+  netSettlementAmount: number;
 }
 
 async function calculatePreviewData(
@@ -157,7 +161,7 @@ async function calculatePreviewData(
     const paid = parseFloat(row.total_paid);
     const balance = earned - paid - transferred - settled;
 
-    if (balance === 0) continue;
+    if (Math.abs(balance) < 0.01) continue;
 
     if (!workerMap.has(row.worker_id)) {
       workerMap.set(row.worker_id, {
@@ -165,6 +169,9 @@ async function calculatePreviewData(
         workerName: row.worker_name,
         projects: [],
         totalBalance: 0,
+        totalPositiveBalance: 0,
+        totalNegativeBalance: 0,
+        netSettlementAmount: 0,
       });
     }
 
@@ -179,15 +186,53 @@ async function calculatePreviewData(
       transferred,
       balance,
       isSettlementProject,
+      cappedSettlementAmount: 0,
     });
     worker.totalBalance += balance;
+    if (balance > 0) {
+      worker.totalPositiveBalance += balance;
+    } else {
+      worker.totalNegativeBalance += balance;
+    }
 
     if (balance < 0) {
-      warnings.push(`العامل ${row.worker_name} لديه رصيد سالب (${balance.toFixed(2)}) في مشروع ${row.project_name}`);
+      warnings.push(`العامل ${row.worker_name} لديه رصيد سالب (${balance.toFixed(2)}) في مشروع ${row.project_name} — سيتم خصمه من الصافي`);
     }
   }
 
-  const workers = Array.from(workerMap.values()).filter(w => w.totalBalance !== 0);
+  for (const worker of workerMap.values()) {
+    const netBalance = Math.max(0, worker.totalBalance);
+    worker.netSettlementAmount = netBalance;
+
+    if (worker.totalBalance <= 0 && worker.totalPositiveBalance > 0) {
+      warnings.push(`العامل ${worker.workerName}: الصافي الكلي سالب أو صفر (${worker.totalBalance.toFixed(2)}) — لا يمكن تصفيته. الأرصدة السالبة (${worker.totalNegativeBalance.toFixed(2)}) أكبر من الموجبة (${worker.totalPositiveBalance.toFixed(2)})`);
+    }
+
+    if (netBalance > 0 && worker.totalPositiveBalance > 0) {
+      const ratio = netBalance / worker.totalPositiveBalance;
+      for (const proj of worker.projects) {
+        if (proj.balance > 0) {
+          proj.cappedSettlementAmount = parseFloat((proj.balance * ratio).toFixed(2));
+        }
+      }
+
+      const cappedSum = worker.projects.reduce((s, p) => s + p.cappedSettlementAmount, 0);
+      const diff = parseFloat((netBalance - cappedSum).toFixed(2));
+      if (Math.abs(diff) > 0.01) {
+        const largestPositive = worker.projects.reduce((max, p) =>
+          p.cappedSettlementAmount > (max?.cappedSettlementAmount || 0) ? p : max, worker.projects[0]);
+        if (largestPositive) {
+          largestPositive.cappedSettlementAmount = parseFloat((largestPositive.cappedSettlementAmount + diff).toFixed(2));
+        }
+      }
+
+      if (ratio < 1) {
+        warnings.push(`العامل ${worker.workerName}: تم تخفيض مبلغ التصفية من ${worker.totalPositiveBalance.toFixed(2)} إلى ${netBalance.toFixed(2)} بسبب أرصدة سالبة في مشاريع أخرى (${worker.totalNegativeBalance.toFixed(2)})`);
+      }
+    }
+  }
+
+  const workers = Array.from(workerMap.values()).filter(w => w.netSettlementAmount > 0);
 
   const settlementProjectResult = await queryFn(
     `SELECT name FROM projects WHERE id = $1`,
@@ -198,15 +243,15 @@ async function calculatePreviewData(
   const projectTotals = new Map<string, { fromProjectId: string; fromProjectName: string; amount: number }>();
   for (const worker of workers) {
     for (const proj of worker.projects) {
-      if (proj.balance > 0 && !proj.isSettlementProject) {
+      if (proj.cappedSettlementAmount > 0 && !proj.isSettlementProject) {
         const existing = projectTotals.get(proj.projectId);
         if (existing) {
-          existing.amount += proj.balance;
+          existing.amount += proj.cappedSettlementAmount;
         } else {
           projectTotals.set(proj.projectId, {
             fromProjectId: proj.projectId,
             fromProjectName: proj.projectName,
-            amount: proj.balance,
+            amount: proj.cappedSettlementAmount,
           });
         }
       }
@@ -221,9 +266,7 @@ async function calculatePreviewData(
     amount: t.amount,
   }));
 
-  const totalSettlementAmount = workers.reduce((sum, w) => {
-    return sum + w.projects.reduce((s, p) => s + (p.balance > 0 ? p.balance : 0), 0);
-  }, 0);
+  const totalSettlementAmount = workers.reduce((sum, w) => sum + w.netSettlementAmount, 0);
 
   return { workers, fundTransfers, totalSettlementAmount, warnings, settlementProjectName };
 }
@@ -336,25 +379,49 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       );
 
       if (preview.workers.length === 0) {
-        throw new Error('لا يوجد عمال مؤهلون للتصفية');
+        throw new Error('لا يوجد عمال مؤهلون للتصفية — جميع الأرصدة الصافية سالبة أو صفر');
       }
 
-      const isProjectIncluded = (workerId: string, proj: { projectId: string; balance: number; isSettlementProject: boolean }) => {
-        if (proj.balance <= 0) return false;
+      const isProjectIncluded = (workerId: string, proj: WorkerProjectBalanceWithFlag) => {
+        if (proj.cappedSettlementAmount <= 0) return false;
         const excluded = workerExclusions[workerId];
         if (excluded && Array.isArray(excluded) && excluded.includes(proj.projectId)) return false;
         return true;
       };
 
-      const positiveWorkers = preview.workers.filter(w => w.projects.some(p => isProjectIncluded(w.workerId, p)));
-      if (positiveWorkers.length === 0) {
-        throw new Error('لا يوجد عمال بأرصدة موجبة قابلة للتصفية');
+      const eligibleWorkers = preview.workers.filter(w =>
+        w.netSettlementAmount > 0 && w.projects.some(p => isProjectIncluded(w.workerId, p))
+      );
+
+      if (eligibleWorkers.length === 0) {
+        throw new Error('لا يوجد عمال بأرصدة صافية موجبة قابلة للتصفية');
+      }
+
+      for (const worker of eligibleWorkers) {
+        const excluded = workerExclusions[worker.workerId];
+        if (excluded && Array.isArray(excluded) && excluded.length > 0) {
+          const includedProjects = worker.projects.filter(p => isProjectIncluded(worker.workerId, p));
+          const includedSum = includedProjects.reduce((s, p) => s + p.cappedSettlementAmount, 0);
+          const excludedPositive = worker.projects
+            .filter(p => p.cappedSettlementAmount > 0 && excluded.includes(p.projectId))
+            .reduce((s, p) => s + p.cappedSettlementAmount, 0);
+
+          if (includedSum <= 0) continue;
+
+          const newNet = Math.max(0, worker.netSettlementAmount - excludedPositive);
+          if (newNet < includedSum) {
+            const ratio = newNet / includedSum;
+            for (const proj of includedProjects) {
+              proj.cappedSettlementAmount = parseFloat((proj.cappedSettlementAmount * ratio).toFixed(2));
+            }
+          }
+        }
       }
 
       const today = new Date().toISOString().split('T')[0];
 
-      const positiveTotal = positiveWorkers.reduce((sum, w) => {
-        return sum + w.projects.filter(p => isProjectIncluded(w.workerId, p)).reduce((s, p) => s + p.balance, 0);
+      const positiveTotal = eligibleWorkers.reduce((sum, w) => {
+        return sum + w.projects.filter(p => isProjectIncluded(w.workerId, p)).reduce((s, p) => s + p.cappedSettlementAmount, 0);
       }, 0);
 
       const settlementResult = await client.query(
@@ -365,7 +432,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           today,
           settlement_project_id,
           positiveTotal.toFixed(2),
-          positiveWorkers.length,
+          eligibleWorkers.length,
           0,
           'completed',
           idempotencyKey ? `${notes || ''}[idem:${idempotencyKey}]` : (notes || null),
@@ -376,9 +443,12 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
 
       const actualFundTotals = new Map<string, { fromProjectId: string; fromProjectName: string; amount: number }>();
 
-      for (const worker of positiveWorkers) {
+      for (const worker of eligibleWorkers) {
         for (const proj of worker.projects) {
           if (!isProjectIncluded(worker.workerId, proj)) continue;
+
+          const settlementAmount = proj.cappedSettlementAmount;
+          const balanceAfter = parseFloat((proj.balance - settlementAmount).toFixed(2));
 
           await client.query(
             `INSERT INTO worker_settlement_lines (settlement_id, worker_id, from_project_id, to_project_id, amount, balance_before, balance_after)
@@ -388,33 +458,34 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
               worker.workerId,
               proj.projectId,
               settlement_project_id,
+              settlementAmount.toFixed(2),
               proj.balance.toFixed(2),
-              proj.balance.toFixed(2),
-              '0',
+              balanceAfter.toFixed(2),
             ]
           );
 
           if (!proj.isSettlementProject) {
             const existing = actualFundTotals.get(proj.projectId);
             if (existing) {
-              existing.amount += proj.balance;
+              existing.amount += settlementAmount;
             } else {
               actualFundTotals.set(proj.projectId, {
                 fromProjectId: proj.projectId,
                 fromProjectName: proj.projectName,
-                amount: proj.balance,
+                amount: settlementAmount,
               });
             }
           }
         }
       }
 
-      const workerNames = positiveWorkers.map(w => w.workerName).join('، ');
+      const workerNames = eligibleWorkers.map(w => w.workerName).join('، ');
 
-      for (const worker of positiveWorkers) {
+      for (const worker of eligibleWorkers) {
         for (const proj of worker.projects) {
           if (!isProjectIncluded(worker.workerId, proj)) continue;
 
+          const settlementAmount = proj.cappedSettlementAmount;
           const transferNotes = proj.isSettlementProject
             ? `تصفية حساب - تسوية مباشرة في مشروع التصفية`
             : `تصفية حساب - ترحيل إلى مشروع التصفية`;
@@ -428,7 +499,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             [
               worker.workerId,
               proj.projectId,
-              proj.balance.toFixed(2),
+              settlementAmount.toFixed(2),
               today,
               transferNotes,
               transferDesc,
@@ -469,10 +540,11 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             JSON.stringify({
               settlementId,
               settlementProjectId: settlement_project_id,
-              workerCount: positiveWorkers.length,
+              workerCount: eligibleWorkers.length,
               totalAmount: positiveTotal,
               transferCount: actualFundTotals.size,
               triggeredBy: userId,
+              netBalanceCapping: true,
             }),
           ]
         );
@@ -482,7 +554,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
 
       return {
         settlementId,
-        workerCount: positiveWorkers.length,
+        workerCount: eligibleWorkers.length,
         totalAmount: positiveTotal,
         transferCount: actualFundTotals.size,
         warnings: preview.warnings,

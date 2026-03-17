@@ -383,19 +383,20 @@ const FinancialStatsFooter = ({
   formatCurrency: (amount: number) => string;
   isLoading: boolean;
 }) => {
-  const totalBalance = stats?.totalEarnings ?? 0;
+  const totalEarnings = stats?.totalEarnings ?? 0;
   const totalWithdrawals = stats?.totalTransfers ?? 0;
-  const remaining = totalBalance - totalWithdrawals;
+  const totalSettled = (stats as any)?.totalSettled ?? 0;
+  const remaining = totalEarnings - totalWithdrawals - totalSettled;
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={`grid ${totalSettled > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-2`}>
       <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center">
         <div className="flex items-center justify-center gap-1 text-green-600 dark:text-green-400 mb-1">
           <Wallet className="h-3 w-3" />
           <p className="text-[10px] text-gray-500 dark:text-gray-400">المستحقات</p>
         </div>
-        <p className="text-xs font-bold text-green-600 dark:text-green-400">
-          {isLoading ? '...' : formatCurrency(totalBalance)}
+        <p className="text-xs font-bold text-green-600 dark:text-green-400" data-testid="text-total-earnings">
+          {isLoading ? '...' : formatCurrency(totalEarnings)}
         </p>
       </div>
       
@@ -404,17 +405,29 @@ const FinancialStatsFooter = ({
           <ArrowDownCircle className="h-3 w-3" />
           <p className="text-[10px] text-gray-500 dark:text-gray-400">السحبيات</p>
         </div>
-        <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
+        <p className="text-xs font-bold text-yellow-600 dark:text-yellow-400" data-testid="text-total-withdrawals">
           {isLoading ? '...' : formatCurrency(totalWithdrawals)}
         </p>
       </div>
+
+      {totalSettled > 0 && (
+        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2 text-center">
+          <div className="flex items-center justify-center gap-1 text-purple-600 dark:text-purple-400 mb-1">
+            <ArrowDownCircle className="h-3 w-3" />
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">التصفيات</p>
+          </div>
+          <p className="text-xs font-bold text-purple-600 dark:text-purple-400" data-testid="text-total-settled">
+            {isLoading ? '...' : formatCurrency(totalSettled)}
+          </p>
+        </div>
+      )}
       
       <div className={`${remaining >= 0 ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-red-50 dark:bg-red-900/20'} rounded-lg p-2 text-center`}>
         <div className={`flex items-center justify-center gap-1 ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'} mb-1`}>
           <TrendingDown className="h-3 w-3" />
           <p className="text-[10px] text-gray-500 dark:text-gray-400">المتبقي</p>
         </div>
-        <p className={`text-xs font-bold ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+        <p className={`text-xs font-bold ${remaining >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`} data-testid="text-remaining">
           {isLoading ? '...' : formatCurrency(remaining)}
         </p>
       </div>

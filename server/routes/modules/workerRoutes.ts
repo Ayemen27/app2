@@ -2632,8 +2632,8 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       : and(eq(workerAttendance.worker_id, worker_id), eq(workerAttendance.project_id, project_id));
 
     const transfersWhereCondition = isAllProjects
-      ? eq(workerTransfers.worker_id, worker_id)
-      : and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id));
+      ? and(eq(workerTransfers.worker_id, worker_id), sql`(${workerTransfers.transferMethod} IS NULL OR ${workerTransfers.transferMethod} != 'settlement')`)
+      : and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id), sql`(${workerTransfers.transferMethod} IS NULL OR ${workerTransfers.transferMethod} != 'settlement')`);
 
     // حساب إجمالي عدد أيام العمل من جدول workerAttendance
     const totalWorkDaysResult = await db.select({
@@ -2721,7 +2721,6 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     const workerProjectNames = projectNamesResult.rows.map((r: any) => ({ id: r.id, name: r.name }));
 
     // حساب إجمالي المستحقات من dailyWage * workDays لضمان الدقة
-    // نستخدم dailyWage من سجل الحضور نفسه (وليس من جدول العمال) لأنه قد يتغير بين المشاريع
     const totalEarningsResult = await db.select({
       totalEarnings: sql`COALESCE(SUM(
         CAST(COALESCE(${workerAttendance.dailyWage}, '0') AS DECIMAL) * 
@@ -2732,14 +2731,25 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     .where(attendanceWhereCondition);
 
     const totalEarnings = Number(totalEarningsResult[0]?.totalEarnings) || 0;
-    console.log(`💰 [API] إجمالي المستحقات (dailyWage × workDays من جميع السجلات): ${totalEarnings}`);
 
-    // تجميع الإحصائيات
+    const settlementTransfersCondition = isAllProjects
+      ? and(eq(workerTransfers.worker_id, worker_id), sql`${workerTransfers.transferMethod} = 'settlement'`)
+      : and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id), sql`${workerTransfers.transferMethod} = 'settlement'`);
+
+    const settlementTransfersResult = await db.select({
+      totalSettled: sql`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`
+    })
+    .from(workerTransfers)
+    .where(settlementTransfersCondition);
+
+    const totalSettled = Number(settlementTransfersResult[0]?.totalSettled) || 0;
+
     const stats = {
       totalWorkDays: totalWorkDays,
       lastAttendanceDate: lastAttendanceDate,
       monthlyAttendanceRate: monthlyAttendanceRate,
       totalTransfers: totalTransfers,
+      totalSettled: totalSettled,
       transfersCount: transfersCount,
       projectsWorked: projectsWorked,
       projectNames: workerProjectNames,

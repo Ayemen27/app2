@@ -90,7 +90,7 @@ export async function runInventoryMigrations() {
     await client.query(`
       DO $$ BEGIN
         ALTER TABLE inventory_transactions ADD CONSTRAINT chk_tx_type_valid 
-          CHECK (type IN ('IN', 'OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'TRANSFER'));
+          CHECK (type IN ('IN', 'OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'TRANSFER', 'RETURN'));
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$;
     `);

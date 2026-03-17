@@ -5,7 +5,7 @@ export class InventoryService {
   static async findOrCreateItem(name: string, unit: string, category?: string | null): Promise<number> {
     const { rows } = await pool.query(
       `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3)
-       ON CONFLICT (name, unit, COALESCE(category, '')) DO UPDATE SET name = EXCLUDED.name
+       ON CONFLICT (LOWER(TRIM(name)), LOWER(TRIM(unit)), LOWER(TRIM(COALESCE(category, '')))) DO UPDATE SET name = EXCLUDED.name
        RETURNING id`,
       [name, category || null, unit]
     );
@@ -51,7 +51,7 @@ export class InventoryService {
     } else {
       const { rows: itemRows } = await queryFn(
         `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3)
-         ON CONFLICT (name, unit, COALESCE(category, '')) DO UPDATE SET 
+         ON CONFLICT (LOWER(TRIM(name)), LOWER(TRIM(unit)), LOWER(TRIM(COALESCE(category, '')))) DO UPDATE SET 
            category = COALESCE(NULLIF(EXCLUDED.category, ''), inventory_items.category)
          RETURNING id`,
         [purchaseData.materialName, purchaseData.materialCategory || null, purchaseData.unit]
@@ -229,7 +229,7 @@ export class InventoryService {
       } else {
         const { rows: itemRows } = await queryFn(
           `INSERT INTO inventory_items (name, category, unit) VALUES ($1, $2, $3)
-           ON CONFLICT (name, unit, COALESCE(category, '')) DO UPDATE SET 
+           ON CONFLICT (LOWER(TRIM(name)), LOWER(TRIM(unit)), LOWER(TRIM(COALESCE(category, '')))) DO UPDATE SET 
              category = COALESCE(NULLIF(EXCLUDED.category, ''), inventory_items.category)
            RETURNING id`,
           [purchaseData.materialName, purchaseData.materialCategory || null, purchaseData.unit]
@@ -375,7 +375,7 @@ export class InventoryService {
         );
       } else {
         const { rows: lots } = await client.query(
-          `SELECT id, remaining_qty FROM inventory_lots WHERE item_id = $1 AND remaining_qty > 0 ORDER BY receipt_date ASC FOR UPDATE`,
+          `SELECT id, remaining_qty, unit_cost FROM inventory_lots WHERE item_id = $1 AND remaining_qty > 0 ORDER BY receipt_date ASC FOR UPDATE`,
           [data.itemId]
         );
 
@@ -388,15 +388,17 @@ export class InventoryService {
         for (const lot of lots) {
           if (remaining <= 0) break;
           const deduct = Math.min(remaining, parseFloat(lot.remaining_qty));
+          const unitCost = parseFloat(lot.unit_cost) || 0;
           await client.query(`UPDATE inventory_lots SET remaining_qty = remaining_qty - $1 WHERE id = $2`, [deduct, lot.id]);
+
+          await client.query(
+            `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, performed_by, transaction_date, notes)
+             VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, $4, $5, $6, $7, $8)`,
+            [data.itemId, lot.id, deduct, unitCost, deduct * unitCost, data.performedBy || null, data.transactionDate, data.notes || null]
+          );
+
           remaining -= deduct;
         }
-
-        await client.query(
-          `INSERT INTO inventory_transactions (item_id, type, quantity, performed_by, transaction_date, notes)
-           VALUES ($1, 'ADJUSTMENT_OUT', $2, $3, $4, $5)`,
-          [data.itemId, data.quantity, data.performedBy || null, data.transactionDate, data.notes || null]
-        );
       }
 
       await client.query('COMMIT');
@@ -506,7 +508,26 @@ export class InventoryService {
     const groupBy = filters?.groupBy || 'item';
 
     if (groupBy === 'supplier') {
-      let query = `
+      const params: any[] = [];
+      let paramIdx = 1;
+      const conditions: string[] = [];
+
+      if (filters?.projectId) {
+        conditions.push(`il.project_id = $${paramIdx++}`);
+        params.push(filters.projectId);
+      }
+      if (filters?.dateFrom) {
+        conditions.push(`il.receipt_date >= $${paramIdx++}`);
+        params.push(filters.dateFrom);
+      }
+      if (filters?.dateTo) {
+        conditions.push(`il.receipt_date <= $${paramIdx++}`);
+        params.push(filters.dateTo);
+      }
+
+      const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+
+      const query = `
         SELECT 
           s.id as supplier_id, s.name as supplier_name,
           COUNT(DISTINCT il.item_id) as item_count,
@@ -516,30 +537,34 @@ export class InventoryService {
           COALESCE(SUM(il.received_qty * il.unit_cost), 0) as total_value
         FROM suppliers s
         JOIN inventory_lots il ON il.supplier_id = s.id
+        ${whereClause}
+        GROUP BY s.id, s.name ORDER BY total_value DESC
       `;
-      const params: any[] = [];
-      let paramIdx = 1;
-
-      if (filters?.projectId) {
-        query += ` AND il.id IN (SELECT lot_id FROM inventory_transactions WHERE to_project_id = $${paramIdx++} AND lot_id IS NOT NULL)`;
-        params.push(filters.projectId);
-      }
-      if (filters?.dateFrom) {
-        query += ` AND il.receipt_date >= $${paramIdx++}`;
-        params.push(filters.dateFrom);
-      }
-      if (filters?.dateTo) {
-        query += ` AND il.receipt_date <= $${paramIdx++}`;
-        params.push(filters.dateTo);
-      }
-
-      query += ` GROUP BY s.id, s.name ORDER BY total_value DESC`;
       const { rows } = await pool.query(query, params);
       return rows;
     }
 
     if (groupBy === 'project') {
-      let query = `
+      const params: any[] = [];
+      let paramIdx = 1;
+      const conditions: string[] = [];
+
+      if (filters?.projectId) {
+        conditions.push(`p.id = $${paramIdx++}`);
+        params.push(filters.projectId);
+      }
+      if (filters?.dateFrom) {
+        conditions.push(`it.transaction_date >= $${paramIdx++}`);
+        params.push(filters.dateFrom);
+      }
+      if (filters?.dateTo) {
+        conditions.push(`it.transaction_date <= $${paramIdx++}`);
+        params.push(filters.dateTo);
+      }
+
+      const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+
+      const query = `
         SELECT 
           p.id as project_id, p.name as project_name,
           COUNT(DISTINCT it.item_id) as item_count,
@@ -547,16 +572,9 @@ export class InventoryService {
           COALESCE(SUM(CASE WHEN it.type = 'OUT' THEN it.total_cost ELSE 0 END), 0) as total_cost
         FROM projects p
         JOIN inventory_transactions it ON (it.to_project_id = p.id OR it.from_project_id = p.id)
+        ${whereClause}
+        GROUP BY p.id, p.name ORDER BY total_cost DESC
       `;
-      const params: any[] = [];
-      let paramIdx = 1;
-
-      if (filters?.projectId) {
-        query += ` WHERE p.id = $${paramIdx++}`;
-        params.push(filters.projectId);
-      }
-
-      query += ` GROUP BY p.id, p.name ORDER BY total_cost DESC`;
       const { rows } = await pool.query(query, params);
       return rows;
     }
@@ -687,24 +705,25 @@ export class InventoryService {
           } else {
             const absAdjust = Math.abs(diff);
             const { rows: lots } = await client.query(
-              `SELECT id, remaining_qty FROM inventory_lots WHERE item_id = $1 AND remaining_qty > 0 ORDER BY receipt_date ASC FOR UPDATE`,
+              `SELECT id, remaining_qty, unit_cost FROM inventory_lots WHERE item_id = $1 AND remaining_qty > 0 ORDER BY receipt_date ASC FOR UPDATE`,
               [itemId]
             );
             let remaining = absAdjust;
             for (const lot of lots) {
               if (remaining <= 0) break;
               const deduct = Math.min(remaining, parseFloat(lot.remaining_qty));
+              const unitCost = parseFloat(lot.unit_cost) || 0;
               await client.query(
                 `UPDATE inventory_lots SET remaining_qty = remaining_qty - $1 WHERE id = $2`,
                 [deduct, lot.id]
               );
+              await client.query(
+                `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
+                 VALUES ($1, $2, 'ADJUSTMENT_OUT', $3, $4, $5, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
+                [itemId, lot.id, deduct, unitCost, deduct * unitCost]
+              );
               remaining -= deduct;
             }
-            await client.query(
-              `INSERT INTO inventory_transactions (item_id, type, quantity, unit_cost, total_cost, transaction_date, notes, performed_by)
-               VALUES ($1, 'ADJUSTMENT_OUT', $2, 0, 0, NOW(), 'تسوية مخزون - تعديل الكمية', 'system')`,
-              [itemId, absAdjust]
-            );
           }
         }
       }
@@ -746,6 +765,29 @@ export class InventoryService {
       );
       if (item.length === 0) throw new Error('المادة غير موجودة');
 
+      const { rows: issuedCheck } = await client.query(
+        `SELECT 
+          COALESCE((SELECT SUM(quantity) FROM inventory_transactions WHERE item_id = $1 AND to_project_id = $2 AND type IN ('OUT', 'ADJUSTMENT_OUT')), 0) as total_issued,
+          COALESCE((SELECT SUM(quantity) FROM inventory_transactions WHERE item_id = $1 AND from_project_id = $2 AND type = 'RETURN'), 0) as total_returned
+        `,
+        [data.itemId, data.fromProjectId]
+      );
+      const totalIssued = parseFloat(issuedCheck[0].total_issued);
+      const totalReturned = parseFloat(issuedCheck[0].total_returned);
+      const maxReturnable = totalIssued - totalReturned;
+
+      if (data.quantity > maxReturnable) {
+        throw new Error(`لا يمكن إرجاع ${data.quantity} - الحد الأقصى للإرجاع: ${maxReturnable.toFixed(2)} (تم صرف ${totalIssued.toFixed(2)}، تم إرجاع ${totalReturned.toFixed(2)} سابقاً)`);
+      }
+
+      const { rows: costInfo } = await client.query(
+        `SELECT COALESCE(AVG(unit_cost), 0) as avg_cost 
+         FROM inventory_transactions 
+         WHERE item_id = $1 AND to_project_id = $2 AND type = 'OUT' AND unit_cost > 0`,
+        [data.itemId, data.fromProjectId]
+      );
+      const returnUnitCost = parseFloat(costInfo[0].avg_cost) || 0;
+
       const { rows: lots } = await client.query(
         `SELECT id FROM inventory_lots WHERE item_id = $1 AND project_id = $2 ORDER BY receipt_date DESC LIMIT 1`,
         [data.itemId, data.fromProjectId]
@@ -761,16 +803,16 @@ export class InventoryService {
       } else {
         const { rows: newLot } = await client.query(
           `INSERT INTO inventory_lots (item_id, received_qty, remaining_qty, unit_cost, receipt_date, project_id, notes)
-           VALUES ($1, 0, $2, 0, $3, $4, 'مرتجع') RETURNING id`,
-          [data.itemId, data.quantity, data.transactionDate, data.fromProjectId]
+           VALUES ($1, 0, $2, $3, $4, $5, 'مرتجع') RETURNING id`,
+          [data.itemId, data.quantity, returnUnitCost, data.transactionDate, data.fromProjectId]
         );
         lotId = newLot[0].id;
       }
 
       await client.query(
         `INSERT INTO inventory_transactions (item_id, lot_id, type, quantity, unit_cost, total_cost, from_project_id, transaction_date, performed_by, notes)
-         VALUES ($1, $2, 'RETURN', $3, 0, 0, $4, $5, $6, $7)`,
-        [data.itemId, lotId, data.quantity, data.fromProjectId, data.transactionDate, data.performedBy || null, data.notes || `مرتجع: ${item[0].name}`]
+         VALUES ($1, $2, 'RETURN', $3, $4, $5, $6, $7, $8, $9)`,
+        [data.itemId, lotId, data.quantity, returnUnitCost, data.quantity * returnUnitCost, data.fromProjectId, data.transactionDate, data.performedBy || null, data.notes || `مرتجع: ${item[0].name}`]
       );
 
       await client.query('COMMIT');

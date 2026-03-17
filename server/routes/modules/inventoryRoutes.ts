@@ -5,12 +5,19 @@ import { InventoryService } from '../../services/InventoryService.js';
 
 const inventoryRouter = Router();
 
+function validateProjectAccess(req: ProjectAccessRequest, projectId: string | undefined): boolean {
+  if (!projectId) return true;
+  if (!req.accessibleProjectIds || req.accessibleProjectIds.length === 0) return false;
+  return req.accessibleProjectIds.includes(projectId);
+}
+
 inventoryRouter.use(requireAuth);
 inventoryRouter.use(attachAccessibleProjects);
 
 inventoryRouter.get('/stats', async (req, res) => {
   try {
     const { projectId } = req.query;
+    if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
     const stats = await InventoryService.getInventoryStats(projectId as string);
     res.json({ success: true, data: stats });
   } catch (error: any) {
@@ -22,6 +29,7 @@ inventoryRouter.get('/stats', async (req, res) => {
 inventoryRouter.get('/stock', async (req, res) => {
   try {
     const { category, search, projectId } = req.query;
+    if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
     const stock = await InventoryService.getCurrentStock({
       category: category as string,
       search: search as string,
@@ -46,6 +54,7 @@ inventoryRouter.get('/categories', async (req, res) => {
 inventoryRouter.get('/transactions', async (req, res) => {
   try {
     const { type, dateFrom, dateTo, projectId, supplierId } = req.query;
+    if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
     const transactions = await InventoryService.getAllTransactions({
       type: type as string,
       dateFrom: dateFrom as string,
@@ -74,6 +83,7 @@ inventoryRouter.get('/items/:id/transactions', async (req, res) => {
   try {
     const itemId = parseInt(req.params.id);
     const { type, dateFrom, dateTo, projectId } = req.query;
+    if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
     const transactions = await InventoryService.getItemTransactions(itemId, {
       type: type as string,
       dateFrom: dateFrom as string,
@@ -99,6 +109,7 @@ inventoryRouter.get('/items/:id/lots', async (req, res) => {
 inventoryRouter.post('/issue', async (req, res) => {
   try {
     const { itemId, quantity, toProjectId, transactionDate, performedBy, notes } = req.body;
+    if (toProjectId && !validateProjectAccess(req as ProjectAccessRequest, toProjectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
 
     if (!itemId || !quantity || !toProjectId || !transactionDate) {
       return res.status(400).json({ success: false, message: 'البيانات ناقصة: المادة، الكمية، المشروع، التاريخ مطلوبة' });
@@ -127,6 +138,7 @@ inventoryRouter.post('/issue', async (req, res) => {
 inventoryRouter.post('/receive', async (req, res) => {
   try {
     const { itemName, category, unit, quantity, unitCost, receiptDate, supplierId, projectId, notes } = req.body;
+    if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
 
     if (!itemName || !category?.trim() || !unit || !quantity || !receiptDate) {
       return res.status(400).json({ success: false, message: !category?.trim() ? 'يرجى تحديد فئة المادة' : 'البيانات ناقصة' });
@@ -158,6 +170,7 @@ inventoryRouter.post('/receive', async (req, res) => {
 inventoryRouter.post('/return', async (req, res) => {
   try {
     const { itemId, quantity, fromProjectId, transactionDate, performedBy, notes } = req.body;
+    if (fromProjectId && !validateProjectAccess(req as ProjectAccessRequest, fromProjectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
 
     if (!itemId || !quantity || !fromProjectId || !transactionDate) {
       return res.status(400).json({ success: false, message: 'البيانات ناقصة: المادة والكمية والمشروع والتاريخ مطلوبة' });
@@ -263,6 +276,7 @@ inventoryRouter.delete('/transactions/:id', async (req, res) => {
 inventoryRouter.get('/reports', async (req, res) => {
   try {
     const { groupBy, dateFrom, dateTo, supplierId, projectId, category } = req.query;
+    if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
     const report = await InventoryService.getStockReport({
       groupBy: groupBy as string,
       dateFrom: dateFrom as string,

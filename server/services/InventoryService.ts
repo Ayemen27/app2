@@ -891,7 +891,20 @@ export class InventoryService {
           if (lot.length > 0) {
             const consumed = parseFloat(lot[0].received_qty) - parseFloat(lot[0].remaining_qty);
             if (consumed > 0) {
-              throw new Error(`لا يمكن حذف هذا الوارد - تم صرف ${consumed} منه بالفعل`);
+              const { rows: realOuts } = await client.query(
+                `SELECT COALESCE(SUM(quantity), 0) as real_consumed FROM inventory_transactions 
+                 WHERE lot_id = $1 AND type IN ('OUT') 
+                 AND (reference_type IS NULL OR reference_type NOT IN ('purchase', 'purchase_update', 'purchase_reversal'))`,
+                [tx.lot_id]
+              );
+              const realConsumed = parseFloat(realOuts[0].real_consumed);
+              if (realConsumed > 0) {
+                throw new Error(`لا يمكن حذف هذا الوارد - تم صرف ${realConsumed} منه بالفعل`);
+              }
+              await client.query(
+                `DELETE FROM inventory_transactions WHERE lot_id = $1 AND id != $2 AND reference_type IN ('purchase_update', 'purchase_reversal')`,
+                [tx.lot_id, txId]
+              );
             }
             await client.query(`DELETE FROM inventory_lots WHERE id = $1`, [tx.lot_id]);
           }
@@ -903,6 +916,13 @@ export class InventoryService {
             [parseFloat(tx.quantity), tx.lot_id]
           );
         }
+      }
+
+      if (tx.reference_id && tx.reference_type && ['purchase_update', 'purchase_reversal'].includes(tx.reference_type)) {
+        await client.query(
+          `DELETE FROM inventory_transactions WHERE reference_id = $1 AND id != $2 AND reference_type IN ('purchase_update', 'purchase_reversal')`,
+          [tx.reference_id, txId]
+        );
       }
 
       await client.query(`DELETE FROM inventory_transactions WHERE id = $1`, [txId]);

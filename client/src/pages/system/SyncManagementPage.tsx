@@ -62,14 +62,14 @@ function getAuditActionBadge(action: string) {
 export default function SyncManagementPage() {
   const { isSyncing, manualSync, refreshData } = useSyncData();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("server-audit");
+  const [activeTab, setActiveTab] = useState("pending");
   const [auditPage, setAuditPage] = useState(1);
   const [searchValue, setSearchValue] = useState('');
   const [filterValues, setFilterValues] = useState<Record<string, any>>({ action: 'all', status: 'all', module: 'all', dateRange: undefined });
 
-  const tabStatusMap: Record<string, string | undefined> = {
+  const tabStatusMap: Record<string, string | string[] | undefined> = {
     'server-audit': undefined,
-    'history': 'success',
+    'history': ['success', 'skipped'],
     'failed': 'failed',
     'duplicates': 'duplicate',
     'pending': 'conflict',
@@ -96,7 +96,7 @@ export default function SyncManagementPage() {
   const tabStatus = tabStatusMap[activeTab];
   const effectiveStatus = isAuditTab
     ? (filterValues.status !== 'all' ? filterValues.status : undefined)
-    : tabStatus;
+    : (Array.isArray(tabStatus) ? tabStatus.join(',') : tabStatus);
 
   const auditParams = useMemo(() => ({
     page: auditPage,
@@ -387,17 +387,6 @@ export default function SyncManagementPage() {
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); handleReset(); setAuditPage(1); }} className="w-full" dir="rtl">
         <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-5 mb-4 no-scrollbar" data-testid="tabs-sync">
-          <TabsTrigger value="server-audit" className="gap-1" data-testid="tab-server-audit">
-            <Server className="h-3.5 w-3.5" />
-            تدقيق الخادم
-          </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1" data-testid="tab-history">
-            <History className="h-3.5 w-3.5" />
-            السجل
-            {(stats.success || 0) > 0 && (
-              <Badge variant="secondary" className="mr-1 text-[10px] px-1.5">{stats.success}</Badge>
-            )}
-          </TabsTrigger>
           <TabsTrigger value="pending" className="gap-1" data-testid="tab-pending">
             <Clock className="h-3.5 w-3.5" />
             معلقة
@@ -418,6 +407,17 @@ export default function SyncManagementPage() {
             {(stats.duplicate || 0) > 0 && (
               <Badge variant="secondary" className="mr-1 text-[10px] px-1.5">{stats.duplicate}</Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="history" className="gap-1" data-testid="tab-history">
+            <History className="h-3.5 w-3.5" />
+            السجل
+            {(stats.success || 0) > 0 && (
+              <Badge variant="secondary" className="mr-1 text-[10px] px-1.5">{stats.success}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="server-audit" className="gap-1" data-testid="tab-server-audit">
+            <Server className="h-3.5 w-3.5" />
+            تدقيق الخادم
           </TabsTrigger>
         </TabsList>
 

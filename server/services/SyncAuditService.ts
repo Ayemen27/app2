@@ -244,7 +244,12 @@ export class SyncAuditService {
       conditions.push(eq(syncAuditLogs.module, params.module));
     }
     if (params.status && params.status !== 'all') {
-      conditions.push(eq(syncAuditLogs.status, params.status));
+      if (params.status.includes(',')) {
+        const statuses = params.status.split(',').map((s: string) => s.trim());
+        conditions.push(sql`${syncAuditLogs.status} IN (${sql.join(statuses.map((s: string) => sql`${s}`), sql`, `)})`);
+      } else {
+        conditions.push(eq(syncAuditLogs.status, params.status));
+      }
     }
     if (params.action && params.action !== 'all') {
       conditions.push(eq(syncAuditLogs.action, params.action));

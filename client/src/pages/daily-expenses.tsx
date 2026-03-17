@@ -2726,7 +2726,7 @@ function DailyExpensesContent() {
                               placeholder="المبلغ *"
                               className="text-center arabic-numbers"
                               min="0"
-                              step="0.01"
+                              step="1"
                             />
                           </div>
                       <div>
@@ -3137,7 +3137,7 @@ function DailyExpensesContent() {
                   placeholder="0"
                   className="text-center arabic-numbers h-9 text-xs"
                   min="0"
-                  step="0.01"
+                  step="1"
                   data-testid="input-worker-amount"
                 />
               </div>
@@ -3218,7 +3218,7 @@ function DailyExpensesContent() {
                       onChange={(e) => setEditWorkerAmount(e.target.value)}
                       className="text-center h-9"
                       min="0"
-                      step="0.01"
+                      step="1"
                       data-testid="input-edit-worker-amount"
                     />
                   </div>
@@ -3444,7 +3444,7 @@ function DailyExpensesContent() {
                               setPurchaseQuantity(e.target.value);
                               const qty = parseFloat(e.target.value) || 0;
                               const price = parseFloat(purchaseUnitPrice) || 0;
-                              setPurchaseTotalAmount((qty * price).toString());
+                              setPurchaseTotalAmount(Math.round(qty * price).toString());
                             }}
                             placeholder="الكمية"
                             min="0"
@@ -3470,11 +3470,11 @@ function DailyExpensesContent() {
                               setPurchaseUnitPrice(e.target.value);
                               const qty = parseFloat(purchaseQuantity) || 0;
                               const price = parseFloat(e.target.value) || 0;
-                              setPurchaseTotalAmount((qty * price).toString());
+                              setPurchaseTotalAmount(Math.round(qty * price).toString());
                             }}
                             placeholder="سعر الوحدة"
                             min="0"
-                            step="0.01"
+                            step="1"
                           />
                         </div>
                       </div>
@@ -3488,7 +3488,7 @@ function DailyExpensesContent() {
                             onChange={(e) => setPurchaseTotalAmount(e.target.value)}
                             placeholder="المبلغ الإجمالي"
                             min="0"
-                            step="0.01"
+                            step="1"
                           />
                         </div>
                         <div>
@@ -3725,7 +3725,7 @@ function DailyExpensesContent() {
                             placeholder="المبلغ"
                             className="text-center arabic-numbers"
                             min="0"
-                            step="0.01"
+                            step="1"
                             data-testid="input-worker-transfer-amount"
                           />
                         </div>
@@ -3961,7 +3961,7 @@ function DailyExpensesContent() {
                             onChange={(e) => setProjectTransferAmount(e.target.value)}
                             className="text-center arabic-numbers"
                             min="0"
-                            step="0.01"
+                            step="1"
                             data-testid="input-project-transfer-amount"
                           />
                         </div>

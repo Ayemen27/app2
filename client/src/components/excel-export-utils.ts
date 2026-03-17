@@ -16,9 +16,9 @@ import { downloadExcelFile } from '@/utils/webview-download';
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('ar-SA', {
     style: 'decimal',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount || 0) + ' ر.ي.';
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(Math.round(amount || 0)) + ' ر.ي.';
 }
 
 export function applyStyle(cell: any, style: any): void {

@@ -69,7 +69,7 @@ export default function DailyExpensesBulkExport() {
 
   // دالة تنسيق العملة (أرقام إنجليزية)
   const formatCurrency = (amount: number) => {
-    return `${Number(amount).toLocaleString('en-US', { useGrouping: true })} ر.ي`;
+    return `${Math.round(Number(amount)).toLocaleString('en-US', { useGrouping: true })} ر.ي`;
   };
 
   // دالة تنسيق الأرقام (إنجليزية) - إزالة الأصفار الزائدة وتنسيق صحيح

@@ -303,8 +303,8 @@ export function formatCurrency(amount: number): string {
     style: 'currency',
     currency: 'SAR',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
+    maximumFractionDigits: 0,
+  }).format(Math.round(amount));
 }
 
 export function formatNumber(num: number): string {

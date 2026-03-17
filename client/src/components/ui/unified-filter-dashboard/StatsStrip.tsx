@@ -11,7 +11,7 @@ interface StatsStripProps {
 function formatCurrencyValue(value: number): string {
   if (isNaN(value) || !isFinite(value)) return '0';
   if (Math.abs(value) > 100000000000) return '0';
-  return value.toLocaleString('en-US');
+  return Math.round(value).toLocaleString('en-US');
 }
 
 function SplitStatCard({ item }: { item: StatItem }) {

@@ -1382,7 +1382,7 @@ function ReceiveDialog({ open, onClose, categories, projects, onSubmit, isPendin
             </div>
             <div>
               <Label>سعر الوحدة</Label>
-              <Input data-testid="input-receive-cost" type="number" step="0.01" value={unitCost} onChange={e => setUnitCost(e.target.value)} />
+              <Input data-testid="input-receive-cost" type="number" step="1" value={unitCost} onChange={e => setUnitCost(e.target.value)} />
             </div>
           </div>
           <div>

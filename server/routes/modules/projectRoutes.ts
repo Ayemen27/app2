@@ -410,7 +410,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           totalTransportation,
           totalWorkerTransfers,
           totalMiscExpenses,
-          remainingBalance: Number(remainingBalance.toFixed(2)),
+          remainingBalance: Math.round(remainingBalance),
           counts: {
             fundTransfers: group.fundTransfers.length,
             workerAttendance: group.workerAttendance.length,
@@ -472,7 +472,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       projectName: 'جميع المشاريع',
       totalIncome: overallTotalIncome,
       totalExpenses: overallTotalExpenses,
-      remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
+      remainingBalance: Math.round(overallRemainingBalance),
 
       // البيانات المسطحة (للتوافق مع الكود القديم)
       fundTransfers: allFundTransfers,
@@ -2178,11 +2178,11 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
       date: finalDate,
       projectName: projectInfo[0]?.name || 'مشروع غير معروف',
       project_id,
-      carriedForward: parseFloat(carriedForward.toFixed(2)),
+      carriedForward: Math.round(carriedForward),
       carriedForwardSource,
       totalIncome,
       totalExpenses,
-      remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+      remainingBalance: Math.round(remainingBalance),
       fundTransfers: fundTransfersResult,
       workerAttendance: workerAttendanceResult,
       materialPurchases: materialPurchasesResult,
@@ -2398,7 +2398,7 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
           totalTransportation,
           totalWorkerTransfers,
           totalMiscExpenses,
-          remainingBalance: parseFloat(remainingBalance.toFixed(2)),
+          remainingBalance: Math.round(remainingBalance),
           counts: {
             fundTransfers: group.fundTransfers.length,
             workerAttendance: group.workerAttendance.length,
@@ -2432,7 +2432,7 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
       project_id,
       totalIncome: overallTotalIncome,
       totalExpenses: overallTotalExpenses,
-      remainingBalance: parseFloat(overallRemainingBalance.toFixed(2)),
+      remainingBalance: Math.round(overallRemainingBalance),
 
       // البيانات المسطحة (للتوافق مع الكود القديم)
       fundTransfers: fundTransfersResult.map((t: any) => ({ ...t, projectName })),

@@ -268,7 +268,7 @@ export default function ProjectFundCustody() {
       style: 'decimal',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount) + ' ر.ي';
+    }).format(Math.round(amount)) + ' ر.ي';
   };
 
   // تحديث خيارات فلتر المشروع
@@ -516,7 +516,7 @@ export default function ProjectFundCustody() {
                           <FormControl>
                             <Input 
                               type="number" 
-                              step="0.01" 
+                              step="1" 
                               placeholder="0" 
                               {...field} 
                               autoWidth

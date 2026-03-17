@@ -260,7 +260,7 @@ export default function SupplierAccountsPage() {
 
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return num.toLocaleString('en-US') + " ريال";
+    return Math.round(num).toLocaleString('en-US') + " ريال";
   };
 
   const exportToExcel = async () => {

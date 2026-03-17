@@ -21,12 +21,20 @@ import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
 import { WellExpenseAutoAllocationService } from '../../services/WellExpenseAutoAllocationService';
+import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 
 export const financialRouter = express.Router();
 
 // تطبيق المصادقة وتحميل المشاريع المتاحة على جميع المسارات المالية
 financialRouter.use(requireAuth);
 financialRouter.use(attachAccessibleProjects);
+
+financialRouter.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
+    return validateWholeAmounts()(req, res, next);
+  }
+  next();
+});
 
 const financialReplayProtection = requireFreshRequest({ windowSec: 60 });
 const FINANCIAL_ROUTE_PREFIXES = [
@@ -2087,7 +2095,7 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
     
     // حساب المبالغ تلقائياً بناءً على نوع الشراء
-    const totalAmount = (parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString();
+    const totalAmount = Math.round(parseFloat(validated.quantity || "0") * parseFloat(validated.unitPrice || "0")).toString();
     let paidAmount = "0";
     let remainingAmount = "0";
 
@@ -3143,9 +3151,9 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
         date: record.date,
         workDays,
         dailyWage,
-        actualWage: actualWage.toFixed(2),
-        paidAmount: paidAmount.toFixed(2),
-        remainingAmount: remainingAmount.toFixed(2),
+        actualWage: Math.round(actualWage).toString(),
+        paidAmount: Math.round(paidAmount).toString(),
+        remainingAmount: Math.round(remainingAmount).toString(),
         workDescription: record.workDescription || ''
       };
     });
@@ -3188,10 +3196,10 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
         attendance: attendanceData,
         summary: {
           totalWorkDays: totalWorkDays.toFixed(2),
-          totalEarned: totalEarned.toFixed(2),
-          totalPaid: totalPaid.toFixed(2),
-          totalTransfers: totalTransfers.toFixed(2),
-          remainingBalance: (totalEarned - totalPaid - totalTransfers).toFixed(2)
+          totalEarned: Math.round(totalEarned).toString(),
+          totalPaid: Math.round(totalPaid).toString(),
+          totalTransfers: Math.round(totalTransfers).toString(),
+          remainingBalance: Math.round(totalEarned - totalPaid - totalTransfers).toString()
         }
       },
       message: 'تم جلب بيان العامل بنجاح',
@@ -3290,12 +3298,12 @@ financialRouter.get('/suppliers/statistics', async (req: Request, res: Response)
       success: true,
       data: {
         totalSuppliers: suppliersList.length,
-        totalCashPurchases: cashTotal.toFixed(2),
-        totalCreditPurchases: creditTotal.toFixed(2),
-        totalStoragePurchases: storageTotal.toFixed(2),
-        totalDebt: totalDebt.toFixed(2),
-        totalPaid: totalPaid.toFixed(2),
-        remainingDebt: totalDebt.toFixed(2),
+        totalCashPurchases: Math.round(cashTotal).toString(),
+        totalCreditPurchases: Math.round(creditTotal).toString(),
+        totalStoragePurchases: Math.round(storageTotal).toString(),
+        totalDebt: Math.round(totalDebt).toString(),
+        totalPaid: Math.round(totalPaid).toString(),
+        remainingDebt: Math.round(totalDebt).toString(),
         activeSuppliers: suppliersList.filter((s: any) => parseFloat(s.totalDebt || '0') > 0).length
       },
       processingTime: duration

@@ -109,7 +109,7 @@ interface SettlementLine {
 function formatCurrency(amount: number | string) {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return "0 ر.ي";
-  return `${num.toLocaleString("en-US")} ر.ي`;
+  return `${Math.round(num).toLocaleString("en-US")} ر.ي`;
 }
 
 function formatDate(dateStr: string) {

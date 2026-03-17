@@ -6,10 +6,19 @@ import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware
 import { getAuthUser } from '../../internal/auth-user.js';
 import { sendSuccess, sendError } from '../../middleware/api-response.js';
 
+import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
+
 const settlementRouter = express.Router();
 
 settlementRouter.use(requireAuth);
 settlementRouter.use(attachAccessibleProjects);
+
+settlementRouter.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
+    return validateWholeAmounts()(req, res, next);
+  }
+  next();
+});
 
 interface WorkerProjectBalance {
   projectId: string;
@@ -212,17 +221,17 @@ async function calculatePreviewData(
       const ratio = netBalance / worker.totalPositiveBalance;
       for (const proj of worker.projects) {
         if (proj.balance > 0) {
-          proj.cappedSettlementAmount = parseFloat((proj.balance * ratio).toFixed(2));
+          proj.cappedSettlementAmount = Math.round(proj.balance * ratio);
         }
       }
 
       const cappedSum = worker.projects.reduce((s, p) => s + p.cappedSettlementAmount, 0);
-      const diff = parseFloat((netBalance - cappedSum).toFixed(2));
-      if (Math.abs(diff) > 0.01) {
+      const diff = netBalance - cappedSum;
+      if (Math.abs(diff) > 0) {
         const largestPositive = worker.projects.reduce((max, p) =>
           p.cappedSettlementAmount > (max?.cappedSettlementAmount || 0) ? p : max, worker.projects[0]);
         if (largestPositive) {
-          largestPositive.cappedSettlementAmount = parseFloat((largestPositive.cappedSettlementAmount + diff).toFixed(2));
+          largestPositive.cappedSettlementAmount = largestPositive.cappedSettlementAmount + diff;
         }
       }
 
@@ -412,7 +421,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           if (newNet < includedSum) {
             const ratio = newNet / includedSum;
             for (const proj of includedProjects) {
-              proj.cappedSettlementAmount = parseFloat((proj.cappedSettlementAmount * ratio).toFixed(2));
+              proj.cappedSettlementAmount = Math.round(proj.cappedSettlementAmount * ratio);
             }
           }
         }
@@ -431,7 +440,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         [
           today,
           settlement_project_id,
-          positiveTotal.toFixed(2),
+          Math.round(positiveTotal).toString(),
           eligibleWorkers.length,
           0,
           'completed',
@@ -448,7 +457,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           if (!isProjectIncluded(worker.workerId, proj)) continue;
 
           const settlementAmount = proj.cappedSettlementAmount;
-          const balanceAfter = parseFloat((proj.balance - settlementAmount).toFixed(2));
+          const balanceAfter = Math.round(proj.balance - settlementAmount);
 
           await client.query(
             `INSERT INTO worker_settlement_lines (settlement_id, worker_id, from_project_id, to_project_id, amount, balance_before, balance_after)
@@ -458,9 +467,9 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
               worker.workerId,
               proj.projectId,
               settlement_project_id,
-              settlementAmount.toFixed(2),
-              proj.balance.toFixed(2),
-              balanceAfter.toFixed(2),
+              Math.round(settlementAmount).toString(),
+              Math.round(proj.balance).toString(),
+              balanceAfter.toString(),
             ]
           );
 
@@ -499,7 +508,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             [
               worker.workerId,
               proj.projectId,
-              settlementAmount.toFixed(2),
+              Math.round(settlementAmount).toString(),
               today,
               transferNotes,
               transferDesc,
@@ -517,7 +526,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
           [
             settlement_project_id,
             transfer.fromProjectId,
-            transfer.amount.toFixed(2),
+            Math.round(transfer.amount).toString(),
             `تصفية حساب العمال: ${workerNames}`,
             'settlement',
             today,

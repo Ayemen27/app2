@@ -36,9 +36,9 @@ export const formatCurrency = (amount: number | string | null | undefined): stri
   }
 
   // استخدام الأرقام الإنجليزية للحسابات والعرض الصحيح
-  return `${cleanAmount.toLocaleString('en-US', {
+  return `${Math.round(cleanAmount).toLocaleString('en-US', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 0
   })} ر.ي`;
 };
 
@@ -137,9 +137,9 @@ export const formatNumber = (num: number | string | null | undefined): string =>
   if (numValue === 0) return "0";
 
   // تنسيق الأرقام بفواصل الآلاف للأعداد الكبيرة
-  return numValue.toLocaleString('en-US', {
+  return Math.round(numValue).toLocaleString('en-US', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: numValue % 1 === 0 ? 0 : 2
+    maximumFractionDigits: 0
   });
 };
 

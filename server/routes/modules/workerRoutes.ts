@@ -20,6 +20,7 @@ import { FinancialLedgerService } from '../../services/FinancialLedgerService.js
 import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { inArray } from 'drizzle-orm';
+import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 
 declare global {
   var io: { emit: (event: string, data: unknown) => void } | undefined;
@@ -339,6 +340,13 @@ workerRouter.get('/worker-types', async (req: Request, res: Response) => {
 // تطبيق المصادقة وتحميل المشاريع المتاحة على جميع مسارات العمال (بعد الـ public endpoints)
 workerRouter.use(requireAuth);
 workerRouter.use(attachAccessibleProjects);
+
+workerRouter.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
+    return validateWholeAmounts()(req, res, next);
+  }
+  next();
+});
 
 /**
  * 👷 جلب قائمة العمال
@@ -2241,11 +2249,11 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     let dailyWage = parseFloat(resolvedWage);
     console.log(`💰 [API] الأجر الفعلي للعامل: ${dailyWage}`);
 
-    const actualWageValue = dailyWage * workDays;
+    const actualWageValue = Math.round(dailyWage * workDays);
     
     const dataWithCalculatedFields: Record<string, any> = {
       ...validationResult.data,
-      dailyWage: dailyWage.toString(),
+      dailyWage: Math.round(dailyWage).toString(),
       date: attendanceDate,
       workDays: workDays.toString(),
       actualWage: actualWageValue.toString(),
@@ -2436,7 +2444,7 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     const workDays = (updateData.workDays || existingAttendance[0].workDays) as string;
 
     if (dailyWage && workDays) {
-      const actualWageValue = parseFloat(dailyWage) * parseFloat(workDays);
+      const actualWageValue = Math.round(parseFloat(dailyWage) * parseFloat(workDays));
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
       

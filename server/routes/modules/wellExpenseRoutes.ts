@@ -13,11 +13,19 @@ import { db } from '../../db';
 import { wellExpenses } from '../../../shared/schema';
 import { eq } from 'drizzle-orm';
 import { getAuthUser } from '../../internal/auth-user.js';
+import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 
 export const wellExpenseRouter = express.Router();
 
 wellExpenseRouter.use(requireAuth);
 wellExpenseRouter.use(attachAccessibleProjects);
+
+wellExpenseRouter.use((req, res, next) => {
+  if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
+    return validateWholeAmounts()(req, res, next);
+  }
+  next();
+});
 
 async function getWellProjectId(wellId: number): Promise<string | null> {
   try {

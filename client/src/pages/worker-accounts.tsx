@@ -396,7 +396,7 @@ export default function WorkerAccountsPage() {
 
   const formatCurrency = (amount: number | string) => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return `${num.toLocaleString('en-US')} ر.ي`;
+    return `${Math.round(num).toLocaleString('en-US')} ر.ي`;
   };
 
   const formatDate = (dateStr: string) => {
@@ -862,8 +862,8 @@ export default function WorkerAccountsPage() {
                 <Label>المبلغ (ر.ي) *</Label>
                 <Input
                   type="number"
-                  inputMode="decimal"
-                  step="0.01"
+                  inputMode="numeric"
+                  step="1"
                   value={formData.amount || ''}
                   onChange={(e) => {
                     const value = e.target.value;

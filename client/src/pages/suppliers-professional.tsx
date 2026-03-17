@@ -45,7 +45,7 @@ export default function SuppliersPage() {
       style: 'decimal',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount) + ' ر.ي';
+    }).format(Math.round(amount)) + ' ر.ي';
   };
 
   const { data: suppliers = [], isLoading, refetch: refetchSuppliers } = useQuery({

@@ -217,7 +217,7 @@ export default function Dashboard() {
       style: 'decimal',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount) + ' ر.ي';
+    }).format(Math.round(amount)) + ' ر.ي';
   };
 
 

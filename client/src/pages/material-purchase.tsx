@@ -694,7 +694,7 @@ export default function MaterialPurchase() {
   const calculateTotal = () => {
     const qty = parseFloat(quantity) || 0;
     const price = parseFloat(unitPrice) || 0;
-    return (qty * price).toFixed(2);
+    return Math.round(qty * price).toString();
   };
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -26,7 +26,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/utils";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
-import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
+import { UnifiedCard, UnifiedCardGrid, UnifiedCardSkeleton } from "@/components/ui/unified-card";
+import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -307,8 +308,17 @@ export default function BackupManager() {
     return `منذ ${days} يوم`;
   };
 
+  const avgDuration = useMemo(() => {
+    const durations = logs.filter(l => l.durationMs != null).map(l => l.durationMs!);
+    if (durations.length === 0) return '-';
+    const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
+    return formatDuration(avg);
+  }, [logs]);
+
   const statsConfig: StatsRowConfig[] = [
     {
+      columns: 4,
+      gap: 'sm',
       items: [
         {
           key: "scheduler",
@@ -343,6 +353,40 @@ export default function BackupManager() {
           subLabel: backupStatus?.lastError ? `خطأ: ${backupStatus.lastError.substring(0, 30)}` : "لا أخطاء"
         }
       ]
+    },
+    {
+      columns: 4,
+      gap: 'sm',
+      items: [
+        {
+          key: "avg_duration",
+          label: "متوسط المدة",
+          value: avgDuration,
+          icon: Clock,
+          color: "blue",
+        },
+        {
+          key: "latest_size",
+          label: "آخر حجم نسخة",
+          value: logs[0]?.size ? `${logs[0].size} MB` : '-',
+          icon: FileArchive,
+          color: "indigo",
+        },
+        {
+          key: "total_rows",
+          label: "إجمالي الصفوف",
+          value: logs[0]?.totalRows ? logs[0].totalRows.toLocaleString() : '-',
+          icon: Database,
+          color: "emerald",
+        },
+        {
+          key: "databases",
+          label: "قواعد البيانات",
+          value: availableDatabases.length,
+          icon: Server,
+          color: "purple",
+        }
+      ]
     }
   ];
 
@@ -375,7 +419,35 @@ export default function BackupManager() {
         onRefresh={refetch}
         isRefreshing={isLoading || backupMutation.isPending}
         searchPlaceholder="البحث في النسخ الاحتياطية..."
+        resultsSummary={{
+          totalCount: logs.length,
+          filteredCount: filteredLogs.length,
+          totalLabel: 'إجمالي النسخ',
+          filteredLabel: 'نتائج البحث',
+          totalValue: storageInfo?.totalSizeMB ? `${storageInfo.totalSizeMB} MB` : '-',
+          totalValueLabel: 'الحجم الكلي',
+        }}
         actions={[
+          {
+            key: "export-pdf",
+            icon: FileText,
+            label: "تصدير PDF",
+            onClick: () => {
+              toast({ title: "قريباً", description: "تصدير PDF للنسخ الاحتياطية قيد التطوير" });
+            },
+            variant: "outline" as const,
+            disabled: filteredLogs.length === 0,
+          },
+          {
+            key: "export-excel",
+            icon: Download,
+            label: "تصدير Excel",
+            onClick: () => {
+              toast({ title: "قريباً", description: "تصدير Excel للنسخ الاحتياطية قيد التطوير" });
+            },
+            variant: "outline" as const,
+            disabled: filteredLogs.length === 0,
+          },
           {
             key: "run-backup",
             label: backupMutation.isPending || backupStatus?.isRunning ? "جاري النسخ..." : "نسخة احتياطية جديدة",
@@ -406,11 +478,11 @@ export default function BackupManager() {
       
       <div className="mt-6 px-4">
         {isLoading && logs.length === 0 ? (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <UnifiedCardGrid columns={3}>
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="h-40 rounded-md border bg-muted/20 animate-pulse" />
+              <UnifiedCardSkeleton key={i} compact />
             ))}
-          </div>
+          </UnifiedCardGrid>
         ) : filteredLogs.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed rounded-md bg-muted/5">
             <HardDrive className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
@@ -420,109 +492,51 @@ export default function BackupManager() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <UnifiedCardGrid columns={3}>
             {filteredLogs.map((log) => (
-              <div 
-                key={log.filename} 
-                className="group relative bg-card border rounded-md p-3 hover-elevate transition-all duration-300"
+              <UnifiedCard
+                key={log.filename}
+                title={log.filename}
+                titleIcon={log.compressed ? FileArchive : FileText}
+                headerColor={log.status === 'success' ? '#22c55e' : '#ef4444'}
+                badges={[
+                  { label: log.status === 'success' ? 'ناجحة' : 'فاشلة', variant: log.status === 'success' ? 'success' : 'destructive' },
+                  { label: log.format === 'json.gz' ? 'مضغوط' : log.format, variant: 'secondary' },
+                ]}
+                fields={[
+                  { label: 'الحجم', value: log.size + ' MB', icon: HardDrive, color: 'info' },
+                  { label: 'الجداول', value: log.tablesCount ?? '-', icon: Database, color: 'success' },
+                  { label: 'الصفوف', value: log.totalRows ? log.totalRows.toLocaleString() : '-', icon: Activity, color: 'warning' },
+                  { label: 'المدة', value: formatDuration(log.durationMs), icon: Clock, color: 'muted' },
+                  { label: 'التاريخ', value: formatDate(log.created_at), icon: Calendar, color: 'info' },
+                ]}
+                actions={[
+                  { icon: Download, label: 'تنزيل', onClick: () => handleDownload(log.filename), color: 'blue' },
+                  { icon: RotateCcw, label: 'استعادة', onClick: () => handleRestoreClick(log), disabled: restoreMutation.isPending, color: 'orange' },
+                  { icon: Trash2, label: 'حذف', onClick: () => {
+                    const { dismiss } = toast({
+                      title: "تأكيد الحذف",
+                      description: `هل تريد حذف ${log.filename} نهائياً؟`,
+                      action: (
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          onClick={() => {
+                            dismiss();
+                            deleteMutation.mutate(log.filename);
+                          }}
+                        >
+                          حذف
+                        </Button>
+                      ),
+                    });
+                  }, disabled: deleteMutation.isPending, color: 'red' },
+                ]}
+                compact
                 data-testid={`card-backup-${log.filename}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`p-2 rounded-md shrink-0 ${log.compressed ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
-                      {log.compressed ? <FileArchive className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold truncate" title={log.filename}>
-                        {log.filename}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(log.created_at)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity" style={{ visibility: 'visible' }}>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      data-testid={`button-download-${log.filename}`}
-                      onClick={() => handleDownload(log.filename)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      data-testid={`button-restore-${log.filename}`}
-                      disabled={restoreMutation.isPending}
-                      onClick={() => handleRestoreClick(log)}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      data-testid={`button-delete-${log.filename}`}
-                      disabled={deleteMutation.isPending}
-                      onClick={() => {
-                        const { dismiss } = toast({
-                          title: "تأكيد الحذف",
-                          description: `هل تريد حذف ${log.filename} نهائياً؟`,
-                          action: (
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
-                              onClick={() => {
-                                dismiss();
-                                deleteMutation.mutate(log.filename);
-                              }}
-                            >
-                              حذف
-                            </Button>
-                          ),
-                        });
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-muted/30 rounded-md p-1.5">
-                    <p className="text-xs text-muted-foreground">الحجم</p>
-                    <p className="text-sm font-bold">{log.size} MB</p>
-                  </div>
-                  <div className="bg-muted/30 rounded-md p-1.5">
-                    <p className="text-xs text-muted-foreground">الجداول</p>
-                    <p className="text-sm font-bold">{log.tablesCount ?? '-'}</p>
-                  </div>
-                  <div className="bg-muted/30 rounded-md p-1.5">
-                    <p className="text-xs text-muted-foreground">الصفوف</p>
-                    <p className="text-sm font-bold">{log.totalRows ? log.totalRows.toLocaleString() : '-'}</p>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    {log.compressed ? <FileArchive className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
-                    {log.format === 'json.gz' ? 'مضغوط' : log.format}
-                  </span>
-                  <span>{formatDuration(log.durationMs)}</span>
-                </div>
-
-                {log.status !== 'success' && (
-                  <p className="mt-2 text-xs text-destructive bg-destructive/10 p-1.5 rounded-md border border-destructive/20 truncate">
-                    خطأ في النسخة
-                  </p>
-                )}
-              </div>
+              />
             ))}
-          </div>
+          </UnifiedCardGrid>
         )}
       </div>
 

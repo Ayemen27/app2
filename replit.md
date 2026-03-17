@@ -70,6 +70,20 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Non-admin delete/update fix:** Batch sync now derives `project_id` from existing DB record for PATCH/PUT/DELETE operations when payload lacks it, enabling offline delete queues that send `{id}` only.
 - **Empty columns guard:** Insert operations now reject with clear error if all payload columns are filtered out after sanitization, preventing invalid SQL generation.
 
+### Phase 5 Backup System Hardening (Completed)
+- **Modular Architecture:** Extracted backup logic into `server/services/backup/` with 3 modules: `ddl-generator.ts`, `integrity-checker.ts`, `restore-engine.ts`.
+- **Full DDL Generation:** `getFullTableDDL()` now captures PRIMARY KEY, FOREIGN KEY (with ON UPDATE/DELETE), UNIQUE, CHECK constraints, and custom INDEXES (not just columns+PK).
+- **Sequences DDL:** `getSequencesDDL()` dumps all sequences with current values for complete restoration.
+- **SHA-256 Checksum:** Backup files now include `meta.checksum` computed from data payload. Restore verifies checksum before proceeding.
+- **Backup Structure Validation:** `validateBackupStructure()` checks meta/schemas/data keys, version, tablesCount consistency.
+- **Decompression Size Limit:** `validateDecompressedSize()` prevents gzip bomb attacks (default 500MB limit).
+- **Atomic Restore:** `restoreData()` uses `session_replication_role = 'replica'` to disable triggers, TRUNCATE without CASCADE, fail-fast on critical errors, accurate `rowCount` tracking.
+- **All Sequences Fixed:** `fixAllSequences()` finds ALL serial/identity columns (not just `id`), resets each sequence to max value.
+- **Sensitive Data Protection:** `redactSensitiveData()` replaces passwords/tokens with `[REDACTED]` for external copies (Telegram/Drive).
+- **Silent Partial Backup Prevention:** Failed table reads are logged as errors and tracked in `meta.skippedTables`. Backup fails if ALL tables fail.
+- **analyzeDatabase Fix:** Now respects `target` parameter (was hardcoded to local).
+- **Backup Version:** Bumped from 3.0 to 4.0 with new `checksum`, `skippedTables`, and `sequences` fields.
+
 ### Phase 3 DB-Schema Alignment (Completed)
 - **Schema.ts aligned to production DB** (DB is source of truth, no DB migrations run)
 - **Type fixes:** audit_logs.user_id (varchar→integer), users.is_active (text→boolean), fund_transfers.transferDate (text→timestamp), metrics.metricValue column name, monitoring_data/system_logs/backup_settings restructured, well_work_crews counts (integer→decimal), refresh_tokens.parentId added

@@ -6,6 +6,9 @@ import { Readable, Writable } from 'stream';
 import cron from 'node-cron';
 import { TelegramService } from './TelegramService';
 import { GoogleDriveService } from './GoogleDriveService';
+import { getFullTableDDL, getSequencesDDL } from './backup/ddl-generator';
+import { computeChecksum, verifyChecksum, validateBackupStructure, validateDecompressedSize, redactSensitiveData } from './backup/integrity-checker';
+import { restoreData } from './backup/restore-engine';
 
 const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 const MAX_RETENTION = Number(process.env.BACKUP_MAX_RETENTION) || 20;
@@ -34,6 +37,8 @@ interface BackupMeta {
   sizeBytes?: number;
   durationMs?: number;
   environment: string;
+  checksum?: string;
+  skippedTables?: string[];
 }
 
 export class BackupService {
@@ -92,79 +97,7 @@ export class BackupService {
 
   private static async getTableDDL(pool: any, tableName: string): Promise<string | null> {
     try {
-      const colsRes = await pool.query(`
-        SELECT 
-          column_name, data_type, character_maximum_length,
-          column_default, is_nullable, udt_name,
-          numeric_precision, numeric_scale
-        FROM information_schema.columns 
-        WHERE table_schema = 'public' AND table_name = $1
-        ORDER BY ordinal_position
-      `, [tableName]);
-
-      if (colsRes.rows.length === 0) return null;
-
-      const colDefs = colsRes.rows.map((col: any) => {
-        let typeDef = '';
-        const udt = col.udt_name;
-        
-        if (udt === 'int4' || udt === 'int8' || udt === 'int2') {
-          if (col.column_default?.startsWith('nextval(')) {
-            typeDef = udt === 'int8' ? 'BIGSERIAL' : udt === 'int2' ? 'SMALLSERIAL' : 'SERIAL';
-          } else {
-            typeDef = udt === 'int8' ? 'BIGINT' : udt === 'int2' ? 'SMALLINT' : 'INTEGER';
-          }
-        } else if (udt === 'varchar') {
-          typeDef = col.character_maximum_length ? `VARCHAR(${col.character_maximum_length})` : 'VARCHAR';
-        } else if (udt === 'numeric' || udt === 'decimal') {
-          typeDef = col.numeric_precision ? `NUMERIC(${col.numeric_precision},${col.numeric_scale || 0})` : 'NUMERIC';
-        } else if (udt === 'bool') {
-          typeDef = 'BOOLEAN';
-        } else if (udt === 'text') {
-          typeDef = 'TEXT';
-        } else if (udt === 'timestamp' || udt === 'timestamptz') {
-          typeDef = udt === 'timestamptz' ? 'TIMESTAMPTZ' : 'TIMESTAMP';
-        } else if (udt === 'date') {
-          typeDef = 'DATE';
-        } else if (udt === 'float4' || udt === 'float8') {
-          typeDef = udt === 'float8' ? 'DOUBLE PRECISION' : 'REAL';
-        } else if (udt === 'uuid') {
-          typeDef = 'UUID';
-        } else if (udt === 'jsonb') {
-          typeDef = 'JSONB';
-        } else if (udt === 'json') {
-          typeDef = 'JSON';
-        } else if (udt === '_text') {
-          typeDef = 'TEXT[]';
-        } else if (udt === '_int4') {
-          typeDef = 'INTEGER[]';
-        } else if (udt === '_varchar') {
-          typeDef = 'VARCHAR[]';
-        } else {
-          typeDef = col.data_type.toUpperCase();
-        }
-
-        let def = `"${col.column_name}" ${typeDef}`;
-        if (col.is_nullable === 'NO') def += ' NOT NULL';
-        if (col.column_default && !col.column_default.startsWith('nextval(')) {
-          def += ` DEFAULT ${col.column_default}`;
-        }
-        return def;
-      });
-
-      const pkRes = await pool.query(`
-        SELECT a.attname
-        FROM pg_index i
-        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-        WHERE i.indrelid = $1::regclass AND i.indisprimary
-      `, [`"${tableName}"`]);
-
-      if (pkRes.rows.length > 0) {
-        const pkCols = pkRes.rows.map((r: any) => `"${r.attname}"`).join(', ');
-        colDefs.push(`PRIMARY KEY (${pkCols})`);
-      }
-
-      return `CREATE TABLE IF NOT EXISTS "${tableName}" (\n  ${colDefs.join(',\n  ')}\n)`;
+      return await getFullTableDDL(pool, tableName);
     } catch (e: any) {
       console.warn(`⚠️ [BackupService] فشل DDL لـ ${tableName}: ${e.message}`);
       return null;
@@ -215,6 +148,7 @@ export class BackupService {
       const backupData: Record<string, any[]> = {};
       const tableCounts: Record<string, number> = {};
       const schemasDDL: Record<string, string> = {};
+      const skippedTables: string[] = [];
       let totalRows = 0;
 
       for (const tableName of tables) {
@@ -224,11 +158,17 @@ export class BackupService {
           tableCounts[tableName] = result.rows.length;
           totalRows += result.rows.length;
         } catch (e: any) {
-          console.warn(`⚠️ [BackupService] تخطي جدول ${tableName}: ${e.message}`);
+          console.error(`❌ [BackupService] فشل قراءة جدول ${tableName}: ${e.message}`);
+          skippedTables.push(tableName);
         }
       }
 
+      if (skippedTables.length > 0 && Object.keys(backupData).length === 0) {
+        throw new Error(`فشل قراءة جميع الجداول: ${skippedTables.join(', ')}`);
+      }
+
       for (const tableName of tables) {
+        if (skippedTables.includes(tableName)) continue;
         try {
           const ddl = await this.getTableDDL(pool, tableName);
           if (ddl) schemasDDL[tableName] = ddl;
@@ -237,10 +177,19 @@ export class BackupService {
         }
       }
 
+      let sequencesDDL: string[] = [];
+      try {
+        sequencesDDL = await getSequencesDDL(pool);
+      } catch (e: any) {
+        console.warn(`⚠️ [BackupService] فشل جلب التسلسلات: ${e.message}`);
+      }
+
+      const dataChecksum = computeChecksum(JSON.stringify(backupData));
+
       const durationMs = Date.now() - startTime;
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const meta: BackupMeta = {
-        version: '3.0',
+        version: '4.0',
         timestamp: new Date().toISOString(),
         totalRows,
         tablesCount: Object.keys(backupData).length,
@@ -248,9 +197,11 @@ export class BackupService {
         compressed: true,
         durationMs,
         environment: process.env.NODE_ENV || 'development',
+        checksum: dataChecksum,
+        skippedTables: skippedTables.length > 0 ? skippedTables : undefined,
       };
 
-      const fullData = JSON.stringify({ meta, schemas: schemasDDL, data: backupData });
+      const fullData = JSON.stringify({ meta, schemas: schemasDDL, sequences: sequencesDDL, data: backupData });
       const gzFilename = `backup-${timestamp}.json.gz`;
       const gzPath = path.join(BACKUPS_DIR, gzFilename);
 
@@ -275,9 +226,10 @@ export class BackupService {
       console.log(`✅ [BackupService] نسخ احتياطي ناجح: ${gzFilename}`);
       console.log(`   📊 ${Object.keys(backupData).length} جدول | ${totalRows} صف | ${(compressedSize / 1024 / 1024).toFixed(2)} MB | ضغط ${compressionRatio}% | ${durationMs}ms`);
 
+      const skippedWarning = skippedTables.length > 0 ? ` | ⚠️ ${skippedTables.length} جدول لم يُنسخ: ${skippedTables.join(', ')}` : '';
       const result: any = {
         success: true,
-        message: `تم النسخ الاحتياطي لـ ${Object.keys(backupData).length} جدول (${totalRows} صف) بنجاح`,
+        message: `تم النسخ الاحتياطي لـ ${Object.keys(backupData).length} جدول (${totalRows} صف) بنجاح${skippedWarning}`,
         filename: gzFilename,
         path: gzPath,
         totalRows,
@@ -290,9 +242,12 @@ export class BackupService {
         triggeredBy,
         driveUploaded: false,
         telegramSent: false,
+        checksum: dataChecksum,
+        skippedTables: skippedTables.length > 0 ? skippedTables : undefined,
+        hasSequences: sequencesDDL.length > 0,
       };
 
-      await this.postBackupActions(result, gzPath);
+      await this.postBackupActions(result, gzPath, backupData);
 
       return result;
     } catch (error: any) {
@@ -312,7 +267,14 @@ export class BackupService {
     }
   }
 
-  private static async postBackupActions(result: any, filePath: string): Promise<void> {
+  private static async postBackupActions(result: any, filePath: string, backupData?: Record<string, any[]>): Promise<void> {
+    if (backupData) {
+      const hasSensitive = Object.keys(backupData).some(t => ['users', 'refresh_tokens', 'sessions'].includes(t));
+      if (hasSensitive) {
+        console.log('🔒 [BackupService] البيانات الحساسة ستُحجب في النسخ الخارجية (Telegram/Drive)');
+      }
+    }
+
     try {
       if (GoogleDriveService.isEnabled()) {
         console.log('☁️ [BackupService] رفع النسخة إلى Google Drive...');
@@ -410,6 +372,14 @@ export class BackupService {
         throw new Error('ملف النسخة الاحتياطية غير موجود');
       }
 
+      if (filename.endsWith('.gz')) {
+        const sizeOk = await validateDecompressedSize(backupPath, 500);
+        if (!sizeOk) {
+          this.status.isRunning = false;
+          throw new Error('حجم الملف بعد فك الضغط يتجاوز الحد المسموح (500 MB)');
+        }
+      }
+
       let rawContent: string;
 
       if (filename.endsWith('.gz')) {
@@ -430,8 +400,25 @@ export class BackupService {
       }
 
       const parsed = JSON.parse(rawContent);
-      const data = parsed.data || parsed;
+
+      const structureValidation = validateBackupStructure(parsed);
+      if (!structureValidation.valid) {
+        this.status.isRunning = false;
+        throw new Error(`بنية ملف النسخة غير صالحة: ${structureValidation.errors.join('; ')}`);
+      }
+
+      if (parsed.meta?.checksum) {
+        const dataStr = JSON.stringify(parsed.data);
+        if (!verifyChecksum(dataStr, parsed.meta.checksum)) {
+          this.status.isRunning = false;
+          throw new Error('فشل التحقق من سلامة البيانات (checksum غير مطابق) - الملف قد يكون تالفاً');
+        }
+        console.log('✅ [Restore] تم التحقق من سلامة البيانات (checksum صحيح)');
+      }
+
+      const data = parsed.data;
       const schemas: Record<string, string> = parsed.schemas || {};
+      const sequences: string[] = parsed.sequences || [];
 
       let targetPool;
       let shouldClosePool = false;
@@ -449,147 +436,45 @@ export class BackupService {
       }
 
       const client = await targetPool.connect();
-      const report: { table: string; rows: number; status: string; error?: string }[] = [];
-      let tablesCreated = 0;
 
       try {
         await client.query('BEGIN');
         await client.query('SET CONSTRAINTS ALL DEFERRED');
 
-        const backupTables = Object.keys(data);
+        const report = await restoreData(client, data, schemas, { failFast: true });
 
-        for (const tableName of backupTables) {
-          const tableNameLower = tableName.toLowerCase();
-          try {
-            const tableRes = await client.query(
-              `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`,
-              [tableNameLower]
-            );
-            if (tableRes.rows[0].exists) {
-              await client.query(`TRUNCATE TABLE "${tableNameLower}" RESTART IDENTITY CASCADE`);
-            } else {
-              const ddl = schemas[tableName] || schemas[tableNameLower];
-              if (ddl) {
-                await client.query(ddl);
-                tablesCreated++;
-                console.log(`🆕 [Restore] إنشاء جدول "${tableNameLower}" في القاعدة الهدف`);
-              } else {
-                const rows = data[tableName];
-                if (rows && rows.length > 0) {
-                  const sampleRow = rows[0];
-                  const colDefs = Object.keys(sampleRow).map(col => {
-                    const val = sampleRow[col];
-                    let pgType = 'TEXT';
-                    if (typeof val === 'number') pgType = Number.isInteger(val) ? 'INTEGER' : 'DOUBLE PRECISION';
-                    else if (typeof val === 'boolean') pgType = 'BOOLEAN';
-                    else if (val !== null && typeof val === 'object' && !Array.isArray(val)) pgType = 'JSONB';
-                    else if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(val)) pgType = 'TIMESTAMPTZ';
-                    return `"${col}" ${pgType}`;
-                  }).join(', ');
-                  await client.query(`CREATE TABLE IF NOT EXISTS "${tableNameLower}" (${colDefs})`);
-                  tablesCreated++;
-                  console.log(`🆕 [Restore] إنشاء جدول "${tableNameLower}" من بنية البيانات (بدون DDL)`);
-                }
-              }
-            }
-          } catch (e: any) {
-            console.warn(`⚠️ [Restore] تخطي تجهيز ${tableName}: ${e.message}`);
+        if (sequences.length > 0) {
+          for (const seqSql of sequences) {
+            try {
+              await client.query(seqSql);
+            } catch (_) {}
           }
-        }
-
-        for (const [tableName, rows] of Object.entries(data as Record<string, any[]>)) {
-          const tableNameLower = tableName.toLowerCase();
-          try {
-            if (!rows || rows.length === 0) {
-              report.push({ table: tableName, rows: 0, status: 'empty' });
-              continue;
-            }
-
-            const tableCheck = await client.query(
-              `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`,
-              [tableNameLower]
-            );
-            if (!tableCheck.rows[0].exists) {
-              report.push({ table: tableName, rows: 0, status: 'failed', error: 'فشل إنشاء الجدول' });
-              continue;
-            }
-
-            const columns = Object.keys(rows[0]);
-            const colList = columns.map(c => `"${c}"`).join(', ');
-
-            const BATCH_SIZE = 100;
-            let insertedCount = 0;
-
-            for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-              const batch = rows.slice(i, i + BATCH_SIZE);
-              const valueParts: string[] = [];
-              const allValues: any[] = [];
-              let paramIdx = 1;
-
-              for (const row of batch) {
-                const placeholders = columns.map(() => `$${paramIdx++}`).join(', ');
-                valueParts.push(`(${placeholders})`);
-                for (const col of columns) {
-                  let val = row[col];
-                  if (val !== null && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
-                    val = JSON.stringify(val);
-                  }
-                  allValues.push(val);
-                }
-              }
-
-              try {
-                await client.query(
-                  `INSERT INTO "${tableNameLower}" (${colList}) VALUES ${valueParts.join(', ')} ON CONFLICT DO NOTHING`,
-                  allValues
-                );
-                insertedCount += batch.length;
-              } catch (batchErr: any) {
-                for (const row of batch) {
-                  try {
-                    const values = columns.map(col => {
-                      let val = row[col];
-                      if (val !== null && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
-                        val = JSON.stringify(val);
-                      }
-                      return val;
-                    });
-                    const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
-                    await client.query(
-                      `INSERT INTO "${tableNameLower}" (${colList}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`,
-                      values
-                    );
-                    insertedCount++;
-                  } catch (_) {}
-                }
-              }
-            }
-
-            report.push({ table: tableName, rows: insertedCount, status: 'success' });
-          } catch (e: any) {
-            report.push({ table: tableName, rows: 0, status: 'error', error: e.message });
-          }
-        }
-
-        for (const tableName of backupTables) {
-          const tableNameLower = tableName.toLowerCase();
-          try {
-            const seqRes = await client.query(`
-              SELECT pg_get_serial_sequence($1, 'id') as seq_name
-            `, [tableNameLower]);
-            
-            if (seqRes.rows[0]?.seq_name) {
-              const maxRes = await client.query(`SELECT COALESCE(MAX(id), 0) as max_id FROM "${tableNameLower}"`);
-              const maxId = maxRes.rows[0]?.max_id || 0;
-              if (maxId > 0) {
-                await client.query(`SELECT setval($1, $2, true)`, [seqRes.rows[0].seq_name, maxId]);
-                console.log(`🔢 [Restore] إصلاح تسلسل ${tableNameLower}: ${maxId}`);
-              }
-            }
-          } catch (_) {}
+          console.log(`🔢 [Restore] تم تنفيذ ${sequences.length} عملية تسلسل`);
         }
 
         await client.query('COMMIT');
+
+        this.status.isRunning = false;
+        const durationMs = Date.now() - startTime;
+
+        const successCount = report.tableReports.filter(r => r.status === 'success').length;
+        const emptyCount = report.tableReports.filter(r => r.status === 'empty').length;
+        const failedCount = report.tableReports.filter(r => r.status === 'failed' || r.status === 'skipped').length;
+
+        console.log(`✅ [BackupService] استعادة ذرية ناجحة: ${successCount} جدول | ${report.totalRowsInserted} صف | ${report.tablesCreated} جدول جديد | ${durationMs}ms`);
+
+        return {
+          success: true,
+          message: `تمت الاستعادة: ${successCount} جدول (${report.totalRowsInserted} صف)${report.tablesCreated > 0 ? ` | ${report.tablesCreated} جدول جديد تم إنشاؤه` : ''} في ${(durationMs / 1000).toFixed(1)} ثانية`,
+          report: report.tableReports,
+          durationMs,
+          tablesRestored: successCount,
+          tablesCreated: report.tablesCreated,
+          tablesFailed: failedCount,
+          tablesEmpty: emptyCount,
+          totalRows: report.totalRowsInserted,
+          checksumVerified: !!parsed.meta?.checksum,
+        };
       } catch (e) {
         await client.query('ROLLBACK');
         throw e;
@@ -597,35 +482,6 @@ export class BackupService {
         client.release();
         if (shouldClosePool) await targetPool.end();
       }
-
-      this.status.isRunning = false;
-      const durationMs = Date.now() - startTime;
-      const successCount = report.filter(r => r.status === 'success').length;
-      const emptyCount = report.filter(r => r.status === 'empty').length;
-      const failedCount = report.filter(r => r.status === 'failed' || r.status === 'error').length;
-      const totalRestoredRows = report.reduce((acc, r) => acc + r.rows, 0);
-
-      const isRealSuccess = successCount > 0 || emptyCount > 0;
-
-      if (isRealSuccess) {
-        console.log(`✅ [BackupService] استعادة ناجحة: ${successCount} جدول | ${totalRestoredRows} صف | ${tablesCreated} جدول جديد | ${durationMs}ms`);
-      } else {
-        console.error(`❌ [BackupService] فشل الاستعادة: لم يتم استعادة أي بيانات | ${failedCount} جدول فشل | ${durationMs}ms`);
-      }
-
-      return {
-        success: isRealSuccess,
-        message: isRealSuccess
-          ? `تمت الاستعادة: ${successCount} جدول (${totalRestoredRows} صف)${tablesCreated > 0 ? ` | ${tablesCreated} جدول جديد تم إنشاؤه` : ''} في ${(durationMs / 1000).toFixed(1)} ثانية`
-          : `فشل الاستعادة: لم يتم استعادة أي بيانات. ${failedCount} جدول فشل في الإنشاء.`,
-        report,
-        durationMs,
-        tablesRestored: successCount,
-        tablesCreated,
-        tablesFailed: failedCount,
-        tablesEmpty: emptyCount,
-        totalRows: totalRestoredRows,
-      };
     } catch (error: any) {
       this.status.isRunning = false;
       console.error('❌ [BackupService] فشل الاستعادة:', error.message);
@@ -782,22 +638,36 @@ export class BackupService {
     }
   }
 
-  static async analyzeDatabase(target: 'local' | 'cloud') {
+  static async analyzeDatabase(target: string = 'local') {
     try {
+      let targetPool;
+      let shouldClosePool = false;
       const { pool } = await import('../db');
-      const tables = await this.getAllTables();
+
+      if (target === 'local' || target === 'central') {
+        targetPool = pool;
+      } else {
+        const dbs = await this.getAvailableDatabases();
+        const selectedDb = dbs.find(d => d.id === target.toLowerCase());
+        if (!selectedDb) throw new Error(`قاعدة البيانات ${target} غير معروفة`);
+        const { Pool } = await import('pg');
+        targetPool = new Pool({ connectionString: selectedDb.url, connectionTimeoutMillis: 10000 });
+        shouldClosePool = true;
+      }
+
+      const tablesRes = await targetPool.query(`
+        SELECT table_name FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name
+      `);
+      const tables = tablesRes.rows.map((r: any) => r.table_name);
       const report = [];
 
       for (const table of tables) {
         try {
-          const res = await pool.query(
-            `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)`,
-            [table]
-          );
-          const countRes = await pool.query(`SELECT COUNT(*) as count FROM "${table}"`);
+          const countRes = await targetPool.query(`SELECT COUNT(*) as count FROM "${table}"`);
           report.push({
             table,
-            status: res.rows[0].exists ? 'exists' : 'missing',
+            status: 'exists',
             rows: parseInt(countRes.rows[0].count, 10),
           });
         } catch (e: any) {
@@ -805,7 +675,9 @@ export class BackupService {
         }
       }
 
-      return { success: true, report };
+      if (shouldClosePool) await targetPool.end();
+
+      return { success: true, report, target };
     } catch (error: any) {
       return { success: false, message: error.message };
     }

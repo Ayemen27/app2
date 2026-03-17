@@ -7,6 +7,7 @@ export interface AuthUser {
   sessionId: string;
   first_name?: string;
   last_name?: string;
+  full_name?: string;
   is_active?: boolean;
   mfa_enabled?: boolean;
 }
@@ -30,4 +31,13 @@ export function getAuthUserId(req: Request): string {
 export function isAdmin(req: Request): boolean {
   const user = getAuthUser(req);
   return user?.role === 'admin' || user?.role === 'super_admin';
+}
+
+export function getUserDisplayName(user: AuthUser | null | undefined): string {
+  if (!user) return 'مستخدم';
+  if (user.full_name && user.full_name.trim()) return user.full_name.trim();
+  const combined = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+  if (combined) return combined;
+  if (user.email) return user.email.split('@')[0];
+  return 'مستخدم';
 }

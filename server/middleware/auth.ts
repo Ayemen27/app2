@@ -405,7 +405,8 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       email: user.email,
       first_name: user.first_name || undefined,
       last_name: user.last_name || undefined,
-      role: user.role || 'user', // استخدام الدور من قاعدة البيانات مباشرة
+      full_name: user.full_name || undefined,
+      role: user.role || 'user',
       is_active: user.is_active === true,
       mfa_enabled: user.mfa_enabled || undefined,
       sessionId: sessionId || ''
@@ -495,6 +496,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
             email: user[0].email,
             first_name: user[0].first_name || undefined,
             last_name: user[0].last_name || undefined,
+            full_name: user[0].full_name || undefined,
             role: user[0].role,
             is_active: user[0].is_active,
             mfa_enabled: user[0].mfa_enabled || undefined,

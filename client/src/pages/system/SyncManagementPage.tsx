@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useSyncData } from "@/hooks/useSyncData";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,13 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Trash2, RefreshCw, AlertCircle, Clock, Database, Activity,
   Calendar, Building2, CheckCircle2, XCircle,
-  RotateCcw, AlertTriangle, Wifi, WifiOff, Zap, History,
+  RotateCcw, AlertTriangle, Zap, History,
   ChevronDown, ChevronUp, Copy, Server, User,
   ChevronLeft, ChevronRight, Shield
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { UnifiedStats } from "@/components/ui/unified-stats";
-import { UnifiedSearchFilter, useUnifiedFilter } from "@/components/ui/unified-search-filter";
+import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import type { StatsRowConfig, FilterConfig as DashFilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
@@ -38,6 +37,16 @@ function formatDateTime(timestamp: number): string {
   const d = new Date(timestamp);
   return d.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' }) +
     ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDateSafe(dateValue: any): { date: string; time: string } {
+  if (!dateValue) return { date: '', time: '' };
+  const d = new Date(dateValue);
+  if (isNaN(d.getTime())) return { date: '', time: '' };
+  return {
+    date: d.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' }),
+    time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  };
 }
 
 function getActionLabel(action: string): string {
@@ -109,9 +118,9 @@ function getAuditActionBadge(action: string) {
 
 export default function SyncManagementPage() {
   const {
-    isSyncing, isOnline, manualSync, offlineCount,
+    isSyncing, manualSync, offlineCount,
     pendingItems, failedItems, duplicateItems, syncHistory,
-    offlineStats, lastSync, latency,
+    offlineStats,
     cancelOperation, cancelAllOperations,
     retryOperation, retryAllOperations, refreshData
   } = useSyncData();
@@ -119,14 +128,11 @@ export default function SyncManagementPage() {
   const [activeTab, setActiveTab] = useState("server-audit");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [auditPage, setAuditPage] = useState(1);
+  const [searchValue, setSearchValue] = useState('');
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({ action: 'all', status: 'all', module: 'all' });
 
   const isAuditTab = activeTab === 'server-audit';
   const isHistoryTab = activeTab === 'history';
-
-  const defaultFilters: Record<string, string> = { action: 'all', status: 'all', module: 'all' };
-  const {
-    searchValue, filterValues, onSearchChange, onFilterChange, onReset
-  } = useUnifiedFilter(defaultFilters, '');
 
   const { data: projects = [] } = useQuery({
     queryKey: QUERY_KEYS.projects,
@@ -161,7 +167,7 @@ export default function SyncManagementPage() {
     return p.toString();
   }, [auditParams]);
 
-  const { data: auditData, isLoading: auditLoading } = useQuery({
+  const { data: auditData, isLoading: auditLoading, refetch: refetchAudit } = useQuery({
     queryKey: QUERY_KEYS.syncAuditLogsFiltered(auditParams),
     queryFn: async () => {
       const res = await apiRequest(`${API_ENDPOINTS.syncAuditLogs}?${queryString}`, "GET");
@@ -232,47 +238,39 @@ export default function SyncManagementPage() {
   const successLogs = syncHistory.filter(h => h.status === 'success').length;
   const stats = auditStats || {};
 
-  const unifiedStats = useMemo(() => {
+  const statsConfig: StatsRowConfig[] = useMemo(() => {
     if (isAuditTab) {
-      return [
-        { title: "إجمالي العمليات", value: stats.total || 0, icon: Database, color: "blue" as const },
-        { title: "ناجحة", value: stats.success || 0, icon: CheckCircle2, color: "green" as const },
-        { title: "فاشلة", value: stats.failed || 0, icon: XCircle, color: (stats.failed || 0) > 0 ? "red" as const : "gray" as const },
-        { title: "اليوم", value: stats.todayCount || 0, icon: Calendar, color: "purple" as const },
-      ];
+      return [{
+        items: [
+          { key: 'total', label: 'إجمالي العمليات', value: stats.total || 0, icon: Database, color: 'blue' as const },
+          { key: 'success', label: 'ناجحة', value: stats.success || 0, icon: CheckCircle2, color: 'green' as const },
+        ],
+        columns: 2 as const,
+      }, {
+        items: [
+          { key: 'failed', label: 'فاشلة', value: stats.failed || 0, icon: XCircle, color: (stats.failed || 0) > 0 ? 'red' as const : 'gray' as const },
+          { key: 'today', label: 'اليوم', value: stats.todayCount || 0, icon: Calendar, color: 'purple' as const },
+        ],
+        columns: 2 as const,
+      }];
     }
-    return [
-      {
-        title: "في الانتظار",
-        value: offlineStats?.pendingSync ?? pendingItems.length,
-        icon: Clock,
-        color: (pendingItems.length > 0 ? "orange" : "blue") as any,
-        status: (pendingItems.length > 10 ? "warning" : "normal") as any,
-      },
-      {
-        title: "فاشلة",
-        value: offlineStats?.failedSync ?? failedItems.length,
-        icon: XCircle,
-        color: (failedItems.length > 0 ? "red" : "gray") as any,
-        status: (failedItems.length > 0 ? "critical" : "normal") as any,
-      },
-      {
-        title: "ناجحة (آخر 100)",
-        value: offlineStats?.totalSuccessful ?? successLogs,
-        icon: CheckCircle2,
-        color: "green" as const,
-      },
-      {
-        title: "مكررة تم حلها",
-        value: offlineStats?.duplicateResolved ?? duplicateItems.length,
-        icon: Copy,
-        color: "purple" as const,
-      },
-    ];
+    return [{
+      items: [
+        { key: 'pending', label: 'في الانتظار', value: offlineStats?.pendingSync ?? pendingItems.length, icon: Clock, color: (pendingItems.length > 0 ? 'orange' : 'blue') as any },
+        { key: 'failed', label: 'فاشلة', value: offlineStats?.failedSync ?? failedItems.length, icon: XCircle, color: (failedItems.length > 0 ? 'red' : 'gray') as any },
+      ],
+      columns: 2 as const,
+    }, {
+      items: [
+        { key: 'success', label: 'ناجحة (آخر 100)', value: offlineStats?.totalSuccessful ?? successLogs, icon: CheckCircle2, color: 'green' as const },
+        { key: 'duplicate', label: 'مكررة تم حلها', value: offlineStats?.duplicateResolved ?? duplicateItems.length, icon: Copy, color: 'purple' as const },
+      ],
+      columns: 2 as const,
+    }];
   }, [isAuditTab, stats, offlineStats, pendingItems, failedItems, successLogs, duplicateItems]);
 
-  const filtersConfig = useMemo(() => {
-    const baseFilters: any[] = [];
+  const filtersConfig: DashFilterConfig[] = useMemo(() => {
+    const baseFilters: DashFilterConfig[] = [];
 
     if (isAuditTab) {
       baseFilters.push({
@@ -357,53 +355,47 @@ export default function SyncManagementPage() {
     });
   };
 
+  const handleFilterChange = (key: string, value: any) => {
+    setFilterValues(prev => ({ ...prev, [key]: value }));
+    if (isAuditTab) setAuditPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    if (isAuditTab) setAuditPage(1);
+  };
+
+  const handleReset = () => {
+    setSearchValue('');
+    setFilterValues({ action: 'all', status: 'all', module: 'all' });
+    if (isAuditTab) setAuditPage(1);
+  };
+
+  const handleRefresh = () => {
+    if (isAuditTab) {
+      refetchAudit();
+    } else {
+      refreshData();
+    }
+  };
+
   return (
     <div className="space-y-4 pb-20" data-testid="page-sync-management">
-      <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant={isOnline ? "success" : "destructive"} data-testid="badge-connection-status">
-          {isOnline ? <><Wifi className="h-3 w-3 ml-1" /> متصل</> : <><WifiOff className="h-3 w-3 ml-1" /> غير متصل</>}
-        </Badge>
-        {lastSync > 0 && (
-          <Badge variant="outline" data-testid="badge-last-sync">
-            <Clock className="h-3 w-3 ml-1" />
-            آخر مزامنة: {formatTimeAgo(lastSync)}
-          </Badge>
-        )}
-        {latency && latency > 0 && (
-          <Badge variant="outline" data-testid="badge-latency">
-            <Zap className="h-3 w-3 ml-1" />
-            {latency}ms
-          </Badge>
-        )}
-        {isSyncing && (
-          <Badge variant="default" data-testid="badge-syncing">
-            <RefreshCw className="h-3 w-3 ml-1 animate-spin" />
-            جاري المزامنة
-          </Badge>
-        )}
-      </div>
-
-      <UnifiedStats
-        stats={unifiedStats}
-        columns={4}
+      <UnifiedFilterDashboard
         hideHeader
+        statsRows={statsConfig}
+        filters={filtersConfig}
+        filterValues={filterValues}
+        onFilterChange={handleFilterChange}
+        searchValue={searchValue}
+        onSearchChange={handleSearchChange}
+        searchPlaceholder={searchPlaceholder}
+        onReset={handleReset}
+        onRefresh={handleRefresh}
+        isRefreshing={auditLoading || isSyncing}
       />
 
-      <Card className="border-none shadow-sm">
-        <CardContent className="p-3">
-          <UnifiedSearchFilter
-            searchValue={searchValue}
-            onSearchChange={(v) => { onSearchChange(v); if (isAuditTab) setAuditPage(1); }}
-            searchPlaceholder={searchPlaceholder}
-            filters={filtersConfig}
-            filterValues={filterValues}
-            onFilterChange={(k, v) => { onFilterChange(k, v); if (isAuditTab) setAuditPage(1); }}
-            onReset={() => { onReset(); if (isAuditTab) setAuditPage(1); }}
-          />
-        </CardContent>
-      </Card>
-
-      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); onReset(); }} className="w-full" dir="rtl">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); handleReset(); }} className="w-full" dir="rtl">
         <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-5 mb-4 no-scrollbar" data-testid="tabs-sync">
           <TabsTrigger value="server-audit" className="gap-1" data-testid="tab-server-audit">
             <Server className="h-3.5 w-3.5" />
@@ -447,205 +439,14 @@ export default function SyncManagementPage() {
           ) : (
             <ScrollArea className="h-[500px]">
               <div className="space-y-2">
-                {auditLogs.map((log: any) => {
-                  const isExpanded = expandedAudit.has(log.id);
-                  const logDate = log.created_at || log.createdAt;
-                  const dateObj = logDate ? new Date(logDate) : null;
-                  const isValidDate = dateObj && !isNaN(dateObj.getTime());
-                  const formattedDate = isValidDate
-                    ? dateObj.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' })
-                    : '';
-                  const formattedTime = isValidDate
-                    ? dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-                    : '';
-                  const userName = log.userName || log.user_name || '';
-                  const tableName = log.tableName || log.table_name || '';
-                  const syncType = log.syncType || log.sync_type || '';
-                  const recordId = log.recordId || log.record_id || '';
-                  const ipAddress = log.ipAddress || log.ip_address || '';
-                  const errorMessage = log.errorMessage || log.error_message || '';
-                  const durationMs = log.durationMs || log.duration_ms;
-                  const projectName = log.projectName || log.project_name || '';
-                  const oldValues = log.oldValues || log.old_values;
-                  const newValues = log.newValues || log.new_values;
-                  const userAgent = log.userAgent || log.user_agent || '';
-
-                  return (
-                    <div
-                      key={log.id}
-                      className="rounded-lg border bg-card overflow-hidden cursor-pointer"
-                      data-testid={`audit-log-${log.id}`}
-                      onClick={() => toggleAuditExpand(log.id)}
-                    >
-                      <div className="p-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                            <div className={`p-1.5 rounded-md shrink-0 ${
-                              log.status === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30' :
-                              log.status === 'failed' ? 'bg-red-100 text-red-600 dark:bg-red-900/30' :
-                              log.status === 'duplicate' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30' :
-                              'bg-gray-100 text-gray-600 dark:bg-gray-900/30'
-                            }`}>
-                              {log.status === 'success' ? <CheckCircle2 className="h-4 w-4" /> :
-                               log.status === 'failed' ? <XCircle className="h-4 w-4" /> :
-                               log.status === 'duplicate' ? <Copy className="h-4 w-4" /> :
-                               <AlertCircle className="h-4 w-4" />}
-                            </div>
-                            {getAuditStatusBadge(log.status)}
-                            {getAuditActionBadge(log.action)}
-                            <Badge variant="outline" className="text-[10px]">{log.module}</Badge>
-                          </div>
-                          <div className="shrink-0">
-                            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                          </div>
-                        </div>
-
-                        <p className="text-sm font-medium leading-tight">{log.description}</p>
-
-                        {errorMessage && (
-                          <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1">{errorMessage}</p>
-                        )}
-
-                        <div className="flex items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground flex-wrap">
-                          {isValidDate && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3 shrink-0" />
-                              {formattedDate} {formattedTime}
-                            </span>
-                          )}
-                          {userName && (
-                            <span className="flex items-center gap-1 font-medium text-foreground/70">
-                              <User className="h-3 w-3 shrink-0" />
-                              {userName}
-                            </span>
-                          )}
-                          {durationMs != null && (
-                            <span className="flex items-center gap-1">
-                              <Zap className="h-3 w-3 shrink-0" />
-                              {durationMs}ms
-                            </span>
-                          )}
-                          {projectName && (
-                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                              <Building2 className="h-3 w-3 shrink-0" />
-                              {projectName}
-                            </span>
-                          )}
-                          {tableName && tableName !== 'sync_operation' && (
-                            <span className="flex items-center gap-1">
-                              <Database className="h-3 w-3 shrink-0" />
-                              {tableName}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="border-t p-3 bg-muted/30 space-y-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                            <div className="space-y-1.5">
-                              <h4 className="font-semibold text-foreground/80 text-[11px]">معلومات العملية</h4>
-                              <div className="space-y-1 bg-background/60 rounded-md p-2">
-                                <div className="flex justify-between">
-                                  <span className="text-muted-foreground">رقم السجل:</span>
-                                  <span className="font-mono">#{log.id}</span>
-                                </div>
-                                {tableName && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">الجدول:</span>
-                                    <span>{tableName}</span>
-                                  </div>
-                                )}
-                                {recordId && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">معرّف السجل:</span>
-                                    <span className="font-mono text-[10px] max-w-[120px] truncate" dir="ltr">{recordId}</span>
-                                  </div>
-                                )}
-                                {syncType && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">نوع المزامنة:</span>
-                                    <span>{syncType}</span>
-                                  </div>
-                                )}
-                                {log.amount && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">المبلغ:</span>
-                                    <span className="font-semibold">{Number(log.amount).toLocaleString('ar-SA')}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <h4 className="font-semibold text-foreground/80 text-[11px]">معلومات المستخدم</h4>
-                              <div className="space-y-1 bg-background/60 rounded-md p-2">
-                                {userName && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">المستخدم:</span>
-                                    <span className="font-medium">{userName}</span>
-                                  </div>
-                                )}
-                                {isValidDate && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">التاريخ:</span>
-                                    <span dir="ltr">{formattedDate}</span>
-                                  </div>
-                                )}
-                                {isValidDate && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">الوقت:</span>
-                                    <span dir="ltr">{formattedTime}</span>
-                                  </div>
-                                )}
-                                {ipAddress && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">عنوان IP:</span>
-                                    <span className="font-mono text-[10px]" dir="ltr">{ipAddress}</span>
-                                  </div>
-                                )}
-                                {durationMs != null && (
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">المدة:</span>
-                                    <span>{durationMs}ms</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {userAgent && (
-                            <div className="text-[10px]">
-                              <span className="text-muted-foreground">المتصفح: </span>
-                              <span className="text-muted-foreground/70 break-all" dir="ltr">{userAgent.substring(0, 120)}</span>
-                            </div>
-                          )}
-
-                          {oldValues && (
-                            <details className="text-xs">
-                              <summary className="text-muted-foreground cursor-pointer text-[11px] font-medium hover:text-foreground transition-colors">
-                                القيم القديمة
-                              </summary>
-                              <pre className="mt-1 p-2 rounded bg-muted text-[10px] overflow-auto max-h-32 font-mono" dir="ltr">
-                                {JSON.stringify(oldValues, null, 2)}
-                              </pre>
-                            </details>
-                          )}
-                          {newValues && (
-                            <details className="text-xs">
-                              <summary className="text-muted-foreground cursor-pointer text-[11px] font-medium hover:text-foreground transition-colors">
-                                القيم الجديدة
-                              </summary>
-                              <pre className="mt-1 p-2 rounded bg-muted text-[10px] overflow-auto max-h-32 font-mono" dir="ltr">
-                                {JSON.stringify(newValues, null, 2)}
-                              </pre>
-                            </details>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {auditLogs.map((log: any) => (
+                  <AuditLogCard
+                    key={log.id}
+                    log={log}
+                    isExpanded={expandedAudit.has(log.id)}
+                    onToggle={() => toggleAuditExpand(log.id)}
+                  />
+                ))}
               </div>
             </ScrollArea>
           )}
@@ -808,6 +609,197 @@ export default function SyncManagementPage() {
           />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function AuditLogCard({ log, isExpanded, onToggle }: { log: any; isExpanded: boolean; onToggle: () => void }) {
+  const logDate = log.created_at || log.createdAt;
+  const { date: formattedDate, time: formattedTime } = formatDateSafe(logDate);
+  const userName = log.userName || log.user_name || '';
+  const tableName = log.tableName || log.table_name || '';
+  const syncType = log.syncType || log.sync_type || '';
+  const recordId = log.recordId || log.record_id || '';
+  const ipAddress = log.ipAddress || log.ip_address || '';
+  const errorMessage = log.errorMessage || log.error_message || '';
+  const durationMs = log.durationMs || log.duration_ms;
+  const projectName = log.projectName || log.project_name || '';
+  const oldValues = log.oldValues || log.old_values;
+  const newValues = log.newValues || log.new_values;
+  const userAgent = log.userAgent || log.user_agent || '';
+
+  return (
+    <div
+      className="rounded-lg border bg-card overflow-hidden cursor-pointer"
+      data-testid={`audit-log-${log.id}`}
+      onClick={onToggle}
+    >
+      <div className="p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+            <div className={`p-1.5 rounded-md shrink-0 ${
+              log.status === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30' :
+              log.status === 'failed' ? 'bg-red-100 text-red-600 dark:bg-red-900/30' :
+              log.status === 'duplicate' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30' :
+              'bg-gray-100 text-gray-600 dark:bg-gray-900/30'
+            }`}>
+              {log.status === 'success' ? <CheckCircle2 className="h-4 w-4" /> :
+               log.status === 'failed' ? <XCircle className="h-4 w-4" /> :
+               log.status === 'duplicate' ? <Copy className="h-4 w-4" /> :
+               <AlertCircle className="h-4 w-4" />}
+            </div>
+            {getAuditStatusBadge(log.status)}
+            {getAuditActionBadge(log.action)}
+            <Badge variant="outline" className="text-[10px]">{log.module}</Badge>
+          </div>
+          <div className="shrink-0">
+            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </div>
+        </div>
+
+        <p className="text-sm font-medium leading-tight">{log.description}</p>
+
+        {errorMessage && (
+          <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1">{errorMessage}</p>
+        )}
+
+        <div className="flex items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground flex-wrap">
+          {formattedDate && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3 shrink-0" />
+              {formattedDate} {formattedTime}
+            </span>
+          )}
+          {userName && (
+            <span className="flex items-center gap-1 font-medium text-foreground/70">
+              <User className="h-3 w-3 shrink-0" />
+              {userName}
+            </span>
+          )}
+          {durationMs != null && (
+            <span className="flex items-center gap-1">
+              <Zap className="h-3 w-3 shrink-0" />
+              {durationMs}ms
+            </span>
+          )}
+          {projectName && (
+            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+              <Building2 className="h-3 w-3 shrink-0" />
+              {projectName}
+            </span>
+          )}
+          {tableName && tableName !== 'sync_operation' && (
+            <span className="flex items-center gap-1">
+              <Database className="h-3 w-3 shrink-0" />
+              {tableName}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="border-t p-3 bg-muted/30 space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="space-y-1.5">
+              <h4 className="font-semibold text-foreground/80 text-[11px]">معلومات العملية</h4>
+              <div className="space-y-1 bg-background/60 rounded-md p-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">رقم السجل:</span>
+                  <span className="font-mono">#{log.id}</span>
+                </div>
+                {tableName && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">الجدول:</span>
+                    <span>{tableName}</span>
+                  </div>
+                )}
+                {recordId && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">معرّف السجل:</span>
+                    <span className="font-mono text-[10px] max-w-[120px] truncate" dir="ltr">{recordId}</span>
+                  </div>
+                )}
+                {syncType && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">نوع المزامنة:</span>
+                    <span>{syncType}</span>
+                  </div>
+                )}
+                {log.amount && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">المبلغ:</span>
+                    <span className="font-semibold">{Number(log.amount).toLocaleString('ar-SA')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <h4 className="font-semibold text-foreground/80 text-[11px]">معلومات المستخدم</h4>
+              <div className="space-y-1 bg-background/60 rounded-md p-2">
+                {userName && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">المستخدم:</span>
+                    <span className="font-medium">{userName}</span>
+                  </div>
+                )}
+                {formattedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">التاريخ:</span>
+                    <span dir="ltr">{formattedDate}</span>
+                  </div>
+                )}
+                {formattedTime && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">الوقت:</span>
+                    <span dir="ltr">{formattedTime}</span>
+                  </div>
+                )}
+                {ipAddress && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">عنوان IP:</span>
+                    <span className="font-mono text-[10px]" dir="ltr">{ipAddress}</span>
+                  </div>
+                )}
+                {durationMs != null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">المدة:</span>
+                    <span>{durationMs}ms</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {userAgent && (
+            <div className="text-[10px]">
+              <span className="text-muted-foreground">المتصفح: </span>
+              <span className="text-muted-foreground/70 break-all" dir="ltr">{userAgent.substring(0, 120)}</span>
+            </div>
+          )}
+
+          {oldValues && (
+            <details className="text-xs">
+              <summary className="text-muted-foreground cursor-pointer text-[11px] font-medium hover:text-foreground transition-colors">
+                القيم القديمة
+              </summary>
+              <pre className="mt-1 p-2 rounded bg-muted text-[10px] overflow-auto max-h-32 font-mono" dir="ltr">
+                {JSON.stringify(oldValues, null, 2)}
+              </pre>
+            </details>
+          )}
+          {newValues && (
+            <details className="text-xs">
+              <summary className="text-muted-foreground cursor-pointer text-[11px] font-medium hover:text-foreground transition-colors">
+                القيم الجديدة
+              </summary>
+              <pre className="mt-1 p-2 rounded bg-muted text-[10px] overflow-auto max-h-32 font-mono" dir="ltr">
+                {JSON.stringify(newValues, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
     </div>
   );
 }

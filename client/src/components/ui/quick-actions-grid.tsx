@@ -78,7 +78,7 @@ export function QuickActionsGrid({ onAddWorker, onAddProject }: QuickActionsGrid
     },
     {
       id: "equipment",
-      label: "إدارة المعدات",
+      label: "إدارة المخزن",
       icon: Wrench,
       route: "/equipment",
       gradient: "from-slate-500 to-slate-600",

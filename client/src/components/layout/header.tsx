@@ -48,7 +48,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/admin-notifications': { title: 'إشعارات الإدارة', icon: Shield },
   '/ai-chat': { title: 'المساعد الذكي', icon: MessageSquare },
   '/security-policies': { title: 'سياسات الأمان', icon: Lock },
-  '/equipment': { title: 'إدارة المعدات', icon: Wrench },
+  '/equipment': { title: 'إدارة المخزن', icon: Wrench },
   '/reports': { title: 'التقارير', icon: FileBarChart },
   '/local-db': { title: 'إدارة قاعدة البيانات المحلية', icon: Database },
   '/admin/sync': { title: 'إدارة المزامنة', icon: RefreshCw },

@@ -244,7 +244,7 @@ export function EquipmentManagement() {
 
       const success = await createProfessionalReport({
         sheetName: 'تقرير المخزون',
-        reportTitle: 'تقرير المخزون - إدارة المعدات والمواد',
+        reportTitle: 'تقرير المخزون - إدارة المخزن والمواد',
         subtitle: `تاريخ الاستخراج: ${new Date().toLocaleDateString('ar-SA')}`,
         infoLines: [
           `عدد المواد: ${filteredStockItems.length}`,
@@ -307,7 +307,7 @@ export function EquipmentManagement() {
     setIsExportingPdf(true);
     try {
       const success = await generateTablePDF({
-        reportTitle: 'تقرير المخزون - إدارة المعدات والمواد',
+        reportTitle: 'تقرير المخزون - إدارة المخزن والمواد',
         subtitle: `عدد المواد: ${filteredStockItems.length} | تاريخ: ${new Date().toLocaleDateString('ar-SA')}`,
         infoItems: [
           { label: 'إجمالي المواد', value: stats.total_items || 0, color: '#3B82F6' },

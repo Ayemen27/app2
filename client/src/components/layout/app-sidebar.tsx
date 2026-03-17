@@ -70,7 +70,7 @@ const sections: SidebarSection[] = [
       { title: "حسابات الموردين", url: "/supplier-accounts", icon: CreditCard, adminOnly: true },
       { title: "إدارة النقل", url: "/transport-management", icon: Truck },
       { title: "الزبائن", url: "/customers", icon: Users },
-      { title: "إدارة المعدات", icon: Wrench, url: "/equipment", adminOnly: true },
+      { title: "إدارة المخزن", icon: Wrench, url: "/equipment", adminOnly: true },
     ]
   },
   {

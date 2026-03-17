@@ -47,7 +47,7 @@ const allPagesData = [
       { path: "/material-purchase", icon: Package, label: "شراء المواد", description: "إدارة مشتريات مواد البناء", requireAdmin: false },
       { path: "/transport-management", icon: Truck, label: "إدارة النقل", description: "إدارة أجور ونقل العمال والمعدات", requireAdmin: false },
       { path: "/worker-accounts", icon: DollarSign, label: "حسابات العمال", description: "إدارة حوالات وتحويلات العمال", requireAdmin: false },
-      { path: "/equipment", icon: Wrench, label: "إدارة المعدات", description: "إدارة المعدات مع النقل والتتبع", requireAdmin: true },
+      { path: "/equipment", icon: Wrench, label: "إدارة المخزن", description: "إدارة المخزن والمواد والمعدات", requireAdmin: true },
       { path: "/project-fund-custody", icon: DollarSign, label: "الوارد للعهد", description: "إدارة الوارد الرئيسي للعُهد" },
       { path: "/project-transfers", icon: ArrowLeftRight, label: "ترحيل بين المشاريع", description: "إدارة ترحيل الأرصدة بين المشاريع" },
       { path: "/worker-settlements", icon: Scale, label: "تصفية الحسابات", description: "تصفية حساب العمال بين المشاريع", requireAdmin: true },

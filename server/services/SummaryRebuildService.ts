@@ -1,33 +1,12 @@
 import { pool } from '../db';
 import type { PoolClient } from 'pg';
 
-async function ensureInvalidationsTable(): Promise<void> {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS summary_invalidations (
-      project_id VARCHAR PRIMARY KEY,
-      invalid_from_date TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
-}
-
-let tableEnsured = false;
-async function ensureTable(): Promise<void> {
-  if (tableEnsured) return;
-  await ensureInvalidationsTable();
-  tableEnsured = true;
-}
-
 async function markInvalid(projectId: string, fromDate: string): Promise<void> {
-  await ensureTable();
   const dateStr = String(fromDate || '').substring(0, 10);
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
   await pool.query(`
-    INSERT INTO summary_invalidations (project_id, invalid_from_date, created_at)
-    VALUES ($1, $2, NOW())
-    ON CONFLICT (project_id) DO UPDATE
-    SET invalid_from_date = LEAST(summary_invalidations.invalid_from_date, EXCLUDED.invalid_from_date),
-        created_at = NOW()
+    INSERT INTO summary_invalidations (project_id, invalidated_from, reason, created_at)
+    VALUES ($1, $2, 'auto-invalidation', NOW())
   `, [projectId, dateStr]);
 }
 
@@ -209,10 +188,10 @@ async function upsertDailySummary(
 
 async function getActiveDatesWithClient(client: PoolClient, projectId: string, fromDate: string | null, toDate: string): Promise<string[]> {
   const params: string[] = [projectId, toDate];
-  let fromCondition = '';
+  let outerFromCondition = '';
   if (fromDate) {
     params.push(fromDate);
-    fromCondition = `AND sub_date >= $3`;
+    outerFromCondition = `AND sub_date >= $3`;
   }
 
   const result = await client.query(`
@@ -223,19 +202,15 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
         AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) <= $2
-        ${fromCondition}
       UNION
       SELECT date as sub_date FROM worker_attendance
       WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
-        ${fromCondition}
       UNION
       SELECT purchase_date as sub_date FROM material_purchases
       WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != '' AND purchase_date <= $2
-        ${fromCondition}
       UNION
       SELECT date as sub_date FROM transportation_expenses
       WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
-        ${fromCondition}
       UNION
       SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) as sub_date
       FROM worker_transfers
@@ -243,11 +218,9 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
         AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) <= $2
-        ${fromCondition}
       UNION
       SELECT date as sub_date FROM worker_misc_expenses
       WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
-        ${fromCondition}
       UNION
       SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) as sub_date
       FROM project_fund_transfers
@@ -255,13 +228,12 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
         AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) <= $2
-        ${fromCondition}
       UNION
       SELECT payment_date as sub_date FROM supplier_payments
       WHERE project_id = $1 AND payment_date IS NOT NULL AND payment_date != '' AND payment_date <= $2
-        ${fromCondition}
     ) dates
     WHERE sub_date IS NOT NULL AND sub_date != ''
+    ${outerFromCondition}
     ORDER BY sub_date ASC
   `, params);
 
@@ -269,13 +241,12 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
 }
 
 async function ensureValidSummary(projectId: string, targetDate: string): Promise<void> {
-  await ensureTable();
   const invalidation = await pool.query(
-    `SELECT invalid_from_date FROM summary_invalidations WHERE project_id = $1`,
+    `SELECT MIN(invalidated_from) as invalidated_from FROM summary_invalidations WHERE project_id = $1`,
     [projectId]
   );
-  if (invalidation.rows.length === 0) return;
-  const invalidFromDate = invalidation.rows[0].invalid_from_date;
+  if (invalidation.rows.length === 0 || !invalidation.rows[0].invalidated_from) return;
+  const invalidFromDate = invalidation.rows[0].invalidated_from;
   if (dateToNum(invalidFromDate) > dateToNum(targetDate)) return;
 
   const client = await pool.connect();
@@ -285,14 +256,14 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
     await client.query(`SELECT pg_advisory_xact_lock($1)`, [lockId]);
 
     const recheckResult = await client.query(
-      `SELECT invalid_from_date FROM summary_invalidations WHERE project_id = $1`,
+      `SELECT MIN(invalidated_from) as invalidated_from FROM summary_invalidations WHERE project_id = $1`,
       [projectId]
     );
-    if (recheckResult.rows.length === 0) {
+    if (recheckResult.rows.length === 0 || !recheckResult.rows[0].invalidated_from) {
       await client.query('COMMIT');
       return;
     }
-    const confirmedInvalidFrom = recheckResult.rows[0].invalid_from_date;
+    const confirmedInvalidFrom = recheckResult.rows[0].invalidated_from;
     if (dateToNum(confirmedInvalidFrom) > dateToNum(targetDate)) {
       await client.query('COMMIT');
       return;
@@ -330,8 +301,8 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
     }
 
     await client.query(
-      `DELETE FROM summary_invalidations WHERE project_id = $1 AND invalid_from_date = $2`,
-      [projectId, confirmedInvalidFrom]
+      `DELETE FROM summary_invalidations WHERE project_id = $1 AND invalidated_from <= $2`,
+      [projectId, targetDate]
     );
     await client.query('COMMIT');
   } catch (error) {

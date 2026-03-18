@@ -18,3 +18,9 @@ id = "kQZIKH1TEyjurHY2T8jME"
 uri = "file://.local/financial-audit-report.md"
 type = "text"
 title = "تقرير تحليل شامل: منع تكرار العمليات المالية"
+
+[[outputs]]
+id = "xEIIzcEFjt-B_aX6v7SVO"
+uri = "file://.local/accounting-integrity-audit.md"
+type = "text"
+title = "تقرير سلامة النظام المحاسبي — Double-Entry Accounting Integrity Audit"

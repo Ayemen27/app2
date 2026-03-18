@@ -273,6 +273,14 @@ async function recalculateAttendanceAndBalances(
 
   const projectsAffected = Array.from(projectIdsSet);
 
+  const earliestDateByProject = new Map<string, string>();
+  for (const record of affectedRecords) {
+    const existing = earliestDateByProject.get(record.project_id);
+    if (!existing || record.attendanceDate < existing) {
+      earliestDateByProject.set(record.project_id, record.attendanceDate);
+    }
+  }
+
   for (const pid of projectsAffected) {
     await pool.query(
       `UPDATE worker_balances wb
@@ -297,6 +305,13 @@ async function recalculateAttendanceAndBalances(
        WHERE wb.worker_id = $1 AND wb.project_id = $2`,
       [workerId, pid]
     );
+
+    try {
+      const earliestDate = earliestDateByProject.get(pid);
+      if (earliestDate) {
+        await SummaryRebuildService.markInvalid(pid, earliestDate);
+      }
+    } catch (e) { console.error('[SummaryRebuild] recalcAttendance markInvalid error:', e); }
   }
 
   console.log(`✅ [RecalcHelper] تم تحديث ${affectedRecords.length} سجل حضور في ${projectsAffected.length} مشروع`);

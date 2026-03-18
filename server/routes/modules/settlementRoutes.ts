@@ -748,11 +748,13 @@ settlementRouter.delete('/:id', async (req: Request, res: Response) => {
         [id]
       );
 
-      const lineProjectIds = [...new Set(lines.rows.map((l: any) => l.project_id).filter(Boolean))] as string[];
-      affectedProjectIds.push(...lineProjectIds);
-      if (settlement.settlement_project_id && !affectedProjectIds.includes(settlement.settlement_project_id)) {
-        affectedProjectIds.push(settlement.settlement_project_id);
+      const lineProjectIds = new Set<string>();
+      for (const l of lines.rows) {
+        if (l.from_project_id) lineProjectIds.add(l.from_project_id);
+        if (l.to_project_id) lineProjectIds.add(l.to_project_id);
       }
+      if (settlement.settlement_project_id) lineProjectIds.add(settlement.settlement_project_id);
+      affectedProjectIds.push(...lineProjectIds);
 
       const workerIds = [...new Set(lines.rows.map((l: any) => l.worker_id))];
 

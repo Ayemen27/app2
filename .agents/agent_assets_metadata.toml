@@ -36,3 +36,9 @@ id = "d3p43kMHYOzVpvJ3LbBxx"
 uri = "file://SYSTEM_INTEGRITY_AUDIT.md"
 type = "text"
 title = "تقرير فحص سلامة النظام - System Integrity Audit"
+
+[[outputs]]
+id = "R_SbGypttWopfbcK0lcLK"
+uri = "file://API_PERFORMANCE_REPORT.md"
+type = "text"
+title = "تقرير تحليل أداء API — Performance Analysis Report"

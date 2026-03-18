@@ -2339,6 +2339,14 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     console.log(`💰 [API] الأجر الفعلي للعامل: ${dailyWage}`);
 
     const actualWageValue = Math.round(dailyWage * workDays);
+
+    const rawPaidAmount = validationResult.data.paidAmount ?? req.body.paid_amount ?? req.body.paidAmount ?? '0';
+    const parsedPaid = Number(rawPaidAmount);
+    const paidAmount = (rawPaidAmount === '' || rawPaidAmount === null || rawPaidAmount === undefined || !Number.isFinite(parsedPaid))
+      ? 0
+      : parsedPaid;
+    const remainingAmount = Math.max(0, actualWageValue - paidAmount);
+    const paymentType = paidAmount >= actualWageValue ? "full" : "partial";
     
     const dataWithCalculatedFields: Record<string, any> = {
       ...validationResult.data,
@@ -2347,6 +2355,9 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       workDays: workDays.toString(),
       actualWage: actualWageValue.toString(),
       totalPay: actualWageValue.toString(),
+      paidAmount: paidAmount.toString(),
+      remainingAmount: remainingAmount.toString(),
+      paymentType: paymentType,
       notes: req.body.notes || validationResult.data.notes || ""
     };
 
@@ -2364,8 +2375,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
         eq(workerAttendance.worker_id, validationResult.data.worker_id),
         eq(workerAttendance.project_id, validationResult.data.project_id),
         eq(workerAttendance.date, attendanceDate),
-        sql`CAST(${workerAttendance.paidAmount} AS DECIMAL(15,2)) = CAST(${validationResult.data.paidAmount} AS DECIMAL(15,2))`,
-        sql`CAST(${workerAttendance.workDays} AS DECIMAL(15,2)) = CAST(${workDays} AS DECIMAL(15,2))`
+        sql`CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL(15,2)) = CAST(${paidAmount.toString()} AS DECIMAL(15,2))`,
+        sql`CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL(15,2)) = CAST(${workDays.toString()} AS DECIMAL(15,2))`
       ))
       .limit(1);
 
@@ -2543,12 +2554,14 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
       
-      // تحديث المتبقي إذا تم تحديث المدفوع أو الأيام
-      const paidAmount = updateData.paidAmount !== undefined ? updateData.paidAmount : existingAttendance[0].paidAmount;
-      if (paidAmount !== undefined) {
-        updateData.remainingAmount = (actualWageValue - parseFloat(paidAmount as string)).toString();
-        updateData.paymentType = parseFloat(paidAmount as string) >= actualWageValue ? "full" : "partial";
-      }
+      const rawPaid = updateData.paidAmount !== undefined ? updateData.paidAmount : existingAttendance[0].paidAmount;
+      const parsedPaidUpdate = Number(rawPaid);
+      const safePaidAmount = (rawPaid === '' || rawPaid === null || rawPaid === undefined || !Number.isFinite(parsedPaidUpdate))
+        ? 0
+        : parsedPaidUpdate;
+      updateData.paidAmount = safePaidAmount.toString();
+      updateData.remainingAmount = Math.max(0, actualWageValue - safePaidAmount).toString();
+      updateData.paymentType = safePaidAmount >= actualWageValue ? "full" : "partial";
     }
 
     // تحديث حضور العامل

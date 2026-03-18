@@ -1,6 +1,27 @@
 import { ENV } from './env';
 import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 
+function isNativePlatform(): boolean {
+  const cap = (window as any).Capacitor;
+  return !!(cap?.isNativePlatform?.() || cap?.isNative === true ||
+    cap?.getPlatform?.() === 'android' || cap?.getPlatform?.() === 'ios');
+}
+
+function getNativeBiometricPlugin(): any | null {
+  try {
+    const cap = (window as any).Capacitor;
+    if (cap?.Plugins?.NativeBiometric) {
+      return cap.Plugins.NativeBiometric;
+    }
+    if (cap?.registerPlugin) {
+      return cap.registerPlugin('NativeBiometric');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function bufferToBase64url(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -27,15 +48,11 @@ function base64urlToBuffer(base64url: string): ArrayBuffer {
 }
 
 export async function isBiometricAvailable(): Promise<boolean> {
-  const cap = (window as any).Capacitor;
-  const isNative = cap?.isNativePlatform?.() || cap?.isNative === true ||
-    cap?.getPlatform?.() === 'android' || cap?.getPlatform?.() === 'ios';
-
-  if (isNative) {
+  if (isNativePlatform()) {
     try {
-      const bioModName = ['capacitor', 'native', 'biometric'].join('-');
-      const mod = await import(/* @vite-ignore */ bioModName);
-      const result = await mod.NativeBiometric.isAvailable();
+      const plugin = getNativeBiometricPlugin();
+      if (!plugin) return false;
+      const result = await plugin.isAvailable();
       return result.isAvailable;
     } catch {
       return false;
@@ -46,8 +63,7 @@ export async function isBiometricAvailable(): Promise<boolean> {
     return false;
   }
   try {
-    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    return available;
+    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
   } catch {
     return false;
   }
@@ -58,6 +74,190 @@ export function hasBiometricCredentialStored(): boolean {
 }
 
 export async function registerBiometric(accessToken: string): Promise<{ success: boolean; message: string }> {
+  if (isNativePlatform()) {
+    return await registerBiometricNative(accessToken);
+  }
+  return await registerBiometricWebAuthn(accessToken);
+}
+
+export async function checkBiometricRegistered(email?: string): Promise<boolean> {
+  if (hasBiometricCredentialStored()) {
+    return true;
+  }
+
+  try {
+    const apiBase = ENV.getApiBaseUrl();
+
+    const token = getAccessToken();
+    if (token) {
+      const res = await fetch(`${apiBase}/api/webauthn/status`, {
+        credentials: getFetchCredentials(),
+        headers: {
+          ...getClientPlatformHeader(),
+          ...getAuthHeaders(),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.enabled) {
+          localStorage.setItem('biometric_credential_registered', 'true');
+          return true;
+        }
+      }
+    }
+
+    if (isNativePlatform()) {
+      try {
+        const plugin = getNativeBiometricPlugin();
+        if (plugin) {
+          const creds = await plugin.getCredentials({ server: 'axion-app2' });
+          if (creds?.username) {
+            localStorage.setItem('biometric_credential_registered', 'true');
+            return true;
+          }
+        }
+      } catch {
+      }
+      return false;
+    }
+
+    if (email) {
+      const res = await fetch(`${apiBase}/api/webauthn/login/options`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) return false;
+      const { options } = await res.json();
+      if (Array.isArray(options?.allowCredentials) && options.allowCredentials.length > 0) {
+        localStorage.setItem('biometric_credential_registered', 'true');
+        return true;
+      }
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export async function loginWithBiometric(email?: string): Promise<any> {
+  if (isNativePlatform()) {
+    return await loginWithBiometricNative(email);
+  }
+  return await loginWithBiometricWebAuthn(email);
+}
+
+async function registerBiometricNative(accessToken: string): Promise<{ success: boolean; message: string }> {
+  const plugin = getNativeBiometricPlugin();
+  if (!plugin) {
+    throw new Error('البصمة غير مدعومة على هذا الجهاز');
+  }
+
+  const available = await plugin.isAvailable();
+  if (!available.isAvailable) {
+    throw new Error('البصمة غير متاحة على هذا الجهاز');
+  }
+
+  await plugin.verifyIdentity({
+    reason: 'تسجيل البصمة لتطبيق Axion',
+    title: 'تسجيل البصمة',
+    subtitle: 'ضع بصمتك لتفعيل تسجيل الدخول السريع',
+    useFallback: true,
+    fallbackTitle: 'استخدام رمز PIN',
+    maxAttempts: 3,
+  });
+
+  const apiBase = ENV.getApiBaseUrl();
+  const meRes = await fetch(`${apiBase}/api/auth/me`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'x-request-nonce': crypto.randomUUID(),
+      'x-request-timestamp': new Date().toISOString(),
+    },
+  });
+
+  if (!meRes.ok) {
+    throw new Error('فشل في جلب بيانات المستخدم');
+  }
+
+  const userData = await meRes.json();
+  const userEmail = userData.user?.email || userData.email || email || '';
+
+  await plugin.setCredentials({
+    server: 'axion-app2',
+    username: userEmail,
+    password: accessToken,
+  });
+
+  localStorage.setItem('biometric_credential_registered', 'true');
+  localStorage.setItem('biometric_user_email', userEmail);
+
+  return { success: true, message: 'تم تسجيل البصمة بنجاح' };
+}
+
+async function loginWithBiometricNative(email?: string): Promise<any> {
+  const plugin = getNativeBiometricPlugin();
+  if (!plugin) {
+    throw new Error('البصمة غير مدعومة على هذا الجهاز');
+  }
+
+  await plugin.verifyIdentity({
+    reason: 'تسجيل الدخول بالبصمة',
+    title: 'تسجيل الدخول',
+    subtitle: 'ضع بصمتك للمتابعة',
+    useFallback: true,
+    fallbackTitle: 'استخدام رمز PIN',
+    maxAttempts: 3,
+  });
+
+  const creds = await plugin.getCredentials({ server: 'axion-app2' });
+  if (!creds?.password) {
+    const noCredError = new Error('لم يتم تسجيل البصمة بعد. سجّل الدخول بكلمة المرور أولاً ثم فعّل البصمة من الإعدادات');
+    (noCredError as any).code = 'NO_CREDENTIALS';
+    throw noCredError;
+  }
+
+  const storedToken = creds.password;
+  const storedEmail = creds.username;
+  const apiBase = ENV.getApiBaseUrl();
+
+  const refreshRes = await fetch(`${apiBase}/api/auth/refresh`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${storedToken}`,
+      'x-client-platform': 'android',
+      'x-request-nonce': crypto.randomUUID(),
+      'x-request-timestamp': new Date().toISOString(),
+    },
+    body: JSON.stringify({ email: storedEmail }),
+  });
+
+  if (!refreshRes.ok) {
+    localStorage.removeItem('biometric_credential_registered');
+    localStorage.removeItem('biometric_user_email');
+    try { await plugin.deleteCredentials({ server: 'axion-app2' }); } catch {}
+    const expiredError = new Error('انتهت صلاحية الجلسة. سجّل الدخول بكلمة المرور مرة أخرى');
+    (expiredError as any).code = 'TOKEN_EXPIRED';
+    throw expiredError;
+  }
+
+  const authResult = await refreshRes.json();
+
+  if (authResult.accessToken || authResult.token) {
+    const newToken = authResult.accessToken || authResult.token;
+    await plugin.setCredentials({
+      server: 'axion-app2',
+      username: storedEmail,
+      password: newToken,
+    });
+  }
+
+  return authResult;
+}
+
+async function registerBiometricWebAuthn(accessToken: string): Promise<{ success: boolean; message: string }> {
   const apiBase = ENV.getApiBaseUrl();
 
   const optionsRes = await fetch(`${apiBase}/api/webauthn/register/options`, {
@@ -136,53 +336,7 @@ export async function registerBiometric(accessToken: string): Promise<{ success:
   return result;
 }
 
-export async function checkBiometricRegistered(email?: string): Promise<boolean> {
-  if (hasBiometricCredentialStored()) {
-    return true;
-  }
-
-  try {
-    const apiBase = ENV.getApiBaseUrl();
-
-    const token = getAccessToken();
-    if (token) {
-      const res = await fetch(`${apiBase}/api/webauthn/status`, {
-        credentials: getFetchCredentials(),
-        headers: {
-          ...getClientPlatformHeader(),
-          ...getAuthHeaders(),
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.enabled) {
-          localStorage.setItem('biometric_credential_registered', 'true');
-          return true;
-        }
-      }
-    }
-
-    if (email) {
-      const res = await fetch(`${apiBase}/api/webauthn/login/options`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) return false;
-      const { options } = await res.json();
-      if (Array.isArray(options?.allowCredentials) && options.allowCredentials.length > 0) {
-        localStorage.setItem('biometric_credential_registered', 'true');
-        return true;
-      }
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-export async function loginWithBiometric(email?: string): Promise<any> {
+async function loginWithBiometricWebAuthn(email?: string): Promise<any> {
   const apiBase = ENV.getApiBaseUrl();
 
   const optionsRes = await fetch(`${apiBase}/api/webauthn/login/options`, {

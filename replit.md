@@ -50,11 +50,13 @@ The system maintains a consistent design using a professional navy/blue palette,
 ## External Dependencies
 - **Monitoring:** OpenTelemetry and Sentry.
 - **WhatsApp:** Baileys library.
-- **Biometrics:** `@simplewebauthn/server` package.
+- **Biometrics:** `@simplewebauthn/server` (web), `capacitor-native-biometric` via Capacitor.Plugins (Android/iOS).
 - **Database:** PostgreSQL.
 - **ORM:** Drizzle ORM.
+- **Android Build:** Capacitor + Gradle on remote server (93.127.142.144), auto-versioning via version.properties.
+- **Firebase Test Lab:** Robo testing via gcloud CLI on remote server.
 - **AI Models:** HuggingFace (Llama 3.1 8B), Gemini 2.0 Flash, OpenAI GPT-4o.
 - **Reporting:** ExcelJS for Excel generation.
-- **Deployment:** PM2 for process management.
+- **Deployment:** PM2 for process management. Deployment pipelines: web-deploy, git-push, hotfix, android-build, git-android-build, android-build-test (with Firebase Test Lab).
 - **QR Code Generation:** `qrcode` package.
 - **XSS Protection:** DOMPurify for sanitizing HTML in PDF generation.

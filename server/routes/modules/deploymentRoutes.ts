@@ -19,7 +19,7 @@ router.use(requireAuth);
 router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version } = req.body;
 
-  const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build"];
+  const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build", "android-build-test"];
   if (!validPipelines.includes(pipeline)) {
     res.status(400).json({ error: `Invalid pipeline. Valid: ${validPipelines.join(", ")}` });
     return;
@@ -31,6 +31,7 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
     return;
   }
 
+  const androidPipelines = ["android-build", "full-deploy", "git-android-build", "android-build-test"];
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
   const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
   const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
@@ -38,7 +39,7 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
   const userId = getAuthUser(req)?.user_id;
   const deploymentId = await deploymentEngine.startDeployment({
     pipeline,
-    appType: pipeline === "android-build" || pipeline === "full-deploy" || pipeline === "git-android-build" ? "android" : appType,
+    appType: androidPipelines.includes(pipeline) ? "android" : appType,
     environment,
     branch: safeBranch,
     commitMessage: safeMessage,
@@ -52,12 +53,13 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
 router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version } = req.body;
 
-  const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build"];
+  const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build", "android-build-test"];
   if (!validPipelines.includes(pipeline)) {
     res.status(400).json({ error: `Invalid pipeline. Valid: ${validPipelines.join(", ")}` });
     return;
   }
 
+  const androidPipelines = ["android-build", "full-deploy", "git-android-build", "android-build-test"];
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
   const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
   const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
@@ -65,7 +67,7 @@ router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Resp
   const userId = getAuthUser(req)?.user_id;
   const deploymentId = await deploymentEngine.startDeployment({
     pipeline,
-    appType: pipeline === "android-build" || pipeline === "full-deploy" || pipeline === "git-android-build" ? "android" : appType,
+    appType: androidPipelines.includes(pipeline) ? "android" : appType,
     environment,
     branch: safeBranch,
     commitMessage: safeMessage,

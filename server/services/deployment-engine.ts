@@ -17,7 +17,7 @@ class CancellationError extends Error {
   }
 }
 
-type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "git-push" | "hotfix" | "git-android-build";
+type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "git-push" | "hotfix" | "git-android-build" | "android-build-test";
 
 interface DeploymentConfig {
   pipeline: Pipeline;
@@ -36,6 +36,7 @@ const PIPELINE_STEPS: Record<Pipeline, string[]> = {
   "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "build-web", "hotfix-sync", "restart-pm2", "verify"],
   "git-android-build": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
 
 const activeSSEClients = new Map<string, Response[]>();
@@ -186,6 +187,7 @@ export class DeploymentEngine {
       "git-push": "web",
       "hotfix": "hotfix",
       "git-android-build": "android",
+      "android-build-test": "android",
     };
 
     const [deployment] = await db.insert(buildDeployments).values({
@@ -338,6 +340,9 @@ export class DeploymentEngine {
         break;
       case "hotfix-sync":
         await this.stepHotfixSync(deploymentId);
+        break;
+      case "firebase-test":
+        await this.stepFirebaseTest(deploymentId, sshCmd);
         break;
       default:
         await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
@@ -571,7 +576,7 @@ export class DeploymentEngine {
 
     const versionResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir}/android/app && if [ -f version.properties ]; then . <(grep = version.properties | tr -d '\\\\r'); else VERSION_CODE=0; VERSION_NAME='1.0.0'; fi && NEW_CODE=\\$((VERSION_CODE + 1)) && IFS='.' read -r MAJ MIN PAT <<< \\"\\$VERSION_NAME\\" && NEW_PAT=\\$((PAT + 1)) && NEW_NAME=\\$MAJ.\\$MIN.\\$NEW_PAT && echo \\"VERSION_CODE=\\$NEW_CODE\\" > version.properties && echo \\"VERSION_NAME=\\$NEW_NAME\\" >> version.properties && echo \\"CURRENT_VERSION=\\$NEW_NAME (\\$NEW_CODE)\\" && cat version.properties"`,
+      `${sshCmd} "cd ${remoteDir}/android/app && VERSION_CODE=0 && VERSION_NAME='1.0.0' && if [ -f version.properties ]; then VERSION_CODE=\\$(awk -F= '/^VERSION_CODE=/{gsub(/[^0-9]/,\\"\\",\\$2); print \\$2}' version.properties) && VERSION_NAME=\\$(awk -F= '/^VERSION_NAME=/{gsub(/[[:space:]]/,\\"\\",\\$2); print \\$2}' version.properties) && VERSION_CODE=\\$\{VERSION_CODE:-0\} && VERSION_NAME=\\$\{VERSION_NAME:-1.0.0\}; fi && NEW_CODE=\\$((VERSION_CODE + 1)) && IFS='.' read -r MAJ MIN PAT <<< \\"\\$VERSION_NAME\\" && MAJ=\\$\{MAJ:-1\} && MIN=\\$\{MIN:-0\} && PAT=\\$\{PAT:-0\} && NEW_PAT=\\$((PAT + 1)) && NEW_NAME=\\$MAJ.\\$MIN.\\$NEW_PAT && echo \\"VERSION_CODE=\\$NEW_CODE\\" > version.properties && echo \\"VERSION_NAME=\\$NEW_NAME\\" >> version.properties && echo \\"CURRENT_VERSION=\\$NEW_NAME (\\$NEW_CODE)\\" && cat version.properties"`,
       "Version Bump",
       15000
     );
@@ -679,6 +684,75 @@ export class DeploymentEngine {
     }
   }
 
+  private async stepFirebaseTest(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🧪 بدء اختبار Firebase Test Lab...", "info");
+    const remoteDir = "/home/administrator/app2";
+
+    const setupResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "which gcloud 2>/dev/null && echo 'GCLOUD_OK' || echo 'GCLOUD_MISSING'"`,
+      "Firebase CLI Check",
+      15000
+    );
+
+    if (setupResult.includes("GCLOUD_MISSING")) {
+      await this.addLog(deploymentId, "⚠️ gcloud CLI غير مثبت — تثبيت تلقائي...", "warn");
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "if ! which gcloud >/dev/null 2>&1; then curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt 2>&1 | tail -3 && echo 'export PATH=/opt/google-cloud-sdk/bin:\\$PATH' >> ~/.bashrc && export PATH=/opt/google-cloud-sdk/bin:\\$PATH && gcloud --version | head -1 && echo 'GCLOUD_INSTALLED'; fi"`,
+        "Install gcloud",
+        180000
+      );
+    }
+
+    const authCheck = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "export PATH=/opt/google-cloud-sdk/bin:\\$PATH 2>/dev/null; gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null | head -1 || echo 'NO_AUTH'"`,
+      "Firebase Auth Check",
+      15000
+    );
+
+    if (authCheck.trim() === "NO_AUTH" || !authCheck.trim()) {
+      await this.addLog(deploymentId, "⚠️ Firebase غير مصادق — محاولة مصادقة بـ service account...", "warn");
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "export PATH=/opt/google-cloud-sdk/bin:\\$PATH 2>/dev/null; if [ -f /home/administrator/firebase-service-account.json ]; then gcloud auth activate-service-account --key-file=/home/administrator/firebase-service-account.json && gcloud config set project app2-eb4df && echo 'AUTH_OK'; else echo 'SERVICE_ACCOUNT_MISSING'; fi"`,
+        "Firebase Auth",
+        30000
+      );
+    }
+
+    const apkPath = `${remoteDir}/AXION_LATEST.apk`;
+
+    const testResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "export PATH=/opt/google-cloud-sdk/bin:\\$PATH 2>/dev/null; if [ -f ${apkPath} ]; then gcloud firebase test android run --type robo --app ${apkPath} --device model=Pixel2,version=30,locale=ar,orientation=portrait --timeout 300s --results-dir=firebase-test-\\$(date +%Y%m%d_%H%M%S) --no-record-video 2>&1 | tail -30 && echo 'FIREBASE_TEST_DONE'; else echo 'APK_NOT_FOUND_FOR_TEST'; fi"`,
+      "Firebase Test Lab",
+      600000
+    );
+
+    if (testResult.includes("APK_NOT_FOUND_FOR_TEST")) {
+      await this.addLog(deploymentId, "⚠️ APK غير موجود لاختبار Firebase — تخطي الاختبار", "warn");
+    } else if (testResult.includes("FIREBASE_TEST_DONE")) {
+      const passed = testResult.includes("Passed") || testResult.includes("passed");
+      const failed = testResult.includes("Failed") || testResult.includes("FAILED");
+
+      if (passed && !failed) {
+        await this.addLog(deploymentId, "✅ اختبار Firebase Test Lab ناجح", "success");
+      } else if (failed) {
+        await this.addLog(deploymentId, "❌ اختبار Firebase Test Lab فشل — تحقق من النتائج", "error");
+        const lines = testResult.split('\n').filter(l => l.includes('fail') || l.includes('error') || l.includes('FAIL'));
+        if (lines.length > 0) {
+          await this.addLog(deploymentId, `تفاصيل: ${lines.slice(0, 5).join(' | ')}`, "error");
+        }
+      } else {
+        await this.addLog(deploymentId, "⚠️ اختبار Firebase Test Lab اكتمل — تحقق من النتائج يدوياً", "warn");
+      }
+    } else {
+      await this.addLog(deploymentId, "⚠️ لم يتم تحديد نتيجة اختبار Firebase — تحقق يدوياً", "warn");
+    }
+  }
+
   private async stepVerify(deploymentId: string) {
     await this.addLog(deploymentId, "Verifying deployment...", "info");
 
@@ -710,7 +784,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin ${repoUrl} && git push origin main --force 2>&1; git remote set-url origin https://github.com/${ghUser}/app2.git && echo "GIT_PUSH_OK"`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin ${repoUrl} && git push origin main --force 2>&1 && PUSH_OK=1 || PUSH_OK=0; git remote set-url origin https://github.com/${ghUser}/app2.git; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
       "Git Push",
       60000
     );

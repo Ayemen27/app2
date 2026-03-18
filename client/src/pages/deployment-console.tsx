@@ -96,6 +96,7 @@ const PIPELINE_LABELS: Record<string, string> = {
   "hotfix": "إصلاح سريع (نشر فوري)",
   "android-build": "بناء تطبيق أندرويد APK",
   "git-android-build": "Git + بناء أندرويد (دفع + سحب + بناء APK)",
+  "android-build-test": "بناء أندرويد + اختبار Firebase",
   "web-deploy": "نشر الويب (نقل مباشر)",
   "full-deploy": "نشر كامل (ويب + أندرويد)",
 };
@@ -126,6 +127,7 @@ const STEP_LABELS: Record<string, string> = {
   "rollback-server": "التراجع",
   "db-migrate": "تهجير قاعدة البيانات",
   "hotfix-sync": "مزامنة الإصلاح السريع",
+  "firebase-test": "اختبار Firebase Test Lab",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -641,6 +643,7 @@ export default function DeploymentConsole() {
                     <SelectItem value="git-push" data-testid="option-git-push">دفع Git وسحب من السيرفر</SelectItem>
                     <SelectItem value="hotfix" data-testid="option-hotfix">إصلاح سريع (نشر فوري)</SelectItem>
                     <SelectItem value="git-android-build" data-testid="option-git-android-build">Git + بناء أندرويد (دفع + سحب + بناء APK)</SelectItem>
+                    <SelectItem value="android-build-test" data-testid="option-android-build-test">بناء أندرويد + اختبار Firebase</SelectItem>
                   </SelectContent>
                 </Select>
 

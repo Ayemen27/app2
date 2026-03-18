@@ -5,5 +5,18 @@
   "bundledWebRuntime": false,
   "android": {
     "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https",
+    "hostname": "app2.binarjoinanelytic.info",
+    "allowNavigation": [
+      "https://app2.binarjoinanelytic.info/*",
+      "https://*.binarjoinanelytic.info/*"
+    ]
+  },
+  "plugins": {
+    "NativeBiometric": {
+      "faceIdReason": "تسجيل الدخول بالبصمة"
+    }
   }
 }

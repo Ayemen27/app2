@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,6 +60,7 @@ interface Transaction {
 }
 
 export default function ProjectTransactionsSimple() {
+  const [, navigate] = useLocation();
   const { selectedProjectId, getProjectIdForApi, isAllProjects } = useSelectedProject();
   const selectedProject = getProjectIdForApi() || '';
   const [filterType, setFilterType] = useState<string>('all');
@@ -1179,7 +1181,8 @@ export default function ProjectTransactionsSimple() {
                           label: "تعديل",
                           onClick: () => {
                             const route = getEditRoute();
-                            window.location.href = route;
+                            const dateParam = transaction.date ? `?date=${transaction.date}` : '';
+                            navigate(`${route}${dateParam}`);
                           },
                           color: "blue"
                         },

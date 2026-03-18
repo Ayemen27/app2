@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
-import React, { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 
 // Add ResizeObserver polyfill/fix to prevent loop errors
 if (typeof window !== 'undefined') {
@@ -44,6 +44,7 @@ const WorkersPage = lazy(() => import("./pages/workers"));
 const BackupManager = lazy(() => import("./pages/backup-manager"));
 const NotificationsPage = lazy(() => import("./pages/notifications"));
 const DailyExpenses = lazy(() => import("./pages/daily-expenses"));
+const WorkerMiscExpensesComponent = lazy(() => import("./pages/worker-misc-expenses"));
 const RecordsTransfer = lazy(() => import("./pages/records-transfer"));
 const WellsPage = lazy(() => import("./pages/wells"));
 const WellCrewsPage = lazy(() => import("./pages/well-crews"));
@@ -63,6 +64,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AdminRoute } from "./components/AdminRoute";
 import EmailVerificationGuard from "./components/EmailVerificationGuard";
 import { SelectedProjectProvider } from "./contexts/SelectedProjectContext";
+import { useSelectedProject } from "./hooks/use-selected-project";
 import { Loader2 } from "lucide-react";
 import { initSyncListener, subscribeSyncState, loadFullBackup, performInitialDataPull } from "./offline/sync";
 import { initSilentSyncObserver } from "./offline/silent-sync";
@@ -116,6 +118,46 @@ intelligentMonitor.initialize().catch(console.error);
 
 const AdminMonitoring = lazy(() => import("./pages/admin-monitoring"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+
+function WorkerMiscExpensesPage() {
+  const { selectedProjectId, isWellsProject } = useSelectedProject();
+  const params = new URLSearchParams(window.location.search);
+  const urlDate = params.get('date');
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate)) return urlDate;
+    return new Date().toISOString().split('T')[0];
+  });
+
+  if (!selectedProjectId || selectedProjectId === 'all') {
+    return (
+      <div className="container mx-auto p-4">
+        <div className="text-center py-12 text-muted-foreground" data-testid="text-select-project-msg">
+          يرجى اختيار مشروع محدد من القائمة العلوية لعرض النثريات
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold" data-testid="text-page-title">نثريات العمال</h2>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="border rounded px-3 py-1.5 text-sm"
+          data-testid="input-date-picker"
+        />
+      </div>
+      <WorkerMiscExpensesComponent
+        project_id={selectedProjectId}
+        selectedDate={selectedDate}
+        isWellsProject={isWellsProject}
+      />
+    </div>
+  );
+}
 
 function Router() {
   useWebSocketSync();
@@ -311,6 +353,11 @@ function Router() {
       <Route path="/daily-expenses">
         <Suspense fallback={<PageLoader />}>
           <DailyExpenses />
+        </Suspense>
+      </Route>
+      <Route path="/worker-misc-expenses">
+        <Suspense fallback={<PageLoader />}>
+          <WorkerMiscExpensesPage />
         </Suspense>
       </Route>
       <Route path="/records-transfer">

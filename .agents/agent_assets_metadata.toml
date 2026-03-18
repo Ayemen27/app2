@@ -24,3 +24,9 @@ id = "xEIIzcEFjt-B_aX6v7SVO"
 uri = "file://.local/accounting-integrity-audit.md"
 type = "text"
 title = "تقرير سلامة النظام المحاسبي — Double-Entry Accounting Integrity Audit"
+
+[[outputs]]
+id = "JBol3FYmEOJZzXU1ogJ5h"
+uri = "file://SYSTEM_AUDIT_REPORT.md"
+type = "text"
+title = "تقرير فحص مسارات النظام الشامل"

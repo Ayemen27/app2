@@ -57,6 +57,9 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Firebase Test Lab:** Robo testing via gcloud CLI on remote server.
 - **AI Models:** HuggingFace (Llama 3.1 8B), Gemini 2.0 Flash, OpenAI GPT-4o.
 - **Reporting:** ExcelJS for Excel generation.
-- **Deployment:** PM2 for process management. Deployment pipelines: web-deploy, git-push, hotfix, android-build, git-android-build, android-build-test (with Firebase Test Lab).
+- **Deployment:** PM2 for process management. Deployment pipelines: web-deploy, git-push, hotfix, android-build, git-android-build, android-build-test (with Firebase Test Lab). Atomic build numbering via `deployment_build_counter` table (race-condition-free). SSH uses `sshpass -e` (env var `SSHPASS`) instead of CLI passwords. Git push uses credential helper instead of token-in-URL. Public `/api/deployment/app/check-update` endpoint with rate limiting (10 req/min).
+- **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support. `UpdateDialog` component in `App.tsx` shows native-style update prompt.
+- **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine with idempotent listener registration (no duplicates on resume). Cooldown and denied-count tracking.
+- **Process Management:** Deployment engine uses `detached: true` process groups and `process.kill(-pgid)` for clean process tree termination on cancel.
 - **QR Code Generation:** `qrcode` package.
 - **XSS Protection:** DOMPurify for sanitizing HTML in PDF generation.

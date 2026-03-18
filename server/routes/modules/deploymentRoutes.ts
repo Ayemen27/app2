@@ -5,6 +5,7 @@ import { getAuthUser } from "../../internal/auth-user.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 
 const router = Router();
+const publicRouter = Router();
 
 deploymentEngine.recoverOrphanedDeployments().catch(err => {
   console.error("[DeploymentRoutes] Failed to recover orphaned deployments:", err);
@@ -13,6 +14,70 @@ deploymentEngine.recoverOrphanedDeployments().catch(err => {
 function sanitizeShellArg(input: string): string {
   return input.replace(/[^\w\s\u0600-\u06FF.,!?@#$%^&*()\-=+\[\]{}|:;<>\/~`'"]/g, "").substring(0, 200);
 }
+
+const updateCheckLimiter = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_MAX = 30;
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = updateCheckLimiter.get(ip);
+  if (!entry || now > entry.resetAt) {
+    updateCheckLimiter.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of updateCheckLimiter) {
+    if (now > entry.resetAt) updateCheckLimiter.delete(ip);
+  }
+}, 5 * 60 * 1000);
+
+publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
+  const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+  if (isRateLimited(clientIp)) {
+    res.status(429).json({ error: "طلبات كثيرة، حاول لاحقاً" });
+    return;
+  }
+
+  try {
+    const clientVersionCode = parseInt(req.query.versionCode as string) || 0;
+    const clientVersionName = (req.query.versionName as string || "0.0.0").replace(/[^0-9.]/g, "").substring(0, 20);
+
+    const latest = await deploymentEngine.getLatestAndroidRelease();
+
+    if (!latest) {
+      res.json({ updateAvailable: false });
+      return;
+    }
+
+    const updateAvailable = clientVersionCode > 0
+      ? latest.versionCode > clientVersionCode
+      : compareVersions(latest.versionName, clientVersionName) > 0;
+
+    res.json({
+      updateAvailable,
+      forceUpdate: false,
+      latest: {
+        versionName: latest.versionName,
+        versionCode: latest.versionCode,
+        downloadUrl: latest.downloadUrl,
+        releasedAt: latest.releasedAt,
+      },
+      current: {
+        versionName: clientVersionName,
+        versionCode: clientVersionCode,
+      },
+    });
+  } catch (err: any) {
+    console.error("[check-update] Error:", err.message);
+    res.status(500).json({ error: "فشل فحص التحديث" });
+  }
+});
 
 router.use(requireAuth);
 
@@ -104,41 +169,6 @@ router.get("/stats", requireAdmin, asyncHandler(async (req: Request, res: Respon
   const stats = await deploymentEngine.getDeploymentStats();
   res.json(stats);
 }));
-
-router.get("/app/check-update", async (req: Request, res: Response) => {
-  try {
-    const clientVersionCode = parseInt(req.query.versionCode as string) || 0;
-    const clientVersionName = req.query.versionName as string || "0.0.0";
-
-    const latest = await deploymentEngine.getLatestAndroidRelease();
-
-    if (!latest) {
-      res.json({ updateAvailable: false, message: "لا توجد إصدارات متاحة" });
-      return;
-    }
-
-    const updateAvailable = clientVersionCode > 0
-      ? latest.versionCode > clientVersionCode
-      : compareVersions(latest.versionName, clientVersionName) > 0;
-
-    res.json({
-      updateAvailable,
-      forceUpdate: false,
-      latest: {
-        versionName: latest.versionName,
-        versionCode: latest.versionCode,
-        downloadUrl: latest.downloadUrl,
-        releasedAt: latest.releasedAt,
-      },
-      current: {
-        versionName: clientVersionName,
-        versionCode: clientVersionCode,
-      },
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: "فشل فحص التحديث", details: err.message });
-  }
-});
 
 router.get("/health", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const health = await deploymentEngine.checkServerHealth();
@@ -250,3 +280,4 @@ function compareVersions(a: string, b: string): number {
 }
 
 export default router;
+export { publicRouter as deploymentPublicRouter };

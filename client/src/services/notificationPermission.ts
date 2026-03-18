@@ -9,6 +9,8 @@ const ASK_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 type PermissionState = 'granted' | 'prompt' | 'denied' | 'cooldown';
 
 let resumeListenerRegistered = false;
+let pushListenersRegistered = false;
+let pushRegistered = false;
 
 async function getPermissionState(): Promise<PermissionState> {
   if (!Capacitor.isNativePlatform()) return 'denied';
@@ -84,34 +86,41 @@ function shouldShowSettingsPrompt(): boolean {
 
 async function registerPush() {
   try {
-    await PushNotifications.register();
+    if (!pushListenersRegistered) {
+      pushListenersRegistered = true;
 
-    await PushNotifications.addListener('registration', async (token) => {
-      console.log('[NativePush] Token:', token.value);
-      try {
-        await fetch('/api/push/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-request-nonce': crypto.randomUUID(),
-            'x-request-timestamp': new Date().toISOString(),
-          },
-          body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
-        });
-      } catch {}
-    });
+      await PushNotifications.addListener('registration', async (token) => {
+        console.log('[NativePush] Token:', token.value);
+        try {
+          await fetch('/api/push/token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-request-nonce': crypto.randomUUID(),
+              'x-request-timestamp': new Date().toISOString(),
+            },
+            body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
+          });
+        } catch {}
+      });
 
-    await PushNotifications.addListener('registrationError', (err) => {
-      console.error('[NativePush] Registration error:', err);
-    });
+      await PushNotifications.addListener('registrationError', (err) => {
+        console.error('[NativePush] Registration error:', err);
+      });
 
-    await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      console.log('[NativePush] Received:', notification.title);
-    });
+      await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        console.log('[NativePush] Received:', notification.title);
+      });
 
-    await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      console.log('[NativePush] Action:', action.actionId);
-    });
+      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        console.log('[NativePush] Action:', action.actionId);
+      });
+    }
+
+    if (!pushRegistered) {
+      pushRegistered = true;
+      await PushNotifications.register();
+    }
   } catch (err) {
     console.error('[NativePush] Register error:', err);
   }

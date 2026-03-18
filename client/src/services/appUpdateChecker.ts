@@ -6,6 +6,9 @@ const CHECK_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const LAST_CHECK_KEY = 'app_update_last_check';
 const DISMISSED_VERSION_KEY = 'app_update_dismissed_version';
 
+let resumeListenerAdded = false;
+let activeCallbacks: UpdateCallbacks | null = null;
+
 interface UpdateInfo {
   updateAvailable: boolean;
   forceUpdate: boolean;
@@ -60,11 +63,18 @@ async function checkForUpdate(): Promise<UpdateInfo | null> {
       ? 'https://app2.binarjoinanelytic.info'
       : '';
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const res = await fetch(
-      `${baseUrl}/api/deployment/app/check-update?versionCode=${current.versionCode}&versionName=${current.versionName}`,
-      { headers: { 'Accept': 'application/json' } }
+      `${baseUrl}/api/deployment/app/check-update?versionCode=${current.versionCode}&versionName=${encodeURIComponent(current.versionName)}`,
+      {
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
+      }
     );
 
+    clearTimeout(timeoutId);
     if (!res.ok) return null;
 
     localStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
@@ -94,26 +104,27 @@ interface UpdateCallbacks {
 async function initUpdateChecker(callbacks: UpdateCallbacks) {
   if (!Capacitor.isNativePlatform()) return;
 
+  activeCallbacks = callbacks;
+
   const info = await checkForUpdate();
   if (!info || !info.updateAvailable) {
     callbacks.onNoUpdate?.();
-    return;
+  } else if (info.forceUpdate || !wasDismissed(info.latest.versionCode)) {
+    callbacks.onUpdateAvailable(info);
   }
 
-  if (!info.forceUpdate && wasDismissed(info.latest.versionCode)) {
-    return;
+  if (!resumeListenerAdded) {
+    resumeListenerAdded = true;
+
+    App.addListener('appStateChange', async ({ isActive }) => {
+      if (!isActive || !activeCallbacks) return;
+      const fresh = await checkForUpdate();
+      if (fresh?.updateAvailable) {
+        if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
+        activeCallbacks.onUpdateAvailable(fresh);
+      }
+    });
   }
-
-  callbacks.onUpdateAvailable(info);
-
-  App.addListener('appStateChange', async ({ isActive }) => {
-    if (!isActive) return;
-    const fresh = await checkForUpdate();
-    if (fresh?.updateAvailable) {
-      if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
-      callbacks.onUpdateAvailable(fresh);
-    }
-  });
 }
 
 export {

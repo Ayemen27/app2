@@ -94,13 +94,25 @@ export class DeploymentEngine {
         const exited = child.exitCode !== null || child.signalCode !== null;
         if (exited) continue;
 
-        child.kill("SIGTERM");
+        const pgid = child.pid;
+        if (pgid) {
+          try {
+            process.kill(-pgid, "SIGTERM");
+          } catch {
+            child.kill("SIGTERM");
+          }
+        } else {
+          child.kill("SIGTERM");
+        }
 
         const killTimer = setTimeout(() => {
           try {
             const stillAlive = child.exitCode === null && child.signalCode === null;
             if (stillAlive) {
-              child.kill("SIGKILL");
+              if (pgid) {
+                try { process.kill(-pgid, "SIGKILL"); } catch {}
+              }
+              try { child.kill("SIGKILL"); } catch {}
             }
           } catch {}
         }, 5000);
@@ -169,7 +181,50 @@ export class DeploymentEngine {
     }
   }
 
+  private buildCounterInitialized = false;
+
   async getNextBuildNumber(): Promise<number> {
+    try {
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS deployment_build_counter (
+          id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+          next_build_number INTEGER NOT NULL DEFAULT 1
+        )
+      `);
+
+      if (!this.buildCounterInitialized) {
+        this.buildCounterInitialized = true;
+        const maxResult = await db.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
+        const currentMax = maxResult[0]?.maxBuild || 0;
+        if (currentMax > 0) {
+          await db.execute(sql`
+            INSERT INTO deployment_build_counter (id, next_build_number)
+            VALUES (1, ${currentMax + 1})
+            ON CONFLICT (id)
+            DO UPDATE SET next_build_number = GREATEST(deployment_build_counter.next_build_number, ${currentMax + 1})
+          `);
+        }
+      }
+      
+      const [result] = await db.execute(sql`
+        UPDATE deployment_build_counter
+        SET next_build_number = next_build_number + 1
+        WHERE id = 1
+        RETURNING next_build_number - 1 AS build_number
+      `) as any[];
+      
+      if (result?.build_number != null) {
+        return Number(result.build_number);
+      }
+
+      await db.execute(sql`
+        INSERT INTO deployment_build_counter (id, next_build_number) VALUES (1, 2)
+      `);
+      return 1;
+    } catch (err) {
+      console.error("[DeploymentEngine] Atomic build number failed, falling back:", err);
+    }
+    
     const result = await db.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
     return (result[0]?.maxBuild || 0) + 1;
   }
@@ -367,24 +422,29 @@ export class DeploymentEngine {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
-    const password = (process.env.SSH_PASSWORD || "").replace(/'/g, "'\\''");
-    return `sshpass -p '${password}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p ${port} ${user}@${host}`;
+    return `sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p ${port} ${user}@${host}`;
   }
 
   private buildSCPCommand(src: string, dest: string): string {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
-    const password = (process.env.SSH_PASSWORD || "").replace(/'/g, "'\\''");
-    return `sshpass -p '${password}' scp -o StrictHostKeyChecking=no -P ${port} ${src} ${user}@${host}:${dest}`;
+    return `sshpass -e scp -o StrictHostKeyChecking=no -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
   private maskSecrets(text: string): string {
-    const sshPass = process.env.SSH_PASSWORD;
-    const ghToken = process.env.GITHUB_TOKEN;
+    const secrets = [
+      process.env.SSH_PASSWORD,
+      process.env.SSHPASS,
+      process.env.GITHUB_TOKEN,
+      process.env.GH_TOKEN,
+    ].filter(Boolean) as string[];
+
     let masked = text;
-    if (sshPass) masked = masked.replace(new RegExp(sshPass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '***');
-    if (ghToken) masked = masked.replace(new RegExp(ghToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '***');
+    for (const secret of secrets) {
+      if (secret.length < 4) continue;
+      masked = masked.replace(new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '***');
+    }
     return masked;
   }
 
@@ -392,9 +452,18 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, `[${label}] Executing...`, "info");
 
     return new Promise((resolve, reject) => {
+      const execEnv = { ...process.env };
+      if (process.env.SSH_PASSWORD && !execEnv.SSHPASS) {
+        execEnv.SSHPASS = process.env.SSH_PASSWORD;
+      }
+      if (process.env.GITHUB_TOKEN && !execEnv.GH_TOKEN) {
+        execEnv.GH_TOKEN = process.env.GITHUB_TOKEN;
+      }
+
       const child = spawn("bash", ["-c", command], {
         cwd: "/home/runner/workspace",
-        env: { ...process.env },
+        env: execEnv,
+        detached: true,
       });
 
       this.registerChildProcess(deploymentId, child);
@@ -694,10 +763,9 @@ export class DeploymentEngine {
     await execAsync("mkdir -p /home/runner/workspace/output_apks");
 
     try {
-      const password = (process.env.SSH_PASSWORD || "").replace(/'/g, "'\\''");
       await this.execWithLog(
         deploymentId,
-        `sshpass -p '${password}' scp -o StrictHostKeyChecking=no -P ${port} ${user}@${host}:${remoteDir}/AXION_LATEST.apk ${localPath}`,
+        `sshpass -e scp -o StrictHostKeyChecking=no -P ${port} ${user}@${host}:${remoteDir}/AXION_LATEST.apk ${localPath}`,
         "Retrieve APK",
         60000
       );
@@ -808,12 +876,10 @@ export class DeploymentEngine {
     const rawMessage = config.commitMessage || `Deploy v${await this.getCurrentVersion()} - ${new Date().toISOString()}`;
     const safeMessage = rawMessage.replace(/['"\\$`!]/g, "");
     const ghUser = process.env.GITHUB_USERNAME;
-    const ghToken = process.env.GITHUB_TOKEN;
-    const repoUrl = `https://${ghUser}:${ghToken}@github.com/${ghUser}/app2.git`;
 
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin ${repoUrl} && git push origin main --force 2>&1 && PUSH_OK=1 || PUSH_OK=0; git remote set-url origin https://github.com/${ghUser}/app2.git; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin main --force 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
       "Git Push",
       60000
     );

@@ -69,7 +69,7 @@ function generatePrintPDF(content: string, tableData: any[] | null, title?: stri
 
   const style = doc.createElement('style');
   style.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+    @font-face { font-family: "Cairo"; src: url("/fonts/cairo/Cairo-Variable.woff2") format("woff2-variations"); font-weight: 300 700; font-style: normal; font-display: swap; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Cairo', 'Arial', sans-serif; direction: rtl; font-size: 12pt; color: #1a1a2e; background: #fff; padding: 20px; }
     .header { background: linear-gradient(135deg, #1E3A5F, #2E86AB); color: white; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px; }

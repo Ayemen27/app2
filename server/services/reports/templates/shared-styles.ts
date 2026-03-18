@@ -223,7 +223,7 @@ export function xlSignatures(ws: ExcelJS.Worksheet, rowNum: number, names: strin
 }
 
 export const PDF_BASE_STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+@font-face { font-family: "Cairo"; src: url("/fonts/cairo/Cairo-Variable.woff2") format("woff2-variations"); font-weight: 300 700; font-style: normal; font-display: swap; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;

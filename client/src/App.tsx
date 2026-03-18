@@ -159,27 +159,88 @@ function WorkerMiscExpensesPage() {
   );
 }
 
+function UpdateDialog({ info, onDismiss }: { info: any; onDismiss: () => void }) {
+  const handleUpdate = async () => {
+    const { openDownloadUrl } = await import('./services/appUpdateChecker');
+    if (info.latest.downloadUrl) {
+      openDownloadUrl(info.latest.downloadUrl);
+    }
+  };
+
+  const handleLater = async () => {
+    const { dismissVersion } = await import('./services/appUpdateChecker');
+    dismissVersion(info.latest.versionCode);
+    onDismiss();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4" data-testid="update-dialog-overlay">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-4 border border-border" dir="rtl" data-testid="update-dialog">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-500/10 flex items-center justify-center">
+          <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-bold text-foreground">تحديث جديد متاح!</h3>
+        <p className="text-sm text-muted-foreground">
+          الإصدار <span className="font-mono font-bold text-foreground">v{info.latest.versionName}</span> متاح للتحميل
+        </p>
+        <p className="text-xs text-muted-foreground">
+          الإصدار الحالي: <span className="font-mono">v{info.current.versionName}</span>
+        </p>
+        <div className="flex flex-col gap-2 pt-2">
+          {info.latest.downloadUrl && (
+            <button
+              data-testid="button-update-now"
+              onClick={handleUpdate}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium text-sm hover:from-blue-500 hover:to-purple-500 transition-all"
+            >
+              تحديث الآن
+            </button>
+          )}
+          {!info.forceUpdate && (
+            <button
+              data-testid="button-update-later"
+              onClick={handleLater}
+              className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:bg-muted/50 transition-all"
+            >
+              لاحقاً
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Router() {
   useWebSocketSync();
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
 
-  // ✅ تفعيل نظام المزامنة الذكي عند تحميل التطبيق
   useEffect(() => {
     const initSync = async () => {
       try {
-        // تهيئة قاعدة البيانات المحلية
         await initializeDB();
         console.log('✅ تم تهيئة قاعدة البيانات المحلية');
 
-        // طلب الصلاحيات على المنصات الأصلية (أندرويد/iOS)
         if (Capacitor.isNativePlatform()) {
           try {
-            const perm = await PushNotifications.checkPermissions();
-            if (perm.receive === 'prompt') {
-              await PushNotifications.requestPermissions();
-            }
-            console.log('✅ تم فحص وطلب صلاحيات الإشعارات');
+            const { requestNotificationPermission, registerResumeListener } = await import('./services/notificationPermission');
+            await requestNotificationPermission();
+            registerResumeListener();
+            console.log('✅ تم تفعيل نظام صلاحيات الإشعارات');
           } catch (e) {
             console.error('❌ خطأ في طلب الصلاحيات:', e);
+          }
+
+          try {
+            const { initUpdateChecker } = await import('./services/appUpdateChecker');
+            initUpdateChecker({
+              onUpdateAvailable: (info) => setUpdateInfo(info),
+            });
+            console.log('✅ تم تفعيل فاحص التحديثات');
+          } catch (e) {
+            console.error('❌ خطأ في فاحص التحديثات:', e);
           }
         }
 
@@ -223,6 +284,10 @@ function Router() {
   }, []);
 
   return (
+    <>
+      {updateInfo && (
+        <UpdateDialog info={updateInfo} onDismiss={() => setUpdateInfo(null)} />
+      )}
     <Switch>
       <Route path="/">
         <Suspense fallback={<PageLoader />}>
@@ -505,6 +570,7 @@ function Router() {
       </Route>
       <Route component={NotFound} />
     </Switch>
+    </>
   );
 }
 

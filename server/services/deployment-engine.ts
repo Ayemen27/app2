@@ -31,12 +31,12 @@ interface DeploymentConfig {
 
 const PIPELINE_STEPS: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "git-push", "pull-server", "install-deps", "build-web", "transfer", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "git-push", "pull-server", "install-deps", "build-web", "transfer", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "build-web", "hotfix-sync", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "git-android-build": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
 
 const activeSSEClients = new Map<string, Response[]>();
@@ -351,6 +351,9 @@ export class DeploymentEngine {
       case "firebase-test":
         await this.stepFirebaseTest(deploymentId, sshCmd);
         break;
+      case "generate-icons":
+        await this.stepGenerateIcons(deploymentId, sshCmd);
+        break;
       default:
         await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
     }
@@ -581,17 +584,20 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "Syncing Capacitor for Android...", "info");
     const remoteDir = "/home/administrator/app2";
 
-    const versionResult = await this.execWithLog(
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    if (!deployment) throw new Error("Deployment not found");
+
+    const versionCode = deployment.buildNumber;
+    const versionName = deployment.version;
+
+    await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir}/android/app && VERSION_CODE=0 && VERSION_NAME='1.0.0' && if [ -f version.properties ]; then VERSION_CODE=\\$(awk -F= '/^VERSION_CODE=/{gsub(/[^0-9]/,\\"\\",\\$2); print \\$2}' version.properties) && VERSION_NAME=\\$(awk -F= '/^VERSION_NAME=/{gsub(/[[:space:]]/,\\"\\",\\$2); print \\$2}' version.properties) && VERSION_CODE=\\$\{VERSION_CODE:-0\} && VERSION_NAME=\\$\{VERSION_NAME:-1.0.0\}; fi && NEW_CODE=\\$((VERSION_CODE + 1)) && IFS='.' read -r MAJ MIN PAT <<< \\"\\$VERSION_NAME\\" && MAJ=\\$\{MAJ:-1\} && MIN=\\$\{MIN:-0\} && PAT=\\$\{PAT:-0\} && NEW_PAT=\\$((PAT + 1)) && NEW_NAME=\\$MAJ.\\$MIN.\\$NEW_PAT && echo \\"VERSION_CODE=\\$NEW_CODE\\" > version.properties && echo \\"VERSION_NAME=\\$NEW_NAME\\" >> version.properties && echo \\"CURRENT_VERSION=\\$NEW_NAME (\\$NEW_CODE)\\" && cat version.properties"`,
-      "Version Bump",
+      `${sshCmd} "cd ${remoteDir}/android/app && echo 'VERSION_CODE=${versionCode}' > version.properties && echo 'VERSION_NAME=${versionName}' >> version.properties && cat version.properties"`,
+      "Version Set",
       15000
     );
 
-    const versionMatch = versionResult.match(/CURRENT_VERSION=(.+)/);
-    if (versionMatch) {
-      await this.addLog(deploymentId, `📱 إصدار APK: ${versionMatch[1]}`, "info");
-    }
+    await this.addLog(deploymentId, `📱 versionName: ${versionName} | versionCode: ${versionCode}`, "info");
 
     await this.execWithLog(
       deploymentId,
@@ -599,6 +605,22 @@ export class DeploymentEngine {
       "Capacitor Sync",
       60000
     );
+  }
+
+  private async stepGenerateIcons(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "توليد أيقونات التطبيق من شعار أكسيون...", "info");
+    const remoteDir = "/home/administrator/app2";
+
+    const iconSource = `${remoteDir}/client/public/assets/app_icon_light.png`;
+
+    await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && SOURCE='${iconSource}' && if [ ! -f \\$SOURCE ]; then SOURCE='${remoteDir}/client/src/assets/images/app_icon_light.png'; fi && if [ ! -f \\$SOURCE ]; then echo 'ICON_SOURCE_MISSING' && exit 0; fi && echo 'مصدر الأيقونة: '\\$SOURCE && which magick >/dev/null 2>&1 && CONVERT='magick' || { which convert >/dev/null 2>&1 && CONVERT='convert'; } || { echo 'ImageMagick غير مثبت — تخطي توليد الأيقونات' && exit 0; } && RES_DIR='android/app/src/main/res' && mkdir -p \\$RES_DIR/mipmap-mdpi \\$RES_DIR/mipmap-hdpi \\$RES_DIR/mipmap-xhdpi \\$RES_DIR/mipmap-xxhdpi \\$RES_DIR/mipmap-xxxhdpi && \\$CONVERT \\$SOURCE -gravity center -background white -extent 1024x1024 /tmp/axion_icon_square.png && \\$CONVERT /tmp/axion_icon_square.png -resize 48x48 \\$RES_DIR/mipmap-mdpi/ic_launcher.png && \\$CONVERT /tmp/axion_icon_square.png -resize 72x72 \\$RES_DIR/mipmap-hdpi/ic_launcher.png && \\$CONVERT /tmp/axion_icon_square.png -resize 96x96 \\$RES_DIR/mipmap-xhdpi/ic_launcher.png && \\$CONVERT /tmp/axion_icon_square.png -resize 144x144 \\$RES_DIR/mipmap-xxhdpi/ic_launcher.png && \\$CONVERT /tmp/axion_icon_square.png -resize 192x192 \\$RES_DIR/mipmap-xxxhdpi/ic_launcher.png && for D in mdpi hdpi xhdpi xxhdpi xxxhdpi; do cp \\$RES_DIR/mipmap-\\$D/ic_launcher.png \\$RES_DIR/mipmap-\\$D/ic_launcher_round.png 2>/dev/null; cp \\$RES_DIR/mipmap-\\$D/ic_launcher.png \\$RES_DIR/mipmap-\\$D/ic_launcher_foreground.png 2>/dev/null; done && rm -f /tmp/axion_icon_square.png && echo 'ICONS_GENERATED_OK'"`,
+      "Generate Icons",
+      30000
+    );
+
+    await this.addLog(deploymentId, "✅ تم توليد أيقونات Android (mdpi → xxxhdpi)", "success");
   }
 
   private async stepGradleBuild(deploymentId: string, sshCmd: string, config: DeploymentConfig) {
@@ -883,10 +905,42 @@ export class DeploymentEngine {
 
   private async getCurrentVersion(): Promise<string> {
     try {
+      const [last] = await db.select({ version: buildDeployments.version })
+        .from(buildDeployments)
+        .where(eq(buildDeployments.status, "success"))
+        .orderBy(desc(buildDeployments.created_at))
+        .limit(1);
+      if (last?.version) return last.version;
+    } catch {}
+
+    try {
       const { stdout } = await execAsync("grep '\"version\"' package.json | head -1 | sed 's/.*\"version\": \"\\([^\"]*\\)\".*/\\1/'", { cwd: "/home/runner/workspace" });
       return stdout.trim() || "1.0.0";
     } catch {
       return "1.0.0";
+    }
+  }
+
+  async getLatestAndroidRelease(): Promise<{ versionName: string; versionCode: number; downloadUrl: string | null; releasedAt: string } | null> {
+    try {
+      const [latest] = await db.select()
+        .from(buildDeployments)
+        .where(
+          sql`${buildDeployments.status} = 'success' AND ${buildDeployments.pipeline} IN ('android-build', 'full-deploy', 'git-android-build', 'android-build-test')`
+        )
+        .orderBy(desc(buildDeployments.created_at))
+        .limit(1);
+
+      if (!latest) return null;
+
+      return {
+        versionName: latest.version,
+        versionCode: latest.buildNumber,
+        downloadUrl: latest.artifactUrl || null,
+        releasedAt: latest.created_at.toISOString(),
+      };
+    } catch {
+      return null;
     }
   }
 

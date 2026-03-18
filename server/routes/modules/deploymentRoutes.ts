@@ -105,6 +105,41 @@ router.get("/stats", requireAdmin, asyncHandler(async (req: Request, res: Respon
   res.json(stats);
 }));
 
+router.get("/app/check-update", async (req: Request, res: Response) => {
+  try {
+    const clientVersionCode = parseInt(req.query.versionCode as string) || 0;
+    const clientVersionName = req.query.versionName as string || "0.0.0";
+
+    const latest = await deploymentEngine.getLatestAndroidRelease();
+
+    if (!latest) {
+      res.json({ updateAvailable: false, message: "لا توجد إصدارات متاحة" });
+      return;
+    }
+
+    const updateAvailable = clientVersionCode > 0
+      ? latest.versionCode > clientVersionCode
+      : compareVersions(latest.versionName, clientVersionName) > 0;
+
+    res.json({
+      updateAvailable,
+      forceUpdate: false,
+      latest: {
+        versionName: latest.versionName,
+        versionCode: latest.versionCode,
+        downloadUrl: latest.downloadUrl,
+        releasedAt: latest.releasedAt,
+      },
+      current: {
+        versionName: clientVersionName,
+        versionCode: clientVersionCode,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "فشل فحص التحديث", details: err.message });
+  }
+});
+
 router.get("/health", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const health = await deploymentEngine.checkServerHealth();
   res.json(health);
@@ -201,5 +236,17 @@ router.delete("/:id", requireAdmin, asyncHandler(async (req: Request, res: Respo
   await deploymentEngine.deleteDeployment(req.params.id);
   res.json({ success: true, message: "تم حذف العملية" });
 }));
+
+function compareVersions(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
 
 export default router;

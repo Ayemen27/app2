@@ -128,6 +128,7 @@ const STEP_LABELS: Record<string, string> = {
   "db-migrate": "تهجير قاعدة البيانات",
   "hotfix-sync": "مزامنة الإصلاح السريع",
   "firebase-test": "اختبار Firebase Test Lab",
+  "generate-icons": "توليد الأيقونات",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -150,6 +151,8 @@ const STEP_ICONS: Record<string, any> = {
   "rollback-server": RotateCcw,
   "db-migrate": Server,
   "hotfix-sync": Rocket,
+  "generate-icons": Smartphone,
+  "firebase-test": Shield,
 };
 
 const STATUS_LABELS: Record<string, string> = {

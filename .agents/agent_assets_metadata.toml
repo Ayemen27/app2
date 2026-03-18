@@ -42,3 +42,9 @@ id = "R_SbGypttWopfbcK0lcLK"
 uri = "file://API_PERFORMANCE_REPORT.md"
 type = "text"
 title = "تقرير تحليل أداء API — Performance Analysis Report"
+
+[[outputs]]
+id = "bB2OWK7ukPSPkarVZABZ0"
+uri = "file://ANDROID_TEST_REPORT.md"
+type = "text"
+title = "تقرير اختبار تشغيل تطبيق Android"

@@ -1168,26 +1168,47 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     const sanitizedTransferData = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_TRANSFER_PATCH_FIELDS);
 
-    // تحديث تحويل العامل
-    const updatedTransfer = await db
-      .update(workerTransfers)
-      .set(sanitizedTransferData)
-      .where(eq(workerTransfers.id, transferId))
-      .returning();
+    const userId = getAuthUser(req)?.user_id;
 
-    const t = updatedTransfer[0];
-    FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'تعديل تحويل عامل', getAuthUser(req)?.user_id);
-      return FinancialLedgerService.recordWorkerTransfer(
-        t.project_id, parseFloat(t.amount), t.transferDate, t.id, getAuthUser(req)?.user_id
+    const updatedTransfer = await withTransaction(async (client) => {
+      const updateResult = await client.query(
+        `UPDATE worker_transfers SET ${Object.keys(sanitizedTransferData).map((k, i) => `"${k}" = $${i + 1}`).join(', ')} WHERE id = $${Object.keys(sanitizedTransferData).length + 1} RETURNING *`,
+        [...Object.values(sanitizedTransferData), transferId]
       );
-    }, 'worker-transfers/PATCH');
+      const t = updateResult.rows[0];
+
+      const oldEntries = await client.query(
+        `SELECT id FROM journal_entries WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
+        ['worker_transfers', transferId]
+      );
+      for (const entry of oldEntries.rows) {
+        await FinancialLedgerService.reverseEntryWithClient(client, entry.id, 'تعديل تحويل عامل', userId);
+      }
+
+      await FinancialLedgerService._createJournalEntryWithClient(client, {
+        project_id: t.project_id,
+        entryDate: t.transfer_date,
+        description: `حوالة عامل بقيمة ${t.amount}`,
+        sourceTable: 'worker_transfers',
+        sourceId: t.id,
+        createdBy: userId,
+        lines: [
+          { accountCode: '5300', debitAmount: parseFloat(t.amount), creditAmount: 0, description: 'حوالة عامل' },
+          { accountCode: '1100', debitAmount: 0, creditAmount: parseFloat(t.amount), description: 'دفع حوالة' },
+        ]
+      });
+
+      return t;
+    });
+
+    const freshTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
+    const responseData = freshTransfer[0];
 
     try {
       const oldDate = existingTransfer[0].transferDate.substring(0, 10);
-      const newDate = t.transferDate.substring(0, 10);
+      const newDate = responseData.transferDate.substring(0, 10);
       const minDate = oldDate < newDate ? oldDate : newDate;
-      await SummaryRebuildService.markInvalid(t.project_id, minDate);
+      await SummaryRebuildService.markInvalid(responseData.project_id, minDate);
     } catch (e) { console.error('[SummaryRebuild] worker-transfers/PATCH markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
@@ -1195,8 +1216,8 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     res.json({
       success: true,
-      data: updatedTransfer[0],
-      message: `تم تحديث تحويل العامل بقيمة ${updatedTransfer[0].amount} بنجاح`,
+      data: responseData,
+      message: `تم تحديث تحويل العامل بقيمة ${responseData.amount} بنجاح`,
       processingTime: duration
     });
 
@@ -1261,17 +1282,23 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       recipientName: transferToDelete.recipientName
     });
 
-    FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_transfers', transferId, 'حذف', getAuthUser(req)?.user_id).then(() => ''),
-      'worker-transfers/DELETE'
-    );
+    const userId = getAuthUser(req)?.user_id;
 
-    // حذف حوالة العامل من قاعدة البيانات
-    console.log('🗑️ [API] حذف حوالة العامل من قاعدة البيانات...');
-    const deletedTransfer = await db
-      .delete(workerTransfers)
-      .where(eq(workerTransfers.id, transferId))
-      .returning();
+    const deletedTransfer = await withTransaction(async (client) => {
+      const oldEntries = await client.query(
+        `SELECT id FROM journal_entries WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
+        ['worker_transfers', transferId]
+      );
+      for (const entry of oldEntries.rows) {
+        await FinancialLedgerService.reverseEntryWithClient(client, entry.id, 'حذف تحويل عامل', userId);
+      }
+
+      const deleteResult = await client.query(
+        `DELETE FROM worker_transfers WHERE id = $1 RETURNING *`,
+        [transferId]
+      );
+      return deleteResult.rows;
+    });
 
     try {
       await SummaryRebuildService.markInvalid(transferToDelete.project_id, transferToDelete.transferDate.substring(0, 10));
@@ -1279,15 +1306,15 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
-      id: deletedTransfer[0].id,
-      amount: deletedTransfer[0].amount,
-      recipientName: deletedTransfer[0].recipientName
+      id: transferToDelete.id,
+      amount: transferToDelete.amount,
+      recipientName: transferToDelete.recipientName
     });
 
     res.json({
       success: true,
-      data: deletedTransfer[0],
-      message: `تم حذف حوالة العامل إلى "${deletedTransfer[0].recipientName}" بقيمة ${deletedTransfer[0].amount} بنجاح`,
+      data: transferToDelete,
+      message: `تم حذف حوالة العامل إلى "${transferToDelete.recipientName}" بقيمة ${transferToDelete.amount} بنجاح`,
       processingTime: duration
     });
 
@@ -1469,26 +1496,47 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 
     const sanitizedExpenseData = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_MISC_EXPENSE_PATCH_FIELDS);
 
-    // تحديث المصروف المتنوع للعامل
-    const updatedExpense = await db
-      .update(workerMiscExpenses)
-      .set(sanitizedExpenseData)
-      .where(eq(workerMiscExpenses.id, expenseId))
-      .returning();
+    const userId = getAuthUser(req)?.user_id;
 
-    const t = updatedExpense[0];
-    FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'تعديل مصروف متنوع', getAuthUser(req)?.user_id);
-      return FinancialLedgerService.recordMiscExpense(
-        t.project_id, parseFloat(t.amount), t.date, t.id, getAuthUser(req)?.user_id
+    const updatedExpense = await withTransaction(async (client) => {
+      const updateResult = await client.query(
+        `UPDATE worker_misc_expenses SET ${Object.keys(sanitizedExpenseData).map((k, i) => `"${k}" = $${i + 1}`).join(', ')} WHERE id = $${Object.keys(sanitizedExpenseData).length + 1} RETURNING *`,
+        [...Object.values(sanitizedExpenseData), expenseId]
       );
-    }, 'worker-misc-expenses/PATCH');
+      const t = updateResult.rows[0];
+
+      const oldEntries = await client.query(
+        `SELECT id FROM journal_entries WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
+        ['worker_misc_expenses', expenseId]
+      );
+      for (const entry of oldEntries.rows) {
+        await FinancialLedgerService.reverseEntryWithClient(client, entry.id, 'تعديل مصروف متنوع', userId);
+      }
+
+      await FinancialLedgerService._createJournalEntryWithClient(client, {
+        project_id: t.project_id,
+        entryDate: t.date,
+        description: `مصروف متنوع بقيمة ${t.amount}`,
+        sourceTable: 'worker_misc_expenses',
+        sourceId: t.id,
+        createdBy: userId,
+        lines: [
+          { accountCode: '5400', debitAmount: parseFloat(t.amount), creditAmount: 0, description: 'مصاريف متنوعة' },
+          { accountCode: '1100', debitAmount: 0, creditAmount: parseFloat(t.amount), description: 'دفع مصروف' },
+        ]
+      });
+
+      return t;
+    });
+
+    const freshExpense = await db.select().from(workerMiscExpenses).where(eq(workerMiscExpenses.id, expenseId)).limit(1);
+    const responseData = freshExpense[0];
 
     try {
       const oldDate = existingExpense[0].date;
-      const newDate = t.date;
+      const newDate = responseData.date;
       const minDate = oldDate < newDate ? oldDate : newDate;
-      await SummaryRebuildService.markInvalid(t.project_id, minDate);
+      await SummaryRebuildService.markInvalid(responseData.project_id, minDate);
     } catch (e) { console.error('[SummaryRebuild] worker-misc-expenses/PATCH markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
@@ -1496,8 +1544,8 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
 
     res.json({
       success: true,
-      data: updatedExpense[0],
-      message: `تم تحديث المصروف المتنوع للعامل بقيمة ${updatedExpense[0].amount} بنجاح`,
+      data: responseData,
+      message: `تم تحديث المصروف المتنوع للعامل بقيمة ${responseData.amount} بنجاح`,
       processingTime: duration
     });
 
@@ -2151,10 +2199,13 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     const userId = getAuthUser(req)?.user_id;
 
     const deletedAttendance = await withTransaction(async (client) => {
-      await client.query(
-        `UPDATE journal_entries SET status = 'reversed' WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
+      const oldEntries = await client.query(
+        `SELECT id FROM journal_entries WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
         ['worker_attendance', attendanceId]
       );
+      for (const entry of oldEntries.rows) {
+        await FinancialLedgerService.reverseEntryWithClient(client, entry.id, 'حذف حضور عامل', userId);
+      }
 
       const deleteResult = await client.query(
         `DELETE FROM worker_attendance WHERE id = $1 RETURNING *`,
@@ -2163,11 +2214,6 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
 
       return deleteResult.rows;
     });
-
-    FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'حذف', userId).then(() => ''),
-      'worker-attendance/DELETE-ledger-cleanup'
-    );
 
     try {
       if (attendanceToDelete.project_id && attendanceToDelete.date) {
@@ -2420,11 +2466,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     });
 
     const record = newAttendance[0];
-    FinancialLedgerService.safeRecord(
-      () => FinancialLedgerService.recordWorkerWage(
-        record.project_id, parseFloat(record.actualWage || '0'), record.date, record.id, getAuthUser(req)?.user_id
-      ),
-      'worker-attendance/POST'
+    await FinancialLedgerService.recordWorkerWage(
+      record.project_id, parseFloat(record.actualWage || '0'), record.date, record.id, getAuthUser(req)?.user_id
     );
 
     try {
@@ -2571,28 +2614,45 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       .where(eq(workerAttendance.id, attendanceId))
       .returning();
 
-    const t = updated_attendance[0];
-    FinancialLedgerService.safeRecord(async () => {
-      await FinancialLedgerService.findAndReverseBySource('worker_attendance', attendanceId, 'تعديل حضور عامل', getAuthUser(req)?.user_id);
-      return FinancialLedgerService.recordWorkerWage(
-        t.project_id, parseFloat(t.actualWage || '0'), t.date, t.id, getAuthUser(req)?.user_id
+    const userId = getAuthUser(req)?.user_id;
+
+    await withTransaction(async (client) => {
+      const oldEntries = await client.query(
+        `SELECT id FROM journal_entries WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
+        ['worker_attendance', attendanceId]
       );
-    }, 'worker-attendance/PATCH');
+      for (const entry of oldEntries.rows) {
+        await FinancialLedgerService.reverseEntryWithClient(client, entry.id, 'تعديل حضور عامل', userId);
+      }
+
+      await FinancialLedgerService._createJournalEntryWithClient(client, {
+        project_id: updated_attendance[0].project_id,
+        entryDate: updated_attendance[0].date,
+        description: `أجر عامل بقيمة ${updated_attendance[0].actualWage || '0'}`,
+        sourceTable: 'worker_attendance',
+        sourceId: updated_attendance[0].id,
+        createdBy: userId,
+        lines: [
+          { accountCode: '5100', debitAmount: parseFloat(updated_attendance[0].actualWage || '0'), creditAmount: 0, description: 'أجور عمال' },
+          { accountCode: '1100', debitAmount: 0, creditAmount: parseFloat(updated_attendance[0].actualWage || '0'), description: 'دفع أجر' },
+        ]
+      });
+    });
 
     try {
-      if (t.project_id) {
+      if (updated_attendance[0].project_id) {
         const oldDate = existingAttendance[0].date || '';
-        const newDate = t.date || '';
+        const newDate = updated_attendance[0].date || '';
         const minDate = oldDate && newDate ? (oldDate < newDate ? oldDate : newDate) : (oldDate || newDate);
-        if (minDate) await SummaryRebuildService.markInvalid(t.project_id, minDate);
+        if (minDate) await SummaryRebuildService.markInvalid(updated_attendance[0].project_id, minDate);
       }
     } catch (e) { console.error('[SummaryRebuild] worker-attendance/PATCH markInvalid error:', e); }
 
-    if (t.well_id || t.well_ids) {
+    if (updated_attendance[0].well_id || updated_attendance[0].well_ids) {
       syncAttendanceToWellCrews({
-        ...t,
-        well_ids: req.body.well_ids || t.well_ids,
-        crew_type: req.body.crew_type || t.crew_type,
+        ...updated_attendance[0],
+        well_ids: req.body.well_ids || updated_attendance[0].well_ids,
+        crew_type: req.body.crew_type || updated_attendance[0].crew_type,
       }).catch(err => console.error('[syncAttendanceToWellCrews] PATCH error:', err));
     }
 

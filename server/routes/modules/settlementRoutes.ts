@@ -8,6 +8,7 @@ import { sendSuccess, sendError } from '../../middleware/api-response.js';
 
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
+import { FinancialLedgerService } from '../../services/FinancialLedgerService';
 
 const settlementRouter = express.Router();
 
@@ -505,9 +506,10 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             ? `تصفية حساب العامل ${worker.workerName} مباشرة في مشروع التصفية ${proj.projectName}`
             : `تصفية حساب العامل ${worker.workerName} من مشروع ${proj.projectName}`;
 
-          await client.query(
+          const wtResult = await client.query(
             `INSERT INTO worker_transfers (id, worker_id, project_id, amount, transfer_method, transfer_date, notes, description, sender_name, recipient_name, created_at)
-             VALUES (gen_random_uuid(), $1, $2, CAST($3 AS DECIMAL(15,2)), 'settlement', $4, $5, $6, $7, $8, NOW())`,
+             VALUES (gen_random_uuid(), $1, $2, CAST($3 AS DECIMAL(15,2)), 'settlement', $4, $5, $6, $7, $8, NOW())
+             RETURNING id`,
             [
               worker.workerId,
               proj.projectId,
@@ -519,14 +521,28 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
               worker.workerName,
             ]
           );
+          const wtId = wtResult.rows[0].id;
+          await FinancialLedgerService._createJournalEntryWithClient(client, {
+            project_id: proj.projectId,
+            entryDate: today,
+            description: `تصفية حساب - حوالة عامل ${worker.workerName} بقيمة ${settlementAmount}`,
+            sourceTable: 'worker_transfers',
+            sourceId: wtId,
+            createdBy: userId || undefined,
+            lines: [
+              { accountCode: '5300', debitAmount: settlementAmount, creditAmount: 0, description: 'حوالة عامل - تصفية' },
+              { accountCode: '1100', debitAmount: 0, creditAmount: settlementAmount, description: 'دفع حوالة - تصفية' },
+            ]
+          });
         }
       }
 
       for (const transfer of actualFundTotals.values()) {
         const projectWorkerNames = transfer.workerNames.join('، ');
-        await client.query(
+        const pftResult = await client.query(
           `INSERT INTO project_fund_transfers (from_project_id, to_project_id, amount, description, transfer_reason, transfer_date)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id`,
           [
             settlement_project_id,
             transfer.fromProjectId,
@@ -536,6 +552,32 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
             today,
           ]
         );
+        const pftId = pftResult.rows[0].id;
+        const transferAmount = Math.round(transfer.amount);
+        await FinancialLedgerService._createJournalEntryWithClient(client, {
+          project_id: settlement_project_id,
+          entryDate: today,
+          description: `تصفية - تحويل صادر لمشروع ${transfer.fromProjectName} بقيمة ${transferAmount}`,
+          sourceTable: 'project_fund_transfers',
+          sourceId: pftId,
+          createdBy: userId || undefined,
+          lines: [
+            { accountCode: '5500', debitAmount: transferAmount, creditAmount: 0, description: 'تحويل صادر بين مشاريع - تصفية' },
+            { accountCode: '1100', debitAmount: 0, creditAmount: transferAmount, description: 'خصم نقدي - تصفية' },
+          ]
+        });
+        await FinancialLedgerService._createJournalEntryWithClient(client, {
+          project_id: transfer.fromProjectId,
+          entryDate: today,
+          description: `تصفية - تحويل وارد من مشروع التصفية بقيمة ${transferAmount}`,
+          sourceTable: 'project_fund_transfers',
+          sourceId: pftId,
+          createdBy: userId || undefined,
+          lines: [
+            { accountCode: '1100', debitAmount: transferAmount, creditAmount: 0, description: 'استلام نقدي - تصفية' },
+            { accountCode: '4100', debitAmount: 0, creditAmount: transferAmount, description: 'تحويل وارد بين مشاريع - تصفية' },
+          ]
+        });
       }
 
       await client.query(

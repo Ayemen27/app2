@@ -17,6 +17,7 @@ import { CentralLogService } from './CentralLogService';
 
 const ACCOUNT_CODES = {
   CASH: '1100',
+  INVENTORY_ASSET: '1200',
   FUND_TRANSFER_IN: '4000',
   PROJECT_TRANSFER_IN: '4100',
   MATERIAL_EXPENSE: '5000',
@@ -30,7 +31,7 @@ const ACCOUNT_CODES = {
 
 export class FinancialLedgerService {
 
-  private static async _createJournalEntryWithClient(client: pg.PoolClient, params: {
+  static async _createJournalEntryWithClient(client: pg.PoolClient, params: {
     project_id: string;
     entryDate: string;
     description: string;
@@ -157,6 +158,7 @@ export class FinancialLedgerService {
         createdBy,
         lines: [
           { accountCode: ACCOUNT_CODES.MATERIAL_EXPENSE, debitAmount: amount, creditAmount: 0, description: 'توريد مواد للمخزن' },
+          { accountCode: ACCOUNT_CODES.INVENTORY_ASSET, debitAmount: 0, creditAmount: amount, description: 'أصول مخزون' },
         ]
       });
     } else {
@@ -233,9 +235,24 @@ export class FinancialLedgerService {
     return entryId;
   }
 
-  static async recordProjectTransfer(fromProjectId: string, toProjectId: string, amount: number, date: string, sourceId: string, createdBy?: string) {
-    await withTransaction(async (client) => {
-      await this._createJournalEntryWithClient(client, {
+  static async recordSupplierPayment(project_id: string, amount: number, date: string, sourceId: string, createdBy?: string): Promise<string> {
+    const entryId = await this.createJournalEntry({
+      project_id, entryDate: date,
+      description: `دفعة مورد بقيمة ${amount}`,
+      sourceTable: 'supplier_payments', sourceId,
+      createdBy,
+      lines: [
+        { accountCode: ACCOUNT_CODES.SUPPLIER_PAYABLE, debitAmount: amount, creditAmount: 0, description: 'تسوية ذمم مورد' },
+        { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع نقدي لمورد' },
+      ]
+    });
+    await this.invalidateSummaries(project_id, date, 'تسجيل قيد: دفعة مورد', 'supplier_payments', sourceId);
+    return entryId;
+  }
+
+  static async recordProjectTransfer(fromProjectId: string, toProjectId: string, amount: number, date: string, sourceId: string, createdBy?: string): Promise<string> {
+    const entryId = await withTransaction(async (client) => {
+      const fromEntryId = await this._createJournalEntryWithClient(client, {
         project_id: fromProjectId, entryDate: date,
         description: `تحويل صادر لمشروع آخر بقيمة ${amount}`,
         sourceTable: 'project_fund_transfers', sourceId,
@@ -256,9 +273,12 @@ export class FinancialLedgerService {
           { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_IN, debitAmount: 0, creditAmount: amount },
         ]
       });
+
+      return fromEntryId;
     });
     await this.invalidateSummaries(fromProjectId, date, 'تسجيل قيد: تحويل صادر بين مشاريع', 'project_fund_transfers', sourceId);
     await this.invalidateSummaries(toProjectId, date, 'تسجيل قيد: تحويل وارد بين مشاريع', 'project_fund_transfers', sourceId);
+    return entryId;
   }
 
   static async reverseEntry(entryId: string, reason: string, createdBy?: string) {
@@ -302,6 +322,48 @@ export class FinancialLedgerService {
           description: `عكس: ${line.description || ''}`,
         }))
       });
+    });
+  }
+
+  static async reverseEntryWithClient(client: pg.PoolClient, entryId: string, reason: string, createdBy?: string): Promise<string> {
+    const lockResult = await client.query(
+      `SELECT * FROM journal_entries WHERE id = $1 FOR UPDATE`,
+      [entryId]
+    );
+    const original = lockResult.rows[0];
+    if (!original || original.status === 'reversed') {
+      throw new Error('القيد غير موجود أو مُعكوس مسبقاً');
+    }
+
+    const linesResult = await client.query(
+      `SELECT * FROM journal_lines WHERE journal_entry_id = $1`,
+      [entryId]
+    );
+    const originalLines = linesResult.rows;
+
+    const updateResult = await client.query(
+      `UPDATE journal_entries SET status = 'reversed' WHERE id = $1 AND status != 'reversed'`,
+      [entryId]
+    );
+    if (!updateResult.rowCount || updateResult.rowCount === 0) {
+      throw new Error('فشل تحديث حالة القيد - ربما تم عكسه بواسطة عملية أخرى');
+    }
+
+    return this._createJournalEntryWithClient(client, {
+      project_id: original.project_id || '',
+      entryDate: original.entry_date,
+      description: `عكس: ${original.description} - السبب: ${reason}`,
+      sourceTable: original.source_table,
+      sourceId: original.source_id,
+      entryType: 'reversal',
+      reversalOfId: entryId,
+      createdBy,
+      lines: originalLines.map((line: any) => ({
+        accountCode: line.account_code,
+        debitAmount: Math.round(parseFloat(String(line.credit_amount || '0')) * 100) / 100,
+        creditAmount: Math.round(parseFloat(String(line.debit_amount || '0')) * 100) / 100,
+        description: `عكس: ${line.description || ''}`,
+      }))
     });
   }
 
@@ -386,12 +448,139 @@ export class FinancialLedgerService {
     }
   }
 
-  static async safeRecord(fn: () => Promise<string>, context: string): Promise<void> {
-    try {
-      await fn();
-    } catch (error) {
-      console.error(`⚠️ [Ledger] فشل تسجيل قيد (${context}):`, error);
+  static async findAndReverseBySourceWithClient(client: pg.PoolClient, sourceTable: string, sourceId: string, reason: string, createdBy?: string): Promise<string | null> {
+    const existingResult = await client.query(
+      `SELECT * FROM journal_entries WHERE source_table = $1 AND source_id = $2 AND status = 'posted'`,
+      [sourceTable, sourceId]
+    );
+    if (!existingResult.rows.length) return null;
+
+    for (const entry of existingResult.rows) {
+      await this.reverseEntryWithClient(client, entry.id, reason, createdBy);
     }
+    console.log(`🔄 [Ledger] عكس ${existingResult.rows.length} قيد لـ ${sourceTable}/${sourceId}: ${reason}`);
+
+    CentralLogService.getInstance().logDomain({
+      source: 'finance',
+      module: 'مالية',
+      action: 'reversal',
+      level: 'warn',
+      status: 'success',
+      actorUserId: createdBy,
+      entityType: 'journal_entry',
+      entityId: existingResult.rows[0].id,
+      message: `عكس ${existingResult.rows.length} قيد لـ ${sourceTable}/${sourceId}: ${reason}`,
+      details: { sourceTable, sourceId, reason, reversedCount: existingResult.rows.length },
+    });
+
+    return existingResult.rows[0].id;
+  }
+
+  static async recordFundTransferWithClient(client: pg.PoolClient, project_id: string, amount: number, date: string | Date, sourceId: string, createdBy?: string) {
+    const entryDate = typeof date === 'string' ? (date.includes('T') ? date.substring(0, 10) : date) : date.toISOString().substring(0, 10);
+    return this._createJournalEntryWithClient(client, {
+      project_id, entryDate,
+      description: `تحويل عهدة بقيمة ${amount}`,
+      sourceTable: 'fund_transfers', sourceId, createdBy,
+      lines: [
+        { accountCode: ACCOUNT_CODES.CASH, debitAmount: amount, creditAmount: 0, description: 'استلام عهدة' },
+        { accountCode: ACCOUNT_CODES.FUND_TRANSFER_IN, debitAmount: 0, creditAmount: amount, description: 'تحويل عهدة وارد' },
+      ]
+    });
+  }
+
+  static async recordMaterialPurchaseWithClient(client: pg.PoolClient, project_id: string, amount: number, date: string, sourceId: string, purchaseType: string, createdBy?: string) {
+    if (purchaseType === 'نقد' || purchaseType === 'نقداً') {
+      return this._createJournalEntryWithClient(client, {
+        project_id, entryDate: date,
+        description: `شراء مواد نقداً بقيمة ${amount}`,
+        sourceTable: 'material_purchases', sourceId, createdBy,
+        lines: [
+          { accountCode: ACCOUNT_CODES.MATERIAL_EXPENSE, debitAmount: amount, creditAmount: 0, description: 'مصاريف مواد' },
+          { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع نقدي' },
+        ]
+      });
+    } else if (purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني') {
+      return this._createJournalEntryWithClient(client, {
+        project_id, entryDate: date,
+        description: `توريد مواد للمخزن بقيمة ${amount}`,
+        sourceTable: 'material_purchases', sourceId, createdBy,
+        lines: [
+          { accountCode: ACCOUNT_CODES.MATERIAL_EXPENSE, debitAmount: amount, creditAmount: 0, description: 'توريد مواد للمخزن' },
+          { accountCode: ACCOUNT_CODES.INVENTORY_ASSET, debitAmount: 0, creditAmount: amount, description: 'أصول مخزون' },
+        ]
+      });
+    } else {
+      return this._createJournalEntryWithClient(client, {
+        project_id, entryDate: date,
+        description: `شراء مواد آجل بقيمة ${amount}`,
+        sourceTable: 'material_purchases', sourceId, createdBy,
+        lines: [
+          { accountCode: ACCOUNT_CODES.MATERIAL_EXPENSE, debitAmount: amount, creditAmount: 0, description: 'مصاريف مواد' },
+          { accountCode: ACCOUNT_CODES.SUPPLIER_PAYABLE, debitAmount: 0, creditAmount: amount, description: 'ذمم دائنة - مورد' },
+        ]
+      });
+    }
+  }
+
+  static async recordTransportExpenseWithClient(client: pg.PoolClient, project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+    return this._createJournalEntryWithClient(client, {
+      project_id, entryDate: date,
+      description: `مصاريف نقل بقيمة ${amount}`,
+      sourceTable: 'transportation_expenses', sourceId, createdBy,
+      lines: [
+        { accountCode: ACCOUNT_CODES.TRANSPORT_EXPENSE, debitAmount: amount, creditAmount: 0, description: 'مصاريف نقل' },
+        { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع نقل' },
+      ]
+    });
+  }
+
+  static async recordWorkerTransferWithClient(client: pg.PoolClient, project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+    return this._createJournalEntryWithClient(client, {
+      project_id, entryDate: date,
+      description: `حوالة عامل بقيمة ${amount}`,
+      sourceTable: 'worker_transfers', sourceId, createdBy,
+      lines: [
+        { accountCode: ACCOUNT_CODES.WORKER_TRANSFERS, debitAmount: amount, creditAmount: 0, description: 'حوالة عامل' },
+        { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع حوالة' },
+      ]
+    });
+  }
+
+  static async recordMiscExpenseWithClient(client: pg.PoolClient, project_id: string, amount: number, date: string, sourceId: string, createdBy?: string) {
+    return this._createJournalEntryWithClient(client, {
+      project_id, entryDate: date,
+      description: `مصروف متنوع بقيمة ${amount}`,
+      sourceTable: 'worker_misc_expenses', sourceId, createdBy,
+      lines: [
+        { accountCode: ACCOUNT_CODES.MISC_EXPENSE, debitAmount: amount, creditAmount: 0, description: 'مصاريف متنوعة' },
+        { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount, description: 'دفع مصروف' },
+      ]
+    });
+  }
+
+  static async recordProjectTransferWithClient(client: pg.PoolClient, fromProjectId: string, toProjectId: string, amount: number, date: string, sourceId: string, createdBy?: string): Promise<string> {
+    const fromEntryId = await this._createJournalEntryWithClient(client, {
+      project_id: fromProjectId, entryDate: date,
+      description: `تحويل صادر لمشروع آخر بقيمة ${amount}`,
+      sourceTable: 'project_fund_transfers', sourceId, createdBy,
+      lines: [
+        { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_OUT, debitAmount: amount, creditAmount: 0 },
+        { accountCode: ACCOUNT_CODES.CASH, debitAmount: 0, creditAmount: amount },
+      ]
+    });
+
+    await this._createJournalEntryWithClient(client, {
+      project_id: toProjectId, entryDate: date,
+      description: `تحويل وارد من مشروع آخر بقيمة ${amount}`,
+      sourceTable: 'project_fund_transfers', sourceId, createdBy,
+      lines: [
+        { accountCode: ACCOUNT_CODES.CASH, debitAmount: amount, creditAmount: 0 },
+        { accountCode: ACCOUNT_CODES.PROJECT_TRANSFER_IN, debitAmount: 0, creditAmount: amount },
+      ]
+    });
+
+    return fromEntryId;
   }
 
   static async invalidateSummaries(project_id: string, fromDate: string, reason: string, sourceTable?: string, sourceId?: string) {

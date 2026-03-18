@@ -111,6 +111,22 @@ The system features a consistent design with a professional navy/blue palette, E
 ### Phase 6 Financial Integrity & Write-Path Hardening (Completed)
 - **Financial Atomicity (Critical Fix):** `createJournalEntry()` now wraps header+lines inserts in `withTransaction`. New private `_createJournalEntryWithClient(client, params)` uses `client.query()` with parameterized SQL. `reverseEntry()` now calls `_createJournalEntryWithClient` inside its existing transaction (no nested independent transaction). `recordProjectTransfer()` wraps both outbound+inbound entries in a single `withTransaction` for full atomicity.
 - **Ledger Posting Await (High Fix):** All 18 `FinancialLedgerService.safeRecord()` calls in `financialRoutes.ts` are now `await`ed. Eliminates fire-and-forget behavior that could cause silent accounting drift.
+
+### Double-Entry Accounting Integrity Overhaul (March 2026)
+- **Root Cause: `safeRecord` Error Swallowing Eliminated.** The `safeRecord()` method in `FinancialLedgerService.ts` was catching and silently discarding all journal entry creation errors. This caused **868 orphan financial records (23.3M SAR)** across 4 tables without corresponding journal entries. `safeRecord` has been **completely deleted** from the codebase. All journal entry calls are now direct `await` with errors propagating to callers.
+- **`recordMaterialPurchase(مخزن)` Fixed.** Previously created a single-line journal entry (DEBIT only, no CREDIT) which violated double-entry balance rules. Now creates balanced entry: DR 5000 MATERIAL_EXPENSE / CR 1200 INVENTORY_ASSET. New account code `INVENTORY_ASSET: '1200'` added to ACCOUNT_CODES.
+- **Settlement Accounting Added.** `settlementRoutes.ts` previously created `project_fund_transfers` and `worker_transfers` without any journal entries. Now calls `FinancialLedgerService._createJournalEntryWithClient()` within the existing settlement transaction to create proper double-entry records for both transfer types.
+- **`_createJournalEntryWithClient` Made Public.** Changed from `private static` to `static` so routes can use it with their own transaction clients for atomic operations.
+- **`reverseEntryWithClient` Added.** New method that accepts a `pg.PoolClient` for reversing journal entries within an existing transaction (used by PATCH/DELETE routes).
+- **`recordSupplierPayment` Added.** New method for supplier_payments table: DR 2000 SUPPLIER_PAYABLE / CR 1100 CASH.
+- **Atomic Financial Transactions (workerRoutes.ts).** All 6 `safeRecord` calls replaced with proper `await` and `withTransaction` wrapping: PATCH/DELETE worker-transfers, PATCH worker-misc-expenses, DELETE/POST/PATCH worker-attendance.
+- **Atomic Financial Transactions (financialRoutes.ts).** All 18 `safeRecord` calls replaced with direct `await` calls. Journal entries now fail-fast — if a journal entry fails, the HTTP response returns an error.
+- **DB Safety Constraints Applied at Startup.** New `server/migrations/add-journal-constraints.ts` with `applyJournalConstraints()` called from `server/index.ts`:
+  - CHECK `chk_journal_lines_non_negative`: `debit_amount >= 0 AND credit_amount >= 0`
+  - CHECK `chk_journal_lines_single_side`: prevents both debit AND credit > 0 on same line
+  - Partial UNIQUE INDEX `idx_journal_source_unique`: `(source_table, source_id, project_id) WHERE status='posted' AND entry_type='original'` — prevents duplicate journal entries for same source record
+- **Backfill Script Created.** `server/scripts/backfill-orphan-journal-entries.ts` processes orphan records across 6 tables (fund_transfers, transportation_expenses, worker_transfers, worker_misc_expenses, material_purchases, worker_attendance). Supports `DRY_RUN=true` mode. Idempotent — checks for existing journal entries before creating. Batch processing (50 at a time) with progress logging.
+- **Accounting Integrity Audit Reports.** Full audit reports saved at `.local/accounting-integrity-audit.md` and `.local/financial-audit-report.md`.
 - **db.execute→pool.query Migration (High Fix):** `idempotency.ts` and `NotificationQueueWorker.ts` converted all INSERT/UPDATE/DELETE mutations from `db.execute(sql\`...\`)` to `pool.query()` with parameterized SQL. Read operations kept as-is.
 
 ### Phase 3 DB-Schema Alignment (Completed)

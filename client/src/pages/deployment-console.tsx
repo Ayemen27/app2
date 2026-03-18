@@ -1030,7 +1030,7 @@ export default function DeploymentConsole() {
                             variant="outline"
                             size="sm"
                             className="h-7 text-[10px] sm:text-xs gap-1.5"
-                            onClick={() => viewDeployment(d.id)}
+                            onClick={(e) => { e.stopPropagation(); viewDeployment(d.id); }}
                           >
                             <Terminal className="h-3 w-3" />
                             عرض السجل الكامل
@@ -1041,7 +1041,7 @@ export default function DeploymentConsole() {
                               variant="outline"
                               size="sm"
                               className="h-7 text-[10px] sm:text-xs gap-1.5 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                              onClick={() => handleRollback(d.id)}
+                              onClick={(e) => { e.stopPropagation(); handleRollback(d.id); }}
                             >
                               <RotateCcw className="h-3 w-3" />
                               تراجع

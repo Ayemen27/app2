@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { pool, withTransaction } from '../../db.js';
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess.js';
-import { getAuthUser } from '../../internal/auth-user.js';
+import { getAuthUser, isAdmin } from '../../internal/auth-user.js';
 import { sendSuccess, sendError } from '../../middleware/api-response.js';
 
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
@@ -762,6 +762,9 @@ settlementRouter.get('/:id', async (req: Request, res: Response) => {
 
 settlementRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
     const { id } = req.params;
     const accessReq = req as ProjectAccessRequest;
     const accessibleProjectIds = accessReq.accessibleProjectIds || [];

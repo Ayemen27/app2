@@ -1,6 +1,18 @@
 /**
  * مسارات إدارة العمال
  * Worker Management Routes
+ *
+ * ⚠️ DUPLICATE ROUTE WARNING (Issue #3):
+ * This router and financialRoutes.ts both define handlers for:
+ *   - PATCH /worker-transfers/:id
+ *   - DELETE /worker-transfers/:id
+ *   - GET /worker-misc-expenses
+ *   - PATCH /worker-misc-expenses/:id
+ *   - GET /worker-attendance
+ *   - DELETE /worker-attendance/:id
+ * This router is mounted FIRST on /api (index.ts line ~101), so its handlers
+ * take precedence for these duplicate paths.
+ * Full deduplication is a separate Medium-priority task.
  */
 
 import express from 'express';
@@ -1730,6 +1742,9 @@ workerRouter.get('/worker-project-wages/:workerId', async (req: Request, res: Re
  */
 workerRouter.post('/worker-project-wages/backfill', async (req: Request, res: Response) => {
   try {
+    if (!getAuthUser(req) || !(getAuthUser(req)!.role === 'admin' || getAuthUser(req)!.role === 'super_admin')) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
     const activeWorkers = await db.select().from(workers).where(eq(workers.is_active, true));
     let createdCount = 0;
 

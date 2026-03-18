@@ -742,7 +742,7 @@ authRouter.post('/verify-email', async (req: Request, res: Response) => {
  * 🔄 إعادة إرسال رمز التحقق
  * POST /api/auth/resend-verification
  */
-authRouter.post('/resend-verification', async (req: Request, res: Response) => {
+authRouter.post('/resend-verification', authRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('🔄 [AUTH] طلب إعادة إرسال رمز التحقق');
 

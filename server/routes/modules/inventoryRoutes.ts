@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess.js';
 import { InventoryService } from '../../services/InventoryService.js';
+import { isAdmin } from '../../internal/auth-user.js';
 
 const inventoryRouter = Router();
 
@@ -194,6 +195,9 @@ inventoryRouter.post('/return', async (req, res) => {
 
 inventoryRouter.post('/adjust', async (req, res) => {
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
     const { itemId, quantity, type, transactionDate, performedBy, notes } = req.body;
 
     if (!itemId || !quantity || !type || !transactionDate) {
@@ -241,6 +245,9 @@ inventoryRouter.put('/items/:id', async (req, res) => {
 
 inventoryRouter.delete('/items/:id', async (req, res) => {
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
     const itemId = parseInt(req.params.id);
     await InventoryService.deleteItem(itemId);
     res.json({ success: true, message: 'تم حذف المادة بنجاح' });
@@ -264,6 +271,9 @@ inventoryRouter.patch('/transactions/:id', async (req, res) => {
 
 inventoryRouter.delete('/transactions/:id', async (req, res) => {
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
     const txId = parseInt(req.params.id);
     await InventoryService.deleteTransaction(txId);
     res.json({ success: true, message: 'تم حذف المعاملة بنجاح' });

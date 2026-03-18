@@ -844,6 +844,10 @@ const ALLOWED_BATCH_TABLES: Record<string, string> = {
 const TABLES_WITHOUT_PROJECT_ID = new Set(['project_types', 'autocomplete_data']);
 
 syncRouter.post('/batch', async (req: Request, res: Response) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+
   const parsed = batchRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({

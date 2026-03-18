@@ -680,14 +680,25 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
     console.log('🔍 [API] طلب جلب مشروع محدد من المستخدم:', req.user?.email);
     console.log('📋 [API] معرف المشروع:', id);
 
-    // Support for 'all' or 'all-projects-total' daily summary
     if (id === 'all' || id === 'all-projects-total') {
       const { date } = req.query;
+      const accessReq = req as ProjectAccessRequest;
+      const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
       
       console.log(`📊 [API] جلب ملخص شامل لجميع المشاريع (ID: ${id})`);
       
-      // جلب إحصائيات جميع المشاريع لهذا اليوم
-      const projectsList = await db.select().from(projects);
+      let projectsList;
+      if (isAdminUser) {
+        projectsList = await db.select().from(projects);
+      } else {
+        const ids = accessReq.accessibleProjectIds ?? [];
+        if (ids.length === 0) {
+          projectsList = [];
+        } else {
+          projectsList = await db.select().from(projects).where(inArray(projects.id, ids));
+        }
+      }
+
       const summaries = await Promise.all(projectsList.map(async (p: any) => {
         try {
           return await ExpenseLedgerService.getProjectFinancialSummary(p.id, date as string);
@@ -1284,24 +1295,54 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
 projectRouter.get('/all/fund-transfers', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds;
+
     console.log('📊 [API] جلب تحويلات العهدة من جميع المشاريع');
 
-    const transfers = await db.select({
-      id: fundTransfers.id,
-      project_id: fundTransfers.project_id,
-      amount: fundTransfers.amount,
-      senderName: fundTransfers.senderName,
-      transferNumber: fundTransfers.transferNumber,
-      transferType: fundTransfers.transferType,
-      transferDate: fundTransfers.transferDate,
-      notes: fundTransfers.notes,
-      created_at: fundTransfers.created_at,
-      projectName: projects.name
-    })
-    .from(fundTransfers)
-    .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
-    .orderBy(desc(fundTransfers.transferDate))
-    .limit(5000);
+    let transfers;
+    if (isAdminUser) {
+      transfers = await db.select({
+        id: fundTransfers.id,
+        project_id: fundTransfers.project_id,
+        amount: fundTransfers.amount,
+        senderName: fundTransfers.senderName,
+        transferNumber: fundTransfers.transferNumber,
+        transferType: fundTransfers.transferType,
+        transferDate: fundTransfers.transferDate,
+        notes: fundTransfers.notes,
+        created_at: fundTransfers.created_at,
+        projectName: projects.name
+      })
+      .from(fundTransfers)
+      .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
+      .orderBy(desc(fundTransfers.transferDate))
+      .limit(5000);
+    } else {
+      const ids = accessibleIds ?? [];
+      if (ids.length === 0) {
+        transfers = [];
+      } else {
+        transfers = await db.select({
+          id: fundTransfers.id,
+          project_id: fundTransfers.project_id,
+          amount: fundTransfers.amount,
+          senderName: fundTransfers.senderName,
+          transferNumber: fundTransfers.transferNumber,
+          transferType: fundTransfers.transferType,
+          transferDate: fundTransfers.transferDate,
+          notes: fundTransfers.notes,
+          created_at: fundTransfers.created_at,
+          projectName: projects.name
+        })
+        .from(fundTransfers)
+        .leftJoin(projects, eq(fundTransfers.project_id, projects.id))
+        .where(inArray(fundTransfers.project_id, ids))
+        .orderBy(desc(fundTransfers.transferDate))
+        .limit(5000);
+      }
+    }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم جلب ${transfers.length} تحويل عهدة من جميع المشاريع في ${duration}ms`);

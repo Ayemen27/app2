@@ -1,6 +1,19 @@
 /**
  * مسارات إدارة التحويلات المالية
  * Financial & Fund Transfer Routes
+ *
+ * ⚠️ DUPLICATE ROUTE WARNING (Issue #3):
+ * This router and workerRoutes.ts both define handlers for:
+ *   - PATCH /worker-transfers/:id
+ *   - DELETE /worker-transfers/:id
+ *   - GET /worker-misc-expenses
+ *   - PATCH /worker-misc-expenses/:id
+ *   - GET /worker-attendance
+ *   - DELETE /worker-attendance/:id
+ * Both routers are mounted on /api. workerRouter is mounted FIRST (index.ts line ~101),
+ * so its handlers take precedence for these duplicate paths.
+ * The handlers in THIS file (financialRouter) for those paths are effectively unreachable.
+ * Full deduplication is a separate Medium-priority task.
  */
 
 import express from 'express';
@@ -2558,20 +2571,26 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
     const purchaseType = existingPurchase[0].purchaseType;
     const isInventoryPurchase = purchaseType === 'مخزن' || purchaseType === 'توريد' || purchaseType === 'مخزني';
 
-    if (isInventoryPurchase) {
-      const { InventoryService } = await import('../../services/InventoryService.js');
-      await InventoryService.reverseFromPurchase(req.params.id);
-      console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
-    }
+    const deleted = await withTransaction(async (client) => {
+      const txDb = createDrizzle(client);
 
-    await FinancialLedgerService.findAndReverseBySource('material_purchases', req.params.id, 'حذف مشتراة', getAuthUser(req)?.user_id);
+      if (isInventoryPurchase) {
+        const { InventoryService } = await import('../../services/InventoryService.js');
+        await InventoryService.reverseFromPurchaseWithClient(req.params.id, client);
+        console.log(`📦 [MaterialPurchases→Inventory/DELETE] تم عكس المخزن للمشتراة ${req.params.id}`);
+      }
 
-    await WellExpenseAutoAllocationService.removeOnDelete('material_purchase', req.params.id);
+      await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'material_purchases', req.params.id, 'حذف مشتراة', getAuthUser(req)?.user_id);
 
-    const deleted = await db
-      .delete(materialPurchases)
-      .where(eq(materialPurchases.id, req.params.id))
-      .returning();
+      await WellExpenseAutoAllocationService.removeOnDelete('material_purchase', req.params.id);
+
+      const result = await txDb
+        .delete(materialPurchases)
+        .where(eq(materialPurchases.id, req.params.id))
+        .returning();
+
+      return result;
+    });
 
     try {
       if (existingPurchase[0].project_id) await SummaryRebuildService.markInvalid(existingPurchase[0].project_id, existingPurchase[0].purchaseDate || existingPurchase[0].purchase_date);
@@ -2669,15 +2688,22 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
     
-    const newExpense = await db
-      .insert(transportationExpenses)
-      .values(validated)
-      .returning();
-    
+    const newExpense = await withTransaction(async (client) => {
+      const txDb = createDrizzle(client);
+      const result = await txDb
+        .insert(transportationExpenses)
+        .values(validated)
+        .returning();
+
+      const te = result[0];
+      await FinancialLedgerService.recordTransportExpenseWithClient(
+        client, te.project_id, parseFloat(te.amount || '0'), te.date, te.id, getAuthUser(req)?.user_id
+      );
+
+      return result;
+    });
+
     const te = newExpense[0];
-    await FinancialLedgerService.recordTransportExpense(
-      te.project_id, parseFloat(te.amount || '0'), te.date, te.id, getAuthUser(req)?.user_id
-    );
 
     try {
       if (te.project_id) await SummaryRebuildService.markInvalid(te.project_id, te.date);
@@ -2776,13 +2802,26 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
     }
 
     const validated = insertTransportationExpenseSchema.partial().parse(req.body);
-    
-    const updated = await db
-      .update(transportationExpenses)
-      .set(validated)
-      .where(eq(transportationExpenses.id, req.params.id))
-      .returning();
-    
+
+    const updated = await withTransaction(async (client) => {
+      const txDb = createDrizzle(client);
+      const result = await txDb
+        .update(transportationExpenses)
+        .set(validated)
+        .where(eq(transportationExpenses.id, req.params.id))
+        .returning();
+
+      if (!result.length) return result;
+
+      const tu = result[0];
+      await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'transportation_expenses', req.params.id, 'تعديل نفقة نقل', getAuthUser(req)?.user_id);
+      await FinancialLedgerService.recordTransportExpenseWithClient(
+        client, tu.project_id, parseFloat(tu.amount || '0'), tu.date, tu.id, getAuthUser(req)?.user_id
+      );
+
+      return result;
+    });
+
     if (!updated.length) {
       const duration = Date.now() - startTime;
       return res.status(404).json({
@@ -2791,12 +2830,8 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
         processingTime: duration
       });
     }
-    
+
     const tu = updated[0];
-    await FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'تعديل نفقة نقل', getAuthUser(req)?.user_id);
-    await FinancialLedgerService.recordTransportExpense(
-      tu.project_id, parseFloat(tu.amount || '0'), tu.date, tu.id, getAuthUser(req)?.user_id
-    );
 
     try {
       if (tu.project_id) {
@@ -2858,14 +2893,20 @@ financialRouter.delete('/transportation-expenses/:id', async (req: Request, res:
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
-    await FinancialLedgerService.findAndReverseBySource('transportation_expenses', req.params.id, 'حذف نفقة نقل', getAuthUser(req)?.user_id);
+    const deleted = await withTransaction(async (client) => {
+      const txDb = createDrizzle(client);
 
-    await WellExpenseAutoAllocationService.removeOnDelete('transportation', req.params.id);
+      await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'transportation_expenses', req.params.id, 'حذف نفقة نقل', getAuthUser(req)?.user_id);
 
-    const deleted = await db
-      .delete(transportationExpenses)
-      .where(eq(transportationExpenses.id, req.params.id))
-      .returning();
+      await WellExpenseAutoAllocationService.removeOnDelete('transportation', req.params.id);
+
+      const result = await txDb
+        .delete(transportationExpenses)
+        .where(eq(transportationExpenses.id, req.params.id))
+        .returning();
+
+      return result;
+    });
 
     try {
       if (existingExpense[0].project_id) await SummaryRebuildService.markInvalid(existingExpense[0].project_id, existingExpense[0].date);

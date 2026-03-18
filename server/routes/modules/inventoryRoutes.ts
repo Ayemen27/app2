@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess.js';
 import { InventoryService } from '../../services/InventoryService.js';
 import { isAdmin } from '../../internal/auth-user.js';
+import { pool } from '../../db.js';
 
 const inventoryRouter = Router();
 
@@ -109,16 +111,21 @@ inventoryRouter.get('/items/:id/lots', async (req, res) => {
 
 inventoryRouter.post('/issue', async (req, res) => {
   try {
+    const issueSchema = z.object({
+      itemId: z.number().int().positive(),
+      quantity: z.number().positive(),
+      toProjectId: z.string().min(1),
+      transactionDate: z.string().min(1),
+      performedBy: z.string().optional(),
+      notes: z.string().optional(),
+    });
+    const parsed = issueSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const { itemId, quantity, toProjectId, transactionDate, performedBy, notes } = req.body;
     if (toProjectId && !validateProjectAccess(req as ProjectAccessRequest, toProjectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
-
-    if (!itemId || !quantity || !toProjectId || !transactionDate) {
-      return res.status(400).json({ success: false, message: 'البيانات ناقصة: المادة، الكمية، المشروع، التاريخ مطلوبة' });
-    }
-
-    if (quantity <= 0) {
-      return res.status(400).json({ success: false, message: 'الكمية يجب أن تكون أكبر من صفر' });
-    }
 
     const result = await InventoryService.issueFromStock({
       itemId,
@@ -138,12 +145,24 @@ inventoryRouter.post('/issue', async (req, res) => {
 
 inventoryRouter.post('/receive', async (req, res) => {
   try {
+    const receiveSchema = z.object({
+      itemName: z.string().min(1),
+      category: z.string().min(1),
+      unit: z.string().min(1),
+      quantity: z.number().positive(),
+      unitCost: z.union([z.string(), z.number()]).optional(),
+      receiptDate: z.string().min(1),
+      supplierId: z.string().optional(),
+      projectId: z.string().optional(),
+      notes: z.string().optional(),
+    });
+    const parsed = receiveSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const { itemName, category, unit, quantity, unitCost, receiptDate, supplierId, projectId, notes } = req.body;
     if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
-
-    if (!itemName || !category?.trim() || !unit || !quantity || !receiptDate) {
-      return res.status(400).json({ success: false, message: !category?.trim() ? 'يرجى تحديد فئة المادة' : 'البيانات ناقصة' });
-    }
 
     const itemId = await InventoryService.findOrCreateItem(itemName, unit, category);
     
@@ -170,12 +189,21 @@ inventoryRouter.post('/receive', async (req, res) => {
 
 inventoryRouter.post('/return', async (req, res) => {
   try {
+    const returnSchema = z.object({
+      itemId: z.union([z.number().int().positive(), z.string().min(1)]),
+      quantity: z.number().positive(),
+      fromProjectId: z.string().min(1),
+      transactionDate: z.string().min(1),
+      performedBy: z.string().optional(),
+      notes: z.string().optional(),
+    });
+    const parsed = returnSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const { itemId, quantity, fromProjectId, transactionDate, performedBy, notes } = req.body;
     if (fromProjectId && !validateProjectAccess(req as ProjectAccessRequest, fromProjectId as string)) return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
-
-    if (!itemId || !quantity || !fromProjectId || !transactionDate) {
-      return res.status(400).json({ success: false, message: 'البيانات ناقصة: المادة والكمية والمشروع والتاريخ مطلوبة' });
-    }
 
     await InventoryService.returnToStock({
       itemId: parseInt(itemId),
@@ -198,15 +226,21 @@ inventoryRouter.post('/adjust', async (req, res) => {
     if (!isAdmin(req)) {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
+
+    const adjustSchema = z.object({
+      itemId: z.number().int().positive(),
+      quantity: z.number().positive(),
+      type: z.enum(['ADJUSTMENT_IN', 'ADJUSTMENT_OUT']),
+      transactionDate: z.string().min(1),
+      performedBy: z.string().optional(),
+      notes: z.string().optional(),
+    });
+    const parsed = adjustSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const { itemId, quantity, type, transactionDate, performedBy, notes } = req.body;
-
-    if (!itemId || !quantity || !type || !transactionDate) {
-      return res.status(400).json({ success: false, message: 'البيانات ناقصة' });
-    }
-
-    if (!['ADJUSTMENT_IN', 'ADJUSTMENT_OUT'].includes(type)) {
-      return res.status(400).json({ success: false, message: 'نوع التسوية غير صالح. يجب أن يكون ADJUSTMENT_IN أو ADJUSTMENT_OUT' });
-    }
 
     await InventoryService.adjustStock({
       itemId,
@@ -226,11 +260,20 @@ inventoryRouter.post('/adjust', async (req, res) => {
 
 inventoryRouter.put('/items/:id', async (req, res) => {
   try {
+    const updateItemSchema = z.object({
+      name: z.string().min(1),
+      category: z.string().optional(),
+      unit: z.string().min(1),
+      min_quantity: z.union([z.string(), z.number()]).optional(),
+      adjustment_quantity: z.union([z.string(), z.number()]).optional(),
+    });
+    const parsed = updateItemSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const itemId = parseInt(req.params.id);
     const { name, category, unit, min_quantity, adjustment_quantity } = req.body;
-    if (!name || !unit) {
-      return res.status(400).json({ success: false, message: 'اسم المادة والوحدة مطلوبان' });
-    }
     const updateData: any = { name, category, unit, min_quantity: parseFloat(min_quantity || '0') };
     if (adjustment_quantity !== undefined && adjustment_quantity !== null && adjustment_quantity !== '') {
       updateData.adjustment_quantity = parseFloat(adjustment_quantity);
@@ -259,7 +302,30 @@ inventoryRouter.delete('/items/:id', async (req, res) => {
 
 inventoryRouter.patch('/transactions/:id', async (req, res) => {
   try {
+    const updateTransactionSchema = z.object({
+      quantity: z.number().positive().optional(),
+      notes: z.string().optional(),
+      transactionDate: z.string().optional(),
+    });
+    const parsed = updateTransactionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const txId = parseInt(req.params.id);
+
+    const { rows } = await pool.query(
+      `SELECT to_project_id, from_project_id FROM inventory_transactions WHERE id = $1`, [txId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'المعاملة غير موجودة' });
+    }
+    const tx = rows[0];
+    const projectId = tx.to_project_id || tx.from_project_id;
+    if (projectId && !validateProjectAccess(req as ProjectAccessRequest, projectId as string)) {
+      return res.status(403).json({ success: false, message: 'ليس لديك صلاحية الوصول لهذا المشروع' });
+    }
+
     const { quantity, notes, transactionDate } = req.body;
     await InventoryService.updateTransaction(txId, { quantity, notes, transactionDate });
     res.json({ success: true, message: 'تم تعديل المعاملة بنجاح' });

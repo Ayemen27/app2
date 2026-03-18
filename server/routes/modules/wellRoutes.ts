@@ -4,6 +4,7 @@
  */
 
 import express, { Request, Response } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../../middleware/auth';
 import WellService from '../../services/WellService';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess';
@@ -324,6 +325,26 @@ wellRouter.get('/:id', async (req: Request, res: Response) => {
  */
 wellRouter.post('/', async (req: Request, res: Response) => {
   try {
+    const createWellSchema = z.object({
+      project_id: z.string().min(1),
+      wellNumber: z.number().int().positive(),
+      ownerName: z.string().min(1).max(200),
+      region: z.string().min(1),
+      numberOfBases: z.number().int().nonnegative(),
+      numberOfPanels: z.number().int().nonnegative(),
+      wellDepth: z.number().positive(),
+      waterLevel: z.number().optional(),
+      numberOfPipes: z.number().int().nonnegative(),
+      fanType: z.string().optional(),
+      pumpPower: z.number().optional(),
+      startDate: z.string().optional(),
+      notes: z.string().max(1000).optional(),
+    });
+    const parsed = createWellSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const user = getAuthUser(req);
     if (!user) {
       return res.status(401).json({
@@ -372,6 +393,28 @@ wellRouter.post('/', async (req: Request, res: Response) => {
  */
 wellRouter.put('/:id', async (req: Request, res: Response) => {
   try {
+    const updateWellSchema = z.object({
+      project_id: z.string().min(1).optional(),
+      wellNumber: z.number().int().positive().optional(),
+      ownerName: z.string().min(1).max(200).optional(),
+      region: z.string().min(1).optional(),
+      numberOfBases: z.number().int().nonnegative().optional(),
+      numberOfPanels: z.number().int().nonnegative().optional(),
+      wellDepth: z.number().positive().optional(),
+      waterLevel: z.number().optional(),
+      numberOfPipes: z.number().int().nonnegative().optional(),
+      fanType: z.string().optional(),
+      pumpPower: z.number().optional(),
+      startDate: z.string().optional(),
+      notes: z.string().max(1000).optional(),
+      status: z.string().optional(),
+      completionPercentage: z.string().optional(),
+    }).passthrough();
+    const parsed = updateWellSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const well_id = parseInt(req.params.id);
 
     const existingWell = await WellService.getWellById(well_id);
@@ -484,6 +527,18 @@ wellRouter.get('/:id/tasks', async (req: Request, res: Response) => {
  */
 wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
   try {
+    const createTaskSchema = z.object({
+      taskType: z.string().min(1).max(200),
+      description: z.string().optional(),
+      taskOrder: z.number().int().positive().optional(),
+      assignedWorkerId: z.string().optional(),
+      estimatedCost: z.number().nonnegative().optional(),
+    });
+    const parsed = createTaskSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const user = getAuthUser(req);
     const well_id = parseInt(req.params.id);
 
@@ -525,6 +580,14 @@ wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
  */
 wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) => {
   try {
+    const updateStatusSchema = z.object({
+      status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
+    });
+    const parsed = updateStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const user = getAuthUser(req);
     const taskId = parseInt(req.params.taskId);
     const { status } = req.body;
@@ -729,6 +792,20 @@ wellRouter.get('/:wellId/crews', async (req: Request, res: Response) => {
 
 wellRouter.post('/:wellId/crews', async (req: Request, res: Response) => {
   try {
+    const createCrewSchema = z.object({
+      crewType: z.string().min(1),
+      teamName: z.string().optional(),
+      workersCount: z.number().int().nonnegative().optional(),
+      mastersCount: z.number().int().nonnegative().optional(),
+      workDays: z.union([z.string(), z.number()]).optional(),
+      workerDailyWage: z.union([z.string(), z.number()]).optional(),
+      masterDailyWage: z.union([z.string(), z.number()]).optional(),
+    }).passthrough();
+    const parsed = createCrewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const user = getAuthUser(req);
     const wellId = parseInt(req.params.wellId);
 
@@ -897,6 +974,19 @@ wellRouter.get('/:wellId/transport', async (req: Request, res: Response) => {
 
 wellRouter.post('/:wellId/transport', async (req: Request, res: Response) => {
   try {
+    const createTransportSchema = z.object({
+      railType: z.string().optional(),
+      withPanels: z.boolean().optional(),
+      transportPrice: z.union([z.string(), z.number()]).optional(),
+      crewEntitlements: z.union([z.string(), z.number()]).optional(),
+      transportDate: z.string().optional(),
+      notes: z.string().optional(),
+    }).passthrough();
+    const parsed = createTransportSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+    }
+
     const user = getAuthUser(req);
     const wellId = parseInt(req.params.wellId);
 

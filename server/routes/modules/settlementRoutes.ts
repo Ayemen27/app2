@@ -1,5 +1,6 @@
 import express from 'express';
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { pool, withTransaction } from '../../db.js';
 import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess.js';
@@ -284,6 +285,13 @@ async function calculatePreviewData(
 
 settlementRouter.get('/preview', async (req: Request, res: Response) => {
   try {
+    const previewQuerySchema = z.object({
+      settlement_project_id: z.string().min(1, 'معرف مشروع التصفية مطلوب'),
+      worker_ids: z.string().optional(),
+    });
+    const queryParsed = previewQuerySchema.safeParse(req.query);
+    if (!queryParsed.success) return res.status(400).json({ success: false, errors: queryParsed.error.errors });
+
     const { worker_ids, settlement_project_id } = req.query;
     const accessReq = req as ProjectAccessRequest;
     const accessibleProjectIds = accessReq.accessibleProjectIds || [];
@@ -329,16 +337,19 @@ settlementRouter.get('/preview', async (req: Request, res: Response) => {
 
 settlementRouter.post('/execute', async (req: Request, res: Response) => {
   try {
+    const executeSettlementSchema = z.object({
+      settlement_project_id: z.string().min(1),
+      worker_ids: z.array(z.string()).min(1),
+      settlement_date: z.string().optional(),
+      notes: z.string().max(500).optional(),
+      excluded_projects: z.record(z.string(), z.array(z.string())).optional(),
+    });
+    const parsed = executeSettlementSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ success: false, errors: parsed.error.errors });
+
     const { worker_ids, settlement_project_id, notes, excluded_projects, settlement_date } = req.body;
     const accessReq = req as ProjectAccessRequest;
     const accessibleProjectIds = accessReq.accessibleProjectIds || [];
-
-    if (!worker_ids || !Array.isArray(worker_ids) || worker_ids.length === 0) {
-      return sendError(res, 'قائمة العمال مطلوبة', 400);
-    }
-    if (!settlement_project_id) {
-      return sendError(res, 'معرف مشروع التصفية مطلوب', 400);
-    }
 
     if (accessibleProjectIds.length > 0 && !accessibleProjectIds.includes(settlement_project_id as string)) {
       return sendError(res, 'ليس لديك صلاحية الوصول لهذا المشروع', 403);

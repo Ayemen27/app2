@@ -18,6 +18,7 @@
 
 import express from 'express';
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import { eq, and, sql, gte, lt, lte, desc, inArray } from 'drizzle-orm';
 import { db, pool, withTransaction } from '../../db';
 import { drizzle as createDrizzle } from 'drizzle-orm/node-postgres';
@@ -1753,14 +1754,14 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
       description: expenseToDelete.description
     });
 
-    await FinancialLedgerService.findAndReverseBySource('worker_misc_expenses', expenseId, 'حذف', getAuthUser(req)?.user_id);
+    await WellExpenseAutoAllocationService.removeOnDelete('worker_misc_expense', expenseId);
 
     console.log('🗑️ [API] حذف مصروف العامل المتنوع من قاعدة البيانات...');
-    await WellExpenseAutoAllocationService.removeOnDelete('worker_misc_expense', expenseId);
-    const deletedExpense = await db
-      .delete(workerMiscExpenses)
-      .where(eq(workerMiscExpenses.id, expenseId))
-      .returning();
+    const deletedExpense = await withTransaction(async (client) => {
+      await FinancialLedgerService.findAndReverseBySourceWithClient(client, 'worker_misc_expenses', expenseId, 'حذف', getAuthUser(req)?.user_id);
+      const result = await client.query('DELETE FROM worker_misc_expenses WHERE id = $1 RETURNING *', [expenseId]);
+      return result.rows;
+    });
 
     try {
       await SummaryRebuildService.markInvalid(expenseToDelete.project_id, expenseToDelete.date);
@@ -3568,7 +3569,17 @@ financialRouter.get('/materials/:id', async (req: Request, res: Response) => {
 financialRouter.patch('/materials/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+
+    const updateMaterialSchema = z.object({
+      name: z.string().min(1).optional(),
+      unit: z.string().optional(),
+      description: z.string().optional(),
+      price: z.number().positive().optional(),
+    }).strict();
+    const parsed = updateMaterialSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ success: false, errors: parsed.error.errors });
+
+    const updateData = parsed.data;
     
     const [updatedMaterial] = await db.update(materials)
       .set(updateData)
@@ -3599,17 +3610,18 @@ financialRouter.patch('/materials/:id', async (req: Request, res: Response) => {
 financialRouter.delete('/materials/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
-    const [deletedMaterial] = await db.delete(materials)
-      .where(eq(materials.id, id))
-      .returning();
-    
-    if (!deletedMaterial) {
+
+    const existing = await db.select().from(materials).where(eq(materials.id, id)).limit(1);
+    if (existing.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'المادة غير موجودة'
       });
     }
+    
+    const [deletedMaterial] = await db.delete(materials)
+      .where(eq(materials.id, id))
+      .returning();
     
     return res.json({
       success: true,

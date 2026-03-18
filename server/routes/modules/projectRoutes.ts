@@ -429,22 +429,33 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
         return a.projectName.localeCompare(b.projectName);
       });
 
-    const overallSumsQuery = await pool.query(`
+    const projectFilter = !isAdminUser && accessibleIds && accessibleIds.length > 0
+      ? `AND project_id = ANY($2::text[])`
+      : '';
+    const queryParams: any[] = [effectiveDate];
+    if (!isAdminUser && accessibleIds && accessibleIds.length > 0) {
+      queryParams.push(accessibleIds);
+    }
+    const noDataForNonAdmin = !isAdminUser && (!accessibleIds || accessibleIds.length === 0);
+
+    const overallSumsQuery = noDataForNonAdmin
+      ? { rows: [{ total_fund_transfers: 0, total_worker_wages: 0, total_material_costs: 0, total_transportation: 0, total_worker_transfers: 0, total_misc_expenses: 0, total_supplier_payments: 0 }] }
+      : await pool.query(`
       SELECT
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1), 0) as total_fund_transfers,
-        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) AND date = $1), 0) as total_worker_wages,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_fund_transfers,
+        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) AND date = $1 ${projectFilter}), 0) as total_worker_wages,
         COALESCE((SELECT SUM(
           CASE 
             WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL(15,2))
             WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL(15,2))
             ELSE 0
           END
-        ) FROM material_purchases WHERE purchase_date = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')), 0) as total_material_costs,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses WHERE date = $1), 0) as total_transportation,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1), 0) as total_worker_transfers,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses WHERE date = $1), 0) as total_misc_expenses,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM supplier_payments WHERE payment_date = $1), 0) as total_supplier_payments
-    `, [effectiveDate]);
+        ) FROM material_purchases WHERE purchase_date = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${projectFilter}), 0) as total_material_costs,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses WHERE date = $1 ${projectFilter}), 0) as total_transportation,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_worker_transfers,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses WHERE date = $1 ${projectFilter}), 0) as total_misc_expenses,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM supplier_payments WHERE payment_date = $1 ${projectFilter}), 0) as total_supplier_payments
+    `, queryParams);
     const overallSums = overallSumsQuery.rows[0];
     const overallTotalFundTransfers = Number(overallSums.total_fund_transfers);
     const overallTotalWorkerWages = Number(overallSums.total_worker_wages);
@@ -1621,6 +1632,10 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
     const { project_id, date } = req.query;
     console.log('📊 [API] جلب مشتريات المواد الموحد:', { project_id, date });
 
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
     let query = db.select({
       id: materialPurchases.id,
       project_id: materialPurchases.project_id,
@@ -1652,6 +1667,11 @@ projectRouter.get('/material-purchases-unified', async (req: Request, res: Respo
     const conditions = [];
     if (project_id && project_id !== 'all') {
       conditions.push(eq(materialPurchases.project_id, project_id as string));
+    } else if (!isAdminUser) {
+      if (accessibleIds.length === 0) {
+        return res.json({ success: true, data: [], message: 'لا توجد مشاريع متاحة', processingTime: Date.now() - startTime });
+      }
+      conditions.push(inArray(materialPurchases.project_id, accessibleIds));
     }
     // تعديل: لا نطبق فلترة التاريخ إذا كانت القيمة فارغة أو غير موجودة
     if (date && date !== "" && date !== "undefined") {

@@ -27,7 +27,7 @@ import {
   workerProjectWages, insertWorkerProjectWageSchema
 } from '@shared/schema';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../../middleware/auth.js';
-import { getAuthUser } from '../../internal/auth-user.js';
+import { getAuthUser, isAdmin } from '../../internal/auth-user.js';
 import { FinancialLedgerService } from '../../services/FinancialLedgerService.js';
 import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
@@ -483,25 +483,35 @@ workerRouter.post('/workers', async (req: Request, res: Response) => {
     const workerData = { ...validationResult.data, created_by: userId || null };
 
     console.log('💾 [API] حفظ العامل في قاعدة البيانات...');
-    const newWorker = await db.insert(workers).values(workerData).returning();
+    const newWorker = await withTransaction(async (client) => {
+      const workerFields = ['name', 'type', 'daily_wage', 'phone', 'hire_date', 'is_active', 'created_by'];
+      const workerValues = [
+        workerData.name,
+        workerData.type,
+        workerData.dailyWage,
+        workerData.phone || null,
+        workerData.hireDate || null,
+        workerData.is_active ?? true,
+        workerData.created_by || null
+      ];
+      const placeholders = workerValues.map((_, i) => `$${i + 1}`).join(', ');
+      const { rows: [createdWorker] } = await client.query(
+        `INSERT INTO workers (${workerFields.join(', ')}) VALUES (${placeholders}) RETURNING *`,
+        workerValues
+      );
 
-    // إضافة رصيد مبدئي للعامل في جميع المشاريع النشطة لتجنب جلب الإحصائيات المكثف لاحقاً
-    try {
-      const activeProjects = await pool.query(`SELECT id FROM projects WHERE status = 'active' OR status = 'in_progress'`);
+      const activeProjects = await client.query(`SELECT id FROM projects WHERE status = 'active' OR status = 'in_progress'`);
       if (activeProjects.rows.length > 0) {
-        const balanceEntries: WorkerBalanceEntry[] = activeProjects.rows.map((p: Record<string, unknown>) => ({
-          worker_id: newWorker[0].id,
-          project_id: p.id as string,
-          totalEarned: '0',
-          totalPaid: '0',
-          totalTransferred: '0',
-          currentBalance: '0'
-        }));
-        await db.insert(workerBalances).values(balanceEntries);
+        for (const p of activeProjects.rows) {
+          await client.query(
+            `INSERT INTO worker_balances (worker_id, project_id, total_earned, total_paid, total_transferred, current_balance) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [createdWorker.id, p.id, '0', '0', '0', '0']
+          );
+        }
       }
-    } catch (e) {
-      console.error('⚠️ [API] فشل في إنشاء أرصدة مبدئية للعامل:', e);
-    }
+
+      return [createdWorker];
+    });
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء العامل بنجاح في ${duration}ms:`, {
@@ -1117,6 +1127,10 @@ workerRouter.delete('/workers/:id', requireRole('admin'), async (req: Request, r
 workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
     const transferId = req.params.id;
     console.log('🔄 [API] طلب تحديث تحويل العامل من المستخدم:', req.user?.email);
     console.log('📋 [API] ID تحويل العامل:', transferId);
@@ -1253,6 +1267,10 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
     const transferId = req.params.id;
     console.log('🗑️ [API] طلب حذف حوالة العامل:', transferId);
     console.log('👤 [API] المستخدم:', req.user?.email);
@@ -1445,6 +1463,10 @@ workerRouter.get('/worker-misc-expenses', async (req: Request, res: Response) =>
 workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
     const expenseId = req.params.id;
     console.log('🔄 [API] طلب تحديث المصروف المتنوع للعامل من المستخدم:', req.user?.email);
     console.log('📋 [API] ID المصروف المتنوع:', expenseId);
@@ -1612,6 +1634,10 @@ workerRouter.get('/autocomplete/workerMiscDescriptions', async (req: Request, re
 workerRouter.post('/worker-types', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
     const { name } = req.body;
 
     console.log('➕ [API] طلب إضافة نوع عامل جديد:', name);
@@ -2167,6 +2193,10 @@ workerRouter.get('/projects/:project_id/worker-attendance', async (req: Request,
 workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
     const attendanceId = req.params.id;
     console.log('🗑️ [API] طلب حذف سجل حضور العامل:', attendanceId);
     console.log('👤 [API] المستخدم:', req.user?.email);
@@ -2452,38 +2482,74 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       });
     }
 
-    // إدراج حضور العامل أو تحديثه إذا كان مكرراً (Upsert Pattern للمعايير العالمية)
     console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
     console.log('📝 [API] البيانات المُدرجة تشمل الملاحظات:', { notes: dataWithCalculatedFields.notes });
-    
-    const newAttendance = await db.insert(workerAttendance)
-      .values([dataWithCalculatedFields])
-      .onConflictDoUpdate({
-        target: [workerAttendance.worker_id, workerAttendance.attendanceDate, workerAttendance.project_id],
-        set: {
-          workDays: dataWithCalculatedFields.workDays,
-          dailyWage: dataWithCalculatedFields.dailyWage,
-          actualWage: dataWithCalculatedFields.actualWage,
-          totalPay: dataWithCalculatedFields.totalPay,
-          paidAmount: dataWithCalculatedFields.paidAmount,
-          remainingAmount: dataWithCalculatedFields.remainingAmount,
-          paymentType: dataWithCalculatedFields.paymentType,
-          notes: dataWithCalculatedFields.notes,
-        }
-      })
-      .returning();
+
+    const userId = getAuthUser(req)?.user_id;
+
+    const record = await withTransaction(async (client) => {
+      const { rows: [attendanceRow] } = await client.query(
+        `INSERT INTO worker_attendance (
+          worker_id, project_id, attendance_date, date, start_time, end_time,
+          work_description, work_days, daily_wage, actual_wage, total_pay,
+          paid_amount, remaining_amount, payment_type, is_present, notes,
+          well_id, well_ids, crew_type
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        ON CONFLICT (worker_id, attendance_date, project_id) DO UPDATE SET
+          work_days = EXCLUDED.work_days,
+          daily_wage = EXCLUDED.daily_wage,
+          actual_wage = EXCLUDED.actual_wage,
+          total_pay = EXCLUDED.total_pay,
+          paid_amount = EXCLUDED.paid_amount,
+          remaining_amount = EXCLUDED.remaining_amount,
+          payment_type = EXCLUDED.payment_type,
+          notes = EXCLUDED.notes
+        RETURNING *`,
+        [
+          dataWithCalculatedFields.worker_id,
+          dataWithCalculatedFields.project_id,
+          dataWithCalculatedFields.attendanceDate || dataWithCalculatedFields.date,
+          dataWithCalculatedFields.date,
+          dataWithCalculatedFields.startTime || null,
+          dataWithCalculatedFields.endTime || null,
+          dataWithCalculatedFields.workDescription || null,
+          dataWithCalculatedFields.workDays,
+          dataWithCalculatedFields.dailyWage,
+          dataWithCalculatedFields.actualWage,
+          dataWithCalculatedFields.totalPay,
+          dataWithCalculatedFields.paidAmount,
+          dataWithCalculatedFields.remainingAmount,
+          dataWithCalculatedFields.paymentType,
+          dataWithCalculatedFields.isPresent ?? true,
+          dataWithCalculatedFields.notes || '',
+          dataWithCalculatedFields.well_id || null,
+          dataWithCalculatedFields.well_ids ? (typeof dataWithCalculatedFields.well_ids === 'string' ? dataWithCalculatedFields.well_ids : JSON.stringify(dataWithCalculatedFields.well_ids)) : null,
+          dataWithCalculatedFields.crew_type ? (typeof dataWithCalculatedFields.crew_type === 'string' ? dataWithCalculatedFields.crew_type : JSON.stringify(dataWithCalculatedFields.crew_type)) : null,
+        ]
+      );
+
+      await FinancialLedgerService._createJournalEntryWithClient(client, {
+        project_id: attendanceRow.project_id,
+        entryDate: attendanceRow.date,
+        description: `أجر عامل بقيمة ${parseFloat(attendanceRow.actual_wage || '0')}`,
+        sourceTable: 'worker_attendance',
+        sourceId: attendanceRow.id,
+        createdBy: userId,
+        lines: [
+          { accountCode: '5100', debitAmount: parseFloat(attendanceRow.actual_wage || '0'), creditAmount: 0, description: 'أجور عمال' },
+          { accountCode: '1100', debitAmount: 0, creditAmount: parseFloat(attendanceRow.actual_wage || '0'), description: 'دفع أجر' },
+        ]
+      });
+
+      return attendanceRow;
+    });
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء حضور العامل بنجاح في ${duration}ms:`, {
-      id: newAttendance[0].id,
-      worker_id: newAttendance[0].worker_id,
-      date: newAttendance[0].date
+      id: record.id,
+      worker_id: record.worker_id,
+      date: record.date
     });
-
-    const record = newAttendance[0];
-    await FinancialLedgerService.recordWorkerWage(
-      record.project_id, parseFloat(record.actualWage || '0'), record.date, record.id, getAuthUser(req)?.user_id
-    );
 
     try {
       if (record.project_id && record.date) {
@@ -2501,15 +2567,15 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
         entity: 'worker-attendance',
-        project_id: newAttendance[0].project_id,
-        date: newAttendance[0].date
+        project_id: record.project_id,
+        date: record.date
       });
     }
 
     res.status(201).json({
       success: true,
-      data: newAttendance[0],
-      message: `تم تسجيل حضور العامل بتاريخ ${newAttendance[0].date} بنجاح`,
+      data: record,
+      message: `تم تسجيل حضور العامل بتاريخ ${record.date} بنجاح`,
       processingTime: duration
     });
 

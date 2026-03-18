@@ -308,7 +308,7 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
  * 📝 تسجيل حساب جديد
  * POST /api/auth/register
  */
-authRouter.post('/register', async (req: Request, res: Response) => {
+authRouter.post('/register', authRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('📝 [AUTH] محاولة تسجيل حساب جديد:', { email: req.body.email });
 
@@ -683,7 +683,7 @@ authRouter.get('/verify-email', async (req: Request, res: Response) => {
  * 📧 تحقق من البريد الإلكتروني - POST (من الـ frontend form)
  * POST /api/auth/verify-email
  */
-authRouter.post('/verify-email', async (req: Request, res: Response) => {
+authRouter.post('/verify-email', authRateLimit, async (req: Request, res: Response) => {
   try {
     console.log('📧 [AUTH] POST طلب تحقق من البريد الإلكتروني');
 
@@ -788,7 +788,7 @@ authRouter.post('/resend-verification', authRateLimit, async (req: Request, res:
  * 🔍 التحقق من صحة حقل (البريد الإلكتروني أو كلمة المرور)
  * POST /api/auth/validate-field
  */
-authRouter.post('/validate-field', async (req: Request, res: Response) => {
+authRouter.post('/validate-field', authRateLimit, async (req: Request, res: Response) => {
   try {
     const { field, value, context } = req.body;
 
@@ -1059,7 +1059,7 @@ authRouter.post('/users/:user_id/toggle-status', requireAuth, async (req: any, r
  * تسجيل دخول الطوارئ
  * POST /api/auth/emergency/login
  */
-authRouter.post('/emergency/login', async (req: Request, res: Response) => {
+authRouter.post('/emergency/login', authRateLimit, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -1120,7 +1120,7 @@ authRouter.get('/emergency/status', async (req: Request, res: Response) => {
  * إنشاء مستخدم طارئ جديد (للمسؤولين فقط)
  * POST /api/auth/emergency/create-user
  */
-authRouter.post('/emergency/create-user', requireAuth, async (req: any, res: Response) => {
+authRouter.post('/emergency/create-user', authRateLimit, requireAuth, async (req: any, res: Response) => {
   try {
     // تحقق من صلاحيات المسؤول
     if (req.user?.role !== 'admin' && req.user?.role !== 'super_admin') {

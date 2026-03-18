@@ -10,6 +10,7 @@ import { eq, and, ne, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { storage } from "../../storage.js";
 import { invalidateBalanceCache } from "./projectRoutes.js";
+import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 
 const router = Router();
 router.use(requireAuth);
@@ -754,9 +755,10 @@ router.post("/confirm", requireAdmin, async (req: Request, res: Response) => {
       try {
         const sortedDates = [...affectedDates].sort();
         console.log(`[RecordTransfer] إعادة حساب الملخصات للمشروعين، تواريخ: ${sortedDates.join(", ")}`);
-        for (const date of sortedDates) {
-          await storage.updateDailySummaryForDate(String(sourceProjectId), date);
-          await storage.updateDailySummaryForDate(String(targetProjectId), date);
+        const minDate = sortedDates[0];
+        if (minDate) {
+          await SummaryRebuildService.markInvalid(String(sourceProjectId), minDate);
+          await SummaryRebuildService.markInvalid(String(targetProjectId), minDate);
         }
         invalidateBalanceCache(String(sourceProjectId));
         invalidateBalanceCache(String(targetProjectId));
@@ -842,8 +844,9 @@ router.post("/delete", requireAdmin, async (req: Request, res: Response) => {
     if (deletedCount > 0) {
       try {
         const sortedDates = [...affectedDates].sort();
-        for (const date of sortedDates) {
-          await storage.updateDailySummaryForDate(String(projectId), date);
+        const minDate = sortedDates[0];
+        if (minDate) {
+          await SummaryRebuildService.markInvalid(String(projectId), minDate);
         }
         invalidateBalanceCache(String(projectId));
       } catch (recalcErr: any) {

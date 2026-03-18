@@ -132,6 +132,18 @@ The system features a consistent design with a professional navy/blue palette, E
 - **Frontend:** `/admin/central-logs` page with stats cards, filters (level/source/module/status/project/search/date), expandable JSON details, pagination, CSV/JSON export, auto-refresh 30s. Arabic RTL.
 - **Critical DB Note:** CentralLogService uses `pool.query()` with parameterized SQL for writes (not Drizzle ORM).
 
+### Daily Expense Summaries - Lazy Recalculation (Completed)
+- **Problem:** Editing old financial records didn't propagate carriedForward/remainingBalance changes to subsequent days' summaries.
+- **Architecture:** Invalidation Cascade + Lazy Recalculation pattern via `SummaryRebuildService` (`server/services/SummaryRebuildService.ts`).
+- **markInvalid(projectId, fromDate):** Called after every financial write (create/update/delete). Upserts into `summary_invalidations` table using LEAST() to keep the earliest invalidation date per project. Input validation ensures valid YYYY-MM-DD format.
+- **ensureValidSummary(projectId, targetDate):** Called before every summary read. If invalidation exists covering requested date: acquires `pg_advisory_xact_lock`, deletes stale summaries from invalidation date forward, rebuilds day-by-day using parameterized SQL on the same client connection (transaction-safe), deletes invalidation only if its value hasn't changed (prevents lost invalidation race condition).
+- **rebuildProjectSummaries(projectId):** Full rebuild from scratch (manual trigger). Also uses advisory lock and single-client transaction.
+- **Integration Points:**
+  - **Writes (~30 points):** All financial CRUD in financialRoutes.ts, workerRoutes.ts, recordTransferRoutes.ts, settlementRoutes.ts call `markInvalid`. Settlement routes additionally invalidate all affected worker project IDs.
+  - **Reads (2 points):** `GET /daily-expenses/:date` and `GET /daily-summary/:date` in projectRoutes.ts call `ensureValidSummary` before returning data. CarriedForward uses rebuilt summary with `calculateCumulativeBalance` fallback.
+- **Old Paths Removed:** `storage.updateDailySummaryForDate` calls removed from all route files. `FinancialLedgerService.invalidateSummaries` still logs to `summary_invalidations` table (compatible).
+- **Critical DB Note:** All rebuild operations use `client.query()` within a single transaction (not `pool.query()`), ensuring atomicity under advisory lock.
+
 ## External Dependencies
 - **Monitoring:** OpenTelemetry and Sentry.
 - **WhatsApp:** Baileys library.

@@ -21,6 +21,7 @@ import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } 
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { inArray } from 'drizzle-orm';
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
+import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 
 declare global {
   var io: { emit: (event: string, data: unknown) => void } | undefined;
@@ -1167,6 +1168,13 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       );
     }, 'worker-transfers/PATCH');
 
+    try {
+      const oldDate = existingTransfer[0].transferDate.substring(0, 10);
+      const newDate = t.transferDate.substring(0, 10);
+      const minDate = oldDate < newDate ? oldDate : newDate;
+      await SummaryRebuildService.markInvalid(t.project_id, minDate);
+    } catch (e) { console.error('[SummaryRebuild] worker-transfers/PATCH markInvalid error:', e); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
 
@@ -1249,6 +1257,10 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       .delete(workerTransfers)
       .where(eq(workerTransfers.id, transferId))
       .returning();
+
+    try {
+      await SummaryRebuildService.markInvalid(transferToDelete.project_id, transferToDelete.transferDate.substring(0, 10));
+    } catch (e) { console.error('[SummaryRebuild] worker-transfers/DELETE markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
@@ -1456,6 +1468,13 @@ workerRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Respon
         t.project_id, parseFloat(t.amount), t.date, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-misc-expenses/PATCH');
+
+    try {
+      const oldDate = existingExpense[0].date;
+      const newDate = t.date;
+      const minDate = oldDate < newDate ? oldDate : newDate;
+      await SummaryRebuildService.markInvalid(t.project_id, minDate);
+    } catch (e) { console.error('[SummaryRebuild] worker-misc-expenses/PATCH markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث المصروف المتنوع للعامل بنجاح في ${duration}ms`);
@@ -2135,6 +2154,12 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       'worker-attendance/DELETE-ledger-cleanup'
     );
 
+    try {
+      if (attendanceToDelete.project_id && attendanceToDelete.date) {
+        await SummaryRebuildService.markInvalid(attendanceToDelete.project_id, attendanceToDelete.date);
+      }
+    } catch (e) { console.error('[SummaryRebuild] worker-attendance/DELETE markInvalid error:', e); }
+
     if ((attendanceToDelete.well_id || attendanceToDelete.well_ids) && attendanceToDelete.worker_id) {
       try {
         let deleteWellIds: number[] = [];
@@ -2376,6 +2401,12 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       'worker-attendance/POST'
     );
 
+    try {
+      if (record.project_id && record.date) {
+        await SummaryRebuildService.markInvalid(record.project_id, record.date);
+      }
+    } catch (e) { console.error('[SummaryRebuild] worker-attendance/POST markInvalid error:', e); }
+
     syncAttendanceToWellCrews({
       ...record,
       well_ids: req.body.well_ids || record.well_ids,
@@ -2519,6 +2550,15 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
         t.project_id, parseFloat(t.actualWage || '0'), t.date, t.id, getAuthUser(req)?.user_id
       );
     }, 'worker-attendance/PATCH');
+
+    try {
+      if (t.project_id) {
+        const oldDate = existingAttendance[0].date || '';
+        const newDate = t.date || '';
+        const minDate = oldDate && newDate ? (oldDate < newDate ? oldDate : newDate) : (oldDate || newDate);
+        if (minDate) await SummaryRebuildService.markInvalid(t.project_id, minDate);
+      }
+    } catch (e) { console.error('[SummaryRebuild] worker-attendance/PATCH markInvalid error:', e); }
 
     if (t.well_id || t.well_ids) {
       syncAttendanceToWellCrews({

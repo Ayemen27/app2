@@ -22,6 +22,7 @@ import { ExpenseLedgerService } from '../../services/ExpenseLedgerService';
 import { attachAccessibleProjects, ProjectAccessRequest, requireProjectAccess } from '../../middleware/projectAccess';
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
+import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 
 export const projectRouter = express.Router();
 
@@ -607,6 +608,12 @@ projectRouter.get('/:id/daily-summary/:date', requireProjectAccess('view'), asyn
     if (id === 'all') {
       const summary = await ExpenseLedgerService.getAllProjectsDailySummary(date);
       return res.json({ success: true, data: summary });
+    }
+
+    try {
+      await SummaryRebuildService.ensureValidSummary(id, date);
+    } catch (rebuildErr) {
+      console.warn(`⚠️ [SummaryRebuild] Failed for project ${id}, date ${date}, continuing with existing data:`, rebuildErr);
     }
 
     const summary = await ExpenseLedgerService.getProjectFinancialSummary(id, date);
@@ -2023,6 +2030,12 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
     // استخدام التاريخ المحول - Fix: Use finalDate to avoid assignment to constant
     const finalDate = normalizedDate;
 
+    try {
+      await SummaryRebuildService.ensureValidSummary(project_id, finalDate);
+    } catch (rebuildErr) {
+      console.warn(`⚠️ [SummaryRebuild] Failed for project ${project_id}, date ${finalDate}, continuing with existing data:`, rebuildErr);
+    }
+
     // جلب جميع البيانات المطلوبة
     const [
       fundTransfersResult,
@@ -2094,55 +2107,23 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
     try {
       console.log(`💰 [API] حساب الرصيد المرحل لتاريخ: ${finalDate}`);
 
-      // حساب التاريخ السابق - تحويل محلي آمن
       const [cfYear, cfMonth, cfDay] = finalDate.split('-').map(Number);
       const previousDate2 = new Date(cfYear, cfMonth - 1, cfDay - 1);
       const previousDateStr = `${previousDate2.getFullYear()}-${String(previousDate2.getMonth() + 1).padStart(2, '0')}-${String(previousDate2.getDate()).padStart(2, '0')}`;
 
-      console.log(`💰 [API] البحث عن الرصيد المتبقي ليوم: ${previousDateStr}`);
+      const prevSummaryResult = await pool.query(
+        `SELECT remaining_balance FROM daily_expense_summaries WHERE project_id = $1 AND date < $2 ORDER BY date DESC LIMIT 1`,
+        [project_id, finalDate]
+      );
 
-      // أولاً: محاولة العثور على أحدث ملخص محفوظ قبل التاريخ المطلوب
-      const latestSummary = await db.select({
-        remainingBalance: dailyExpenseSummaries.remainingBalance,
-        date: dailyExpenseSummaries.date
-      })
-      .from(dailyExpenseSummaries)
-      .where(and(
-        eq(dailyExpenseSummaries.project_id, project_id),
-        lt(dailyExpenseSummaries.date, finalDate)
-      ))
-      .orderBy(desc(dailyExpenseSummaries.date))
-      .limit(1);
-
-      if (latestSummary.length > 0) {
-        const summaryDate = latestSummary[0].date;
-        const summaryBalance = parseFloat(String(latestSummary[0].remainingBalance || '0'));
-
-        // إذا كان الملخص الموجود هو لليوم السابق مباشرة، استخدمه
-        if (summaryDate === previousDateStr) {
-          carriedForward = summaryBalance;
-          carriedForwardSource = 'summary';
-          console.log(`💰 [API] تم العثور على ملخص لليوم السابق: ${carriedForward}`);
-        } else {
-          // إذا كان الملخص لتاريخ أقدم، احسب من ذلك التاريخ إلى اليوم السابق
-          console.log(`💰 [API] آخر ملخص محفوظ في ${summaryDate}, حساب تراكمي إلى ${previousDateStr}`);
-
-          const [sf2Year, sf2Month, sf2Day] = String(summaryDate).split('-').map(Number);
-          const startFromDate2 = new Date(sf2Year, sf2Month - 1, sf2Day + 1);
-          const startFromStr = `${startFromDate2.getFullYear()}-${String(startFromDate2.getMonth() + 1).padStart(2, '0')}-${String(startFromDate2.getDate()).padStart(2, '0')}`;
-
-          // حساب تراكمي من startFromStr إلى previousDateStr
-          const cumulativeBalance = await calculateCumulativeBalance(project_id, startFromStr, previousDateStr);
-          carriedForward = summaryBalance + cumulativeBalance;
-          carriedForwardSource = 'computed-from-summary';
-          console.log(`💰 [API] رصيد تراكمي من ${summaryDate} (${summaryBalance}) + ${cumulativeBalance} = ${carriedForward}`);
-        }
+      if (prevSummaryResult.rows.length > 0) {
+        carriedForward = Math.round(parseFloat(prevSummaryResult.rows[0].remaining_balance || '0'));
+        carriedForwardSource = 'summary';
+        console.log(`💰 [API] تم العثور على ملخص سابق، الرصيد المرحل: ${carriedForward}`);
       } else {
-        // لا يوجد ملخص محفوظ، حساب تراكمي من البداية
-        console.log(`💰 [API] لا يوجد ملخص محفوظ، حساب تراكمي من البداية`);
         carriedForward = await calculateCumulativeBalance(project_id, null, previousDateStr);
         carriedForwardSource = 'computed-full';
-        console.log(`💰 [API] رصيد تراكمي كامل: ${carriedForward}`);
+        console.log(`💰 [API] لا يوجد ملخص سابق، رصيد تراكمي كامل: ${carriedForward}`);
       }
     } catch (error) {
       console.warn(`⚠️ [API] خطأ في حساب الرصيد المرحل، استخدام القيمة الافتراضية 0:`, error);

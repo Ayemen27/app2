@@ -7,6 +7,7 @@ import { getAuthUser } from '../../internal/auth-user.js';
 import { sendSuccess, sendError } from '../../middleware/api-response.js';
 
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
+import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 
 const settlementRouter = express.Router();
 
@@ -573,6 +574,20 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       };
     });
 
+    try {
+      const settlementDate = req.body.settlement_date || new Date().toISOString().split('T')[0];
+      if (result.settlementId && req.body.settlement_project_id) {
+        await SummaryRebuildService.markInvalid(req.body.settlement_project_id, settlementDate);
+        const affectedProjects = await pool.query(
+          `SELECT DISTINCT project_id FROM worker_transfers WHERE notes LIKE '%تصفية حساب%' AND transfer_date = $1 AND project_id != $2`,
+          [settlementDate, req.body.settlement_project_id]
+        );
+        for (const row of affectedProjects.rows) {
+          await SummaryRebuildService.markInvalid(row.project_id, settlementDate);
+        }
+      }
+    } catch (e) { console.error('[SummaryRebuild] settlement/execute markInvalid error:', e); }
+
     return sendSuccess(res, result, 'تم تنفيذ التصفية بنجاح');
   } catch (error: any) {
     console.error('[Settlement] ❌ Execute ERROR:', error?.message || error);
@@ -775,6 +790,19 @@ settlementRouter.delete('/:id', async (req: Request, res: Response) => {
         workerCount: workerIds.length,
       };
     });
+
+    try {
+      if (settlement.settlement_project_id && settlement.settlement_date) {
+        await SummaryRebuildService.markInvalid(settlement.settlement_project_id, settlement.settlement_date);
+        const affectedProjects = await pool.query(
+          `SELECT DISTINCT project_id FROM worker_transfers WHERE notes LIKE '%تصفية حساب%' AND transfer_date = $1 AND project_id != $2`,
+          [settlement.settlement_date, settlement.settlement_project_id]
+        );
+        for (const row of affectedProjects.rows) {
+          await SummaryRebuildService.markInvalid(row.project_id, settlement.settlement_date);
+        }
+      }
+    } catch (e) { console.error('[SummaryRebuild] settlement/DELETE markInvalid error:', e); }
 
     console.log(`🗑️ [Settlement] تم حذف التصفية ${id} بنجاح - ${result.deletedLines} سطر، ${result.workerCount} عامل`);
     return sendSuccess(res, result, 'تم حذف التصفية بنجاح وعكس جميع التحويلات المرتبطة');

@@ -22,6 +22,7 @@ import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
 import { WellExpenseAutoAllocationService } from '../../services/WellExpenseAutoAllocationService';
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
+import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 
 export const financialRouter = express.Router();
 
@@ -392,6 +393,11 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
       'fund-transfer/POST'
     );
 
+    try {
+      const dateStr = typeof newTransfer[0].transferDate === 'string' ? newTransfer[0].transferDate.substring(0, 10) : new Date(newTransfer[0].transferDate).toISOString().substring(0, 10);
+      await SummaryRebuildService.markInvalid(newTransfer[0].project_id, dateStr);
+    } catch (e) { console.error('[SummaryRebuild] fund-transfer/POST markInvalid error:', e); }
+
     res.status(201).json({
       success: true,
       data: newTransfer[0],
@@ -508,6 +514,13 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       );
     }, 'fund-transfer/PATCH');
 
+    try {
+      const oldDateStr = typeof existingTransfer[0].transferDate === 'string' ? existingTransfer[0].transferDate.substring(0, 10) : new Date(existingTransfer[0].transferDate).toISOString().substring(0, 10);
+      const newDateStr = typeof t.transferDate === 'string' ? t.transferDate.substring(0, 10) : new Date(t.transferDate).toISOString().substring(0, 10);
+      const minDate = oldDateStr < newDateStr ? oldDateStr : newDateStr;
+      await SummaryRebuildService.markInvalid(t.project_id, minDate);
+    } catch (e) { console.error('[SummaryRebuild] fund-transfer/PATCH markInvalid error:', e); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العهدة بنجاح في ${duration}ms`);
 
@@ -577,6 +590,11 @@ financialRouter.delete('/fund-transfers/:id', async (req: Request, res: Response
       .delete(fundTransfers)
       .where(eq(fundTransfers.id, transferId))
       .returning();
+
+    try {
+      const dateStr = typeof existingTransfer[0].transferDate === 'string' ? existingTransfer[0].transferDate.substring(0, 10) : new Date(existingTransfer[0].transferDate).toISOString().substring(0, 10);
+      await SummaryRebuildService.markInvalid(existingTransfer[0].project_id, dateStr);
+    } catch (e) { console.error('[SummaryRebuild] fund-transfer/DELETE markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف تحويل العهدة بنجاح في ${duration}ms`);
@@ -870,6 +888,12 @@ financialRouter.post('/project-fund-transfers', async (req: Request, res: Respon
       'project-fund-transfers/POST'
     );
 
+    try {
+      const dateStr = record.transferDate.substring(0, 10);
+      if (record.fromProjectId) await SummaryRebuildService.markInvalid(record.fromProjectId, dateStr);
+      if (record.toProjectId) await SummaryRebuildService.markInvalid(record.toProjectId, dateStr);
+    } catch (e) { console.error('[SummaryRebuild] project-fund-transfers/POST markInvalid error:', e); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل المشروع بنجاح في ${duration}ms:`, {
       id: newTransfer[0].id,
@@ -955,6 +979,12 @@ financialRouter.delete('/project-fund-transfers/:id', async (req: Request, res: 
     const result = await db.delete(projectFundTransfers).where(eq(projectFundTransfers.id, id));
     console.log('✅ [API] تم حذف السجل:', { deletedCount: result.rowCount });
 
+    try {
+      const dateStr = transfer[0].transferDate.substring(0, 10);
+      if (transfer[0].fromProjectId) await SummaryRebuildService.markInvalid(transfer[0].fromProjectId, dateStr);
+      if (transfer[0].toProjectId) await SummaryRebuildService.markInvalid(transfer[0].toProjectId, dateStr);
+    } catch (e) { console.error('[SummaryRebuild] project-fund-transfers/DELETE markInvalid error:', e); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف تحويل المشروع بنجاح في ${duration}ms:`, id);
 
@@ -1034,6 +1064,16 @@ financialRouter.patch('/project-fund-transfers/:id', async (req: Request, res: R
       );
       return '';
     }, 'project-fund-transfers/PATCH');
+
+    try {
+      const oldDateStr = existingTransfer[0].transferDate.substring(0, 10);
+      const newDateStr = t.transferDate.substring(0, 10);
+      const minDate = oldDateStr < newDateStr ? oldDateStr : newDateStr;
+      if (t.fromProjectId) await SummaryRebuildService.markInvalid(t.fromProjectId, minDate);
+      if (t.toProjectId) await SummaryRebuildService.markInvalid(t.toProjectId, minDate);
+      if (existingTransfer[0].fromProjectId && existingTransfer[0].fromProjectId !== t.fromProjectId) await SummaryRebuildService.markInvalid(existingTransfer[0].fromProjectId, minDate);
+      if (existingTransfer[0].toProjectId && existingTransfer[0].toProjectId !== t.toProjectId) await SummaryRebuildService.markInvalid(existingTransfer[0].toProjectId, minDate);
+    } catch (e) { console.error('[SummaryRebuild] project-fund-transfers/PATCH markInvalid error:', e); }
 
     res.json({
       success: true,
@@ -1153,6 +1193,10 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
       'worker-transfer/POST'
     );
 
+    try {
+      await SummaryRebuildService.markInvalid(wt.project_id, wt.transferDate.substring(0, 10));
+    } catch (e) { console.error('[SummaryRebuild] worker-transfer/POST markInvalid error:', e); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل العامل بنجاح في ${duration}ms`);
 
@@ -1254,6 +1298,13 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
       );
     }, 'worker-transfers/PATCH');
 
+    try {
+      const oldDate = existingTransfer[0].transferDate.substring(0, 10);
+      const newDate = t.transferDate.substring(0, 10);
+      const minDate = oldDate < newDate ? oldDate : newDate;
+      await SummaryRebuildService.markInvalid(t.project_id, minDate);
+    } catch (e) { console.error('[SummaryRebuild] worker-transfers/PATCH markInvalid error:', e); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
 
@@ -1335,6 +1386,10 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
       .delete(workerTransfers)
       .where(eq(workerTransfers.id, transferId))
       .returning();
+
+    try {
+      await SummaryRebuildService.markInvalid(transferToDelete.project_id, transferToDelete.transferDate.substring(0, 10));
+    } catch (e) { console.error('[SummaryRebuild] worker-transfers/DELETE markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
@@ -1480,6 +1535,10 @@ financialRouter.post('/worker-misc-expenses', async (req: Request, res: Response
       'worker-misc-expenses/POST'
     );
 
+    try {
+      await SummaryRebuildService.markInvalid(record.project_id, record.date);
+    } catch (e) { console.error('[SummaryRebuild] worker-misc-expenses/POST markInvalid error:', e); }
+
     await WellExpenseAutoAllocationService.allocateOnCreate({
       referenceType: 'worker_misc_expense',
       referenceId: record.id,
@@ -1593,6 +1652,13 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
       );
     }, 'worker-misc-expenses/PATCH');
 
+    try {
+      const oldDate = existingExpense[0].date;
+      const newDate = t.date;
+      const minDate = oldDate < newDate ? oldDate : newDate;
+      await SummaryRebuildService.markInvalid(t.project_id, minDate);
+    } catch (e) { console.error('[SummaryRebuild] worker-misc-expenses/PATCH markInvalid error:', e); }
+
     await WellExpenseAutoAllocationService.reallocateOnUpdate({
       referenceType: 'worker_misc_expense',
       referenceId: expenseId,
@@ -1686,6 +1752,10 @@ financialRouter.delete('/worker-misc-expenses/:id', async (req: Request, res: Re
       .delete(workerMiscExpenses)
       .where(eq(workerMiscExpenses.id, expenseId))
       .returning();
+
+    try {
+      await SummaryRebuildService.markInvalid(expenseToDelete.project_id, expenseToDelete.date);
+    } catch (e) { console.error('[SummaryRebuild] worker-misc-expenses/DELETE markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف مصروف العامل المتنوع بنجاح في ${duration}ms:`, {
@@ -2223,6 +2293,10 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       'material-purchase/POST'
     );
 
+    try {
+      if (p.project_id) await SummaryRebuildService.markInvalid(p.project_id, p.purchase_date || p.purchaseDate);
+    } catch (e) { console.error('[SummaryRebuild] material-purchase/POST markInvalid error:', e); }
+
     await WellExpenseAutoAllocationService.allocateOnCreate({
       referenceType: 'material_purchase',
       referenceId: p.id,
@@ -2422,6 +2496,15 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
       );
     }, 'material-purchase/PATCH');
 
+    try {
+      if (mp.project_id) {
+        const newDate = mp.purchaseDate || mp.purchase_date;
+        const oldDate = existing.purchaseDate || existing.purchase_date;
+        const minDate = (oldDate && newDate && oldDate < newDate) ? oldDate : newDate;
+        await SummaryRebuildService.markInvalid(mp.project_id, minDate);
+      }
+    } catch (e) { console.error('[SummaryRebuild] material-purchase/PATCH markInvalid error:', e); }
+
     await WellExpenseAutoAllocationService.reallocateOnUpdate({
       referenceType: 'material_purchase',
       referenceId: purchaseId,
@@ -2498,6 +2581,10 @@ financialRouter.delete('/material-purchases/:id', async (req: Request, res: Resp
       .delete(materialPurchases)
       .where(eq(materialPurchases.id, req.params.id))
       .returning();
+
+    try {
+      if (existingPurchase[0].project_id) await SummaryRebuildService.markInvalid(existingPurchase[0].project_id, existingPurchase[0].purchaseDate || existingPurchase[0].purchase_date);
+    } catch (e) { console.error('[SummaryRebuild] material-purchase/DELETE markInvalid error:', e); }
     
     if (!deleted.length) {
       const duration = Date.now() - startTime;
@@ -2603,6 +2690,10 @@ financialRouter.post('/transportation-expenses', async (req: Request, res: Respo
       ),
       'transport-expense/POST'
     );
+
+    try {
+      if (te.project_id) await SummaryRebuildService.markInvalid(te.project_id, te.date);
+    } catch (e) { console.error('[SummaryRebuild] transport-expense/POST markInvalid error:', e); }
 
     await WellExpenseAutoAllocationService.allocateOnCreate({
       referenceType: 'transportation',
@@ -2721,6 +2812,15 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
       );
     }, 'transport-expense/PATCH');
 
+    try {
+      if (tu.project_id) {
+        const oldDate = existingExpense[0].date;
+        const newDate = tu.date;
+        const minDate = oldDate < newDate ? oldDate : newDate;
+        await SummaryRebuildService.markInvalid(tu.project_id, minDate);
+      }
+    } catch (e) { console.error('[SummaryRebuild] transport-expense/PATCH markInvalid error:', e); }
+
     await WellExpenseAutoAllocationService.reallocateOnUpdate({
       referenceType: 'transportation',
       referenceId: req.params.id,
@@ -2780,6 +2880,10 @@ financialRouter.delete('/transportation-expenses/:id', async (req: Request, res:
       .delete(transportationExpenses)
       .where(eq(transportationExpenses.id, req.params.id))
       .returning();
+
+    try {
+      if (existingExpense[0].project_id) await SummaryRebuildService.markInvalid(existingExpense[0].project_id, existingExpense[0].date);
+    } catch (e) { console.error('[SummaryRebuild] transport-expense/DELETE markInvalid error:', e); }
     
     if (!deleted.length) {
       const duration = Date.now() - startTime;

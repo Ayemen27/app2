@@ -569,9 +569,21 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "Syncing Capacitor for Android...", "info");
     const remoteDir = "/home/administrator/app2";
 
+    const versionResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir}/android/app && if [ -f version.properties ]; then . <(grep = version.properties | tr -d '\\\\r'); else VERSION_CODE=0; VERSION_NAME='1.0.0'; fi && NEW_CODE=\\$((VERSION_CODE + 1)) && IFS='.' read -r MAJ MIN PAT <<< \\"\\$VERSION_NAME\\" && NEW_PAT=\\$((PAT + 1)) && NEW_NAME=\\$MAJ.\\$MIN.\\$NEW_PAT && echo \\"VERSION_CODE=\\$NEW_CODE\\" > version.properties && echo \\"VERSION_NAME=\\$NEW_NAME\\" >> version.properties && echo \\"CURRENT_VERSION=\\$NEW_NAME (\\$NEW_CODE)\\" && cat version.properties"`,
+      "Version Bump",
+      15000
+    );
+
+    const versionMatch = versionResult.match(/CURRENT_VERSION=(.+)/);
+    if (versionMatch) {
+      await this.addLog(deploymentId, `📱 إصدار APK: ${versionMatch[1]}`, "info");
+    }
+
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && if [ -d www ]; then cp -r www/* android/app/src/main/assets/public/; elif [ -d dist/public ]; then cp -r dist/public/* android/app/src/main/assets/public/; fi && echo 'SYNC_OK'"`,
+      `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && if [ -d www ]; then cp -r www/* android/app/src/main/assets/public/; elif [ -d dist/public ]; then cp -r dist/public/* android/app/src/main/assets/public/; fi && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
       "Capacitor Sync",
       60000
     );

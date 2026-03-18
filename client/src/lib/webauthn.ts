@@ -27,6 +27,20 @@ function base64urlToBuffer(base64url: string): ArrayBuffer {
 }
 
 export async function isBiometricAvailable(): Promise<boolean> {
+  const cap = (window as any).Capacitor;
+  const isNative = cap?.isNativePlatform?.() || cap?.isNative === true ||
+    cap?.getPlatform?.() === 'android' || cap?.getPlatform?.() === 'ios';
+
+  if (isNative) {
+    try {
+      const mod = await import(/* @vite-ignore */ 'capacitor-native-biometric');
+      const result = await mod.NativeBiometric.isAvailable();
+      return result.isAvailable;
+    } catch {
+      return false;
+    }
+  }
+
   if (!window.PublicKeyCredential) {
     return false;
   }

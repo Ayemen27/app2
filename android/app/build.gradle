@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+def versionPropsFile = file('version.properties')
+def buildVersionCode = 1
+def buildVersionName = "1.0.0"
+if (versionPropsFile.exists()) {
+    def props = new Properties()
+    props.load(new FileInputStream(versionPropsFile))
+    buildVersionCode = props['VERSION_CODE']?.toInteger() ?: 1
+    buildVersionName = props['VERSION_NAME'] ?: "1.0.0"
+}
+
 android {
     namespace "com.axion.app"
     compileSdk 35
@@ -7,8 +17,8 @@ android {
         applicationId "com.axion.app"
         minSdk 23
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode buildVersionCode
+        versionName buildVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {

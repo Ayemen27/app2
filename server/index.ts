@@ -240,7 +240,11 @@ app.use(cors({
     'x-device-name',
     'x-device-id',
     'X-Requested-With',
-    'x-requested-with'
+    'x-requested-with',
+    'x-client-platform',
+    'x-request-nonce',
+    'x-request-timestamp',
+    'x-app-version'
   ],
   exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
   optionsSuccessStatus: 200,
@@ -254,7 +258,7 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
     if (reqOrigin && isOriginAllowed(reqOrigin, !isProduction, req)) {
       res.setHeader('Access-Control-Allow-Origin', reqOrigin);
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token, x-auth-token, x-device-type, x-device-name, x-device-id');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token, x-auth-token, x-device-type, x-device-name, x-device-id, x-client-platform, x-request-nonce, x-request-timestamp, x-app-version');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.sendStatus(200);
       return;

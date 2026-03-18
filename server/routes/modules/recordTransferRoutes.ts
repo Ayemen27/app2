@@ -828,7 +828,10 @@ router.post("/delete", requireAdmin, async (req: Request, res: Response) => {
           }
 
           const dateProp = DATE_PROP_MAP[sel.table];
-          if (dateProp && existing[dateProp]) affectedDates.add(existing[dateProp]);
+          if (dateProp && existing[dateProp]) {
+            const rawDate = String(existing[dateProp]);
+            affectedDates.add(rawDate.substring(0, 10));
+          }
 
           await tx.delete(table).where(
             and(eq(table.id, sel.id), eq(table.project_id, String(projectId)))

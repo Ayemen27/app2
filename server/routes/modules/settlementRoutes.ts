@@ -565,25 +565,34 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
         console.warn('[Settlement] Failed to insert audit log, continuing:', auditErr);
       }
 
+      const affectedPids = new Set<string>();
+      affectedPids.add(settlement_project_id);
+      for (const transfer of actualFundTotals.values()) {
+        affectedPids.add(transfer.fromProjectId);
+      }
+      for (const worker of eligibleWorkers) {
+        for (const proj of worker.projects) {
+          if (isProjectIncluded(worker.workerId, proj)) {
+            affectedPids.add(proj.projectId);
+          }
+        }
+      }
+
       return {
         settlementId,
         workerCount: eligibleWorkers.length,
         totalAmount: positiveTotal,
         transferCount: actualFundTotals.size,
         warnings: preview.warnings,
+        affectedProjectIds: [...affectedPids],
       };
     });
 
     try {
       const settlementDate = req.body.settlement_date || new Date().toISOString().split('T')[0];
-      if (result.settlementId && req.body.settlement_project_id) {
-        await SummaryRebuildService.markInvalid(req.body.settlement_project_id, settlementDate);
-        const affectedProjects = await pool.query(
-          `SELECT DISTINCT project_id FROM worker_transfers WHERE notes LIKE '%تصفية حساب%' AND transfer_date = $1 AND project_id != $2`,
-          [settlementDate, req.body.settlement_project_id]
-        );
-        for (const row of affectedProjects.rows) {
-          await SummaryRebuildService.markInvalid(row.project_id, settlementDate);
+      if (result.settlementId) {
+        for (const pid of result.affectedProjectIds) {
+          await SummaryRebuildService.markInvalid(pid, settlementDate);
         }
       }
     } catch (e) { console.error('[SummaryRebuild] settlement/execute markInvalid error:', e); }
@@ -731,11 +740,19 @@ settlementRouter.delete('/:id', async (req: Request, res: Response) => {
       return sendError(res, 'ليس لديك صلاحية لحذف هذه التصفية', 403);
     }
 
+    const affectedProjectIds: string[] = [];
+
     const result = await withTransaction(async (client) => {
       const lines = await client.query(
         `SELECT * FROM worker_settlement_lines WHERE settlement_id = $1`,
         [id]
       );
+
+      const lineProjectIds = [...new Set(lines.rows.map((l: any) => l.project_id).filter(Boolean))] as string[];
+      affectedProjectIds.push(...lineProjectIds);
+      if (settlement.settlement_project_id && !affectedProjectIds.includes(settlement.settlement_project_id)) {
+        affectedProjectIds.push(settlement.settlement_project_id);
+      }
 
       const workerIds = [...new Set(lines.rows.map((l: any) => l.worker_id))];
 
@@ -792,14 +809,9 @@ settlementRouter.delete('/:id', async (req: Request, res: Response) => {
     });
 
     try {
-      if (settlement.settlement_project_id && settlement.settlement_date) {
-        await SummaryRebuildService.markInvalid(settlement.settlement_project_id, settlement.settlement_date);
-        const affectedProjects = await pool.query(
-          `SELECT DISTINCT project_id FROM worker_transfers WHERE notes LIKE '%تصفية حساب%' AND transfer_date = $1 AND project_id != $2`,
-          [settlement.settlement_date, settlement.settlement_project_id]
-        );
-        for (const row of affectedProjects.rows) {
-          await SummaryRebuildService.markInvalid(row.project_id, settlement.settlement_date);
+      if (settlement.settlement_date) {
+        for (const pid of affectedProjectIds) {
+          await SummaryRebuildService.markInvalid(pid, settlement.settlement_date);
         }
       }
     } catch (e) { console.error('[SummaryRebuild] settlement/DELETE markInvalid error:', e); }

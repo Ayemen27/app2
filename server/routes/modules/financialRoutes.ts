@@ -519,6 +519,9 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
       const newDateStr = typeof t.transferDate === 'string' ? t.transferDate.substring(0, 10) : new Date(t.transferDate).toISOString().substring(0, 10);
       const minDate = oldDateStr < newDateStr ? oldDateStr : newDateStr;
       await SummaryRebuildService.markInvalid(t.project_id, minDate);
+      if (existingTransfer[0].project_id && existingTransfer[0].project_id !== t.project_id) {
+        await SummaryRebuildService.markInvalid(existingTransfer[0].project_id, minDate);
+      }
     } catch (e) { console.error('[SummaryRebuild] fund-transfer/PATCH markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
@@ -1303,6 +1306,9 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
       const newDate = t.transferDate.substring(0, 10);
       const minDate = oldDate < newDate ? oldDate : newDate;
       await SummaryRebuildService.markInvalid(t.project_id, minDate);
+      if (existingTransfer[0].project_id && existingTransfer[0].project_id !== t.project_id) {
+        await SummaryRebuildService.markInvalid(existingTransfer[0].project_id, minDate);
+      }
     } catch (e) { console.error('[SummaryRebuild] worker-transfers/PATCH markInvalid error:', e); }
 
     const duration = Date.now() - startTime;
@@ -1657,6 +1663,9 @@ financialRouter.patch('/worker-misc-expenses/:id', async (req: Request, res: Res
       const newDate = t.date;
       const minDate = oldDate < newDate ? oldDate : newDate;
       await SummaryRebuildService.markInvalid(t.project_id, minDate);
+      if (existingExpense[0].project_id && existingExpense[0].project_id !== t.project_id) {
+        await SummaryRebuildService.markInvalid(existingExpense[0].project_id, minDate);
+      }
     } catch (e) { console.error('[SummaryRebuild] worker-misc-expenses/PATCH markInvalid error:', e); }
 
     await WellExpenseAutoAllocationService.reallocateOnUpdate({
@@ -2502,6 +2511,9 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
         const oldDate = existing.purchaseDate || existing.purchase_date;
         const minDate = (oldDate && newDate && oldDate < newDate) ? oldDate : newDate;
         await SummaryRebuildService.markInvalid(mp.project_id, minDate);
+        if (existing.project_id && existing.project_id !== mp.project_id) {
+          await SummaryRebuildService.markInvalid(existing.project_id, minDate);
+        }
       }
     } catch (e) { console.error('[SummaryRebuild] material-purchase/PATCH markInvalid error:', e); }
 
@@ -2818,6 +2830,9 @@ financialRouter.patch('/transportation-expenses/:id', async (req: Request, res: 
         const newDate = tu.date;
         const minDate = oldDate < newDate ? oldDate : newDate;
         await SummaryRebuildService.markInvalid(tu.project_id, minDate);
+        if (existingExpense[0].project_id && existingExpense[0].project_id !== tu.project_id) {
+          await SummaryRebuildService.markInvalid(existingExpense[0].project_id, minDate);
+        }
       }
     } catch (e) { console.error('[SummaryRebuild] transport-expense/PATCH markInvalid error:', e); }
 

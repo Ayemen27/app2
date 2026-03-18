@@ -245,8 +245,14 @@ export default function DeploymentConsole() {
         pollRetryCountRef.current = 0;
         setLiveDeployment(data);
         setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
-        if (data.status === "success" || data.status === "failed" || data.status === "cancelled") {
+        const isTerminal = data.status === "success" || data.status === "failed" || data.status === "cancelled";
+        if (isTerminal) {
           stopPolling();
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+            sseConnectedRef.current = false;
+          }
           refetchHistory();
           queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
           setTimeout(() => {
@@ -268,6 +274,9 @@ export default function DeploymentConsole() {
     pollIntervalRef.current = setInterval(poll, POLL_INTERVAL);
   }, [refetchHistory, queryClient, stopPolling]);
 
+  const sseRetryCountRef = useRef(0);
+  const MAX_SSE_RETRIES = 3;
+
   const connectSSE = useCallback((deploymentId: string) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -283,6 +292,7 @@ export default function DeploymentConsole() {
 
       es.onopen = () => {
         sseConnectedRef.current = true;
+        sseRetryCountRef.current = 0;
       };
 
       es.onmessage = (event) => {
@@ -292,12 +302,22 @@ export default function DeploymentConsole() {
           if (payload.type === "initial_state") {
             setLiveDeployment(payload.data);
             setLiveLogs(Array.isArray(payload.data.logs) ? payload.data.logs : []);
+            if (payload.data.status !== "running") {
+              es.close();
+              eventSourceRef.current = null;
+              sseConnectedRef.current = false;
+              stopPolling();
+            }
           } else if (payload.type === "log") {
             setLiveLogs(prev => [...prev, payload.data]);
           } else if (payload.type === "deployment_update") {
             setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
 
             if (payload.data.status === "success" || payload.data.status === "failed" || payload.data.status === "cancelled") {
+              es.close();
+              eventSourceRef.current = null;
+              sseConnectedRef.current = false;
+              stopPolling();
               refetchHistory();
               queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
               setTimeout(() => {
@@ -324,10 +344,18 @@ export default function DeploymentConsole() {
         sseConnectedRef.current = false;
         es.close();
         eventSourceRef.current = null;
-        startPolling(deploymentId);
+        sseRetryCountRef.current++;
+        if (sseRetryCountRef.current < MAX_SSE_RETRIES) {
+          startPolling(deploymentId);
+        } else {
+          stopPolling();
+        }
       };
     } catch {
-      startPolling(deploymentId);
+      sseRetryCountRef.current++;
+      if (sseRetryCountRef.current < MAX_SSE_RETRIES) {
+        startPolling(deploymentId);
+      }
     }
   }, [refetchHistory, queryClient, startPolling, stopPolling]);
 

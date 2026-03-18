@@ -973,18 +973,28 @@ export class DeploymentEngine {
     try {
       const [last] = await db.select({ version: buildDeployments.version })
         .from(buildDeployments)
-        .where(eq(buildDeployments.status, "success"))
         .orderBy(desc(buildDeployments.created_at))
         .limit(1);
-      if (last?.version) return last.version;
+      if (last?.version) {
+        return this.incrementPatchVersion(last.version);
+      }
     } catch {}
 
     try {
       const { stdout } = await execAsync("grep '\"version\"' package.json | head -1 | sed 's/.*\"version\": \"\\([^\"]*\\)\".*/\\1/'", { cwd: "/home/runner/workspace" });
-      return stdout.trim() || "1.0.0";
+      const base = stdout.trim() || "1.0.0";
+      return this.incrementPatchVersion(base);
     } catch {
-      return "1.0.0";
+      return "1.0.1";
     }
+  }
+
+  private incrementPatchVersion(version: string): string {
+    const parts = version.replace(/^v/, "").split(".");
+    const major = parseInt(parts[0]) || 1;
+    const minor = parseInt(parts[1]) || 0;
+    const patch = parseInt(parts[2]) || 0;
+    return `${major}.${minor}.${patch + 1}`;
   }
 
   async getLatestAndroidRelease(): Promise<{ versionName: string; versionCode: number; downloadUrl: string | null; releasedAt: string } | null> {

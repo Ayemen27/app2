@@ -33,7 +33,8 @@ export async function isBiometricAvailable(): Promise<boolean> {
 
   if (isNative) {
     try {
-      const mod = await import(/* @vite-ignore */ 'capacitor-native-biometric');
+      const bioModName = ['capacitor', 'native', 'biometric'].join('-');
+      const mod = await import(/* @vite-ignore */ bioModName);
       const result = await mod.NativeBiometric.isAvailable();
       return result.isAvailable;
     } catch {

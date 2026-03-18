@@ -244,6 +244,11 @@ export default function DeploymentConsole() {
           stopPolling();
           refetchHistory();
           queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+          setTimeout(() => {
+            setActiveDeploymentId(null);
+            setLiveDeployment(null);
+            setLiveLogs([]);
+          }, 5000);
         }
       } catch {
         pollRetryCountRef.current++;
@@ -290,6 +295,11 @@ export default function DeploymentConsole() {
             if (payload.data.status === "success" || payload.data.status === "failed" || payload.data.status === "cancelled") {
               refetchHistory();
               queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+              setTimeout(() => {
+                setActiveDeploymentId(null);
+                setLiveDeployment(null);
+                setLiveLogs([]);
+              }, 5000);
             }
           } else if (payload.type === "step_update") {
             setLiveDeployment(prev => {

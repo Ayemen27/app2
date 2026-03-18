@@ -30,3 +30,9 @@ id = "JBol3FYmEOJZzXU1ogJ5h"
 uri = "file://SYSTEM_AUDIT_REPORT.md"
 type = "text"
 title = "تقرير فحص مسارات النظام الشامل"
+
+[[outputs]]
+id = "d3p43kMHYOzVpvJ3LbBxx"
+uri = "file://SYSTEM_INTEGRITY_AUDIT.md"
+type = "text"
+title = "تقرير فحص سلامة النظام - System Integrity Audit"

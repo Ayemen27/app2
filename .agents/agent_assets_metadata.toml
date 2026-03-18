@@ -54,3 +54,9 @@ id = "3YziuJe1geERlaB379lwx"
 uri = "file://SERVER_AUDIT_REPORT.md"
 type = "text"
 title = "تقرير فحص السيرفر الخارجي — 93.127.142.144"
+
+[[outputs]]
+id = "O2OkSwEgO0S9aLB6xnP99"
+uri = "file://ANDROID_API_TEST_REPORT.md"
+type = "text"
+title = "تقرير اختبار اتصال Android بالخادم — API Connection Test"

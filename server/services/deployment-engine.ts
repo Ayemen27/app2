@@ -1059,28 +1059,29 @@ export class DeploymentEngine {
 
     this.terminateActiveProcesses(deploymentId);
 
-    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
-    if (deployment) {
-      const steps = deployment.steps as StepEntry[];
-      const updatedSteps = steps.map(s => {
-        if (s.status === "pending") {
-          return { ...s, status: "cancelled" as const };
-        }
-        if (s.status === "running") {
-          return { ...s, status: "cancelled" as const };
-        }
-        return s;
-      });
+    const [deployment] = await db.select().from(buildDeployments)
+      .where(sql`${buildDeployments.id} = ${deploymentId} AND ${buildDeployments.status} = 'running'`);
 
-      await db.update(buildDeployments).set({
-        steps: updatedSteps,
-        status: "cancelled",
-        errorMessage: "Cancelled by user",
-        endTime: new Date(),
-      }).where(eq(buildDeployments.id, deploymentId));
+    if (!deployment) {
+      return;
     }
 
-    await this.addLog(deploymentId, "Deployment cancelled by user", "warn");
+    const steps = deployment.steps as StepEntry[];
+    const updatedSteps = steps.map(s => {
+      if (s.status === "pending" || s.status === "running") {
+        return { ...s, status: "cancelled" as const };
+      }
+      return s;
+    });
+
+    const result = await db.update(buildDeployments).set({
+      steps: updatedSteps,
+      status: "cancelled",
+      errorMessage: "تم الإلغاء بواسطة المستخدم",
+      endTime: new Date(),
+    }).where(sql`${buildDeployments.id} = ${deploymentId} AND ${buildDeployments.status} = 'running'`);
+
+    await this.addLog(deploymentId, "تم إلغاء النشر بواسطة المستخدم", "warn");
     await this.addEvent(deploymentId, "deployment_cancelled", "Deployment cancelled by user");
   }
 

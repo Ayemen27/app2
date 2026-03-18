@@ -96,6 +96,8 @@ const PIPELINE_LABELS: Record<string, string> = {
   "hotfix": "إصلاح سريع (نشر فوري)",
   "android-build": "بناء تطبيق أندرويد APK",
   "git-android-build": "Git + بناء أندرويد (دفع + سحب + بناء APK)",
+  "web-deploy": "نشر الويب (نقل مباشر)",
+  "full-deploy": "نشر كامل (ويب + أندرويد)",
 };
 
 const PIPELINE_LABELS_FULL: Record<string, string> = {

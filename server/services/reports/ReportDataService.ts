@@ -288,13 +288,17 @@ export class ReportDataService {
     const totalWorkerWages = attendance.reduce((s, a) => s + a.totalWage, 0);
     const totalPaidWages = attendance.reduce((s, a) => s + a.paidAmount, 0);
     const totalWorkDays = attendance.reduce((s, a) => s + a.workDays, 0);
-    const totalMaterials = materials.reduce((s, m) => s + m.totalAmount, 0);
+    const totalMaterials = materials
+      .filter(m => m.purchaseType === 'نقد' || m.purchaseType === 'نقداً')
+      .reduce((s, m) => s + (m.paidAmount > 0 ? m.paidAmount : m.totalAmount), 0);
     const totalTransport = transport.reduce((s, t) => s + t.amount, 0);
     const totalMiscExpenses = miscExpenses.reduce((s, e) => s + e.amount, 0);
     const totalWorkerTransfers = workerTransfersList.reduce((s, t) => s + t.amount, 0);
     const totalFundTransfers = fundTransfersList.reduce((s, f) => s + f.amount, 0);
     const totalProjectTransfersOut = projectFundTransfersOutData.reduce((s: number, f: any) => s + safeNum(f.amount), 0);
-    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut;
+    const supplierPaymentsResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [projectId, date]);
+    const totalSupplierPayments = parseFloat(supplierPaymentsResult.rows[0]?.total || '0');
+    const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPayments;
     const balance = totalFundTransfers - totalExpenses;
 
     const kpis: ReportKPI[] = [
@@ -849,6 +853,11 @@ export class ReportDataService {
 
     const totalMaterialsAmount = materialItems.reduce((s: number, m: any) => s + m.totalAmount, 0);
     const totalMaterialsPaid = materialsRows.reduce((s: number, r: any) => s + safeNum(r.totalPaid), 0);
+    const cashMaterialsResult = await pool.query(`SELECT COALESCE(SUM(
+      CASE WHEN CAST(paid_amount AS DECIMAL) > 0 THEN CAST(paid_amount AS DECIMAL(15,2))
+           ELSE CAST(total_amount AS DECIMAL(15,2)) END
+    ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقد' OR purchase_type = 'نقداً') AND purchase_date >= $2 AND purchase_date <= $3`, [projectId, dateFrom, dateTo]);
+    const totalMaterialsCash = parseFloat(cashMaterialsResult.rows[0]?.total || '0');
 
     const transportTotal = safeNum(transportRows[0]?.totalAmount);
     const transportTripCount = safeNum(transportRows[0]?.tripCount);
@@ -890,9 +899,12 @@ export class ReportDataService {
     const totalProjectTransfersIn = projectTransferInRows.reduce((s: number, r: any) => s + safeNum(r.amount), 0);
     const projectTransfersNet = totalProjectTransfersIn - totalProjectTransfersOut;
 
+    const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3`, [projectId, dateFrom, dateTo]);
+    const totalSupplierPaymentsPeriod = parseFloat(supplierPayPeriodResult.rows[0]?.total || '0');
+
     const totalWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalWages, 0);
     const totalPaidWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalPaid, 0);
-    const totalExpenses = totalPaidWages + totalMaterialsAmount + transportTotal + miscTotal + workerTransfersTotal + totalProjectTransfersOut;
+    const totalExpenses = totalPaidWages + totalMaterialsCash + transportTotal + miscTotal + workerTransfersTotal + totalProjectTransfersOut + totalSupplierPaymentsPeriod;
     const balance = (totalFundTransfersAmount + totalProjectTransfersIn) - totalExpenses;
 
     const budgetVal = safeNum(proj?.budget);

@@ -160,6 +160,8 @@ export class ExpenseLedgerService {
             SELECT amount FROM worker_misc_expenses WHERE project_id = $1 AND date::date < $2::date
             UNION ALL
             SELECT amount FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date < $2::date
+            UNION ALL
+            SELECT amount FROM supplier_payments WHERE project_id = $1 AND payment_date::date < $2::date
           )
           SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM prev_expenses
         `, [project_id, startDateStr]);
@@ -183,12 +185,12 @@ export class ExpenseLedgerService {
       let materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats;
       let workerTransfersStats, miscExpensesStats, fundTransfersStats;
       let outgoingTransfersStats, incomingTransfersStats, workersStatsResult;
+      let supplierPaymentsStats;
 
       if (isCumulative) {
-        // استعلامات بدون فلتر تاريخ
         [materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats,
          workerTransfersStats, miscExpensesStats, fundTransfersStats,
-         outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
+         outgoingTransfersStats, incomingTransfersStats, workersStatsResult, supplierPaymentsStats] = await Promise.all([
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
             CASE 
               WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
@@ -205,13 +207,13 @@ export class ExpenseLedgerService {
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = $1`, [project_id]),
           pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1`, [project_id]),
           pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1`, [project_id]),
-          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1`, [project_id])
+          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1`, [project_id]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM supplier_payments WHERE project_id = $1`, [project_id])
         ]);
       } else if (cleanDate) {
-        // استعلامات مع فلتر تاريخ محدد
         [materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats,
          workerTransfersStats, miscExpensesStats, fundTransfersStats,
-         outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
+         outgoingTransfersStats, incomingTransfersStats, workersStatsResult, supplierPaymentsStats] = await Promise.all([
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
             CASE 
               WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
@@ -228,13 +230,13 @@ export class ExpenseLedgerService {
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
           pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date = $2::date`, [project_id, cleanDate]),
-          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND wa.attendance_date::date = $2::date`, [project_id, cleanDate])
+          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND wa.attendance_date::date = $2::date`, [project_id, cleanDate]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date = $2::date`, [project_id, cleanDate])
         ]);
       } else {
-        // استعلامات مع نطاق تاريخ
         [materialCashStats, materialCreditStats, materialStorageStats, workerWagesStats, transportStats,
          workerTransfersStats, miscExpensesStats, fundTransfersStats,
-         outgoingTransfersStats, incomingTransfersStats, workersStatsResult] = await Promise.all([
+         outgoingTransfersStats, incomingTransfersStats, workersStatsResult, supplierPaymentsStats] = await Promise.all([
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(
             CASE 
               WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL)
@@ -251,7 +253,8 @@ export class ExpenseLedgerService {
           pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM fund_transfers WHERE project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
           pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
-          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND wa.attendance_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo])
+          pool.query(`SELECT COUNT(DISTINCT wa.worker_id) as total_workers, COUNT(DISTINCT CASE WHEN w.is_active = true THEN wa.worker_id END) as active_workers FROM worker_attendance wa INNER JOIN workers w ON wa.worker_id = w.id WHERE wa.project_id = $1 AND wa.attendance_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo]),
+          pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date BETWEEN $2::date AND $3::date`, [project_id, cleanDateFrom, cleanDateTo])
         ]);
       }
 
@@ -269,9 +272,9 @@ export class ExpenseLedgerService {
       const fundTransfers = this.cleanDbValue(fundTransfersStats.rows[0]?.total);
       const outgoingProjectTransfers = this.cleanDbValue(outgoingTransfersStats.rows[0]?.total);
       const incomingProjectTransfers = this.cleanDbValue(incomingTransfersStats.rows[0]?.total);
+      const supplierPayments = this.cleanDbValue(supplierPaymentsStats?.rows[0]?.total);
 
-      // إجمالي المصروفات النقدية
-      const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers;
+      const totalCashExpenses = materialExpenses + workerWages + transportExpenses + workerTransfers + miscExpenses + outgoingProjectTransfers + supplierPayments;
       
       // الرصيد النقدي لليوم
       const totalIncome = fundTransfers + incomingProjectTransfers;

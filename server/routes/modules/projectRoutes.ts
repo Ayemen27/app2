@@ -2670,6 +2670,13 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
           AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\d{4}-\d{2}-\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
+        UNION ALL
+        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        FROM supplier_payments 
+        WHERE project_id = $1 
+          AND payment_date IS NOT NULL AND CAST(payment_date AS TEXT) != ''
+          AND CAST(SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
+          AND CAST(SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
       )
       SELECT 
         COALESCE((SELECT SUM(amount) FROM all_income), 0) as total_income,

@@ -1661,7 +1661,8 @@ export class DatabaseStorage implements IStorage {
         transportationExpenses,
         workerTransfers,
         workerMiscExpenses,
-        carriedForwardAmount
+        carriedForwardAmount,
+        supplierPaymentsResult
       ] = await Promise.all([
         this.getFundTransfers(project_id, date),
         this.getProjectFundTransfersForDate(project_id, date),
@@ -1670,7 +1671,8 @@ export class DatabaseStorage implements IStorage {
         this.getTransportationExpenses(project_id, date),
         this.getFilteredWorkerTransfers(project_id, date),
         this.getWorkerMiscExpenses(project_id, date),
-        this.getPreviousDayBalance(project_id, date).then(balance => parseFloat(balance))
+        this.getPreviousDayBalance(project_id, date).then(balance => parseFloat(balance)),
+        pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [project_id, date])
       ]);
 
       const tocents = (val: string) => Math.round(parseFloat(val || '0') * 100);
@@ -1684,14 +1686,18 @@ export class DatabaseStorage implements IStorage {
         return sum + (paid > 0 ? paid : 0);
       }, 0);
       const totalMaterialCostsCents = materialPurchases
-        .filter(p => p.purchaseType === "نقد")
-        .reduce((sum, p) => sum + tocents(p.totalAmount), 0);
+        .filter(p => p.purchaseType === "نقد" || p.purchaseType === "نقداً")
+        .reduce((sum, p) => {
+          const paid = Math.round(parseFloat(p.paidAmount || '0') * 100);
+          return sum + (paid > 0 ? paid : tocents(p.totalAmount));
+        }, 0);
       const totalTransportationCostsCents = transportationExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
       const totalWorkerTransferCostsCents = workerTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
       const totalWorkerMiscCostsCents = workerMiscExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
+      const totalSupplierPaymentsCents = Math.round(parseFloat(supplierPaymentsResult.rows[0]?.total || '0') * 100);
 
       const carriedForwardCents = Math.round(carriedForwardAmount * 100);
-      const totalExpensesCents = totalWorkerWagesCents + totalMaterialCostsCents + totalTransportationCostsCents + totalWorkerTransferCostsCents + totalWorkerMiscCostsCents + outgoingTransfersCents;
+      const totalExpensesCents = totalWorkerWagesCents + totalMaterialCostsCents + totalTransportationCostsCents + totalWorkerTransferCostsCents + totalWorkerMiscCostsCents + outgoingTransfersCents + totalSupplierPaymentsCents;
       const totalIncomeCents = carriedForwardCents + totalFundTransfersCents + incomingTransfersCents;
       const remainingBalanceCents = totalIncomeCents - totalExpensesCents;
 
@@ -1794,14 +1800,19 @@ export class DatabaseStorage implements IStorage {
           return sum + (paid > 0 ? paid : 0);
         }, 0);
         const totalMaterialCostsCents = materialPurchases
-          .filter(p => p.purchaseType === "نقد")
-          .reduce((sum, p) => sum + tocents(p.totalAmount), 0);
+          .filter(p => p.purchaseType === "نقد" || p.purchaseType === "نقداً")
+          .reduce((sum, p) => {
+            const paid = Math.round(parseFloat(p.paidAmount || '0') * 100);
+            return sum + (paid > 0 ? paid : tocents(p.totalAmount));
+          }, 0);
         const totalTransportationCostsCents = transportationExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
         const totalWorkerTransferCostsCents = workerTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
         const totalWorkerMiscCostsCents = workerMiscExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
+        const supplierPayResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [project_id, date]);
+        const totalSupplierPaymentsCents = Math.round(parseFloat(supplierPayResult.rows[0]?.total || '0') * 100);
 
         const carriedForwardCents = Math.round(carriedForwardAmount * 100);
-        const totalExpensesCents = totalWorkerWagesCents + totalMaterialCostsCents + totalTransportationCostsCents + totalWorkerTransferCostsCents + totalWorkerMiscCostsCents + outgoingTransfersCents;
+        const totalExpensesCents = totalWorkerWagesCents + totalMaterialCostsCents + totalTransportationCostsCents + totalWorkerTransferCostsCents + totalWorkerMiscCostsCents + outgoingTransfersCents + totalSupplierPaymentsCents;
         const totalIncomeCents = carriedForwardCents + totalFundTransfersCents + incomingTransfersCents;
         const remainingBalanceCents = totalIncomeCents - totalExpensesCents;
 
@@ -1856,7 +1867,11 @@ export class DatabaseStorage implements IStorage {
     });
     
     const transferRecords = await db.select().from(workerTransfers)
-      .where(and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id)));
+      .where(and(
+        eq(workerTransfers.worker_id, worker_id),
+        eq(workerTransfers.project_id, project_id),
+        sql`COALESCE(${workerTransfers.transferMethod}, '') != 'settlement'`
+      ));
     
     let totalTransferred = 0;
     transferRecords.forEach((transfer: any) => {

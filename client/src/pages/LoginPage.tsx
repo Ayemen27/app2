@@ -12,6 +12,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormMessage,
 } from "../components/ui/form";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -233,11 +234,11 @@ export default function LoginPage() {
               {/* Outer Glow / Halo */}
               <div className="absolute -inset-1.5 bg-blue-500/10 rounded-[24px] blur-md opacity-0 group-hover:opacity-100 transition duration-500"></div>
               
-              <div className="w-24 h-24 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-2 border border-white/20">
+              <div className="w-24 h-24 flex items-center justify-center transition-all duration-500 hover:scale-105 active:scale-95 relative bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-2 border border-white/20 overflow-hidden">
                 <img 
                   src={appIconLight} 
                   alt="AXION Logo" 
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover rounded-xl"
                   data-testid="img-logo-light"
                 />
                 {/* Status Indicator / Pulse Point - Matching the Image */}
@@ -294,7 +295,19 @@ export default function LoginPage() {
 
           {/* Form - Slim Fields */}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
+            <form onSubmit={form.handleSubmit(
+              (data) => loginMutation.mutate(data),
+              (errors) => {
+                const messages: string[] = [];
+                if (errors.email) messages.push(errors.email.message || "البريد الإلكتروني غير صحيح");
+                if (errors.password) messages.push(errors.password.message || "كلمة المرور مطلوبة");
+                toast({
+                  title: "خطأ في البيانات",
+                  description: messages.join(" · "),
+                  variant: "destructive",
+                });
+              }
+            )} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
               <FormField
                 control={form.control}
                 name="email"
@@ -318,6 +331,7 @@ export default function LoginPage() {
                         <Users className="w-5 h-5" strokeWidth={1.5} />
                       </button>
                     </div>
+                    <FormMessage data-testid="text-error-email" />
                   </FormItem>
                 )}
               />
@@ -355,6 +369,7 @@ export default function LoginPage() {
                         )}
                       </button>
                     </div>
+                    <FormMessage data-testid="text-error-password" />
                   </FormItem>
                 )}
               />

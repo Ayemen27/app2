@@ -30,11 +30,22 @@ class IntelligentMonitor {
     console.log("🚀 [IntelligentMonitor] Initializing...");
     // Catch-all for unhandled rejections in native environment
     window.addEventListener('unhandledrejection', (event) => {
+      const reason = event.reason;
+      const reasonStr = String(reason?.message || reason || '');
+      if (
+        reason?.name === 'ZodError' ||
+        reasonStr.includes('too_small') ||
+        reasonStr.includes('invalid_format') ||
+        reasonStr.includes('invalid_string') ||
+        (Array.isArray(reason?.issues || reason?.errors))
+      ) {
+        return;
+      }
       this.logEvent({
         type: 'error',
         severity: 'critical',
-        message: `Unhandled Promise Rejection: ${event.reason?.message || 'Unknown'}`,
-        metadata: { stack: event.reason?.stack }
+        message: `Unhandled Promise Rejection: ${reason?.message || 'Unknown'}`,
+        metadata: { stack: reason?.stack }
       });
     });
   }

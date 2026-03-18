@@ -1,6 +1,5 @@
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
 
 const CHECK_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const LAST_CHECK_KEY = 'app_update_last_check';
@@ -87,12 +86,18 @@ async function checkForUpdate(): Promise<UpdateInfo | null> {
 async function openDownloadUrl(url: string) {
   try {
     if (Capacitor.isNativePlatform()) {
-      await Browser.open({ url });
-    } else {
-      window.open(url, '_blank');
+      try {
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({ url });
+        return;
+      } catch {
+        window.location.href = url;
+        return;
+      }
     }
-  } catch {
     window.open(url, '_blank');
+  } catch {
+    window.location.href = url;
   }
 }
 

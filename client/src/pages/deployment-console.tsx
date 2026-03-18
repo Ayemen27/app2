@@ -213,6 +213,7 @@ export default function DeploymentConsole() {
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const hasAutoResumedRef = useRef<string | null>(null);
 
   const { data: statsData } = useQuery<DeploymentStats>({
     queryKey: ["/api/deployment/stats"],
@@ -255,11 +256,6 @@ export default function DeploymentConsole() {
           }
           refetchHistory();
           queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
-          setTimeout(() => {
-            setActiveDeploymentId(null);
-            setLiveDeployment(null);
-            setLiveLogs([]);
-          }, 5000);
         }
       } catch {
         pollRetryCountRef.current++;
@@ -320,11 +316,6 @@ export default function DeploymentConsole() {
               stopPolling();
               refetchHistory();
               queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
-              setTimeout(() => {
-                setActiveDeploymentId(null);
-                setLiveDeployment(null);
-                setLiveLogs([]);
-              }, 5000);
             }
           } else if (payload.type === "step_update") {
             setLiveDeployment(prev => {
@@ -381,9 +372,14 @@ export default function DeploymentConsole() {
     if (!activeDeploymentId && historyData?.deployments) {
       const running = historyData.deployments.find(d => d.status === "running");
       if (running) {
-        setActiveDeploymentId(running.id);
-        setLiveDeployment(running);
-        setLiveLogs(Array.isArray(running.logs) ? running.logs : []);
+        if (!hasAutoResumedRef.current || running.id !== hasAutoResumedRef.current) {
+          hasAutoResumedRef.current = running.id;
+          setActiveDeploymentId(running.id);
+          setLiveDeployment(running);
+          setLiveLogs(Array.isArray(running.logs) ? running.logs : []);
+        }
+      } else {
+        hasAutoResumedRef.current = null;
       }
     }
   }, [historyData, activeDeploymentId]);

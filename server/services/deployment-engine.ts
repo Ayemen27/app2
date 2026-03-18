@@ -476,35 +476,61 @@ export class DeploymentEngine {
   }
 
   private async stepGradleBuild(deploymentId: string, sshCmd: string, config: DeploymentConfig) {
-    await this.addLog(deploymentId, "Starting Gradle build (this may take 2-3 minutes)...", "info");
+    await this.addLog(deploymentId, "بدء بناء Gradle (قد يستغرق 2-3 دقائق)...", "info");
     const remoteDir = "/home/administrator/app2";
+
+    const keystoreCheck = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo 'KEYSTORE_FILE_OK'; else for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_COPIED' && break; fi; done; fi; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS' || echo 'KEYSTORE_MISSING'"`,
+      "Keystore Check",
+      15000
+    );
+
+    const hasKeystore = keystoreCheck.includes("KEYSTORE_EXISTS");
+    const hasKeystorePassword = !!(process.env.KEYSTORE_PASSWORD);
+    const canSignRelease = hasKeystore && hasKeystorePassword;
+    const buildType = canSignRelease ? "assembleRelease" : "assembleDebug";
+
+    if (!hasKeystore) {
+      await this.addLog(deploymentId, "⚠️ Keystore غير موجود — سيتم بناء Debug APK", "warn");
+    } else if (!hasKeystorePassword) {
+      await this.addLog(deploymentId, "⚠️ Keystore موجود لكن KEYSTORE_PASSWORD غير مُعدّ — سيتم بناء Debug APK", "warn");
+    } else {
+      await this.addLog(deploymentId, "✅ Keystore + كلمة المرور جاهزان — بناء Release APK", "info");
+    }
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && chmod +x gradlew && rm -rf app/build .gradle build && ./gradlew clean assembleRelease --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && chmod +x gradlew && rm -rf app/build .gradle build && ./gradlew clean ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
       "Gradle Build",
       300000
     );
   }
 
   private async stepSignAPK(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "Signing APK...", "info");
+    await this.addLog(deploymentId, "البحث عن APK وتجهيزه...", "info");
     const remoteDir = "/home/administrator/app2";
 
     const output = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir}/android && APK_PATH=\\$(find . -name '*.apk' -path '*/release/*' | head -1) && if [ -n \\"\\$APK_PATH\\" ]; then cp \\"\\$APK_PATH\\" ${remoteDir}/AXION_LATEST.apk && ls -lh ${remoteDir}/AXION_LATEST.apk && echo 'SIGN_OK'; else echo 'APK_NOT_FOUND'; fi"`,
+      `${sshCmd} "cd ${remoteDir}/android && APK_PATH=\\$(find . -name '*.apk' -path '*/release/*' 2>/dev/null | head -1) && if [ -z \\"\\$APK_PATH\\" ]; then APK_PATH=\\$(find . -name '*.apk' -path '*/debug/*' 2>/dev/null | head -1); fi && if [ -n \\"\\$APK_PATH\\" ]; then cp \\"\\$APK_PATH\\" ${remoteDir}/AXION_LATEST.apk && ls -lh ${remoteDir}/AXION_LATEST.apk && echo \\"APK_TYPE=\\$(basename \\$(dirname \\$APK_PATH))\\" && echo 'SIGN_OK'; else echo 'APK_NOT_FOUND'; fi"`,
       "APK Sign",
       60000
     );
 
     if (output.includes("APK_NOT_FOUND")) {
-      throw new Error("APK file not found after build");
+      throw new Error("لم يتم العثور على ملف APK بعد البناء");
     }
 
     const sizeMatch = output.match(/(\d+\.?\d*[KMG])/);
     if (sizeMatch) {
       await this.updateDeployment(deploymentId, { artifactSize: sizeMatch[1] });
+    }
+
+    if (output.includes("APK_TYPE=debug")) {
+      await this.addLog(deploymentId, "📦 تم تجهيز Debug APK (بدون توقيع release)", "warn");
+    } else {
+      await this.addLog(deploymentId, "📦 تم تجهيز Release APK (موقّع)", "success");
     }
   }
 

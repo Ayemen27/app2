@@ -213,7 +213,21 @@
 
 ## التوصيات ذات الأولوية
 
-1. **إصلاح تحميل خط Cairo** - استخدام خط محلي (self-hosted) بدلاً من Google Fonts أو تصحيح رابط التحميل
-2. **إصلاح أو تعطيل اتصال Supabase** - إذا لم يُستخدم، يُفضل إزالته لمنع رسائل الخطأ المتكررة في اللوجات
+1. ~~**إصلاح تحميل خط Cairo**~~ — ✅ تم (خطوط محلية في `client/public/fonts/cairo/`)
+2. ~~**إصلاح أو تعطيل اتصال Supabase**~~ — ✅ تم (حذف SDK + كتم رسائل الخطأ + حذف 5 env vars غير مستخدمة)
 3. **تحسين سرعة الاتصال بقاعدة البيانات البعيدة** - استخدام connection pooling أو تقريب القاعدة جغرافياً
 4. **توحيد لغة رسائل الخطأ** - ترجمة الرسائل الإنجليزية المتبقية للعربية
+
+---
+
+## سجل التنظيف المُنفّذ (2026-03-18)
+
+### Supabase Cleanup
+- حذف `@supabase/supabase-js` من `package.json` (SDK غير مستخدم)
+- حذف 17 رسالة `console.log/warn/error` من `smart-connection-manager.ts` (Supabase silent fail)
+- حذف 5 متغيرات بيئة غير مستخدمة: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_PROJECT_ID`, `SUPABASE_PROJECT_ID`, `SUPABASE_SERVICE_ROLE_KEY`
+
+### Cairo Font Fix
+- استبدال `@font-face` الخاطئ (كان يشير لرابط CSS) بـ 5 ملفات TTF محلية في `client/public/fonts/cairo/`
+- حذف `@import` Google Fonts من `unified-print-styles.css` (الخط محلي الآن)
+- الأوزان المدعومة: 300, 400, 500, 600, 700

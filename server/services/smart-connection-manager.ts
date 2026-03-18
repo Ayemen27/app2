@@ -412,11 +412,7 @@ export class SmartConnectionManager {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseDbPassword = process.env.SUPABASE_DATABASE_PASSWORD || process.env.SSH_PASSWORD;
 
-    // التحقق من تكوين Supabase قبل المحاولة
     if (!supabaseUrl || !supabaseDbPassword) {
-      if (!this.isProduction) {
-        console.log('ℹ️ [Supabase] غير مكون (SUPABASE_URL أو SUPABASE_DATABASE_PASSWORD مفقود)');
-      }
       return;
     }
     
@@ -424,11 +420,9 @@ export class SmartConnectionManager {
       const project = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
       
       if (!project) {
-        console.warn('⚠️ [Supabase] فشل استخراج project ID');
         return;
       }
 
-      // SSL configuration for Supabase
       let sslConfig: any = { rejectUnauthorized: false };
       
       const certPath = './pg_cert.pem';
@@ -440,41 +434,25 @@ export class SmartConnectionManager {
           minVersion: 'TLSv1.2',
           checkServerIdentity: () => undefined
         };
-        console.log('🔒 [Supabase] تم تحميل شهادة SSL');
       }
 
       let connectionString = process.env.DATABASE_URL_SUPABASE;
       const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY;
 
       if (connectionString) {
-        // 🛠️ تحسين رابط Supabase لتجاوز مشاكل DNS (تطبيق نفس منطق db.ts)
-        // نقوم بالتحويل إلى Pooler الجديد aws-0-eu-central-1.pooler.supabase.com
         if (connectionString.includes("supabase.co") || connectionString.includes("pooler.supabase.com")) {
           const projectRefMatch = connectionString.match(/@db\.([^.]+)\.supabase\.co/) || 
                                 connectionString.match(/postgresql:\/\/postgres\.([^:]+):/);
           const projectRef = projectRefMatch ? projectRefMatch[1] : project;
           
           if (projectRef) {
-            console.log(`🔧 [Supabase Fix] تحسين رابط الاتصال للمشروع: ${projectRef}`);
-            // استخراج الأجزاء المهمة من الرابط الحالي لضمان الحفاظ على كلمة المرور والمستخدم
             const urlParts = connectionString.match(/postgresql:\/\/([^:]+):([^@]+)@/);
             if (urlParts) {
-              const user = urlParts[1];
               const password = urlParts[2];
-              
-              // الحل الجذري التقني الصحيح لـ Supabase:
-              // لضمان عمل DNS وتجاوز خطأ Tenant:
-              // 1. المضيف: aws-0-eu-central-1.pooler.supabase.com
-              // 2. المستخدم: postgres.[project-ref]
-              // 3. المنفذ: 6543 (Session Mode)
-              
               const poolerHost = `aws-0-eu-central-1.pooler.supabase.com`;
               const compositeUser = `postgres.${projectRef}`;
               connectionString = `postgresql://${compositeUser}:${password}@${poolerHost}:6543/postgres?pgbouncer=true&connection_limit=1`;
-              
-              console.log(`🔗 [Supabase Fix] تم فرض اتصال Pooler المركب لضمان الربط: ${compositeUser}`);
             } else {
-              // fallback إذا فشل regex الاستخراج
               connectionString = connectionString
                 .replace(`db.${projectRef}.supabase.co:5432`, `aws-0-eu-central-1.pooler.supabase.com:6543`)
                 .replace(`db.${projectRef}.supabase.co`, `aws-0-eu-central-1.pooler.supabase.com`);
@@ -486,7 +464,6 @@ export class SmartConnectionManager {
           }
         }
 
-        console.log('🔗 [Supabase] استخدام رابط الاتصال المباشر المجمع (المحسن)');
         this.supabasePool = new Pool({
           connectionString: connectionString,
           ssl: sslConfig,
@@ -495,11 +472,9 @@ export class SmartConnectionManager {
           connectionTimeoutMillis: 15000
         });
       } else if (supabaseKey && project) {
-        console.log('🔑 [Supabase] استخدام طريقة الاتصال عبر API Key');
-        // استخدام عنوان IPv4 المجمع (Pooler) مع المنفذ 5432 لتجنب مشاكل IPv6
         this.supabasePool = new Pool({
           host: `aws-0-eu-central-1.pooler.supabase.com`,
-          port: 6543, // استخدام منفذ PGBouncer للاستقرار
+          port: 6543,
           database: 'postgres',
           user: `postgres.${project}`,
           password: supabaseDbPassword,
@@ -524,31 +499,19 @@ export class SmartConnectionManager {
 
       this.supabaseDb = drizzle(this.supabasePool, { schema });
 
-      // اختبار الاتصال مع معالجة خطأ Tenant
       try {
         const client = await this.supabasePool.connect();
         await client.query('SELECT 1');
         client.release();
         this.connectionStatus.supabase = true;
-        if (!this.isProduction) {
-          console.log('✅ [Supabase] اتصال Supabase نجح');
-        }
+        console.log('✅ [Supabase] اتصال ثانوي نجح');
       } catch (connError: any) {
-        if (connError.message?.includes('Tenant or user not found')) {
-          console.error('❌ [Supabase Fix] خطأ في هوية المشروع (Tenant not found). يرجى التأكد من أن DATABASE_URL_SUPABASE يحتوي على كلمة المرور الصحيحة لمستخدم postgres.');
-          // تذكير بالخطأ في المحاولات التالية
-          (this as unknown as Record<string, boolean>).supabaseTenantError = true;
-        } else {
-          console.error('❌ [Supabase] فشل اختبار الاتصال:', connError.message);
-        }
+        (this as unknown as Record<string, boolean>).supabaseTenantError = 
+          connError.message?.includes('Tenant or user not found');
         this.connectionStatus.supabase = false;
-        // لا نرمي خطأ هنا لمنع تعطل النظام بالكامل
       }
 
-    } catch (error: any) {
-      if (!this.isProduction) {
-        console.error('❌ [Supabase] فشل اتصال Supabase:', error.message);
-      }
+    } catch {
       this.connectionStatus.supabase = false;
     }
   }

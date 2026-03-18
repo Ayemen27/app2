@@ -60,3 +60,9 @@ id = "O2OkSwEgO0S9aLB6xnP99"
 uri = "file://ANDROID_API_TEST_REPORT.md"
 type = "text"
 title = "تقرير اختبار اتصال Android بالخادم — API Connection Test"
+
+[[outputs]]
+id = "PgWdtnLwjrQeDs96Grv2c"
+uri = "file://ANDROID_FULL_AUDIT_REPORT.md"
+type = "text"
+title = "تقرير الفحص الشامل لتطبيق Android — 10 بنود"

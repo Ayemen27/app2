@@ -38,6 +38,8 @@ import {
   RotateCcw,
   Trash2,
   Shield,
+  Ban,
+  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -51,7 +53,7 @@ interface LogEntry {
 
 interface StepEntry {
   name: string;
-  status: "pending" | "running" | "success" | "failed";
+  status: "pending" | "running" | "success" | "failed" | "cancelled";
   duration?: number;
   startedAt?: string;
 }
@@ -93,6 +95,7 @@ const PIPELINE_LABELS: Record<string, string> = {
   "git-push": "نشر عبر Git (دفع + سحب + بناء)",
   "hotfix": "إصلاح سريع (نشر فوري)",
   "android-build": "بناء تطبيق أندرويد APK",
+  "git-android-build": "Git + بناء أندرويد (دفع + سحب + بناء APK)",
 };
 
 const PIPELINE_LABELS_FULL: Record<string, string> = {
@@ -150,6 +153,7 @@ const STATUS_LABELS: Record<string, string> = {
   running: "جاري التنفيذ",
   success: "ناجح",
   failed: "فشل",
+  cancelled: "ملغي",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -158,6 +162,7 @@ function StatusBadge({ status }: { status: string }) {
     running: { color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20", icon: Loader2, label: STATUS_LABELS.running },
     success: { color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20", icon: CheckCircle2, label: STATUS_LABELS.success },
     failed: { color: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20", icon: XCircle, label: STATUS_LABELS.failed },
+    cancelled: { color: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20", icon: Ban, label: STATUS_LABELS.cancelled },
   };
   const v = variants[status] || variants.pending;
   const Icon = v.icon;
@@ -200,6 +205,7 @@ export default function DeploymentConsole() {
   const [healthData, setHealthData] = useState<{ status: string; checks: Record<string, any> } | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [isCleaning, setIsCleaning] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   const { data: statsData } = useQuery<DeploymentStats>({
     queryKey: ["/api/deployment/stats"],
@@ -232,7 +238,7 @@ export default function DeploymentConsole() {
         pollRetryCountRef.current = 0;
         setLiveDeployment(data);
         setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
-        if (data.status === "success" || data.status === "failed") {
+        if (data.status === "success" || data.status === "failed" || data.status === "cancelled") {
           stopPolling();
           refetchHistory();
           queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
@@ -279,7 +285,7 @@ export default function DeploymentConsole() {
           } else if (payload.type === "deployment_update") {
             setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
 
-            if (payload.data.status === "success" || payload.data.status === "failed") {
+            if (payload.data.status === "success" || payload.data.status === "failed" || payload.data.status === "cancelled") {
               refetchHistory();
               queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
             }
@@ -509,9 +515,13 @@ export default function DeploymentConsole() {
   const viewDeployment = async (id: string) => {
     try {
       const data = await apiRequest(`/api/deployment/${id}`);
+      if (!data) {
+        toast({ title: "فشل تحميل بيانات العملية", description: "لم يتم العثور على العملية", variant: "destructive" });
+        return;
+      }
       setActiveDeploymentId(id);
       setLiveDeployment(data);
-      setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
+      setLiveLogs(Array.isArray(data?.logs) ? data.logs : []);
       userScrolledUp.current = false;
       
       if (data.status === "running") {
@@ -618,6 +628,7 @@ export default function DeploymentConsole() {
                     <SelectItem value="full-deploy" data-testid="option-full-deploy">نشر كامل (ويب + أندرويد)</SelectItem>
                     <SelectItem value="git-push" data-testid="option-git-push">دفع Git وسحب من السيرفر</SelectItem>
                     <SelectItem value="hotfix" data-testid="option-hotfix">إصلاح سريع (نشر فوري)</SelectItem>
+                    <SelectItem value="git-android-build" data-testid="option-git-android-build">Git + بناء أندرويد (دفع + سحب + بناء APK)</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -731,6 +742,7 @@ export default function DeploymentConsole() {
                     const isActive = step.status === "running";
                     const isDone = step.status === "success";
                     const isFailed = step.status === "failed";
+                    const isCancelled = step.status === "cancelled";
 
                     return (
                       <div
@@ -740,11 +752,12 @@ export default function DeploymentConsole() {
                           isActive ? "bg-blue-500/10 border border-blue-500/20" :
                           isDone ? "bg-emerald-500/5 border border-transparent" :
                           isFailed ? "bg-red-500/10 border border-red-500/20" :
+                          isCancelled ? "bg-amber-500/5 border border-amber-500/15 opacity-60" :
                           "bg-transparent border border-transparent opacity-50"
                         }`}
                       >
                         <div className={`h-6 w-6 sm:h-7 sm:w-7 rounded-lg flex items-center justify-center shrink-0 ${
-                          isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : "bg-muted"
+                          isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : isCancelled ? "bg-amber-500/10" : "bg-muted"
                         }`}>
                           {isActive ? (
                             <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
@@ -752,13 +765,15 @@ export default function DeploymentConsole() {
                             <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 dark:text-emerald-400" />
                           ) : isFailed ? (
                             <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-600 dark:text-red-400" />
+                          ) : isCancelled ? (
+                            <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 dark:text-amber-400" />
                           ) : (
                             <StepIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-xs sm:text-sm font-medium truncate ${
-                            isActive ? "text-blue-700 dark:text-blue-300" : isDone ? "text-emerald-700 dark:text-emerald-300" : isFailed ? "text-red-700 dark:text-red-300" : "text-muted-foreground"
+                            isActive ? "text-blue-700 dark:text-blue-300" : isDone ? "text-emerald-700 dark:text-emerald-300" : isFailed ? "text-red-700 dark:text-red-300" : isCancelled ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
                           }`}>
                             {STEP_LABELS[step.name] || step.name.replace(/-/g, " ")}
                           </p>
@@ -858,76 +873,184 @@ export default function DeploymentConsole() {
           <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
             {deployments.length > 0 ? (
               <div className="space-y-2">
-                {deployments.map((d) => (
-                  <button
+                {deployments.map((d) => {
+                  const isExpanded = expandedHistoryId === d.id;
+                  const dSteps = Array.isArray(d.steps) ? d.steps as StepEntry[] : [];
+                  return (
+                  <div
                     key={d.id}
                     data-testid={`deployment-row-${d.buildNumber}`}
-                    onClick={() => viewDeployment(d.id)}
-                    className={`w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2.5 sm:p-3 rounded-lg transition-all hover:bg-muted/50 text-right ${
+                    className={`rounded-lg transition-all text-right ${
                       activeDeploymentId === d.id ? "bg-muted/60 ring-1 ring-blue-500/30" : "bg-muted/20"
                     }`}
                   >
-                    <div className="flex items-center gap-2 justify-between sm:justify-start shrink-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] sm:text-xs font-mono text-muted-foreground">#{d.buildNumber}</span>
-                        <StatusBadge status={d.status} />
+                    <button
+                      onClick={() => setExpandedHistoryId(isExpanded ? null : d.id)}
+                      className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2.5 sm:p-3 hover:bg-muted/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-2 justify-between sm:justify-start shrink-0">
+                        <div className="flex items-center gap-2">
+                          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? "" : "-rotate-90 rtl:rotate-90"}`} />
+                          <span className="text-[10px] sm:text-xs font-mono text-muted-foreground">#{d.buildNumber}</span>
+                          <StatusBadge status={d.status} />
+                        </div>
+                        <div className="flex items-center gap-1.5 sm:hidden text-[10px] text-muted-foreground">
+                          {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
+                          <span dir="ltr">{new Date(d.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                          {d.status !== "running" && (
+                            <button
+                              data-testid={`button-delete-mobile-${d.buildNumber}`}
+                              className="p-1 text-red-500 hover:text-red-400"
+                              onClick={(e) => handleDeleteDeployment(d.id, e)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5 sm:hidden text-[10px] text-muted-foreground">
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[9px] sm:text-[10px] border-border text-muted-foreground shrink-0">
+                            {PIPELINE_LABELS_FULL[d.pipeline] || d.pipeline}
+                          </Badge>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground font-mono">v{d.version}</span>
+                          {d.commitMessage && (
+                            <span className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[150px] sm:max-w-none">{d.commitMessage}</span>
+                          )}
+                        </div>
+                        {d.status === "failed" && d.errorMessage && (
+                          <p className="text-[10px] text-red-500 dark:text-red-400 truncate max-w-[250px] sm:max-w-[400px] mt-0.5" data-testid={`text-error-${d.buildNumber}`}>
+                            <AlertCircle className="h-3 w-3 inline-block ml-0.5" />
+                            {d.errorMessage}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
                         {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
                         <span dir="ltr">{new Date(d.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                        {d.status === "success" && (
+                          <Button
+                            data-testid={`button-rollback-${d.buildNumber}`}
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 hover:bg-amber-500/10"
+                            onClick={(e) => { e.stopPropagation(); handleRollback(d.id); }}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                        )}
                         {d.status !== "running" && (
-                          <button
-                            data-testid={`button-delete-mobile-${d.buildNumber}`}
-                            className="p-1 text-red-500 hover:text-red-400"
+                          <Button
+                            data-testid={`button-delete-${d.buildNumber}`}
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-red-500/10"
                             onClick={(e) => handleDeleteDeployment(d.id, e)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         )}
                       </div>
-                    </div>
+                    </button>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-[9px] sm:text-[10px] border-border text-muted-foreground shrink-0">
-                          {PIPELINE_LABELS_FULL[d.pipeline] || d.pipeline}
-                        </Badge>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground font-mono">v{d.version}</span>
-                        {d.commitMessage && (
-                          <span className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[150px] sm:max-w-none">{d.commitMessage}</span>
+                    {isExpanded && (
+                      <div className="px-3 sm:px-4 pb-3 border-t border-border/50 mt-1 pt-2 space-y-2" data-testid={`deployment-details-${d.buildNumber}`}>
+                        <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-muted-foreground">
+                          <span className="font-mono" dir="ltr">ID: {d.id.slice(0, 8)}</span>
+                          <span>•</span>
+                          <span>{d.environment}</span>
+                          <span>•</span>
+                          <span>{d.branch || "main"}</span>
+                          {d.commitHash && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono" dir="ltr">{d.commitHash.slice(0, 7)}</span>
+                            </>
+                          )}
+                          {d.artifactSize && (
+                            <>
+                              <span>•</span>
+                              <span>APK: {d.artifactSize}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {dSteps.length > 0 && (
+                          <div className="space-y-0.5">
+                            {dSteps.map((step) => {
+                              const isDone = step.status === "success";
+                              const isFailed = step.status === "failed";
+                              const isCancelledStep = step.status === "cancelled";
+                              return (
+                                <div key={step.name} className="flex items-center gap-2 py-0.5">
+                                  {isDone ? (
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                                  ) : isFailed ? (
+                                    <XCircle className="h-3 w-3 text-red-500 shrink-0" />
+                                  ) : isCancelledStep ? (
+                                    <Ban className="h-3 w-3 text-amber-500/60 shrink-0" />
+                                  ) : (
+                                    <Circle className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                                  )}
+                                  <span className={`text-[10px] sm:text-xs ${
+                                    isDone ? "text-emerald-600 dark:text-emerald-400" :
+                                    isFailed ? "text-red-600 dark:text-red-400" :
+                                    isCancelledStep ? "text-amber-600/60 dark:text-amber-400/60 line-through" :
+                                    "text-muted-foreground/50"
+                                  }`}>
+                                    {STEP_LABELS[step.name] || step.name}
+                                  </span>
+                                  {step.duration && (
+                                    <span className="text-[9px] text-muted-foreground font-mono mr-auto" dir="ltr">
+                                      {formatDuration(step.duration)}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
-                      </div>
-                    </div>
 
-                    <div className="hidden sm:flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-                      {d.duration && <span className="font-mono">{formatDuration(d.duration)}</span>}
-                      <span dir="ltr">{new Date(d.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                      {d.status === "success" && (
-                        <Button
-                          data-testid={`button-rollback-${d.buildNumber}`}
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-amber-600 dark:text-amber-400 hover:text-amber-500 dark:hover:text-amber-300 hover:bg-amber-500/10"
-                          onClick={(e) => { e.stopPropagation(); handleRollback(d.id); }}
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                        </Button>
-                      )}
-                      {d.status !== "running" && (
-                        <Button
-                          data-testid={`button-delete-${d.buildNumber}`}
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-red-500/10"
-                          onClick={(e) => handleDeleteDeployment(d.id, e)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                      <ChevronRight className="h-4 w-4 opacity-30" />
-                    </div>
-                  </button>
-                ))}
+                        {d.status === "failed" && d.errorMessage && (
+                          <div className="bg-red-500/10 border border-red-500/20 rounded-md p-2" data-testid={`error-detail-${d.buildNumber}`}>
+                            <p className="text-[10px] sm:text-xs text-red-600 dark:text-red-400 flex items-start gap-1.5">
+                              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                              <span className="break-all">{d.errorMessage}</span>
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button
+                            data-testid={`button-view-logs-${d.buildNumber}`}
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[10px] sm:text-xs gap-1.5"
+                            onClick={() => viewDeployment(d.id)}
+                          >
+                            <Terminal className="h-3 w-3" />
+                            عرض السجل الكامل
+                          </Button>
+                          {d.status === "success" && (
+                            <Button
+                              data-testid={`button-rollback-expanded-${d.buildNumber}`}
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[10px] sm:text-xs gap-1.5 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              onClick={() => handleRollback(d.id)}
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              تراجع
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-6 sm:py-8 text-muted-foreground">

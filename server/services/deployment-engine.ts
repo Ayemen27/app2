@@ -1,16 +1,23 @@
 import { db } from "../db.js";
 import { buildDeployments, deploymentEvents } from "@shared/schema";
 import { eq, desc, sql, count } from "drizzle-orm";
-import { exec, spawn } from "child_process";
+import { exec, spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
 import type { Response } from "express";
 
 const execAsync = promisify(exec);
 
 type LogEntry = { timestamp: string; message: string; type: "info" | "error" | "success" | "warn" | "step" };
-type StepEntry = { name: string; status: "pending" | "running" | "success" | "failed"; duration?: number; startedAt?: string };
+type StepEntry = { name: string; status: "pending" | "running" | "success" | "failed" | "cancelled"; duration?: number; startedAt?: string };
 
-type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "git-push" | "hotfix";
+class CancellationError extends Error {
+  constructor(message = "Deployment cancelled by user") {
+    super(message);
+    this.name = "CancellationError";
+  }
+}
+
+type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "git-push" | "hotfix" | "git-android-build";
 
 interface DeploymentConfig {
   pipeline: Pipeline;
@@ -28,6 +35,7 @@ const PIPELINE_STEPS: Record<Pipeline, string[]> = {
   "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "build-web", "hotfix-sync", "restart-pm2", "verify"],
+  "git-android-build": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
 };
 
 const activeSSEClients = new Map<string, Response[]>();
@@ -54,6 +62,70 @@ function broadcastGlobal(data: any) {
 }
 
 export class DeploymentEngine {
+  private cancelFlags = new Map<string, boolean>();
+  private activeProcesses = new Map<string, Set<ChildProcess>>();
+
+  private isCancelled(deploymentId: string): boolean {
+    return this.cancelFlags.get(deploymentId) === true;
+  }
+
+  private async markRemainingStepsCancelled(deploymentId: string, currentStepIndex: number, pipelineSteps: string[]) {
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    if (!deployment) return;
+
+    const steps = (deployment.steps as StepEntry[]).map((s, idx) => {
+      if (idx > currentStepIndex && s.status === "pending") {
+        return { ...s, status: "cancelled" as const };
+      }
+      return s;
+    });
+
+    await db.update(buildDeployments).set({ steps }).where(eq(buildDeployments.id, deploymentId));
+    broadcastToClients(deploymentId, { type: "steps_cancelled", data: { fromIndex: currentStepIndex + 1 } });
+  }
+
+  private terminateActiveProcesses(deploymentId: string) {
+    const processes = this.activeProcesses.get(deploymentId);
+    if (!processes) return;
+
+    for (const child of processes) {
+      try {
+        child.kill("SIGTERM");
+        setTimeout(() => {
+          try {
+            if (!child.killed) {
+              child.kill("SIGKILL");
+            }
+          } catch {}
+        }, 5000);
+      } catch {}
+    }
+  }
+
+  private cleanupDeploymentState(deploymentId: string) {
+    this.cancelFlags.delete(deploymentId);
+    this.activeProcesses.delete(deploymentId);
+  }
+
+  private registerChildProcess(deploymentId: string, child: ChildProcess) {
+    if (!this.activeProcesses.has(deploymentId)) {
+      this.activeProcesses.set(deploymentId, new Set());
+    }
+    this.activeProcesses.get(deploymentId)!.add(child);
+
+    child.on("close", () => {
+      const procs = this.activeProcesses.get(deploymentId);
+      if (procs) {
+        procs.delete(child);
+      }
+    });
+    child.on("error", () => {
+      const procs = this.activeProcesses.get(deploymentId);
+      if (procs) {
+        procs.delete(child);
+      }
+    });
+  }
 
   async recoverOrphanedDeployments() {
     try {
@@ -113,6 +185,7 @@ export class DeploymentEngine {
       "full-deploy": "web",
       "git-push": "web",
       "hotfix": "hotfix",
+      "git-android-build": "android",
     };
 
     const [deployment] = await db.insert(buildDeployments).values({
@@ -145,6 +218,11 @@ export class DeploymentEngine {
 
     try {
       for (let i = 0; i < pipelineSteps.length; i++) {
+        if (this.isCancelled(deploymentId)) {
+          await this.markRemainingStepsCancelled(deploymentId, i - 1, pipelineSteps);
+          throw new CancellationError();
+        }
+
         const stepName = pipelineSteps[i];
         const progress = Math.round(((i) / pipelineSteps.length) * 100);
 
@@ -167,7 +245,15 @@ export class DeploymentEngine {
           await this.addEvent(deploymentId, "step_complete", `Step ${stepName} completed`, { duration: stepDuration });
         } catch (stepError: any) {
           const stepDuration = Date.now() - stepStart;
+
+          if (stepError instanceof CancellationError || this.isCancelled(deploymentId)) {
+            await this.updateStepStatus(deploymentId, stepName, "cancelled", stepDuration);
+            await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
+            throw new CancellationError();
+          }
+
           await this.updateStepStatus(deploymentId, stepName, "failed", stepDuration);
+          await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
           await this.addLog(deploymentId, `Step ${stepName} failed: ${stepError.message}`, "error");
           await this.addEvent(deploymentId, "step_failed", `Step ${stepName} failed: ${stepError.message}`);
           throw stepError;
@@ -187,13 +273,17 @@ export class DeploymentEngine {
 
     } catch (error: any) {
       const totalDuration = Date.now() - startTime;
+      const isCancelled = error instanceof CancellationError || this.isCancelled(deploymentId);
+
       await this.updateDeployment(deploymentId, {
-        status: "failed",
+        status: isCancelled ? "cancelled" : "failed",
         duration: totalDuration,
         endTime: new Date(),
-        errorMessage: error.message,
+        errorMessage: isCancelled ? "Cancelled by user" : error.message,
       });
-      await this.addEvent(deploymentId, "deployment_failed", error.message);
+      await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", isCancelled ? "Deployment cancelled by user" : error.message);
+    } finally {
+      this.cleanupDeploymentState(deploymentId);
     }
   }
 
@@ -292,6 +382,8 @@ export class DeploymentEngine {
         env: { ...process.env },
       });
 
+      this.registerChildProcess(deploymentId, child);
+
       let output = "";
       let lineBuffer = "";
       const timer = setTimeout(() => {
@@ -320,6 +412,12 @@ export class DeploymentEngine {
       child.on("close", (code) => {
         clearTimeout(timer);
         if (lineBuffer.trim()) processLine(lineBuffer);
+
+        if (this.isCancelled(deploymentId)) {
+          reject(new CancellationError());
+          return;
+        }
+
         if (code === 0 || code === null) {
           resolve(output);
         } else {
@@ -331,6 +429,10 @@ export class DeploymentEngine {
 
       child.on("error", (err) => {
         clearTimeout(timer);
+        if (this.isCancelled(deploymentId)) {
+          reject(new CancellationError());
+          return;
+        }
         this.addLog(deploymentId, `[${label}] Error: ${this.maskSecrets(err.message)}`, "error").catch(() => {});
         reject(new Error(`${label} failed: ${this.maskSecrets(err.message)}`));
       });
@@ -953,11 +1055,31 @@ export class DeploymentEngine {
   }
 
   async cancelDeployment(deploymentId: string) {
-    await this.updateDeployment(deploymentId, {
-      status: "failed",
-      errorMessage: "Cancelled by user",
-      endTime: new Date(),
-    });
+    this.cancelFlags.set(deploymentId, true);
+
+    this.terminateActiveProcesses(deploymentId);
+
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    if (deployment) {
+      const steps = deployment.steps as StepEntry[];
+      const updatedSteps = steps.map(s => {
+        if (s.status === "pending") {
+          return { ...s, status: "cancelled" as const };
+        }
+        if (s.status === "running") {
+          return { ...s, status: "cancelled" as const };
+        }
+        return s;
+      });
+
+      await db.update(buildDeployments).set({
+        steps: updatedSteps,
+        status: "cancelled",
+        errorMessage: "Cancelled by user",
+        endTime: new Date(),
+      }).where(eq(buildDeployments.id, deploymentId));
+    }
+
     await this.addLog(deploymentId, "Deployment cancelled by user", "warn");
     await this.addEvent(deploymentId, "deployment_cancelled", "Deployment cancelled by user");
   }

@@ -12,3 +12,9 @@ id = "Q5BxQCbVsWgwjxRECJOzf"
 uri = "file://reports/phase3-alignment-test-results-ar.md"
 type = "text"
 title = "تقرير نتائج اختبار التطابق - بدون فقدان بيانات"
+
+[[outputs]]
+id = "kQZIKH1TEyjurHY2T8jME"
+uri = "file://.local/financial-audit-report.md"
+type = "text"
+title = "تقرير تحليل شامل: منع تكرار العمليات المالية"

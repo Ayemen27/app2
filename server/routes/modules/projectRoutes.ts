@@ -442,7 +442,8 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
         ) FROM material_purchases WHERE purchase_date = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد')), 0) as total_material_costs,
         COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses WHERE date = $1), 0) as total_transportation,
         COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1), 0) as total_worker_transfers,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses WHERE date = $1), 0) as total_misc_expenses
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses WHERE date = $1), 0) as total_misc_expenses,
+        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM supplier_payments WHERE payment_date = $1), 0) as total_supplier_payments
     `, [effectiveDate]);
     const overallSums = overallSumsQuery.rows[0];
     const overallTotalFundTransfers = Number(overallSums.total_fund_transfers);
@@ -451,9 +452,10 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
     const overallTotalTransportation = Number(overallSums.total_transportation);
     const overallTotalWorkerTransfers = Number(overallSums.total_worker_transfers);
     const overallTotalMiscExpenses = Number(overallSums.total_misc_expenses);
+    const overallTotalSupplierPayments = Number(overallSums.total_supplier_payments);
 
     const overallTotalIncome = overallTotalFundTransfers;
-    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;
+    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses + overallTotalSupplierPayments;
     const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
 
     // إنشاء مصفوفات مسطحة لجميع البيانات (للتوافق مع الكود القديم)
@@ -2395,13 +2397,17 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
     // حساب الإجماليات العامة
     const overallTotalFundTransfers = fundTransfersResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
     const overallTotalWorkerWages = workerAttendanceResult.reduce((sum: number, w: any) => sum + parseFloat(w.paidAmount || '0'), 0);
-    const overallTotalMaterialCosts = materialPurchasesResult.reduce((sum: number, m: any) => sum + parseFloat(m.totalAmount || '0'), 0);
+    const overallTotalMaterialCosts = materialPurchasesResult
+      .filter((m: any) => m.purchaseType === 'نقد' || m.purchaseType === 'نقداً')
+      .reduce((sum: number, m: any) => sum + (parseFloat(m.paidAmount || '0') > 0 ? parseFloat(m.paidAmount || '0') : parseFloat(m.totalAmount || '0')), 0);
     const overallTotalTransportation = transportationResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
     const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0);
     const overallTotalMiscExpenses = miscExpensesResult.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0);
+    const supplierPayResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1`, [project_id]);
+    const overallTotalSupplierPayments2 = parseFloat(supplierPayResult.rows[0]?.total || '0');
 
     const overallTotalIncome = overallTotalFundTransfers;
-    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses;
+    const overallTotalExpenses = overallTotalWorkerWages + overallTotalMaterialCosts + overallTotalTransportation + overallTotalWorkerTransfers + overallTotalMiscExpenses + overallTotalSupplierPayments2;
     const overallRemainingBalance = overallTotalIncome - overallTotalExpenses;
 
     const responseData = {

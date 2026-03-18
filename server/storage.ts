@@ -3295,6 +3295,11 @@ export class DatabaseStorage implements IStorage {
         .insert(supplierPayments)
         .values(payment)
         .returning();
+      if (newPayment.projectId && newPayment.paymentDate) {
+        const { markInvalid } = await import('./services/SummaryRebuildService');
+        await markInvalid(newPayment.projectId, String(newPayment.paymentDate).substring(0, 10));
+        this.updateDailySummaryForDate(newPayment.projectId, String(newPayment.paymentDate).substring(0, 10)).catch(console.error);
+      }
       return newPayment;
     } catch (error) {
       console.error('Error creating supplier payment:', error);
@@ -3304,11 +3309,26 @@ export class DatabaseStorage implements IStorage {
 
   async updateSupplierPayment(id: string, payment: Partial<InsertSupplierPayment>): Promise<SupplierPayment | undefined> {
     try {
+      const oldResult = await db.select().from(supplierPayments).where(eq(supplierPayments.id, id)).limit(1);
+      const oldPayment = oldResult[0];
       const [updated] = await db
         .update(supplierPayments)
         .set(payment)
         .where(eq(supplierPayments.id, id))
         .returning();
+      if (updated) {
+        const { markInvalid } = await import('./services/SummaryRebuildService');
+        if (oldPayment?.projectId && oldPayment?.paymentDate) {
+          const oldDate = String(oldPayment.paymentDate).substring(0, 10);
+          await markInvalid(oldPayment.projectId, oldDate);
+          this.updateDailySummaryForDate(oldPayment.projectId, oldDate).catch(console.error);
+        }
+        if (updated.projectId && updated.paymentDate) {
+          const newDate = String(updated.paymentDate).substring(0, 10);
+          await markInvalid(updated.projectId, newDate);
+          this.updateDailySummaryForDate(updated.projectId, newDate).catch(console.error);
+        }
+      }
       return updated || undefined;
     } catch (error) {
       console.error('Error updating supplier payment:', error);
@@ -3318,7 +3338,15 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSupplierPayment(id: string): Promise<void> {
     try {
+      const oldResult = await db.select().from(supplierPayments).where(eq(supplierPayments.id, id)).limit(1);
+      const oldPayment = oldResult[0];
       await db.delete(supplierPayments).where(eq(supplierPayments.id, id));
+      if (oldPayment?.projectId && oldPayment?.paymentDate) {
+        const { markInvalid } = await import('./services/SummaryRebuildService');
+        const oldDate = String(oldPayment.paymentDate).substring(0, 10);
+        await markInvalid(oldPayment.projectId, oldDate);
+        this.updateDailySummaryForDate(oldPayment.projectId, oldDate).catch(console.error);
+      }
     } catch (error) {
       console.error('Error deleting supplier payment:', error);
       throw error;

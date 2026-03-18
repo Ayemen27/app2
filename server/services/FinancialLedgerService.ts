@@ -396,13 +396,8 @@ export class FinancialLedgerService {
 
   static async invalidateSummaries(project_id: string, fromDate: string, reason: string, sourceTable?: string, sourceId?: string) {
     try {
-      await db.insert(summaryInvalidations).values({
-        project_id,
-        invalidatedFrom: fromDate,
-        reason,
-        sourceTable: sourceTable || undefined,
-        sourceId: sourceId || undefined,
-      });
+      const { markInvalid } = await import('./SummaryRebuildService');
+      await markInvalid(project_id, fromDate);
       console.log(`🔄 [Invalidation] أُبطلت ملخصات ${project_id} من ${fromDate}: ${reason}`);
     } catch (error) {
       console.error('⚠️ [Invalidation] فشل في إبطال الملخصات:', error);
@@ -451,6 +446,8 @@ export class FinancialLedgerService {
         SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date <= $2::date
         UNION ALL
         SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date <= $2::date
+        UNION ALL
+        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date <= $2::date
       )
       SELECT 
         COALESCE((SELECT SUM(total) FROM income), 0) - COALESCE((SELECT SUM(total) FROM expenses), 0) as balance

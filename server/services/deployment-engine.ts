@@ -91,14 +91,21 @@ export class DeploymentEngine {
 
     for (const child of processes) {
       try {
+        const exited = child.exitCode !== null || child.signalCode !== null;
+        if (exited) continue;
+
         child.kill("SIGTERM");
-        setTimeout(() => {
+
+        const killTimer = setTimeout(() => {
           try {
-            if (!child.killed) {
+            const stillAlive = child.exitCode === null && child.signalCode === null;
+            if (stillAlive) {
               child.kill("SIGKILL");
             }
           } catch {}
         }, 5000);
+
+        child.once("close", () => clearTimeout(killTimer));
       } catch {}
     }
   }
@@ -350,7 +357,7 @@ export class DeploymentEngine {
   }
 
   private sanitizeShellArg(value: string): string {
-    return value.replace(/['"\\$`!#&|;(){}<>\n\r]/g, '');
+    return value.replace(/[^a-zA-Z0-9._\-@]/g, '');
   }
 
   private buildSSHCommand(): string {

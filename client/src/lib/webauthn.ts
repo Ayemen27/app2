@@ -1,24 +1,15 @@
 import { ENV } from './env';
 import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { Capacitor } from '@capacitor/core';
+import NativeBiometric from '@/lib/native-biometric';
+
+const CREDENTIAL_SERVER = 'axion-app2';
 
 function isNativePlatform(): boolean {
-  const cap = (window as any).Capacitor;
-  return !!(cap?.isNativePlatform?.() || cap?.isNative === true ||
-    cap?.getPlatform?.() === 'android' || cap?.getPlatform?.() === 'ios');
-}
-
-function getNativeBiometricPlugin(): any | null {
   try {
-    const cap = (window as any).Capacitor;
-    if (cap?.Plugins?.NativeBiometric) {
-      return cap.Plugins.NativeBiometric;
-    }
-    if (cap?.registerPlugin) {
-      return cap.registerPlugin('NativeBiometric');
-    }
-    return null;
+    return Capacitor.isNativePlatform();
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -50,9 +41,7 @@ function base64urlToBuffer(base64url: string): ArrayBuffer {
 export async function isBiometricAvailable(): Promise<boolean> {
   if (isNativePlatform()) {
     try {
-      const plugin = getNativeBiometricPlugin();
-      if (!plugin) return false;
-      const result = await plugin.isAvailable();
+      const result = await NativeBiometric.isAvailable();
       return result.isAvailable;
     } catch {
       return false;
@@ -108,13 +97,10 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
 
     if (isNativePlatform()) {
       try {
-        const plugin = getNativeBiometricPlugin();
-        if (plugin) {
-          const creds = await plugin.getCredentials({ server: 'axion-app2' });
-          if (creds?.username) {
-            localStorage.setItem('biometric_credential_registered', 'true');
-            return true;
-          }
+        const creds = await NativeBiometric.getCredentials({ server: CREDENTIAL_SERVER });
+        if (creds?.username) {
+          localStorage.setItem('biometric_credential_registered', 'true');
+          return true;
         }
       } catch {
       }
@@ -149,17 +135,12 @@ export async function loginWithBiometric(email?: string): Promise<any> {
 }
 
 async function registerBiometricNative(accessToken: string): Promise<{ success: boolean; message: string }> {
-  const plugin = getNativeBiometricPlugin();
-  if (!plugin) {
-    throw new Error('البصمة غير مدعومة على هذا الجهاز');
-  }
-
-  const available = await plugin.isAvailable();
+  const available = await NativeBiometric.isAvailable();
   if (!available.isAvailable) {
     throw new Error('البصمة غير متاحة على هذا الجهاز');
   }
 
-  await plugin.verifyIdentity({
+  await NativeBiometric.verifyIdentity({
     reason: 'تسجيل البصمة لتطبيق Axion',
     title: 'تسجيل البصمة',
     subtitle: 'ضع بصمتك لتفعيل تسجيل الدخول السريع',
@@ -182,10 +163,10 @@ async function registerBiometricNative(accessToken: string): Promise<{ success: 
   }
 
   const userData = await meRes.json();
-  const userEmail = userData.user?.email || userData.email || email || '';
+  const userEmail = userData.user?.email || userData.email || '';
 
-  await plugin.setCredentials({
-    server: 'axion-app2',
+  await NativeBiometric.setCredentials({
+    server: CREDENTIAL_SERVER,
     username: userEmail,
     password: accessToken,
   });
@@ -197,12 +178,7 @@ async function registerBiometricNative(accessToken: string): Promise<{ success: 
 }
 
 async function loginWithBiometricNative(email?: string): Promise<any> {
-  const plugin = getNativeBiometricPlugin();
-  if (!plugin) {
-    throw new Error('البصمة غير مدعومة على هذا الجهاز');
-  }
-
-  await plugin.verifyIdentity({
+  await NativeBiometric.verifyIdentity({
     reason: 'تسجيل الدخول بالبصمة',
     title: 'تسجيل الدخول',
     subtitle: 'ضع بصمتك للمتابعة',
@@ -211,7 +187,7 @@ async function loginWithBiometricNative(email?: string): Promise<any> {
     maxAttempts: 3,
   });
 
-  const creds = await plugin.getCredentials({ server: 'axion-app2' });
+  const creds = await NativeBiometric.getCredentials({ server: CREDENTIAL_SERVER });
   if (!creds?.password) {
     const noCredError = new Error('لم يتم تسجيل البصمة بعد. سجّل الدخول بكلمة المرور أولاً ثم فعّل البصمة من الإعدادات');
     (noCredError as any).code = 'NO_CREDENTIALS';
@@ -237,7 +213,7 @@ async function loginWithBiometricNative(email?: string): Promise<any> {
   if (!refreshRes.ok) {
     localStorage.removeItem('biometric_credential_registered');
     localStorage.removeItem('biometric_user_email');
-    try { await plugin.deleteCredentials({ server: 'axion-app2' }); } catch {}
+    try { await NativeBiometric.deleteCredentials({ server: CREDENTIAL_SERVER }); } catch {}
     const expiredError = new Error('انتهت صلاحية الجلسة. سجّل الدخول بكلمة المرور مرة أخرى');
     (expiredError as any).code = 'TOKEN_EXPIRED';
     throw expiredError;
@@ -247,8 +223,8 @@ async function loginWithBiometricNative(email?: string): Promise<any> {
 
   if (authResult.accessToken || authResult.token) {
     const newToken = authResult.accessToken || authResult.token;
-    await plugin.setCredentials({
-      server: 'axion-app2',
+    await NativeBiometric.setCredentials({
+      server: CREDENTIAL_SERVER,
       username: storedEmail,
       password: newToken,
     });

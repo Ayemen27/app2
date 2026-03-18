@@ -329,9 +329,13 @@ export default function DeploymentConsole() {
   }, [refetchHistory, queryClient, startPolling, stopPolling]);
 
   useEffect(() => {
-    if (activeDeploymentId) {
-      connectSSE(activeDeploymentId);
-      startPolling(activeDeploymentId);
+    const syntheticIds = ["health-check", "cleanup"];
+    if (activeDeploymentId && !syntheticIds.includes(activeDeploymentId)) {
+      const isLiveDeploymentRunning = liveDeployment?.status === "running";
+      if (isLiveDeploymentRunning || !liveDeployment) {
+        connectSSE(activeDeploymentId);
+        startPolling(activeDeploymentId);
+      }
     }
     return () => {
       eventSourceRef.current?.close();

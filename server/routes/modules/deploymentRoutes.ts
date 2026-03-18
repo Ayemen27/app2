@@ -59,6 +59,12 @@ router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Resp
     return;
   }
 
+  const validEnvs = ["production", "staging"];
+  if (!validEnvs.includes(environment)) {
+    res.status(400).json({ error: "Invalid environment" });
+    return;
+  }
+
   const androidPipelines = ["android-build", "full-deploy", "git-android-build", "android-build-test"];
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
   const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;

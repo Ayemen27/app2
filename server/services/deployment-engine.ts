@@ -31,7 +31,7 @@ interface DeploymentConfig {
 
 const PIPELINE_STEPS: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "git-push", "pull-server", "build-web", "transfer", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "android-build": ["validate", "git-push", "pull-server", "install-deps", "build-web", "transfer", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact"],
   "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "build-web", "hotfix-sync", "restart-pm2", "verify"],

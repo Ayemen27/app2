@@ -50,6 +50,13 @@ function checkAccess(accessReq: ProjectAccessRequest, projectId: string | null):
 wellExpenseRouter.get('/:well_id', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.well_id);
+    if (isNaN(well_id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid wellId parameter',
+        message: 'معرّف البئر يجب أن يكون رقماً صحيحاً'
+      });
+    }
     const accessReq = req as ProjectAccessRequest;
 
     const projectId = await getWellProjectId(well_id);
@@ -217,6 +224,13 @@ wellExpenseRouter.post('/link', async (req: Request, res: Response) => {
 wellExpenseRouter.delete('/:expenseId', async (req: Request, res: Response) => {
   try {
     const expenseId = parseInt(req.params.expenseId);
+    if (isNaN(expenseId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid expenseId parameter',
+        message: 'معرّف المصروف يجب أن يكون رقماً صحيحاً'
+      });
+    }
 
     const accessReq = req as ProjectAccessRequest;
     const expenseRecord = await db.select({ well_id: wellExpenses.well_id })
@@ -255,6 +269,13 @@ wellExpenseRouter.delete('/:expenseId', async (req: Request, res: Response) => {
 wellExpenseRouter.get('/cost-report/:well_id', async (req: Request, res: Response) => {
   try {
     const well_id = parseInt(req.params.well_id);
+    if (isNaN(well_id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid wellId parameter',
+        message: 'معرّف البئر يجب أن يكون رقماً صحيحاً'
+      });
+    }
 
     const accessReq = req as ProjectAccessRequest;
     const projectId = await getWellProjectId(well_id);

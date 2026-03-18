@@ -517,7 +517,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
           .limit(1);
 
         if (user.length && user[0].is_active) {
-          req.user = {
+          (req as any).user = {
             user_id: user[0].id,
             email: user[0].email,
             first_name: user[0].first_name || undefined,

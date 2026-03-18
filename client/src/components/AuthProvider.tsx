@@ -830,7 +830,7 @@ export function useAuthenticatedRequest() {
 
   return async (url: string, options: RequestInit = {}): Promise<Response> => {
     const method = ((options.method || 'GET') as string).toUpperCase();
-    const replayHeaders = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
+    const replayHeaders: Record<string, string> = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
     const response = await fetch(url, {
       ...options,
       credentials: getFetchCredentials(),
@@ -845,7 +845,7 @@ export function useAuthenticatedRequest() {
     if (response.status === 401 || response.status === 403) {
       const refreshed = await refreshToken();
       if (refreshed) {
-        const retryReplayHeaders = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
+        const retryReplayHeaders: Record<string, string> = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
         return fetch(url, {
           ...options,
           credentials: getFetchCredentials(),

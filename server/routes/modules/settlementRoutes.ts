@@ -723,7 +723,7 @@ settlementRouter.delete('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const accessReq = req as ProjectAccessRequest;
     const accessibleProjectIds = accessReq.accessibleProjectIds || [];
-    const userId = getAuthUser(req)?.id || null;
+    const userId = getAuthUser(req)?.user_id || null;
 
     const headerResult = await pool.query(
       `SELECT * FROM worker_settlements WHERE id = $1`,

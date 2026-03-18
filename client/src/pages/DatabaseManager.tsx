@@ -35,7 +35,7 @@ export default function DatabaseManager() {
   const [selectedSource, setSelectedSource] = useState("active");
 
   const fetchWithAuth = async (url: string, method: string = "GET", body?: any) => {
-    const replayHeaders = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
+    const replayHeaders: Record<string, string> = method !== 'GET' ? { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } : {};
     const options: RequestInit = {
       method,
       credentials: getFetchCredentials(),

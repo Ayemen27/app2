@@ -376,6 +376,8 @@ async function rebuildProjectSummaries(projectId: string): Promise<void> {
   }
 }
 
+export { markInvalid, ensureValidSummary, rebuildProjectSummaries };
+
 export const SummaryRebuildService = {
   markInvalid,
   ensureValidSummary,

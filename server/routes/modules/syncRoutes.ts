@@ -805,7 +805,7 @@ function sanitizeColumns(
 const batchOperationSchema = z.object({
   action: z.enum(['POST', 'PATCH', 'PUT', 'DELETE']),
   endpoint: z.string().min(1).max(500),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
   _metadata: z.object({
     clientTimestamp: z.string().optional(),
   }).optional(),
@@ -893,7 +893,8 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
 
     for (let i = 0; i < operations.length; i++) {
       const op = operations[i];
-      const { action, endpoint, payload } = op;
+      const { action, endpoint } = op;
+      const payload = op.payload as Record<string, any> | undefined;
       const opStartTime = Date.now();
 
       if (!action || !endpoint) {

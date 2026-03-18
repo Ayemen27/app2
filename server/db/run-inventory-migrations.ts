@@ -131,11 +131,12 @@ export async function runInventoryMigrations() {
             );
             itemId = newItem[0].id;
           }
-          itemMap.set(itemKey, itemId);
+          itemMap.set(itemKey, itemId!);
         }
 
         const qty = parseFloat(p.quantity) || 0;
         const unitCost = parseFloat(p.unit_price) || 0;
+        if (!itemId) continue;
 
         const { rows: newLot } = await client.query(
           `INSERT INTO inventory_lots (item_id, supplier_id, purchase_id, received_qty, remaining_qty, unit_cost, receipt_date, project_id, notes)

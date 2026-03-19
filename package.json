@@ -1,6 +1,6 @@
 {
   "name": "rest-express",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -111,6 +111,7 @@
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.6.2",
+    "capacitor-native-biometric": "^4.2.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

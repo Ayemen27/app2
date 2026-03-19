@@ -1109,7 +1109,7 @@ export class DeploymentEngine {
       deploymentId,
       `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -20 && echo 'BUILD_OK'"`,
       "Server Build",
-      300000
+      600000
     );
 
     const verifyBuild = await this.execWithLog(

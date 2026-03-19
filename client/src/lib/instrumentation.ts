@@ -1,5 +1,5 @@
 import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { BatchSpanProcessor, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { Resource } from '@opentelemetry/resources';
@@ -15,6 +15,12 @@ async function initializeInstrumentation() {
     App.getInfo().catch(() => ({})),
   ]);
 
+  const exporter = new OTLPTraceExporter({
+    url: '/api/v1/traces',
+  });
+
+  const spanProcessor = new BatchSpanProcessor(exporter as any);
+
   const provider = new WebTracerProvider({
     resource: new Resource({
       [SemanticResourceAttributes.SERVICE_NAME]: 'aiops-frontend',
@@ -24,17 +30,9 @@ async function initializeInstrumentation() {
       'app.version': (appInfo as any).version || 'unknown',
       'app.build': (appInfo as any).build || 'unknown',
     }) as any,
-  });
+    spanProcessors: [spanProcessor],
+  } as any);
 
-  const exporter = new OTLPTraceExporter({
-    url: '/api/v1/traces',
-  });
-
-  if (typeof (provider as any).addSpanProcessor === 'function') {
-    (provider as any).addSpanProcessor(new BatchSpanProcessor(exporter as any));
-  } else {
-    console.warn('addSpanProcessor is not available on provider, skipping BatchSpanProcessor registration.');
-  }
   provider.register();
 
   registerInstrumentations({
@@ -48,10 +46,6 @@ async function initializeInstrumentation() {
       new XMLHttpRequestInstrumentation(),
     ],
   });
-
-  console.log('OTEL Frontend Instrumentation Initialized with Device Info:', deviceInfo);
 }
 
-initializeInstrumentation().catch(err => {
-  console.error('Failed to initialize OTEL instrumentation:', err);
-});
+initializeInstrumentation().catch(() => {});

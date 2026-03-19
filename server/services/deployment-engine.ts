@@ -750,9 +750,17 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "البحث عن APK وتجهيزه...", "info");
     const remoteDir = "/home/administrator/app2";
 
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    if (!deployment) throw new Error("Deployment not found");
+
+    const version = deployment.version || "0.0.0";
+    const buildNum = deployment.buildNumber || 0;
+    const apkFileName = `AXION_v${version}_build${buildNum}.apk`;
+    const releasesDir = `${remoteDir}/releases/v${version}`;
+
     const output = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir}/android && APK_PATH=\\$(find . -name '*.apk' -path '*/release/*' 2>/dev/null | head -1) && if [ -z \\"\\$APK_PATH\\" ]; then APK_PATH=\\$(find . -name '*.apk' -path '*/debug/*' 2>/dev/null | head -1); fi && if [ -n \\"\\$APK_PATH\\" ]; then cp \\"\\$APK_PATH\\" ${remoteDir}/AXION_LATEST.apk && ls -lh ${remoteDir}/AXION_LATEST.apk && echo \\"APK_TYPE=\\$(basename \\$(dirname \\$APK_PATH))\\" && echo 'SIGN_OK'; else echo 'APK_NOT_FOUND'; fi"`,
+      `${sshCmd} "cd ${remoteDir}/android && APK_PATH=\\$(find . -name '*.apk' -path '*/release/*' 2>/dev/null | head -1) && if [ -z \\"\\$APK_PATH\\" ]; then APK_PATH=\\$(find . -name '*.apk' -path '*/debug/*' 2>/dev/null | head -1); fi && if [ -n \\"\\$APK_PATH\\" ]; then mkdir -p ${releasesDir} && cp \\"\\$APK_PATH\\" ${releasesDir}/${apkFileName} && ln -sf ${releasesDir}/${apkFileName} ${remoteDir}/AXION_LATEST.apk && ls -lh ${releasesDir}/${apkFileName} && echo \\"APK_TYPE=\\$(basename \\$(dirname \\$APK_PATH))\\" && echo 'SIGN_OK'; else echo 'APK_NOT_FOUND'; fi"`,
       "APK Sign",
       60000
     );
@@ -767,39 +775,61 @@ export class DeploymentEngine {
     }
 
     if (output.includes("APK_TYPE=debug")) {
-      await this.addLog(deploymentId, "📦 تم تجهيز Debug APK (بدون توقيع release)", "warn");
+      await this.addLog(deploymentId, `📦 تم تجهيز Debug APK: ${apkFileName}`, "warn");
     } else {
-      await this.addLog(deploymentId, "📦 تم تجهيز Release APK (موقّع)", "success");
+      await this.addLog(deploymentId, `📦 تم تجهيز Release APK: ${apkFileName}`, "success");
     }
   }
 
   private async stepRetrieveArtifact(deploymentId: string) {
-    await this.addLog(deploymentId, "Retrieving APK artifact...", "info");
+    await this.addLog(deploymentId, "تسجيل مسار APK على السيرفر...", "info");
     const host = process.env.SSH_HOST || "93.127.142.144";
     const user = process.env.SSH_USER || "administrator";
     const port = process.env.SSH_PORT || "22";
     const remoteDir = "/home/administrator/app2";
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const localPath = `/home/runner/workspace/output_apks/AXION_${timestamp}.apk`;
+    const sshCmd = `sshpass -e ssh -o StrictHostKeyChecking=no -p ${port} ${user}@${host}`;
 
-    await execAsync("mkdir -p /home/runner/workspace/output_apks");
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    if (!deployment) throw new Error("Deployment not found");
+
+    const version = deployment.version || "0.0.0";
+    const buildNum = deployment.buildNumber || 0;
+    const apkFileName = `AXION_v${version}_build${buildNum}.apk`;
+    const releasesDir = `${remoteDir}/releases/v${version}`;
+    const remotePath = `${releasesDir}/${apkFileName}`;
 
     try {
-      await this.execWithLog(
+      const output = await this.execWithLog(
         deploymentId,
-        `sshpass -e scp -o StrictHostKeyChecking=no -P ${port} ${user}@${host}:${remoteDir}/AXION_LATEST.apk ${localPath}`,
-        "Retrieve APK",
-        60000
+        `${sshCmd} "if [ -f ${remotePath} ]; then ls -lh ${remotePath} && echo 'ARTIFACT_OK'; else echo 'ARTIFACT_MISSING'; fi"`,
+        "Verify Artifact",
+        30000
       );
 
-      const { stdout } = await execAsync(`ls -lh ${localPath} | awk '{print $5}'`);
+      if (output.includes("ARTIFACT_MISSING")) {
+        await this.addLog(deploymentId, `⚠️ APK غير موجود في المسار: ${remotePath}`, "warn");
+        return;
+      }
+
+      const sizeMatch = output.match(/(\d+\.?\d*[KMG])/);
+      const artifactSize = sizeMatch ? sizeMatch[1] : "unknown";
+
       await this.updateDeployment(deploymentId, {
-        artifactUrl: localPath,
-        artifactSize: stdout.trim(),
+        artifactUrl: remotePath,
+        artifactSize,
       });
-      await this.addLog(deploymentId, `APK saved: ${localPath} (${stdout.trim()})`, "success");
+
+      await this.addLog(deploymentId, `✅ APK جاهز على السيرفر: ${remotePath} (${artifactSize})`, "success");
+
+      const listOutput = await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "ls -lht ${releasesDir}/*.apk 2>/dev/null | head -5"`,
+        "List Releases",
+        15000
+      );
+      await this.addLog(deploymentId, `📂 مجلد الإصدارات: ${releasesDir}`, "info");
     } catch {
-      await this.addLog(deploymentId, "Could not retrieve APK - it may still be on the remote server", "warn");
+      await this.addLog(deploymentId, `⚠️ لم يتم التحقق من APK — قد يكون متاحاً في: ${remotePath}`, "warn");
     }
   }
 
@@ -845,7 +875,7 @@ export class DeploymentEngine {
 
     const testResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "export PATH=/opt/google-cloud-sdk/bin:\\$PATH 2>/dev/null; if [ -f ${apkPath} ]; then gcloud firebase test android run --type robo --app ${apkPath} --device model=Pixel2,version=30,locale=ar,orientation=portrait --timeout 300s --results-dir=firebase-test-\\$(date +%Y%m%d_%H%M%S) --no-record-video 2>&1 | tail -30 && echo 'FIREBASE_TEST_DONE'; else echo 'APK_NOT_FOUND_FOR_TEST'; fi"`,
+      `${sshCmd} "export PATH=/opt/google-cloud-sdk/bin:\\$PATH 2>/dev/null; APK='${apkPath}'; if [ -L \\$APK ]; then APK=\\$(readlink -f \\$APK); fi; if [ -f \\$APK ]; then gcloud firebase test android run --type robo --app \\$APK --device model=Pixel2,version=30,locale=ar,orientation=portrait --timeout 300s --results-dir=firebase-test-\\$(date +%Y%m%d_%H%M%S) --no-record-video 2>&1 | tail -30 && echo 'FIREBASE_TEST_DONE'; else echo 'APK_NOT_FOUND_FOR_TEST'; fi"`,
       "Firebase Test Lab",
       600000
     );

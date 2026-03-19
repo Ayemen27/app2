@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient as globalQueryClient } from "@/lib/queryClient";
@@ -65,7 +66,7 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
   const { data: projectsData, isLoading: isProjectsLoading, error: projectsError } = useQuery<Project[]>({
     queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
-      const response = await fetch("/api/projects", {
+      const response = await fetch(ENV.getApiUrl("/api/projects"), {
         credentials: getFetchCredentials(),
         headers: {
           ...getClientPlatformHeader(),

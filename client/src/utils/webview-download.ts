@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { Capacitor } from '@capacitor/core';
 
 export function isCapacitorNative(): boolean {
@@ -215,7 +216,7 @@ async function tryServerProxyDownload(blob: Blob, fileName: string, mimeType: st
 
     debugLog('ServerProxy', 'UPLOADING', `${fileName} (${blob.size} bytes)`);
 
-    const response = await fetch('/api/temp-download', {
+    const response = await fetch(ENV.getApiUrl('/api/temp-download'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
       credentials: 'include',

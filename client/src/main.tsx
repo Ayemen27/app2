@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import "./lib/instrumentation";
 import { createRoot } from "react-dom/client";
 import { initializeDB } from "./offline/db";
@@ -51,7 +52,7 @@ const startApp = async () => {
 
     window.onerror = (message, source, lineno, colno, error) => {
       console.error("Global error caught:", { message, source, lineno, colno, error });
-      fetch('/api/crashes', {
+      fetch(ENV.getApiUrl('/api/crashes'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
         body: JSON.stringify({

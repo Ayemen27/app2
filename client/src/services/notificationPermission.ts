@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { App } from '@capacitor/app';
@@ -92,7 +93,7 @@ async function registerPush() {
       await PushNotifications.addListener('registration', async (token) => {
         console.log('[NativePush] Token:', token.value);
         try {
-          await fetch('/api/push/token', {
+          await fetch(ENV.getApiUrl('/api/push/token'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

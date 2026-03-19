@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
@@ -55,14 +56,14 @@ export function useMonitoring() {
 
   // Mutations
   const updateMetricsMutation = useMutation({
-    mutationFn: () => fetch('/api/metrics/update', { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
+    mutationFn: () => fetch(ENV.getApiUrl('/api/metrics/update'), { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.metrics });
     },
   });
 
   const runDiagnosticsMutation = useMutation({
-    mutationFn: () => fetch('/api/diagnostics/run', { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
+    mutationFn: () => fetch(ENV.getApiUrl('/api/diagnostics/run'), { method: 'POST', headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() } }),
     onSuccess: () => {
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.diagnostics });
     },

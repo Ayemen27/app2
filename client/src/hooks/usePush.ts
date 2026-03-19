@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   initializeFirebase,
@@ -123,7 +124,7 @@ export const usePush = (): UsePushReturn => {
         if (token) {
           // Send token to backend
           try {
-            const response = await fetch('/api/push/token', {
+            const response = await fetch(ENV.getApiUrl('/api/push/token'), {
               method: 'POST',
               credentials: getFetchCredentials(),
               headers: {

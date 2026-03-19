@@ -298,23 +298,26 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     // التحقق من وجود الـ token
     if (!token) {
-      // سجل تحذيري في حالة الفشل لتسهيل التتبع
       const userAgent = req.get('user-agent') || 'unknown';
-      console.warn(`🚨 [AUTH-FAIL] محاولة وصول بدون توكن | المسار: ${req.method} ${req.originalUrl} | IP: ${ip} | UA: ${userAgent}`);
-      
-      try {
-        CentralLogService.getInstance().log({
-          level: 'warn',
-          source: 'auth',
-          module: 'أمان',
-          action: 'auth_failed',
-          status: 'failed',
-          ipAddress: ip,
-          userAgent,
-          message: `فشل المصادقة - لا يوجد توكن: ${req.method} ${req.originalUrl}`,
-          details: { reason: 'no_token', path: req.originalUrl, method: req.method },
-        });
-      } catch {}
+      const isSessionProbe = req.originalUrl === '/api/auth/me' && req.method === 'GET';
+
+      if (!isSessionProbe) {
+        console.warn(`🚨 [AUTH-FAIL] محاولة وصول بدون توكن | المسار: ${req.method} ${req.originalUrl} | IP: ${ip} | UA: ${userAgent}`);
+        
+        try {
+          CentralLogService.getInstance().log({
+            level: 'warn',
+            source: 'auth',
+            module: 'أمان',
+            action: 'auth_failed',
+            status: 'failed',
+            ipAddress: ip,
+            userAgent,
+            message: `فشل المصادقة - لا يوجد توكن: ${req.method} ${req.originalUrl}`,
+            details: { reason: 'no_token', path: req.originalUrl, method: req.method },
+          });
+        } catch {}
+      }
 
       return res.status(401).json({
         success: false,

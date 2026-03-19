@@ -945,9 +945,12 @@ export default function DeploymentConsole() {
                       activeDeploymentId === d.id ? "bg-muted/60 ring-1 ring-blue-500/30" : "bg-muted/20"
                     }`}
                   >
-                    <button
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setExpandedHistoryId(isExpanded ? null : d.id)}
-                      className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2.5 sm:p-3 hover:bg-muted/50 rounded-lg"
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedHistoryId(isExpanded ? null : d.id); } }}
+                      className="w-full flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-2.5 sm:p-3 hover:bg-muted/50 rounded-lg cursor-pointer"
                     >
                       <div className="flex items-center gap-2 justify-between sm:justify-start shrink-0">
                         <div className="flex items-center gap-2">
@@ -1014,7 +1017,7 @@ export default function DeploymentConsole() {
                           </Button>
                         )}
                       </div>
-                    </button>
+                    </div>
 
                     {isExpanded && (
                       <div className="px-3 sm:px-4 pb-3 border-t border-border/50 mt-1 pt-2 space-y-2" data-testid={`deployment-details-${d.buildNumber}`}>

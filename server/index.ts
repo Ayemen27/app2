@@ -623,13 +623,14 @@ app.get("/api/schema-status", requireAuth, (req: Request, res: Response): void =
       const duration = Date.now() - start;
       if (path.startsWith("/api")) {
         let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-        if (res.statusCode >= 400) {
+        const isSessionProbe = path === '/api/auth/me' && req.method === 'GET' && res.statusCode === 401;
+        if (res.statusCode >= 400 && !isSessionProbe) {
           console.log(`🚨 [API Error] ${logLine}`);
           const sanitizedBody = sanitizeLogData(req.body);
           console.log(`📦 Request Body: ${JSON.stringify(sanitizedBody)}`);
           const responsePreview = typeof resBody === 'string' && resBody.startsWith('<!DOCTYPE') ? '[HTML Content]' : JSON.stringify(resBody);
           console.log(`📦 Response Body: ${responsePreview}`);
-        } else {
+        } else if (!isSessionProbe) {
           console.log(`🟢 [API] ${logLine}`);
         }
       }

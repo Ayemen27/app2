@@ -32,7 +32,7 @@ interface DeploymentConfig {
 
 const SERVER_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
   "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
@@ -42,7 +42,7 @@ const SERVER_PIPELINES: Record<Pipeline, string[]> = {
 
 const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
   "full-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "verify"],

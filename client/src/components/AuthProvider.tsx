@@ -311,15 +311,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // تسجيل الدخول
   const login = async (email: string, password: string) => {
-    if (import.meta.env.DEV) console.log('[AuthProvider.login] Starting login...');
+    console.log('[AuthProvider.login] Starting login to:', `${API_BASE_URL}/auth/login`);
 
     let result: any = null;
     let response: Response | null = null;
+    let errorBody: any = null;
 
     try {
-      if (import.meta.env.DEV) console.log(`[AuthProvider.login] Sending request to ${API_BASE_URL}/auth/login...`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
       response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         credentials: getFetchCredentials(),
@@ -334,15 +334,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       clearTimeout(timeoutId);
 
+      console.log('[AuthProvider.login] Response status:', response.status);
+
       if (response.ok) {
         result = await response.json();
-      } else if (response.status === 503 || response.status === 500) {
-        if (import.meta.env.DEV) console.warn(`[AuthProvider] Server unavailable (${response.status}), activating emergency mode...`);
+        console.log('[AuthProvider.login] Login success, has token:', !!(result?.token || result?.accessToken || result?.data?.token));
       } else {
-        if (import.meta.env.DEV) console.warn(`[AuthProvider] Server responded with error ${response.status}, trying offline login...`);
+        errorBody = await response.json().catch(() => ({}));
+        console.warn('[AuthProvider.login] Server error:', response.status, errorBody?.message);
+        if (response.status !== 503 && response.status !== 500) {
+        }
       }
-    } catch (networkError) {
-      if (import.meta.env.DEV) console.warn('[AuthProvider] Failed to connect to server, trying offline login...', networkError);
+    } catch (networkError: any) {
+      console.warn('[AuthProvider.login] Network error:', networkError?.message || networkError);
     }
 
     if (!result && (!response || response.status === 503 || response.status === 500 || !navigator.onLine)) {
@@ -396,8 +400,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     if (response && !response.ok && !result) {
-      const errorData = await response.json().catch(() => ({}));
-      // في حالة عدم التحقق من البريد الإلكتروني (403)
+      const errorData = errorBody || {};
       if (response.status === 403 && errorData.requireEmailVerification) {
         const error = new Error(errorData.message || 'يجب التحقق من البريد الإلكتروني أولاً');
         (error as any).requireEmailVerification = true;

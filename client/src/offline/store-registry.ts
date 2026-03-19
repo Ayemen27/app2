@@ -20,6 +20,9 @@ export const ALL_STORES = [
   'aiChatSessions', 'aiChatMessages', 'aiUsageStats', 'buildDeployments',
   'reportTemplates', 'backupLogs', 'backupSettings',
   'equipment', 'equipmentMovements',
+  'wellWorkCrews', 'wellCrewWorkers', 'wellSolarComponents',
+  'wellTransportDetails', 'wellReceptions',
+  'authRequestNonces', 'workerSettlements', 'workerSettlementLines',
   'emergencyUsers', 'syncQueue', 'syncMetadata', 'userData', 'syncHistory',
   'deadLetterQueue', 'localAuditLog',
 ] as const;

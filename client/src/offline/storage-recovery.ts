@@ -245,6 +245,8 @@ export async function handleCorruption(): Promise<boolean> {
     }
 
     await initializeDB();
+    const { resetInitState } = await import('./storage-factory');
+    resetInitState();
     console.log('[StorageRecovery] Database reinitialized successfully');
     notifyUser('تم إصلاح قاعدة البيانات المحلية. سيتم إعادة مزامنة البيانات.', 'default');
     return true;

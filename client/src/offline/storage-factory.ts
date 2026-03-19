@@ -17,6 +17,10 @@ async function getIDB() {
   return await getIDBInstance();
 }
 
+export function resetInitState() {
+  _initPromise = null;
+}
+
 export async function initializeStorage() {
   if (!_initPromise) {
     _initPromise = isNative()
@@ -41,6 +45,7 @@ export async function smartGet(tableName: string, id: string): Promise<any | nul
   }
   const db = await getIDB();
   try {
+    if (!db.objectStoreNames.contains(tableName)) return null;
     return await db.get(tableName as any, id);
   } catch {
     return null;
@@ -54,6 +59,7 @@ export async function smartGetAll(tableName: string): Promise<any[]> {
   }
   const db = await getIDB();
   try {
+    if (!db.objectStoreNames.contains(tableName)) return [];
     return await db.getAll(tableName as any);
   } catch {
     return [];
@@ -69,6 +75,10 @@ export async function smartPut(tableName: string, record: any): Promise<void> {
     await nativeStorage.set(tableName, id, record);
   } else {
     const db = await getIDB();
+    if (!db.objectStoreNames.contains(tableName)) {
+      console.warn(`[smartPut] Store "${tableName}" not found in IDB, skipping`);
+      return;
+    }
     try {
       await db.put(tableName as any, record);
     } catch (error) {
@@ -177,6 +187,10 @@ export async function smartSave(tableName: string, records: any[]): Promise<numb
     return count;
   } else {
     const db = await getIDB();
+    if (!db.objectStoreNames.contains(tableName)) {
+      console.warn(`[smartSave] Store "${tableName}" not found in IDB, skipping ${records.length} records`);
+      return 0;
+    }
     let count = 0;
     try {
       const tx = db.transaction(tableName as any, 'readwrite');

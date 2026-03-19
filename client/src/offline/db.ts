@@ -135,6 +135,14 @@ export interface BinarJoinDB extends DBSchema {
   backupSettings: { key: string; value: StoreValue };
   equipment: { key: string; value: StoreValue };
   equipmentMovements: { key: string; value: StoreValue };
+  wellWorkCrews: { key: string; value: StoreValue };
+  wellCrewWorkers: { key: string; value: StoreValue };
+  wellSolarComponents: { key: string; value: StoreValue };
+  wellTransportDetails: { key: string; value: StoreValue };
+  wellReceptions: { key: string; value: StoreValue };
+  authRequestNonces: { key: string; value: StoreValue };
+  workerSettlements: { key: string; value: StoreValue };
+  workerSettlementLines: { key: string; value: StoreValue };
   deadLetterQueue: {
     key: string;
     value: {
@@ -177,7 +185,7 @@ export async function initializeDB(): Promise<IDBPDatabase<BinarJoinDB>> {
   }
 
   try {
-    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 15, {
+    dbInstance = await openDB<BinarJoinDB>('binarjoin-db', 16, {
       upgrade(db, oldVersion, newVersion) {
         console.log(`[DB] Upgrading from ${oldVersion} to ${newVersion}`);
         

@@ -82,7 +82,7 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
 router.use(requireAuth);
 
 router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version } = req.body;
+  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version, buildTarget = "server" } = req.body;
 
   const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build", "android-build-test"];
   if (!validPipelines.includes(pipeline)) {
@@ -95,6 +95,9 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
     res.status(400).json({ error: "Invalid environment" });
     return;
   }
+
+  const validTargets = ["server", "local"];
+  const safeBuildTarget = validTargets.includes(buildTarget) ? buildTarget : "server";
 
   const androidPipelines = ["android-build", "full-deploy", "git-android-build", "android-build-test"];
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
@@ -110,13 +113,14 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
     commitMessage: safeMessage,
     triggeredBy: userId,
     version: safeVersion,
+    buildTarget: safeBuildTarget,
   });
 
   res.json({ id: deploymentId, message: "Deployment started" });
 }));
 
 router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version } = req.body;
+  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version, buildTarget = "server" } = req.body;
 
   const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build", "android-build-test"];
   if (!validPipelines.includes(pipeline)) {
@@ -129,6 +133,9 @@ router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Resp
     res.status(400).json({ error: "Invalid environment" });
     return;
   }
+
+  const validTargets = ["server", "local"];
+  const safeBuildTarget = validTargets.includes(buildTarget) ? buildTarget : "server";
 
   const androidPipelines = ["android-build", "full-deploy", "git-android-build", "android-build-test"];
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
@@ -144,6 +151,7 @@ router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Resp
     commitMessage: safeMessage,
     triggeredBy: userId,
     version: safeVersion,
+    buildTarget: safeBuildTarget,
   });
 
   res.json({ id: deploymentId, message: "Deployment started" });

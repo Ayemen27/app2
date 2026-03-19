@@ -27,17 +27,32 @@ interface DeploymentConfig {
   commitMessage?: string;
   triggeredBy?: string;
   version?: string;
+  buildTarget?: "server" | "local";
 }
 
-const PIPELINE_STEPS: Record<Pipeline, string[]> = {
-  "web-deploy": ["validate", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
+const SERVER_PIPELINES: Record<Pipeline, string[]> = {
+  "web-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
+  "hotfix": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
+  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+};
+
+const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
+  "web-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
+  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "verify"],
   "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
+
+function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = "server"): string[] {
+  return buildTarget === "local" ? LOCAL_PIPELINES[pipeline] : SERVER_PIPELINES[pipeline];
+}
 
 const activeSSEClients = new Map<string, Response[]>();
 
@@ -235,7 +250,8 @@ export class DeploymentEngine {
     }
 
     const buildNumber = await this.getNextBuildNumber();
-    const steps: StepEntry[] = PIPELINE_STEPS[config.pipeline].map(name => ({
+    const bt = config.buildTarget || "server";
+    const steps: StepEntry[] = getPipelineSteps(config.pipeline, bt).map(name => ({
       name,
       status: "pending" as const,
     }));
@@ -277,8 +293,11 @@ export class DeploymentEngine {
   }
 
   private async runPipeline(deploymentId: string, config: DeploymentConfig) {
-    const pipelineSteps = PIPELINE_STEPS[config.pipeline];
+    const bt = config.buildTarget || "server";
+    const pipelineSteps = getPipelineSteps(config.pipeline, bt);
     const startTime = Date.now();
+    const targetLabel = bt === "local" ? "محلي (Replit)" : "على السيرفر (VPS)";
+    await this.addLog(deploymentId, `مكان البناء: ${targetLabel} | الخطوات: ${pipelineSteps.join(" → ")}`, "info");
 
     try {
       for (let i = 0; i < pipelineSteps.length; i++) {

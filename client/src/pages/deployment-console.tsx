@@ -130,6 +130,7 @@ const STEP_LABELS: Record<string, string> = {
   "hotfix-sync": "مزامنة الإصلاح السريع",
   "firebase-test": "اختبار Firebase Test Lab",
   "generate-icons": "توليد الأيقونات",
+  "sync-version": "مزامنة الإصدار",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -154,6 +155,7 @@ const STEP_ICONS: Record<string, any> = {
   "hotfix-sync": Rocket,
   "generate-icons": Smartphone,
   "firebase-test": Shield,
+  "sync-version": RefreshCw,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -204,6 +206,7 @@ export default function DeploymentConsole() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const [selectedPipeline, setSelectedPipeline] = useState<string>("git-push");
+  const [buildTarget, setBuildTarget] = useState<string>("server");
   const [commitMessage, setCommitMessage] = useState("");
   const [versionInput, setVersionInput] = useState("");
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
@@ -401,6 +404,7 @@ export default function DeploymentConsole() {
         pipeline: selectedPipeline,
         commitMessage: commitMessage || undefined,
         version: versionInput.trim() || undefined,
+        buildTarget,
       });
 
       if (!data?.id) {
@@ -669,13 +673,23 @@ export default function DeploymentConsole() {
                     <SelectValue placeholder="اختر مسار النشر" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="web-deploy" data-testid="option-web-deploy">نشر الويب (نقل مباشر)</SelectItem>
+                    <SelectItem value="web-deploy" data-testid="option-web-deploy">نشر الويب</SelectItem>
                     <SelectItem value="android-build" data-testid="option-android-build">بناء تطبيق أندرويد APK</SelectItem>
                     <SelectItem value="full-deploy" data-testid="option-full-deploy">نشر كامل (ويب + أندرويد)</SelectItem>
-                    <SelectItem value="git-push" data-testid="option-git-push">دفع Git وسحب من السيرفر</SelectItem>
-                    <SelectItem value="hotfix" data-testid="option-hotfix">إصلاح سريع (نشر فوري)</SelectItem>
-                    <SelectItem value="git-android-build" data-testid="option-git-android-build">Git + بناء أندرويد (دفع + سحب + بناء APK)</SelectItem>
+                    <SelectItem value="git-push" data-testid="option-git-push">دفع Git + بناء على السيرفر</SelectItem>
+                    <SelectItem value="hotfix" data-testid="option-hotfix">إصلاح سريع</SelectItem>
+                    <SelectItem value="git-android-build" data-testid="option-git-android-build">Git + بناء أندرويد</SelectItem>
                     <SelectItem value="android-build-test" data-testid="option-android-build-test">بناء أندرويد + اختبار Firebase</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={buildTarget} onValueChange={setBuildTarget} data-testid="select-build-target">
+                  <SelectTrigger className="bg-muted/50 border-border text-foreground w-full sm:w-[200px]" data-testid="trigger-build-target">
+                    <SelectValue placeholder="مكان البناء" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="server" data-testid="option-target-server">🖥️ بناء على السيرفر (VPS)</SelectItem>
+                    <SelectItem value="local" data-testid="option-target-local">💻 بناء محلي + نقل</SelectItem>
                   </SelectContent>
                 </Select>
 

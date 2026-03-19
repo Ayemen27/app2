@@ -169,7 +169,10 @@ export class DeploymentEngine {
 
       for (const d of orphaned) {
         const age = Date.now() - new Date(d.created_at!).getTime();
-        if (age > 60000) {
+        const remoteSteps = ['build-server', 'sync-capacitor', 'generate-icons', 'gradle-build', 'sign-apk', 'retrieve-artifact'];
+        const isRemoteStep = remoteSteps.includes(d.currentStep);
+        const maxAge = isRemoteStep ? 900000 : 60000;
+        if (age > maxAge) {
           await db.update(buildDeployments).set({
             status: "failed",
             errorMessage: "توقفت العملية بسبب إعادة تشغيل الخادم",

@@ -1109,12 +1109,13 @@ export class DeploymentEngine {
 
   private async getCurrentVersion(): Promise<string> {
     try {
-      const [last] = await db.select({ version: buildDeployments.version })
+      const [lastSuccess] = await db.select({ version: buildDeployments.version })
         .from(buildDeployments)
+        .where(eq(buildDeployments.status, "success"))
         .orderBy(desc(buildDeployments.created_at))
         .limit(1);
-      if (last?.version) {
-        return this.incrementPatchVersion(last.version);
+      if (lastSuccess?.version) {
+        return this.incrementPatchVersion(lastSuccess.version);
       }
     } catch {}
 

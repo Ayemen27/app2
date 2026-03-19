@@ -447,7 +447,7 @@ export class DeploymentEngine {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
-    return `sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p ${port} ${user}@${host}`;
+    return `sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
   }
 
   private buildSCPCommand(src: string, dest: string): string {

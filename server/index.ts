@@ -647,14 +647,8 @@ registerOrganizedRoutes(app);
 import { registerRoutes } from "./routes.js";
 registerRoutes(app).catch(err => console.error("Failed to initialize services:", err));
 
-import { runWellExpansionMigrations } from "./db/run-well-expansion-migrations.js";
-runWellExpansionMigrations().catch(err => console.error("Failed to run well expansion migrations:", err));
-
-import { runInventoryMigrations } from "./db/run-inventory-migrations.js";
-runInventoryMigrations().catch(err => console.error("Failed to run inventory migrations:", err));
-
-import { applyJournalConstraints } from "./migrations/add-journal-constraints.js";
-applyJournalConstraints().catch(err => console.error("Failed to apply journal constraints:", err));
+import { runAllStartupMigrations } from "./db/startup-migration-coordinator.js";
+runAllStartupMigrations().catch(err => console.error("Failed to run startup migrations:", err));
 
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
 app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {

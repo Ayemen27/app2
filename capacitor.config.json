@@ -8,7 +8,7 @@
   },
   "server": {
     "androidScheme": "https",
-    "hostname": "app2.binarjoinanelytic.info",
+    "hostname": "localhost",
     "allowNavigation": [
       "https://app2.binarjoinanelytic.info/*",
       "https://*.binarjoinanelytic.info/*"

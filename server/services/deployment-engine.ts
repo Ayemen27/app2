@@ -693,10 +693,10 @@ export class DeploymentEngine {
 
     await this.addLog(deploymentId, `📱 versionName: ${versionName} | versionCode: ${versionCode}`, "info");
 
-    await this.addLog(deploymentId, "نسخ ملفات البناء إلى www/ لمزامنة Capacitor...", "info");
+    await this.addLog(deploymentId, "تنظيف ونسخ ملفات البناء إلى www/ لمزامنة Capacitor...", "info");
     const copyAssetsResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && rm -rf www && mkdir -p www && if [ -d dist/public ]; then cp -r dist/public/* www/ && echo 'COPIED_FROM_DIST_PUBLIC'; elif [ -d dist ]; then cp -r dist/* www/ && echo 'COPIED_FROM_DIST'; else echo 'NO_BUILD_OUTPUT'; fi && ls -la www/ | head -10 && echo 'WWW_FILE_COUNT='\\$(find www -type f | wc -l)"`,
+      `${sshCmd} "cd ${remoteDir} && rm -rf www android/app/src/main/assets/public && mkdir -p www && if [ -d dist/public ] && [ -f dist/public/index.html ]; then cp -r dist/public/* www/ && echo 'COPIED_FROM_DIST_PUBLIC'; else echo 'NO_BUILD_OUTPUT'; fi && echo 'WWW_FILE_COUNT='\\$(find www -type f | wc -l) && echo 'WWW_SIZE='\\$(du -sh www | cut -f1)"`,
       "Copy Build Assets to www",
       60000
     );
@@ -733,7 +733,7 @@ export class DeploymentEngine {
 
     const verifyResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir}/android/app/src/main/assets/public && if [ -f index.html ]; then echo 'INDEX_HTML_OK'; JSCOUNT=\\$(find . -name '*.js' | wc -l); CSSCOUNT=\\$(find . -name '*.css' | wc -l); echo \\"JS_FILES=\\$JSCOUNT CSS_FILES=\\$CSSCOUNT\\"; else echo 'INDEX_HTML_MISSING'; fi"`,
+      `${sshCmd} "cd ${remoteDir}/android/app/src/main/assets/public && if [ -f index.html ]; then echo 'INDEX_HTML_OK'; JSCOUNT=\\$(find . -name '*.js' | wc -l); CSSCOUNT=\\$(find . -name '*.css' | wc -l); TOTAL=\\$(find . -type f | wc -l); SIZE=\\$(du -sh . | cut -f1); MAINJS=\\$(grep -oP 'src=\\\"\\./assets/index-[^\\\"]+\\.js' index.html | head -1 | sed 's|src=\\\"\\./||'); echo \\"JS_FILES=\\$JSCOUNT CSS_FILES=\\$CSSCOUNT TOTAL=\\$TOTAL SIZE=\\$SIZE\\"; if [ -n \\"\\$MAINJS\\" ] && [ -f \\"\\$MAINJS\\" ]; then MAINSIZE=\\$(wc -c < \\"\\$MAINJS\\"); echo \\"MAIN_JS=\\$MAINJS (\\${MAINSIZE} bytes) MATCH_OK\\"; else echo \\"MAIN_JS_MISSING: \\$MAINJS\\"; fi; else echo 'INDEX_HTML_MISSING'; fi"`,
       "Verify Android Assets",
       15000
     );
@@ -741,7 +741,10 @@ export class DeploymentEngine {
     if (verifyResult.includes("INDEX_HTML_MISSING")) {
       throw new Error("❌ index.html مفقود من android assets — مزامنة Capacitor فشلت");
     }
-    await this.addLog(deploymentId, `✅ تم التحقق: ملفات الويب موجودة في Android assets`, "success");
+    if (verifyResult.includes("MAIN_JS_MISSING")) {
+      throw new Error("❌ ملف JavaScript الرئيسي المطلوب في index.html غير موجود في assets — البناء تالف");
+    }
+    await this.addLog(deploymentId, `✅ تم التحقق: ملفات الويب وJS الرئيسي موجودة في Android assets`, "success");
 
     await this.addLog(deploymentId, "فحص متطلبات الأندرويد...", "info");
 
@@ -1090,8 +1093,17 @@ export class DeploymentEngine {
   }
 
   private async stepBuildServer(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "بناء التطبيق على السيرفر (قد يستغرق 3-5 دقائق)...", "info");
+    await this.addLog(deploymentId, "تنظيف مخرجات البناء السابقة...", "info");
     const remoteDir = "/home/administrator/app2";
+
+    await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && rm -rf dist www android/app/src/main/assets/public android/app/build/outputs && echo 'CLEAN_OK'"`,
+      "Clean Previous Build",
+      30000
+    );
+
+    await this.addLog(deploymentId, "بناء التطبيق على السيرفر (قد يستغرق 3-5 دقائق)...", "info");
 
     await this.execWithLog(
       deploymentId,
@@ -1099,6 +1111,18 @@ export class DeploymentEngine {
       "Server Build",
       300000
     );
+
+    const verifyBuild = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && if [ -f dist/public/index.html ]; then TOTAL=\\$(find dist/public -type f | wc -l); SIZE=\\$(du -sh dist/public | cut -f1); echo \\"BUILD_VERIFIED files=\\$TOTAL size=\\$SIZE\\"; else echo 'BUILD_FAILED_NO_OUTPUT'; fi"`,
+      "Verify Build Output",
+      15000
+    );
+
+    if (verifyBuild.includes("BUILD_FAILED_NO_OUTPUT")) {
+      throw new Error("❌ فشل البناء — dist/public/index.html غير موجود");
+    }
+    await this.addLog(deploymentId, `✅ تم التحقق من مخرجات البناء`, "success");
   }
 
   private async stepDbMigrate(deploymentId: string, sshCmd: string) {

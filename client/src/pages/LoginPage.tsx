@@ -433,7 +433,7 @@ export default function LoginPage() {
           <div className="w-full flex flex-col items-center gap-1">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 tracking-wider">AXION CORE v3.9.1 - SECURE</span>
+              <span className="text-[9px] font-black text-slate-400 dark:text-slate-600 tracking-wider" data-testid="text-app-version">AXION CORE v{__APP_VERSION__} - SECURE</span>
             </div>
             <span className="text-[8px] text-gray-300 dark:text-slate-700">© 2026 AXION OPERATIONS MANAGEMENT</span>
           </div>

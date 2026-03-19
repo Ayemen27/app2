@@ -790,9 +790,9 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && chmod +x gradlew && rm -rf app/build .gradle build && ./gradlew clean ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
       "Gradle Build",
-      300000
+      600000
     );
   }
 

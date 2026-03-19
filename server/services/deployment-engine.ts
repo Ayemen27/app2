@@ -31,12 +31,12 @@ interface DeploymentConfig {
 
 const PIPELINE_STEPS: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "git-push", "pull-server", "install-deps", "build-web", "transfer", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "git-push", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "git-push": ["validate", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
-  "hotfix": ["validate", "build-web", "hotfix-sync", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
+  "hotfix": ["validate", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "verify"],
+  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
 
 const activeSSEClients = new Map<string, Response[]>();
@@ -408,6 +408,9 @@ export class DeploymentEngine {
         break;
       case "generate-icons":
         await this.stepGenerateIcons(deploymentId, sshCmd);
+        break;
+      case "sync-version":
+        await this.stepSyncVersion(deploymentId);
         break;
       default:
         await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
@@ -864,6 +867,35 @@ export class DeploymentEngine {
     } catch {
       await this.addLog(deploymentId, "Health check failed - server may still be starting", "warn");
     }
+  }
+
+  private async stepSyncVersion(deploymentId: string) {
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    if (!deployment) throw new Error("Deployment not found");
+
+    const version = deployment.version;
+    const versionCode = deployment.buildNumber;
+
+    await this.addLog(deploymentId, `مزامنة الإصدار: ${version} (كود: ${versionCode})`, "info");
+
+    await this.execWithLog(
+      deploymentId,
+      `cd /home/runner/workspace && node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.version = '${version}';
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\\n');
+        console.log('package.json updated to ${version}');
+        const vpDir = 'android/app';
+        if (!fs.existsSync(vpDir)) fs.mkdirSync(vpDir, { recursive: true });
+        fs.writeFileSync(vpDir + '/version.properties', 'VERSION_CODE=${versionCode}\\nVERSION_NAME=${version}\\n');
+        console.log('version.properties updated: CODE=${versionCode} NAME=${version}');
+      "`,
+      "Sync Version",
+      10000
+    );
+
+    await this.addLog(deploymentId, `✅ تم تحديث الإصدار إلى ${version} في package.json و version.properties`, "success");
   }
 
   private async stepGitPush(deploymentId: string, config: DeploymentConfig) {

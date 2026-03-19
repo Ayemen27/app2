@@ -20,6 +20,9 @@ export default defineConfig({
     outDir: '../dist/public',
     emptyOutDir: true,
     target: 'es2020',
+    rollupOptions: {
+      external: ['@capacitor/browser'],
+    },
   },
   resolve: {
     alias: {

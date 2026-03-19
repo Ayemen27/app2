@@ -73,13 +73,17 @@ function parseUserAgent(ua: string): {
 }
 
 function detectPlatform(req: Request, ua: string): 'web' | 'android' | 'ios' | 'unknown' {
-  const capacitorUA = /Capacitor/i.test(ua);
   const nativeHeader = req.headers['x-client-platform'];
 
+  if (nativeHeader === 'native' || nativeHeader === 'android') {
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+    return 'android';
+  }
+  if (nativeHeader === 'ios') return 'ios';
+
+  const capacitorUA = /Capacitor/i.test(ua);
   if (capacitorUA && /Android/i.test(ua)) return 'android';
   if (capacitorUA && /iPhone|iPad|iPod/i.test(ua)) return 'ios';
-  if (nativeHeader === 'android' && capacitorUA) return 'android';
-  if (nativeHeader === 'ios' && capacitorUA) return 'ios';
 
   if (/Mozilla|Chrome|Safari|Firefox|Edg/i.test(ua)) return 'web';
 

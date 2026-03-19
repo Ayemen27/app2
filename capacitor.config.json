@@ -17,6 +17,9 @@
   "plugins": {
     "NativeBiometric": {
       "faceIdReason": "تسجيل الدخول بالبصمة"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
     }
   }
 }

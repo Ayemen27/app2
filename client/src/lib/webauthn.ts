@@ -205,7 +205,7 @@ async function loginWithBiometricNative(email?: string): Promise<any> {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${storedToken}`,
-      'x-client-platform': 'android',
+      'x-client-platform': 'native',
       'x-request-nonce': crypto.randomUUID(),
       'x-request-timestamp': new Date().toISOString(),
     },

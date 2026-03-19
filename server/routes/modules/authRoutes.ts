@@ -49,11 +49,10 @@ declare global {
 }
 
 function isNativeClient(req: Request): boolean {
-  const ua = req.headers['user-agent'] || '';
-  const hasNativeUA = /capacitor|android.*wv|ionic/i.test(ua);
   const platformHeader = req.headers['x-client-platform'];
-  if (hasNativeUA && platformHeader === 'native') return true;
-  if (hasNativeUA) return true;
+  if (platformHeader === 'native' || platformHeader === 'android' || platformHeader === 'ios') return true;
+  const ua = req.headers['user-agent'] || '';
+  if (/capacitor|android.*wv|ionic/i.test(ua)) return true;
   return false;
 }
 

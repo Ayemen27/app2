@@ -221,15 +221,18 @@ export class DeploymentEngine {
         }
       }
       
-      const [result] = await db.execute(sql`
+      const queryResult = await db.execute(sql`
         UPDATE deployment_build_counter
         SET next_build_number = next_build_number + 1
         WHERE id = 1
         RETURNING next_build_number - 1 AS build_number
-      `) as any[];
+      `);
       
-      if (result?.build_number != null) {
-        return Number(result.build_number);
+      const rows = (queryResult as any).rows || queryResult;
+      const firstRow = Array.isArray(rows) ? rows[0] : null;
+      
+      if (firstRow?.build_number != null) {
+        return Number(firstRow.build_number);
       }
 
       await db.execute(sql`

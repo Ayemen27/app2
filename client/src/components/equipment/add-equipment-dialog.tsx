@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
 import { Camera, Upload, X, Image as ImageIcon } from "lucide-react";
@@ -136,7 +137,7 @@ export function AddEquipmentDialog({ open, onOpenChange, projects, equipment }: 
     onError: (error: any) => {
       toast({
         title: "خطأ",
-        description: error.message || (isEditing ? "حدث خطأ أثناء تحديث المعدة" : "حدث خطأ أثناء إضافة المعدة"),
+        description: toUserMessage(error, isEditing ? "حدث خطأ أثناء تحديث المعدة" : "حدث خطأ أثناء إضافة المعدة"),
         variant: "destructive",
       });
     },

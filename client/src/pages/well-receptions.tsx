@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
@@ -327,7 +328,7 @@ export default function WellReceptionsPage() {
       if (success) toast({ title: "نجاح", description: "تم تصدير ملف Excel بنجاح" });
       else toast({ title: "خطأ", description: "فشل في تصدير ملف Excel", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في تصدير ملف Excel", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تصدير ملف Excel"), variant: "destructive" });
     } finally {
       setIsExporting(false);
     }
@@ -385,7 +386,7 @@ export default function WellReceptionsPage() {
       if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
       else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في تصدير PDF", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تصدير PDF"), variant: "destructive" });
     } finally { setIsExportingPdf(false); }
   }, [filteredWells, stats, toast]);
 
@@ -447,7 +448,7 @@ export default function WellReceptionsPage() {
       toast({ title: "نجاح", description: `تم تغيير حالة البئر إلى "${statusLabel}"` });
       queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تغيير حالة البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في تغيير حالة البئر"), variant: "destructive" }); }
   });
 
   const deleteWellMutation = useMutation({
@@ -456,7 +457,7 @@ export default function WellReceptionsPage() {
       toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });
       queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في حذف البئر"), variant: "destructive" }); }
   });
 
   const createMutation = useMutation({
@@ -469,7 +470,7 @@ export default function WellReceptionsPage() {
       resetReceptionForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في تسجيل الاستلام", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تسجيل الاستلام"), variant: "destructive" });
     },
   });
 
@@ -483,7 +484,7 @@ export default function WellReceptionsPage() {
       resetReceptionForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في تحديث سجل الاستلام", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تحديث سجل الاستلام"), variant: "destructive" });
     },
   });
 
@@ -496,7 +497,7 @@ export default function WellReceptionsPage() {
       queryClient.invalidateQueries({ queryKey: ["wells-full-data"] });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في الحذف", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في الحذف"), variant: "destructive" });
     },
   });
 

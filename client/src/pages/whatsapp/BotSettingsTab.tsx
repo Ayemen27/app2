@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -278,7 +279,7 @@ export default function BotSettingsTab() {
     onError: (error: any) => {
       toast({
         title: "خطأ في الحفظ",
-        description: error.message || "فشل في حفظ الإعدادات",
+        description: toUserMessage(error, "فشل في حفظ الإعدادات"),
         variant: "destructive",
       });
     },
@@ -296,7 +297,7 @@ export default function BotSettingsTab() {
     onError: (error: any) => {
       toast({
         title: "خطأ",
-        description: error.message || "فشل في إعادة التعيين",
+        description: toUserMessage(error, "فشل في إعادة التعيين"),
         variant: "destructive",
       });
     },

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { Plus, Edit, Trash2, MapPin, Loader, BarChart3, Wrench, TrendingUp, Download, Eye, Users, Truck, CheckCircle, DollarSign, FileText, Sun, ClipboardCheck, RefreshCw, ArrowUpDown } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
@@ -158,7 +159,7 @@ export default function WellsPage() {
       setShowAddFanTypeDialog(false);
       setNewFanType("");
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في إضافة نوع المروحة", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في إضافة نوع المروحة"), variant: "destructive" }); }
   });
 
   const addPumpPowerMutation = useMutation({
@@ -169,7 +170,7 @@ export default function WellsPage() {
       setShowAddPumpPowerDialog(false);
       setNewPumpPower("");
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في إضافة قوة المضخة", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في إضافة قوة المضخة"), variant: "destructive" }); }
   });
 
   const addOwnerNameMutation = useMutation({
@@ -196,7 +197,7 @@ export default function WellsPage() {
       setShowAddDialog(false);
       setFormData({});
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في إنشاء البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في إنشاء البئر"), variant: "destructive" }); }
   });
 
   const updateWellMutation = useMutation({
@@ -210,7 +211,7 @@ export default function WellsPage() {
       setShowEditDialog(false);
       setSelectedWell(null);
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تحديث البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في تحديث البئر"), variant: "destructive" }); }
   });
 
   const deleteWellMutation = useMutation({
@@ -219,7 +220,7 @@ export default function WellsPage() {
       toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في حذف البئر"), variant: "destructive" }); }
   });
 
   const changeStatusMutation = useMutation({
@@ -230,7 +231,7 @@ export default function WellsPage() {
       toast({ title: "نجاح", description: `تم تغيير حالة البئر إلى "${statusLabel}"` });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wells });
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تغيير حالة البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في تغيير حالة البئر"), variant: "destructive" }); }
   });
 
   const filteredWells = useMemo(() => {
@@ -375,7 +376,7 @@ export default function WellsPage() {
       if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
       else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في تصدير PDF", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تصدير PDF"), variant: "destructive" });
     } finally { setIsExportingPdf(false); }
   }, [filteredWells, stats, toast]);
 
@@ -422,7 +423,7 @@ export default function WellsPage() {
       if (success) toast({ title: "نجاح", description: "تم تصدير ملف Excel بنجاح" });
       else toast({ title: "خطأ", description: "فشل في تصدير ملف Excel", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في تصدير ملف Excel", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تصدير ملف Excel"), variant: "destructive" });
     } finally { setIsExportingExcel(false); }
   }, [filteredWells, stats]);
 

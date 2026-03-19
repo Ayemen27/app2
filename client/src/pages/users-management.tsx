@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { toUserMessage } from '@/lib/error-utils';
 import { useAuth } from '@/components/AuthProvider';
 import { UnifiedFilterDashboard } from '@/components/ui/unified-filter-dashboard';
 import { UnifiedCard, UnifiedCardGrid } from '@/components/ui/unified-card';
@@ -64,7 +65,7 @@ export default function UsersManagementPage() {
     onError: (error: any) => {
       toast({
         title: "فشل التحديث",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     },
@@ -84,7 +85,7 @@ export default function UsersManagementPage() {
     onError: (error: any) => {
       toast({
         title: "خطأ في الحذف",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     }

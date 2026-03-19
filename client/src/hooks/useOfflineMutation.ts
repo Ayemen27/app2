@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient, UseMutationOptions, UseMutationResult } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { toUserMessage } from '@/lib/error-utils';
 import { useState, useCallback } from 'react';
 
 interface OfflineMutationOptions<TData = any, TVariables = any> {
@@ -66,7 +67,7 @@ export function useOfflineMutation<TData = any, TVariables = any>(
     onError: (error: Error, variables: TVariables, context: any) => {
       toast({
         title: options.errorMessage || 'حدث خطأ',
-        description: error.message,
+        description: toUserMessage(error),
         variant: 'destructive',
       });
       options.onError?.(error, variables);

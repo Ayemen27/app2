@@ -42,6 +42,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { ENV } from "@/lib/env";
 
@@ -424,7 +425,7 @@ export default function DeploymentConsole() {
 
       refetchHistory();
     } catch (error: any) {
-      toast({ title: "فشل بدء النشر", description: error.message, variant: "destructive" });
+      toast({ title: "فشل بدء النشر", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsStarting(false);
     }
@@ -436,7 +437,7 @@ export default function DeploymentConsole() {
       await apiRequest(`/api/deployment/${activeDeploymentId}/cancel`, "POST");
       toast({ title: "تم إلغاء النشر" });
     } catch (error: any) {
-      toast({ title: "فشل الإلغاء", description: error.message, variant: "destructive" });
+      toast({ title: "فشل الإلغاء", description: toUserMessage(error), variant: "destructive" });
     }
   };
 
@@ -478,7 +479,7 @@ export default function DeploymentConsole() {
       setLiveDeployment(prev => prev ? { ...prev, status: "success", progress: 100, currentStep: "complete",
         steps: [{ name: "health-check", status: "success" }] } : null);
     } catch (error: any) {
-      addLocalLog(`فشل فحص السلامة: ${error.message}`, "error");
+      addLocalLog(`فشل فحص السلامة: ${toUserMessage(error)}`, "error");
       setLiveDeployment(prev => prev ? { ...prev, status: "failed", progress: 100, currentStep: "complete",
         steps: [{ name: "health-check", status: "failed" }] } : null);
     } finally {
@@ -494,7 +495,7 @@ export default function DeploymentConsole() {
       setLiveDeployment(null);
       toast({ title: "بدأ التراجع" });
     } catch (error: any) {
-      toast({ title: "فشل التراجع", description: error.message, variant: "destructive" });
+      toast({ title: "فشل التراجع", description: toUserMessage(error), variant: "destructive" });
     }
   };
 
@@ -531,7 +532,7 @@ export default function DeploymentConsole() {
       setLiveDeployment(prev => prev ? { ...prev, status: "success", progress: 100, currentStep: "complete",
         steps: [{ name: "cleanup", status: "success" }] } : null);
     } catch (error: any) {
-      addLocalLog(`فشل التنظيف: ${error.message}`, "error");
+      addLocalLog(`فشل التنظيف: ${toUserMessage(error)}`, "error");
       setLiveDeployment(prev => prev ? { ...prev, status: "failed", progress: 100, currentStep: "complete",
         steps: [{ name: "cleanup", status: "failed" }] } : null);
     } finally {
@@ -553,7 +554,7 @@ export default function DeploymentConsole() {
       refetchHistory();
       queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
     } catch (error: any) {
-      toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
+      toast({ title: "فشل الحذف", description: toUserMessage(error), variant: "destructive" });
     }
   };
 
@@ -580,7 +581,7 @@ export default function DeploymentConsole() {
         sseConnectedRef.current = false;
       }
     } catch (error: any) {
-      toast({ title: "فشل تحميل بيانات العملية", description: error.message, variant: "destructive" });
+      toast({ title: "فشل تحميل بيانات العملية", description: toUserMessage(error), variant: "destructive" });
     }
   };
 

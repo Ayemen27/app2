@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -478,7 +479,7 @@ export default function ProjectsPage() {
     onError: (error: any) => {
       toast({
         title: "خطأ في إنشاء المشروع",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     },
@@ -506,7 +507,7 @@ export default function ProjectsPage() {
     onError: (error: any) => {
       toast({
         title: "خطأ في تحديث المشروع",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     },
@@ -528,7 +529,7 @@ export default function ProjectsPage() {
     onError: (error: any) => {
       toast({
         title: "خطأ في حذف المشروع",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     },
@@ -550,7 +551,7 @@ export default function ProjectsPage() {
     } catch (error: any) {
       toast({
         title: "خطأ في جلب بيانات المشروع",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
       setDeleteDialogOpen(false);
@@ -597,7 +598,7 @@ export default function ProjectsPage() {
       }
       toast({
         title: "خطأ",
-        description: error.message || "حدث خطأ في تحديث حالة المشروع",
+        description: toUserMessage(error, "حدث خطأ في تحديث حالة المشروع"),
         variant: "destructive",
       });
     },

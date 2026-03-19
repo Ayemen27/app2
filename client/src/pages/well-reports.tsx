@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { ArrowLeft, FileSpreadsheet, FileText, Download, Loader2, BarChart3, Users, Sun, Truck } from "lucide-react";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 
 type ReportType = 'comprehensive' | 'wells_only' | 'crews_only' | 'solar_only';
 type ExportFormat = 'xlsx' | 'pdf';
@@ -85,7 +86,7 @@ export default function WellReports() {
         toast({ title: 'تم فتح التقرير', description: 'يمكنك الطباعة أو حفظه كـ PDF' });
       }
     } catch (error: any) {
-      toast({ title: 'خطأ في التصدير', description: error.message, variant: 'destructive' });
+      toast({ title: 'خطأ في التصدير', description: toUserMessage(error), variant: 'destructive' });
     } finally {
       setExporting(null);
     }

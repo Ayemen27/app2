@@ -12,6 +12,7 @@ import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { insertProjectFundTransferSchema } from "@shared/schema";
 import type { InsertProjectFundTransfer, ProjectFundTransfer, Project } from "@shared/schema";
@@ -172,7 +173,7 @@ export default function ProjectTransfers() {
     onError: (error: any) => {
       toast({
         title: "خطأ",
-        description: error.message || "فشل في حفظ عملية الترحيل",
+        description: toUserMessage(error, "فشل في حفظ عملية الترحيل"),
         variant: "destructive",
       });
     },
@@ -209,7 +210,7 @@ export default function ProjectTransfers() {
       console.error('❌ [Client] خطأ في الحذف:', error);
       toast({
         title: "خطأ",
-        description: error.message || "فشل في حذف عملية الترحيل",
+        description: toUserMessage(error, "فشل في حذف عملية الترحيل"),
         variant: "destructive",
       });
     },

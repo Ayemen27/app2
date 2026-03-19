@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../../middleware/auth.js';
+import { sanitizeZodErrors } from '../../lib/error-utils';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess.js';
 import { InventoryService } from '../../services/InventoryService.js';
 import { isAdmin } from '../../internal/auth-user.js';
@@ -25,7 +26,7 @@ inventoryRouter.get('/stats', async (req, res) => {
     res.json({ success: true, data: stats });
   } catch (error: any) {
     console.error('❌ خطأ في إحصائيات المخزن:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب إحصائيات المخزن' });
   }
 });
 
@@ -41,7 +42,7 @@ inventoryRouter.get('/stock', async (req, res) => {
     res.json({ success: true, data: stock });
   } catch (error: any) {
     console.error('❌ خطأ في جلب المخزون:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب المخزون' });
   }
 });
 
@@ -50,7 +51,7 @@ inventoryRouter.get('/categories', async (req, res) => {
     const categories = await InventoryService.getCategories();
     res.json({ success: true, data: categories });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب التصنيفات' });
   }
 });
 
@@ -68,7 +69,7 @@ inventoryRouter.get('/transactions', async (req, res) => {
     res.json({ success: true, data: transactions });
   } catch (error: any) {
     console.error('❌ خطأ في جلب الحركات:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب الحركات' });
   }
 });
 
@@ -78,7 +79,7 @@ inventoryRouter.get('/items/:id/available', async (req, res) => {
     const available = await InventoryService.getItemAvailableQty(itemId);
     res.json({ success: true, data: { available } });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب الكمية المتاحة' });
   }
 });
 
@@ -95,7 +96,7 @@ inventoryRouter.get('/items/:id/transactions', async (req, res) => {
     });
     res.json({ success: true, data: transactions });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب حركات المادة' });
   }
 });
 
@@ -105,7 +106,7 @@ inventoryRouter.get('/items/:id/lots', async (req, res) => {
     const lots = await InventoryService.getItemLots(itemId);
     res.json({ success: true, data: lots });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب دفعات المادة' });
   }
 });
 
@@ -121,7 +122,7 @@ inventoryRouter.post('/issue', async (req, res) => {
     });
     const parsed = issueSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const { itemId, quantity, toProjectId, transactionDate, performedBy, notes } = req.body;
@@ -139,7 +140,7 @@ inventoryRouter.post('/issue', async (req, res) => {
     res.json({ success: true, data: result, message: 'تم الصرف بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في صرف المخزن:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في صرف المخزن' });
   }
 });
 
@@ -158,7 +159,7 @@ inventoryRouter.post('/receive', async (req, res) => {
     });
     const parsed = receiveSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const { itemName, category, unit, quantity, unitCost, receiptDate, supplierId, projectId, notes } = req.body;
@@ -183,7 +184,7 @@ inventoryRouter.post('/receive', async (req, res) => {
     res.json({ success: true, data: result, message: 'تم الإضافة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في إضافة للمخزن:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في إضافة للمخزن' });
   }
 });
 
@@ -199,7 +200,7 @@ inventoryRouter.post('/return', async (req, res) => {
     });
     const parsed = returnSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const { itemId, quantity, fromProjectId, transactionDate, performedBy, notes } = req.body;
@@ -217,7 +218,7 @@ inventoryRouter.post('/return', async (req, res) => {
     res.json({ success: true, message: 'تم إرجاع المادة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في إرجاع المادة:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في إرجاع المادة' });
   }
 });
 
@@ -237,7 +238,7 @@ inventoryRouter.post('/adjust', async (req, res) => {
     });
     const parsed = adjustSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const { itemId, quantity, type, transactionDate, performedBy, notes } = req.body;
@@ -254,7 +255,7 @@ inventoryRouter.post('/adjust', async (req, res) => {
     res.json({ success: true, message: 'تم التسوية بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في تسوية المخزن:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في تسوية المخزن' });
   }
 });
 
@@ -269,7 +270,7 @@ inventoryRouter.put('/items/:id', async (req, res) => {
     });
     const parsed = updateItemSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const itemId = parseInt(req.params.id);
@@ -282,7 +283,7 @@ inventoryRouter.put('/items/:id', async (req, res) => {
     res.json({ success: true, message: 'تم تحديث المادة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في تحديث المادة:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في تحديث المادة' });
   }
 });
 
@@ -296,7 +297,7 @@ inventoryRouter.delete('/items/:id', async (req, res) => {
     res.json({ success: true, message: 'تم حذف المادة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في حذف المادة:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في حذف المادة' });
   }
 });
 
@@ -309,7 +310,7 @@ inventoryRouter.patch('/transactions/:id', async (req, res) => {
     });
     const parsed = updateTransactionSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const txId = parseInt(req.params.id);
@@ -331,7 +332,7 @@ inventoryRouter.patch('/transactions/:id', async (req, res) => {
     res.json({ success: true, message: 'تم تعديل المعاملة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في تعديل المعاملة:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في تعديل المعاملة' });
   }
 });
 
@@ -345,7 +346,7 @@ inventoryRouter.delete('/transactions/:id', async (req, res) => {
     res.json({ success: true, message: 'تم حذف المعاملة بنجاح' });
   } catch (error: any) {
     console.error('❌ خطأ في حذف المعاملة:', error);
-    res.status(400).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: 'فشل في حذف المعاملة' });
   }
 });
 
@@ -364,7 +365,7 @@ inventoryRouter.get('/reports', async (req, res) => {
     res.json({ success: true, data: report });
   } catch (error: any) {
     console.error('❌ خطأ في تقارير المخزن:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: 'فشل في جلب تقارير المخزن' });
   }
 });
 

@@ -14,6 +14,7 @@ import {
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { 
   Loader2, 
   CheckCircle,
@@ -118,7 +119,7 @@ export default function ResetPasswordPage() {
     onError: (error: any) => {
       toast({
         title: "خطأ في إعادة تعيين كلمة المرور",
-        description: error.message || "حدث خطأ أثناء المعالجة",
+        description: toUserMessage(error, "حدث خطأ أثناء المعالجة"),
         variant: "destructive",
       });
     },

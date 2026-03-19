@@ -4,6 +4,7 @@
  */
 
 import { toast } from '@/hooks/use-toast';
+import { toUserMessage, isNonCriticalError } from '../lib/error-utils';
 import { ENV } from '../lib/env';
 
 export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
@@ -31,20 +32,25 @@ class IntelligentMonitor {
     // Catch-all for unhandled rejections in native environment
     window.addEventListener('unhandledrejection', (event) => {
       const reason = event.reason;
-      const reasonStr = String(reason?.message || reason || '');
+      if (isNonCriticalError(reason)) {
+        return;
+      }
+      const reasonStr = String(reason?.message || reason || '').toLowerCase();
       if (
-        reason?.name === 'ZodError' ||
-        reasonStr.includes('too_small') ||
-        reasonStr.includes('invalid_format') ||
-        reasonStr.includes('invalid_string') ||
-        (Array.isArray(reason?.issues || reason?.errors))
+        reasonStr.includes('timeout') ||
+        reasonStr.includes('timed out') ||
+        reasonStr.includes('network') ||
+        reasonStr.includes('failed to fetch') ||
+        reasonStr.includes('net::') ||
+        reasonStr.includes('resizeobserver') ||
+        reasonStr.includes('script error')
       ) {
         return;
       }
       this.logEvent({
         type: 'error',
         severity: 'critical',
-        message: `Unhandled Promise Rejection: ${reason?.message || 'Unknown'}`,
+        message: toUserMessage(reason, 'حدث خطأ غير متوقع'),
         metadata: { stack: reason?.stack }
       });
     });
@@ -81,9 +87,15 @@ class IntelligentMonitor {
    * إشعار المسؤول
    */
   private notifyAdmin(event: AppEvent) {
+    const sanitizedMessage = toUserMessage(
+      event.metadata?.originalError || { message: event.message },
+      event.severity === 'critical'
+        ? 'حدث خطأ حرج. يرجى المحاولة مرة أخرى'
+        : 'حدث خطأ. يرجى المحاولة مرة أخرى'
+    );
     toast({
-      title: `⚠️ تنبيه ${event.severity === 'critical' ? 'حرج' : 'هام'}`,
-      description: event.message,
+      title: event.severity === 'critical' ? 'تنبيه حرج' : 'تنبيه هام',
+      description: sanitizedMessage,
       variant: event.severity === 'critical' ? 'destructive' : 'default',
     });
   }

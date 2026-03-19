@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { MapPin, Wrench, TrendingUp, DollarSign, Edit2, Trash2, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 
 interface WellDetailCardProps {
   well_id: number;
@@ -52,7 +53,7 @@ export function WellDetailCard({ well_id, onEdit, onDelete, onViewCosts }: WellD
       onDelete?.();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في حذف البئر"), variant: "destructive" });
     }
   });
 

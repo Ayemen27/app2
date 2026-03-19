@@ -6,6 +6,7 @@ import { requireAuth, AuthenticatedRequest } from '../../middleware/auth.js';
 import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware/projectAccess.js';
 import { getAuthUser, isAdmin } from '../../internal/auth-user.js';
 import { sendSuccess, sendError } from '../../middleware/api-response.js';
+import { sanitizeZodErrors } from '../../lib/error-utils';
 
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
@@ -290,7 +291,7 @@ settlementRouter.get('/preview', async (req: Request, res: Response) => {
       worker_ids: z.string().optional(),
     });
     const queryParsed = previewQuerySchema.safeParse(req.query);
-    if (!queryParsed.success) return res.status(400).json({ success: false, errors: queryParsed.error.errors });
+    if (!queryParsed.success) return res.status(400).json({ success: false, message: sanitizeZodErrors(queryParsed.error), errors: queryParsed.error.issues });
 
     const { worker_ids, settlement_project_id } = req.query;
     const accessReq = req as ProjectAccessRequest;
@@ -345,7 +346,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
       excluded_projects: z.record(z.string(), z.array(z.string())).optional(),
     });
     const parsed = executeSettlementSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ success: false, errors: parsed.error.errors });
+    if (!parsed.success) return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
 
     const { worker_ids, settlement_project_id, notes, excluded_projects, settlement_date } = req.body;
     const accessReq = req as ProjectAccessRequest;

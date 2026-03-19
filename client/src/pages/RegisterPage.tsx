@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "../hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import {
   Form,
   FormControl,
@@ -211,7 +212,7 @@ export default function RegisterPage() {
     onError: (error: Error) => {
       toast({
         title: "فشل إنشاء الحساب",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     },

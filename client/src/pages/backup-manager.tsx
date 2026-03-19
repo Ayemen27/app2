@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { formatDate } from "@/lib/utils";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
 import { UnifiedCard, UnifiedCardGrid, UnifiedCardSkeleton } from "@/components/ui/unified-card";
@@ -150,7 +151,7 @@ export default function BackupManager() {
     onError: (error: any) => {
       toast({ 
         title: "فشل إنشاء النسخة", 
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive" 
       });
     }
@@ -186,7 +187,7 @@ export default function BackupManager() {
     onError: (error: any) => {
       toast({ 
         title: "فشل الاستعادة", 
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive"
       });
     },
@@ -228,7 +229,7 @@ export default function BackupManager() {
     } catch (error: any) {
       toast({
         title: "فشل التنزيل",
-        description: error.message || "حدث خطأ أثناء تنزيل الملف",
+        description: toUserMessage(error, "حدث خطأ أثناء تنزيل الملف"),
         variant: "destructive",
       });
     }
@@ -277,7 +278,7 @@ export default function BackupManager() {
     onError: (error: any) => {
       toast({ 
         title: "فشل الحذف", 
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive" 
       });
     }
@@ -474,7 +475,7 @@ export default function BackupManager() {
                 });
                 toast({ title: "تم التصدير", description: "تم إنشاء ملف PDF بنجاح" });
               } catch (err: any) {
-                toast({ title: "فشل التصدير", description: err.message, variant: "destructive" });
+                toast({ title: "فشل التصدير", description: toUserMessage(err), variant: "destructive" });
               }
             },
             variant: "outline" as const,
@@ -513,7 +514,7 @@ export default function BackupManager() {
                 ]);
                 toast({ title: "تم التصدير", description: "تم إنشاء ملف Excel بنجاح" });
               } catch (err: any) {
-                toast({ title: "فشل التصدير", description: err.message, variant: "destructive" });
+                toast({ title: "فشل التصدير", description: toUserMessage(err), variant: "destructive" });
               }
             },
             variant: "outline" as const,

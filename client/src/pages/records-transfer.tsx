@@ -16,6 +16,7 @@ import {
   Send, DollarSign
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useFinancialSummary } from "@/hooks/useFinancialSummary";
 
@@ -471,7 +472,7 @@ export default function RecordsTransfer() {
       setPreviewData(data);
       setIsPreview(true);
     } catch (error: any) {
-      toast({ title: "فشل المعاينة", description: error.message, variant: "destructive" });
+      toast({ title: "فشل المعاينة", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsPreviewing(false);
     }
@@ -493,7 +494,7 @@ export default function RecordsTransfer() {
       });
       resetAndRefresh();
     } catch (error: any) {
-      toast({ title: "فشل النقل", description: error.message, variant: "destructive" });
+      toast({ title: "فشل النقل", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsTransferring(false);
     }
@@ -516,7 +517,7 @@ export default function RecordsTransfer() {
       });
       resetAndRefresh();
     } catch (error: any) {
-      toast({ title: "فشل النقل الإجباري", description: error.message, variant: "destructive" });
+      toast({ title: "فشل النقل الإجباري", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsForceTransferring(false);
     }
@@ -556,7 +557,7 @@ export default function RecordsTransfer() {
       });
       resetAndRefresh();
     } catch (error: any) {
-      toast({ title: "فشل الحذف", description: error.message, variant: "destructive" });
+      toast({ title: "فشل الحذف", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }
@@ -591,7 +592,7 @@ export default function RecordsTransfer() {
       setFundAmount("");
       resetAndRefresh();
     } catch (error: any) {
-      toast({ title: "فشل الترحيل", description: error.message, variant: "destructive" });
+      toast({ title: "فشل الترحيل", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsSendingFund(false);
     }

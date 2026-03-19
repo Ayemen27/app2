@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "../hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import {
   Form,
   FormControl,
@@ -64,7 +65,7 @@ export default function ForgotPasswordPage() {
     onError: (error: Error) => {
       toast({
         title: "فشل إرسال الرابط",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     },

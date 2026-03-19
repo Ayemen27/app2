@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "../components/AuthProvider";
 import { useToast } from "../hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import {
   Form,
   FormControl,
@@ -152,7 +153,7 @@ export default function LoginPage() {
       } else {
         toast({
           title: "فشل تسجيل الدخول",
-          description: error.message || "حدث خطأ أثناء تسجيل الدخول بالبصمة",
+          description: toUserMessage(error, "حدث خطأ أثناء تسجيل الدخول بالبصمة"),
           variant: "destructive",
         });
       }
@@ -195,7 +196,7 @@ export default function LoginPage() {
       
       toast({
         title: "فشل تسجيل الدخول",
-        description: error.message || "حدث خطأ أثناء تسجيل الدخول",
+        description: toUserMessage(error, "حدث خطأ أثناء تسجيل الدخول"),
         variant: "destructive",
       });
     },

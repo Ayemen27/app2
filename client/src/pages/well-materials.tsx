@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
@@ -146,7 +147,7 @@ export default function WellMaterialsPage() {
       toast({ title: "نجاح", description: `تم تغيير حالة البئر إلى "${statusLabel}"` });
       queryClient.invalidateQueries({ queryKey: ["wells-full-data", selectedProjectId] });
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في تغيير حالة البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في تغيير حالة البئر"), variant: "destructive" }); }
   });
 
   const deleteWellMutation = useMutation({
@@ -155,7 +156,7 @@ export default function WellMaterialsPage() {
       toast({ title: "نجاح", description: "تم حذف البئر بنجاح" });
       queryClient.invalidateQueries({ queryKey: ["wells-full-data", selectedProjectId] });
     },
-    onError: (error: any) => { toast({ title: "خطأ", description: error.message || "فشل في حذف البئر", variant: "destructive" }); }
+    onError: (error: any) => { toast({ title: "خطأ", description: toUserMessage(error, "فشل في حذف البئر"), variant: "destructive" }); }
   });
 
   const handleFilterChange = useCallback((key: string, value: any) => {
@@ -382,7 +383,7 @@ export default function WellMaterialsPage() {
       if (success) toast({ title: "نجاح", description: "تم تصدير تقرير PDF بنجاح" });
       else toast({ title: "خطأ", description: "فشل في تصدير تقرير PDF", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في تصدير PDF", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تصدير PDF"), variant: "destructive" });
     } finally { setIsExportingPdf(false); }
   }, [filteredWells, stats, toast, buildMaterialsData]);
 
@@ -412,7 +413,7 @@ export default function WellMaterialsPage() {
       if (success) toast({ title: "نجاح", description: "تم تصدير ملف Excel بنجاح" });
       else toast({ title: "خطأ", description: "فشل في تصدير ملف Excel", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في تصدير ملف Excel", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تصدير ملف Excel"), variant: "destructive" });
     } finally {
       setIsExportingExcel(false);
     }
@@ -772,7 +773,7 @@ function SolarEditDialog({
       onClose();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في حفظ البيانات", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في حفظ البيانات"), variant: "destructive" });
     },
   });
 

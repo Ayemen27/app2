@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FormDatePickerField } from "@/components/ui/date-picker-field";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { insertFundTransferSchema } from "@shared/schema";
 import type { InsertFundTransfer, FundTransfer, Project } from "@shared/schema";
@@ -170,7 +171,7 @@ export default function ProjectFundCustody() {
     onError: (error: any) => {
       toast({
         title: "خطأ",
-        description: error.message || "فشل في حفظ الوارد",
+        description: toUserMessage(error, "فشل في حفظ الوارد"),
         variant: "destructive",
       });
     },
@@ -191,7 +192,7 @@ export default function ProjectFundCustody() {
     onError: (error: any) => {
       toast({
         title: "خطأ",
-        description: error.message || "فشل في حذف الوارد",
+        description: toUserMessage(error, "فشل في حذف الوارد"),
         variant: "destructive",
       });
     },

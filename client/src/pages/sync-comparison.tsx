@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { toUserMessage } from '@/lib/error-utils';
 import { RefreshCw, CheckCircle, AlertCircle, Database, Table2, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { smartGetAll } from '@/offline/storage-factory';
@@ -94,7 +95,7 @@ export default function SyncComparisonPage() {
     } catch (error: any) {
       toast({
         title: 'خطأ في المقارنة',
-        description: error.message,
+        description: toUserMessage(error),
         variant: 'destructive',
       });
     } finally {

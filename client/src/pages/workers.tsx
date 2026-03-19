@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { toUserMessage } from '@/lib/error-utils';
 import { FileText, Edit2, Trash2, Users, Clock, DollarSign, Calendar, User, Activity, Briefcase, Phone, Building, Power, CheckCircle, XCircle, Wallet, ArrowDownCircle, TrendingDown, Plus, FolderOpen } from 'lucide-react';
 import { exportWorkerStatement } from '@/lib/excel-exports';
 import { generateWorkerPDF } from '@/lib/pdf-exports.tsx';
@@ -803,7 +804,7 @@ export default function WorkersPage() {
       }
       toast({
         title: "خطأ",
-        description: error.message || "حدث خطأ في تحديث العامل",
+        description: toUserMessage(error, "حدث خطأ في تحديث العامل"),
         variant: "destructive",
       });
     },

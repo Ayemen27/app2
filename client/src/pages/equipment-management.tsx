@@ -17,6 +17,7 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { useSelectedProject, ALL_PROJECTS_ID } from "@/hooks/use-selected-project";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -582,7 +583,7 @@ export function EquipmentManagement() {
       if (success) toast({ title: "تم تصدير Excel بنجاح" });
       else toast({ title: "خطأ في التصدير", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error), variant: "destructive" });
     } finally { setIsExportingExcel(false); }
   }, [activeTab, tabExportConfig, toast]);
 
@@ -615,7 +616,7 @@ export function EquipmentManagement() {
       if (success) toast({ title: "تم تصدير PDF بنجاح" });
       else toast({ title: "خطأ في التصدير", variant: "destructive" });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error), variant: "destructive" });
     } finally { setIsExportingPdf(false); }
   }, [activeTab, tabExportConfig, toast]);
 

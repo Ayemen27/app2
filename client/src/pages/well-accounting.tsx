@@ -12,6 +12,7 @@ import { performLocalOperation } from "@/offline/db";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, CheckCircle2, Clock, AlertCircle, MapPin, TrendingUp, Wrench, DollarSign, Download, FileText, BarChart3, Loader } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { useSelectedProject } from "@/hooks/use-selected-project";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
@@ -88,7 +89,7 @@ export default function WellAccounting() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId != null ? String(selectedWellId) : '') });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error), variant: "destructive" });
     }
   });
 
@@ -101,7 +102,7 @@ export default function WellAccounting() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTasks(selectedWellId != null ? String(selectedWellId) : '') });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error), variant: "destructive" });
     }
   });
 

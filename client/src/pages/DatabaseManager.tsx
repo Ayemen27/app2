@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { queryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
@@ -120,7 +121,7 @@ export default function DatabaseManager() {
       refetchAll();
     },
     onError: (error) => {
-      toast({ title: "خطأ", description: error.message, variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error), variant: "destructive" });
     }
   });
 

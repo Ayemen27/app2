@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { exportLocalData, importLocalData } from "@/offline/backup";
@@ -162,7 +163,7 @@ export default function SettingsPage() {
         toast({ title: "خطأ", description: err.message || "فشل في حفظ الإعدادات", variant: "destructive" });
       }
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "حدث خطأ أثناء الحفظ", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "حدث خطأ أثناء الحفظ"), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -230,7 +231,7 @@ export default function SettingsPage() {
       if (error.name === 'NotAllowedError') {
         toast({ title: "تم الإلغاء", description: "تم إلغاء عملية تسجيل البصمة" });
       } else {
-        toast({ title: "خطأ", description: error.message || "فشل في تفعيل البصمة", variant: "destructive" });
+        toast({ title: "خطأ", description: toUserMessage(error, "فشل في تفعيل البصمة"), variant: "destructive" });
       }
     } finally {
       setBiometricLoading(false);
@@ -258,7 +259,7 @@ export default function SettingsPage() {
         toast({ title: "خطأ", description: "فشل في إلغاء البصمة", variant: "destructive" });
       }
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "حدث خطأ", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "حدث خطأ"), variant: "destructive" });
     } finally {
       setBiometricLoading(false);
     }

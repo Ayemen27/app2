@@ -3,7 +3,7 @@
  * يوفر حالة المصادقة وإدارة الجلسات
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/queryClient";
 import { isValidJwt, clearInvalidTokens, setAuthMode, getAuthMode, isOfflineMode } from "../lib/token-utils";
@@ -643,11 +643,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // متغيرات لإدارة إعادة المحاولة
   const [refreshAttempts, setRefreshAttempts] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshPromiseRef = useRef<Promise<boolean> | null>(null);
 
-  // دالة مساعدة للانتظار (sleep)
   const sleep = (ms: number): Promise<void> =>
     new Promise(resolve => setTimeout(resolve, ms));
 
@@ -657,21 +655,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return Math.min(100 * Math.pow(2, attempt), 5000);
   };
 
-  // تجديد الرمز المميز مع backoff strategy وتحسينات شاملة
   const refreshToken = async (forceRetry: boolean = false): Promise<boolean> => {
     if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Starting token refresh...');
 
-    // تجنب محاولات متزامنة متعددة
-    if (isRefreshing && !forceRetry) {
-      if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Refresh already in progress, waiting...');
-      // انتظار حتى انتهاء التجديد الجاري
-      while (isRefreshing) {
-        await sleep(100);
-      }
-      return storeGetAccessToken() !== null;
+    if (refreshPromiseRef.current && !forceRetry) {
+      if (import.meta.env.DEV) console.log('[AuthProvider.refreshToken] Refresh already in progress, awaiting existing promise...');
+      return refreshPromiseRef.current;
     }
 
-    setIsRefreshing(true);
+    const doRefresh = async (): Promise<boolean> => {
     const startTime = Date.now();
     let currentAttempt = forceRetry ? 0 : refreshAttempts;
 
@@ -795,9 +787,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (import.meta.env.DEV) console.error(`[AuthProvider.refreshToken] General error after ${totalDuration}ms:`, error);
       setRefreshAttempts(prev => prev + 1);
       return false;
-    } finally {
-      setIsRefreshing(false);
     }
+    };
+
+    const promise = doRefresh().finally(() => {
+      refreshPromiseRef.current = null;
+    });
+    refreshPromiseRef.current = promise;
+    return promise;
   };
 
   const value: AuthContextType = {

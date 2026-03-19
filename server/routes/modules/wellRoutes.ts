@@ -19,6 +19,7 @@ import {
   wellWorkCrews,
   workers
 } from '../../../shared/schema';
+import { sanitizeZodErrors } from '../../lib/error-utils';
 import { generateWellReportExcel } from '../../services/reports/templates/WellReportExcel';
 import { generateWellReportHTML } from '../../services/reports/templates/WellReportPDF';
 import { db, pool } from '../../db';
@@ -67,7 +68,7 @@ wellRouter.get('/', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'WELLS_FETCH_ERROR',
-      message: error.message || 'فشل في جلب الآبار'
+      message: 'فشل في جلب الآبار'
     });
   }
 });
@@ -98,7 +99,7 @@ wellRouter.get('/export/full-data', async (req: Request, res: Response) => {
     res.json({ success: true, data, message: `تم جلب بيانات ${data.length} بئر بنجاح` });
   } catch (error: any) {
     console.error('❌ خطأ في جلب بيانات التصدير الكاملة:', error);
-    res.status(500).json({ success: false, error: 'EXPORT_DATA_ERROR', message: error.message || 'فشل في جلب بيانات التصدير' });
+    res.status(500).json({ success: false, error: 'EXPORT_DATA_ERROR', message: 'فشل في جلب بيانات التصدير' });
   }
 });
 
@@ -182,7 +183,7 @@ wellRouter.get('/reports/export', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'WELL_REPORT_EXPORT_ERROR',
-      message: error.message || 'فشل في تصدير تقرير الآبار'
+      message: 'فشل في تصدير تقرير الآبار'
     });
   }
 });
@@ -228,7 +229,7 @@ wellRouter.get('/crews/:crew_id/workers', async (req: Request, res: Response) =>
     res.json({ success: true, data: crewWorkers });
   } catch (error: any) {
     console.error('Error fetching crew workers:', error);
-    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: error.message || 'فشل في جلب عمال الطاقم' });
+    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: 'فشل في جلب عمال الطاقم' });
   }
 });
 
@@ -287,7 +288,7 @@ wellRouter.get('/team-names', async (req: Request, res: Response) => {
     res.json({ success: true, data: teamNames });
   } catch (error: any) {
     console.error('Error fetching team names:', error);
-    res.status(500).json({ success: false, error: 'TEAM_NAMES_FETCH_ERROR', message: error.message || 'فشل في جلب أسماء الفرق' });
+    res.status(500).json({ success: false, error: 'TEAM_NAMES_FETCH_ERROR', message: 'فشل في جلب أسماء الفرق' });
   }
 });
 
@@ -315,7 +316,7 @@ wellRouter.get('/:id', async (req: Request, res: Response) => {
     res.status(404).json({
       success: false,
       error: 'WELL_NOT_FOUND',
-      message: error.message || 'البئر غير موجود'
+      message: 'البئر غير موجود'
     });
   }
 });
@@ -342,7 +343,7 @@ wellRouter.post('/', async (req: Request, res: Response) => {
     });
     const parsed = createWellSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const user = getAuthUser(req);
@@ -383,7 +384,7 @@ wellRouter.post('/', async (req: Request, res: Response) => {
     res.status(400).json({
       success: false,
       error: 'WELL_CREATE_ERROR',
-      message: error.message || 'فشل في إنشاء البئر'
+      message: 'فشل في إنشاء البئر'
     });
   }
 });
@@ -412,7 +413,7 @@ wellRouter.put('/:id', async (req: Request, res: Response) => {
     }).passthrough();
     const parsed = updateWellSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const well_id = parseInt(req.params.id);
@@ -446,7 +447,7 @@ wellRouter.put('/:id', async (req: Request, res: Response) => {
     res.status(400).json({
       success: false,
       error: 'WELL_UPDATE_ERROR',
-      message: error.message || 'فشل في تحديث البئر'
+      message: 'فشل في تحديث البئر'
     });
   }
 });
@@ -486,7 +487,7 @@ wellRouter.delete('/:id', async (req: Request, res: Response) => {
     res.status(400).json({
       success: false,
       error: 'WELL_DELETE_ERROR',
-      message: error.message || 'فشل في حذف البئر'
+      message: 'فشل في حذف البئر'
     });
   }
 });
@@ -517,7 +518,7 @@ wellRouter.get('/:id/tasks', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'TASKS_FETCH_ERROR',
-      message: error.message || 'فشل في جلب المهام'
+      message: 'فشل في جلب المهام'
     });
   }
 });
@@ -536,7 +537,7 @@ wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
     });
     const parsed = createTaskSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const user = getAuthUser(req);
@@ -570,7 +571,7 @@ wellRouter.post('/:id/tasks', async (req: Request, res: Response) => {
     res.status(400).json({
       success: false,
       error: 'TASK_CREATE_ERROR',
-      message: error.message || 'فشل في إنشاء المهمة'
+      message: 'فشل في إنشاء المهمة'
     });
   }
 });
@@ -585,7 +586,7 @@ wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) =>
     });
     const parsed = updateStatusSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const user = getAuthUser(req);
@@ -623,7 +624,7 @@ wellRouter.patch('/tasks/:taskId/status', async (req: Request, res: Response) =>
     res.status(400).json({
       success: false,
       error: 'TASK_UPDATE_ERROR',
-      message: error.message || 'فشل في تحديث حالة المهمة'
+      message: 'فشل في تحديث حالة المهمة'
     });
   }
 });
@@ -667,7 +668,7 @@ wellRouter.post('/tasks/:taskId/account', async (req: Request, res: Response) =>
     res.status(400).json({
       success: false,
       error: 'TASK_ACCOUNT_ERROR',
-      message: error.message || 'فشل في محاسبة المهمة'
+      message: 'فشل في محاسبة المهمة'
     });
   }
 });
@@ -702,7 +703,7 @@ wellRouter.get('/accounting/pending', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'PENDING_TASKS_ERROR',
-      message: error.message || 'فشل في جلب المهام المعلقة'
+      message: 'فشل في جلب المهام المعلقة'
     });
   }
 });
@@ -733,7 +734,7 @@ wellRouter.get('/:id/progress', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'PROGRESS_ERROR',
-      message: error.message || 'فشل في حساب التقدم'
+      message: 'فشل في حساب التقدم'
     });
   }
 });
@@ -763,7 +764,7 @@ wellRouter.get('/summary/:project_id', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'SUMMARY_ERROR',
-      message: error.message || 'فشل في حساب الملخص'
+      message: 'فشل في حساب الملخص'
     });
   }
 });
@@ -786,7 +787,7 @@ wellRouter.get('/:wellId/crews', async (req: Request, res: Response) => {
     const crews = await WellService.getWellCrews(wellId);
     res.json({ success: true, data: crews });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: 'CREWS_FETCH_ERROR', message: error.message || 'فشل في جلب طواقم العمل' });
+    res.status(500).json({ success: false, error: 'CREWS_FETCH_ERROR', message: 'فشل في جلب طواقم العمل' });
   }
 });
 
@@ -803,7 +804,7 @@ wellRouter.post('/:wellId/crews', async (req: Request, res: Response) => {
     }).passthrough();
     const parsed = createCrewSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const user = getAuthUser(req);
@@ -825,7 +826,7 @@ wellRouter.post('/:wellId/crews', async (req: Request, res: Response) => {
     const crew = await WellService.createCrew(wellId, req.body, user?.user_id ?? '');
     res.status(201).json({ success: true, data: crew, message: 'تم إنشاء طاقم العمل بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'CREW_CREATE_ERROR', message: error.message || 'فشل في إنشاء طاقم العمل' });
+    res.status(400).json({ success: false, error: 'CREW_CREATE_ERROR', message: 'فشل في إنشاء طاقم العمل' });
   }
 });
 
@@ -858,7 +859,7 @@ wellRouter.put('/crews/:crewId', async (req: Request, res: Response) => {
     const crew = await WellService.updateCrew(crewId, req.body);
     res.json({ success: true, data: crew, message: 'تم تحديث طاقم العمل بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'CREW_UPDATE_ERROR', message: error.message || 'فشل في تحديث طاقم العمل' });
+    res.status(400).json({ success: false, error: 'CREW_UPDATE_ERROR', message: 'فشل في تحديث طاقم العمل' });
   }
 });
 
@@ -881,7 +882,7 @@ wellRouter.delete('/crews/:crewId', async (req: Request, res: Response) => {
     await WellService.deleteCrew(crewId);
     res.json({ success: true, message: 'تم حذف طاقم العمل بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'CREW_DELETE_ERROR', message: error.message || 'فشل في حذف طاقم العمل' });
+    res.status(400).json({ success: false, error: 'CREW_DELETE_ERROR', message: 'فشل في حذف طاقم العمل' });
   }
 });
 
@@ -903,7 +904,7 @@ wellRouter.get('/:wellId/solar-components', async (req: Request, res: Response) 
     const components = await WellService.getWellSolarComponents(wellId);
     res.json({ success: true, data: components });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: 'SOLAR_FETCH_ERROR', message: error.message || 'فشل في جلب مكونات الطاقة الشمسية' });
+    res.status(500).json({ success: false, error: 'SOLAR_FETCH_ERROR', message: 'فشل في جلب مكونات الطاقة الشمسية' });
   }
 });
 
@@ -928,7 +929,7 @@ wellRouter.post('/:wellId/solar-components', async (req: Request, res: Response)
     const components = await WellService.upsertSolarComponents(wellId, req.body, user?.user_id ?? '');
     res.status(201).json({ success: true, data: components, message: 'تم حفظ مكونات الطاقة الشمسية بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'SOLAR_SAVE_ERROR', message: error.message || 'فشل في حفظ مكونات الطاقة الشمسية' });
+    res.status(400).json({ success: false, error: 'SOLAR_SAVE_ERROR', message: 'فشل في حفظ مكونات الطاقة الشمسية' });
   }
 });
 
@@ -946,7 +947,7 @@ wellRouter.delete('/:wellId/solar-components', async (req: Request, res: Respons
     await WellService.deleteSolarComponents(wellId);
     res.json({ success: true, message: 'تم حذف مكونات الطاقة الشمسية بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'SOLAR_DELETE_ERROR', message: error.message || 'فشل في حذف مكونات الطاقة الشمسية' });
+    res.status(400).json({ success: false, error: 'SOLAR_DELETE_ERROR', message: 'فشل في حذف مكونات الطاقة الشمسية' });
   }
 });
 
@@ -968,7 +969,7 @@ wellRouter.get('/:wellId/transport', async (req: Request, res: Response) => {
     const details = await WellService.getWellTransportDetails(wellId);
     res.json({ success: true, data: details });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: 'TRANSPORT_FETCH_ERROR', message: error.message || 'فشل في جلب تفاصيل النقل' });
+    res.status(500).json({ success: false, error: 'TRANSPORT_FETCH_ERROR', message: 'فشل في جلب تفاصيل النقل' });
   }
 });
 
@@ -984,7 +985,7 @@ wellRouter.post('/:wellId/transport', async (req: Request, res: Response) => {
     }).passthrough();
     const parsed = createTransportSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Invalid input', errors: parsed.error.errors });
+      return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
     }
 
     const user = getAuthUser(req);
@@ -1006,7 +1007,7 @@ wellRouter.post('/:wellId/transport', async (req: Request, res: Response) => {
     const detail = await WellService.createTransportDetail(wellId, req.body, user?.user_id ?? '');
     res.status(201).json({ success: true, data: detail, message: 'تم إنشاء تفاصيل النقل بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'TRANSPORT_CREATE_ERROR', message: error.message || 'فشل في إنشاء تفاصيل النقل' });
+    res.status(400).json({ success: false, error: 'TRANSPORT_CREATE_ERROR', message: 'فشل في إنشاء تفاصيل النقل' });
   }
 });
 
@@ -1039,7 +1040,7 @@ wellRouter.put('/transport/:transportId', async (req: Request, res: Response) =>
     const detail = await WellService.updateTransportDetail(transportId, req.body);
     res.json({ success: true, data: detail, message: 'تم تحديث تفاصيل النقل بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'TRANSPORT_UPDATE_ERROR', message: error.message || 'فشل في تحديث تفاصيل النقل' });
+    res.status(400).json({ success: false, error: 'TRANSPORT_UPDATE_ERROR', message: 'فشل في تحديث تفاصيل النقل' });
   }
 });
 
@@ -1062,7 +1063,7 @@ wellRouter.delete('/transport/:transportId', async (req: Request, res: Response)
     await WellService.deleteTransportDetail(transportId);
     res.json({ success: true, message: 'تم حذف تفاصيل النقل بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'TRANSPORT_DELETE_ERROR', message: error.message || 'فشل في حذف تفاصيل النقل' });
+    res.status(400).json({ success: false, error: 'TRANSPORT_DELETE_ERROR', message: 'فشل في حذف تفاصيل النقل' });
   }
 });
 
@@ -1084,7 +1085,7 @@ wellRouter.get('/:wellId/receptions', async (req: Request, res: Response) => {
     const receptions = await WellService.getWellReceptions(wellId);
     res.json({ success: true, data: receptions });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: 'RECEPTIONS_FETCH_ERROR', message: error.message || 'فشل في جلب سجلات الاستلام' });
+    res.status(500).json({ success: false, error: 'RECEPTIONS_FETCH_ERROR', message: 'فشل في جلب سجلات الاستلام' });
   }
 });
 
@@ -1109,7 +1110,7 @@ wellRouter.post('/:wellId/receptions', async (req: Request, res: Response) => {
     const reception = await WellService.createReception(wellId, req.body, user?.user_id ?? '');
     res.status(201).json({ success: true, data: reception, message: 'تم إنشاء سجل الاستلام بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'RECEPTION_CREATE_ERROR', message: error.message || 'فشل في إنشاء سجل الاستلام' });
+    res.status(400).json({ success: false, error: 'RECEPTION_CREATE_ERROR', message: 'فشل في إنشاء سجل الاستلام' });
   }
 });
 
@@ -1142,7 +1143,7 @@ wellRouter.put('/receptions/:receptionId', async (req: Request, res: Response) =
     const reception = await WellService.updateReception(receptionId, req.body);
     res.json({ success: true, data: reception, message: 'تم تحديث سجل الاستلام بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'RECEPTION_UPDATE_ERROR', message: error.message || 'فشل في تحديث سجل الاستلام' });
+    res.status(400).json({ success: false, error: 'RECEPTION_UPDATE_ERROR', message: 'فشل في تحديث سجل الاستلام' });
   }
 });
 
@@ -1165,7 +1166,7 @@ wellRouter.delete('/receptions/:receptionId', async (req: Request, res: Response
     await WellService.deleteReception(receptionId);
     res.json({ success: true, message: 'تم حذف سجل الاستلام بنجاح' });
   } catch (error: any) {
-    res.status(400).json({ success: false, error: 'RECEPTION_DELETE_ERROR', message: error.message || 'فشل في حذف سجل الاستلام' });
+    res.status(400).json({ success: false, error: 'RECEPTION_DELETE_ERROR', message: 'فشل في حذف سجل الاستلام' });
   }
 });
 
@@ -1212,7 +1213,7 @@ wellRouter.get('/:well_id/crew-workers', async (req: Request, res: Response) => 
     res.json({ success: true, data: crewWorkers });
   } catch (error: any) {
     console.error('Error fetching well crew workers:', error);
-    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: error.message || 'فشل في جلب عمال الطواقم' });
+    res.status(500).json({ success: false, error: 'CREW_WORKERS_FETCH_ERROR', message: 'فشل في جلب عمال الطواقم' });
   }
 });
 
@@ -1379,7 +1380,7 @@ wellRouter.post('/backfill-expense-wells', async (req: Request, res: Response) =
     });
   } catch (error: any) {
     console.error('❌ [Backfill] خطأ عام:', error);
-    res.status(500).json({ success: false, error: 'BACKFILL_ERROR', message: error.message });
+    res.status(500).json({ success: false, error: 'BACKFILL_ERROR', message: 'فشل في تعبئة حقول الآبار' });
   }
 });
 

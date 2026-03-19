@@ -52,6 +52,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { arSA } from "date-fns/locale";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { formatCurrency } from "@/lib/utils";
 import { useSelectedProjectContext, ALL_PROJECTS_ID } from "@/contexts/SelectedProjectContext";
 
@@ -118,7 +119,7 @@ async function secureDownloadExport(type: string, fmt: string, params: Record<st
     console.error('[Export] Download failed:', error);
     toast({
       title: 'خطأ في التصدير',
-      description: error.message || 'فشل تحميل الملف',
+      description: toUserMessage(error, 'فشل تحميل الملف'),
       variant: 'destructive',
     });
   }
@@ -568,7 +569,7 @@ function DailyReportTab({ onStatsReady }: { onStatsReady?: (stats: any[]) => voi
       const firstDataIndex = reports.findIndex(r => (r.totals?.totalExpenses || 0) > 0 || (r.attendance?.length || 0) > 0 || (r.materials?.length || 0) > 0 || (r.fundTransfers?.length || 0) > 0);
       if (firstDataIndex > 0) setRangePageIndex(firstDataIndex);
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل تحميل التقارير", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل تحميل التقارير"), variant: "destructive" });
     } finally {
       setIsLoadingRange(false);
     }

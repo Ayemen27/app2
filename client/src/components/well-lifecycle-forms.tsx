@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { Progress } from "@/components/ui/progress";
 import { Users, Sun, Truck, ClipboardCheck, ClipboardList, Calculator, Plus, Trash2, Loader, Edit, CheckCircle, PlayCircle, DollarSign } from "lucide-react";
 import {
@@ -246,7 +247,7 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
       resetForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في إضافة طاقم العمل", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في إضافة طاقم العمل"), variant: "destructive" });
     },
   });
 
@@ -260,7 +261,7 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
       resetForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في تحديث طاقم العمل", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تحديث طاقم العمل"), variant: "destructive" });
     },
   });
 
@@ -273,7 +274,7 @@ function CrewsSection({ wellId, crews, isLoading }: { wellId: number; crews: any
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellCrews(String(wellId)) });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في حذف طاقم العمل", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في حذف طاقم العمل"), variant: "destructive" });
     },
   });
 
@@ -504,7 +505,7 @@ function SolarSection({ wellId, solarComponents, isLoading }: { wellId: number; 
       setEditing(false);
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في حفظ البيانات", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في حفظ البيانات"), variant: "destructive" });
     },
   });
 
@@ -753,7 +754,7 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
       resetForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في إضافة تفاصيل النقل", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في إضافة تفاصيل النقل"), variant: "destructive" });
     },
   });
 
@@ -767,7 +768,7 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
       resetForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في تحديث تفاصيل النقل", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تحديث تفاصيل النقل"), variant: "destructive" });
     },
   });
 
@@ -780,7 +781,7 @@ function TransportSection({ wellId, transportDetails, isLoading }: { wellId: num
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellTransportDetails(String(wellId)) });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في الحذف", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في الحذف"), variant: "destructive" });
     },
   });
 
@@ -966,7 +967,7 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
       resetForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في تسجيل الاستلام", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تسجيل الاستلام"), variant: "destructive" });
     },
   });
 
@@ -980,7 +981,7 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
       resetForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في تحديث سجل الاستلام", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تحديث سجل الاستلام"), variant: "destructive" });
     },
   });
 
@@ -993,7 +994,7 @@ function ReceptionSection({ wellId, receptions, isLoading }: { wellId: number; r
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellReceptions(String(wellId)) });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في الحذف", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في الحذف"), variant: "destructive" });
     },
   });
 
@@ -1161,7 +1162,7 @@ function TasksSection({ wellId, tasks, isLoading }: { wellId: number; tasks: any
       resetForm();
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في إنشاء المهمة", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في إنشاء المهمة"), variant: "destructive" });
     },
   });
 
@@ -1175,7 +1176,7 @@ function TasksSection({ wellId, tasks, isLoading }: { wellId: number; tasks: any
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.wellProgress(String(wellId)) });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في تحديث الحالة", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تحديث الحالة"), variant: "destructive" });
     },
   });
 
@@ -1363,7 +1364,7 @@ function AccountingSection({ wellId, tasks, isLoading }: { wellId: number; tasks
       setAccountForm({ actualCost: "", paymentMethod: "cash", receiptNumber: "", notes: "" });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في محاسبة المهمة", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في محاسبة المهمة"), variant: "destructive" });
     },
   });
 

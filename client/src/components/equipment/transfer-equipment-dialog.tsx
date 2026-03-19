@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableSelect, type SelectOption } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { CompactFieldGroup } from "@/components/ui/form-grid";
@@ -79,7 +80,7 @@ export function TransferEquipmentDialog({ equipment, open, onOpenChange, project
     onError: (error: any) => {
       toast({
         title: "خطأ",
-        description: error.message || "فشل في نقل المعدة",
+        description: toUserMessage(error, "فشل في نقل المعدة"),
         variant: "destructive",
       });
     },

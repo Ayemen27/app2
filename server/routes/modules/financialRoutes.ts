@@ -36,6 +36,7 @@ import { attachAccessibleProjects, ProjectAccessRequest } from '../../middleware
 import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
 import { WellExpenseAutoAllocationService } from '../../services/WellExpenseAutoAllocationService';
+import { sanitizeZodErrors } from '../../lib/error-utils';
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 
@@ -3577,7 +3578,7 @@ financialRouter.patch('/materials/:id', async (req: Request, res: Response) => {
       price: z.number().positive().optional(),
     }).strict();
     const parsed = updateMaterialSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ success: false, errors: parsed.error.errors });
+    if (!parsed.success) return res.status(400).json({ success: false, message: sanitizeZodErrors(parsed.error), errors: parsed.error.issues });
 
     const updateData = parsed.data;
     

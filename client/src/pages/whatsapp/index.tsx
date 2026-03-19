@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -183,7 +184,7 @@ function PermissionsTabContent({ allLinks, isLoadingAllLinks, allProjects, toast
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/admin/links", linkId, "permissions"] });
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/admin/links", linkId, "projects"] });
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في حفظ الصلاحيات", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في حفظ الصلاحيات"), variant: "destructive" });
     } finally {
       setSavingLinkId(null);
     }
@@ -651,7 +652,7 @@ export default function WhatsAppSetupPage() {
       setLinkCountryCode("");
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في ربط الرقم", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في ربط الرقم"), variant: "destructive" });
     }
   });
 
@@ -665,7 +666,7 @@ export default function WhatsAppSetupPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/all-links"] });
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في إلغاء الربط", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في إلغاء الربط"), variant: "destructive" });
     }
   });
 
@@ -831,7 +832,7 @@ export default function WhatsAppSetupPage() {
       });
       setTimeout(() => queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/status"] }), 1000);
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في تنفيذ العملية", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في تنفيذ العملية"), variant: "destructive" });
     } finally {
       setIsRequestingCode(false);
     }
@@ -870,7 +871,7 @@ export default function WhatsAppSetupPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/whatsapp-ai/all-links"] });
       setPermissionsDialogLink(null);
     } catch (error: any) {
-      toast({ title: "خطأ", description: error.message || "فشل في حفظ الصلاحيات", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في حفظ الصلاحيات"), variant: "destructive" });
     } finally {
       setIsSavingPermissions(false);
     }
@@ -941,7 +942,7 @@ export default function WhatsAppSetupPage() {
       setNewAllowedLabel("");
     },
     onError: (error: any) => {
-      toast({ title: "خطأ", description: error.message || "فشل في إضافة الرقم", variant: "destructive" });
+      toast({ title: "خطأ", description: toUserMessage(error, "فشل في إضافة الرقم"), variant: "destructive" });
     }
   });
 

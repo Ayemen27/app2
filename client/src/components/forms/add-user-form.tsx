@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/lib/error-utils";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import { User, Mail, Shield, Lock, Phone } from "lucide-react";
@@ -59,7 +60,7 @@ export default function AddUserForm({ user, onSuccess, onCancel }: AddUserFormPr
     onError: (error: any) => {
       toast({
         title: "خطأ",
-        description: error.message,
+        description: toUserMessage(error),
         variant: "destructive",
       });
     },

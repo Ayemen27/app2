@@ -713,15 +713,23 @@ export class DeploymentEngine {
 
     const checksResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && MANIFEST='android/app/src/main/AndroidManifest.xml' && CHECKS=''; if [ -f \\$MANIFEST ]; then if grep -q 'POST_NOTIFICATIONS' \\$MANIFEST; then CHECKS=\\$CHECKS'NOTIF_PERM_OK '; else sed -i '/<\\/manifest>/i\\    <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>' \\$MANIFEST && CHECKS=\\$CHECKS'NOTIF_PERM_ADDED '; fi; if grep -q 'INTERNET' \\$MANIFEST; then CHECKS=\\$CHECKS'INTERNET_OK '; fi; else CHECKS='MANIFEST_MISSING '; fi && if [ -f android/app/google-services.json ]; then CHECKS=\\$CHECKS'GOOGLE_SERVICES_OK'; else for GS in /home/administrator/google-services.json /home/administrator/.config/google-services.json; do if [ -f \\$GS ]; then cp \\$GS android/app/google-services.json && CHECKS=\\$CHECKS'GOOGLE_SERVICES_COPIED' && break; fi; done; if [ ! -f android/app/google-services.json ]; then CHECKS=\\$CHECKS'GOOGLE_SERVICES_MISSING'; fi; fi && echo \\$CHECKS"`,
+      `${sshCmd} "cd ${remoteDir} && MANIFEST='android/app/src/main/AndroidManifest.xml' && CHECKS=''; if [ -f \\$MANIFEST ]; then for PERM in POST_NOTIFICATIONS USE_BIOMETRIC USE_FINGERPRINT INTERNET; do if grep -q \\$PERM \\$MANIFEST; then CHECKS=\\$CHECKS\\$PERM'_OK '; else sed -i '/<\\/manifest>/i\\    <uses-permission android:name=\"android.permission.'\\$PERM'\"/>' \\$MANIFEST && CHECKS=\\$CHECKS\\$PERM'_ADDED '; fi; done; else CHECKS='MANIFEST_MISSING '; fi && if [ -f android/app/google-services.json ]; then CHECKS=\\$CHECKS'GOOGLE_SERVICES_OK'; else for GS in /home/administrator/google-services.json /home/administrator/.config/google-services.json; do if [ -f \\$GS ]; then cp \\$GS android/app/google-services.json && CHECKS=\\$CHECKS'GOOGLE_SERVICES_COPIED' && break; fi; done; if [ ! -f android/app/google-services.json ]; then CHECKS=\\$CHECKS'GOOGLE_SERVICES_MISSING'; fi; fi && echo \\$CHECKS"`,
       "Android Checks",
       20000
     );
 
-    if (checksResult.includes("NOTIF_PERM_ADDED")) {
-      await this.addLog(deploymentId, "✅ تمت إضافة صلاحية POST_NOTIFICATIONS إلى AndroidManifest.xml", "success");
-    } else if (checksResult.includes("NOTIF_PERM_OK")) {
-      await this.addLog(deploymentId, "✅ صلاحية POST_NOTIFICATIONS موجودة", "info");
+    const permLabels: Record<string, string> = {
+      "POST_NOTIFICATIONS": "الإشعارات",
+      "USE_BIOMETRIC": "البصمة (Biometric)",
+      "USE_FINGERPRINT": "بصمة الإصبع (Fingerprint)",
+      "INTERNET": "الإنترنت",
+    };
+    for (const [perm, label] of Object.entries(permLabels)) {
+      if (checksResult.includes(`${perm}_ADDED`)) {
+        await this.addLog(deploymentId, `✅ تمت إضافة صلاحية ${label} إلى AndroidManifest.xml`, "success");
+      } else if (checksResult.includes(`${perm}_OK`)) {
+        await this.addLog(deploymentId, `✅ صلاحية ${label} موجودة`, "info");
+      }
     }
 
     if (checksResult.includes("GOOGLE_SERVICES_OK")) {

@@ -116,7 +116,7 @@ const STEP_LABELS: Record<string, string> = {
   "transfer": "النقل",
   "deploy-server": "نشر على السيرفر",
   "restart-pm2": "إعادة تشغيل PM2",
-  "sync-capacitor": "مزامنة Capacitor",
+  "sync-capacitor": "مزامنة Capacitor + Plugins",
   "gradle-build": "بناء Gradle",
   "sign-apk": "توقيع APK",
   "retrieve-artifact": "استرجاع الملفات",

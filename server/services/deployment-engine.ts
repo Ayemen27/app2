@@ -672,7 +672,7 @@ export class DeploymentEngine {
   }
 
   private async stepSyncCapacitor(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "Syncing Capacitor for Android...", "info");
+    await this.addLog(deploymentId, "مزامنة Capacitor للأندرويد...", "info");
     const remoteDir = "/home/administrator/app2";
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
@@ -690,12 +690,51 @@ export class DeploymentEngine {
 
     await this.addLog(deploymentId, `📱 versionName: ${versionName} | versionCode: ${versionCode}`, "info");
 
-    await this.execWithLog(
+    const capSyncResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && if [ -d www ]; then cp -r www/* android/app/src/main/assets/public/; elif [ -d dist/public ]; then cp -r dist/public/* android/app/src/main/assets/public/; fi && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
-      "Capacitor Sync",
-      60000
+      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then npx cap sync android --no-build 2>&1 | tail -15 && echo 'CAP_SYNC_OK'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
+      "Capacitor Plugin Sync",
+      120000
     );
+
+    if (capSyncResult.includes("CAP_SYNC_OK")) {
+      await this.addLog(deploymentId, "✅ تم مزامنة Capacitor plugins (PushNotifications, NativeBiometric, ...)", "success");
+    } else {
+      await this.addLog(deploymentId, "⚠️ npx غير متاح — مزامنة يدوية للأصول", "warn");
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && if [ -d www ]; then cp -r www/* android/app/src/main/assets/public/; elif [ -d dist/public ]; then cp -r dist/public/* android/app/src/main/assets/public/; fi && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
+        "Manual Asset Sync",
+        60000
+      );
+    }
+
+    await this.addLog(deploymentId, "فحص متطلبات الأندرويد...", "info");
+
+    const checksResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && MANIFEST='android/app/src/main/AndroidManifest.xml' && CHECKS=''; if [ -f \\$MANIFEST ]; then if grep -q 'POST_NOTIFICATIONS' \\$MANIFEST; then CHECKS=\\$CHECKS'NOTIF_PERM_OK '; else sed -i '/<\\/manifest>/i\\    <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\"/>' \\$MANIFEST && CHECKS=\\$CHECKS'NOTIF_PERM_ADDED '; fi; if grep -q 'INTERNET' \\$MANIFEST; then CHECKS=\\$CHECKS'INTERNET_OK '; fi; else CHECKS='MANIFEST_MISSING '; fi && if [ -f android/app/google-services.json ]; then CHECKS=\\$CHECKS'GOOGLE_SERVICES_OK'; else for GS in /home/administrator/google-services.json /home/administrator/.config/google-services.json; do if [ -f \\$GS ]; then cp \\$GS android/app/google-services.json && CHECKS=\\$CHECKS'GOOGLE_SERVICES_COPIED' && break; fi; done; if [ ! -f android/app/google-services.json ]; then CHECKS=\\$CHECKS'GOOGLE_SERVICES_MISSING'; fi; fi && echo \\$CHECKS"`,
+      "Android Checks",
+      20000
+    );
+
+    if (checksResult.includes("NOTIF_PERM_ADDED")) {
+      await this.addLog(deploymentId, "✅ تمت إضافة صلاحية POST_NOTIFICATIONS إلى AndroidManifest.xml", "success");
+    } else if (checksResult.includes("NOTIF_PERM_OK")) {
+      await this.addLog(deploymentId, "✅ صلاحية POST_NOTIFICATIONS موجودة", "info");
+    }
+
+    if (checksResult.includes("GOOGLE_SERVICES_OK")) {
+      await this.addLog(deploymentId, "✅ google-services.json موجود", "info");
+    } else if (checksResult.includes("GOOGLE_SERVICES_COPIED")) {
+      await this.addLog(deploymentId, "✅ تم نسخ google-services.json من المسار الاحتياطي", "success");
+    } else if (checksResult.includes("GOOGLE_SERVICES_MISSING")) {
+      await this.addLog(deploymentId, "⚠️ google-services.json مفقود — الإشعارات Push لن تعمل بدون Firebase", "warn");
+    }
+
+    if (checksResult.includes("MANIFEST_MISSING")) {
+      await this.addLog(deploymentId, "⚠️ AndroidManifest.xml مفقود — تأكد من وجود مشروع Android صحيح", "warn");
+    }
   }
 
   private async stepGenerateIcons(deploymentId: string, sshCmd: string) {

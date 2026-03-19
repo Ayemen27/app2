@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
@@ -348,7 +349,7 @@ export default function ProjectTransactionsSimple() {
           const allRecords: any[] = [];
           for (const project of projects) {
             try {
-              const response = await fetch(`/api/projects/${project.id}/material-purchases`, {
+              const response = await fetch(ENV.getApiUrl(`/api/projects/${project.id}/material-purchases`), {
                 credentials: getFetchCredentials(),
                 headers: {
                   'Content-Type': 'application/json',
@@ -368,7 +369,7 @@ export default function ProjectTransactionsSimple() {
           console.log(`✅ تم جلب ${allRecords.length} مشترية مواد من جميع المشاريع`);
           return allRecords;
         } else {
-          const response = await fetch(`/api/projects/${selectedProject}/material-purchases`, {
+          const response = await fetch(ENV.getApiUrl(`/api/projects/${selectedProject}/material-purchases`), {
             credentials: getFetchCredentials(),
             headers: {
               'Content-Type': 'application/json',

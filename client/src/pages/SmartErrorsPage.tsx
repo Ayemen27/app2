@@ -3,6 +3,7 @@
  * تعرض إحصائيات شاملة عن أخطاء النظام ومعالجتها بذكاء
  */
 
+import { ENV } from "@/lib/env";
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,7 +86,7 @@ const SmartErrorsPage: React.FC = () => {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch('/api/smart-errors/statistics');
+      const response = await fetch(ENV.getApiUrl('/api/smart-errors/statistics'));
       const data = await response.json();
       
       if (data.success) {
@@ -112,7 +113,7 @@ const SmartErrorsPage: React.FC = () => {
   const testSmartErrorSystem = async () => {
     setIsTestingSystem(true);
     try {
-      const response = await fetch('/api/smart-errors/test', {
+      const response = await fetch(ENV.getApiUrl('/api/smart-errors/test'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

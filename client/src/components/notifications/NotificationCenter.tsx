@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import React, { useState, useEffect } from "react";
 import { Bell, X, CheckCircle, AlertTriangle, Info, MessageCircle, Zap, Clock, User, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     setLoading(true);
     try {
 
-      const response = await fetch('/api/notifications?limit=50', {
+      const response = await fetch(ENV.getApiUrl('/api/notifications?limit=50'), {
         credentials: getFetchCredentials(),
         headers: {
           ...getClientPlatformHeader(),
@@ -146,7 +147,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         return;
       }
 
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+      const response = await fetch(ENV.getApiUrl(`/api/notifications/${notificationId}/read`), {
         method: 'POST',
         credentials: getFetchCredentials(),
         headers: {
@@ -180,7 +181,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     try {
       if (!isAuthReady()) return;
 
-      const response = await fetch('/api/notifications/bulk-delete-suspicious', {
+      const response = await fetch(ENV.getApiUrl('/api/notifications/bulk-delete-suspicious'), {
         method: 'DELETE',
         credentials: getFetchCredentials(),
         headers: {
@@ -212,7 +213,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         return;
       }
 
-      const response = await fetch('/api/notifications/mark-all-read', {
+      const response = await fetch(ENV.getApiUrl('/api/notifications/mark-all-read'), {
         method: 'POST',
         credentials: getFetchCredentials(),
         headers: {

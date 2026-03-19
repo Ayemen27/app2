@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -145,7 +146,7 @@ export function EquipmentManagement() {
     queryFn: () => {
       const params = new URLSearchParams();
       if (projectId) params.set('projectId', projectId);
-      return fetch(`/api/inventory/stats?${params}`).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/stats?${params}`)).then(r => r.json());
     },
   });
 
@@ -156,7 +157,7 @@ export function EquipmentManagement() {
       if (categoryFilter && categoryFilter !== 'all') params.set('category', categoryFilter);
       if (searchTerm) params.set('search', searchTerm);
       if (projectId) params.set('projectId', projectId);
-      return fetch(`/api/inventory/stock?${params}`).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/stock?${params}`)).then(r => r.json());
     },
   });
 
@@ -166,7 +167,7 @@ export function EquipmentManagement() {
       const params = new URLSearchParams();
       if (txTypeFilter && txTypeFilter !== 'all') params.set('type', txTypeFilter);
       if (projectId) params.set('projectId', projectId);
-      return fetch(`/api/inventory/transactions?${params}`).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/transactions?${params}`)).then(r => r.json());
     },
     enabled: activeTab === 'incoming' || activeTab === 'outgoing' || activeTab === 'returns' || activeTab === 'transactions',
   });
@@ -180,7 +181,7 @@ export function EquipmentManagement() {
     queryFn: () => {
       const params = new URLSearchParams({ groupBy: reportGroupBy });
       if (projectId) params.set('projectId', projectId);
-      return fetch(`/api/inventory/reports?${params}`).then(r => r.json());
+      return fetch(ENV.getApiUrl(`/api/inventory/reports?${params}`)).then(r => r.json());
     },
     enabled: activeTab === 'reports',
   });

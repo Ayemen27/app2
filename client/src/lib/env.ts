@@ -34,5 +34,11 @@ export const ENV = {
 
   getExternalServerUrl: () => {
     return PRODUCTION_API;
+  },
+
+  getApiUrl: (path: string) => {
+    const base = ENV.getApiBaseUrl();
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${base}${cleanPath}`;
   }
 };

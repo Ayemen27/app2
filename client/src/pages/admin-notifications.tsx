@@ -1,4 +1,5 @@
 
+import { ENV } from "@/lib/env";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -112,7 +113,7 @@ export default function AdminNotificationsPage() {
         ...(filterValues.priority !== 'all' && { priority: filterValues.priority }),
         ...(searchValue && { search: searchValue })
       });
-      const response = await fetch(`/api/notifications/all?${params}`, {
+      const response = await fetch(ENV.getApiUrl(`/api/notifications/all?${params}`), {
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في جلب البيانات');
@@ -124,7 +125,7 @@ export default function AdminNotificationsPage() {
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: [QUERY_KEYS.adminNotifications, 'activity'],
     queryFn: async () => {
-      const response = await fetch('/api/notifications/monitoring/stats', {
+      const response = await fetch(ENV.getApiUrl('/api/notifications/monitoring/stats'), {
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في جلب النشاط');
@@ -135,7 +136,7 @@ export default function AdminNotificationsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/notifications/${id}`, {
+      const response = await fetch(ENV.getApiUrl(`/api/notifications/${id}`), {
         method: 'DELETE',
         headers: { ...getAuthHeaders(), 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() }
       });

@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useState, useMemo, useEffect } from "react";
 import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -219,7 +220,7 @@ export default function BackupManager() {
         ...getClientPlatformHeader(),
         ...getAuthHeaders(),
       };
-      const response = await fetch(`/api/backups/download/${filename}`, { headers, credentials: getFetchCredentials() });
+      const response = await fetch(ENV.getApiUrl(`/api/backups/download/${filename}`), { headers, credentials: getFetchCredentials() });
       if (!response.ok) {
         throw new Error('فشل التنزيل');
       }

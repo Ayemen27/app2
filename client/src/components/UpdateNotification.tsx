@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useState, useEffect } from "react";
 import { 
   Dialog, 
@@ -22,7 +23,7 @@ export function UpdateNotification() {
     // التحقق من وجود تحديث كل 5 دقائق
     const checkUpdate = async () => {
       try {
-        const response = await fetch("/api/system/version", {
+        const response = await fetch(ENV.getApiUrl("/api/system/version"), {
           credentials: getFetchCredentials(),
           headers: {
             ...getClientPlatformHeader(),

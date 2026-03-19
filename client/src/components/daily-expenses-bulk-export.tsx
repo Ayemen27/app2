@@ -5,6 +5,7 @@
  * التاريخ: 2025-08-16
  */
 
+import { ENV } from "@/lib/env";
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,7 +119,7 @@ export default function DailyExpensesBulkExport() {
       const dateStr = date.toISOString().split('T')[0];
       
       try {
-        const response = await fetch(`/api/reports/daily-expenses/${project_id}/${dateStr}`, {
+        const response = await fetch(ENV.getApiUrl(`/api/reports/daily-expenses/${project_id}/${dateStr}`), {
           credentials: getFetchCredentials(),
           headers: {
             ...getClientPlatformHeader(),

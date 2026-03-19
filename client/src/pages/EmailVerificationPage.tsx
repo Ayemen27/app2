@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
+import { ENV } from "@/lib/env";
 import {
   Card,
   CardContent,
@@ -120,7 +121,7 @@ export default function EmailVerificationPage() {
         throw new Error('معرف المستخدم مطلوب');
       }
 
-      const response = await fetch('/api/auth/verify-email', {
+      const response = await fetch(ENV.getApiUrl('/api/auth/verify-email'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,7 +197,7 @@ export default function EmailVerificationPage() {
         throw new Error('بيانات المستخدم مطلوبة');
       }
 
-      const response = await fetch('/api/auth/resend-verification', {
+      const response = await fetch(ENV.getApiUrl('/api/auth/resend-verification'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -129,7 +130,7 @@ export function CreateNotificationDialog({
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: QUERY_KEYS.usersWithRoles,
     queryFn: async () => {
-      const response = await fetch('/api/users?includeRole=true', {
+      const response = await fetch(ENV.getApiUrl('/api/users?includeRole=true'), {
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('فشل في جلب المستخدمين');

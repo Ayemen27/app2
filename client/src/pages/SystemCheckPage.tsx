@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { 
   Shield, 
@@ -153,7 +154,7 @@ export default function SystemCheckPage() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch('/api/health', { method: 'GET', signal: controller.signal, cache: 'no-store' });
+      const response = await fetch(ENV.getApiUrl('/api/health'), { method: 'GET', signal: controller.signal, cache: 'no-store' });
       clearTimeout(timeoutId);
       return response.ok ? 'granted' : 'warning';
     } catch {
@@ -272,7 +273,7 @@ export default function SystemCheckPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       const startTime = performance.now();
-      const response = await fetch('/api/health', { signal: controller.signal, cache: 'no-store' });
+      const response = await fetch(ENV.getApiUrl('/api/health'), { signal: controller.signal, cache: 'no-store' });
       const responseTime = Math.round(performance.now() - startTime);
       clearTimeout(timeoutId);
       
@@ -328,7 +329,7 @@ export default function SystemCheckPage() {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 10000);
-          const response = await fetch('/api/sync/latest-backup', { 
+          const response = await fetch(ENV.getApiUrl('/api/sync/latest-backup'), { 
             signal: controller.signal,
             cache: 'no-store'
           });

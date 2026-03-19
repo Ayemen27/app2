@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -37,7 +38,7 @@ export function EquipmentMovementHistoryDialog({
   const { data: movements = [], isLoading } = useQuery({
     queryKey: QUERY_KEYS.equipmentMovementsById(String(equipment?.id ?? '')),
     queryFn: async () => {
-      const response = await fetch(`/api/equipment/${equipment?.id}/movements`, {
+      const response = await fetch(ENV.getApiUrl(`/api/equipment/${equipment?.id}/movements`), {
         credentials: getFetchCredentials(),
         headers: {
           ...getClientPlatformHeader(),

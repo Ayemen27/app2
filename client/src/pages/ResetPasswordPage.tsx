@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
+import { ENV } from "@/lib/env";
 import {
   Form,
   FormControl,
@@ -81,7 +82,7 @@ export default function ResetPasswordPage() {
         throw new Error('رمز الاسترجاع غير موجود');
       }
 
-      const response = await fetch('/api/auth/reset-password', {
+      const response = await fetch(ENV.getApiUrl('/api/auth/reset-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

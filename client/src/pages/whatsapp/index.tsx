@@ -1,3 +1,4 @@
+import { ENV } from "@/lib/env";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { getValidToken } from "@/lib/token-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -751,7 +752,7 @@ export default function WhatsAppSetupPage() {
         const token = getValidToken('accessToken');
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
-        const res = await fetch(`/api/whatsapp-ai/qr-image?t=${Date.now()}`, {
+        const res = await fetch(ENV.getApiUrl(`/api/whatsapp-ai/qr-image?t=${Date.now()}`), {
           headers,
           credentials: "include",
         });

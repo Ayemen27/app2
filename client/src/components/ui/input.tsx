@@ -1,4 +1,5 @@
 
+import { ENV } from "@/lib/env";
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
@@ -87,7 +88,7 @@ const useInteractiveValidation = (
       
       const timeoutId = setTimeout(async () => {
         try {
-          const response = await fetch('/api/auth/validate-field', {
+          const response = await fetch(ENV.getApiUrl('/api/auth/validate-field'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

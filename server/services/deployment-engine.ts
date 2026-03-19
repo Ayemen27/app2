@@ -693,9 +693,28 @@ export class DeploymentEngine {
 
     await this.addLog(deploymentId, `📱 versionName: ${versionName} | versionCode: ${versionCode}`, "info");
 
+    await this.addLog(deploymentId, "نسخ ملفات البناء إلى www/ لمزامنة Capacitor...", "info");
+    const copyAssetsResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && rm -rf www && mkdir -p www && if [ -d dist/public ]; then cp -r dist/public/* www/ && echo 'COPIED_FROM_DIST_PUBLIC'; elif [ -d dist ]; then cp -r dist/* www/ && echo 'COPIED_FROM_DIST'; else echo 'NO_BUILD_OUTPUT'; fi && ls -la www/ | head -10 && echo 'WWW_FILE_COUNT='\\$(find www -type f | wc -l)"`,
+      "Copy Build Assets to www",
+      60000
+    );
+
+    if (copyAssetsResult.includes("NO_BUILD_OUTPUT")) {
+      throw new Error("❌ لا يوجد ناتج بناء في dist/ — تأكد أن خطوة build-server نجحت");
+    }
+
+    const fileCountMatch = copyAssetsResult.match(/WWW_FILE_COUNT=(\d+)/);
+    const fileCount = fileCountMatch ? parseInt(fileCountMatch[1]) : 0;
+    if (fileCount < 5) {
+      throw new Error(`❌ مجلد www/ يحتوي ${fileCount} ملفات فقط — البناء غير مكتمل`);
+    }
+    await this.addLog(deploymentId, `✅ تم نسخ ${fileCount} ملف إلى www/`, "success");
+
     const capSyncResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then mkdir -p www && npx cap sync android 2>&1 | tail -15 && echo 'CAP_SYNC_OK'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
+      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then set -o pipefail && npx cap sync android 2>&1 | tail -15 && echo 'CAP_SYNC_OK'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
       "Capacitor Plugin Sync",
       120000
     );
@@ -706,11 +725,23 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ npx غير متاح — مزامنة يدوية للأصول", "warn");
       await this.execWithLog(
         deploymentId,
-        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && if [ -d www ]; then cp -r www/* android/app/src/main/assets/public/; elif [ -d dist/public ]; then cp -r dist/public/* android/app/src/main/assets/public/; fi && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
+        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
         "Manual Asset Sync",
         60000
       );
     }
+
+    const verifyResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir}/android/app/src/main/assets/public && if [ -f index.html ]; then echo 'INDEX_HTML_OK'; JSCOUNT=\\$(find . -name '*.js' | wc -l); CSSCOUNT=\\$(find . -name '*.css' | wc -l); echo \\"JS_FILES=\\$JSCOUNT CSS_FILES=\\$CSSCOUNT\\"; else echo 'INDEX_HTML_MISSING'; fi"`,
+      "Verify Android Assets",
+      15000
+    );
+
+    if (verifyResult.includes("INDEX_HTML_MISSING")) {
+      throw new Error("❌ index.html مفقود من android assets — مزامنة Capacitor فشلت");
+    }
+    await this.addLog(deploymentId, `✅ تم التحقق: ملفات الويب موجودة في Android assets`, "success");
 
     await this.addLog(deploymentId, "فحص متطلبات الأندرويد...", "info");
 
@@ -797,7 +828,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
       "Gradle Build",
       600000
     );

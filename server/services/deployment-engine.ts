@@ -776,7 +776,10 @@ export class DeploymentEngine {
     );
 
     const hasKeystore = keystoreCheck.includes("KEYSTORE_EXISTS");
-    const hasKeystorePassword = !!(process.env.KEYSTORE_PASSWORD);
+    const keystorePassword = process.env.KEYSTORE_PASSWORD || "";
+    const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
+    const keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
+    const hasKeystorePassword = !!keystorePassword;
     const canSignRelease = hasKeystore && hasKeystorePassword;
     const buildType = canSignRelease ? "assembleRelease" : "assembleDebug";
 
@@ -788,9 +791,13 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "✅ Keystore + كلمة المرور جاهزان — بناء Release APK", "info");
     }
 
+    const envExports = canSignRelease
+      ? `export KEYSTORE_PASSWORD='${keystorePassword.replace(/'/g, "'\\''")}' && export KEYSTORE_ALIAS='${keystoreAlias}' && export KEYSTORE_KEY_PASSWORD='${keystoreKeyPassword.replace(/'/g, "'\\''")}' && `
+      : "";
+
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
       "Gradle Build",
       600000
     );

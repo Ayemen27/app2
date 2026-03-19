@@ -1,5 +1,5 @@
 import { ENV } from './env';
-import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, isWebCookieMode } from '@/lib/auth-token-store';
 import { Capacitor } from '@capacitor/core';
 import NativeBiometric from '@/lib/native-biometric';
 
@@ -78,7 +78,7 @@ export async function checkBiometricRegistered(email?: string): Promise<boolean>
     const apiBase = ENV.getApiBaseUrl();
 
     const token = getAccessToken();
-    if (token) {
+    if (token || isWebCookieMode()) {
       const res = await fetch(`${apiBase}/api/webauthn/status`, {
         credentials: getFetchCredentials(),
         headers: {
@@ -151,8 +151,10 @@ async function registerBiometricNative(accessToken: string): Promise<{ success: 
 
   const apiBase = ENV.getApiBaseUrl();
   const meRes = await fetch(`${apiBase}/api/auth/me`, {
+    credentials: getFetchCredentials(),
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
+      ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+      ...getClientPlatformHeader(),
       'x-request-nonce': crypto.randomUUID(),
       'x-request-timestamp': new Date().toISOString(),
     },
@@ -236,11 +238,14 @@ async function loginWithBiometricNative(email?: string): Promise<any> {
 async function registerBiometricWebAuthn(accessToken: string): Promise<{ success: boolean; message: string }> {
   const apiBase = ENV.getApiBaseUrl();
 
+  const authHeader = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
   const optionsRes = await fetch(`${apiBase}/api/webauthn/register/options`, {
     method: 'POST',
+    credentials: getFetchCredentials(),
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
+      ...authHeader,
+      ...getClientPlatformHeader(),
       'x-request-nonce': crypto.randomUUID(),
       'x-request-timestamp': new Date().toISOString(),
     },
@@ -289,9 +294,11 @@ async function registerBiometricWebAuthn(accessToken: string): Promise<{ success
 
   const verifyRes = await fetch(`${apiBase}/api/webauthn/register/verify`, {
     method: 'POST',
+    credentials: getFetchCredentials(),
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
+      ...authHeader,
+      ...getClientPlatformHeader(),
       'x-request-nonce': crypto.randomUUID(),
       'x-request-timestamp': new Date().toISOString(),
     },

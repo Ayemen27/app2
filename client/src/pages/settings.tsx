@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, isWebCookieMode } from '@/lib/auth-token-store';
 import { 
   Settings as SettingsIcon, 
   Bell, 
@@ -75,20 +75,14 @@ export default function SettingsPage() {
     return ENV.getApiBaseUrl();
   }, []);
 
-  const getSettingsAuthHeaders = useCallback((): Record<string, string> | null => {
-    const token = getAccessToken();
+  const getSettingsAuthHeaders = useCallback((): Record<string, string> => {
     const authHdrs = getAuthHeaders();
-    if (!token && Object.keys(authHdrs).length === 0 && typeof navigator !== 'undefined') {
-      return { 'Content-Type': 'application/json', ...getClientPlatformHeader() };
-    }
-    if (!token && Object.keys(authHdrs).length === 0) return null;
     return { 'Content-Type': 'application/json', ...getClientPlatformHeader(), ...authHdrs };
   }, []);
 
   const loadPreferences = useCallback(async () => {
     try {
       const headers = getSettingsAuthHeaders();
-      if (!headers) { setPrefsLoading(false); return; }
 
       const apiBase = await getApiBase();
       const res = await fetch(`${apiBase}/api/preferences`, { headers, credentials: getFetchCredentials() });
@@ -140,10 +134,6 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       const headers = getSettingsAuthHeaders();
-      if (!headers) {
-        toast({ title: "خطأ", description: "يجب تسجيل الدخول أولاً", variant: "destructive" });
-        return;
-      }
 
       const apiBase = await getApiBase();
       const res = await fetch(`${apiBase}/api/preferences`, {
@@ -196,7 +186,6 @@ export default function SettingsPage() {
       if (!available) { setBiometricStatus('unsupported'); return; }
 
       const headers = getSettingsAuthHeaders();
-      if (!headers) { setBiometricStatus('disabled'); return; }
 
       const apiBase = await getApiBase();
       const res = await fetch(`${apiBase}/api/webauthn/status`, { headers, credentials: getFetchCredentials() });
@@ -215,12 +204,12 @@ export default function SettingsPage() {
     setBiometricLoading(true);
     try {
       const token = getAccessToken();
-      if (!token) {
+      if (!isWebCookieMode() && !token) {
         toast({ title: "خطأ", description: "يجب تسجيل الدخول أولاً", variant: "destructive" });
         return;
       }
       const { registerBiometric } = await import("../lib/webauthn");
-      const result = await registerBiometric(token);
+      const result = await registerBiometric(token || '');
       if (result.success) {
         setBiometricStatus('enabled');
         toast({ title: "تم التفعيل", description: "تم تفعيل الدخول بالبصمة بنجاح" });
@@ -243,7 +232,7 @@ export default function SettingsPage() {
     setBiometricLoading(true);
     try {
       const token = getAccessToken();
-      if (!token) return;
+      if (!isWebCookieMode() && !token) return;
       const apiBase = await getApiBase();
       const res = await fetch(`${apiBase}/api/webauthn/credentials`, {
         method: 'DELETE',

@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
 import type { InsertWorker } from "@shared/schema";
-import { getAccessToken } from '@/lib/auth-token-store';
+import { getAccessToken, isWebCookieMode } from '@/lib/auth-token-store';
 
 interface EnhancedAddWorkerFormProps {
   onSuccess?: () => void;
@@ -70,15 +70,11 @@ export default function EnhancedAddWorkerForm({ onSuccess }: EnhancedAddWorkerFo
       console.log('🔧 [AddWorker] بدء إضافة عامل:', data);
       
       try {
-        // التحقق من وجود رمز المصادقة
-        const accessToken = getAccessToken();
-        console.log('🔑 [AddWorker] فحص رمز المصادقة:', {
-          hasToken: !!accessToken,
-          tokenPreview: accessToken ? `${accessToken.substring(0, 10)}...` : 'لا يوجد'
-        });
-        
-        if (!accessToken) {
-          throw new Error('لا يوجد رمز مصادقة - يرجى تسجيل الدخول مرة أخرى');
+        if (!isWebCookieMode()) {
+          const accessToken = getAccessToken();
+          if (!accessToken) {
+            throw new Error('لا يوجد رمز مصادقة - يرجى تسجيل الدخول مرة أخرى');
+          }
         }
         
         // حفظ القيم في autocomplete_data قبل العملية الأساسية

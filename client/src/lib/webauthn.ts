@@ -42,18 +42,24 @@ export async function isBiometricAvailable(): Promise<boolean> {
   if (isNativePlatform()) {
     try {
       const result = await NativeBiometric.isAvailable();
+      if (import.meta.env.DEV) console.log('[Biometric] isAvailable result:', JSON.stringify(result));
       return result.isAvailable;
-    } catch {
+    } catch (err: any) {
+      if (import.meta.env.DEV) console.error('[Biometric] Native isAvailable error:', err?.message || err);
       return false;
     }
   }
 
   if (!window.PublicKeyCredential) {
+    if (import.meta.env.DEV) console.log('[Biometric] PublicKeyCredential not available');
     return false;
   }
   try {
-    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-  } catch {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if (import.meta.env.DEV) console.log('[Biometric] WebAuthn platform authenticator available:', available);
+    return available;
+  } catch (err: any) {
+    if (import.meta.env.DEV) console.error('[Biometric] WebAuthn check error:', err?.message || err);
     return false;
   }
 }

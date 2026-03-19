@@ -692,7 +692,7 @@ export class DeploymentEngine {
 
     const capSyncResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then npx cap sync android --no-build 2>&1 | tail -15 && echo 'CAP_SYNC_OK'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
+      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then mkdir -p www && npx cap sync android 2>&1 | tail -15 && echo 'CAP_SYNC_OK'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
       "Capacitor Plugin Sync",
       120000
     );

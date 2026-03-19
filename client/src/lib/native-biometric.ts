@@ -1,4 +1,6 @@
-import { registerPlugin } from '@capacitor/core';
+import { NativeBiometric } from '@capgo/capacitor-native-biometric';
+
+export type { BiometryType } from '@capgo/capacitor-native-biometric';
 
 export interface IsAvailableResult {
   isAvailable: boolean;
@@ -23,6 +25,7 @@ export interface NativeBiometricPlugin {
     useFallback?: boolean;
     fallbackTitle?: string;
     maxAttempts?: number;
+    negativeButtonText?: string;
   }): Promise<void>;
 
   getCredentials(options: {
@@ -40,6 +43,4 @@ export interface NativeBiometricPlugin {
   }): Promise<void>;
 }
 
-const NativeBiometric = registerPlugin<NativeBiometricPlugin>('NativeBiometric');
-
-export default NativeBiometric;
+export default NativeBiometric as unknown as NativeBiometricPlugin;

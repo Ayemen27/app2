@@ -3,6 +3,8 @@ import { buildDeployments, deploymentEvents } from "@shared/schema";
 import { eq, desc, sql, count } from "drizzle-orm";
 import { exec, spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
+import { existsSync, mkdirSync, writeFileSync, chmodSync, accessSync, unlinkSync, constants as fsConstants } from "fs";
+import { dirname } from "path";
 import type { Response } from "express";
 import { DeploymentNotificationPublisher } from "./deployment-notifications/DeploymentNotificationPublisher.js";
 import { DeploymentPayloadBuilder } from "./deployment-notifications/builders/deploymentPayloadBuilder.js";
@@ -667,9 +669,6 @@ export class DeploymentEngine {
     const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
     const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
 
-    const { existsSync, mkdirSync, writeFileSync, chmodSync, accessSync, constants } = await import("fs");
-    const { dirname } = await import("path");
-
     const sshDir = dirname(keyPath);
     if (!existsSync(sshDir)) {
       mkdirSync(sshDir, { recursive: true, mode: 0o700 });
@@ -702,7 +701,7 @@ export class DeploymentEngine {
     let keyFileReady = false;
     if (existsSync(keyPath)) {
       try {
-        accessSync(keyPath, constants.R_OK);
+        accessSync(keyPath, fsConstants.R_OK);
         keyFileReady = true;
       } catch {
         console.warn(`[DeploymentEngine] SSH key exists at ${keyPath} but is not readable`);
@@ -710,28 +709,29 @@ export class DeploymentEngine {
     }
 
     const explicit = process.env.SSH_AUTH_METHOD;
-    if (explicit === "key" || (explicit !== "password" && keyFileReady)) {
-      if (!keyFileReady) {
-        const missing: string[] = [];
-        if (!process.env.SSH_PRIVATE_KEY_B64) missing.push("SSH_PRIVATE_KEY_B64");
-        missing.push(`SSH key file: ${keyPath}`);
-        throw new Error(
-          `SSH_AUTH_METHOD=key لكن المفتاح غير متوفر.\n` +
-          `المطلوب: ضبط SSH_PRIVATE_KEY_B64 (base64) في Secrets، أو وضع ملف المفتاح في ${keyPath}\n` +
-          `غير موجود: ${missing.join("، ")}\n` +
-          `بديل: اضبط SSH_AUTH_METHOD=password مع SSH_PASSWORD`
-        );
-      }
+    const hasPassword = !!(process.env.SSH_PASSWORD || process.env.SSHPASS);
+
+    if (keyFileReady) {
       this.resolvedAuthMethod = "key";
-    } else if (process.env.SSH_PASSWORD || process.env.SSHPASS) {
+    } else if (explicit === "key" && !keyFileReady && hasPassword) {
+      console.warn(`[DeploymentEngine] SSH_AUTH_METHOD=key لكن المفتاح غير متوفر — انتقال تلقائي لكلمة المرور`);
+      this.resolvedAuthMethod = "password";
+    } else if (explicit === "key" && !keyFileReady && !hasPassword) {
+      throw new Error(
+        `SSH_AUTH_METHOD=key لكن المفتاح غير متوفر ولا توجد كلمة مرور بديلة.\n` +
+        `الحلول:\n` +
+        `  1. اضبط SSH_PRIVATE_KEY_B64 في Secrets (base64 للمفتاح الخاص)\n` +
+        `  2. أو اضبط SSH_PASSWORD في Secrets (سينتقل تلقائياً لوضع كلمة المرور)\n` +
+        `  3. أو ضع ملف المفتاح يدوياً في ${keyPath}`
+      );
+    } else if (hasPassword) {
       this.resolvedAuthMethod = "password";
     } else {
       throw new Error(
         `لا يوجد أي وسيلة اتصال SSH مُعدّة في هذه البيئة.\n` +
-        `الخيارات المتاحة:\n` +
-        `  1. مفتاح SSH: اضبط SSH_PRIVATE_KEY_B64 في Secrets (base64 للمفتاح الخاص)\n` +
-        `  2. كلمة مرور: اضبط SSH_PASSWORD في Secrets\n` +
-        `  3. ملف مفتاح: ضع المفتاح في ${keyPath} واضبط SSH_AUTH_METHOD=key`
+        `الحلول:\n` +
+        `  1. مفتاح SSH: اضبط SSH_PRIVATE_KEY_B64 في Secrets\n` +
+        `  2. كلمة مرور: اضبط SSH_PASSWORD في Secrets`
       );
     }
 
@@ -742,28 +742,25 @@ export class DeploymentEngine {
   private getSSHAuthMethod(): "key" | "password" {
     if (this.resolvedAuthMethod) return this.resolvedAuthMethod;
 
-    const { existsSync, accessSync, constants } = require("fs") as typeof import("fs");
     const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
 
     const explicit = process.env.SSH_AUTH_METHOD;
-    if (explicit === "key") {
-      try {
-        accessSync(keyPath, constants.R_OK);
-        return "key";
-      } catch {
-        if (process.env.SSH_PASSWORD || process.env.SSHPASS) {
-          console.warn("[DeploymentEngine] SSH_AUTH_METHOD=key but key not readable, falling back to password");
-          return "password";
-        }
-        return "key";
-      }
-    }
     if (explicit === "password") return "password";
 
+    let keyReadable = false;
     try {
-      accessSync(keyPath, constants.R_OK);
-      return "key";
+      accessSync(keyPath, fsConstants.R_OK);
+      keyReadable = true;
     } catch {}
+
+    if (keyReadable) return "key";
+
+    if (explicit === "key" && (process.env.SSH_PASSWORD || process.env.SSHPASS)) {
+      console.warn("[DeploymentEngine] SSH_AUTH_METHOD=key but key not readable, falling back to password");
+      return "password";
+    }
+
+    if (process.env.SSH_PASSWORD || process.env.SSHPASS) return "password";
 
     return "password";
   }
@@ -1053,7 +1050,6 @@ export class DeploymentEngine {
 
     if (authMethod === "key") {
       const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
-      const { existsSync, accessSync, constants } = await import("fs");
       if (!existsSync(keyPath)) {
         throw new Error(
           `ملف مفتاح SSH غير موجود: ${keyPath}\n` +
@@ -1063,7 +1059,7 @@ export class DeploymentEngine {
         );
       }
       try {
-        accessSync(keyPath, constants.R_OK);
+        accessSync(keyPath, fsConstants.R_OK);
       } catch {
         throw new Error(
           `ملف مفتاح SSH موجود لكن غير قابل للقراءة: ${keyPath}\n` +
@@ -1425,7 +1421,6 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "✅ Keystore + كلمة المرور جاهزان — بناء Release APK", "info");
 
     if (canSignRelease) {
-      const { writeFileSync, unlinkSync } = await import("fs");
       const localPassFile = `/tmp/.ks_pass_${deploymentId}`;
       const localKeyPassFile = `/tmp/.ks_key_pass_${deploymentId}`;
       try {
@@ -1772,7 +1767,6 @@ export class DeploymentEngine {
 
       if (keystorePassword && !output.includes("KEYSTORE_FILE=MISSING")) {
         try {
-          const { writeFileSync, unlinkSync } = await import("fs");
           const tmpPassFile = `/tmp/.ks_check_${deploymentId}`;
           writeFileSync(tmpPassFile, keystorePassword, { mode: 0o600 });
           const scpCmd = this.buildSCPCommand(tmpPassFile, "/tmp/.ks_check_pass");

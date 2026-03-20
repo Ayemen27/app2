@@ -450,14 +450,14 @@ export class DeploymentEngine {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
-    return `sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+    return `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
   }
 
   private buildSCPCommand(src: string, dest: string): string {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
-    return `sshpass -e scp -o StrictHostKeyChecking=no -P ${port} ${src} ${user}@${host}:${dest}`;
+    return `sshpass -e scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
   private maskSecrets(text: string): string {
@@ -881,7 +881,7 @@ export class DeploymentEngine {
     const user = process.env.SSH_USER || "administrator";
     const port = process.env.SSH_PORT || "22";
     const remoteDir = "/home/administrator/app2";
-    const sshCmd = `sshpass -e ssh -o StrictHostKeyChecking=no -p ${port} ${user}@${host}`;
+    const sshCmd = `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${port} ${user}@${host}`;
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     if (!deployment) throw new Error("Deployment not found");

@@ -5,7 +5,7 @@ import "./lib/telemetry";
 
 import express, { type Request, Response, NextFunction } from "express";
 import * as Sentry from "@sentry/node";
-import { pool } from "./db";
+import { pool } from "./db.js";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";

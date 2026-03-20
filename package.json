@@ -22,7 +22,6 @@
     "android:clean": "cd android && ./gradlew clean"
   },
   "dependencies": {
-    "@adiwajshing/baileys": "^5.0.0",
     "@anthropic-ai/sdk": "^0.37.0",
     "@babel/core": "^7.28.3",
     "@byteowls/capacitor-filesharer": "^7.0.0",
@@ -89,7 +88,6 @@
     "@simplewebauthn/server": "^13.2.3",
     "@tanstack/react-query": "^5.85.5",
     "@testing-library/react": "^16.3.2",
-    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
     "@types/dompurify": "^3.0.5",
@@ -110,7 +108,6 @@
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "argon2": "^0.44.0",
     "axios": "^1.13.2",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",

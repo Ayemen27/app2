@@ -393,7 +393,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     if (!result && (!response || response.status === 503 || response.status === 500 || !navigator.onLine)) {
-      if (import.meta.env.DEV) console.log('[AuthProvider] Server unavailable, trying offline login...');
+      trackLog('LOGIN_OFFLINE_ATTEMPT', { responseStatus: response?.status, online: navigator.onLine });
       
       try {
         const { smartGetAll } = await import('../offline/storage-factory');
@@ -401,7 +401,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const localUsers = await smartGetAll('users');
         const emergencyUsers = await smartGetAll('emergencyUsers');
         const allUsers = [...localUsers, ...emergencyUsers];
-        if (import.meta.env.DEV) console.log(`[AuthProvider] Checking ${allUsers.length} local users`);
+        trackLog('LOGIN_OFFLINE_USERS', { count: allUsers.length });
         
         const localUser = allUsers.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase());
         
@@ -412,22 +412,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
             try {
               const { verifyOfflinePassword } = await import('../offline/crypto-utils');
               passwordVerified = await verifyOfflinePassword(password, localUser.passwordHash);
-              if (passwordVerified) {
-                if (import.meta.env.DEV) console.log('[AuthProvider] Offline login successful');
-              } else {
-                if (import.meta.env.DEV) console.log('[AuthProvider] Incorrect password (offline)');
-              }
-            } catch (hashErr) {
-              if (import.meta.env.DEV) console.warn('[AuthProvider] Failed offline password verification:', hashErr);
+              trackLog('LOGIN_OFFLINE_VERIFY', { verified: passwordVerified });
+            } catch (hashErr: any) {
+              trackLog('LOGIN_OFFLINE_VERIFY_ERROR', { error: hashErr?.message });
               passwordVerified = false;
             }
           } else {
-            if (import.meta.env.DEV) console.log('[AuthProvider] No local hash - rejecting offline login');
+            trackLog('LOGIN_OFFLINE_NO_HASH', 'no passwordHash stored');
             passwordVerified = false;
           }
 
           if (passwordVerified) {
             setAuthMode('offline');
+            trackLog('LOGIN_OFFLINE_SUCCESS', { email: localUser.email });
             result = {
               success: true,
               data: {
@@ -436,9 +433,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
               }
             };
           }
+        } else {
+          trackLog('LOGIN_OFFLINE_NO_MATCH', { email });
         }
-      } catch (offlineError) {
-        if (import.meta.env.DEV) console.error('[AuthProvider] Offline logic error:', offlineError);
+      } catch (offlineError: any) {
+        trackLog('LOGIN_OFFLINE_ERROR', { error: offlineError?.message });
       }
     }
 
@@ -547,6 +546,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     if (!userToSave.id) {
+      trackLog('LOGIN_FAIL_NO_USER_ID', { userData: userData ? Object.keys(userData).join(',') : 'null' });
       throw new Error('معرف المستخدم مفقود. لا يمكن إتمام تسجيل الدخول.');
     }
 

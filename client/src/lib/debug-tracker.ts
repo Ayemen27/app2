@@ -5,6 +5,17 @@ const _logs: LogEntry[] = [];
 let _listeners: Array<() => void> = [];
 let _enabled = !!(import.meta.env.DEV || import.meta.env.VITE_DEBUG_OVERLAY === 'true' || (typeof window !== 'undefined' && (window as any).Capacitor));
 
+if (!_enabled && typeof window !== 'undefined') {
+  const proto = window.location?.protocol || '';
+  if (proto === 'capacitor:' || proto === 'ionic:') {
+    _enabled = true;
+  }
+  const ua = navigator?.userAgent || '';
+  if (/android/i.test(ua) && /wv/i.test(ua)) {
+    _enabled = true;
+  }
+}
+
 function now() {
   return new Date().toISOString().split('T')[1].replace('Z', '');
 }

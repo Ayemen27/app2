@@ -4,6 +4,9 @@ import { eq, desc, sql, count } from "drizzle-orm";
 import { exec, spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
 import type { Response } from "express";
+import { DeploymentNotificationPublisher } from "./deployment-notifications/DeploymentNotificationPublisher.js";
+import { DeploymentPayloadBuilder } from "./deployment-notifications/builders/deploymentPayloadBuilder.js";
+import { TelegramDeploymentProvider } from "./deployment-notifications/providers/TelegramDeploymentProvider.js";
 
 const execAsync = promisify(exec);
 
@@ -128,6 +131,12 @@ export class DeploymentEngine {
   private logBuffers = new Map<string, LogEntry[]>();
   private logFlushTimers = new Map<string, NodeJS.Timeout>();
   private static LOG_FLUSH_INTERVAL = 2000;
+  private notificationPublisher: DeploymentNotificationPublisher;
+
+  constructor() {
+    this.notificationPublisher = DeploymentNotificationPublisher.getInstance();
+    this.notificationPublisher.registerProvider(new TelegramDeploymentProvider());
+  }
 
   private isCancelled(deploymentId: string): boolean {
     return this.cancelFlags.get(deploymentId) === true;
@@ -376,51 +385,67 @@ export class DeploymentEngine {
     return deployment.id;
   }
 
-  private async sendDeploymentNotification(status: "started" | "success" | "failed" | "cancelled", config: DeploymentConfig, deploymentId: string, duration?: number, errorMsg?: string) {
+  private async sendDeploymentNotification(
+    status: "started" | "success" | "failed" | "cancelled" | "prebuild_gate_failed",
+    config: DeploymentConfig,
+    deploymentId: string,
+    duration?: number,
+    errorMsg?: string,
+    prebuildReport?: any
+  ) {
     try {
-      const { TelegramService } = await import("./TelegramService.js");
+      let payload;
+      switch (status) {
+        case "started": {
+          const bt = config.buildTarget || "server";
+          const pipelineSteps = getPipelineSteps(config.pipeline, bt);
+          let commitHash: string | undefined;
+          try {
+            const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace", timeout: 5000 });
+            commitHash = stdout.trim();
+          } catch {}
+          payload = await DeploymentPayloadBuilder.buildStartedPayload(
+            deploymentId, config, pipelineSteps, commitHash, config.branch
+          );
+          break;
+        }
+        case "success":
+          payload = await DeploymentPayloadBuilder.buildSuccessPayload(deploymentId, config, duration || 0);
+          break;
+        case "failed":
+          payload = await DeploymentPayloadBuilder.buildFailedPayload(deploymentId, config, duration || 0, errorMsg || "خطأ غير محدد");
+          break;
+        case "cancelled":
+          payload = await DeploymentPayloadBuilder.buildCancelledPayload(deploymentId, config, duration || 0);
+          break;
+        case "prebuild_gate_failed":
+          payload = await DeploymentPayloadBuilder.buildPrebuildGateFailedPayload(deploymentId, config, prebuildReport);
+          break;
+      }
+      if (payload) {
+        await this.notificationPublisher.publish(payload);
+      }
+    } catch (err) {
+      console.error("[DeploymentEngine] Notification error:", err);
+    }
+  }
 
-      const pipelineLabels: Record<string, string> = {
-        "web-deploy": "نشر الويب",
-        "android-build": "بناء أندرويد",
-        "full-deploy": "نشر كامل",
-        "hotfix": "إصلاح سريع",
-        "android-build-test": "بناء + اختبار",
-        "git-push": "نشر Git",
-        "git-android-build": "Git + أندرويد",
+  private async sendPrebuildGateNotification(deploymentId: string, report: any) {
+    try {
+      const [dep] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+      if (!dep) return;
+      const config: DeploymentConfig = {
+        pipeline: (dep.pipeline || "web-deploy") as Pipeline,
+        appType: (dep.deploymentType === "android" ? "android" : "web") as "web" | "android",
+        environment: (dep.environment || "production") as "production" | "staging",
+        branch: dep.branch || "main",
+        triggeredBy: dep.triggeredBy || undefined,
+        version: dep.version || undefined,
       };
-
-      const statusIcons: Record<string, string> = {
-        started: "🚀",
-        success: "✅",
-        failed: "❌",
-        cancelled: "⏹️",
-      };
-
-      const statusLabels: Record<string, string> = {
-        started: "بدأ",
-        success: "نجح",
-        failed: "فشل",
-        cancelled: "أُلغي",
-      };
-
-      const icon = statusIcons[status];
-      const label = statusLabels[status];
-      const pipeline = pipelineLabels[config.pipeline] || config.pipeline;
-      const version = config.version || "—";
-      const durationStr = duration ? `${(duration / 1000).toFixed(0)}ث` : "";
-
-      let text = `${icon} <b>نشر ${label}</b>\n`;
-      text += `📦 المسار: ${pipeline}\n`;
-      text += `🔖 الإصدار: v${version}\n`;
-      text += `🌍 البيئة: ${config.environment}\n`;
-      if (config.triggeredBy) text += `👤 بواسطة: ${config.triggeredBy}\n`;
-      if (durationStr) text += `⏱️ المدة: ${durationStr}\n`;
-      if (errorMsg) text += `\n💥 الخطأ: <code>${errorMsg.substring(0, 200)}</code>`;
-      text += `\n🆔 <code>${deploymentId.substring(0, 8)}</code>`;
-
-      await TelegramService.sendMessage({ text, parseMode: "HTML" });
-    } catch {
+      const payload = await DeploymentPayloadBuilder.buildPrebuildGateFailedPayload(deploymentId, config, report);
+      await this.notificationPublisher.publish(payload);
+    } catch (err) {
+      console.error("[DeploymentEngine] Prebuild gate notification error:", err);
     }
   }
 
@@ -1760,6 +1785,7 @@ export class DeploymentEngine {
         if (corsBlockers.length > 0) reasons.push(`CORS محظور لـ capacitor://localhost`);
         if (!report.sslCheck.passed) reasons.push("شهادة SSL غير صالحة");
         if (!report.cspCheck.passed) reasons.push(`CSP: ${report.cspCheck.error}`);
+        await this.sendPrebuildGateNotification(deploymentId, report);
         throw new Error(`🚫 بوابة ما قبل البناء فشلت: ${reasons.join(" | ")}. لا يمكن بناء APK.`);
       }
 

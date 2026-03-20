@@ -214,7 +214,9 @@ router.post("/:id/rollback", requireAdmin, asyncHandler(async (req: Request, res
   const targetCommitHash = typeof req.body.targetCommitHash === "string"
     ? req.body.targetCommitHash.replace(/[^a-f0-9]/gi, "").substring(0, 40)
     : undefined;
-  const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id, targetBuildNumber, targetCommitHash);
+  const authUser = getAuthUser(req);
+  const triggeredBy = authUser?.username || authUser?.fullName || "admin";
+  const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id, targetBuildNumber, targetCommitHash, triggeredBy);
   res.json({ id: rollbackId, message: "Rollback started" });
 }));
 
@@ -389,12 +391,19 @@ publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
       return;
     }
 
+    if (tokenAge < 0) {
+      res.status(401).json({ error: "رمز غير صالح — طابع زمني مستقبلي" });
+      return;
+    }
+
     const expected = crypto.createHmac("sha256", secret)
       .update(`${req.params.id}:${timestamp}`)
       .digest("hex")
       .substring(0, 32);
 
-    if (hash !== expected) {
+    const hashBuf = Buffer.from(hash, "utf8");
+    const expectedBuf = Buffer.from(expected, "utf8");
+    if (hashBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(hashBuf, expectedBuf)) {
       res.status(401).json({ error: "رمز غير صالح" });
       return;
     }

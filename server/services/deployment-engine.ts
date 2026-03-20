@@ -17,7 +17,7 @@ class CancellationError extends Error {
   }
 }
 
-type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build";
+type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback";
 
 const PIPELINE_ALIASES: Record<string, Pipeline> = {
   "git-push": "web-deploy",
@@ -48,6 +48,7 @@ const SERVER_PIPELINES: Record<Pipeline, string[]> = {
   "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
   "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
   "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
+  "rollback": ["validate", "rollback-server", "restart-pm2", "verify"],
 };
 
 const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
@@ -58,6 +59,7 @@ const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
   "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
   "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
   "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
+  "rollback": ["validate", "rollback-server", "restart-pm2", "verify"],
 };
 
 function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = "server"): string[] {
@@ -577,7 +579,7 @@ export class DeploymentEngine {
         await this.stepGitPush(deploymentId, config);
         break;
       case "pull-server":
-        await this.stepPullServer(deploymentId, sshCmd);
+        await this.stepPullServer(deploymentId, sshCmd, config);
         break;
       case "install-deps":
         await this.stepInstallDeps(deploymentId, sshCmd);
@@ -773,7 +775,7 @@ export class DeploymentEngine {
       child.stdout.on("data", handleData);
       child.stderr.on("data", handleData);
 
-      child.on("close", (code) => {
+      child.on("close", (code, signal) => {
         clearTimeout(timer);
         if (lineBuffer.trim()) processLine(lineBuffer);
 
@@ -782,7 +784,13 @@ export class DeploymentEngine {
           return;
         }
 
-        if (code === 0 || code === null) {
+        if (signal) {
+          this.addLog(deploymentId, `[${label}] killed by signal ${signal}`, "error").catch(() => {});
+          reject(new Error(`${label} killed by signal ${signal}`));
+          return;
+        }
+
+        if (code === 0) {
           resolve(output);
         } else {
           const errorMsg = this.maskSecrets(output.slice(-500));
@@ -1428,11 +1436,8 @@ export class DeploymentEngine {
 
   private async stepRetrieveArtifact(deploymentId: string) {
     await this.addLog(deploymentId, "تسجيل مسار APK على السيرفر...", "info");
-    const host = process.env.SSH_HOST || "93.127.142.144";
-    const user = process.env.SSH_USER || "administrator";
-    const port = process.env.SSH_PORT || "22";
     const remoteDir = "/home/administrator/app2";
-    const sshCmd = `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${port} ${user}@${host}`;
+    const sshCmd = this.buildSSHCommand();
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     if (!deployment) throw new Error("Deployment not found");
@@ -1881,9 +1886,11 @@ export class DeploymentEngine {
     const safeMessage = rawMessage.replace(/['"\\$`!]/g, "");
     const ghUser = process.env.GITHUB_USERNAME;
 
+    const branch = this.sanitizeShellArg(config.branch || "main");
+
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin main 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin ${branch} 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
       "Git Push",
       60000
     );
@@ -1900,13 +1907,14 @@ export class DeploymentEngine {
     } catch {}
   }
 
-  private async stepPullServer(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "Pulling latest from GitHub on server...", "info");
+  private async stepPullServer(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
+    const branch = this.sanitizeShellArg(config?.branch || "main");
+    await this.addLog(deploymentId, `Pulling latest from GitHub on server (branch: ${branch})...`, "info");
     const remoteDir = "/home/administrator/app2";
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && git fetch origin main && git reset --hard origin/main && echo 'PULL_OK'"`,
+      `${sshCmd} "cd ${remoteDir} && git fetch origin ${branch} && git reset --hard origin/${branch} && echo 'PULL_OK'"`,
       "Server Pull",
       60000
     );
@@ -1977,16 +1985,12 @@ export class DeploymentEngine {
       120000
     );
 
-    if (backupResult.includes("BACKUP_FAILED")) {
-      throw new Error("❌ فشل إنشاء النسخة الاحتياطية — لن يتم تنفيذ الترحيل لحماية البيانات");
-    }
-
     if (backupResult.includes("PG_DUMP_MISSING")) {
       await this.addLog(deploymentId, "❌ pg_dump غير متوفر — إلغاء الترحيل لعدم القدرة على أخذ نسخة احتياطية", "error");
       throw new Error("pg_dump غير متوفر على الخادم — الترحيل يتطلب نسخة احتياطية أولاً");
     } else if (backupResult.includes("BACKUP_FAILED")) {
       await this.addLog(deploymentId, "❌ فشل إنشاء النسخة الاحتياطية — إلغاء الترحيل", "error");
-      throw new Error("فشل إنشاء النسخة الاحتياطية — الترحيل ملغي");
+      throw new Error("فشل إنشاء النسخة الاحتياطية — الترحيل ملغي لحماية البيانات");
     } else {
       const backupPath = backupResult.match(/BACKUP_OK: (.+)/)?.[1]?.trim();
       await this.addLog(deploymentId, `✅ نسخة احتياطية: ${backupPath || "تمت"}`, "success");
@@ -2235,7 +2239,7 @@ export class DeploymentEngine {
     return { status, checks };
   }
 
-  async rollbackDeployment(deploymentId: string, targetBuildNumber?: number, targetCommitHash?: string): Promise<string> {
+  async rollbackDeployment(deploymentId: string, targetBuildNumber?: number, targetCommitHash?: string, triggeredBy?: string): Promise<string> {
     await this.ensureSSHKeyProvisioned();
     let targetDeployment: any;
 
@@ -2290,6 +2294,7 @@ export class DeploymentEngine {
         commitMessage: `Rollback to build #${targetDeployment.buildNumber} (${targetDeployment.commitHash?.substring(0, 8) || "N/A"})`,
         pipeline: "rollback",
         deploymentType: "rollback",
+        triggeredBy: triggeredBy || "system",
         rollbackInfo: {
           originalDeploymentId: targetDeployment.id,
           originalBuildNumber: targetDeployment.buildNumber,
@@ -2361,48 +2366,65 @@ export class DeploymentEngine {
   }
 
   async resumeDeployment(deploymentId: string): Promise<string> {
-    const deployment = await this.getDeployment(deploymentId);
-    if (!deployment) throw new Error("Deployment not found");
-    if (deployment.status !== "failed") throw new Error("يمكن استئناف عمليات النشر الفاشلة فقط");
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 
-    const steps = deployment.steps as StepEntry[];
-    const firstFailedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
-    if (firstFailedIdx === -1) throw new Error("لا توجد خطوة فاشلة للاستئناف منها");
+      const [deployment] = await tx.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+      if (!deployment) throw new Error("Deployment not found");
+      if (deployment.status !== "failed") throw new Error("يمكن استئناف عمليات النشر الفاشلة فقط");
 
-    const updatedSteps = steps.map((s, idx) => {
-      if (idx >= firstFailedIdx) {
-        return { ...s, status: "pending" as const, duration: undefined };
+      if (deployment.pipeline === "rollback") {
+        throw new Error("لا يمكن استئناف عمليات التراجع — أعد تنفيذ الـ rollback");
       }
-      return s;
+
+      const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
+        .from(buildDeployments)
+        .where(sql`${buildDeployments.status} = 'running' AND ${buildDeployments.id} != ${deploymentId}`)
+        .limit(1);
+
+      if (running.length > 0) {
+        throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أولاً.`);
+      }
+
+      const steps = deployment.steps as StepEntry[];
+      const firstFailedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
+      if (firstFailedIdx === -1) throw new Error("لا توجد خطوة فاشلة للاستئناف منها");
+
+      const updatedSteps = steps.map((s, idx) => {
+        if (idx >= firstFailedIdx) {
+          return { ...s, status: "pending" as const, duration: undefined };
+        }
+        return s;
+      });
+
+      await tx.update(buildDeployments).set({
+        status: "running",
+        currentStep: steps[firstFailedIdx].name,
+        progress: Math.round((firstFailedIdx / steps.length) * 100),
+        steps: updatedSteps,
+        errorMessage: null,
+        endTime: null,
+      }).where(eq(buildDeployments.id, deploymentId));
+
+      await this.addLog(deploymentId, `🔄 استئناف النشر من الخطوة: ${steps[firstFailedIdx].name}`, "info");
+      await this.addEvent(deploymentId, "deployment_resumed", `Resumed from step: ${steps[firstFailedIdx].name}`, { resumedFromStep: firstFailedIdx });
+
+      const config: DeploymentConfig = {
+        pipeline: deployment.pipeline as Pipeline,
+        appType: deployment.appType as "web" | "android",
+        environment: (deployment.environment as "production" | "staging") || "production",
+        branch: deployment.branch || "main",
+        version: deployment.version || undefined,
+        triggeredBy: deployment.triggeredBy || undefined,
+        buildTarget: "server",
+      };
+
+      this.runPipelineFromStep(deploymentId, config, firstFailedIdx).catch(err => {
+        console.error(`[DeploymentEngine] Resume error for ${deploymentId}:`, err);
+      });
+
+      return deploymentId;
     });
-
-    await db.update(buildDeployments).set({
-      status: "running",
-      currentStep: steps[firstFailedIdx].name,
-      progress: Math.round((firstFailedIdx / steps.length) * 100),
-      steps: updatedSteps,
-      errorMessage: null,
-      endTime: null,
-    }).where(eq(buildDeployments.id, deploymentId));
-
-    await this.addLog(deploymentId, `🔄 استئناف النشر من الخطوة: ${steps[firstFailedIdx].name}`, "info");
-    await this.addEvent(deploymentId, "deployment_resumed", `Resumed from step: ${steps[firstFailedIdx].name}`, { resumedFromStep: firstFailedIdx });
-
-    const config: DeploymentConfig = {
-      pipeline: deployment.pipeline as Pipeline,
-      appType: deployment.appType as "web" | "android",
-      environment: (deployment.environment as "production" | "staging") || "production",
-      branch: deployment.branch || "main",
-      version: deployment.version || undefined,
-      triggeredBy: deployment.triggeredBy || undefined,
-      buildTarget: "server",
-    };
-
-    this.runPipelineFromStep(deploymentId, config, firstFailedIdx).catch(err => {
-      console.error(`[DeploymentEngine] Resume error for ${deploymentId}:`, err);
-    });
-
-    return deploymentId;
   }
 
   private async runPipelineFromStep(deploymentId: string, config: DeploymentConfig, startFromIdx: number) {

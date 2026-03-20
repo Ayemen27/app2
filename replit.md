@@ -82,8 +82,14 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Resume-from-Step:** `POST /api/deployment/:id/resume` resumes failed deployments from first failed step. Resets failed/cancelled steps to pending, runs pipeline from that point. UI shows "استئناف" button on failed deployments. Fixed: `cleanupDeploymentState` used instead of missing `cleanupDeployment`.
 - **Atomic Rollback Lock:** `pg_advisory_xact_lock(7777001)` inside rollback transaction prevents concurrent rollback/deployment conflicts.
 - **Step-Level Timeout:** Per-step timeout limits via `STEP_TIMEOUT_MS` with `Promise.race`. Steps exceeding limits marked failed with Arabic error message.
-- **Safe Database Migration:** `stepDbMigrate` requires `AUTO_DB_MIGRATE=true`. Creates pg_dump backup before migration, runs dry-run, blocks dangerous ops (DROP/TRUNCATE). Fails if backup or pg_dump unavailable.
-- **Android Download Token:** HMAC-SHA256 signed download URLs with 24h TTL. Requires `APP_SECRET` or `SESSION_SECRET` (no default secret fallback).
+- **Safe Database Migration:** `stepDbMigrate` requires `AUTO_DB_MIGRATE=true`. Creates pg_dump backup before migration, runs dry-run, blocks dangerous ops (DROP/TRUNCATE). Fails if backup or pg_dump unavailable. Fixed: removed duplicate BACKUP_FAILED check (dead code).
+- **Android Download Token:** HMAC-SHA256 signed download URLs with 24h TTL. Requires `APP_SECRET` or `SESSION_SECRET` (no default secret fallback). Fixed: uses `crypto.timingSafeEqual` for timing-safe comparison, rejects future timestamps.
+- **Rollback Pipeline:** `rollback` added as first-class Pipeline type with defined steps (`validate`, `rollback-server`, `restart-pm2`, `verify`). Rollback now records `triggeredBy` for audit trail. Resume explicitly blocks rollback-type deployments.
+- **Resume Atomic Lock:** `resumeDeployment` now uses `pg_advisory_xact_lock(7777001)` inside a transaction to prevent concurrent resume/deploy conflicts.
+- **Signal-Aware Execution:** `execWithLog` distinguishes between `code===0` (success), `code!==0` (failure), and `signal` (killed by signal) — previously treated killed processes as successful.
+- **Dynamic Branch Support:** `stepGitPush` and `stepPullServer` now use `config.branch` instead of hardcoded `main`. Branch is sanitized via `sanitizeShellArg()`.
+- **SSH Auth Unified:** `stepRetrieveArtifact` now uses `buildSSHCommand()` instead of manually constructing SSH with `sshpass` and `StrictHostKeyChecking=accept-new` — eliminated MITM risk.
+- **Cleanup:** Removed stale `shared/schema.ts.remote` (0-byte file).
 - **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support.
 - **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine.
 - **Process Management:** Deployment engine uses `detached: true` process groups and `process.kill(-pgid)` for clean process tree termination on cancel.

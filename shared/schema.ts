@@ -1412,7 +1412,8 @@ export const notificationReadStates = pgTable("notification_read_states", {
 // Build & Deployment table (جدول عمليات البناء والنشر)
 export const buildDeployments = pgTable("build_deployments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  buildNumber: integer("build_number").notNull(),
+  buildNumber: integer("build_number").notNull().unique("build_deployments_build_number_unique"),
+  buildTarget: text("build_target").default("server"),
   status: text("status").notNull().default("running"),
   currentStep: text("current_step").notNull(),
   progress: integer("progress").notNull().default(0),

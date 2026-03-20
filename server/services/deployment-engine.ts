@@ -59,7 +59,7 @@ const SERVER_PIPELINES: Record<Pipeline, string[]> = {
 
 const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build": ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact"],
+  "android-build": ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
   "full-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
   "hotfix": ["validate", "hotfix-guard", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "post-deploy-smoke", "verify"],
   "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
@@ -401,8 +401,7 @@ export class DeploymentEngine {
         throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
       }
 
-      const buildNumResult = await tx.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
-      const buildNumber = (buildNumResult[0]?.maxBuild || 0) + 1;
+      const buildNumber = await this.getNextBuildNumber();
 
       let commitHash: string | undefined;
       try {
@@ -412,6 +411,7 @@ export class DeploymentEngine {
 
       return tx.insert(buildDeployments).values({
         buildNumber,
+        buildTarget: bt,
         status: "running",
         currentStep: steps[0].name,
         progress: 0,
@@ -2631,7 +2631,7 @@ export class DeploymentEngine {
         branch: deployment.branch || "main",
         version: deployment.version || undefined,
         triggeredBy: deployment.triggeredBy || undefined,
-        buildTarget: "server",
+        buildTarget: ((deployment as any).buildTarget as "server" | "local") || "server",
       };
 
       this.runPipelineFromStep(deploymentId, config, firstFailedIdx).catch(err => {

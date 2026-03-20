@@ -3,7 +3,8 @@ import { getLogs, onLogsChange, getLogsText, isDebugEnabled } from '@/lib/debug-
 
 export function DebugOverlay() {
   const enabled = isDebugEnabled();
-  const [visible, setVisible] = useState(false);
+  const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+  const [visible, setVisible] = useState(isCapacitor);
   const [logs, setLogs] = useState(getLogs());
   const scrollRef = useRef<HTMLDivElement>(null);
   const tapCount = useRef(0);

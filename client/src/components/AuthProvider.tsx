@@ -333,6 +333,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       windowCapacitor: !!(window as any).Capacitor,
       protocol: window.location?.protocol,
     };
+    trackLog('LOGIN_FN_START', platformInfo);
     console.log('[AUTH-DIAG] === LOGIN START ===', JSON.stringify(platformInfo));
 
     let result: any = null;
@@ -342,7 +343,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const fullUrl = `${loginApiUrl}/auth/login`;
-      console.log('[AUTH-DIAG] Fetching:', fullUrl);
+      trackLog('LOGIN_FETCH_START', { url: fullUrl });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
       response = await fetch(fullUrl, {
@@ -360,23 +361,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearTimeout(timeoutId);
 
       const contentType = response.headers.get('content-type') || 'unknown';
-      console.log('[AUTH-DIAG] Response:', {
+      trackLog('LOGIN_RESPONSE', {
         status: response.status,
         ok: response.ok,
         type: response.type,
         contentType,
-        url: response.url,
       });
 
       rawResponseText = await response.text();
-      console.log('[AUTH-DIAG] Body length:', rawResponseText.length, 'preview:', rawResponseText.substring(0, 300));
+      trackLog('LOGIN_BODY', { length: rawResponseText.length, preview: rawResponseText.substring(0, 200) });
 
       if (response.ok) {
         try {
           result = JSON.parse(rawResponseText);
-          console.log('[AUTH-DIAG] Parsed OK. Keys:', Object.keys(result).join(','), 'hasToken:', !!(result?.token || result?.accessToken));
+          trackLog('LOGIN_PARSED_OK', { keys: Object.keys(result).join(','), hasToken: !!(result?.token || result?.accessToken) });
         } catch (parseErr: any) {
-          console.error('[AUTH-DIAG] JSON parse FAILED:', parseErr.message, 'raw:', rawResponseText.substring(0, 200));
+          trackLog('LOGIN_PARSE_FAIL', { error: parseErr.message, raw: rawResponseText.substring(0, 100) });
           throw new Error(`LOGIN_RESPONSE_PARSE_FAILED: status=${response.status} contentType=${contentType}`);
         }
       } else {
@@ -385,10 +385,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } catch {
           errorBody = { message: rawResponseText.substring(0, 200) };
         }
-        console.warn('[AUTH-DIAG] Server error:', response.status, errorBody?.message);
+        trackLog('LOGIN_SERVER_ERROR', { status: response.status, message: errorBody?.message });
       }
     } catch (networkError: any) {
-      console.error('[AUTH-DIAG] Network/fetch error:', networkError?.name, networkError?.message, 'type:', typeof networkError);
+      trackLog('LOGIN_NETWORK_ERROR', { name: networkError?.name, message: networkError?.message });
       if (networkError?.message?.includes('LOGIN_RESPONSE_PARSE_FAILED')) throw networkError;
     }
 
@@ -506,7 +506,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
        }
     }
 
-    console.log('[AUTH-DIAG] Extracted:', {
+    trackLog('LOGIN_EXTRACTED', {
       hasUser: !!userData,
       hasToken: !!tokenData,
       hasRefresh: !!refreshTokenData,
@@ -517,17 +517,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
 
     if (!result) {
-      console.error('[AUTH-DIAG] FAIL: result is null. response:', response ? { status: response.status, type: response.type } : 'null');
+      trackLog('LOGIN_FAIL_NO_RESULT', { responseStatus: response?.status });
       throw new Error('فشل تسجيل الدخول. لا يمكن الوصول للخادم ولا يوجد بيانات أوفلاين صالحة.');
     }
 
     if (!tokenData && getAuthMode() !== 'offline' && !isWebCookieMode()) {
-      console.error('[AUTH-DIAG] FAIL: token missing. resultKeys:', Object.keys(result).join(','), 'result.data keys:', result?.data ? Object.keys(result.data).join(',') : 'null');
+      trackLog('LOGIN_FAIL_NO_TOKEN', { resultKeys: Object.keys(result).join(',') });
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 
     if (!userData && getAuthMode() !== 'offline') {
-      console.error('[AUTH-DIAG] FAIL: userData missing. resultKeys:', Object.keys(result).join(','));
+      trackLog('LOGIN_FAIL_NO_USER', { resultKeys: Object.keys(result).join(',') });
       throw new Error('بيانات المستخدم مفقودة من الاستجابة.');
     }
 
@@ -554,25 +554,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('emailVerified', 'true');
     }
 
-    console.log('[AUTH-DIAG] Saving user to localStorage...');
+    trackLog('LOGIN_SAVING_USER', { id: userToSave.id, email: userToSave.email, role: userToSave.role });
     localStorage.setItem('user', JSON.stringify(userToSave));
     const tokenValid = tokenData && isValidJwt(tokenData);
     const refreshValid = refreshTokenData && isValidJwt(refreshTokenData);
-    console.log('[AUTH-DIAG] Token validation:', { tokenValid, refreshValid, tokenLen: tokenData?.length, refreshLen: refreshTokenData?.length });
+    trackLog('LOGIN_TOKEN_VALIDATE', { tokenValid, refreshValid, tokenLen: tokenData?.length, refreshLen: refreshTokenData?.length });
     if (tokenValid) {
       storeTokens(tokenData, refreshValid ? refreshTokenData : '');
       setAuthMode('online');
       const storedBack = localStorage.getItem('accessToken');
-      console.log('[AUTH-DIAG] Token stored. Verify read-back:', { stored: !!storedBack, storedLen: storedBack?.length });
+      trackLog('LOGIN_TOKEN_STORED', { stored: !!storedBack, storedLen: storedBack?.length });
     } else if (isWebCookieMode()) {
-      console.log('[AUTH-DIAG] Web cookie mode - skipping token storage');
+      trackLog('LOGIN_COOKIE_MODE', 'skipping token storage');
       setAuthMode('online');
     } else {
-      console.warn('[AUTH-DIAG] WARNING: No valid token to store, tokenData:', tokenData ? tokenData.substring(0, 30) + '...' : 'null');
+      trackLog('LOGIN_WARN_NO_TOKEN', { tokenPreview: tokenData ? tokenData.substring(0, 20) + '...' : 'null' });
     }
     
     setUser(userToSave);
-    console.log('[AUTH-DIAG] === LOGIN COMPLETE === user set:', userToSave.email);
+    trackLog('LOGIN_COMPLETE', { email: userToSave.email, role: userToSave.role });
 
     if (getAuthMode() !== 'offline') {
       try {

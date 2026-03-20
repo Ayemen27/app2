@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "../components/AuthProvider";
 import { useToast } from "../hooks/use-toast";
 import { toUserMessage } from "@/lib/error-utils";
+import { trackLog } from "@/lib/debug-tracker";
 import {
   Form,
   FormControl,
@@ -81,6 +82,7 @@ const AppLogo = () => (
 );
 
 export default function LoginPage() {
+  trackLog('LOGIN_PAGE_RENDER', { timestamp: Date.now() });
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { login, loginWithBiometric: authBiometricLogin } = useAuth();
@@ -172,9 +174,11 @@ export default function LoginPage() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
+      trackLog('LOGIN_SUBMIT', { email: data.email, mode: loginMode });
       return await login(data.email, data.password);
     },
     onSuccess: () => {
+      trackLog('LOGIN_SUCCESS', { mode: loginMode });
       toast({
         title: "تم تسجيل الدخول",
         description: loginMode === 'offline' ? "تم الدخول بوضع الأوفلاين" : "مرحباً بك في نظام أكسيون",
@@ -182,12 +186,11 @@ export default function LoginPage() {
       navigate("/");
     },
     onError: (error: any) => {
-      console.error('[AUTH-DIAG] LoginPage onError:', {
+      trackLog('LOGIN_ERROR', {
         message: error?.message,
         name: error?.name,
         status: error?.status,
         requireEmailVerification: error?.requireEmailVerification,
-        stack: error?.stack?.substring(0, 300),
       });
       if (error.requireEmailVerification || error.status === 403) {
         toast({

@@ -620,7 +620,7 @@ export class DeploymentEngine {
   }
 
   private sanitizeShellArg(value: string): string {
-    return value.replace(/[^a-zA-Z0-9._\-@]/g, '');
+    return value.replace(/[^a-zA-Z0-9._\-@\/]/g, '').replace(/\.\./g, '');
   }
 
   private sshKeyProvisioned = false;
@@ -1322,11 +1322,11 @@ export class DeploymentEngine {
       ? `export KEYSTORE_PASSWORD=\\$(cat /tmp/.ks_pass) && export KEYSTORE_ALIAS='${keystoreAlias}' && export KEYSTORE_KEY_PASSWORD=\\$(cat /tmp/.ks_key_pass) && `
       : "";
 
-    const cleanSecrets = canSignRelease ? " && rm -f /tmp/.ks_pass /tmp/.ks_key_pass" : "";
+    const trapCleanup = canSignRelease ? "trap 'rm -f /tmp/.ks_pass /tmp/.ks_key_pass' EXIT; " : "";
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 | tail -40 && echo 'GRADLE_OK'${cleanSecrets}"`,
+      `${sshCmd} "${trapCleanup}set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 | tail -40 && echo 'GRADLE_OK'"`,
       "Gradle Build",
       600000
     );
@@ -1980,7 +1980,7 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "📦 إنشاء نسخة احتياطية لقاعدة البيانات قبل الترحيل...", "info");
     const backupResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && BACKUP_FILE=/tmp/db_backup_pre_migrate_$(date +%Y%m%d_%H%M%S).sql && if command -v pg_dump >/dev/null 2>&1; then pg_dump \$DATABASE_URL -f \$BACKUP_FILE --no-owner --no-privileges 2>&1 && echo \"BACKUP_OK: \$BACKUP_FILE\" || echo 'BACKUP_FAILED'; else echo 'PG_DUMP_MISSING'; fi"`,
+      `${sshCmd} "cd ${remoteDir} && BACKUP_FILE=/tmp/db_backup_pre_migrate_\$(date +%Y%m%d_%H%M%S).sql && if command -v pg_dump >/dev/null 2>&1; then pg_dump \$DATABASE_URL -f \$BACKUP_FILE --no-owner --no-privileges 2>&1 && chmod 600 \$BACKUP_FILE && echo \"BACKUP_OK: \$BACKUP_FILE\" || echo 'BACKUP_FAILED'; else echo 'PG_DUMP_MISSING'; fi"`,
       "Database Backup",
       120000
     );

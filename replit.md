@@ -89,6 +89,9 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Signal-Aware Execution:** `execWithLog` distinguishes between `code===0` (success), `code!==0` (failure), and `signal` (killed by signal) — previously treated killed processes as successful.
 - **Dynamic Branch Support:** `stepGitPush` and `stepPullServer` now use `config.branch` instead of hardcoded `main`. Branch is sanitized via `sanitizeShellArg()`.
 - **SSH Auth Unified:** `stepRetrieveArtifact` now uses `buildSSHCommand()` instead of manually constructing SSH with `sshpass` and `StrictHostKeyChecking=accept-new` — eliminated MITM risk.
+- **Keystore Secret Cleanup:** Gradle build uses `trap 'rm -f /tmp/.ks_pass /tmp/.ks_key_pass' EXIT` ensuring secrets are deleted even on build failure (was chained with `&&` — leaked on failure).
+- **Branch Sanitization:** `sanitizeShellArg` now allows `/` for branch names like `feature/x`, with `..` path traversal stripped.
+- **DB Backup Permissions:** Pre-migration `pg_dump` backup files now have `chmod 600` applied immediately after creation.
 - **Cleanup:** Removed stale `shared/schema.ts.remote` (0-byte file).
 - **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support.
 - **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine.

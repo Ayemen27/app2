@@ -195,6 +195,11 @@ const verifyToken = async (token: string): Promise<DecodedToken> => {
 
 const verifySession = async (user_id: string, sessionId: string, clientContext?: ClientContext, policy?: SessionBindingPolicy) => {
   try {
+    if ((globalThis as any).isEmergencyMode) {
+      console.warn('⚠️ [SESSION] Emergency mode active - skipping DB session verification');
+      return { session: null, bindingResult: null };
+    }
+
     const session = await db
       .select()
       .from(authUserSessions)
@@ -377,6 +382,30 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     if (!user_id) {
       return res.status(401).json({ success: false, message: 'بيانات الاعتماد غير صالحة', code: 'INVALID_TOKEN' });
     }
+
+    const isEmergency = !!(globalThis as any).isEmergencyMode;
+    const isEmergencyUser = user_id === 'emergency-admin' || user_id.startsWith('emergency-');
+
+    if (isEmergency && isEmergencyUser) {
+      const sessionId = decoded.sessionId || '';
+      (req as any).user = {
+        user_id: user_id,
+        email: decoded.email || 'emergency@system.local',
+        first_name: 'Emergency',
+        last_name: 'Admin',
+        full_name: 'Emergency Admin',
+        role: decoded.role || 'admin',
+        is_active: true,
+        mfa_enabled: false,
+        sessionId: sessionId,
+      };
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [AUTH-EMERGENCY] Emergency user authenticated: ${decoded.email} | ${req.method} ${req.originalUrl} | ${duration}ms`);
+
+      return next();
+    }
+
     const user = await storage.getUser(user_id);
 
     if (!user || !user.is_active) {
@@ -428,7 +457,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       });
     }
 
-    // إضافة بيانات المستخدم للـ request مع ضمان تحديث الدور من قاعدة البيانات مباشرة
     req.user = {
       user_id: user.id,
       email: user.email,
@@ -509,6 +537,25 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
       const decodedUserId = decoded.userId || decoded.sub || decoded.user_id || decoded.id;
       const decodedSessionId = decoded.sessionId;
       if (!decodedUserId) return next();
+
+      const isEmergency = !!(globalThis as any).isEmergencyMode;
+      const isEmergencyUser = decodedUserId === 'emergency-admin' || decodedUserId.startsWith('emergency-');
+
+      if (isEmergency && isEmergencyUser) {
+        (req as any).user = {
+          user_id: decodedUserId,
+          email: decoded.email || 'emergency@system.local',
+          first_name: 'Emergency',
+          last_name: 'Admin',
+          full_name: 'Emergency Admin',
+          role: decoded.role || 'admin',
+          is_active: true,
+          mfa_enabled: false,
+          sessionId: decodedSessionId || ''
+        };
+        return next();
+      }
+
       const sessionResult = decodedSessionId ? await verifySession(decodedUserId, decodedSessionId) : { session: true, bindingResult: null };
       const session = typeof sessionResult === 'object' && sessionResult !== null && 'session' in sessionResult ? sessionResult.session : sessionResult;
 

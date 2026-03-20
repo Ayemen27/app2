@@ -544,6 +544,47 @@ authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) =
         return res.status(401).json({ success: false, message: 'بيانات الاعتماد غير صالحة' });
       }
 
+      if (globalThis.isEmergencyMode && (userId === 'emergency-admin' || decoded.role === 'admin')) {
+        console.log('🛡️ [AUTH/refresh] Emergency mode - bypassing DB lookup for token refresh');
+
+        const clientContext = extractClientContext(req);
+        const tokenPair = await refreshAccessToken(refreshToken, clientContext);
+
+        if (!tokenPair) {
+          return res.status(401).json({
+            success: false,
+            message: 'فشل تجديد الجلسة، يرجى تسجيل الدخول'
+          });
+        }
+
+        setAuthCookies(res, tokenPair.accessToken, tokenPair.refreshToken);
+
+        const nativeClient = isNativeClient(req);
+        const emergencyUser = {
+          id: userId,
+          email: decoded.email || 'emergency@admin',
+          name: decoded.email || 'Emergency Admin',
+          role: decoded.role || 'admin'
+        };
+        const responseData: Record<string, any> = {
+          success: true,
+          message: 'تم تجديد الرموز بنجاح (وضع الطوارئ)',
+          tokenDelivery: nativeClient ? 'bearer' : 'cookie',
+          expiresIn: 900,
+          user: emergencyUser
+        };
+
+        if (nativeClient) {
+          responseData.accessToken = tokenPair.accessToken;
+          responseData.data = {
+            accessToken: tokenPair.accessToken,
+            refreshToken: tokenPair.refreshToken
+          };
+        }
+
+        return res.json(responseData);
+      }
+
       // البحث عن المستخدم في قاعدة البيانات
       const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
@@ -1157,6 +1198,9 @@ authRouter.post('/emergency/create-user', authRateLimit, requireAuth, async (req
 
 authRouter.get('/me', requireAuth, (req: any, res: Response) => {
   if (req.user) {
+    if (globalThis.isEmergencyMode) {
+      console.log('🛡️ [AUTH/me] Emergency mode - returning user from middleware directly');
+    }
     res.json({ success: true, user: req.user });
   } else {
     res.status(401).json({ success: false, message: "غير مصرح" });

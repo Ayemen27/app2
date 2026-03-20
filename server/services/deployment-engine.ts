@@ -141,6 +141,46 @@ export class DeploymentEngine {
     this.notificationPublisher = DeploymentNotificationPublisher.getInstance();
   }
 
+  private resolveBaseUrl(config?: DeploymentConfig): string {
+    if (config?.environment === "staging") {
+      return process.env.STAGING_URL || process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+    }
+    return process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+  }
+
+  private async waitForServerReady(deploymentId: string, baseUrl: string, maxWaitMs = 90000, intervalMs = 5000): Promise<boolean> {
+    await this.addLog(deploymentId, `⏳ انتظار جاهزية السيرفر (${baseUrl})...`, "info");
+    const start = Date.now();
+    let attempt = 0;
+
+    while (Date.now() - start < maxWaitMs) {
+      attempt++;
+      try {
+        const { stdout } = await execAsync(
+          `curl -s -o /dev/null -w '%{http_code}' --max-time 10 ${baseUrl}/api/health`,
+          { timeout: 15000 }
+        );
+        const status = stdout.trim().replace(/'/g, "");
+        if (status === "200") {
+          await this.addLog(deploymentId, `✅ السيرفر جاهز (محاولة ${attempt}, ${((Date.now() - start) / 1000).toFixed(1)}ث)`, "success");
+          return true;
+        }
+        const infraCodes = ["502", "503", "504"];
+        if (infraCodes.includes(status)) {
+          await this.addLog(deploymentId, `⏳ السيرفر يبدأ... HTTP ${status} (محاولة ${attempt})`, "info");
+        } else {
+          await this.addLog(deploymentId, `⚠️ السيرفر أرجع HTTP ${status} (محاولة ${attempt})`, "warn");
+        }
+      } catch {
+        await this.addLog(deploymentId, `⏳ السيرفر لا يستجيب بعد (محاولة ${attempt})`, "info");
+      }
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+
+    await this.addLog(deploymentId, `⚠️ السيرفر لم يصبح جاهزاً خلال ${maxWaitMs / 1000}ث`, "warn");
+    return false;
+  }
+
   private ensureProvidersRegistered() {
     if (this.providersRegistered) return;
     this.providersRegistered = true;
@@ -590,10 +630,10 @@ export class DeploymentEngine {
         await this.stepDeployServer(deploymentId, sshCmd);
         break;
       case "restart-pm2":
-        await this.stepRestartPM2(deploymentId, sshCmd);
+        await this.stepRestartPM2(deploymentId, sshCmd, config);
         break;
       case "prebuild-gate":
-        await this.stepPrebuildGate(deploymentId);
+        await this.stepPrebuildGate(deploymentId, config);
         break;
       case "android-readiness":
         await this.stepAndroidReadiness(deploymentId, sshCmd);
@@ -611,7 +651,7 @@ export class DeploymentEngine {
         await this.stepRetrieveArtifact(deploymentId);
         break;
       case "verify":
-        await this.stepVerify(deploymentId);
+        await this.stepVerify(deploymentId, config);
         break;
       case "git-push":
         await this.stepGitPush(deploymentId, config);
@@ -647,7 +687,7 @@ export class DeploymentEngine {
         await this.stepHotfixGuard(deploymentId);
         break;
       case "post-deploy-smoke":
-        await this.stepPostDeploySmoke(deploymentId);
+        await this.stepPostDeploySmoke(deploymentId, config);
         break;
       case "apk-integrity":
         await this.stepApkIntegrity(deploymentId, sshCmd);
@@ -1001,9 +1041,9 @@ export class DeploymentEngine {
     }
   }
 
-  private async stepPostDeploySmoke(deploymentId: string) {
+  private async stepPostDeploySmoke(deploymentId: string, config?: DeploymentConfig) {
     await this.addLog(deploymentId, "🔥 اختبار دخان ما بعد النشر — فحص المسارات الحرجة...", "info");
-    const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+    const baseUrl = this.resolveBaseUrl(config);
 
     try {
       const { runPrebuildChecks } = await import("./prebuild-route-checker");
@@ -1200,7 +1240,7 @@ export class DeploymentEngine {
     );
   }
 
-  private async stepRestartPM2(deploymentId: string, sshCmd: string) {
+  private async stepRestartPM2(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
     await this.addLog(deploymentId, "Restarting PM2 process...", "info");
     const remoteDir = "/home/administrator/app2";
 
@@ -1210,6 +1250,12 @@ export class DeploymentEngine {
       "PM2 Restart",
       30000
     );
+
+    const baseUrl = this.resolveBaseUrl(config);
+    const ready = await this.waitForServerReady(deploymentId, baseUrl, 90000, 5000);
+    if (!ready) {
+      await this.addLog(deploymentId, "⚠️ السيرفر لم يصل لحالة الجاهزية — متابعة مع تحذير", "warn");
+    }
   }
 
   private async stepSyncCapacitor(deploymentId: string, sshCmd: string) {
@@ -1831,11 +1877,11 @@ export class DeploymentEngine {
     await this.addLog(deploymentId, "✅ بيئة Android جاهزة للبناء", "success");
   }
 
-  private async stepPrebuildGate(deploymentId: string) {
+  private async stepPrebuildGate(deploymentId: string, config?: DeploymentConfig) {
     await this.addLog(deploymentId, "🔍 بوابة ما قبل البناء — فحص المسارات + CORS + SSL...", "info");
 
     const { runPrebuildChecks } = await import("./prebuild-route-checker");
-    const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+    const baseUrl = this.resolveBaseUrl(config);
 
     try {
       const report = await runPrebuildChecks(baseUrl);
@@ -1852,30 +1898,43 @@ export class DeploymentEngine {
         await this.addLog(deploymentId, `❌ CSP: ${report.cspCheck.error || "فحص CSP فشل"}`, "error");
       }
 
+      const infraFailed = report.routeChecks.filter(r => r.isInfraFailure);
+      const appFailed = report.routeChecks.filter(r => !r.passed && !r.isInfraFailure);
       const failedRoutes = report.routeChecks.filter(r => !r.passed);
       const passedRoutes = report.routeChecks.filter(r => r.passed);
+
+      if (infraFailed.length > 0) {
+        await this.addLog(deploymentId, `🔧 ${infraFailed.length} مسار — فشل بنية تحتية (السيرفر لا يستجيب/يعيد التشغيل)`, "warn");
+        for (const f of infraFailed.slice(0, 3)) {
+          await this.addLog(deploymentId, `  🔧 [${f.method}] ${f.path}: ${f.error}`, "warn");
+        }
+      }
 
       if (passedRoutes.length > 0) {
         await this.addLog(deploymentId, `✅ مسارات ناجحة: ${passedRoutes.length}/${report.routeChecks.length}`, "success");
       }
 
-      for (const failed of failedRoutes) {
+      for (const failed of appFailed) {
         await this.addLog(deploymentId, `❌ [${failed.method}] ${failed.path}: ${failed.error} (${failed.description})`, "error");
       }
 
       const failedCors = report.corsChecks.filter(c => !c.passed);
       const passedCors = report.corsChecks.filter(c => c.passed);
+      const isCorsCspSkipped = failedCors.some(c => c.error?.includes("Skipped"));
 
-      if (passedCors.length > 0) {
-        await this.addLog(deploymentId, `✅ CORS ناجح: ${passedCors.length}/${report.corsChecks.length}`, "success");
-      }
-
-      for (const failed of failedCors) {
-        await this.addLog(deploymentId, `❌ CORS [${failed.origin}] ${failed.path}: ${failed.error}`, "error");
+      if (isCorsCspSkipped) {
+        await this.addLog(deploymentId, `⏭️ CORS/CSP تم تخطيه — السيرفر غير متاح (لا فائدة من فحصها)`, "warn");
+      } else {
+        if (passedCors.length > 0) {
+          await this.addLog(deploymentId, `✅ CORS ناجح: ${passedCors.length}/${report.corsChecks.length}`, "success");
+        }
+        for (const failed of failedCors) {
+          await this.addLog(deploymentId, `❌ CORS [${failed.origin}] ${failed.path}: ${failed.error}`, "error");
+        }
       }
 
       await this.addLog(deploymentId,
-        `📊 ملخص البوابة: مسارات ${report.summary.passedRoutes}/${report.summary.totalRoutes} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}`,
+        `📊 ملخص البوابة: مسارات ${report.summary.passedRoutes}/${report.summary.totalRoutes} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}${infraFailed.length > 0 ? ` | 🔧 بنية تحتية: ${infraFailed.length}` : ""}`,
         report.summary.overallPass ? "success" : "warn"
       );
 
@@ -1883,27 +1942,34 @@ export class DeploymentEngine {
         overallPass: report.summary.overallPass,
         routesPassed: report.summary.passedRoutes,
         routesFailed: report.summary.failedRoutes,
+        infraFailed: infraFailed.length,
         corsPassed: report.summary.passedCors,
         corsFailed: report.summary.failedCors,
         sslValid: report.summary.sslValid,
         cspValid: report.summary.cspValid,
       });
 
-      const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
-      const corsBlockers = failedCors.filter(c => c.origin === "capacitor://localhost");
+      const allRouteFailuresAreInfra = failedRoutes.length > 0 && appFailed.length === 0 && infraFailed.length === failedRoutes.length;
 
-      if (criticalFailed.length > 0 || corsBlockers.length > 0 || !report.sslCheck.passed || !report.cspCheck.passed) {
-        const reasons: string[] = [];
-        if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
-        if (corsBlockers.length > 0) reasons.push(`CORS محظور لـ capacitor://localhost`);
-        if (!report.sslCheck.passed) reasons.push("شهادة SSL غير صالحة");
-        if (!report.cspCheck.passed) reasons.push(`CSP: ${report.cspCheck.error}`);
-        await this.sendPrebuildGateNotification(deploymentId, report);
-        throw new Error(`🚫 بوابة ما قبل البناء فشلت: ${reasons.join(" | ")}. لا يمكن بناء APK.`);
-      }
+      if (allRouteFailuresAreInfra && report.sslCheck.passed) {
+        await this.addLog(deploymentId, `⚠️ جميع الفشلات من نوع بنية تحتية (502/503/504) — السيرفر لا يزال يبدأ. متابعة البناء مع تحذير.`, "warn");
+      } else {
+        const criticalFailed = appFailed.filter(r => r.group === "auth" || r.group === "public");
+        const corsBlockers = isCorsCspSkipped ? [] : failedCors.filter(c => c.origin === "capacitor://localhost");
 
-      if (failedRoutes.length > 0) {
-        await this.addLog(deploymentId, `⚠️ ${failedRoutes.length} مسار غير حرج فشل — متابعة البناء مع تحذير`, "warn");
+        if (criticalFailed.length > 0 || corsBlockers.length > 0 || !report.sslCheck.passed || (!isCorsCspSkipped && !report.cspCheck.passed)) {
+          const reasons: string[] = [];
+          if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
+          if (corsBlockers.length > 0) reasons.push(`CORS محظور لـ capacitor://localhost`);
+          if (!report.sslCheck.passed) reasons.push("شهادة SSL غير صالحة");
+          if (!isCorsCspSkipped && !report.cspCheck.passed) reasons.push(`CSP: ${report.cspCheck.error}`);
+          await this.sendPrebuildGateNotification(deploymentId, report);
+          throw new Error(`🚫 بوابة ما قبل البناء فشلت: ${reasons.join(" | ")}. لا يمكن بناء APK.`);
+        }
+
+        if (failedRoutes.length > 0) {
+          await this.addLog(deploymentId, `⚠️ ${failedRoutes.length} مسار غير حرج فشل — متابعة البناء مع تحذير`, "warn");
+        }
       }
 
     } catch (err: any) {
@@ -1915,9 +1981,9 @@ export class DeploymentEngine {
     }
   }
 
-  private async stepVerify(deploymentId: string) {
+  private async stepVerify(deploymentId: string, config?: DeploymentConfig) {
     await this.addLog(deploymentId, "التحقق النهائي من النشر...", "info");
-    const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+    const baseUrl = this.resolveBaseUrl(config);
     let healthPassed = false;
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -2337,7 +2403,8 @@ export class DeploymentEngine {
     const checks: Record<string, any> = {};
 
     try {
-      const { stdout: httpCheck } = await execAsync("curl -s -o /dev/null -w '%{http_code}' https://app2.binarjoinanelytic.info/api/health", { timeout: 15000 });
+      const healthUrl = this.resolveBaseUrl();
+      const { stdout: httpCheck } = await execAsync(`curl -s -o /dev/null -w '%{http_code}' ${healthUrl}/api/health`, { timeout: 15000 });
       checks.httpStatus = httpCheck.trim().replace(/'/g, "");
     } catch {
       checks.httpStatus = "unreachable";

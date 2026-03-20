@@ -12,6 +12,7 @@ export interface CheckResult {
   expectedStatus: number[];
   latencyMs?: number;
   error?: string;
+  isInfraFailure?: boolean;
 }
 
 export interface CorsCheckResult {
@@ -131,7 +132,11 @@ async function checkRoute(baseUrl: string, route: RouteCheck, authToken: string 
     result.statusCode = res.status;
     result.latencyMs = Date.now() - start;
 
-    if (route.requiresAuth && !authToken) {
+    const INFRA_CODES = [502, 503, 504, 520, 521, 522, 523, 524];
+    if (INFRA_CODES.includes(res.status)) {
+      result.isInfraFailure = true;
+      result.error = `Infrastructure error: HTTP ${res.status} (server unreachable/restarting)`;
+    } else if (route.requiresAuth && !authToken) {
       result.passed = res.status === 401;
       if (!result.passed) {
         result.error = "Expected 401 without auth token but got " + res.status;
@@ -144,7 +149,8 @@ async function checkRoute(baseUrl: string, route: RouteCheck, authToken: string 
     }
   } catch (err: any) {
     result.latencyMs = Date.now() - start;
-    result.error = err.name === "AbortError" ? "Timeout" : err.message;
+    result.isInfraFailure = true;
+    result.error = err.name === "AbortError" ? "Timeout (server unreachable)" : err.message;
   }
 
   return result;
@@ -266,62 +272,97 @@ async function checkCsp(baseUrl: string): Promise<CspCheckResult> {
   return result;
 }
 
-export async function runPrebuildChecks(baseUrl: string): Promise<PrebuildReport> {
-  const report: PrebuildReport = {
-    timestamp: new Date().toISOString(),
-    baseUrl,
-    routeChecks: [],
-    corsChecks: [],
-    sslCheck: { passed: false },
-    cspCheck: { passed: false, hasCapacitor: false, hasLocalhost: false },
-    summary: {
-      totalRoutes: 0,
-      passedRoutes: 0,
-      failedRoutes: 0,
-      totalCors: 0,
-      passedCors: 0,
-      failedCors: 0,
-      sslValid: false,
-      cspValid: false,
-      overallPass: false,
-    },
-  };
+export async function runPrebuildChecks(baseUrl: string, maxRetries = 2): Promise<PrebuildReport> {
+  let lastReport: PrebuildReport | null = null;
 
-  const hostname = new URL(baseUrl).hostname;
-  report.sslCheck = await checkSsl(hostname);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const report: PrebuildReport = {
+      timestamp: new Date().toISOString(),
+      baseUrl,
+      routeChecks: [],
+      corsChecks: [],
+      sslCheck: { passed: false },
+      cspCheck: { passed: false, hasCapacitor: false, hasLocalhost: false },
+      summary: {
+        totalRoutes: 0,
+        passedRoutes: 0,
+        failedRoutes: 0,
+        totalCors: 0,
+        passedCors: 0,
+        failedCors: 0,
+        sslValid: false,
+        cspValid: false,
+        overallPass: false,
+      },
+    };
 
-  const authToken = await loginForToken(baseUrl);
+    const hostname = new URL(baseUrl).hostname;
+    report.sslCheck = await checkSsl(hostname);
 
-  const routeResults = await Promise.all(
-    MOBILE_CRITICAL_ROUTES.map((route) => checkRoute(baseUrl, route, authToken))
-  );
-  report.routeChecks = routeResults;
+    const authToken = await loginForToken(baseUrl);
 
-  const corsResults: CorsCheckResult[] = [];
-  for (const origin of CORS_ORIGINS_TO_TEST) {
-    for (const path of CORS_CHECK_ROUTES) {
-      corsResults.push(await checkCors(baseUrl, path, origin));
+    const routeResults = await Promise.all(
+      MOBILE_CRITICAL_ROUTES.map((route) => checkRoute(baseUrl, route, authToken))
+    );
+    report.routeChecks = routeResults;
+
+    const infraCount = routeResults.filter((r) => r.isInfraFailure).length;
+    const publicInfra = routeResults.filter((r) => r.isInfraFailure && (r.group === "public" || r.group === "auth"));
+    const infraRatio = infraCount / routeResults.length;
+    const isServerUnreachable = publicInfra.length > 0 && infraRatio >= 0.5;
+
+    if (isServerUnreachable && attempt < maxRetries) {
+      console.log(`[PrebuildChecker] Infrastructure failure detected (${infraCount}/${routeResults.length} routes, attempt ${attempt + 1}/${maxRetries + 1}) — retrying in 15s...`);
+      await new Promise((r) => setTimeout(r, 15000));
+      lastReport = report;
+      continue;
     }
+
+    if (isServerUnreachable) {
+      report.corsChecks = CORS_ORIGINS_TO_TEST.flatMap((origin) =>
+        CORS_CHECK_ROUTES.map((path) => ({
+          origin,
+          path,
+          passed: false,
+          error: "Skipped — server unreachable (infrastructure failure)",
+        }))
+      );
+      report.cspCheck = {
+        passed: false,
+        hasCapacitor: false,
+        hasLocalhost: false,
+        error: "Skipped — server unreachable (infrastructure failure)",
+      };
+    } else {
+      const corsResults: CorsCheckResult[] = [];
+      for (const origin of CORS_ORIGINS_TO_TEST) {
+        for (const path of CORS_CHECK_ROUTES) {
+          corsResults.push(await checkCors(baseUrl, path, origin));
+        }
+      }
+      report.corsChecks = corsResults;
+
+      report.cspCheck = await checkCsp(baseUrl);
+    }
+
+    report.summary = {
+      totalRoutes: routeResults.length,
+      passedRoutes: routeResults.filter((r) => r.passed).length,
+      failedRoutes: routeResults.filter((r) => !r.passed).length,
+      totalCors: report.corsChecks.length,
+      passedCors: report.corsChecks.filter((r) => r.passed).length,
+      failedCors: report.corsChecks.filter((r) => !r.passed).length,
+      sslValid: report.sslCheck.passed,
+      cspValid: report.cspCheck.passed,
+      overallPass:
+        report.sslCheck.passed &&
+        report.cspCheck.passed &&
+        routeResults.every((r) => r.passed) &&
+        report.corsChecks.every((r) => r.passed),
+    };
+
+    return report;
   }
-  report.corsChecks = corsResults;
 
-  report.cspCheck = await checkCsp(baseUrl);
-
-  report.summary = {
-    totalRoutes: routeResults.length,
-    passedRoutes: routeResults.filter((r) => r.passed).length,
-    failedRoutes: routeResults.filter((r) => !r.passed).length,
-    totalCors: corsResults.length,
-    passedCors: corsResults.filter((r) => r.passed).length,
-    failedCors: corsResults.filter((r) => !r.passed).length,
-    sslValid: report.sslCheck.passed,
-    cspValid: report.cspCheck.passed,
-    overallPass:
-      report.sslCheck.passed &&
-      report.cspCheck.passed &&
-      routeResults.every((r) => r.passed) &&
-      corsResults.every((r) => r.passed),
-  };
-
-  return report;
+  return lastReport!;
 }

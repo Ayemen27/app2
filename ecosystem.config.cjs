@@ -1,26 +1,28 @@
 module.exports = {
-  apps: [
-    {
-      name: 'construction-app',
-      script: './dist/index.js',
-      instances: 2,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: '1G',
-      error_file: './logs/err.log',
-      out_file: './logs/out.log',
-      log_file: './logs/combined.log',
-      time_format: 'YYYY-MM-DD HH:mm:ss Z',
-      merge_logs: true,
-      env: {
-        NODE_ENV: process.env.NODE_ENV || 'production',
-        PORT: process.env.PORT || 6000,
-        DATABASE_URL: process.env.DATABASE_URL,
-        CUSTOM_DOMAIN: process.env.CUSTOM_DOMAIN || 'app2.binarjoinanelytic.info',
-        JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
-        JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
-        SESSION_SECRET: process.env.SESSION_SECRET
-      }
-    }
-  ]
+  apps: [{
+    name: 'construction-app',
+    script: 'dist/index.js',
+    cwd: '/home/administrator/app2',
+    exec_mode: 'cluster',
+    instances: 2,
+    env: {
+      NODE_ENV: 'production',
+      PORT: 6000
+    },
+    node_args: '--max-old-space-size=512',
+    max_memory_restart: '600M',
+    max_restarts: 15,
+    min_uptime: '10s',
+    restart_delay: 3000,
+    listen_timeout: 15000,
+    kill_timeout: 8000,
+    wait_ready: false,
+    autorestart: true,
+    watch: false,
+    merge_logs: true,
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    error_file: '/home/administrator/.pm2/logs/construction-app-error.log',
+    out_file: '/home/administrator/.pm2/logs/construction-app-out.log',
+    log_file: '/home/administrator/.pm2/logs/construction-app-combined.log'
+  }]
 };

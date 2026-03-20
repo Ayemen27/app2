@@ -1,6 +1,7 @@
 import type { CookieOptions } from 'express';
+import { ENV } from '../config/env';
 
-const isProduction = process.env.NODE_ENV === 'production';
+const isProduction = ENV.isProduction;
 
 const BASE_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,

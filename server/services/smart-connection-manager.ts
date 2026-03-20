@@ -5,8 +5,8 @@ import { drizzle as drizzleSqlite } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import { sql } from 'drizzle-orm';
 import * as schema from "@shared/schema";
-import { getCredential } from '../config/credentials';
-import { envConfig } from '../utils/unified-env';
+// credentials merged into config/env
+import { ENV as envConfig } from '../config/env';
 import fs from 'fs';
 import path from 'path';
 import { promisify } from "util";

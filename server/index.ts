@@ -1,6 +1,5 @@
-import { initializeEnvironment } from './utils/env-loader';
-// تهيئة البيئة فوراً قبل أي استيراد آخر
-initializeEnvironment();
+import './config/env';
+
 
 import "../instrumentation.js"; // ✅ تشغيل نظام التتبع OpenTelemetry
 import "./lib/telemetry";
@@ -15,7 +14,7 @@ import rateLimit from "express-rate-limit";
 import path from "path";
 import fs from "fs";
 import { serveStatic, log } from "./static";
-import { envConfig } from "./utils/unified-env";
+import { ENV as envConfig } from "./config/env";
 import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات
 // sshRoutes removed - not needed
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
@@ -138,8 +137,8 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
   next();
 });
 
-// تم استخدام نظام الاكتشاف الموحد من unified-env
-const { isProduction, PORT, REPLIT_DOMAIN, PRODUCTION_DOMAIN } = envConfig;
+const { isProduction, PORT, PRODUCTION_DOMAIN } = envConfig;
+const REPLIT_DOMAIN = envConfig.DOMAIN;
 
 // ✅ DYNAMIC CORS Configuration - Strict Origin Validation
 function isStrictLocalhost(origin: string): boolean {
@@ -685,14 +684,13 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-  // Setup vite dev server if in development
-  if (envConfig.NODE_ENV !== "production") {
+  if (envConfig.isProduction) {
+    console.log('📦 [Server] Serving static files in production...');
+    serveStatic(app);
+  } else {
     console.log('🏗️ [Server] Starting Vite development server...');
     const { setupVite } = await import("./vite.js");
     await setupVite(app, server);
-  } else {
-    console.log('📦 [Server] Serving static files in production...');
-    serveStatic(app);
   }
 
 // ✅ **Error Handler Middleware** - Moved after static/vite

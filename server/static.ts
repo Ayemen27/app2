@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import { envConfig } from "./utils/unified-env";
+import { ENV as envConfig } from "./config/env";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -44,12 +44,11 @@ export function serveStatic(app: Express) {
   console.log(`[Static] Selected distPath: ${distPath}`);
   console.log(`[Static] Index exists: ${indexExists}`);
 
-  // Middleware to handle Vite production assets and avoid MIME type errors
   app.use((req, res, next) => {
-    // If it's a request for a source file like .tsx or .ts in production, it's likely a misconfiguration or a missing build step
     if (req.path.startsWith('/src/') || req.path.endsWith('.tsx') || req.path.endsWith('.ts')) {
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
+      console.warn(`🚫 [Static] Blocked source file request in production: ${req.path}`);
+      res.status(404).json({ success: false, message: 'Not found' });
+      return;
     }
     next();
   });
@@ -79,15 +78,6 @@ export function serveStatic(app: Express) {
 
   app.use((req, res, next) => {
     if (req.originalUrl.startsWith("/api/")) return next();
-    
-    // Explicitly handle source files in production if requested
-    if (req.path.startsWith('/src/') || req.path.endsWith('.tsx') || req.path.endsWith('.ts')) {
-      const sourcePath = path.join(cwd, req.path);
-      if (fs.existsSync(sourcePath)) {
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-        return res.sendFile(sourcePath);
-      }
-    }
 
     const indexPath = path.join(distPath, "index.html");
     if (fs.existsSync(indexPath)) {

@@ -1,44 +1,81 @@
-const PRODUCTION_API = 'https://app2.binarjoinanelytic.info';
+import type { ClientPlatform, AppEnv, AuthStrategy } from '@shared/env-types';
 
-function detectIsNativePlatform(): boolean {
-  if (typeof window === 'undefined') return false;
+const PRODUCTION_DOMAIN = 'https://app2.binarjoinanelytic.info';
+const PRODUCTION_HOSTS = ['app2.binarjoinanelytic.info', 'binarjoinanelytic.info', 'www.binarjoinanelytic.info'];
+
+function detectPlatform(): ClientPlatform {
+  if (typeof window === 'undefined') return 'web';
   const cap = (window as any).Capacitor;
-  if (cap?.isNativePlatform?.()) return true;
-  if (cap?.isNative === true) return true;
-  if (cap?.getPlatform?.() === 'android' || cap?.getPlatform?.() === 'ios') return true;
+  if (cap?.isNativePlatform?.()) {
+    const p = cap.getPlatform?.();
+    if (p === 'ios') return 'ios';
+    return 'android';
+  }
+  if (cap?.isNative === true) return 'android';
   const proto = window.location.protocol;
-  if (proto === 'capacitor:' || proto === 'ionic:') return true;
-  return false;
+  if (proto === 'capacitor:' || proto === 'ionic:') return 'android';
+  return 'web';
 }
 
+function detectEnvironment(platform: ClientPlatform): AppEnv {
+  if (platform !== 'web') return 'production';
+  if (typeof window === 'undefined') return 'development';
+  if (PRODUCTION_HOSTS.includes(window.location.hostname)) return 'production';
+  if (import.meta.env?.DEV) return 'development';
+  return 'production';
+}
+
+function resolveApiBaseUrl(platform: ClientPlatform, environment: AppEnv): string {
+  if (platform !== 'web') return PRODUCTION_DOMAIN;
+  if (environment === 'production') return PRODUCTION_DOMAIN;
+  return '';
+}
+
+const platform = detectPlatform();
+const environment = detectEnvironment(platform);
+const isNative = platform !== 'web';
+const apiBaseUrl = resolveApiBaseUrl(platform, environment);
+
 export const ENV = {
-  isProduction: typeof window !== 'undefined' ? 
-    (window.location.hostname === 'binarjoinanelytic.info' || window.location.hostname === 'www.binarjoinanelytic.info' || detectIsNativePlatform()) : 
-    process.env.NODE_ENV === 'production',
-  isAndroid: typeof window !== 'undefined' && detectIsNativePlatform(),
-  
-  getApiBaseUrl: () => {
-    if (typeof window === 'undefined') return process.env.VITE_API_BASE_URL || '';
-    
-    if (detectIsNativePlatform()) {
-      return PRODUCTION_API;
-    }
+  platform,
+  environment,
+  isProduction: environment === 'production',
+  isNative,
+  isAndroid: platform === 'android',
+  authStrategy: (isNative ? 'bearer' : 'cookie') as AuthStrategy,
+  apiBaseUrl,
+  productionDomain: PRODUCTION_DOMAIN,
 
-    const hostname = window.location.hostname;
-    if (hostname === 'binarjoinanelytic.info' || hostname === 'www.binarjoinanelytic.info' || hostname === 'app2.binarjoinanelytic.info') {
-      return PRODUCTION_API;
-    }
-
-    return '';
-  },
-
-  getExternalServerUrl: () => {
-    return PRODUCTION_API;
-  },
-
-  getApiUrl: (path: string) => {
-    const base = ENV.getApiBaseUrl();
+  getApiUrl: (path: string): string => {
     const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    return `${base}${cleanPath}`;
-  }
-};
+    return `${apiBaseUrl}${cleanPath}`;
+  },
+
+  getApiBaseUrl: (): string => apiBaseUrl,
+
+  getExternalServerUrl: (): string => PRODUCTION_DOMAIN,
+} as const;
+
+export function getApiUrl(path: string): string {
+  return ENV.getApiUrl(path);
+}
+
+export function getApiBaseUrl(): string {
+  return apiBaseUrl;
+}
+
+export function shouldUseBearerAuth(): boolean {
+  return isNative;
+}
+
+export function isNativePlatform(): boolean {
+  return isNative;
+}
+
+export function getFetchCredentials(): RequestCredentials {
+  return isNative ? 'omit' : 'include';
+}
+
+export function getClientPlatformHeader(): Record<string, string> {
+  return { 'x-client-platform': isNative ? 'native' : 'web' };
+}

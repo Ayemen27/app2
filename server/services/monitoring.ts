@@ -1,4 +1,4 @@
-import { envConfig } from "../utils/unified-env";
+import { ENV as envConfig } from "../config/env";
 
 // نظام مراقبة مبسط - Basic monitoring service
 interface BasicMetrics {

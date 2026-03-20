@@ -5,7 +5,7 @@ import { users, authUserSessions } from '../../shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import rateLimit from 'express-rate-limit';
 import { JWT_ACCESS_SECRET } from '../auth/jwt-utils';
-import { envConfig } from '../utils/unified-env';
+import { ENV as envConfig } from '../config/env';
 import { extractClientContext, validateSessionBinding, type ClientContext } from '../auth/client-context';
 import { CentralLogService } from '../services/CentralLogService';
 

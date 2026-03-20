@@ -32,22 +32,22 @@ interface DeploymentConfig {
 
 const SERVER_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
 
 const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
 
 function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = "server"): string[] {
@@ -441,6 +441,9 @@ export class DeploymentEngine {
         break;
       case "prebuild-gate":
         await this.stepPrebuildGate(deploymentId);
+        break;
+      case "android-readiness":
+        await this.stepAndroidReadiness(deploymentId, sshCmd);
         break;
       case "sync-capacitor":
         await this.stepSyncCapacitor(deploymentId, sshCmd);
@@ -940,15 +943,13 @@ export class DeploymentEngine {
     const keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
     const hasKeystorePassword = !!keystorePassword;
     const canSignRelease = hasKeystore && hasKeystorePassword;
-    const buildType = canSignRelease ? "assembleRelease" : "assembleDebug";
-
-    if (!hasKeystore) {
-      await this.addLog(deploymentId, "⚠️ Keystore غير موجود — سيتم بناء Debug APK", "warn");
-    } else if (!hasKeystorePassword) {
-      await this.addLog(deploymentId, "⚠️ Keystore موجود لكن KEYSTORE_PASSWORD غير مُعدّ — سيتم بناء Debug APK", "warn");
-    } else {
-      await this.addLog(deploymentId, "✅ Keystore + كلمة المرور جاهزان — بناء Release APK", "info");
+    if (!canSignRelease) {
+      const reason = !hasKeystore ? "Keystore غير موجود" : "KEYSTORE_PASSWORD غير مُعدّ";
+      throw new Error(`❌ لا يمكن بناء Release APK: ${reason}. لن يتم بناء Debug APK — استخدم android-readiness لتشخيص المشكلة.`);
     }
+
+    const buildType = "assembleRelease";
+    await this.addLog(deploymentId, "✅ Keystore + كلمة المرور جاهزان — بناء Release APK", "info");
 
     if (canSignRelease) {
       const { writeFileSync, unlinkSync } = await import("fs");
@@ -980,7 +981,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'${cleanSecrets}"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 | tail -40 && echo 'GRADLE_OK'${cleanSecrets}"`,
       "Gradle Build",
       600000
     );
@@ -1143,6 +1144,146 @@ export class DeploymentEngine {
     }
   }
 
+  private async stepAndroidReadiness(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🔧 فحص جاهزية بيئة Android على السيرفر...", "info");
+    const remoteDir = "/home/administrator/app2";
+    const errors: string[] = [];
+
+    const keystorePassword = process.env.KEYSTORE_PASSWORD || "";
+    const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
+    const keystoreKeyPassword = process.env.KEYSTORE_KEY_PASSWORD || keystorePassword;
+
+    if (!keystorePassword) {
+      errors.push("KEYSTORE_PASSWORD غير معرّف");
+    }
+    if (!keystoreAlias) {
+      errors.push("KEYSTORE_ALIAS غير معرّف");
+    }
+    if (!keystoreKeyPassword) {
+      errors.push("KEYSTORE_KEY_PASSWORD غير معرّف");
+    }
+
+    if (keystorePassword && keystoreAlias && keystoreKeyPassword) {
+      await this.addLog(deploymentId, "✅ متغيرات التوقيع: KEYSTORE_PASSWORD + KEYSTORE_ALIAS + KEYSTORE_KEY_PASSWORD", "success");
+    }
+
+    const readinessScript = [
+      `echo "=== KEYSTORE_CHECK ==="`,
+      `if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo "KEYSTORE_FILE=OK"; else echo "KEYSTORE_FILE=MISSING"; fi`,
+
+      `echo "=== JDK_CHECK ==="`,
+      `if [ -d /usr/lib/jvm/java-21-openjdk-amd64 ]; then /usr/lib/jvm/java-21-openjdk-amd64/bin/java -version 2>&1 | head -1; elif [ -d /usr/lib/jvm/java-17-openjdk-amd64 ]; then /usr/lib/jvm/java-17-openjdk-amd64/bin/java -version 2>&1 | head -1; else echo "JDK_MISSING"; fi`,
+
+      `echo "=== SDK_CHECK ==="`,
+      `if [ -d /opt/android-sdk ]; then echo "SDK_DIR=OK"; if [ -d /opt/android-sdk/platform-tools ]; then echo "PLATFORM_TOOLS=OK"; else echo "PLATFORM_TOOLS=MISSING"; fi; if ls /opt/android-sdk/build-tools/ 2>/dev/null | head -1; then echo "BUILD_TOOLS=OK"; else echo "BUILD_TOOLS=MISSING"; fi; else echo "SDK_DIR=MISSING"; fi`,
+
+      `echo "=== GRADLEW_CHECK ==="`,
+      `if [ -f ${remoteDir}/android/gradlew ]; then echo "GRADLEW=OK"; else echo "GRADLEW=MISSING"; fi`,
+
+      `echo "=== DISK_CHECK ==="`,
+      `df -h ${remoteDir} | tail -1 | awk '{print "DISK_AVAIL=" $4 " DISK_USE=" $5}'`,
+    ].join(" && ");
+
+    try {
+      const output = await this.execWithLog(
+        deploymentId,
+        `${sshCmd} '${readinessScript}'`,
+        "Android Readiness Check",
+        30000
+      );
+
+      if (output.includes("KEYSTORE_FILE=MISSING")) {
+        errors.push("ملف keystore غير موجود: android/app/axion-release.keystore");
+      } else {
+        await this.addLog(deploymentId, "✅ ملف Keystore موجود", "success");
+      }
+
+      if (output.includes("JDK_MISSING")) {
+        errors.push("JDK 17/21 غير مثبت على السيرفر");
+      } else {
+        const jdkMatch = output.match(/openjdk version "([^"]+)"/);
+        await this.addLog(deploymentId, `✅ JDK: ${jdkMatch?.[1] || "متوفر"}`, "success");
+      }
+
+      if (output.includes("SDK_DIR=MISSING")) {
+        errors.push("Android SDK غير موجود في /opt/android-sdk");
+      } else {
+        await this.addLog(deploymentId, "✅ Android SDK موجود", "success");
+        if (output.includes("PLATFORM_TOOLS=MISSING")) {
+          await this.addLog(deploymentId, "⚠️ platform-tools مفقود", "warn");
+        }
+        if (output.includes("BUILD_TOOLS=MISSING")) {
+          errors.push("build-tools مفقود في Android SDK");
+        }
+      }
+
+      if (output.includes("GRADLEW=MISSING")) {
+        await this.addLog(deploymentId, "⚠️ gradlew مفقود — سيتم إنشاؤه أثناء البناء", "warn");
+      } else {
+        await this.addLog(deploymentId, "✅ Gradle wrapper موجود", "success");
+      }
+
+      const diskMatch = output.match(/DISK_AVAIL=(\S+)\s+DISK_USE=(\S+)/);
+      if (diskMatch) {
+        const usePercent = parseInt(diskMatch[2]);
+        if (usePercent > 90) {
+          errors.push(`مساحة القرص منخفضة جداً: ${diskMatch[2]} مستخدم، ${diskMatch[1]} متاح`);
+        } else {
+          await this.addLog(deploymentId, `✅ مساحة القرص: ${diskMatch[1]} متاح (${diskMatch[2]} مستخدم)`, "success");
+        }
+      }
+
+      if (keystorePassword && !output.includes("KEYSTORE_FILE=MISSING")) {
+        try {
+          const { writeFileSync, unlinkSync } = await import("fs");
+          const tmpPassFile = `/tmp/.ks_check_${deploymentId}`;
+          writeFileSync(tmpPassFile, keystorePassword, { mode: 0o600 });
+          const scpCmd = this.buildSCPCommand(tmpPassFile, "/tmp/.ks_check_pass");
+
+          const keytoolOutput = await this.execWithLog(
+            deploymentId,
+            `${scpCmd} && ${sshCmd} "keytool -list -keystore ${remoteDir}/android/app/axion-release.keystore -storepass \\$(cat /tmp/.ks_check_pass) 2>&1; rm -f /tmp/.ks_check_pass"`,
+            "Keystore Integrity",
+            20000
+          );
+
+          try { unlinkSync(tmpPassFile); } catch {}
+
+          if (keytoolOutput.includes("keytool error") || keytoolOutput.includes("password was incorrect")) {
+            errors.push("كلمة مرور Keystore خاطئة أو الملف تالف");
+          } else {
+            await this.addLog(deploymentId, "✅ سلامة Keystore: كلمة المرور صحيحة", "success");
+
+            if (keytoolOutput.includes(keystoreAlias)) {
+              await this.addLog(deploymentId, `✅ Alias "${keystoreAlias}" مطابق`, "success");
+            } else {
+              errors.push(`Alias "${keystoreAlias}" غير موجود في Keystore — تحقق من KEYSTORE_ALIAS`);
+            }
+          }
+        } catch (keytoolErr: any) {
+          await this.addLog(deploymentId, `⚠️ تعذر التحقق من سلامة Keystore: ${keytoolErr.message}`, "warn");
+        }
+      }
+
+    } catch (err: any) {
+      errors.push(`فشل فحص السيرفر: ${err.message}`);
+    }
+
+    await this.addEvent(deploymentId, "android_readiness", "Android readiness check", {
+      errorsCount: errors.length,
+      errors,
+    });
+
+    if (errors.length > 0) {
+      for (const err of errors) {
+        await this.addLog(deploymentId, `❌ ${err}`, "error");
+      }
+      throw new Error(`🚫 فشل فحص جاهزية Android: ${errors.length} مشكلة — ${errors.join(" | ")}`);
+    }
+
+    await this.addLog(deploymentId, "✅ بيئة Android جاهزة للبناء", "success");
+  }
+
   private async stepPrebuildGate(deploymentId: string) {
     await this.addLog(deploymentId, "🔍 بوابة ما قبل البناء — فحص المسارات + CORS + SSL...", "info");
 
@@ -1156,6 +1297,12 @@ export class DeploymentEngine {
         await this.addLog(deploymentId, `✅ SSL: صالحة (تنتهي بعد ${report.sslCheck.daysUntilExpiry} يوم)`, "success");
       } else {
         await this.addLog(deploymentId, `❌ SSL: ${report.sslCheck.error}`, "error");
+      }
+
+      if (report.cspCheck.passed) {
+        await this.addLog(deploymentId, "✅ CSP: connect-src يشمل capacitor://localhost + https://localhost", "success");
+      } else {
+        await this.addLog(deploymentId, `❌ CSP: ${report.cspCheck.error || "فحص CSP فشل"}`, "error");
       }
 
       const failedRoutes = report.routeChecks.filter(r => !r.passed);
@@ -1181,7 +1328,7 @@ export class DeploymentEngine {
       }
 
       await this.addLog(deploymentId,
-        `📊 ملخص البوابة: مسارات ${report.summary.passedRoutes}/${report.summary.totalRoutes} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"}`,
+        `📊 ملخص البوابة: مسارات ${report.summary.passedRoutes}/${report.summary.totalRoutes} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}`,
         report.summary.overallPass ? "success" : "warn"
       );
 
@@ -1192,16 +1339,18 @@ export class DeploymentEngine {
         corsPassed: report.summary.passedCors,
         corsFailed: report.summary.failedCors,
         sslValid: report.summary.sslValid,
+        cspValid: report.summary.cspValid,
       });
 
       const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
       const corsBlockers = failedCors.filter(c => c.origin === "capacitor://localhost");
 
-      if (criticalFailed.length > 0 || corsBlockers.length > 0 || !report.sslCheck.passed) {
+      if (criticalFailed.length > 0 || corsBlockers.length > 0 || !report.sslCheck.passed || !report.cspCheck.passed) {
         const reasons: string[] = [];
         if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
         if (corsBlockers.length > 0) reasons.push(`CORS محظور لـ capacitor://localhost`);
         if (!report.sslCheck.passed) reasons.push("شهادة SSL غير صالحة");
+        if (!report.cspCheck.passed) reasons.push(`CSP: ${report.cspCheck.error}`);
         throw new Error(`🚫 بوابة ما قبل البناء فشلت: ${reasons.join(" | ")}. لا يمكن بناء APK.`);
       }
 
@@ -1219,19 +1368,52 @@ export class DeploymentEngine {
   }
 
   private async stepVerify(deploymentId: string) {
-    await this.addLog(deploymentId, "Verifying deployment...", "info");
+    await this.addLog(deploymentId, "التحقق النهائي من النشر...", "info");
+    const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
 
     try {
-      const { stdout } = await execAsync("curl -s -o /dev/null -w '%{http_code}' https://app2.binarjoinanelytic.info/api/health", { timeout: 15000 });
+      const { stdout } = await execAsync(`curl -s -o /dev/null -w '%{http_code}' ${baseUrl}/api/health`, { timeout: 15000 });
       const statusCode = stdout.trim().replace(/'/g, "");
       if (statusCode === "200") {
-        await this.addLog(deploymentId, "Health check passed (HTTP 200)", "success");
+        await this.addLog(deploymentId, "✅ Health check (HTTP 200)", "success");
       } else {
-        await this.addLog(deploymentId, `Health check returned HTTP ${statusCode}`, "warn");
+        await this.addLog(deploymentId, `⚠️ Health check: HTTP ${statusCode}`, "warn");
       }
     } catch {
-      await this.addLog(deploymentId, "Health check failed - server may still be starting", "warn");
+      await this.addLog(deploymentId, "⚠️ Health check فشل — السيرفر قد يكون في مرحلة الإقلاع", "warn");
     }
+
+    try {
+      const corsCheck = await execAsync(
+        `curl -s -o /dev/null -w '%{http_code}' -H 'Origin: capacitor://localhost' -H 'Access-Control-Request-Method: POST' -X OPTIONS ${baseUrl}/api/auth/login`,
+        { timeout: 10000 }
+      );
+      const corsStatus = corsCheck.stdout.trim().replace(/'/g, "");
+      if (corsStatus === "204" || corsStatus === "200") {
+        await this.addLog(deploymentId, "✅ CORS بعد النشر: capacitor://localhost مسموح", "success");
+      } else {
+        await this.addLog(deploymentId, `⚠️ CORS بعد النشر: HTTP ${corsStatus}`, "warn");
+      }
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر التحقق من CORS بعد النشر", "warn");
+    }
+
+    try {
+      const cspCheck = await execAsync(
+        `curl -s -I ${baseUrl}/api/health 2>/dev/null | grep -i 'content-security-policy' | head -1`,
+        { timeout: 10000 }
+      );
+      const cspHeader = cspCheck.stdout.trim();
+      if (cspHeader.includes("capacitor://localhost")) {
+        await this.addLog(deploymentId, "✅ CSP بعد النشر: يشمل capacitor://localhost", "success");
+      } else if (cspHeader) {
+        await this.addLog(deploymentId, "⚠️ CSP بعد النشر: لا يشمل capacitor://localhost", "warn");
+      }
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر التحقق من CSP بعد النشر", "warn");
+    }
+
+    await this.addLog(deploymentId, "✅ التحقق النهائي مكتمل", "success");
   }
 
   private async stepSyncVersion(deploymentId: string) {

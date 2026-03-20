@@ -32,12 +32,21 @@ export interface SslCheckResult {
   error?: string;
 }
 
+export interface CspCheckResult {
+  passed: boolean;
+  connectSrc?: string;
+  hasCapacitor: boolean;
+  hasLocalhost: boolean;
+  error?: string;
+}
+
 export interface PrebuildReport {
   timestamp: string;
   baseUrl: string;
   routeChecks: CheckResult[];
   corsChecks: CorsCheckResult[];
   sslCheck: SslCheckResult;
+  cspCheck: CspCheckResult;
   summary: {
     totalRoutes: number;
     passedRoutes: number;
@@ -46,6 +55,7 @@ export interface PrebuildReport {
     passedCors: number;
     failedCors: number;
     sslValid: boolean;
+    cspValid: boolean;
     overallPass: boolean;
   };
 }
@@ -217,6 +227,45 @@ function checkSsl(hostname: string): Promise<SslCheckResult> {
   });
 }
 
+async function checkCsp(baseUrl: string): Promise<CspCheckResult> {
+  const result: CspCheckResult = { passed: false, hasCapacitor: false, hasLocalhost: false };
+
+  try {
+    const res = await fetchWithTimeout(`${baseUrl}/api/health`, {
+      method: "GET",
+      timeout: 10000,
+    });
+
+    const csp = res.headers.get("content-security-policy") || "";
+    if (!csp) {
+      result.error = "No Content-Security-Policy header found";
+      return result;
+    }
+
+    const connectSrcMatch = csp.match(/connect-src\s+([^;]+)/);
+    if (connectSrcMatch) {
+      result.connectSrc = connectSrcMatch[1].trim();
+      result.hasCapacitor = result.connectSrc.includes("capacitor://localhost");
+      result.hasLocalhost = result.connectSrc.includes("https://localhost");
+    } else {
+      result.error = "connect-src directive not found in CSP";
+      return result;
+    }
+
+    result.passed = result.hasCapacitor && result.hasLocalhost;
+    if (!result.passed) {
+      const missing: string[] = [];
+      if (!result.hasCapacitor) missing.push("capacitor://localhost");
+      if (!result.hasLocalhost) missing.push("https://localhost");
+      result.error = `connect-src missing: ${missing.join(", ")}`;
+    }
+  } catch (err: any) {
+    result.error = err.message;
+  }
+
+  return result;
+}
+
 export async function runPrebuildChecks(baseUrl: string): Promise<PrebuildReport> {
   const report: PrebuildReport = {
     timestamp: new Date().toISOString(),
@@ -224,6 +273,7 @@ export async function runPrebuildChecks(baseUrl: string): Promise<PrebuildReport
     routeChecks: [],
     corsChecks: [],
     sslCheck: { passed: false },
+    cspCheck: { passed: false, hasCapacitor: false, hasLocalhost: false },
     summary: {
       totalRoutes: 0,
       passedRoutes: 0,
@@ -232,6 +282,7 @@ export async function runPrebuildChecks(baseUrl: string): Promise<PrebuildReport
       passedCors: 0,
       failedCors: 0,
       sslValid: false,
+      cspValid: false,
       overallPass: false,
     },
   };
@@ -254,6 +305,8 @@ export async function runPrebuildChecks(baseUrl: string): Promise<PrebuildReport
   }
   report.corsChecks = corsResults;
 
+  report.cspCheck = await checkCsp(baseUrl);
+
   report.summary = {
     totalRoutes: routeResults.length,
     passedRoutes: routeResults.filter((r) => r.passed).length,
@@ -262,8 +315,10 @@ export async function runPrebuildChecks(baseUrl: string): Promise<PrebuildReport
     passedCors: corsResults.filter((r) => r.passed).length,
     failedCors: corsResults.filter((r) => !r.passed).length,
     sslValid: report.sslCheck.passed,
+    cspValid: report.cspCheck.passed,
     overallPass:
       report.sslCheck.passed &&
+      report.cspCheck.passed &&
       routeResults.every((r) => r.passed) &&
       corsResults.every((r) => r.passed),
   };

@@ -132,6 +132,7 @@ const STEP_LABELS: Record<string, string> = {
   "generate-icons": "توليد الأيقونات",
   "sync-version": "مزامنة الإصدار",
   "prebuild-gate": "بوابة ما قبل البناء",
+  "android-readiness": "جاهزية بيئة Android",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -158,6 +159,7 @@ const STEP_ICONS: Record<string, any> = {
   "firebase-test": Shield,
   "sync-version": RefreshCw,
   "prebuild-gate": Shield,
+  "android-readiness": Smartphone,
 };
 
 const STATUS_LABELS: Record<string, string> = {

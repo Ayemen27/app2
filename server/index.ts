@@ -140,22 +140,12 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
 const { isProduction, PORT, PRODUCTION_DOMAIN } = envConfig;
 const REPLIT_DOMAIN = envConfig.DOMAIN;
 
-// ✅ DYNAMIC CORS Configuration - Strict Origin Validation
-function isStrictLocalhost(origin: string): boolean {
+// ✅ Unified CORS Configuration
+function normalizeOrigin(origin: string): string {
   try {
-    const parsed = new URL(origin);
-    return parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1';
+    return new URL(origin).origin;
   } catch {
-    return false;
-  }
-}
-
-function isAllowedDomain(origin: string, allowedHost: string): boolean {
-  try {
-    const parsed = new URL(origin);
-    return parsed.hostname === allowedHost || parsed.hostname.endsWith('.' + allowedHost);
-  } catch {
-    return false;
+    return origin;
   }
 }
 
@@ -166,107 +156,80 @@ const STATIC_ALLOWED_ORIGINS = new Set(
     'https://app2.binarjoinanelytic.info',
     'https://binarjoinanelytic.info',
     process.env.DOMAIN?.replace(/\/$/, ''),
+    `http://localhost:${PORT}`,
+    'http://localhost:3000',
+    `http://127.0.0.1:${PORT}`,
+    'https://localhost',
+    'http://localhost',
   ].filter(Boolean) as string[]
 );
 
 const ALLOWED_DOMAIN_SUFFIXES = ['binarjoinanelytic.info'];
 
-const getAllowedOrigins = (req?: Request): Set<string> => {
-  const origins = new Set(STATIC_ALLOWED_ORIGINS);
-  origins.add(`http://localhost:${PORT}`);
-  origins.add('http://localhost:3000');
-  origins.add(`http://127.0.0.1:${PORT}`);
-
-  if (!isProduction && req && req.headers.host) {
-    const protocol = req.headers['x-forwarded-proto'] === 'https' || req.secure ? 'https' : 'http';
-    origins.add(`${protocol}://${req.headers.host}`);
-  }
-
-  return origins;
-};
-
 function isOriginAllowed(origin: string, isDev: boolean, req?: Request): boolean {
   if (!origin || origin === 'null') return true;
   if (origin.startsWith('capacitor://')) return true;
-  if (isStrictLocalhost(origin)) return true;
 
-  const allowedSet = getAllowedOrigins(req);
-  if (allowedSet.has(origin)) return true;
+  const normalized = normalizeOrigin(origin);
+
+  try {
+    const parsed = new URL(normalized);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1') return true;
+  } catch {}
+
+  if (STATIC_ALLOWED_ORIGINS.has(normalized)) return true;
 
   for (const suffix of ALLOWED_DOMAIN_SUFFIXES) {
-    if (isAllowedDomain(origin, suffix)) return true;
+    try {
+      const parsed = new URL(normalized);
+      if (parsed.hostname === suffix || parsed.hostname.endsWith('.' + suffix)) return true;
+    } catch {}
+  }
+
+  if (!isProduction && req && req.headers.host) {
+    const protocol = req.headers['x-forwarded-proto'] === 'https' || req.secure ? 'https' : 'http';
+    if (normalized === `${protocol}://${req.headers.host}`) return true;
   }
 
   if (isDev) {
     try {
-      const parsed = new URL(origin);
-      if (parsed.hostname.endsWith('.replit.dev') || parsed.hostname.endsWith('.replit.app')) {
-        return true;
-      }
-    } catch {
-      return false;
-    }
+      const parsed = new URL(normalized);
+      if (parsed.hostname.endsWith('.replit.dev') || parsed.hostname.endsWith('.replit.app')) return true;
+    } catch {}
   }
 
   return false;
 }
 
-app.use(cors({
-  origin: (origin, callback) => {
+const CORS_HEADERS = [
+  'Content-Type', 'Authorization', 'X-Requested-With', 'X-Auth-Token',
+  'x-auth-token', 'Accept', 'Origin', 'x-device-type', 'x-device-name',
+  'x-device-id', 'x-client-platform', 'x-request-nonce', 'x-request-timestamp',
+  'x-app-version'
+];
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: string | boolean) => void) => {
     if (!origin) {
       callback(null, true);
       return;
     }
-
-    const allowed = isOriginAllowed(origin, !isProduction);
-
+    const normalized = normalizeOrigin(origin);
+    const allowed = isOriginAllowed(normalized, !isProduction);
     if (!allowed && isProduction) {
       console.log(`⚠️ [CORS Blocked] Origin: ${origin}`);
     }
-    callback(null, allowed);
+    callback(null, allowed ? normalized : false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'X-Auth-Token',
-    'x-auth-token',
-    'Accept',
-    'Origin',
-    'x-device-type',
-    'x-device-name',
-    'x-device-id',
-    'X-Requested-With',
-    'x-requested-with',
-    'x-client-platform',
-    'x-request-nonce',
-    'x-request-timestamp',
-    'x-app-version'
-  ],
+  allowedHeaders: CORS_HEADERS,
   exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
   optionsSuccessStatus: 200,
   maxAge: 86400
-}));
+};
 
-// ✅ Handle preflight requests - validated through same CORS policy
-app.use((req: Request, res: Response, next: NextFunction): void => {
-  if (req.method === 'OPTIONS') {
-    const reqOrigin = req.headers.origin as string | undefined;
-    if (reqOrigin && isOriginAllowed(reqOrigin, !isProduction, req)) {
-      res.setHeader('Access-Control-Allow-Origin', reqOrigin);
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Auth-Token, x-auth-token, x-device-type, x-device-name, x-device-id, x-client-platform, x-request-nonce, x-request-timestamp, x-app-version');
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.sendStatus(200);
-      return;
-    }
-    res.sendStatus(403);
-    return;
-  }
-  next();
-});
+app.use(cors(corsOptions));
 
 // 🔧 **Fix trust proxy for rate limiting**
 app.set("trust proxy", 1);
@@ -294,7 +257,9 @@ const io = new Server(server, {
         callback(null, true);
         return;
       }
-      callback(null, isOriginAllowed(origin, !isProduction));
+      const normalized = normalizeOrigin(origin);
+      const allowed = isOriginAllowed(normalized, !isProduction);
+      callback(null, allowed ? normalized : false);
     },
     methods: ['GET', 'POST'],
     credentials: true

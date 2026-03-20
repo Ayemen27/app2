@@ -783,6 +783,27 @@ export class DeploymentEngine {
     if (checksResult.includes("MANIFEST_MISSING")) {
       await this.addLog(deploymentId, "⚠️ AndroidManifest.xml مفقود — تأكد من وجود مشروع Android صحيح", "warn");
     }
+
+    await this.addLog(deploymentId, "فحص اكتمال مشروع Gradle...", "info");
+    const gradleIntegrityResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir}/android && MISSING='' && [ ! -f build.gradle ] && MISSING=\\$MISSING'build.gradle ' && [ ! -f settings.gradle ] && MISSING=\\$MISSING'settings.gradle ' && [ ! -f gradle.properties ] && MISSING=\\$MISSING'gradle.properties ' && [ ! -f variables.gradle ] && MISSING=\\$MISSING'variables.gradle ' && [ ! -f gradlew ] && MISSING=\\$MISSING'gradlew ' && if [ -n \\"\\$MISSING\\" ]; then echo \\"GRADLE_FILES_MISSING: \\$MISSING\\" && echo 'جاري إعادة إنشاء مشروع Android...' && cd ${remoteDir} && npx cap add android --no-open 2>&1 | tail -10; npx cap sync android 2>&1 | tail -5 && echo 'CAP_READD_DONE'; else echo 'GRADLE_PROJECT_COMPLETE'; fi"`,
+      "Gradle Project Integrity",
+      120000
+    );
+
+    if (gradleIntegrityResult.includes("GRADLE_FILES_MISSING")) {
+      const missingMatch = gradleIntegrityResult.match(/GRADLE_FILES_MISSING:\s*(.+)/);
+      const missingFiles = missingMatch ? missingMatch[1].trim() : "ملفات غير معروفة";
+
+      if (gradleIntegrityResult.includes("CAP_READD_DONE")) {
+        await this.addLog(deploymentId, `✅ تم إعادة إنشاء مشروع Android (كانت مفقودة: ${missingFiles})`, "success");
+      } else {
+        await this.addLog(deploymentId, `⚠️ ملفات Gradle مفقودة (${missingFiles}) وفشلت إعادة الإنشاء — سيتم المحاولة في خطوة gradle-build`, "warn");
+      }
+    } else {
+      await this.addLog(deploymentId, "✅ مشروع Gradle مكتمل", "info");
+    }
   }
 
   private async stepGenerateIcons(deploymentId: string, sshCmd: string) {
@@ -804,6 +825,23 @@ export class DeploymentEngine {
   private async stepGradleBuild(deploymentId: string, sshCmd: string, config: DeploymentConfig) {
     await this.addLog(deploymentId, "بدء بناء Gradle (قد يستغرق 2-3 دقائق)...", "info");
     const remoteDir = "/home/administrator/app2";
+
+    const gradlewCheck = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir}/android && if [ -f gradlew ]; then echo 'GRADLEW_EXISTS'; else echo 'GRADLEW_MISSING — جاري الإنشاء التلقائي...' && if [ -f build.gradle ] || [ -f app/build.gradle ]; then gradle wrapper --gradle-version 8.11.1 2>&1 | tail -5 && chmod +x gradlew && echo 'GRADLEW_CREATED'; else echo 'GRADLEW_NO_PROJECT'; fi; fi"`,
+      "Gradle Wrapper Check",
+      60000
+    );
+
+    if (gradlewCheck.includes("GRADLEW_MISSING")) {
+      if (gradlewCheck.includes("GRADLEW_CREATED")) {
+        await this.addLog(deploymentId, "✅ تم إنشاء Gradle Wrapper تلقائياً (gradlew)", "success");
+      } else if (gradlewCheck.includes("GRADLEW_NO_PROJECT")) {
+        throw new Error("❌ لا يوجد مشروع Gradle صالح (build.gradle مفقود) — تأكد من نجاح مزامنة Capacitor");
+      } else {
+        throw new Error("❌ فشل إنشاء Gradle Wrapper تلقائياً");
+      }
+    }
 
     const keystoreCheck = await this.execWithLog(
       deploymentId,

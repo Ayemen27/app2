@@ -105,56 +105,30 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
   const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
 
   const userId = getAuthUser(req)?.user_id;
-  const deploymentId = await deploymentEngine.startDeployment({
-    pipeline,
-    appType: androidPipelines.includes(pipeline) ? "android" : appType,
-    environment,
-    branch: safeBranch,
-    commitMessage: safeMessage,
-    triggeredBy: userId,
-    version: safeVersion,
-    buildTarget: safeBuildTarget,
-  });
+  try {
+    const deploymentId = await deploymentEngine.startDeployment({
+      pipeline,
+      appType: androidPipelines.includes(pipeline) ? "android" : appType,
+      environment,
+      branch: safeBranch,
+      commitMessage: safeMessage,
+      triggeredBy: userId,
+      version: safeVersion,
+      buildTarget: safeBuildTarget,
+    });
 
-  res.json({ id: deploymentId, message: "Deployment started" });
+    res.json({ id: deploymentId, message: "Deployment started" });
+  } catch (err: any) {
+    if (err.message?.includes("قيد التنفيذ")) {
+      res.status(409).json({ error: err.message });
+    } else {
+      throw err;
+    }
+  }
 }));
 
 router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version, buildTarget = "server" } = req.body;
-
-  const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build", "android-build-test"];
-  if (!validPipelines.includes(pipeline)) {
-    res.status(400).json({ error: `Invalid pipeline. Valid: ${validPipelines.join(", ")}` });
-    return;
-  }
-
-  const validEnvs = ["production", "staging"];
-  if (!validEnvs.includes(environment)) {
-    res.status(400).json({ error: "Invalid environment" });
-    return;
-  }
-
-  const validTargets = ["server", "local"];
-  const safeBuildTarget = validTargets.includes(buildTarget) ? buildTarget : "server";
-
-  const androidPipelines = ["android-build", "full-deploy", "git-android-build", "android-build-test"];
-  const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
-  const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
-  const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
-
-  const userId = getAuthUser(req)?.user_id;
-  const deploymentId = await deploymentEngine.startDeployment({
-    pipeline,
-    appType: androidPipelines.includes(pipeline) ? "android" : appType,
-    environment,
-    branch: safeBranch,
-    commitMessage: safeMessage,
-    triggeredBy: userId,
-    version: safeVersion,
-    buildTarget: safeBuildTarget,
-  });
-
-  res.json({ id: deploymentId, message: "Deployment started" });
+  res.redirect(307, "/api/deployment/start");
 }));
 
 router.get("/list", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
@@ -259,6 +233,83 @@ router.post("/:id/cancel", requireAdmin, asyncHandler(async (req: Request, res: 
 router.post("/:id/rollback", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id);
   res.json({ id: rollbackId, message: "Rollback started" });
+}));
+
+router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const deployment = await deploymentEngine.getDeployment(req.params.id);
+  if (!deployment) {
+    res.status(404).json({ error: "Deployment not found" });
+    return;
+  }
+  if (!deployment.artifactUrl) {
+    res.status(404).json({ error: "No artifact available for this deployment" });
+    return;
+  }
+
+  const remotePath = deployment.artifactUrl;
+  const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
+
+  const host = (process.env.SSH_HOST || "93.127.142.144").replace(/[^a-zA-Z0-9.\-]/g, "");
+  const user = (process.env.SSH_USER || "administrator").replace(/[^a-zA-Z0-9_\-]/g, "");
+  const port = String(parseInt(process.env.SSH_PORT || "22", 10) || 22);
+
+  const execEnv = { ...process.env };
+  if (process.env.SSH_PASSWORD && !execEnv.SSHPASS) {
+    execEnv.SSHPASS = process.env.SSH_PASSWORD;
+  }
+
+  const { spawn } = await import("child_process");
+
+  const sizeChild = spawn("bash", ["-c",
+    `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -p ${port} ${user}@${host} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
+  ], { env: execEnv });
+
+  let sizeOutput = "";
+  sizeChild.stdout.on("data", (d: Buffer) => { sizeOutput += d.toString(); });
+  await new Promise<void>((resolve) => sizeChild.on("close", resolve));
+
+  if (sizeOutput.trim() === "MISSING" || !sizeOutput.trim()) {
+    res.status(404).json({ error: "APK file not found on remote server" });
+    return;
+  }
+
+  const fileSize = parseInt(sizeOutput.trim(), 10);
+  if (isNaN(fileSize) || fileSize < 1000) {
+    res.status(404).json({ error: "APK file invalid or too small" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/vnd.android.package-archive");
+  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.setHeader("Content-Length", String(fileSize));
+
+  const child = spawn("bash", ["-c",
+    `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${port} ${user}@${host} "cat '${remotePath}'"`
+  ], { env: execEnv });
+
+  const killChild = () => {
+    try { child.kill("SIGTERM"); } catch {}
+  };
+
+  req.on("close", killChild);
+  res.on("close", killChild);
+
+  child.stdout.pipe(res);
+  child.stderr.on("data", (data: Buffer) => {
+    console.error("[APK Download] stderr:", data.toString());
+  });
+  child.on("error", (err: Error) => {
+    console.error("[APK Download] Error:", err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to stream APK" });
+    }
+  });
+  child.on("close", (code: number | null) => {
+    req.removeListener("close", killChild);
+    if (code !== 0 && !res.headersSent) {
+      res.status(500).json({ error: "APK transfer failed" });
+    }
+  });
 }));
 
 router.get("/:id", requireAdmin, asyncHandler(async (req: Request, res: Response) => {

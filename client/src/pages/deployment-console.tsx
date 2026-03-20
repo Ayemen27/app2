@@ -1037,6 +1037,15 @@ export default function DeploymentConsole() {
                             <>
                               <span>•</span>
                               <span>APK: {d.artifactSize}</span>
+                              {d.artifactUrl && d.status === "success" && (
+                                <a
+                                  href={`/api/deployment/download/${d.id}`}
+                                  className="text-blue-400 hover:text-blue-300 underline text-xs"
+                                  data-testid={`download-apk-${d.id}`}
+                                >
+                                  تحميل
+                                </a>
+                              )}
                             </>
                           )}
                         </div>

@@ -64,7 +64,8 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Firebase Test Lab:** Robo testing via gcloud CLI on remote server.
 - **AI Models:** HuggingFace (Llama 3.1 8B), Gemini 2.0 Flash, OpenAI GPT-4o.
 - **Reporting:** ExcelJS for Excel generation.
-- **Deployment:** PM2 for process management. SSH uses `sshpass -e` (env var `SSHPASS`) with `StrictHostKeyChecking=accept-new`. Git push uses credential helper instead of token-in-URL.
+- **Deployment:** PM2 for process management. SSH uses `sshpass -e` (env var `SSHPASS`) with `StrictHostKeyChecking=accept-new`. Git push uses credential helper instead of token-in-URL. Keystore secrets written to temp files (umask 077) on remote — never interpolated in commands. `apk.sh` archived to `scripts/legacy/apk.sh.bak`. `/deploy` redirects 307 to `/start`.
+- **Deployment Engine Resilience:** Concurrency control prevents parallel deployments (409 on conflict). Step retry with configurable policy (network steps retry 2×, build steps fail fast). Log writes batched every 2s to reduce DB round-trips. APK download endpoint streams via SSH (`GET /api/deployment/download/:id`).
 - **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support.
 - **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine.
 - **Process Management:** Deployment engine uses `detached: true` process groups and `process.kill(-pgid)` for clean process tree termination on cancel.

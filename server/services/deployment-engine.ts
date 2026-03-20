@@ -54,6 +54,17 @@ function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = 
   return buildTarget === "local" ? LOCAL_PIPELINES[pipeline] : SERVER_PIPELINES[pipeline];
 }
 
+const STEP_RETRY_POLICY: Record<string, { maxRetries: number; delayMs: number }> = {
+  "git-push":       { maxRetries: 2, delayMs: 5000 },
+  "pull-server":    { maxRetries: 2, delayMs: 5000 },
+  "install-deps":   { maxRetries: 2, delayMs: 10000 },
+  "transfer":       { maxRetries: 2, delayMs: 5000 },
+  "deploy-server":  { maxRetries: 1, delayMs: 10000 },
+  "restart-pm2":    { maxRetries: 2, delayMs: 3000 },
+  "verify":         { maxRetries: 3, delayMs: 5000 },
+  "retrieve-artifact": { maxRetries: 2, delayMs: 5000 },
+};
+
 const activeSSEClients = new Map<string, Response[]>();
 
 function broadcastToClients(deploymentId: string, data: any) {
@@ -69,17 +80,13 @@ function broadcastToClients(deploymentId: string, data: any) {
   dead.reverse().forEach(i => clients.splice(i, 1));
 }
 
-function broadcastGlobal(data: any) {
-  for (const [, clients] of activeSSEClients) {
-    clients.forEach(res => {
-      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
-    });
-  }
-}
 
 export class DeploymentEngine {
   private cancelFlags = new Map<string, boolean>();
   private activeProcesses = new Map<string, Set<ChildProcess>>();
+  private logBuffers = new Map<string, LogEntry[]>();
+  private logFlushTimers = new Map<string, NodeJS.Timeout>();
+  private static LOG_FLUSH_INTERVAL = 2000;
 
   private isCancelled(deploymentId: string): boolean {
     return this.cancelFlags.get(deploymentId) === true;
@@ -138,6 +145,11 @@ export class DeploymentEngine {
   }
 
   private cleanupDeploymentState(deploymentId: string) {
+    this.flushLogs(deploymentId).catch(() => {});
+    const timer = this.logFlushTimers.get(deploymentId);
+    if (timer) clearTimeout(timer);
+    this.logFlushTimers.delete(deploymentId);
+    this.logBuffers.delete(deploymentId);
     this.cancelFlags.delete(deploymentId);
     this.activeProcesses.delete(deploymentId);
   }
@@ -274,22 +286,33 @@ export class DeploymentEngine {
       "android-build-test": "android",
     };
 
-    const [deployment] = await db.insert(buildDeployments).values({
-      buildNumber,
-      status: "running",
-      currentStep: steps[0].name,
-      progress: 0,
-      version,
-      appType: config.appType,
-      environment: config.environment,
-      branch: config.branch || "main",
-      commitMessage: config.commitMessage,
-      pipeline: config.pipeline,
-      deploymentType: deploymentTypeMap[config.pipeline] || "web",
-      logs: [],
-      steps,
-      triggeredBy: config.triggeredBy,
-    }).returning();
+    const [deployment] = await db.transaction(async (tx) => {
+      const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
+        .from(buildDeployments)
+        .where(eq(buildDeployments.status, "running"))
+        .limit(1);
+
+      if (running.length > 0) {
+        throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
+      }
+
+      return tx.insert(buildDeployments).values({
+        buildNumber,
+        status: "running",
+        currentStep: steps[0].name,
+        progress: 0,
+        version,
+        appType: config.appType,
+        environment: config.environment,
+        branch: config.branch || "main",
+        commitMessage: config.commitMessage,
+        pipeline: config.pipeline,
+        deploymentType: deploymentTypeMap[config.pipeline] || "web",
+        logs: [],
+        steps,
+        triggeredBy: config.triggeredBy,
+      }).returning();
+    });
 
     this.runPipeline(deployment.id, config).catch(err => {
       console.error(`[DeploymentEngine] Pipeline error for ${deployment.id}:`, err);
@@ -326,26 +349,45 @@ export class DeploymentEngine {
 
         const stepStart = Date.now();
 
-        try {
-          await this.executeStep(deploymentId, stepName, config);
-          const stepDuration = Date.now() - stepStart;
-          await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
-          await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)`, "success");
-          await this.addEvent(deploymentId, "step_complete", `Step ${stepName} completed`, { duration: stepDuration });
-        } catch (stepError: any) {
-          const stepDuration = Date.now() - stepStart;
+        const retryPolicy = STEP_RETRY_POLICY[stepName];
+        const maxAttempts = (retryPolicy?.maxRetries || 0) + 1;
+        let lastError: any = null;
 
-          if (stepError instanceof CancellationError || this.isCancelled(deploymentId)) {
-            await this.updateStepStatus(deploymentId, stepName, "cancelled", stepDuration);
-            await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
-            throw new CancellationError();
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            if (attempt > 1) {
+              await this.addLog(deploymentId, `🔄 إعادة محاولة ${stepName} (${attempt}/${maxAttempts})...`, "warn");
+              await new Promise(r => setTimeout(r, retryPolicy!.delayMs));
+              if (this.isCancelled(deploymentId)) throw new CancellationError();
+            }
+            await this.executeStep(deploymentId, stepName, config);
+            const stepDuration = Date.now() - stepStart;
+            await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
+            await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)${attempt > 1 ? ` [retry ${attempt}/${maxAttempts}]` : ""}`, "success");
+            await this.addEvent(deploymentId, "step_complete", `Step ${stepName} completed`, { duration: stepDuration, attempt });
+            lastError = null;
+            break;
+          } catch (stepError: any) {
+            if (stepError instanceof CancellationError || this.isCancelled(deploymentId)) {
+              const stepDuration = Date.now() - stepStart;
+              await this.updateStepStatus(deploymentId, stepName, "cancelled", stepDuration);
+              await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
+              throw new CancellationError();
+            }
+            lastError = stepError;
+            if (attempt < maxAttempts) {
+              await this.addLog(deploymentId, `⚠️ ${stepName} فشل (محاولة ${attempt}/${maxAttempts}): ${stepError.message}`, "warn");
+            }
           }
+        }
 
+        if (lastError) {
+          const stepDuration = Date.now() - stepStart;
           await this.updateStepStatus(deploymentId, stepName, "failed", stepDuration);
           await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
-          await this.addLog(deploymentId, `Step ${stepName} failed: ${stepError.message}`, "error");
-          await this.addEvent(deploymentId, "step_failed", `Step ${stepName} failed: ${stepError.message}`);
-          throw stepError;
+          await this.addLog(deploymentId, `Step ${stepName} failed after ${maxAttempts} attempt(s): ${lastError.message}`, "error");
+          await this.addEvent(deploymentId, "step_failed", `Step ${stepName} failed: ${lastError.message}`);
+          throw lastError;
         }
       }
 
@@ -903,13 +945,26 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "✅ Keystore + كلمة المرور جاهزان — بناء Release APK", "info");
     }
 
+    if (canSignRelease) {
+      const escPass = keystorePassword.replace(/'/g, "'\\''");
+      const escKeyPass = keystoreKeyPassword.replace(/'/g, "'\\''");
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "umask 077 && printf '%s' '${escPass}' > /tmp/.ks_pass && printf '%s' '${escKeyPass}' > /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
+        "Write Signing Secrets",
+        15000
+      );
+    }
+
     const envExports = canSignRelease
-      ? `export KEYSTORE_PASSWORD='${keystorePassword.replace(/'/g, "'\\''")}' && export KEYSTORE_ALIAS='${keystoreAlias}' && export KEYSTORE_KEY_PASSWORD='${keystoreKeyPassword.replace(/'/g, "'\\''")}' && `
+      ? `export KEYSTORE_PASSWORD=\\$(cat /tmp/.ks_pass) && export KEYSTORE_ALIAS='${keystoreAlias}' && export KEYSTORE_KEY_PASSWORD=\\$(cat /tmp/.ks_key_pass) && `
       : "";
+
+    const cleanSecrets = canSignRelease ? " && rm -f /tmp/.ks_pass /tmp/.ks_key_pass" : "";
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'"`,
+      `${sshCmd} "set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none 2>&1 | tail -20 && echo 'GRADLE_OK'${cleanSecrets}"`,
       "Gradle Build",
       600000
     );
@@ -983,12 +1038,13 @@ export class DeploymentEngine {
       const sizeMatch = output.match(/(\d+\.?\d*[KMG])/);
       const artifactSize = sizeMatch ? sizeMatch[1] : "unknown";
 
+      const downloadUrl = `/api/deployment/download/${deploymentId}`;
       await this.updateDeployment(deploymentId, {
         artifactUrl: remotePath,
         artifactSize,
       });
 
-      await this.addLog(deploymentId, `✅ APK جاهز على السيرفر: ${remotePath} (${artifactSize})`, "success");
+      await this.addLog(deploymentId, `✅ APK جاهز — رابط التحميل: ${downloadUrl} (${artifactSize})`, "success");
 
       const listOutput = await this.execWithLog(
         deploymentId,
@@ -1129,7 +1185,7 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin main --force 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
+      `cd /home/runner/workspace && git config user.email "${ghUser}@users.noreply.github.com" && git config user.name "${ghUser}" && git config credential.helper '!f() { echo "username=${ghUser}"; echo "password=$GH_TOKEN"; }; f' && git add -A && (git diff --cached --quiet && echo "NO_CHANGES" || git commit -m "${safeMessage}") && git remote set-url origin https://github.com/${ghUser}/app2.git && git push origin main 2>&1 && PUSH_OK=1 || PUSH_OK=0; if [ "$PUSH_OK" = "1" ]; then echo "GIT_PUSH_OK"; else echo "GIT_PUSH_FAILED" && exit 1; fi`,
       "Git Push",
       60000
     );
@@ -1295,19 +1351,47 @@ export class DeploymentEngine {
   private async addLog(deploymentId: string, message: string, type: LogEntry["type"]) {
     const entry: LogEntry = { timestamp: new Date().toISOString(), message, type };
 
+    broadcastToClients(deploymentId, { type: "log", data: entry });
+
+    if (!this.logBuffers.has(deploymentId)) {
+      this.logBuffers.set(deploymentId, []);
+    }
+    this.logBuffers.get(deploymentId)!.push(entry);
+
+    if (!this.logFlushTimers.has(deploymentId)) {
+      const timer = setTimeout(() => {
+        this.flushLogs(deploymentId).catch(err => {
+          console.error(`[DeploymentEngine] Log flush failed for ${deploymentId}:`, err);
+        });
+      }, DeploymentEngine.LOG_FLUSH_INTERVAL);
+      this.logFlushTimers.set(deploymentId, timer);
+    }
+  }
+
+  private async flushLogs(deploymentId: string) {
+    const timer = this.logFlushTimers.get(deploymentId);
+    if (timer) {
+      clearTimeout(timer);
+      this.logFlushTimers.delete(deploymentId);
+    }
+
+    const buffered = this.logBuffers.get(deploymentId);
+    if (!buffered || buffered.length === 0) return;
+
+    const toFlush = [...buffered];
+    buffered.length = 0;
+
     try {
       const [current] = await db.select({ logs: buildDeployments.logs }).from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
       const existingLogs = Array.isArray(current?.logs) ? current.logs : [];
       const maxLogs = 500;
-      const updatedLogs = existingLogs.length >= maxLogs 
-        ? [...existingLogs.slice(-maxLogs + 1), entry]
-        : [...existingLogs, entry];
-      await db.update(buildDeployments).set({ logs: updatedLogs }).where(eq(buildDeployments.id, deploymentId));
+      const combined = [...existingLogs, ...toFlush];
+      const trimmed = combined.length > maxLogs ? combined.slice(-maxLogs) : combined;
+      await db.update(buildDeployments).set({ logs: trimmed }).where(eq(buildDeployments.id, deploymentId));
     } catch (err) {
-      console.error(`[DeploymentEngine] Failed to save log for ${deploymentId}:`, err);
+      console.error(`[DeploymentEngine] Failed to flush ${toFlush.length} logs for ${deploymentId}:`, err);
+      buffered.unshift(...toFlush);
     }
-
-    broadcastToClients(deploymentId, { type: "log", data: entry });
   }
 
   private async addEvent(deploymentId: string, eventType: string, message: string, metadata?: any) {
@@ -1322,6 +1406,10 @@ export class DeploymentEngine {
   }
 
   private async updateStepStatus(deploymentId: string, stepName: string, status: StepEntry["status"], duration?: number) {
+    if (status === "success" || status === "failed" || status === "cancelled") {
+      await this.flushLogs(deploymentId);
+    }
+
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     if (!deployment) return;
 

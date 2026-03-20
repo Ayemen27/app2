@@ -94,12 +94,15 @@ interface DeploymentStats {
 
 const PIPELINE_LABELS: Record<string, string> = {
   "web-deploy": "🌐 نشر الويب (فحص + بناء + نشر + دخان)",
-  "android-build": "📱 بناء أندرويد APK (فحص + بوابات + بناء)",
+  "android-build": "📱 بناء أندرويد APK (فحص + بوابات + سلامة + بناء)",
   "full-deploy": "🚀 نشر كامل (ويب + أندرويد + فحوصات شاملة)",
   "hotfix": "⚡ إصلاح سريع (نشر فوري + حماية schema)",
   "android-build-test": "🧪 بناء أندرويد + اختبار Firebase",
-  "git-push": "📤 نشر عبر Git (دفع + سحب + بناء + دخان)",
-  "git-android-build": "📤📱 Git + بناء أندرويد",
+};
+
+const LEGACY_PIPELINES: Record<string, string> = {
+  "git-push": "web-deploy",
+  "git-android-build": "android-build",
 };
 
 const PIPELINE_LABELS_FULL: Record<string, string> = {
@@ -136,6 +139,7 @@ const STEP_LABELS: Record<string, string> = {
   "preflight-check": "فحص أولي (كود + Git)",
   "hotfix-guard": "حماية الإصلاح السريع",
   "post-deploy-smoke": "اختبار دخان ما بعد النشر",
+  "apk-integrity": "فحص سلامة APK (SHA-256 + توقيع)",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -166,6 +170,7 @@ const STEP_ICONS: Record<string, any> = {
   "preflight-check": CheckCircle2,
   "hotfix-guard": Shield,
   "post-deploy-smoke": Activity,
+  "apk-integrity": Shield,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -215,7 +220,7 @@ export default function DeploymentConsole() {
   const userScrolledUp = useRef(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const [selectedPipeline, setSelectedPipeline] = useState<string>("git-push");
+  const [selectedPipeline, setSelectedPipeline] = useState<string>("web-deploy");
   const [buildTarget, setBuildTarget] = useState<string>("server");
   const [commitMessage, setCommitMessage] = useState("");
   const [versionInput, setVersionInput] = useState("");
@@ -513,6 +518,18 @@ export default function DeploymentConsole() {
     }
   };
 
+  const handleResumeDeployment = async (id: string) => {
+    try {
+      const data = await apiRequest(`/api/deployment/${id}/resume`, "POST");
+      setActiveDeploymentId(data.id);
+      setLiveLogs([]);
+      setLiveDeployment(null);
+      toast({ title: "تم استئناف النشر" });
+    } catch (error: any) {
+      toast({ title: "فشل الاستئناف", description: toUserMessage(error), variant: "destructive" });
+    }
+  };
+
   const handleCleanup = async () => {
     setIsCleaning(true);
     const now = () => new Date().toISOString();
@@ -683,13 +700,11 @@ export default function DeploymentConsole() {
                     <SelectValue placeholder="اختر مسار النشر" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="web-deploy" data-testid="option-web-deploy">نشر الويب</SelectItem>
-                    <SelectItem value="android-build" data-testid="option-android-build">بناء تطبيق أندرويد APK</SelectItem>
-                    <SelectItem value="full-deploy" data-testid="option-full-deploy">نشر كامل (ويب + أندرويد)</SelectItem>
-                    <SelectItem value="git-push" data-testid="option-git-push">دفع Git + بناء على السيرفر</SelectItem>
-                    <SelectItem value="hotfix" data-testid="option-hotfix">إصلاح سريع</SelectItem>
-                    <SelectItem value="git-android-build" data-testid="option-git-android-build">Git + بناء أندرويد</SelectItem>
-                    <SelectItem value="android-build-test" data-testid="option-android-build-test">بناء أندرويد + اختبار Firebase</SelectItem>
+                    <SelectItem value="web-deploy" data-testid="option-web-deploy">🌐 نشر الويب (فحص + بناء + نشر + دخان)</SelectItem>
+                    <SelectItem value="android-build" data-testid="option-android-build">📱 بناء أندرويد APK (فحص + بوابات + سلامة)</SelectItem>
+                    <SelectItem value="full-deploy" data-testid="option-full-deploy">🚀 نشر كامل (ويب + أندرويد + فحوصات شاملة)</SelectItem>
+                    <SelectItem value="hotfix" data-testid="option-hotfix">⚡ إصلاح سريع (نشر فوري + حماية schema)</SelectItem>
+                    <SelectItem value="android-build-test" data-testid="option-android-build-test">🧪 بناء أندرويد + اختبار Firebase</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -1126,6 +1141,18 @@ export default function DeploymentConsole() {
                             >
                               <RotateCcw className="h-3 w-3" />
                               تراجع
+                            </Button>
+                          )}
+                          {d.status === "failed" && (
+                            <Button
+                              data-testid={`button-resume-${d.buildNumber}`}
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-[10px] sm:text-xs gap-1.5 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                              onClick={(e) => { e.stopPropagation(); handleResumeDeployment(d.id); }}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              استئناف
                             </Button>
                           )}
                         </div>

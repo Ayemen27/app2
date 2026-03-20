@@ -210,8 +210,26 @@ router.post("/:id/cancel", requireAdmin, asyncHandler(async (req: Request, res: 
 }));
 
 router.post("/:id/rollback", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id);
+  const targetBuildNumber = req.body.targetBuildNumber ? parseInt(req.body.targetBuildNumber) : undefined;
+  const targetCommitHash = typeof req.body.targetCommitHash === "string"
+    ? req.body.targetCommitHash.replace(/[^a-f0-9]/gi, "").substring(0, 40)
+    : undefined;
+  const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id, targetBuildNumber, targetCommitHash);
   res.json({ id: rollbackId, message: "Rollback started" });
+}));
+
+router.post("/:id/resume", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const deployment = await deploymentEngine.getDeployment(req.params.id);
+  if (!deployment) {
+    res.status(404).json({ error: "Deployment not found" });
+    return;
+  }
+  if (deployment.status !== "failed") {
+    res.status(400).json({ error: "يمكن استئناف عمليات النشر الفاشلة فقط" });
+    return;
+  }
+  const resumedId = await deploymentEngine.resumeDeployment(req.params.id);
+  res.json({ id: resumedId, message: "Deployment resumed" });
 }));
 
 router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
@@ -305,10 +323,10 @@ router.delete("/:id", requireAdmin, asyncHandler(async (req: Request, res: Respo
   res.json({ success: true, message: "تم حذف العملية" });
 }));
 
-const ALLOWED_PREBUILD_HOSTS = [
-  "app2.binarjoinanelytic.info",
-  "localhost",
-];
+const ALLOWED_PREBUILD_HOSTS = (process.env.PREBUILD_ALLOWED_HOSTS || "app2.binarjoinanelytic.info,localhost")
+  .split(",")
+  .map(h => h.trim())
+  .filter(Boolean);
 
 router.post("/prebuild-check", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const { runPrebuildChecks } = await import("../../services/prebuild-route-checker.js");

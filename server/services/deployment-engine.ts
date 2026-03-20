@@ -19,6 +19,15 @@ class CancellationError extends Error {
 
 type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build";
 
+const PIPELINE_ALIASES: Record<string, Pipeline> = {
+  "git-push": "web-deploy",
+  "git-android-build": "android-build",
+};
+
+function resolvePipeline(pipeline: string): Pipeline {
+  return (PIPELINE_ALIASES[pipeline] as Pipeline) || (pipeline as Pipeline);
+}
+
 interface DeploymentConfig {
   pipeline: Pipeline;
   appType: "web" | "android";
@@ -28,30 +37,32 @@ interface DeploymentConfig {
   triggeredBy?: string;
   version?: string;
   buildTarget?: "server" | "local";
+  originalPipeline?: string;
 }
 
 const SERVER_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "full-deploy": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
+  "full-deploy": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
   "hotfix": ["validate", "hotfix-guard", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
   "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
 };
 
 const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build": ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact"],
+  "full-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
   "hotfix": ["validate", "hotfix-guard", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
   "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
 };
 
 function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = "server"): string[] {
-  return buildTarget === "local" ? LOCAL_PIPELINES[pipeline] : SERVER_PIPELINES[pipeline];
+  const resolved = resolvePipeline(pipeline);
+  return buildTarget === "local" ? LOCAL_PIPELINES[resolved] : SERVER_PIPELINES[resolved];
 }
 
 const STEP_RETRY_POLICY: Record<string, { maxRetries: number; delayMs: number }> = {
@@ -285,7 +296,10 @@ export class DeploymentEngine {
       "android-build-test": "android",
     };
 
+    const resolvedPipeline = resolvePipeline(config.pipeline);
     const [deployment] = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
+
       const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
         .from(buildDeployments)
         .where(eq(buildDeployments.status, "running"))
@@ -297,6 +311,12 @@ export class DeploymentEngine {
 
       const buildNumResult = await tx.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
       const buildNumber = (buildNumResult[0]?.maxBuild || 0) + 1;
+
+      let commitHash: string | undefined;
+      try {
+        const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace", timeout: 5000 });
+        commitHash = stdout.trim();
+      } catch {}
 
       return tx.insert(buildDeployments).values({
         buildNumber,
@@ -313,6 +333,7 @@ export class DeploymentEngine {
         logs: [],
         steps,
         triggeredBy: config.triggeredBy,
+        commitHash,
       }).returning();
     });
 
@@ -554,6 +575,9 @@ export class DeploymentEngine {
       case "post-deploy-smoke":
         await this.stepPostDeploySmoke(deploymentId);
         break;
+      case "apk-integrity":
+        await this.stepApkIntegrity(deploymentId, sshCmd);
+        break;
       default:
         await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
     }
@@ -670,6 +694,19 @@ export class DeploymentEngine {
 
   private async stepPreflightCheck(deploymentId: string) {
     await this.addLog(deploymentId, "🔍 فحص أولي — التحقق من صحة الكود قبل النشر...", "info");
+    let criticalFailures: string[] = [];
+
+    try {
+      const { stdout: conflictCheck } = await execAsync(
+        "grep -rn '<<<<<<< ' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' /home/runner/workspace/server /home/runner/workspace/client /home/runner/workspace/shared 2>/dev/null | head -5 || echo 'NO_CONFLICTS'",
+        { cwd: "/home/runner/workspace", timeout: 15000 }
+      );
+      if (!conflictCheck.includes("NO_CONFLICTS") && conflictCheck.trim().length > 0) {
+        const conflictFiles = conflictCheck.trim().split("\n").length;
+        criticalFailures.push(`${conflictFiles} ملفات بها تعارضات Git غير محلولة`);
+        await this.addLog(deploymentId, `🚫 تعارضات Git: ${conflictFiles} ملفات`, "error");
+      }
+    } catch {}
 
     try {
       const { stdout: tscResult } = await execAsync(
@@ -686,7 +723,11 @@ export class DeploymentEngine {
         if (errorLines.length > 5) {
           await this.addLog(deploymentId, `  ... و ${errorLines.length - 5} أخطاء أخرى`, "warn");
         }
-        await this.addLog(deploymentId, "⚠️ متابعة النشر رغم أخطاء TypeScript — تحذير فقط", "warn");
+        if (errorLines.length > 20) {
+          criticalFailures.push(`${errorLines.length} أخطاء TypeScript حرجة (> 20 خطأ)`);
+        } else {
+          await this.addLog(deploymentId, "⚠️ أخطاء TypeScript غير حرجة — متابعة النشر مع تحذير", "warn");
+        }
       } else {
         await this.addLog(deploymentId, "✅ TypeScript: لا أخطاء تجميع", "success");
       }
@@ -707,6 +748,12 @@ export class DeploymentEngine {
       }
     } catch {
       await this.addLog(deploymentId, "⚠️ تعذر فحص حالة Git", "warn");
+    }
+
+    if (criticalFailures.length > 0) {
+      const msg = `🚫 فحص أولي فشل: ${criticalFailures.join(" | ")}`;
+      await this.addLog(deploymentId, msg, "error");
+      throw new Error(msg);
     }
 
     await this.addLog(deploymentId, "✅ الفحص الأولي مكتمل", "success");
@@ -760,14 +807,22 @@ export class DeploymentEngine {
 
       const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
       if (criticalFailed.length > 0 || !report.summary.sslValid) {
-        await this.addLog(deploymentId, `🚨 ${criticalFailed.length} مسار حرج فشل بعد النشر — يُنصح بالتراجع`, "error");
+        const reasons: string[] = [];
+        if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
+        if (!report.summary.sslValid) reasons.push("SSL غير صالح");
         await this.addEvent(deploymentId, "smoke_test_failed", "Post-deploy smoke test detected critical failures", {
           failedRoutes: criticalFailed.map(r => r.path),
         });
+        const msg = `🚨 اختبار الدخان فشل: ${reasons.join(" | ")} — يُنصح بالتراجع`;
+        await this.addLog(deploymentId, msg, "error");
+        throw new Error(msg);
       } else {
         await this.addLog(deploymentId, "✅ اختبار الدخان ناجح — النشر يعمل بشكل صحيح", "success");
       }
     } catch (err: any) {
+      if (err.message?.includes("اختبار الدخان فشل")) {
+        throw err;
+      }
       await this.addLog(deploymentId, `⚠️ تعذر تنفيذ اختبار الدخان: ${err.message}`, "warn");
     }
   }
@@ -1193,6 +1248,73 @@ export class DeploymentEngine {
     }
   }
 
+  private async stepApkIntegrity(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🔐 فحص سلامة APK — التحقق من checksum والتوقيع...", "info");
+    const remoteDir = "/home/administrator/app2";
+
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    if (!deployment) throw new Error("Deployment not found");
+
+    const version = deployment.version || "0.0.0";
+    const buildNum = deployment.buildNumber || 0;
+    const apkFileName = `AXION_v${version}_build${buildNum}.apk`;
+    const releasesDir = `${remoteDir}/releases/v${version}`;
+    const apkPath = `${releasesDir}/${apkFileName}`;
+
+    const checksumOutput = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "if [ -f ${apkPath} ]; then sha256sum ${apkPath} | awk '{print \\$1}' && echo 'CHECKSUM_OK'; else echo 'APK_NOT_FOUND'; fi"`,
+      "APK Checksum",
+      30000
+    );
+
+    if (checksumOutput.includes("APK_NOT_FOUND")) {
+      throw new Error("❌ APK غير موجود لفحص السلامة — تحقق من خطوة sign-apk");
+    }
+
+    const checksumLines = checksumOutput.trim().split("\n");
+    const sha256 = checksumLines.find(l => /^[a-f0-9]{64}$/.test(l.trim()));
+
+    if (!sha256) {
+      await this.addLog(deploymentId, "⚠️ تعذر استخراج checksum — متابعة مع تحذير", "warn");
+    } else {
+      await this.addLog(deploymentId, `✅ SHA-256: ${sha256.trim().substring(0, 16)}...`, "success");
+    }
+
+    let signatureValid = false;
+    const sigVerify = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "if command -v apksigner >/dev/null 2>&1; then apksigner verify --print-certs ${apkPath} 2>&1 | head -5 && echo 'APKSIGNER_OK'; elif command -v jarsigner >/dev/null 2>&1; then jarsigner -verify ${apkPath} 2>&1 | head -3 && echo 'JARSIGNER_OK'; else echo 'NO_SIGNER_TOOL'; fi"`,
+      "APK Signature Verify",
+      30000
+    );
+
+    if (sigVerify.includes("APKSIGNER_OK")) {
+      signatureValid = true;
+      await this.addLog(deploymentId, "✅ التوقيع الرقمي صالح (apksigner)", "success");
+    } else if (sigVerify.includes("JARSIGNER_OK") && sigVerify.includes("verified")) {
+      signatureValid = true;
+      await this.addLog(deploymentId, "✅ التوقيع الرقمي صالح (jarsigner)", "success");
+    } else if (sigVerify.includes("NO_SIGNER_TOOL")) {
+      await this.addLog(deploymentId, "⚠️ لا توجد أداة تحقق من التوقيع (apksigner/jarsigner) — تخطي فحص التوقيع", "warn");
+    } else {
+      await this.addLog(deploymentId, "❌ التوقيع الرقمي غير صالح أو APK غير موقّع", "error");
+      throw new Error("🚫 فشل فحص سلامة APK: التوقيع الرقمي غير صالح");
+    }
+
+    const integrityMeta = {
+      sha256: sha256?.trim() || null,
+      signatureValid,
+      verifiedAt: new Date().toISOString(),
+    };
+
+    await this.updateDeployment(deploymentId, {
+      environmentSnapshot: integrityMeta,
+    });
+
+    await this.addLog(deploymentId, "✅ فحص سلامة APK مكتمل", "success");
+  }
+
   private async stepRetrieveArtifact(deploymentId: string) {
     await this.addLog(deploymentId, "تسجيل مسار APK على السيرفر...", "info");
     const host = process.env.SSH_HOST || "93.127.142.144";
@@ -1541,19 +1663,35 @@ export class DeploymentEngine {
   private async stepVerify(deploymentId: string) {
     await this.addLog(deploymentId, "التحقق النهائي من النشر...", "info");
     const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+    let healthPassed = false;
 
-    try {
-      const { stdout } = await execAsync(`curl -s -o /dev/null -w '%{http_code}' ${baseUrl}/api/health`, { timeout: 15000 });
-      const statusCode = stdout.trim().replace(/'/g, "");
-      if (statusCode === "200") {
-        await this.addLog(deploymentId, "✅ Health check (HTTP 200)", "success");
-      } else {
-        await this.addLog(deploymentId, `⚠️ Health check: HTTP ${statusCode}`, "warn");
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        if (attempt > 1) {
+          await this.addLog(deploymentId, `🔄 إعادة فحص الصحة (محاولة ${attempt}/3)...`, "info");
+          await new Promise(r => setTimeout(r, 5000));
+        }
+        const { stdout } = await execAsync(`curl -s -o /dev/null -w '%{http_code}' ${baseUrl}/api/health`, { timeout: 15000 });
+        const statusCode = stdout.trim().replace(/'/g, "");
+        if (statusCode === "200") {
+          await this.addLog(deploymentId, "✅ Health check (HTTP 200)", "success");
+          healthPassed = true;
+          break;
+        } else {
+          await this.addLog(deploymentId, `⚠️ Health check: HTTP ${statusCode} (محاولة ${attempt}/3)`, "warn");
+        }
+      } catch {
+        await this.addLog(deploymentId, `⚠️ Health check فشل (محاولة ${attempt}/3)`, "warn");
       }
-    } catch {
-      await this.addLog(deploymentId, "⚠️ Health check فشل — السيرفر قد يكون في مرحلة الإقلاع", "warn");
     }
 
+    if (!healthPassed) {
+      const msg = "🚫 التحقق النهائي فشل: Health check لم ينجح بعد 3 محاولات — السيرفر لا يستجيب";
+      await this.addLog(deploymentId, msg, "error");
+      throw new Error(msg);
+    }
+
+    let corsWarnings: string[] = [];
     try {
       const corsCheck = await execAsync(
         `curl -s -o /dev/null -w '%{http_code}' -H 'Origin: capacitor://localhost' -H 'Access-Control-Request-Method: POST' -X OPTIONS ${baseUrl}/api/auth/login`,
@@ -1563,6 +1701,7 @@ export class DeploymentEngine {
       if (corsStatus === "204" || corsStatus === "200") {
         await this.addLog(deploymentId, "✅ CORS بعد النشر: capacitor://localhost مسموح", "success");
       } else {
+        corsWarnings.push(`CORS HTTP ${corsStatus}`);
         await this.addLog(deploymentId, `⚠️ CORS بعد النشر: HTTP ${corsStatus}`, "warn");
       }
     } catch {
@@ -1584,7 +1723,11 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ تعذر التحقق من CSP بعد النشر", "warn");
     }
 
-    await this.addLog(deploymentId, "✅ التحقق النهائي مكتمل", "success");
+    if (corsWarnings.length > 0) {
+      await this.addLog(deploymentId, `⚠️ التحقق النهائي مكتمل مع تحذيرات: ${corsWarnings.join(", ")}`, "warn");
+    } else {
+      await this.addLog(deploymentId, "✅ التحقق النهائي مكتمل بنجاح", "success");
+    }
   }
 
   private async stepSyncVersion(deploymentId: string) {
@@ -1921,10 +2064,27 @@ export class DeploymentEngine {
     return { status, checks };
   }
 
-  async rollbackDeployment(deploymentId: string): Promise<string> {
-    const deployment = await this.getDeployment(deploymentId);
-    if (!deployment) throw new Error("Deployment not found");
-    if (deployment.status !== "success") throw new Error("Can only rollback successful deployments");
+  async rollbackDeployment(deploymentId: string, targetBuildNumber?: number, targetCommitHash?: string): Promise<string> {
+    let targetDeployment: any;
+
+    if (targetBuildNumber) {
+      const [found] = await db.select().from(buildDeployments)
+        .where(sql`${buildDeployments.buildNumber} = ${targetBuildNumber} AND ${buildDeployments.status} = 'success'`)
+        .limit(1);
+      if (!found) throw new Error(`Build #${targetBuildNumber} غير موجود أو لم ينجح`);
+      targetDeployment = found;
+    } else if (targetCommitHash) {
+      const [found] = await db.select().from(buildDeployments)
+        .where(sql`${buildDeployments.commitHash} = ${targetCommitHash} AND ${buildDeployments.status} = 'success'`)
+        .limit(1);
+      if (!found) throw new Error(`Commit ${targetCommitHash.substring(0, 8)} غير موجود أو لم ينجح`);
+      targetDeployment = found;
+    } else {
+      const deployment = await this.getDeployment(deploymentId);
+      if (!deployment) throw new Error("Deployment not found");
+      if (deployment.status !== "success") throw new Error("Can only rollback successful deployments");
+      targetDeployment = deployment;
+    }
 
     const rollbackBuildNumber = await this.getNextBuildNumber();
     const steps: StepEntry[] = [
@@ -1939,39 +2099,49 @@ export class DeploymentEngine {
       status: "running",
       currentStep: "validate",
       progress: 0,
-      version: deployment.version,
-      appType: deployment.appType,
-      environment: deployment.environment,
-      branch: deployment.branch || "main",
-      commitMessage: `Rollback to build #${deployment.buildNumber}`,
+      version: targetDeployment.version,
+      appType: targetDeployment.appType,
+      environment: targetDeployment.environment,
+      branch: targetDeployment.branch || "main",
+      commitMessage: `Rollback to build #${targetDeployment.buildNumber} (${targetDeployment.commitHash?.substring(0, 8) || "N/A"})`,
       pipeline: "rollback",
       deploymentType: "rollback",
-      rollbackInfo: { originalDeploymentId: deploymentId, originalBuildNumber: deployment.buildNumber },
+      rollbackInfo: {
+        originalDeploymentId: targetDeployment.id,
+        originalBuildNumber: targetDeployment.buildNumber,
+        targetCommitHash: targetDeployment.commitHash,
+      },
       logs: [],
       steps,
     }).returning();
 
-    this.executeRollback(rollbackDeployment.id, deployment).catch(err => {
+    this.executeRollback(rollbackDeployment.id, targetDeployment).catch(err => {
       console.error(`[DeploymentEngine] Rollback error:`, err);
     });
 
     return rollbackDeployment.id;
   }
 
-  private async executeRollback(rollbackId: string, originalDeployment: any) {
+  private async executeRollback(rollbackId: string, targetDeployment: any) {
     const sshCmd = this.buildSSHCommand();
     const startTime = Date.now();
+    const remoteDir = "/home/administrator/app2";
+    const targetCommit = targetDeployment.commitHash;
 
     try {
       await this.updateStepStatus(rollbackId, "validate", "running");
-      await this.addLog(rollbackId, `Rolling back to build #${originalDeployment.buildNumber} (v${originalDeployment.version})`, "step");
+      await this.addLog(rollbackId, `Rolling back to build #${targetDeployment.buildNumber} (v${targetDeployment.version})${targetCommit ? ` [${targetCommit.substring(0, 8)}]` : ""}`, "step");
       await this.updateStepStatus(rollbackId, "validate", "success", Date.now() - startTime);
 
       await this.updateStepStatus(rollbackId, "rollback-server", "running");
       await this.updateDeployment(rollbackId, { currentStep: "rollback-server", progress: 25 });
-      const remoteDir = "/home/administrator/app2";
       await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && git log --oneline -3 2>/dev/null || echo 'git-log-unavailable'"`, "Git Log (before)", 15000);
-      await this.execWithLog(rollbackId, `${sshCmd} "set -o pipefail && cd ${remoteDir} && git stash 2>/dev/null; git checkout HEAD~1 -- . 2>/dev/null && npm install --legacy-peer-deps --loglevel=error 2>&1 | tail -3 && npm run build 2>&1 | tail -5 && echo 'ROLLBACK_CODE_OK'"`, "Rollback Code", 180000);
+
+      const rollbackCmd = targetCommit
+        ? `git stash 2>/dev/null; git checkout ${targetCommit} -- . 2>/dev/null && echo 'CHECKOUT_OK' || (git fetch origin && git checkout ${targetCommit} -- . && echo 'CHECKOUT_OK')`
+        : `git stash 2>/dev/null; git checkout HEAD~1 -- . 2>/dev/null && echo 'CHECKOUT_OK'`;
+
+      await this.execWithLog(rollbackId, `${sshCmd} "set -o pipefail && cd ${remoteDir} && ${rollbackCmd} && npm install --legacy-peer-deps --loglevel=error 2>&1 | tail -3 && npm run build 2>&1 | tail -5 && echo 'ROLLBACK_CODE_OK'"`, "Rollback Code", 180000);
       await this.updateStepStatus(rollbackId, "rollback-server", "success", Date.now() - startTime);
 
       await this.updateStepStatus(rollbackId, "restart-pm2", "running");
@@ -1983,7 +2153,7 @@ export class DeploymentEngine {
       await this.updateDeployment(rollbackId, { currentStep: "verify", progress: 85 });
       await new Promise(r => setTimeout(r, 5000));
       const health = await this.checkServerHealth();
-      await this.updateDeployment(rollbackId, { serverHealthResult: health });
+      await this.updateDeployment(rollbackId, { serverHealthResult: health, commitHash: targetCommit });
       await this.addLog(rollbackId, `Health check: ${health.status}`, health.status === "healthy" ? "success" : "warn");
       await this.updateStepStatus(rollbackId, "verify", "success", Date.now() - startTime);
 
@@ -2002,6 +2172,139 @@ export class DeploymentEngine {
         endTime: new Date(),
         errorMessage: error.message,
       });
+    }
+  }
+
+  async resumeDeployment(deploymentId: string): Promise<string> {
+    const deployment = await this.getDeployment(deploymentId);
+    if (!deployment) throw new Error("Deployment not found");
+    if (deployment.status !== "failed") throw new Error("يمكن استئناف عمليات النشر الفاشلة فقط");
+
+    const steps = deployment.steps as StepEntry[];
+    const firstFailedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
+    if (firstFailedIdx === -1) throw new Error("لا توجد خطوة فاشلة للاستئناف منها");
+
+    const updatedSteps = steps.map((s, idx) => {
+      if (idx >= firstFailedIdx) {
+        return { ...s, status: "pending" as const, duration: undefined };
+      }
+      return s;
+    });
+
+    await db.update(buildDeployments).set({
+      status: "running",
+      currentStep: steps[firstFailedIdx].name,
+      progress: Math.round((firstFailedIdx / steps.length) * 100),
+      steps: updatedSteps,
+      errorMessage: null,
+      endTime: null,
+    }).where(eq(buildDeployments.id, deploymentId));
+
+    await this.addLog(deploymentId, `🔄 استئناف النشر من الخطوة: ${steps[firstFailedIdx].name}`, "info");
+    await this.addEvent(deploymentId, "deployment_resumed", `Resumed from step: ${steps[firstFailedIdx].name}`, { resumedFromStep: firstFailedIdx });
+
+    const config: DeploymentConfig = {
+      pipeline: deployment.pipeline as Pipeline,
+      appType: deployment.appType as "web" | "android",
+      environment: (deployment.environment as "production" | "staging") || "production",
+      branch: deployment.branch || "main",
+      version: deployment.version || undefined,
+      triggeredBy: deployment.triggeredBy || undefined,
+      buildTarget: "server",
+    };
+
+    this.runPipelineFromStep(deploymentId, config, firstFailedIdx).catch(err => {
+      console.error(`[DeploymentEngine] Resume error for ${deploymentId}:`, err);
+    });
+
+    return deploymentId;
+  }
+
+  private async runPipelineFromStep(deploymentId: string, config: DeploymentConfig, startFromIdx: number) {
+    const bt = config.buildTarget || "server";
+    const pipelineSteps = getPipelineSteps(config.pipeline, bt);
+    const startTime = Date.now();
+
+    await this.sendDeploymentNotification("started", config, deploymentId);
+    await this.addLog(deploymentId, `استئناف من الخطوة ${startFromIdx + 1}/${pipelineSteps.length}: ${pipelineSteps[startFromIdx]}`, "info");
+
+    try {
+      for (let i = startFromIdx; i < pipelineSteps.length; i++) {
+        if (this.isCancelled(deploymentId)) {
+          await this.markRemainingStepsCancelled(deploymentId, i - 1, pipelineSteps);
+          throw new CancellationError();
+        }
+
+        const stepName = pipelineSteps[i];
+        const progress = Math.round(((i) / pipelineSteps.length) * 100);
+
+        await this.updateDeployment(deploymentId, { currentStep: stepName, progress });
+        await this.updateStepStatus(deploymentId, stepName, "running");
+        await this.addLog(deploymentId, `Starting step: ${stepName}`, "step");
+
+        const stepStart = Date.now();
+        const retryPolicy = STEP_RETRY_POLICY[stepName];
+        const maxAttempts = (retryPolicy?.maxRetries || 0) + 1;
+        let lastError: any = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            if (attempt > 1) {
+              await this.addLog(deploymentId, `🔄 إعادة محاولة ${stepName} (${attempt}/${maxAttempts})...`, "warn");
+              await new Promise(r => setTimeout(r, retryPolicy!.delayMs));
+              if (this.isCancelled(deploymentId)) throw new CancellationError();
+            }
+            await this.executeStep(deploymentId, stepName, config);
+            const stepDuration = Date.now() - stepStart;
+            await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
+            await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)`, "success");
+            lastError = null;
+            break;
+          } catch (stepError: any) {
+            if (stepError instanceof CancellationError || this.isCancelled(deploymentId)) {
+              await this.updateStepStatus(deploymentId, stepName, "cancelled", Date.now() - stepStart);
+              await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
+              throw new CancellationError();
+            }
+            lastError = stepError;
+            if (attempt < maxAttempts) {
+              await this.addLog(deploymentId, `⚠️ ${stepName} فشل (محاولة ${attempt}/${maxAttempts}): ${stepError.message}`, "warn");
+            }
+          }
+        }
+
+        if (lastError) {
+          const stepDuration = Date.now() - stepStart;
+          await this.updateStepStatus(deploymentId, stepName, "failed", stepDuration);
+          await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
+          await this.addLog(deploymentId, `Step ${stepName} failed: ${lastError.message}`, "error");
+          throw lastError;
+        }
+      }
+
+      const totalDuration = Date.now() - startTime;
+      await this.updateDeployment(deploymentId, {
+        status: "success",
+        progress: 100,
+        currentStep: "complete",
+        duration: totalDuration,
+        endTime: new Date(),
+      });
+      await this.addLog(deploymentId, `Deployment resumed and completed successfully in ${(totalDuration / 1000).toFixed(1)}s`, "success");
+      await this.sendDeploymentNotification("success", config, deploymentId, totalDuration);
+    } catch (error: any) {
+      const totalDuration = Date.now() - startTime;
+      const isCancelled = error instanceof CancellationError;
+      await this.updateDeployment(deploymentId, {
+        status: isCancelled ? "cancelled" : "failed",
+        duration: totalDuration,
+        endTime: new Date(),
+        errorMessage: isCancelled ? "Cancelled by user" : error.message,
+      });
+      await this.sendDeploymentNotification(isCancelled ? "cancelled" : "failed", config, deploymentId, totalDuration, error.message);
+    } finally {
+      await this.flushLogs(deploymentId);
+      this.cleanupDeployment(deploymentId);
     }
   }
 

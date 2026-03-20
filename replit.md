@@ -74,6 +74,12 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Hotfix Guard (hotfix-guard):** Detects schema/migration file changes in hotfix pipeline and warns that db-migrate is skipped. Suggests using web-deploy/full-deploy instead.
 - **Post-Deploy Smoke Test (post-deploy-smoke):** Runs full API route + CORS + SSL + CSP checks against production after deployment. Added to web-deploy, full-deploy, hotfix, git-push pipelines. Alerts on critical failures suggesting rollback.
 - **Telegram Deployment Notifications:** Automatic Telegram alerts sent at deployment start, success, failure, and cancellation. Includes pipeline name, version, environment, duration, and error summary.
+- **Pipeline Aliasing:** `git-push` → `web-deploy`, `git-android-build` → `android-build`. Legacy names still accepted via `PIPELINE_ALIASES` map but hidden from UI selector. Reduces duplication from 7→5 visible pipelines.
+- **Fail-Stop Validation Gates:** `preflight-check` now throws on merge conflicts or >20 TypeScript errors. `post-deploy-smoke` throws on critical route/SSL failures. `verify` throws after 3 failed health check attempts. All gates are now blocking (fail-stop) for critical failures.
+- **Atomic Deployment Lock:** `pg_advisory_xact_lock(7777001)` acquired inside `startDeployment` transaction. Eliminates race conditions between concurrent deployment requests.
+- **APK Integrity Verification (apk-integrity step):** New pipeline step runs SHA-256 checksum + apksigner/jarsigner signature verification after `sign-apk`. Stores integrity metadata (sha256, signatureValid, verifiedAt) in `environmentSnapshot`. Fails pipeline on invalid signature.
+- **Advanced Rollback:** Supports rollback to specific `targetBuildNumber` or `targetCommitHash` via POST body. Commit hash stored in every deployment record. Uses exact `git checkout <hash>` instead of `HEAD~1`.
+- **Resume-from-Step:** `POST /api/deployment/:id/resume` resumes failed deployments from first failed step. Resets failed/cancelled steps to pending, runs pipeline from that point. UI shows "استئناف" button on failed deployments.
 - **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support.
 - **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine.
 - **Process Management:** Deployment engine uses `detached: true` process groups and `process.kill(-pgid)` for clean process tree termination on cancel.

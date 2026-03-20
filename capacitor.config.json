@@ -10,9 +10,10 @@
     "androidScheme": "https",
     "hostname": "localhost",
     "allowNavigation": [
-      "https://app2.binarjoinanelytic.info/*",
-      "https://*.binarjoinanelytic.info/*"
-    ]
+      "app2.binarjoinanelytic.info",
+      "*.binarjoinanelytic.info"
+    ],
+    "cleartext": true
   },
   "plugins": {
     "NativeBiometric": {

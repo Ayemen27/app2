@@ -758,7 +758,7 @@ export class DeploymentEngine {
       `M="${manifest}"`,
       `if [ ! -f "$M" ]; then echo MANIFEST_MISSING; exit 0; fi`,
       ...permsToCheck.map(p => `grep -q "${p}" "$M" && echo "${p}_OK" || { sed -i '/<\\/manifest>/i\\    <uses-permission android:name="android.permission.${p}"/>' "$M" && echo "${p}_ADDED"; }`),
-      `[ -f ${remoteDir}/android/app/google-services.json ] && echo GOOGLE_SERVICES_OK || echo GOOGLE_SERVICES_MISSING`,
+      `GS="${remoteDir}/android/app/google-services.json"; if [ -f "$GS" ]; then echo GOOGLE_SERVICES_OK; elif [ -f "${remoteDir}/google-services.json" ]; then cp "${remoteDir}/google-services.json" "$GS" && echo GOOGLE_SERVICES_COPIED; else echo GOOGLE_SERVICES_MISSING; fi`,
     ];
     const scriptB64 = Buffer.from(scriptLines.join('\n')).toString('base64');
     const checksResult = await this.execWithLog(

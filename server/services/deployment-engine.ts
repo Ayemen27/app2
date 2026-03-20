@@ -323,6 +323,8 @@ export class DeploymentEngine {
       throw new Error("Deployment requires an authenticated user (triggeredBy is required)");
     }
 
+    this.sshKeyProvisioned = false;
+    this.resolvedAuthMethod = null;
     await this.ensureSSHKeyProvisioned();
 
     const bt = config.buildTarget || "server";
@@ -657,6 +659,7 @@ export class DeploymentEngine {
   }
 
   private sshKeyProvisioned = false;
+  private resolvedAuthMethod: "key" | "password" | null = null;
 
   private async ensureSSHKeyProvisioned(): Promise<void> {
     if (this.sshKeyProvisioned) return;
@@ -664,13 +667,8 @@ export class DeploymentEngine {
     const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
     const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
 
-    const { existsSync, mkdirSync, writeFileSync, chmodSync } = await import("fs");
+    const { existsSync, mkdirSync, writeFileSync, chmodSync, accessSync, constants } = await import("fs");
     const { dirname } = await import("path");
-
-    if (existsSync(keyPath) && existsSync(knownHostsPath)) {
-      this.sshKeyProvisioned = true;
-      return;
-    }
 
     const sshDir = dirname(keyPath);
     if (!existsSync(sshDir)) {
@@ -692,26 +690,81 @@ export class DeploymentEngine {
       } else {
         try {
           const { stdout } = await execAsync(`ssh-keyscan -p ${port} -H ${host} 2>/dev/null`, { timeout: 15000 });
-          writeFileSync(knownHostsPath, stdout, { mode: 0o600 });
+          if (stdout.trim()) {
+            writeFileSync(knownHostsPath, stdout, { mode: 0o600 });
+          }
         } catch {
           console.warn("[DeploymentEngine] Could not scan SSH host keys, falling back");
         }
       }
     }
 
+    let keyFileReady = false;
+    if (existsSync(keyPath)) {
+      try {
+        accessSync(keyPath, constants.R_OK);
+        keyFileReady = true;
+      } catch {
+        console.warn(`[DeploymentEngine] SSH key exists at ${keyPath} but is not readable`);
+      }
+    }
+
+    const explicit = process.env.SSH_AUTH_METHOD;
+    if (explicit === "key" || (explicit !== "password" && keyFileReady)) {
+      if (!keyFileReady) {
+        const missing: string[] = [];
+        if (!process.env.SSH_PRIVATE_KEY_B64) missing.push("SSH_PRIVATE_KEY_B64");
+        missing.push(`SSH key file: ${keyPath}`);
+        throw new Error(
+          `SSH_AUTH_METHOD=key لكن المفتاح غير متوفر.\n` +
+          `المطلوب: ضبط SSH_PRIVATE_KEY_B64 (base64) في Secrets، أو وضع ملف المفتاح في ${keyPath}\n` +
+          `غير موجود: ${missing.join("، ")}\n` +
+          `بديل: اضبط SSH_AUTH_METHOD=password مع SSH_PASSWORD`
+        );
+      }
+      this.resolvedAuthMethod = "key";
+    } else if (process.env.SSH_PASSWORD || process.env.SSHPASS) {
+      this.resolvedAuthMethod = "password";
+    } else {
+      throw new Error(
+        `لا يوجد أي وسيلة اتصال SSH مُعدّة في هذه البيئة.\n` +
+        `الخيارات المتاحة:\n` +
+        `  1. مفتاح SSH: اضبط SSH_PRIVATE_KEY_B64 في Secrets (base64 للمفتاح الخاص)\n` +
+        `  2. كلمة مرور: اضبط SSH_PASSWORD في Secrets\n` +
+        `  3. ملف مفتاح: ضع المفتاح في ${keyPath} واضبط SSH_AUTH_METHOD=key`
+      );
+    }
+
+    console.log(`[DeploymentEngine] SSH auth resolved: ${this.resolvedAuthMethod} (key file: ${keyFileReady ? "✓" : "✗"})`);
     this.sshKeyProvisioned = true;
   }
 
   private getSSHAuthMethod(): "key" | "password" {
-    const method = process.env.SSH_AUTH_METHOD || "auto";
-    if (method === "key") return "key";
-    if (method === "password") return "password";
+    if (this.resolvedAuthMethod) return this.resolvedAuthMethod;
 
+    const { existsSync, accessSync, constants } = require("fs") as typeof import("fs");
     const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+
+    const explicit = process.env.SSH_AUTH_METHOD;
+    if (explicit === "key") {
+      try {
+        accessSync(keyPath, constants.R_OK);
+        return "key";
+      } catch {
+        if (process.env.SSH_PASSWORD || process.env.SSHPASS) {
+          console.warn("[DeploymentEngine] SSH_AUTH_METHOD=key but key not readable, falling back to password");
+          return "password";
+        }
+        return "key";
+      }
+    }
+    if (explicit === "password") return "password";
+
     try {
-      const { existsSync } = require("fs");
-      if (existsSync(keyPath)) return "key";
+      accessSync(keyPath, constants.R_OK);
+      return "key";
     } catch {}
+
     return "password";
   }
 
@@ -986,10 +1039,37 @@ export class DeploymentEngine {
     const user = process.env.SSH_USER || "administrator";
     const authMethod = this.getSSHAuthMethod();
 
-    await this.addLog(deploymentId, `الخادم: ${user}@${host} (${authMethod === "key" ? "مفتاح SSH" : "كلمة مرور"})`, "info");
+    await this.addLog(deploymentId, `الخادم: ${user}@${host} (${authMethod === "key" ? "مفتاح SSH 🔑" : "كلمة مرور 🔒"})`, "info");
 
-    if (authMethod === "password" && !process.env.SSH_PASSWORD) {
-      throw new Error("لا يوجد مفتاح SSH ولا كلمة مرور SSH_PASSWORD في البيئة");
+    if (authMethod === "password" && !process.env.SSH_PASSWORD && !process.env.SSHPASS) {
+      throw new Error(
+        "لا يوجد أي وسيلة اتصال SSH مُعدّة.\n" +
+        "الحلول:\n" +
+        "  1. اضبط SSH_PRIVATE_KEY_B64 في Secrets (base64 للمفتاح الخاص)\n" +
+        "  2. اضبط SSH_PASSWORD في Secrets\n" +
+        "اذهب إلى: Secrets → أضف المتغير المطلوب"
+      );
+    }
+
+    if (authMethod === "key") {
+      const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+      const { existsSync, accessSync, constants } = await import("fs");
+      if (!existsSync(keyPath)) {
+        throw new Error(
+          `ملف مفتاح SSH غير موجود: ${keyPath}\n` +
+          `الحلول:\n` +
+          `  1. اضبط SSH_PRIVATE_KEY_B64 في Secrets (سيتم إنشاء الملف تلقائياً)\n` +
+          `  2. أو اضبط SSH_AUTH_METHOD=password مع SSH_PASSWORD`
+        );
+      }
+      try {
+        accessSync(keyPath, constants.R_OK);
+      } catch {
+        throw new Error(
+          `ملف مفتاح SSH موجود لكن غير قابل للقراءة: ${keyPath}\n` +
+          `جرّب: chmod 600 ${keyPath}`
+        );
+      }
     }
 
     await this.addLog(deploymentId, "اختبار اتصال SSH...", "info");
@@ -998,8 +1078,23 @@ export class DeploymentEngine {
       const { stdout } = await execAsync(`${sshCmd} "echo SSH_OK && hostname && uptime"`, { timeout: 30000 });
       await this.addLog(deploymentId, `اتصال SSH ناجح: ${stdout.trim()}`, "success");
     } catch (sshErr: any) {
-      await this.addLog(deploymentId, `فشل اتصال SSH: ${this.maskSecrets(sshErr.message)}`, "error");
-      throw new Error(`فشل الاتصال بالخادم عبر SSH: ${this.maskSecrets(sshErr.message)}`);
+      const masked = this.maskSecrets(sshErr.message);
+      await this.addLog(deploymentId, `فشل اتصال SSH: ${masked}`, "error");
+
+      let hint = "";
+      if (masked.includes("Identity file") && masked.includes("not accessible")) {
+        hint = "\n💡 ملف المفتاح غير موجود — اضبط SSH_PRIVATE_KEY_B64 في Secrets";
+      } else if (masked.includes("Permission denied")) {
+        hint = authMethod === "key"
+          ? "\n💡 المفتاح مرفوض من الخادم — تحقق أن المفتاح العام مُضاف في authorized_keys على الخادم"
+          : "\n💡 كلمة المرور خاطئة — تحقق من SSH_PASSWORD في Secrets";
+      } else if (masked.includes("Connection refused") || masked.includes("Connection timed out")) {
+        hint = "\n💡 الخادم لا يستجيب — تحقق أن الخادم يعمل والمنفذ 22 مفتوح";
+      } else if (masked.includes("Host key verification failed")) {
+        hint = "\n💡 مفتاح الخادم تغيّر — اضبط SSH_KNOWN_HOSTS_B64 أو احذف known_hosts";
+      }
+
+      throw new Error(`فشل الاتصال بالخادم عبر SSH: ${masked}${hint}`);
     }
 
     try {
@@ -2274,6 +2369,8 @@ export class DeploymentEngine {
   }
 
   async rollbackDeployment(deploymentId: string, targetBuildNumber?: number, targetCommitHash?: string, triggeredBy?: string): Promise<string> {
+    this.sshKeyProvisioned = false;
+    this.resolvedAuthMethod = null;
     await this.ensureSSHKeyProvisioned();
     let targetDeployment: any;
 
@@ -2400,6 +2497,10 @@ export class DeploymentEngine {
   }
 
   async resumeDeployment(deploymentId: string): Promise<string> {
+    this.sshKeyProvisioned = false;
+    this.resolvedAuthMethod = null;
+    await this.ensureSSHKeyProvisioned();
+
     return await db.transaction(async (tx: any) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 

@@ -751,9 +751,16 @@ export class DeploymentEngine {
 
     await this.addLog(deploymentId, "فحص متطلبات الأندرويد...", "info");
 
+    const manifest = `${remoteDir}/android/app/src/main/AndroidManifest.xml`;
+    const permsToCheck = ["POST_NOTIFICATIONS", "USE_BIOMETRIC", "USE_FINGERPRINT", "INTERNET"];
+    const permChecks = permsToCheck.map(p =>
+      `grep -q ${p} ${manifest} && echo ${p}_OK || { sed -i '/<\\/manifest>/i\\    <uses-permission android:name="android.permission.${p}"/>' ${manifest} 2>/dev/null && echo ${p}_ADDED; }`
+    ).join('; ');
+    const gsCheck = `[ -f ${remoteDir}/android/app/google-services.json ] && echo GOOGLE_SERVICES_OK || echo GOOGLE_SERVICES_MISSING`;
+    const fullCmd = `[ -f ${manifest} ] && { ${permChecks}; } || echo MANIFEST_MISSING; ${gsCheck}`;
     const checksResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} 'MANIFEST=${remoteDir}/android/app/src/main/AndroidManifest.xml; CHECKS=""; if [ -f "$MANIFEST" ]; then for PERM in POST_NOTIFICATIONS USE_BIOMETRIC USE_FINGERPRINT INTERNET; do if grep -q "$PERM" "$MANIFEST"; then CHECKS="$CHECKS${PERM}_OK "; else sed -i "/<\\/manifest>/i\\    <uses-permission android:name=\\"android.permission.${PERM}\\"/>" "$MANIFEST" && CHECKS="$CHECKS${PERM}_ADDED "; fi; done; else CHECKS="MANIFEST_MISSING "; fi; if [ -f ${remoteDir}/android/app/google-services.json ]; then CHECKS="${CHECKS}GOOGLE_SERVICES_OK"; else for GS in /home/administrator/google-services.json /home/administrator/.config/google-services.json; do if [ -f "$GS" ]; then cp "$GS" ${remoteDir}/android/app/google-services.json && CHECKS="${CHECKS}GOOGLE_SERVICES_COPIED" && break; fi; done; if [ ! -f ${remoteDir}/android/app/google-services.json ]; then CHECKS="${CHECKS}GOOGLE_SERVICES_MISSING"; fi; fi; echo "$CHECKS"'`,
+      `${sshCmd} "bash -c ${JSON.stringify(fullCmd)}"`,
       "Android Checks",
       20000
     );

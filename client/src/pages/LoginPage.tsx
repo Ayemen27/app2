@@ -182,6 +182,13 @@ export default function LoginPage() {
       navigate("/");
     },
     onError: (error: any) => {
+      console.error('[AUTH-DIAG] LoginPage onError:', {
+        message: error?.message,
+        name: error?.name,
+        status: error?.status,
+        requireEmailVerification: error?.requireEmailVerification,
+        stack: error?.stack?.substring(0, 300),
+      });
       if (error.requireEmailVerification || error.status === 403) {
         toast({
           title: "يجب التحقق من البريد الإلكتروني",

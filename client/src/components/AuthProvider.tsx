@@ -75,14 +75,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
   }, []); // تشغيل مرة واحدة فقط
 
-  const apiBase = ENV.getApiBaseUrl();
-  const API_BASE_URL = apiBase ? `${apiBase}/api` : '/api';
+  const getApiBaseUrl = () => {
+    const base = ENV.getApiBaseUrl();
+    return base ? `${base}/api` : '/api';
+  };
 
 
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
     const initAuth = async () => {
-      if (import.meta.env.DEV) console.log('[AuthProvider] Initializing auth...');
+      console.log('[AUTH-DIAG] initAuth start. Platform:', ENV.platform, 'isNative:', ENV.isNative, 'authStrategy:', ENV.authStrategy, 'apiBase:', ENV.getApiBaseUrl(), 'protocol:', window.location?.protocol, 'Capacitor:', !!(window as any).Capacitor);
       clearInvalidTokens();
       try {
         const accessToken = storeGetAccessToken();
@@ -91,7 +93,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (isWebCookieMode()) {
           if (import.meta.env.DEV) console.log('[AuthProvider] Web cookie mode - checking session via /api/auth/me');
           try {
-            const res = await fetch(`${API_BASE_URL}/auth/me`, {
+            const res = await fetch(`${getApiBaseUrl()}/auth/me`, {
               credentials: getFetchCredentials(),
               headers: { ...getClientPlatformHeader() }
             });
@@ -188,7 +190,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
 
           if (import.meta.env.DEV) console.log('[AuthProvider] Silent session verification...');
-          fetch(`${API_BASE_URL}/auth/me`, {
+          fetch(`${getApiBaseUrl()}/auth/me`, {
             credentials: getFetchCredentials(),
             headers: { ...getAuthHeaders(), ...getClientPlatformHeader() }
           }).then(async (res) => {
@@ -262,7 +264,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!accessToken && !isWebCookieMode()) return;
 
       try {
-        const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        const res = await fetch(`${getApiBaseUrl()}/auth/me`, {
           credentials: getFetchCredentials(),
           headers: { ...getAuthHeaders(), ...getClientPlatformHeader() }
         });
@@ -311,16 +313,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // تسجيل الدخول
   const login = async (email: string, password: string) => {
-    console.log('[AuthProvider.login] Starting login to:', `${API_BASE_URL}/auth/login`);
+    const loginApiUrl = getApiBaseUrl();
+    const platformInfo = {
+      platform: ENV.platform,
+      isNative: ENV.isNative,
+      authStrategy: ENV.authStrategy,
+      apiBaseUrl: loginApiUrl,
+      credentials: getFetchCredentials(),
+      clientPlatformHeader: getClientPlatformHeader(),
+      isWebCookieMode: isWebCookieMode(),
+      windowCapacitor: !!(window as any).Capacitor,
+      protocol: window.location?.protocol,
+    };
+    console.log('[AUTH-DIAG] === LOGIN START ===', JSON.stringify(platformInfo));
 
     let result: any = null;
     let response: Response | null = null;
     let errorBody: any = null;
+    let rawResponseText: string | null = null;
 
     try {
+      const fullUrl = `${loginApiUrl}/auth/login`;
+      console.log('[AUTH-DIAG] Fetching:', fullUrl);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
-      response = await fetch(`${API_BASE_URL}/auth/login`, {
+      response = await fetch(fullUrl, {
         method: 'POST',
         credentials: getFetchCredentials(),
         headers: {
@@ -334,19 +351,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       clearTimeout(timeoutId);
 
-      console.log('[AuthProvider.login] Response status:', response.status);
+      const contentType = response.headers.get('content-type') || 'unknown';
+      console.log('[AUTH-DIAG] Response:', {
+        status: response.status,
+        ok: response.ok,
+        type: response.type,
+        contentType,
+        url: response.url,
+      });
+
+      rawResponseText = await response.text();
+      console.log('[AUTH-DIAG] Body length:', rawResponseText.length, 'preview:', rawResponseText.substring(0, 300));
 
       if (response.ok) {
-        result = await response.json();
-        console.log('[AuthProvider.login] Login success, has token:', !!(result?.token || result?.accessToken || result?.data?.token));
-      } else {
-        errorBody = await response.json().catch(() => ({}));
-        console.warn('[AuthProvider.login] Server error:', response.status, errorBody?.message);
-        if (response.status !== 503 && response.status !== 500) {
+        try {
+          result = JSON.parse(rawResponseText);
+          console.log('[AUTH-DIAG] Parsed OK. Keys:', Object.keys(result).join(','), 'hasToken:', !!(result?.token || result?.accessToken));
+        } catch (parseErr: any) {
+          console.error('[AUTH-DIAG] JSON parse FAILED:', parseErr.message, 'raw:', rawResponseText.substring(0, 200));
+          throw new Error(`LOGIN_RESPONSE_PARSE_FAILED: status=${response.status} contentType=${contentType}`);
         }
+      } else {
+        try {
+          errorBody = JSON.parse(rawResponseText);
+        } catch {
+          errorBody = { message: rawResponseText.substring(0, 200) };
+        }
+        console.warn('[AUTH-DIAG] Server error:', response.status, errorBody?.message);
       }
     } catch (networkError: any) {
-      console.warn('[AuthProvider.login] Network error:', networkError?.message || networkError);
+      console.error('[AUTH-DIAG] Network/fetch error:', networkError?.name, networkError?.message, 'type:', typeof networkError);
+      if (networkError?.message?.includes('LOGIN_RESPONSE_PARSE_FAILED')) throw networkError;
     }
 
     if (!result && (!response || response.status === 503 || response.status === 500 || !navigator.onLine)) {
@@ -463,21 +498,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
        }
     }
 
-    if (import.meta.env.DEV) console.log('[AuthProvider.login] Extracted data check:', { 
-      hasUser: !!userData, 
-      hasToken: !!tokenData
+    console.log('[AUTH-DIAG] Extracted:', {
+      hasUser: !!userData,
+      hasToken: !!tokenData,
+      hasRefresh: !!refreshTokenData,
+      tokenLen: tokenData ? String(tokenData).length : 0,
+      userKeys: userData ? Object.keys(userData).join(',') : 'null',
+      authMode: getAuthMode(),
+      isWebCookie: isWebCookieMode(),
     });
 
     if (!result) {
+      console.error('[AUTH-DIAG] FAIL: result is null. response:', response ? { status: response.status, type: response.type } : 'null');
       throw new Error('فشل تسجيل الدخول. لا يمكن الوصول للخادم ولا يوجد بيانات أوفلاين صالحة.');
     }
 
     if (!tokenData && getAuthMode() !== 'offline' && !isWebCookieMode()) {
-      if (import.meta.env.DEV) console.error('[AuthProvider.login] Token missing from response (native mode)');
+      console.error('[AUTH-DIAG] FAIL: token missing. resultKeys:', Object.keys(result).join(','), 'result.data keys:', result?.data ? Object.keys(result.data).join(',') : 'null');
       throw new Error('بيانات المستخدم أو الرمز المميز مفقودة من الاستجابة. يرجى المحاولة مرة أخرى.');
     }
 
     if (!userData && getAuthMode() !== 'offline') {
+      console.error('[AUTH-DIAG] FAIL: userData missing. resultKeys:', Object.keys(result).join(','));
       throw new Error('بيانات المستخدم مفقودة من الاستجابة.');
     }
 
@@ -504,14 +546,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('emailVerified', 'true');
     }
 
-    if (import.meta.env.DEV) console.log('[AuthProvider.login] Saving data to localStorage...');
+    console.log('[AUTH-DIAG] Saving user to localStorage...');
     localStorage.setItem('user', JSON.stringify(userToSave));
-    if (tokenData && isValidJwt(tokenData)) {
-      storeTokens(tokenData, refreshTokenData && isValidJwt(refreshTokenData) ? refreshTokenData : '');
+    const tokenValid = tokenData && isValidJwt(tokenData);
+    const refreshValid = refreshTokenData && isValidJwt(refreshTokenData);
+    console.log('[AUTH-DIAG] Token validation:', { tokenValid, refreshValid, tokenLen: tokenData?.length, refreshLen: refreshTokenData?.length });
+    if (tokenValid) {
+      storeTokens(tokenData, refreshValid ? refreshTokenData : '');
       setAuthMode('online');
+      const storedBack = localStorage.getItem('accessToken');
+      console.log('[AUTH-DIAG] Token stored. Verify read-back:', { stored: !!storedBack, storedLen: storedBack?.length });
+    } else if (isWebCookieMode()) {
+      console.log('[AUTH-DIAG] Web cookie mode - skipping token storage');
+      setAuthMode('online');
+    } else {
+      console.warn('[AUTH-DIAG] WARNING: No valid token to store, tokenData:', tokenData ? tokenData.substring(0, 30) + '...' : 'null');
     }
     
     setUser(userToSave);
+    console.log('[AUTH-DIAG] === LOGIN COMPLETE === user set:', userToSave.email);
 
     if (getAuthMode() !== 'offline') {
       try {
@@ -610,7 +663,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const accessToken = storeGetAccessToken();
       try {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        await fetch(`${getApiBaseUrl()}/auth/logout`, {
           method: 'POST',
           credentials: getFetchCredentials(),
           headers: {
@@ -692,7 +745,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             if (import.meta.env.DEV) console.log(`[AuthProvider.refreshToken] Timeout for attempt ${attempt + 1}`);
           }, 10000); // 10 ثواني timeout
 
-          const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          const response = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
             method: 'POST',
             credentials: getFetchCredentials(),
             headers: {

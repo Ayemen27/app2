@@ -363,5 +363,112 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
+  try {
+    const token = req.query.token as string;
+    if (!token) {
+      res.status(401).json({ error: "رمز التحميل مطلوب" });
+      return;
+    }
+
+    const crypto = await import("crypto");
+    const secret = process.env.APP_SECRET || process.env.SESSION_SECRET;
+    if (!secret) {
+      res.status(500).json({ error: "خطأ في تكوين الخادم: APP_SECRET غير محدد" });
+      return;
+    }
+    const [timestamp, hash] = token.split(".");
+    if (!timestamp || !hash) {
+      res.status(401).json({ error: "رمز غير صالح" });
+      return;
+    }
+
+    const tokenAge = Date.now() - parseInt(timestamp, 10);
+    if (isNaN(tokenAge) || tokenAge > 24 * 60 * 60 * 1000) {
+      res.status(401).json({ error: "رمز منتهي الصلاحية" });
+      return;
+    }
+
+    const expected = crypto.createHmac("sha256", secret)
+      .update(`${req.params.id}:${timestamp}`)
+      .digest("hex")
+      .substring(0, 32);
+
+    if (hash !== expected) {
+      res.status(401).json({ error: "رمز غير صالح" });
+      return;
+    }
+
+    const deployment = await deploymentEngine.getDeployment(req.params.id);
+    if (!deployment || !deployment.artifactUrl) {
+      res.status(404).json({ error: "الملف غير متوفر" });
+      return;
+    }
+
+    const remotePath = deployment.artifactUrl;
+    const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
+    const host = (process.env.SSH_HOST || "93.127.142.144").replace(/[^a-zA-Z0-9.\-]/g, "");
+    const user = (process.env.SSH_USER || "administrator").replace(/[^a-zA-Z0-9_\-]/g, "");
+    const port = String(parseInt(process.env.SSH_PORT || "22", 10) || 22);
+
+    const sshKeyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+    const fs = await import("fs");
+    const useKey = fs.existsSync(sshKeyPath);
+
+    const execEnv = { ...process.env };
+    if (!useKey && process.env.SSH_PASSWORD) {
+      execEnv.SSHPASS = process.env.SSH_PASSWORD;
+    }
+
+    const sshPrefix = useKey
+      ? `ssh -i ${sshKeyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -p ${port}`
+      : `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -p ${port}`;
+
+    const { spawn } = await import("child_process");
+
+    const sizeChild = spawn("bash", ["-c",
+      `${sshPrefix} ${user}@${host} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
+    ], { env: execEnv });
+
+    let sizeOutput = "";
+    sizeChild.stdout.on("data", (d: Buffer) => { sizeOutput += d.toString(); });
+    await new Promise<void>((resolve) => sizeChild.on("close", resolve));
+
+    if (sizeOutput.trim() === "MISSING" || !sizeOutput.trim()) {
+      res.status(404).json({ error: "ملف APK غير موجود" });
+      return;
+    }
+
+    const fileSize = parseInt(sizeOutput.trim(), 10);
+    if (isNaN(fileSize) || fileSize < 1000) {
+      res.status(404).json({ error: "ملف APK غير صالح" });
+      return;
+    }
+
+    res.setHeader("Content-Type", "application/vnd.android.package-archive");
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Length", String(fileSize));
+
+    const child = spawn("bash", ["-c",
+      `${sshPrefix} ${user}@${host} "cat '${remotePath}'"`
+    ], { env: execEnv });
+
+    child.stdout.pipe(res);
+    child.stderr.on("data", (data: Buffer) => {
+      console.error("[Public APK Download] stderr:", data.toString());
+    });
+    child.on("error", (err: Error) => {
+      if (!res.headersSent) res.status(500).json({ error: "فشل تحميل الملف" });
+    });
+
+    const cleanup = () => { try { child.kill("SIGTERM"); } catch {} };
+    req.on("close", cleanup);
+    res.on("close", cleanup);
+  } catch (err: any) {
+    console.error("[Public APK Download] Error:", err.message);
+    if (!res.headersSent) res.status(500).json({ error: "خطأ داخلي" });
+  }
+});
+
 export default router;
 export { publicRouter as deploymentPublicRouter };

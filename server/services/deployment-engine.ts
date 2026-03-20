@@ -65,6 +65,34 @@ function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = 
   return buildTarget === "local" ? LOCAL_PIPELINES[resolved] : SERVER_PIPELINES[resolved];
 }
 
+const STEP_TIMEOUT_MS: Record<string, number> = {
+  "validate": 30000,
+  "git-push": 120000,
+  "build-server": 600000,
+  "gradle-build": 600000,
+  "install-deps": 180000,
+  "restart-pm2": 60000,
+  "verify": 60000,
+  "transfer": 600000,
+  "sync-capacitor": 120000,
+  "sign-apk": 60000,
+  "retrieve-artifact": 60000,
+  "preflight-check": 60000,
+  "prebuild-gate": 120000,
+  "post-deploy-smoke": 60000,
+  "android-readiness": 60000,
+  "generate-icons": 60000,
+  "apk-integrity": 60000,
+  "db-migrate": 120000,
+  "build-web": 300000,
+  "deploy-server": 120000,
+  "hotfix-sync": 120000,
+  "hotfix-guard": 30000,
+  "sync-version": 30000,
+  "pull-server": 60000,
+  "firebase-test": 600000,
+};
+
 const STEP_RETRY_POLICY: Record<string, { maxRetries: number; delayMs: number }> = {
   "git-push":       { maxRetries: 2, delayMs: 5000 },
   "pull-server":    { maxRetries: 2, delayMs: 5000 },
@@ -278,6 +306,8 @@ export class DeploymentEngine {
       throw new Error("Deployment requires an authenticated user (triggeredBy is required)");
     }
 
+    await this.ensureSSHKeyProvisioned();
+
     const bt = config.buildTarget || "server";
     const steps: StepEntry[] = getPipelineSteps(config.pipeline, bt).map(name => ({
       name,
@@ -433,7 +463,11 @@ export class DeploymentEngine {
               await new Promise(r => setTimeout(r, retryPolicy!.delayMs));
               if (this.isCancelled(deploymentId)) throw new CancellationError();
             }
-            await this.executeStep(deploymentId, stepName, config);
+            const timeoutMs = STEP_TIMEOUT_MS[stepName] || 300000;
+            await Promise.race([
+              this.executeStep(deploymentId, stepName, config),
+              new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`)), timeoutMs)),
+            ]);
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
             await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)${attempt > 1 ? ` [retry ${attempt}/${maxAttempts}]` : ""}`, "success");
@@ -587,10 +621,78 @@ export class DeploymentEngine {
     return value.replace(/[^a-zA-Z0-9._\-@]/g, '');
   }
 
+  private sshKeyProvisioned = false;
+
+  private async ensureSSHKeyProvisioned(): Promise<void> {
+    if (this.sshKeyProvisioned) return;
+
+    const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+    const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+
+    const { existsSync, mkdirSync, writeFileSync, chmodSync } = await import("fs");
+    const { dirname } = await import("path");
+
+    if (existsSync(keyPath) && existsSync(knownHostsPath)) {
+      this.sshKeyProvisioned = true;
+      return;
+    }
+
+    const sshDir = dirname(keyPath);
+    if (!existsSync(sshDir)) {
+      mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+    }
+
+    if (!existsSync(keyPath) && process.env.SSH_PRIVATE_KEY_B64) {
+      const keyData = Buffer.from(process.env.SSH_PRIVATE_KEY_B64, "base64").toString("utf-8");
+      writeFileSync(keyPath, keyData, { mode: 0o600 });
+      console.log("[DeploymentEngine] SSH key provisioned from SSH_PRIVATE_KEY_B64");
+    }
+
+    if (!existsSync(knownHostsPath)) {
+      const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
+      const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+      if (process.env.SSH_KNOWN_HOSTS_B64) {
+        const khData = Buffer.from(process.env.SSH_KNOWN_HOSTS_B64, "base64").toString("utf-8");
+        writeFileSync(knownHostsPath, khData, { mode: 0o600 });
+      } else {
+        try {
+          const { stdout } = await execAsync(`ssh-keyscan -p ${port} -H ${host} 2>/dev/null`, { timeout: 15000 });
+          writeFileSync(knownHostsPath, stdout, { mode: 0o600 });
+        } catch {
+          console.warn("[DeploymentEngine] Could not scan SSH host keys, falling back");
+        }
+      }
+    }
+
+    this.sshKeyProvisioned = true;
+  }
+
+  private getSSHAuthMethod(): "key" | "password" {
+    const method = process.env.SSH_AUTH_METHOD || "auto";
+    if (method === "key") return "key";
+    if (method === "password") return "password";
+
+    const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+    try {
+      const { existsSync } = require("fs");
+      if (existsSync(keyPath)) return "key";
+    } catch {}
+    return "password";
+  }
+
   private buildSSHCommand(): string {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+
+    const authMethod = this.getSSHAuthMethod();
+
+    if (authMethod === "key") {
+      const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+      const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+      return `ssh -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+    }
+
     return `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
   }
 
@@ -598,6 +700,15 @@ export class DeploymentEngine {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+
+    const authMethod = this.getSSHAuthMethod();
+
+    if (authMethod === "key") {
+      const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+      const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+      return `scp -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
+    }
+
     return `sshpass -e scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
@@ -832,12 +943,12 @@ export class DeploymentEngine {
 
     const host = process.env.SSH_HOST || "93.127.142.144";
     const user = process.env.SSH_USER || "administrator";
-    const sshPass = process.env.SSH_PASSWORD;
+    const authMethod = this.getSSHAuthMethod();
 
-    await this.addLog(deploymentId, `الخادم: ${user}@${host}`, "info");
+    await this.addLog(deploymentId, `الخادم: ${user}@${host} (${authMethod === "key" ? "مفتاح SSH" : "كلمة مرور"})`, "info");
 
-    if (!sshPass) {
-      throw new Error("متغير SSH_PASSWORD غير محدد في البيئة");
+    if (authMethod === "password" && !process.env.SSH_PASSWORD) {
+      throw new Error("لا يوجد مفتاح SSH ولا كلمة مرور SSH_PASSWORD في البيئة");
     }
 
     await this.addLog(deploymentId, "اختبار اتصال SSH...", "info");
@@ -1847,20 +1958,80 @@ export class DeploymentEngine {
   }
 
   private async stepDbMigrate(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "فحص قاعدة البيانات (بدون تعديل تلقائي)...", "info");
+    const autoMigrate = process.env.AUTO_DB_MIGRATE === "true";
     const remoteDir = "/home/administrator/app2";
 
-    try {
-      await this.execWithLog(
-        deploymentId,
-        `${sshCmd} "cd ${remoteDir} && echo 'DB migration skipped - manual review required for safety' && echo 'MIGRATE_OK'"`,
-        "DB Migrate",
-        30000
-      );
-      await this.addLog(deploymentId, "تم تخطي الترحيل التلقائي للحفاظ على البيانات - راجع التغييرات يدوياً إذا لزم الأمر", "warn");
-    } catch (err: any) {
-      await this.addLog(deploymentId, "تحذير: فحص قاعدة البيانات فشل لكن لم يتم تعديل أي بيانات", "warn");
+    if (!autoMigrate) {
+      await this.addLog(deploymentId, "⚠️ ترحيل قاعدة البيانات التلقائي معطّل (AUTO_DB_MIGRATE !== true)", "warn");
+      await this.addLog(deploymentId, "💡 لتفعيله: اضبط AUTO_DB_MIGRATE=true في متغيرات البيئة", "info");
+      return;
     }
+
+    await this.addLog(deploymentId, "🔄 بدء ترحيل قاعدة البيانات الآمن...", "info");
+
+    await this.addLog(deploymentId, "📦 إنشاء نسخة احتياطية لقاعدة البيانات قبل الترحيل...", "info");
+    const backupResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && BACKUP_FILE=/tmp/db_backup_pre_migrate_$(date +%Y%m%d_%H%M%S).sql && if command -v pg_dump >/dev/null 2>&1; then pg_dump \$DATABASE_URL -f \$BACKUP_FILE --no-owner --no-privileges 2>&1 && echo \"BACKUP_OK: \$BACKUP_FILE\" || echo 'BACKUP_FAILED'; else echo 'PG_DUMP_MISSING'; fi"`,
+      "Database Backup",
+      120000
+    );
+
+    if (backupResult.includes("BACKUP_FAILED")) {
+      throw new Error("❌ فشل إنشاء النسخة الاحتياطية — لن يتم تنفيذ الترحيل لحماية البيانات");
+    }
+
+    if (backupResult.includes("PG_DUMP_MISSING")) {
+      await this.addLog(deploymentId, "❌ pg_dump غير متوفر — إلغاء الترحيل لعدم القدرة على أخذ نسخة احتياطية", "error");
+      throw new Error("pg_dump غير متوفر على الخادم — الترحيل يتطلب نسخة احتياطية أولاً");
+    } else if (backupResult.includes("BACKUP_FAILED")) {
+      await this.addLog(deploymentId, "❌ فشل إنشاء النسخة الاحتياطية — إلغاء الترحيل", "error");
+      throw new Error("فشل إنشاء النسخة الاحتياطية — الترحيل ملغي");
+    } else {
+      const backupPath = backupResult.match(/BACKUP_OK: (.+)/)?.[1]?.trim();
+      await this.addLog(deploymentId, `✅ نسخة احتياطية: ${backupPath || "تمت"}`, "success");
+    }
+
+    await this.addLog(deploymentId, "🔍 فحص الترحيل (dry-run) — بدون تعديل فعلي...", "info");
+    const dryRunResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && npx drizzle-kit push --dry-run 2>&1 && echo 'DRYRUN_DONE'"`,
+      "Migration Dry Run",
+      60000
+    );
+
+    if (!dryRunResult.includes("DRYRUN_DONE")) {
+      throw new Error("❌ فشل فحص الترحيل (dry-run) — لن يتم تنفيذ الترحيل");
+    }
+
+    const hasDangerousOps = /DROP TABLE|DROP COLUMN|TRUNCATE|DELETE FROM/i.test(dryRunResult);
+    if (hasDangerousOps) {
+      await this.addLog(deploymentId, "🚫 تم اكتشاف عمليات خطيرة (DROP/TRUNCATE/DELETE) — إيقاف الترحيل التلقائي", "error");
+      await this.addLog(deploymentId, "💡 راجع التغييرات يدوياً وطبّقها بعناية", "warn");
+      throw new Error("🚫 ترحيل يحتوي عمليات خطيرة (حذف جداول/أعمدة) — يتطلب مراجعة يدوية");
+    }
+
+    const noChanges = dryRunResult.includes("No changes") || dryRunResult.includes("nothing to push") || dryRunResult.includes("Already up to date");
+    if (noChanges) {
+      await this.addLog(deploymentId, "✅ قاعدة البيانات متوافقة — لا حاجة لترحيل", "success");
+      return;
+    }
+
+    await this.addLog(deploymentId, "📋 توجد تغييرات — جاري تطبيق الترحيل...", "info");
+
+    const migrateResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && npx drizzle-kit push --force 2>&1 | tail -20 && echo 'MIGRATE_DONE'"`,
+      "Database Migration",
+      120000
+    );
+
+    if (!migrateResult.includes("MIGRATE_DONE")) {
+      await this.addLog(deploymentId, "❌ فشل تطبيق الترحيل — النسخة الاحتياطية متاحة للاستعادة", "error");
+      throw new Error("❌ فشل ترحيل قاعدة البيانات — استعد النسخة الاحتياطية يدوياً إن لزم");
+    }
+
+    await this.addLog(deploymentId, "✅ تم ترحيل قاعدة البيانات بنجاح", "success");
   }
 
   private async stepHotfixSync(deploymentId: string) {
@@ -1927,7 +2098,7 @@ export class DeploymentEngine {
       return {
         versionName: latest.version,
         versionCode: latest.buildNumber,
-        downloadUrl: latest.artifactUrl || null,
+        downloadUrl: latest.id ? `/api/deployment/app/download/${latest.id}?token=${this.generateDownloadToken(latest.id)}` : null,
         releasedAt: latest.created_at.toISOString(),
       };
     } catch {
@@ -2065,6 +2236,7 @@ export class DeploymentEngine {
   }
 
   async rollbackDeployment(deploymentId: string, targetBuildNumber?: number, targetCommitHash?: string): Promise<string> {
+    await this.ensureSSHKeyProvisioned();
     let targetDeployment: any;
 
     if (targetBuildNumber) {
@@ -2094,32 +2266,45 @@ export class DeploymentEngine {
       { name: "verify", status: "pending" },
     ];
 
-    const [rollbackDeployment] = await db.insert(buildDeployments).values({
-      buildNumber: rollbackBuildNumber,
-      status: "running",
-      currentStep: "validate",
-      progress: 0,
-      version: targetDeployment.version,
-      appType: targetDeployment.appType,
-      environment: targetDeployment.environment,
-      branch: targetDeployment.branch || "main",
-      commitMessage: `Rollback to build #${targetDeployment.buildNumber} (${targetDeployment.commitHash?.substring(0, 8) || "N/A"})`,
-      pipeline: "rollback",
-      deploymentType: "rollback",
-      rollbackInfo: {
-        originalDeploymentId: targetDeployment.id,
-        originalBuildNumber: targetDeployment.buildNumber,
-        targetCommitHash: targetDeployment.commitHash,
-      },
-      logs: [],
-      steps,
-    }).returning();
+    const [rollbackDep] = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 
-    this.executeRollback(rollbackDeployment.id, targetDeployment).catch(err => {
+      const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
+        .from(buildDeployments)
+        .where(eq(buildDeployments.status, "running"))
+        .limit(1);
+
+      if (running.length > 0) {
+        throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
+      }
+
+      return tx.insert(buildDeployments).values({
+        buildNumber: rollbackBuildNumber,
+        status: "running",
+        currentStep: "validate",
+        progress: 0,
+        version: targetDeployment.version,
+        appType: targetDeployment.appType,
+        environment: targetDeployment.environment,
+        branch: targetDeployment.branch || "main",
+        commitMessage: `Rollback to build #${targetDeployment.buildNumber} (${targetDeployment.commitHash?.substring(0, 8) || "N/A"})`,
+        pipeline: "rollback",
+        deploymentType: "rollback",
+        rollbackInfo: {
+          originalDeploymentId: targetDeployment.id,
+          originalBuildNumber: targetDeployment.buildNumber,
+          targetCommitHash: targetDeployment.commitHash,
+        },
+        logs: [],
+        steps,
+      }).returning();
+    });
+
+    this.executeRollback(rollbackDep.id, targetDeployment).catch(err => {
       console.error(`[DeploymentEngine] Rollback error:`, err);
     });
 
-    return rollbackDeployment.id;
+    return rollbackDep.id;
   }
 
   private async executeRollback(rollbackId: string, targetDeployment: any) {
@@ -2254,7 +2439,11 @@ export class DeploymentEngine {
               await new Promise(r => setTimeout(r, retryPolicy!.delayMs));
               if (this.isCancelled(deploymentId)) throw new CancellationError();
             }
-            await this.executeStep(deploymentId, stepName, config);
+            const timeoutMs = STEP_TIMEOUT_MS[stepName] || 300000;
+            await Promise.race([
+              this.executeStep(deploymentId, stepName, config),
+              new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`)), timeoutMs)),
+            ]);
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
             await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)`, "success");
@@ -2303,8 +2492,7 @@ export class DeploymentEngine {
       });
       await this.sendDeploymentNotification(isCancelled ? "cancelled" : "failed", config, deploymentId, totalDuration, error.message);
     } finally {
-      await this.flushLogs(deploymentId);
-      this.cleanupDeployment(deploymentId);
+      this.cleanupDeploymentState(deploymentId);
     }
   }
 
@@ -2413,6 +2601,20 @@ export class DeploymentEngine {
 
     await this.addLog(deploymentId, "تم إلغاء النشر بواسطة المستخدم", "warn");
     await this.addEvent(deploymentId, "deployment_cancelled", "Deployment cancelled by user");
+  }
+
+  generateDownloadToken(deploymentId: string): string {
+    const crypto = require("crypto");
+    const secret = process.env.APP_SECRET || process.env.SESSION_SECRET;
+    if (!secret) {
+      throw new Error("APP_SECRET أو SESSION_SECRET مطلوب لتوليد رمز التحميل");
+    }
+    const timestamp = Date.now().toString();
+    const hash = crypto.createHmac("sha256", secret)
+      .update(`${deploymentId}:${timestamp}`)
+      .digest("hex")
+      .substring(0, 32);
+    return `${timestamp}.${hash}`;
   }
 
   registerSSEClient(deploymentId: string, res: Response) {

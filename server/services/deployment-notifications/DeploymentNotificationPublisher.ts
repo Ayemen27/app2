@@ -10,12 +10,15 @@ export class DeploymentNotificationPublisher {
   }
 
   registerProvider(provider: NotificationProvider): void {
-    if (provider.isEnabled()) {
-      this.providers.push(provider);
-      console.log(`[NotificationPublisher] registered channel: ${provider.channel}`);
-    } else {
+    if (!provider.isEnabled()) {
       console.warn(`[NotificationPublisher] channel ${provider.channel} disabled — not registered`);
+      return;
     }
+    if (this.providers.some(p => p.channel === provider.channel)) {
+      return;
+    }
+    this.providers.push(provider);
+    console.log(`[NotificationPublisher] registered channel: ${provider.channel}`);
   }
 
   async publish(payload: DeploymentNotificationPayload): Promise<NotificationSendResult[]> {

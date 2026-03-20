@@ -8,7 +8,7 @@ export function DebugOverlay() {
   const [logs, setLogs] = useState(getLogs());
   const scrollRef = useRef<HTMLDivElement>(null);
   const tapCount = useRef(0);
-  const tapTimer = useRef<ReturnType<typeof setTimeout>>();
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!enabled) return;

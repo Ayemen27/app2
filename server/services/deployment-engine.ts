@@ -132,9 +132,15 @@ export class DeploymentEngine {
   private logFlushTimers = new Map<string, NodeJS.Timeout>();
   private static LOG_FLUSH_INTERVAL = 2000;
   private notificationPublisher: DeploymentNotificationPublisher;
+  private providersRegistered = false;
 
   constructor() {
     this.notificationPublisher = DeploymentNotificationPublisher.getInstance();
+  }
+
+  private ensureProvidersRegistered() {
+    if (this.providersRegistered) return;
+    this.providersRegistered = true;
     this.notificationPublisher.registerProvider(new TelegramDeploymentProvider());
   }
 
@@ -394,6 +400,7 @@ export class DeploymentEngine {
     prebuildReport?: any
   ) {
     try {
+      this.ensureProvidersRegistered();
       let payload;
       switch (status) {
         case "started": {

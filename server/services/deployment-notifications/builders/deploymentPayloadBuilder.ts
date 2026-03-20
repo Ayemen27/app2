@@ -137,11 +137,12 @@ export class DeploymentPayloadBuilder {
     } catch {}
 
     let timeline: TimelineEntry[] = [];
+    let allEvents: any[] = [];
     try {
-      const events = await db.select().from(deploymentEvents)
+      allEvents = await db.select().from(deploymentEvents)
         .where(eq(deploymentEvents.deploymentId, deploymentId))
         .orderBy(desc(deploymentEvents.timestamp));
-      timeline = events.map((e: any) => ({
+      timeline = allEvents.slice(0, 20).map((e: any) => ({
         at: e.timestamp?.toISOString() || new Date().toISOString(),
         event: e.eventType,
         title: e.message,
@@ -151,10 +152,7 @@ export class DeploymentPayloadBuilder {
 
     let checks: DeploymentNotificationPayload["checks"] = undefined;
     try {
-      const events = await db.select().from(deploymentEvents)
-        .where(eq(deploymentEvents.deploymentId, deploymentId))
-        .orderBy(desc(deploymentEvents.timestamp));
-      const gateEvent = events.find((e: any) => e.eventType === "prebuild_gate");
+      const gateEvent = allEvents.find((e: any) => e.eventType === "prebuild_gate");
       if (gateEvent && gateEvent.metadata) {
         const meta = gateEvent.metadata as any;
         checks = {
@@ -279,7 +277,7 @@ export class DeploymentPayloadBuilder {
       const events = await db.select().from(deploymentEvents)
         .where(eq(deploymentEvents.deploymentId, deploymentId))
         .orderBy(desc(deploymentEvents.timestamp));
-      timeline = events.map((e: any) => ({
+      timeline = events.slice(0, 20).map((e: any) => ({
         at: e.timestamp?.toISOString() || new Date().toISOString(),
         event: e.eventType,
         title: e.message,

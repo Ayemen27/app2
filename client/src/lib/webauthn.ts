@@ -245,7 +245,7 @@ async function loginWithBiometricNative(email?: string): Promise<any> {
 async function registerBiometricWebAuthn(accessToken: string): Promise<{ success: boolean; message: string }> {
   const apiBase = ENV.getApiBaseUrl();
 
-  const authHeader = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
+  const authHeader: Record<string, string> = accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {};
   const optionsRes = await fetch(`${apiBase}/api/webauthn/register/options`, {
     method: 'POST',
     credentials: getFetchCredentials(),

@@ -407,7 +407,7 @@ financialRouter.post('/fund-transfers', async (req: Request, res: Response) => {
     console.log(`✅ [API] تم إنشاء تحويل العهدة بنجاح في ${duration}ms`);
 
     try {
-      const dateStr = typeof newTransfer[0].transferDate === 'string' ? newTransfer[0].transferDate.substring(0, 10) : new Date(newTransfer[0].transferDate).toISOString().substring(0, 10);
+      const dateStr = new Date(newTransfer[0].transferDate as any).toISOString().substring(0, 10);
       await SummaryRebuildService.markInvalid(newTransfer[0].project_id, dateStr);
     } catch (e) { console.error('[SummaryRebuild] fund-transfer/POST markInvalid error:', e); }
 
@@ -527,8 +527,8 @@ financialRouter.patch('/fund-transfers/:id', async (req: Request, res: Response)
     const t = updatedTransfer[0];
 
     try {
-      const oldDateStr = typeof existingTransfer[0].transferDate === 'string' ? existingTransfer[0].transferDate.substring(0, 10) : new Date(existingTransfer[0].transferDate).toISOString().substring(0, 10);
-      const newDateStr = typeof t.transferDate === 'string' ? t.transferDate.substring(0, 10) : new Date(t.transferDate).toISOString().substring(0, 10);
+      const oldDateStr = new Date(existingTransfer[0].transferDate as any).toISOString().substring(0, 10);
+      const newDateStr = new Date(t.transferDate as any).toISOString().substring(0, 10);
       const minDate = oldDateStr < newDateStr ? oldDateStr : newDateStr;
       await SummaryRebuildService.markInvalid(t.project_id, minDate);
       if (existingTransfer[0].project_id && existingTransfer[0].project_id !== t.project_id) {

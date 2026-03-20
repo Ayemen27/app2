@@ -215,7 +215,7 @@ router.post("/:id/rollback", requireAdmin, asyncHandler(async (req: Request, res
     ? req.body.targetCommitHash.replace(/[^a-f0-9]/gi, "").substring(0, 40)
     : undefined;
   const authUser = getAuthUser(req);
-  const triggeredBy = authUser?.username || authUser?.fullName || "admin";
+  const triggeredBy = authUser?.full_name || authUser?.first_name || authUser?.email || "admin";
   const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id, targetBuildNumber, targetCommitHash, triggeredBy);
   res.json({ id: rollbackId, message: "Rollback started" });
 }));

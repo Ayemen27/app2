@@ -329,7 +329,7 @@ export class DeploymentEngine {
     };
 
     const resolvedPipeline = resolvePipeline(config.pipeline);
-    const [deployment] = await db.transaction(async (tx) => {
+    const [deployment] = await db.transaction(async (tx: any) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 
       const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
@@ -1896,7 +1896,7 @@ export class DeploymentEngine {
     );
 
     try {
-      await execAsync("git fetch origin main", { cwd: "/home/runner/workspace", timeout: 15000 });
+      await execAsync(`git fetch origin ${branch}`, { cwd: "/home/runner/workspace", timeout: 15000 });
     } catch {}
 
     try {
@@ -2270,7 +2270,7 @@ export class DeploymentEngine {
       { name: "verify", status: "pending" },
     ];
 
-    const [rollbackDep] = await db.transaction(async (tx) => {
+    const [rollbackDep] = await db.transaction(async (tx: any) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 
       const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
@@ -2366,7 +2366,7 @@ export class DeploymentEngine {
   }
 
   async resumeDeployment(deploymentId: string): Promise<string> {
-    return await db.transaction(async (tx) => {
+    return await db.transaction(async (tx: any) => {
       await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 
       const [deployment] = await tx.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));

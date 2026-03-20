@@ -337,7 +337,7 @@ export class EmergencyAuthService {
       }
 
       const hashedPassword = await hashPassword(password);
-      const newId = `emergency_${Date.now()}`;
+      const newId = `emergency-${Date.now()}`;
 
       if (this.isInEmergencyMode()) {
         console.log('🔄 [EMERGENCY] Emergency mode active, using SQLite for createEmergencyUser');

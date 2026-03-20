@@ -583,12 +583,59 @@ async function refreshAccessTokenProd(refreshToken: string, clientContext?: Clie
  * تجديد Access Token - يختار النسخة المناسبة حسب البيئة
  */
 export async function refreshAccessToken(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
+  if ((globalThis as any).isEmergencyMode) {
+    return await refreshAccessTokenEmergency(refreshToken);
+  }
+
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   if (isDevelopment) {
     return await refreshAccessTokenDev(refreshToken, clientContext);
   } else {
     return await refreshAccessTokenProd(refreshToken, clientContext);
+  }
+}
+
+async function refreshAccessTokenEmergency(refreshToken: string): Promise<TokenPair | null> {
+  try {
+    let payload: JWTPayload;
+    try {
+      payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
+        issuer: JWT_CONFIG.issuer,
+      }) as JWTPayload;
+    } catch {
+      console.warn('⚠️ [JWT-EMERGENCY] Invalid refresh token');
+      return null;
+    }
+
+    if (payload.type && payload.type !== 'refresh') return null;
+
+    const userId = payload.userId || payload.user_id || payload.sub || payload.id;
+    if (!userId) return null;
+
+    const now = new Date();
+    const newSessionId = crypto.randomUUID();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const newAccessToken = jwt.sign(
+      { userId, email: payload.email, role: payload.role || 'admin', sessionId: newSessionId, type: 'access' as const },
+      JWT_ACCESS_SECRET,
+      { expiresIn: JWT_CONFIG.accessTokenExpiry, issuer: JWT_CONFIG.issuer } as jwt.SignOptions
+    );
+
+    const newRefreshToken = jwt.sign(
+      { userId, email: payload.email, sessionId: newSessionId, type: 'refresh' as const },
+      JWT_REFRESH_SECRET,
+      { expiresIn: JWT_CONFIG.refreshTokenExpiry, issuer: JWT_CONFIG.issuer } as jwt.SignOptions
+    );
+
+    console.log(`✅ [JWT-EMERGENCY] Token refresh completed (no DB) for user: ${userId}`);
+
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken, sessionId: newSessionId, expiresAt, refreshExpiresAt };
+  } catch (error) {
+    console.error('❌ [JWT-EMERGENCY] Refresh failed:', error instanceof Error ? error.message : error);
+    return null;
   }
 }
 

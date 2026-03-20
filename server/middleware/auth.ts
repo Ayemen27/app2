@@ -384,7 +384,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     }
 
     const isEmergency = !!(globalThis as any).isEmergencyMode;
-    const isEmergencyUser = user_id === 'emergency-admin' || user_id.startsWith('emergency-');
+    const isEmergencyUser = user_id === 'emergency-admin' || user_id.startsWith('emergency-') || user_id.startsWith('emergency_');
 
     if (isEmergency && isEmergencyUser) {
       const sessionId = decoded.sessionId || '';
@@ -539,7 +539,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
       if (!decodedUserId) return next();
 
       const isEmergency = !!(globalThis as any).isEmergencyMode;
-      const isEmergencyUser = decodedUserId === 'emergency-admin' || decodedUserId.startsWith('emergency-');
+      const isEmergencyUser = decodedUserId === 'emergency-admin' || decodedUserId.startsWith('emergency-') || decodedUserId.startsWith('emergency_');
 
       if (isEmergency && isEmergencyUser) {
         (req as any).user = {

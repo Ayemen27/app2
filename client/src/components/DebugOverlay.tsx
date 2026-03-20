@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { getLogs, onLogsChange, getLogsText } from '@/lib/debug-tracker';
+import { getLogs, onLogsChange, getLogsText, isDebugEnabled } from '@/lib/debug-tracker';
 
 export function DebugOverlay() {
+  const enabled = isDebugEnabled();
   const [visible, setVisible] = useState(false);
   const [logs, setLogs] = useState(getLogs());
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -9,16 +10,19 @@ export function DebugOverlay() {
   const tapTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
+    if (!enabled) return;
     return onLogsChange(() => {
       setLogs([...getLogs()]);
     });
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [logs, visible]);
+
+  if (!enabled) return null;
 
   const handleTripleTap = () => {
     tapCount.current++;

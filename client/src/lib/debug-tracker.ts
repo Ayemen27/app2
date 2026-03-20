@@ -1,8 +1,9 @@
 type LogEntry = { time: string; stage: string; data: any };
 
+const MAX_LOG_ENTRIES = 500;
 const _logs: LogEntry[] = [];
 let _listeners: Array<() => void> = [];
-let _enabled = true;
+let _enabled = !!(import.meta.env.DEV || import.meta.env.VITE_DEBUG_OVERLAY === 'true' || (typeof window !== 'undefined' && (window as any).Capacitor));
 
 function now() {
   return new Date().toISOString().split('T')[1].replace('Z', '');
@@ -12,6 +13,9 @@ export function trackLog(stage: string, data: any = {}) {
   if (!_enabled) return;
   const entry: LogEntry = { time: now(), stage, data };
   _logs.push(entry);
+  if (_logs.length > MAX_LOG_ENTRIES) {
+    _logs.splice(0, _logs.length - MAX_LOG_ENTRIES);
+  }
   console.log(`[TRACK] ${stage}`, typeof data === 'object' ? JSON.stringify(data) : data);
   _listeners.forEach(fn => { try { fn(); } catch {} });
 }
@@ -33,10 +37,14 @@ export function getLogsText(): string {
   return _logs.map(e => `[${e.time}] ${e.stage}: ${typeof e.data === 'object' ? JSON.stringify(e.data) : e.data}`).join('\n');
 }
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && _enabled) {
   (window as any).__track = trackLog;
   (window as any).__getLogs = getLogs;
   (window as any).__getLogsText = getLogsText;
+}
+
+export function isDebugEnabled() {
+  return _enabled;
 }
 
 trackLog('MODULE_LOAD', {

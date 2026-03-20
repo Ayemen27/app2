@@ -157,9 +157,9 @@ describe('Build Scripts Validation Tests', () => {
     expect(existsSync(scriptPath)).toBe(true);
   });
 
-  it('يجب أن يكون سكربت apk.sh موجوداً', () => {
-    const scriptPath = resolve(__dirname, '../../apk.sh');
-    expect(existsSync(scriptPath)).toBe(true);
+  it('يجب أن يكون deployment-engine.ts موجوداً', () => {
+    const enginePath = resolve(__dirname, '../services/deployment-engine.ts');
+    expect(existsSync(enginePath)).toBe(true);
   });
 });
 

@@ -127,19 +127,7 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
   }
 }));
 
-router.post("/deploy", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  res.redirect(307, "/api/deployment/start");
-}));
-
 router.get("/list", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-  const offset = parseInt(req.query.offset as string) || 0;
-  const deployments = await deploymentEngine.getDeployments(limit, offset);
-  const total = await deploymentEngine.getDeploymentCount();
-  res.json({ deployments, total, limit, offset });
-}));
-
-router.get("/history", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
   const offset = parseInt(req.query.offset as string) || 0;
   const deployments = await deploymentEngine.getDeployments(limit, offset);
@@ -160,15 +148,6 @@ router.get("/health", requireAdmin, asyncHandler(async (req: Request, res: Respo
 router.post("/cleanup", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const result = await deploymentEngine.runCleanup();
   res.json(result);
-}));
-
-router.get("/status/:id", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
-  const deployment = await deploymentEngine.getDeployment(req.params.id);
-  if (!deployment) {
-    res.status(404).json({ error: "Deployment not found" });
-    return;
-  }
-  res.json(deployment);
 }));
 
 router.get("/:id/events", requireAdmin, asyncHandler(async (req: Request, res: Response) => {

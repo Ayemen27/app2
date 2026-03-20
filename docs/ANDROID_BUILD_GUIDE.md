@@ -43,22 +43,18 @@ The `VITE_FIREBASE_VAPID_KEY` is required for web push notifications. To generat
 
 ## 🚀 Build Commands
 
-### Release Build (signed APK)
-```bash
-export KEYSTORE_PASSWORD="your_password"
-bash apk.sh
-```
+All builds are managed through the **Deployment Console** in the AXION web interface:
 
-### Debug Build
-```bash
-BUILD_TYPE=debug bash apk.sh
-```
+1. Navigate to **Deployment Console** page in the app
+2. Select a pipeline:
+   - `android-build` — Build Android APK only
+   - `full-deploy` — Full deployment (server + Android)
+   - `git-android-build` — Git push + Android build
+   - `android-build-test` — Android build + Firebase Test Lab
+3. Click **Start Deployment**
+4. Monitor progress in real-time via the console
 
-### Remote Server Build (from Replit)
-```bash
-export KEYSTORE_PASSWORD="your_password"
-bash build-apk-on-server.sh
-```
+> **Note:** Legacy scripts (`apk.sh`, `build-apk-on-server.sh`) have been archived. The Deployment Engine (`server/services/deployment-engine.ts`) is the single source of truth for all builds.
 
 ---
 
@@ -68,8 +64,9 @@ bash build-apk-on-server.sh
 |------|---------|
 | `capacitor.config.json` | Capacitor app config (appId: com.axion.app) |
 | `google-services.json` | Firebase Android config |
-| `apk.sh` | Main build script (local + remote) |
-| `build-apk-on-server.sh` | Remote-only build script |
+| `server/services/deployment-engine.ts` | Unified deployment engine (all pipelines) |
+| `server/routes/modules/deploymentRoutes.ts` | Deployment API endpoints |
+| `client/src/pages/deployment-console.tsx` | Deployment Console UI |
 | `client/src/services/firebase.ts` | Firebase web SDK initialization |
 | `client/src/services/capacitorPush.ts` | Native push notification handling |
 | `server/services/FcmService.ts` | Server-side FCM notification sending |
@@ -81,6 +78,15 @@ bash build-apk-on-server.sh
 The `google-services.json` file must be placed at `android/app/google-services.json` for Firebase to work. The build scripts automatically copy it from the project root if it's missing from the android directory.
 
 The file contains the Firebase project config for `com.axion.app` under project `app2-eb4df`.
+
+---
+
+## 🔒 Security
+
+- Keystore passwords are transferred via SCP to temp files (mode 600) on the build server — never interpolated into shell commands
+- SSH authentication uses `sshpass -e` (reads from SSHPASS env var) — no password in command strings
+- Temp secret files are cleaned up after each build step
+- Git push never uses `--force`
 
 ---
 
@@ -98,11 +104,7 @@ cd android
 - Verify the package name matches `com.axion.app`
 - Ensure `com.google.gms.google-services` plugin is applied in build.gradle
 
-### Push notifications not working
-- Verify `FIREBASE_SERVICE_ACCOUNT_KEY` is set on the server
-- Check FCM initialization logs for errors
-- Ensure the app has notification permissions
-
----
-
-**Last updated: March 2026**
+### Missing APK after build
+- Check the Deployment Console logs for error details
+- Verify releases directory exists on server: `/home/administrator/app2/releases/`
+- Use the download button in deployment history for successful builds

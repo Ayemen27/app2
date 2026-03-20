@@ -267,7 +267,6 @@ export class DeploymentEngine {
       throw new Error("Deployment requires an authenticated user (triggeredBy is required)");
     }
 
-    const buildNumber = await this.getNextBuildNumber();
     const bt = config.buildTarget || "server";
     const steps: StepEntry[] = getPipelineSteps(config.pipeline, bt).map(name => ({
       name,
@@ -295,6 +294,9 @@ export class DeploymentEngine {
       if (running.length > 0) {
         throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
       }
+
+      const buildNumResult = await tx.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
+      const buildNumber = (buildNumResult[0]?.maxBuild || 0) + 1;
 
       return tx.insert(buildDeployments).values({
         buildNumber,
@@ -946,14 +948,25 @@ export class DeploymentEngine {
     }
 
     if (canSignRelease) {
-      const escPass = keystorePassword.replace(/'/g, "'\\''");
-      const escKeyPass = keystoreKeyPassword.replace(/'/g, "'\\''");
-      await this.execWithLog(
-        deploymentId,
-        `${sshCmd} "umask 077 && printf '%s' '${escPass}' > /tmp/.ks_pass && printf '%s' '${escKeyPass}' > /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
-        "Write Signing Secrets",
-        15000
-      );
+      const { writeFileSync, unlinkSync } = await import("fs");
+      const localPassFile = `/tmp/.ks_pass_${deploymentId}`;
+      const localKeyPassFile = `/tmp/.ks_key_pass_${deploymentId}`;
+      try {
+        writeFileSync(localPassFile, keystorePassword, { mode: 0o600 });
+        writeFileSync(localKeyPassFile, keystoreKeyPassword, { mode: 0o600 });
+
+        const scpPassCmd = this.buildSCPCommand(localPassFile, "/tmp/.ks_pass");
+        const scpKeyCmd = this.buildSCPCommand(localKeyPassFile, "/tmp/.ks_key_pass");
+        await this.execWithLog(
+          deploymentId,
+          `${scpPassCmd} && ${scpKeyCmd} && ${sshCmd} "chmod 600 /tmp/.ks_pass /tmp/.ks_key_pass && echo 'SECRETS_WRITTEN'"`,
+          "Write Signing Secrets",
+          30000
+        );
+      } finally {
+        try { unlinkSync(localPassFile); } catch {}
+        try { unlinkSync(localKeyPassFile); } catch {}
+      }
     }
 
     const envExports = canSignRelease

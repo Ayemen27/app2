@@ -305,6 +305,34 @@ router.delete("/:id", requireAdmin, asyncHandler(async (req: Request, res: Respo
   res.json({ success: true, message: "تم حذف العملية" });
 }));
 
+const ALLOWED_PREBUILD_HOSTS = [
+  "app2.binarjoinanelytic.info",
+  "localhost",
+];
+
+router.post("/prebuild-check", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const { runPrebuildChecks } = await import("../../services/prebuild-route-checker.js");
+  let baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+
+  if (req.body.baseUrl && typeof req.body.baseUrl === "string") {
+    try {
+      const parsed = new URL(req.body.baseUrl);
+      if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+        return res.status(400).json({ error: "Only http/https URLs allowed" });
+      }
+      if (!ALLOWED_PREBUILD_HOSTS.includes(parsed.hostname)) {
+        return res.status(400).json({ error: `Host not in allowlist: ${parsed.hostname}` });
+      }
+      baseUrl = req.body.baseUrl;
+    } catch {
+      return res.status(400).json({ error: "Invalid URL" });
+    }
+  }
+
+  const report = await runPrebuildChecks(baseUrl);
+  res.json(report);
+}));
+
 function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map(Number);
   const pb = b.split(".").map(Number);

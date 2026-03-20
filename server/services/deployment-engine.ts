@@ -32,22 +32,22 @@ interface DeploymentConfig {
 
 const SERVER_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
 
 const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
   "web-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
   "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
   "hotfix": ["validate", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
 };
 
 function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = "server"): string[] {
@@ -438,6 +438,9 @@ export class DeploymentEngine {
         break;
       case "restart-pm2":
         await this.stepRestartPM2(deploymentId, sshCmd);
+        break;
+      case "prebuild-gate":
+        await this.stepPrebuildGate(deploymentId);
         break;
       case "sync-capacitor":
         await this.stepSyncCapacitor(deploymentId, sshCmd);
@@ -1137,6 +1140,81 @@ export class DeploymentEngine {
       }
     } else {
       await this.addLog(deploymentId, "⚠️ لم يتم تحديد نتيجة اختبار Firebase — تحقق يدوياً", "warn");
+    }
+  }
+
+  private async stepPrebuildGate(deploymentId: string) {
+    await this.addLog(deploymentId, "🔍 بوابة ما قبل البناء — فحص المسارات + CORS + SSL...", "info");
+
+    const { runPrebuildChecks } = await import("./prebuild-route-checker");
+    const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+
+    try {
+      const report = await runPrebuildChecks(baseUrl);
+
+      if (report.sslCheck.passed) {
+        await this.addLog(deploymentId, `✅ SSL: صالحة (تنتهي بعد ${report.sslCheck.daysUntilExpiry} يوم)`, "success");
+      } else {
+        await this.addLog(deploymentId, `❌ SSL: ${report.sslCheck.error}`, "error");
+      }
+
+      const failedRoutes = report.routeChecks.filter(r => !r.passed);
+      const passedRoutes = report.routeChecks.filter(r => r.passed);
+
+      if (passedRoutes.length > 0) {
+        await this.addLog(deploymentId, `✅ مسارات ناجحة: ${passedRoutes.length}/${report.routeChecks.length}`, "success");
+      }
+
+      for (const failed of failedRoutes) {
+        await this.addLog(deploymentId, `❌ [${failed.method}] ${failed.path}: ${failed.error} (${failed.description})`, "error");
+      }
+
+      const failedCors = report.corsChecks.filter(c => !c.passed);
+      const passedCors = report.corsChecks.filter(c => c.passed);
+
+      if (passedCors.length > 0) {
+        await this.addLog(deploymentId, `✅ CORS ناجح: ${passedCors.length}/${report.corsChecks.length}`, "success");
+      }
+
+      for (const failed of failedCors) {
+        await this.addLog(deploymentId, `❌ CORS [${failed.origin}] ${failed.path}: ${failed.error}`, "error");
+      }
+
+      await this.addLog(deploymentId,
+        `📊 ملخص البوابة: مسارات ${report.summary.passedRoutes}/${report.summary.totalRoutes} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"}`,
+        report.summary.overallPass ? "success" : "warn"
+      );
+
+      await this.addEvent(deploymentId, "prebuild_gate", "Pre-build gate completed", {
+        overallPass: report.summary.overallPass,
+        routesPassed: report.summary.passedRoutes,
+        routesFailed: report.summary.failedRoutes,
+        corsPassed: report.summary.passedCors,
+        corsFailed: report.summary.failedCors,
+        sslValid: report.summary.sslValid,
+      });
+
+      const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
+      const corsBlockers = failedCors.filter(c => c.origin === "capacitor://localhost");
+
+      if (criticalFailed.length > 0 || corsBlockers.length > 0 || !report.sslCheck.passed) {
+        const reasons: string[] = [];
+        if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
+        if (corsBlockers.length > 0) reasons.push(`CORS محظور لـ capacitor://localhost`);
+        if (!report.sslCheck.passed) reasons.push("شهادة SSL غير صالحة");
+        throw new Error(`🚫 بوابة ما قبل البناء فشلت: ${reasons.join(" | ")}. لا يمكن بناء APK.`);
+      }
+
+      if (failedRoutes.length > 0) {
+        await this.addLog(deploymentId, `⚠️ ${failedRoutes.length} مسار غير حرج فشل — متابعة البناء مع تحذير`, "warn");
+      }
+
+    } catch (err: any) {
+      if (err.message?.includes("بوابة ما قبل البناء فشلت")) {
+        throw err;
+      }
+      await this.addLog(deploymentId, `❌ فشل تنفيذ فحوصات ما قبل البناء: ${err.message}`, "error");
+      throw new Error(`🚫 بوابة ما قبل البناء فشلت: خطأ غير متوقع أثناء الفحص — ${err.message}`);
     }
   }
 

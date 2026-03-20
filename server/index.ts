@@ -122,7 +122,7 @@ app.use((req: Request, res: Response, next: NextFunction): void => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com",
     "img-src 'self' data: https: https://*.google-analytics.com https://*.googletagmanager.com",
-    "connect-src 'self' wss://*.replit.dev https://*.googleapis.com https://*.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com https://*.firebaseio.com wss://*.firebaseio.com",
+    "connect-src 'self' capacitor://localhost https://localhost wss://*.replit.dev https://*.googleapis.com https://*.binarjoinanelytic.info https://app2.binarjoinanelytic.info https://*.cloudflareinsights.com https://*.cloudflare.com https://*.firebaseio.com wss://*.firebaseio.com",
     "worker-src 'self' blob:"
   ];
 
@@ -212,6 +212,10 @@ const corsOptions = {
       callback(null, true);
       return;
     }
+    if (origin.startsWith('capacitor://') || origin === 'https://localhost') {
+      callback(null, origin);
+      return;
+    }
     const normalized = normalizeOrigin(origin);
     const allowed = isOriginAllowed(normalized, !isProduction);
     if (!allowed && isProduction) {
@@ -253,6 +257,10 @@ const io = new Server(server, {
     origin: (origin, callback) => {
       if (!origin) {
         callback(null, true);
+        return;
+      }
+      if (origin.startsWith('capacitor://') || origin === 'https://localhost') {
+        callback(null, origin);
         return;
       }
       const normalized = normalizeOrigin(origin);

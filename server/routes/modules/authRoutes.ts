@@ -574,18 +574,17 @@ authRouter.post('/refresh', authRateLimit, async (req: Request, res: Response) =
         const responseData: Record<string, any> = {
           success: true,
           message: 'تم تجديد الرموز بنجاح (وضع الطوارئ)',
-          tokenDelivery: nativeClient ? 'bearer' : 'cookie',
+          tokenDelivery: nativeClient ? 'bearer' : 'cookie+bearer',
           expiresIn: 900,
-          user: emergencyUser
-        };
-
-        if (nativeClient) {
-          responseData.accessToken = tokenPair.accessToken;
-          responseData.data = {
+          token: tokenPair.accessToken,
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken,
+          user: emergencyUser,
+          data: {
             accessToken: tokenPair.accessToken,
             refreshToken: tokenPair.refreshToken
-          };
-        }
+          }
+        };
 
         return res.json(responseData);
       }

@@ -8,24 +8,17 @@ export const getClientPlatformHeader = _getClientPlatformHeader;
 
 export function storeTokens(accessToken: string, refreshToken: string): void {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-  if (_isNativePlatform()) {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-  } else {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-  }
+  localStorage.setItem('accessToken', accessToken);
+  localStorage.setItem('refreshToken', refreshToken);
 }
 
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
-  if (!_isNativePlatform()) return null;
   return localStorage.getItem('accessToken');
 }
 
 export function getRefreshToken(): string | null {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
-  if (!_isNativePlatform()) return null;
   return localStorage.getItem('refreshToken');
 }
 
@@ -36,7 +29,6 @@ export function clearTokens(): void {
 }
 
 export function getAuthHeaders(): Record<string, string> {
-  if (!_isNativePlatform()) return {};
   const token = getAccessToken();
   if (!token) return {};
   return { 'Authorization': `Bearer ${token}` };

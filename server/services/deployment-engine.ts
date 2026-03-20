@@ -1950,9 +1950,12 @@ export class DeploymentEngine {
       });
 
       const allRouteFailuresAreInfra = failedRoutes.length > 0 && appFailed.length === 0 && infraFailed.length === failedRoutes.length;
+      const publicInfraFailed = infraFailed.filter(r => r.group === "public" || r.group === "auth");
+      const infraRatio = infraFailed.length / report.routeChecks.length;
+      const isFullInfraOutage = allRouteFailuresAreInfra && publicInfraFailed.length > 0 && infraRatio >= 0.5;
 
-      if (allRouteFailuresAreInfra && report.sslCheck.passed) {
-        await this.addLog(deploymentId, `⚠️ جميع الفشلات من نوع بنية تحتية (502/503/504) — السيرفر لا يزال يبدأ. متابعة البناء مع تحذير.`, "warn");
+      if (isFullInfraOutage && report.sslCheck.passed) {
+        await this.addLog(deploymentId, `⚠️ السيرفر غير متاح (${infraFailed.length}/${report.routeChecks.length} مسار 502/503/504) — بنية تحتية. SSL صالحة. متابعة البناء مع تحذير.`, "warn");
       } else {
         const criticalFailed = appFailed.filter(r => r.group === "auth" || r.group === "public");
         const corsBlockers = isCorsCspSkipped ? [] : failedCors.filter(c => c.origin === "capacitor://localhost");

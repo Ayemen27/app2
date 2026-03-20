@@ -1,4 +1,13 @@
+import { trackLog } from "@/lib/debug-tracker";
+trackLog('MAIN_TSX_START', { timestamp: Date.now() });
 import { ENV } from "@/lib/env";
+trackLog('ENV_LOADED', {
+  platform: ENV.platform,
+  isNative: ENV.isNative,
+  authStrategy: ENV.authStrategy,
+  apiBaseUrl: ENV.getApiBaseUrl(),
+  isAndroid: ENV.isAndroid,
+});
 import "./lib/instrumentation";
 import { createRoot } from "react-dom/client";
 import { initializeDB } from "./offline/db";
@@ -42,13 +51,14 @@ const registerServiceWorker = async () => {
 };
 
 const startApp = async () => {
+  trackLog('START_APP', 'startApp() called');
   const rootElement = document.getElementById("root");
-  if (!rootElement) return;
+  if (!rootElement) { trackLog('ERROR_NO_ROOT', 'root element not found'); return; }
 
   try {
     registerServiceWorker();
 
-    initializeDB().catch(console.error);
+    initializeDB().catch(e => { trackLog('DB_INIT_ERROR', e?.message); });
 
     window.onerror = (message, source, lineno, colno, error) => {
       console.error("Global error caught:", { message, source, lineno, colno, error });
@@ -65,9 +75,12 @@ const startApp = async () => {
       }).catch(() => {});
     };
 
+    trackLog('RENDER_START', 'Creating React root');
     const root = createRoot(rootElement);
     root.render(<App />);
+    trackLog('RENDER_DONE', 'React root rendered');
   } catch (err: any) {
+    trackLog('FATAL_ERROR', err?.message || String(err));
     console.error("Fatal startup error:", err);
     rootElement.innerHTML = `<div style="padding:20px;text-align:center;direction:rtl;">حدث خطأ أثناء تشغيل التطبيق. يرجى تحديث الصفحة.</div>`;
   }

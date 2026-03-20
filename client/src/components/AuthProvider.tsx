@@ -9,6 +9,7 @@ import { registerAuthHelpers, prefetchCoreData, clearAllCache } from "../lib/que
 import { isValidJwt, clearInvalidTokens, setAuthMode, getAuthMode, isOfflineMode } from "../lib/token-utils";
 import { storeTokens, clearTokens, getAccessToken as storeGetAccessToken, getRefreshToken as storeGetRefreshToken, isWebCookieMode, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
 import { ENV } from "../lib/env";
+import { trackLog } from "../lib/debug-tracker";
 
 interface User {
   id: string;
@@ -84,7 +85,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // تحقق من وجود مستخدم محفوظ عند بدء التطبيق مع آليات تعافي محسنة
   useEffect(() => {
     const initAuth = async () => {
-      console.log('[AUTH-DIAG] initAuth start. Platform:', ENV.platform, 'isNative:', ENV.isNative, 'authStrategy:', ENV.authStrategy, 'apiBase:', ENV.getApiBaseUrl(), 'protocol:', window.location?.protocol, 'Capacitor:', !!(window as any).Capacitor);
+      trackLog('AUTH_INIT_START', {
+        platform: ENV.platform,
+        isNative: ENV.isNative,
+        authStrategy: ENV.authStrategy,
+        apiBase: ENV.getApiBaseUrl(),
+        isWebCookie: isWebCookieMode(),
+        credentials: getFetchCredentials(),
+      });
       clearInvalidTokens();
       try {
         const accessToken = storeGetAccessToken();

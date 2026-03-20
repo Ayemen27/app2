@@ -58,6 +58,7 @@ const DatabaseManager = lazy(() => import("./pages/DatabaseManager"));
 
 import { LayoutShell } from "./components/layout/layout-shell";
 import { FloatingButtonProvider } from "./components/layout/floating-button-context";
+import { DebugOverlay } from "./components/DebugOverlay";
 import { AuthProvider } from "./components/AuthProvider";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -637,6 +638,7 @@ function App() {
                   </Switch>
                 </ErrorBoundary>
                 <Toaster />
+                <DebugOverlay />
               </div>
             </FloatingButtonProvider>
           </TooltipProvider>

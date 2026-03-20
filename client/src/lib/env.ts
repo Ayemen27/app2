@@ -1,4 +1,5 @@
 import type { ClientPlatform, AppEnv, AuthStrategy } from '@shared/env-types';
+import { trackLog } from './debug-tracker';
 
 const PRODUCTION_DOMAIN = 'https://app2.binarjoinanelytic.info';
 const PRODUCTION_HOSTS = ['app2.binarjoinanelytic.info', 'binarjoinanelytic.info', 'www.binarjoinanelytic.info'];
@@ -8,29 +9,53 @@ let _cachedPlatform: ClientPlatform | null = null;
 function detectPlatform(): ClientPlatform {
   if (_cachedPlatform) return _cachedPlatform;
   if (typeof window === 'undefined') return 'web';
+
+  const cap = (window as any).Capacitor;
+  const proto = window.location?.protocol || '';
+  const ua = navigator?.userAgent || '';
+
+  const checks = {
+    capExists: !!cap,
+    capIsNativePlatform: false,
+    capIsNative: false,
+    capGetPlatform: 'N/A',
+    protocol: proto,
+    uaAndroid: /android/i.test(ua),
+    uaWv: /wv/i.test(ua),
+    uaCapacitor: /capacitor/i.test(ua),
+  };
+
   try {
-    const cap = (window as any).Capacitor;
-    if (cap?.isNativePlatform?.()) {
-      const p = cap.getPlatform?.();
-      _cachedPlatform = p === 'ios' ? 'ios' : 'android';
-      return _cachedPlatform;
-    }
-    if (cap?.isNative === true) {
-      _cachedPlatform = 'android';
-      return _cachedPlatform;
+    if (cap) {
+      checks.capIsNativePlatform = !!cap.isNativePlatform?.();
+      checks.capIsNative = cap.isNative === true;
+      checks.capGetPlatform = cap.getPlatform?.() || 'N/A';
     }
   } catch {}
-  const proto = window.location?.protocol;
-  if (proto === 'capacitor:' || proto === 'ionic:') {
-    _cachedPlatform = 'android';
-    return _cachedPlatform;
+
+  let result: ClientPlatform = 'web';
+  let reason = 'default';
+
+  if (checks.capIsNativePlatform) {
+    result = checks.capGetPlatform === 'ios' ? 'ios' : 'android';
+    reason = 'Capacitor.isNativePlatform()';
+  } else if (checks.capIsNative) {
+    result = 'android';
+    reason = 'Capacitor.isNative=true';
+  } else if (proto === 'capacitor:' || proto === 'ionic:') {
+    result = 'android';
+    reason = `protocol=${proto}`;
+  } else if (checks.uaAndroid && (checks.uaWv || checks.uaCapacitor)) {
+    result = 'android';
+    reason = 'userAgent match';
   }
-  const ua = navigator?.userAgent || '';
-  if (/android/i.test(ua) && /wv|capacitor/i.test(ua)) {
-    _cachedPlatform = 'android';
-    return _cachedPlatform;
+
+  trackLog('DETECT_PLATFORM', { ...checks, result, reason, ua: ua.substring(0, 100) });
+
+  if (result !== 'web') {
+    _cachedPlatform = result;
   }
-  return 'web';
+  return result;
 }
 
 function getPlatform(): ClientPlatform {

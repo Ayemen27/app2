@@ -753,14 +753,17 @@ export class DeploymentEngine {
 
     const manifest = `${remoteDir}/android/app/src/main/AndroidManifest.xml`;
     const permsToCheck = ["POST_NOTIFICATIONS", "USE_BIOMETRIC", "USE_FINGERPRINT", "INTERNET"];
-    const permChecks = permsToCheck.map(p =>
-      `grep -q ${p} ${manifest} && echo ${p}_OK || { sed -i '/<\\/manifest>/i\\    <uses-permission android:name="android.permission.${p}"/>' ${manifest} 2>/dev/null && echo ${p}_ADDED; }`
-    ).join('; ');
-    const gsCheck = `[ -f ${remoteDir}/android/app/google-services.json ] && echo GOOGLE_SERVICES_OK || echo GOOGLE_SERVICES_MISSING`;
-    const fullCmd = `[ -f ${manifest} ] && { ${permChecks}; } || echo MANIFEST_MISSING; ${gsCheck}`;
+    const scriptLines = [
+      `#!/bin/bash`,
+      `M="${manifest}"`,
+      `if [ ! -f "$M" ]; then echo MANIFEST_MISSING; exit 0; fi`,
+      ...permsToCheck.map(p => `grep -q "${p}" "$M" && echo "${p}_OK" || { sed -i '/<\\/manifest>/i\\    <uses-permission android:name="android.permission.${p}"/>' "$M" && echo "${p}_ADDED"; }`),
+      `[ -f ${remoteDir}/android/app/google-services.json ] && echo GOOGLE_SERVICES_OK || echo GOOGLE_SERVICES_MISSING`,
+    ];
+    const scriptB64 = Buffer.from(scriptLines.join('\n')).toString('base64');
     const checksResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "bash -c ${JSON.stringify(fullCmd)}"`,
+      `${sshCmd} "echo ${scriptB64} | base64 -d | bash"`,
       "Android Checks",
       20000
     );

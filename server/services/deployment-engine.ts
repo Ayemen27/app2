@@ -5,6 +5,7 @@ import { exec, spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
 import { existsSync, mkdirSync, writeFileSync, chmodSync, accessSync, unlinkSync, constants as fsConstants } from "fs";
 import { dirname } from "path";
+import { createHmac } from "crypto";
 import type { Response } from "express";
 import { DeploymentNotificationPublisher } from "./deployment-notifications/DeploymentNotificationPublisher.js";
 import { DeploymentPayloadBuilder } from "./deployment-notifications/builders/deploymentPayloadBuilder.js";
@@ -711,7 +712,14 @@ export class DeploymentEngine {
     const explicit = process.env.SSH_AUTH_METHOD;
     const hasPassword = !!(process.env.SSH_PASSWORD || process.env.SSHPASS);
 
-    if (keyFileReady) {
+    if (explicit === "password" && hasPassword) {
+      this.resolvedAuthMethod = "password";
+    } else if (explicit === "password" && !hasPassword) {
+      throw new Error(
+        `SSH_AUTH_METHOD=password لكن لا توجد كلمة مرور.\n` +
+        `اضبط SSH_PASSWORD في Secrets`
+      );
+    } else if (keyFileReady) {
       this.resolvedAuthMethod = "key";
     } else if (explicit === "key" && !keyFileReady && hasPassword) {
       console.warn(`[DeploymentEngine] SSH_AUTH_METHOD=key لكن المفتاح غير متوفر — انتقال تلقائي لكلمة المرور`);
@@ -733,6 +741,14 @@ export class DeploymentEngine {
         `  1. مفتاح SSH: اضبط SSH_PRIVATE_KEY_B64 في Secrets\n` +
         `  2. كلمة مرور: اضبط SSH_PASSWORD في Secrets`
       );
+    }
+
+    if (this.resolvedAuthMethod === "password") {
+      try {
+        await execAsync("which sshpass", { timeout: 5000 });
+      } catch {
+        console.warn("[DeploymentEngine] sshpass not found — password auth may fail. Install: apt-get install sshpass");
+      }
     }
 
     console.log(`[DeploymentEngine] SSH auth resolved: ${this.resolvedAuthMethod} (key file: ${keyFileReady ? "✓" : "✗"})`);
@@ -2755,13 +2771,12 @@ export class DeploymentEngine {
   }
 
   generateDownloadToken(deploymentId: string): string {
-    const crypto = require("crypto");
     const secret = process.env.APP_SECRET || process.env.SESSION_SECRET;
     if (!secret) {
       throw new Error("APP_SECRET أو SESSION_SECRET مطلوب لتوليد رمز التحميل");
     }
     const timestamp = Date.now().toString();
-    const hash = crypto.createHmac("sha256", secret)
+    const hash = createHmac("sha256", secret)
       .update(`${deploymentId}:${timestamp}`)
       .digest("hex")
       .substring(0, 32);

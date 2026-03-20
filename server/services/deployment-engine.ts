@@ -384,7 +384,8 @@ export class DeploymentEngine {
       }).returning();
     });
 
-    this.runPipeline(deployment.id, config).catch(err => {
+    const resolvedConfig = { ...config, version };
+    this.runPipeline(deployment.id, resolvedConfig).catch(err => {
       console.error(`[DeploymentEngine] Pipeline error for ${deployment.id}:`, err);
     });
 

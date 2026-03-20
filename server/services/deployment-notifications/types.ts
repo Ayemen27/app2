@@ -180,6 +180,17 @@ export const CRITICAL_STEPS: Record<string, string[]> = {
 };
 
 export const FAILURE_SUGGESTIONS: Record<string, string[]> = {
+  "validate": [
+    "تحقق من اتصال SSH بالخادم — هل الخادم يعمل؟",
+    "تأكد من وجود مفتاح SSH وصلاحياته",
+    "تحقق من إعدادات known_hosts",
+    "تأكد من فتح المنفذ 22 على الخادم",
+  ],
+  "preflight-check": [
+    "تحقق من اتصال الشبكة بالخادم",
+    "تأكد من تشغيل الخادم واستجابته",
+    "راجع إعدادات SSH والصلاحيات",
+  ],
   "git-push": [
     "تأكد من عدم وجود تعارضات في الفرع",
     "تحقق من اتصال SSH بالسيرفر",

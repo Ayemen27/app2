@@ -83,6 +83,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
       `└ ⚡ حرجة: ${criticalSteps || "—"}`,
       ``,
       `🔗 <a href="${escapeHtml(d.consoleUrl)}">متابعة مباشرة ←</a>`,
+      `🌐 ${escapeHtml(d.consoleUrl)}`,
     ];
 
     return lines.join("\n");
@@ -153,6 +154,9 @@ export class TelegramDeploymentProvider implements NotificationProvider {
       }
     }
 
+    lines.push(``);
+    lines.push(`🌐 ${escapeHtml(d.consoleUrl)}`);
+
     return lines.join("\n");
   }
 
@@ -176,10 +180,26 @@ export class TelegramDeploymentProvider implements NotificationProvider {
     ];
 
     if (payload.failure) {
-      const reason = escapeHtml((payload.failure.reason || "").substring(0, 300));
+      const failedStepLabel = payload.failure.failedStep
+        ? escapeHtml(STEP_LABELS[payload.failure.failedStep] || payload.failure.failedStep)
+        : undefined;
+
       lines.push(``);
+      if (failedStepLabel) {
+        lines.push(`🔴 <b>الخطوة الفاشلة:</b> ${failedStepLabel}`);
+      }
+
+      const rawReason = payload.failure.reason || "";
+      const sanitizedReason = rawReason
+        .replace(/ssh\s+-i\s+\S+/gi, "ssh -i [KEY]")
+        .replace(/\/home\/\w+\/\.ssh\/\w+/g, "[SSH_KEY_PATH]")
+        .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, "[SERVER_IP]");
+      const maxLen = 800;
+      const truncatedReason = sanitizedReason.length > maxLen
+        ? sanitizedReason.substring(0, maxLen) + "…"
+        : sanitizedReason;
       lines.push(`💥 <b>سبب الفشل:</b>`);
-      lines.push(reason);
+      lines.push(escapeHtml(truncatedReason));
 
       if (payload.failure.failedCriticalSteps?.length) {
         lines.push(``);
@@ -202,6 +222,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
     const branch = s?.branch ? escapeHtml(s.branch) : "—";
     lines.push(``);
     lines.push(`🔗 Commit: <code>${commitHash}</code> | Branch: ${branch}`);
+    lines.push(`🌐 ${escapeHtml(d.consoleUrl)}`);
 
     return lines.join("\n");
   }
@@ -244,6 +265,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
     const commitHash = s?.commitHash ? escapeHtml(s.commitHash.substring(0, 7)) : "—";
     lines.push(``);
     lines.push(`🔗 Commit: <code>${commitHash}</code>`);
+    lines.push(`🌐 ${escapeHtml(d.consoleUrl)}`);
 
     return lines.join("\n");
   }

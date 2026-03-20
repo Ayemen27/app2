@@ -106,3 +106,12 @@ The system maintains a consistent design using a professional navy/blue palette,
   - **deploymentPayloadBuilder.ts:** 6 async builders that fetch deployment/events from DB, build rich payloads with timeline (capped at 20 entries), security checks, artifact info
   - Integration: `sendDeploymentNotification` in deployment-engine.ts uses PayloadBuilder + Publisher. `sendPrebuildGateNotification` sends gate failure before throw. Providers registered lazily on first notification send.
 - **TypeScript Fixes:** useRef initialValue (React 19), HeadersInit union fix in webauthn.ts, transferDate never-type fix in financialRoutes.ts — **zero TypeScript errors**.
+- **Notification Quality Fixes (Architect Review):**
+  - `triggeredBy` now sends display name (full_name/first_name/email) instead of UUID
+  - Started notification uses resolved version from `getCurrentVersion()` instead of `v0.0.0`
+  - Failed notification shows `failedStep` label (e.g. "التحقق" instead of silent omission)
+  - Error messages sanitized: SSH key paths → `[SSH_KEY_PATH]`, IP addresses → `[SERVER_IP]`
+  - Truncation increased from 300→800 chars with `…` ellipsis
+  - Explicit URL line (`🌐 https://...`) added to all 5 notification types for clickability
+  - `consoleUrl` no longer uses `REPLIT_DEV_DOMAIN` — prioritizes `APP_BASE_URL` → `PRODUCTION_URL` → hardcoded
+  - Added `FAILURE_SUGGESTIONS` for `validate` and `preflight-check` steps (SSH/network diagnostics)

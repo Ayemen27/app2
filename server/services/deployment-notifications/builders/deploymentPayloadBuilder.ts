@@ -31,7 +31,7 @@ export class DeploymentPayloadBuilder {
   static buildConsoleUrl(deploymentId: string): string {
     const baseUrl =
       process.env.APP_BASE_URL ||
-      (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null) ||
+      process.env.PRODUCTION_URL ||
       "https://app2.binarjoinanelytic.info";
     return `${baseUrl}/deployment-console?id=${deploymentId}`;
   }

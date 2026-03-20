@@ -104,7 +104,8 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
   const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
   const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
 
-  const userId = getAuthUser(req)?.user_id;
+  const authUser = getAuthUser(req);
+  const triggeredByDisplay = authUser?.full_name || authUser?.first_name || authUser?.email || authUser?.user_id || "admin";
   try {
     const deploymentId = await deploymentEngine.startDeployment({
       pipeline,
@@ -112,7 +113,7 @@ router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Respo
       environment,
       branch: safeBranch,
       commitMessage: safeMessage,
-      triggeredBy: userId,
+      triggeredBy: triggeredByDisplay,
       version: safeVersion,
       buildTarget: safeBuildTarget,
     });

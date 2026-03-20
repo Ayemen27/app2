@@ -17,7 +17,7 @@ class CancellationError extends Error {
   }
 }
 
-type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "git-push" | "hotfix" | "git-android-build" | "android-build-test";
+type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build";
 
 interface DeploymentConfig {
   pipeline: Pipeline;
@@ -31,23 +31,23 @@ interface DeploymentConfig {
 }
 
 const SERVER_PIPELINES: Record<Pipeline, string[]> = {
-  "web-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
-  "hotfix": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "web-deploy": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+  "android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "full-deploy": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "hotfix": ["validate", "hotfix-guard", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
+  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
 };
 
 const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
-  "web-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "verify"],
-  "android-build": ["validate", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
-  "full-deploy": ["validate", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "git-push": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "verify"],
-  "hotfix": ["validate", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "verify"],
-  "git-android-build": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
-  "android-build-test": ["validate", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "web-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+  "android-build": ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact"],
+  "full-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
+  "hotfix": ["validate", "hotfix-guard", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "post-deploy-smoke", "verify"],
+  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "firebase-test", "retrieve-artifact", "verify"],
+  "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
+  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "retrieve-artifact", "verify"],
 };
 
 function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = "server"): string[] {
@@ -323,10 +323,60 @@ export class DeploymentEngine {
     return deployment.id;
   }
 
+  private async sendDeploymentNotification(status: "started" | "success" | "failed" | "cancelled", config: DeploymentConfig, deploymentId: string, duration?: number, errorMsg?: string) {
+    try {
+      const { TelegramService } = await import("./TelegramService.js");
+
+      const pipelineLabels: Record<string, string> = {
+        "web-deploy": "نشر الويب",
+        "android-build": "بناء أندرويد",
+        "full-deploy": "نشر كامل",
+        "hotfix": "إصلاح سريع",
+        "android-build-test": "بناء + اختبار",
+        "git-push": "نشر Git",
+        "git-android-build": "Git + أندرويد",
+      };
+
+      const statusIcons: Record<string, string> = {
+        started: "🚀",
+        success: "✅",
+        failed: "❌",
+        cancelled: "⏹️",
+      };
+
+      const statusLabels: Record<string, string> = {
+        started: "بدأ",
+        success: "نجح",
+        failed: "فشل",
+        cancelled: "أُلغي",
+      };
+
+      const icon = statusIcons[status];
+      const label = statusLabels[status];
+      const pipeline = pipelineLabels[config.pipeline] || config.pipeline;
+      const version = config.version || "—";
+      const durationStr = duration ? `${(duration / 1000).toFixed(0)}ث` : "";
+
+      let text = `${icon} <b>نشر ${label}</b>\n`;
+      text += `📦 المسار: ${pipeline}\n`;
+      text += `🔖 الإصدار: v${version}\n`;
+      text += `🌍 البيئة: ${config.environment}\n`;
+      if (config.triggeredBy) text += `👤 بواسطة: ${config.triggeredBy}\n`;
+      if (durationStr) text += `⏱️ المدة: ${durationStr}\n`;
+      if (errorMsg) text += `\n💥 الخطأ: <code>${errorMsg.substring(0, 200)}</code>`;
+      text += `\n🆔 <code>${deploymentId.substring(0, 8)}</code>`;
+
+      await TelegramService.sendMessage({ text, parseMode: "HTML" });
+    } catch {
+    }
+  }
+
   private async runPipeline(deploymentId: string, config: DeploymentConfig) {
     const bt = config.buildTarget || "server";
     const pipelineSteps = getPipelineSteps(config.pipeline, bt);
     const startTime = Date.now();
+
+    await this.sendDeploymentNotification("started", config, deploymentId);
     const targetLabel = bt === "local" ? "محلي (Replit)" : "على السيرفر (VPS)";
     await this.addLog(deploymentId, `مكان البناء: ${targetLabel} | الخطوات: ${pipelineSteps.join(" → ")}`, "info");
 
@@ -403,6 +453,7 @@ export class DeploymentEngine {
       });
       await this.addLog(deploymentId, `Deployment completed successfully in ${(totalDuration / 1000).toFixed(1)}s`, "success");
       await this.addEvent(deploymentId, "deployment_success", "Deployment completed successfully", { duration: totalDuration });
+      await this.sendDeploymentNotification("success", config, deploymentId, totalDuration);
 
     } catch (error: any) {
       const totalDuration = Date.now() - startTime;
@@ -415,6 +466,13 @@ export class DeploymentEngine {
         errorMessage: isCancelled ? "Cancelled by user" : error.message,
       });
       await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", isCancelled ? "Deployment cancelled by user" : error.message);
+      await this.sendDeploymentNotification(
+        isCancelled ? "cancelled" : "failed",
+        config,
+        deploymentId,
+        totalDuration,
+        isCancelled ? undefined : error.message
+      );
     } finally {
       this.cleanupDeploymentState(deploymentId);
     }
@@ -486,6 +544,15 @@ export class DeploymentEngine {
         break;
       case "sync-version":
         await this.stepSyncVersion(deploymentId);
+        break;
+      case "preflight-check":
+        await this.stepPreflightCheck(deploymentId);
+        break;
+      case "hotfix-guard":
+        await this.stepHotfixGuard(deploymentId);
+        break;
+      case "post-deploy-smoke":
+        await this.stepPostDeploySmoke(deploymentId);
         break;
       default:
         await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
@@ -599,6 +666,110 @@ export class DeploymentEngine {
         reject(new Error(`${label} failed: ${this.maskSecrets(err.message)}`));
       });
     });
+  }
+
+  private async stepPreflightCheck(deploymentId: string) {
+    await this.addLog(deploymentId, "🔍 فحص أولي — التحقق من صحة الكود قبل النشر...", "info");
+
+    try {
+      const { stdout: tscResult } = await execAsync(
+        "npx tsc --noEmit --pretty false 2>&1 | tail -20 || true",
+        { cwd: "/home/runner/workspace", timeout: 120000 }
+      );
+
+      const errorLines = tscResult.split("\n").filter(l => l.includes("error TS"));
+      if (errorLines.length > 0) {
+        await this.addLog(deploymentId, `⚠️ TypeScript: ${errorLines.length} أخطاء تجميع`, "warn");
+        for (const err of errorLines.slice(0, 5)) {
+          await this.addLog(deploymentId, `  ${err.trim()}`, "warn");
+        }
+        if (errorLines.length > 5) {
+          await this.addLog(deploymentId, `  ... و ${errorLines.length - 5} أخطاء أخرى`, "warn");
+        }
+        await this.addLog(deploymentId, "⚠️ متابعة النشر رغم أخطاء TypeScript — تحذير فقط", "warn");
+      } else {
+        await this.addLog(deploymentId, "✅ TypeScript: لا أخطاء تجميع", "success");
+      }
+    } catch (err: any) {
+      await this.addLog(deploymentId, `⚠️ تعذر تشغيل فحص TypeScript: ${err.message}`, "warn");
+    }
+
+    try {
+      const { stdout: gitStatus } = await execAsync(
+        "git status --porcelain 2>/dev/null | wc -l",
+        { cwd: "/home/runner/workspace", timeout: 10000 }
+      );
+      const uncommitted = parseInt(gitStatus.trim()) || 0;
+      if (uncommitted > 0) {
+        await this.addLog(deploymentId, `⚠️ ${uncommitted} ملفات غير مُرحّلة في Git`, "warn");
+      } else {
+        await this.addLog(deploymentId, "✅ Git: كل الملفات مُرحّلة", "success");
+      }
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر فحص حالة Git", "warn");
+    }
+
+    await this.addLog(deploymentId, "✅ الفحص الأولي مكتمل", "success");
+  }
+
+  private async stepHotfixGuard(deploymentId: string) {
+    await this.addLog(deploymentId, "🛡️ فحص حماية الإصلاح السريع...", "info");
+
+    try {
+      const { stdout } = await execAsync(
+        "git diff HEAD~1 --name-only 2>/dev/null | grep -E '(migration|migrate|drizzle)' || echo 'NO_SCHEMA_CHANGES'",
+        { cwd: "/home/runner/workspace", timeout: 15000 }
+      );
+
+      if (!stdout.includes("NO_SCHEMA_CHANGES")) {
+        const changedFiles = stdout.trim().split("\n").filter(f => f.length > 0);
+        for (const file of changedFiles) {
+          await this.addLog(deploymentId, `⚠️ ملف schema/migration تم تعديله: ${file}`, "warn");
+        }
+        await this.addLog(deploymentId, "⚠️ الإصلاح السريع يتضمن تغييرات قاعدة بيانات — يُنصح باستخدام web-deploy أو full-deploy بدلاً منه", "warn");
+        await this.addLog(deploymentId, "⚠️ متابعة الإصلاح السريع بدون تهجير قاعدة البيانات — تأكد يدوياً", "warn");
+      } else {
+        await this.addLog(deploymentId, "✅ لا تغييرات في schema/migrations — إصلاح سريع آمن", "success");
+      }
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر فحص تغييرات Schema", "warn");
+    }
+  }
+
+  private async stepPostDeploySmoke(deploymentId: string) {
+    await this.addLog(deploymentId, "🔥 اختبار دخان ما بعد النشر — فحص المسارات الحرجة...", "info");
+    const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
+
+    try {
+      const { runPrebuildChecks } = await import("./prebuild-route-checker");
+      const report = await runPrebuildChecks(baseUrl);
+
+      const failedRoutes = report.routeChecks.filter(r => !r.passed);
+      const passedRoutes = report.routeChecks.filter(r => r.passed);
+
+      await this.addLog(deploymentId,
+        `📊 دخان ما بعد النشر: مسارات ${passedRoutes.length}/${report.routeChecks.length} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}`,
+        report.summary.overallPass ? "success" : "warn"
+      );
+
+      if (failedRoutes.length > 0) {
+        for (const f of failedRoutes.slice(0, 5)) {
+          await this.addLog(deploymentId, `  ⚠️ [${f.method}] ${f.path}: ${f.error}`, "warn");
+        }
+      }
+
+      const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
+      if (criticalFailed.length > 0 || !report.summary.sslValid) {
+        await this.addLog(deploymentId, `🚨 ${criticalFailed.length} مسار حرج فشل بعد النشر — يُنصح بالتراجع`, "error");
+        await this.addEvent(deploymentId, "smoke_test_failed", "Post-deploy smoke test detected critical failures", {
+          failedRoutes: criticalFailed.map(r => r.path),
+        });
+      } else {
+        await this.addLog(deploymentId, "✅ اختبار الدخان ناجح — النشر يعمل بشكل صحيح", "success");
+      }
+    } catch (err: any) {
+      await this.addLog(deploymentId, `⚠️ تعذر تنفيذ اختبار الدخان: ${err.message}`, "warn");
+    }
   }
 
   private async stepValidate(deploymentId: string) {

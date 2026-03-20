@@ -93,13 +93,13 @@ interface DeploymentStats {
 }
 
 const PIPELINE_LABELS: Record<string, string> = {
-  "git-push": "نشر عبر Git (دفع + سحب + بناء)",
-  "hotfix": "إصلاح سريع (نشر فوري)",
-  "android-build": "بناء تطبيق أندرويد APK",
-  "git-android-build": "Git + بناء أندرويد (دفع + سحب + بناء APK)",
-  "android-build-test": "بناء أندرويد + اختبار Firebase",
-  "web-deploy": "نشر الويب (نقل مباشر)",
-  "full-deploy": "نشر كامل (ويب + أندرويد)",
+  "web-deploy": "🌐 نشر الويب (فحص + بناء + نشر + دخان)",
+  "android-build": "📱 بناء أندرويد APK (فحص + بوابات + بناء)",
+  "full-deploy": "🚀 نشر كامل (ويب + أندرويد + فحوصات شاملة)",
+  "hotfix": "⚡ إصلاح سريع (نشر فوري + حماية schema)",
+  "android-build-test": "🧪 بناء أندرويد + اختبار Firebase",
+  "git-push": "📤 نشر عبر Git (دفع + سحب + بناء + دخان)",
+  "git-android-build": "📤📱 Git + بناء أندرويد",
 };
 
 const PIPELINE_LABELS_FULL: Record<string, string> = {
@@ -133,6 +133,9 @@ const STEP_LABELS: Record<string, string> = {
   "sync-version": "مزامنة الإصدار",
   "prebuild-gate": "بوابة ما قبل البناء",
   "android-readiness": "جاهزية بيئة Android",
+  "preflight-check": "فحص أولي (كود + Git)",
+  "hotfix-guard": "حماية الإصلاح السريع",
+  "post-deploy-smoke": "اختبار دخان ما بعد النشر",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -160,6 +163,9 @@ const STEP_ICONS: Record<string, any> = {
   "sync-version": RefreshCw,
   "prebuild-gate": Shield,
   "android-readiness": Smartphone,
+  "preflight-check": CheckCircle2,
+  "hotfix-guard": Shield,
+  "post-deploy-smoke": Activity,
 };
 
 const STATUS_LABELS: Record<string, string> = {

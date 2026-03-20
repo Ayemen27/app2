@@ -70,6 +70,10 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Android Readiness Gate (android-readiness):** Checks remote server (93.127.142.144) for: signing env vars (KEYSTORE_PASSWORD/ALIAS/KEY_PASSWORD), keystore file existence, keystore integrity via `keytool -list`, alias match verification, JDK 17/21 availability, Android SDK + build-tools, Gradle wrapper, disk space. Fails pipeline on any critical missing component. Runs before `sync-capacitor`.
 - **Gradle Build Hardening:** Release-only builds enforced (no debug fallback). `--stacktrace` added for better error diagnostics. Tail increased to 40 lines for log capture.
 - **Post-Deploy Verification (stepVerify):** Enhanced with CORS check (capacitor://localhost preflight), CSP header validation post-deployment. Supplements health check.
+- **Preflight Check (preflight-check):** TypeScript compile check (`tsc --noEmit`) and Git status verification before any deployment. Warnings only — does not block.
+- **Hotfix Guard (hotfix-guard):** Detects schema/migration file changes in hotfix pipeline and warns that db-migrate is skipped. Suggests using web-deploy/full-deploy instead.
+- **Post-Deploy Smoke Test (post-deploy-smoke):** Runs full API route + CORS + SSL + CSP checks against production after deployment. Added to web-deploy, full-deploy, hotfix, git-push pipelines. Alerts on critical failures suggesting rollback.
+- **Telegram Deployment Notifications:** Automatic Telegram alerts sent at deployment start, success, failure, and cancellation. Includes pipeline name, version, environment, duration, and error summary.
 - **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support.
 - **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine.
 - **Process Management:** Deployment engine uses `detached: true` process groups and `process.kill(-pgid)` for clean process tree termination on cancel.

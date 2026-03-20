@@ -749,6 +749,24 @@ export class DeploymentEngine {
     }
     await this.addLog(deploymentId, `✅ تم التحقق: ملفات الويب وJS الرئيسي موجودة في Android assets`, "success");
 
+    await this.addLog(deploymentId, "فحص علامات الكود المطلوبة في البناء...", "info");
+    const codeMarkersResult = await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir}/android/app/src/main/assets/public/assets && MARKERS='MODULE_LOAD LOGIN_SUBMIT AUTH_INIT_START DETECT_PLATFORM LOGIN_FN_START LOGIN_RESPONSE'; PASS=0; FAIL=0; for M in \\$MARKERS; do if grep -rlq \\"\\$M\\" *.js 2>/dev/null; then echo \\"MARKER_OK:\\$M\\"; PASS=\\$((PASS+1)); else echo \\"MARKER_MISSING:\\$M\\"; FAIL=\\$((FAIL+1)); fi; done; echo \\"MARKERS_RESULT:\\$PASS/\\$((PASS+FAIL))\\"; if [ \\$FAIL -gt 0 ]; then echo 'CODE_MARKERS_INCOMPLETE'; else echo 'CODE_MARKERS_OK'; fi"`,
+      "Code Markers Verification",
+      30000
+    );
+
+    if (codeMarkersResult.includes("CODE_MARKERS_INCOMPLETE")) {
+      const missingMarkers = codeMarkersResult.split('\n')
+        .filter(l => l.includes("MARKER_MISSING:"))
+        .map(l => l.replace("MARKER_MISSING:", "").trim());
+      await this.addLog(deploymentId, `⚠️ علامات كود مفقودة: ${missingMarkers.join(", ")} — قد يكون البناء من نسخة قديمة!`, "warn");
+    } else if (codeMarkersResult.includes("CODE_MARKERS_OK")) {
+      const countMatch = codeMarkersResult.match(/MARKERS_RESULT:(\d+\/\d+)/);
+      await this.addLog(deploymentId, `✅ جميع علامات الكود موجودة (${countMatch?.[1] || "OK"}) — البناء من أحدث نسخة`, "success");
+    }
+
     await this.addLog(deploymentId, "فحص متطلبات الأندرويد...", "info");
 
     const manifest = `${remoteDir}/android/app/src/main/AndroidManifest.xml`;

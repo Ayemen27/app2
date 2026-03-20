@@ -6,7 +6,6 @@ PROJECT_ROOT=$(pwd)
 APK_OUTPUT_DIR="$PROJECT_ROOT/output_apks"
 ANDROID_ROOT="$PROJECT_ROOT/android"
 
-SSH_PASS="${SSH_PASSWORD}"
 REMOTE_HOST="93.127.142.144"
 REMOTE_USER="administrator"
 REMOTE_PROJECT="/home/administrator/app2"
@@ -91,8 +90,9 @@ if [ "$HOSTNAME" == "mr-199" ] || [ -d "/home/administrator/app2" ]; then
 else
     log "Mode: [REPLIT ENVIRONMENT] - Remote Deployment..."
     
-    if [ -z "$SSH_PASS" ]; then
-        err "SSH_PASSWORD not found in environment secrets."
+    if [ -z "$SSHPASS" ]; then
+        err "SSHPASS environment variable is required for remote deployment."
+        err "Set it via: export SSHPASS=your_ssh_password"
         exit 1
     fi
 
@@ -109,8 +109,8 @@ else
         --exclude='android/build' \
         android/ capacitor.config.json google-services.json apk.sh
 
-    sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no /tmp/www_assets.tar.gz "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/www_assets.tar.gz"
-    sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no /tmp/android_project.tar.gz "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/android_project.tar.gz"
+    sshpass -e scp -o StrictHostKeyChecking=accept-new /tmp/www_assets.tar.gz "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/www_assets.tar.gz"
+    sshpass -e scp -o StrictHostKeyChecking=accept-new /tmp/android_project.tar.gz "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/android_project.tar.gz"
     ok "Assets synced"
 
     GRADLE_TASK="assembleDebug"
@@ -121,7 +121,7 @@ else
     fi
 
     log "Step 3: Building $BUILD_TYPE APK on remote server..."
-    BUILD_RESULT=$(sshpass -p "$SSH_PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 "$REMOTE_USER@$REMOTE_HOST" "
+    BUILD_RESULT=$(sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 "$REMOTE_USER@$REMOTE_HOST" "
         cd $REMOTE_PROJECT
 
         mkdir -p www
@@ -207,7 +207,7 @@ CVEOF
     mkdir -p "$APK_OUTPUT_DIR"
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     APK_FILENAME="AXION_${BUILD_TYPE}_${TIMESTAMP}.apk"
-    if sshpass -p "$SSH_PASS" scp -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/AXION_LATEST.apk" "$APK_OUTPUT_DIR/$APK_FILENAME" 2>/dev/null; then
+    if sshpass -e scp -o StrictHostKeyChecking=accept-new "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PROJECT/AXION_LATEST.apk" "$APK_OUTPUT_DIR/$APK_FILENAME" 2>/dev/null; then
         APK_SIZE=$(ls -lh "$APK_OUTPUT_DIR/$APK_FILENAME" | awk '{print $5}')
         ok "APK retrieved: $APK_FILENAME (${APK_SIZE})"
     else

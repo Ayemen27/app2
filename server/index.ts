@@ -1,7 +1,6 @@
 import './config/env';
 
 
-import "../instrumentation.js"; // ✅ تشغيل نظام التتبع OpenTelemetry
 import "./lib/telemetry";
 
 import express, { type Request, Response, NextFunction } from "express";
@@ -15,7 +14,6 @@ import path from "path";
 import fs from "fs";
 import { serveStatic, log } from "./static";
 import { ENV as envConfig } from "./config/env";
-import "./db"; // ✅ تشغيل نظام الأمان وإعداد اتصال قاعدة البيانات
 // sshRoutes removed - not needed
 import { compressionMiddleware, cacheHeaders, performanceHeaders } from "./middleware/compression";
 import { generalRateLimit, trackSuspiciousActivity, securityHeaders, requireAuth } from "./middleware/auth";

@@ -2,7 +2,7 @@ export type AppEnv = 'production' | 'development';
 export type ServerRuntime = 'replit' | 'vps' | 'local';
 export type ClientPlatform = 'web' | 'android' | 'ios';
 export type AuthStrategy = 'cookie' | 'bearer';
-export type DatabaseSource = 'CENTRAL' | 'RAILWAY' | 'REPLIT' | 'NONE';
+export type DatabaseSource = 'CENTRAL' | 'RAILWAY' | 'NONE';
 
 export interface ServerEnvConfig {
   readonly NODE_ENV: AppEnv;

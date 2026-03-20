@@ -1,1 +1,0 @@
-# Multimedia tests package 

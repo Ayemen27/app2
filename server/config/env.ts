@@ -24,7 +24,6 @@ function resolveRuntime(): ServerRuntime {
 function resolveDatabase(): { url: string; source: DatabaseSource } {
   if (process.env.DATABASE_URL_CENTRAL) return { url: process.env.DATABASE_URL_CENTRAL, source: 'CENTRAL' };
   if (process.env.DATABASE_URL_RAILWAY) return { url: process.env.DATABASE_URL_RAILWAY, source: 'RAILWAY' };
-  if (process.env.DATABASE_URL) return { url: process.env.DATABASE_URL, source: 'REPLIT' };
   return { url: '', source: 'NONE' };
 }
 
@@ -52,7 +51,7 @@ const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://app2.binarjo
 
 if (isProduction && db.source === 'NONE') {
   console.error('🚨 [ENV FATAL] DATABASE_URL مفقود في بيئة الإنتاج');
-  console.error('🚨 يجب تعيين DATABASE_URL_CENTRAL أو DATABASE_URL_RAILWAY أو DATABASE_URL');
+  console.error('🚨 يجب تعيين DATABASE_URL_CENTRAL أو DATABASE_URL_RAILWAY');
   process.exit(1);
 }
 

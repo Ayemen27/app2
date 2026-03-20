@@ -47,19 +47,26 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Daily Expense Summaries - Lazy Recalculation:** Implements an invalidation cascade and lazy recalculation pattern via `SummaryRebuildService` to ensure accurate daily expense summaries after financial record edits.
 - **Double-Entry Accounting Integrity:** Critical fixes implemented to ensure all financial transactions adhere to double-entry accounting principles, eliminating error swallowing, adding settlement accounting, and applying database safety constraints. A backfill script was created for orphan journal entries.
 
+## System Audit & Cleanup (March 2026)
+- **Removed Legacy Files:** `libs/AgentForge_archived/`, `fly.toml`, `Dockerfile`, `docker-compose.signoz.yaml`, `server/services/DrizzleWrapper.ts`, `scripts/_deprecated/`, `pyproject.toml`, `agent_bridge.py`, `remote_analyze.py`, `remote_execute.sh`, 8 stale audit report .md files, `depcheck_report.json`, `audit_scan.json`, `cookies.txt`, `local_deps.txt`, `index.lock`.
+- **Fixed Duplicate OTel Init:** Removed `instrumentation.js`, unified to single `server/lib/telemetry.ts` with env-driven config and SIGTERM handler.
+- **Fixed Duplicate DB Import:** Removed redundant `import "./db"` from `server/index.ts`.
+- **Fixed DB Config Conflict:** Aligned `server/config/env.ts` with `server/db.ts` — removed `DATABASE_URL` (Replit Helium) fallback. Canonical policy: CENTRAL → RAILWAY → NONE.
+- **Secured Deployment Scripts:** Removed hardcoded passwords from `deploy.sh`, replaced `StrictHostKeyChecking=no` with `accept-new` in all scripts, switched to `sshpass -e` (env var).
+
 ## External Dependencies
-- **Monitoring:** OpenTelemetry and Sentry.
-- **WhatsApp:** Baileys library.
+- **Monitoring:** OpenTelemetry (single init in `server/lib/telemetry.ts`) and Sentry.
+- **WhatsApp:** `@whiskeysockets/baileys` library.
 - **Biometrics:** `@simplewebauthn/server` (web), `capacitor-native-biometric` via Capacitor.Plugins (Android/iOS).
-- **Database:** PostgreSQL.
+- **Database:** PostgreSQL with priority: DATABASE_URL_CENTRAL → DATABASE_URL_RAILWAY → NONE.
 - **ORM:** Drizzle ORM.
 - **Android Build:** Capacitor + Gradle on remote server (93.127.142.144), auto-versioning via version.properties.
 - **Firebase Test Lab:** Robo testing via gcloud CLI on remote server.
 - **AI Models:** HuggingFace (Llama 3.1 8B), Gemini 2.0 Flash, OpenAI GPT-4o.
 - **Reporting:** ExcelJS for Excel generation.
-- **Deployment:** PM2 for process management. Deployment pipelines: web-deploy, git-push, hotfix, android-build, git-android-build, android-build-test (with Firebase Test Lab). Atomic build numbering via `deployment_build_counter` table (race-condition-free). SSH uses `sshpass -e` (env var `SSHPASS`) instead of CLI passwords. Git push uses credential helper instead of token-in-URL. Public `/api/deployment/app/check-update` endpoint with rate limiting (10 req/min).
-- **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support. `UpdateDialog` component in `App.tsx` shows native-style update prompt.
-- **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine with idempotent listener registration (no duplicates on resume). Cooldown and denied-count tracking.
+- **Deployment:** PM2 for process management. SSH uses `sshpass -e` (env var `SSHPASS`) with `StrictHostKeyChecking=accept-new`. Git push uses credential helper instead of token-in-URL.
+- **App Update System:** `appUpdateChecker.ts` checks for updates every 4 hours with idempotent resume listener, dismiss per versionCode, and force-update support.
+- **Notification Permissions:** `notificationPermission.ts` implements Android 13+ POST_NOTIFICATIONS state machine.
 - **Process Management:** Deployment engine uses `detached: true` process groups and `process.kill(-pgid)` for clean process tree termination on cancel.
 - **QR Code Generation:** `qrcode` package.
 - **XSS Protection:** DOMPurify for sanitizing HTML in PDF generation.

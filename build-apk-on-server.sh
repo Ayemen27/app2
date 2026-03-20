@@ -1,19 +1,24 @@
 #!/bin/bash
 set -e
 
-export SSH_PASSWORD=$(grep SSH_PASSWORD .env | cut -d'=' -f2)
-SSH_CMD="sshpass -p '$SSH_PASSWORD' ssh -o StrictHostKeyChecking=no -p 22 administrator@93.127.142.144"
+if [ -z "$SSHPASS" ]; then
+    echo "ERROR: SSHPASS environment variable is required."
+    echo "Set it via: export SSHPASS=your_ssh_password"
+    exit 1
+fi
+
+SSH_CMD="sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p 22 administrator@93.127.142.144"
 
 KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-}"
 KEYSTORE_ALIAS="${KEYSTORE_ALIAS:-axion-key}"
 KEYSTORE_KEY_PASSWORD="${KEYSTORE_KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
 
 if [ -z "$KEYSTORE_PASSWORD" ]; then
-    echo "❌ Error: KEYSTORE_PASSWORD environment variable is required"
+    echo "Error: KEYSTORE_PASSWORD environment variable is required"
     exit 1
 fi
 
-echo "🔍 Starting build environment setup on remote server..."
+echo "Starting build environment setup on remote server..."
 
 $SSH_CMD "bash -s" << REMOTESCRIPT
     cd ~/app2
@@ -22,7 +27,7 @@ $SSH_CMD "bash -s" << REMOTESCRIPT
     export KEYSTORE_ALIAS='${KEYSTORE_ALIAS}'
     export KEYSTORE_KEY_PASSWORD='${KEYSTORE_KEY_PASSWORD}'
     
-    echo "⚙️ Configuring Android build.gradle..."
+    echo "Configuring Android build.gradle..."
     cat > android/app/build.gradle << 'EOF'
 apply plugin: 'com.android.application'
 
@@ -82,7 +87,7 @@ try {
 }
 EOF
 
-    echo "🎨 Configuring themes and styles..."
+    echo "Configuring themes and styles..."
     mkdir -p android/app/src/main/res/values
     cat > android/app/src/main/res/values/styles.xml << 'EOF'
 <?xml version="1.0" encoding="utf-8"?>
@@ -98,17 +103,17 @@ EOF
 </resources>
 EOF
 
-    echo "📋 Ensuring google-services.json is in place..."
+    echo "Ensuring google-services.json is in place..."
     if [ -f "google-services.json" ] && [ ! -f "android/app/google-services.json" ]; then
         cp google-services.json android/app/google-services.json
     fi
 
     if [ ! -f "android/app/axion-release.keystore" ]; then
-        echo "⚠️ Keystore not found in android/app/, searching parent..."
-        cp android/axion-release.keystore android/app/ 2>/dev/null || echo "❌ Error: Keystore file not found."
+        echo "Keystore not found in android/app/, searching parent..."
+        cp android/axion-release.keystore android/app/ 2>/dev/null || echo "Error: Keystore file not found."
     fi
 
-    echo "🚀 Starting build..."
+    echo "Starting build..."
     npm run build
     npx cap sync android
     cd android
@@ -117,7 +122,7 @@ EOF
     
     mkdir -p ../output_apks
     cp app/build/outputs/apk/release/app-release.apk ../output_apks/signed-app-release.apk
-    echo "✅ Build successful: output_apks/signed-app-release.apk"
+    echo "Build successful: output_apks/signed-app-release.apk"
 REMOTESCRIPT
 
-echo "✨ Build complete."
+echo "Build complete."

@@ -98,3 +98,11 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Process Management:** Deployment engine uses `detached: true` process groups and `process.kill(-pgid)` for clean process tree termination on cancel.
 - **QR Code Generation:** `qrcode` package.
 - **XSS Protection:** DOMPurify for sanitizing HTML in PDF generation.
+- **Professional Notification System (Provider Pattern):**
+  - `server/services/deployment-notifications/` — modular notification architecture
+  - **types.ts:** `DeploymentNotificationPayload` (discriminated union, 5 event types), `NotificationProvider` interface, `PIPELINE_LABELS`, `CRITICAL_STEPS`, `FAILURE_SUGGESTIONS`, `STEP_LABELS`, `formatDuration`, `escapeHtml`
+  - **DeploymentNotificationPublisher.ts:** Singleton fan-out publisher with `Promise.allSettled`, dedup protection, lazy provider registration
+  - **TelegramDeploymentProvider.ts:** 5 rich HTML formatters (started/success/failed/cancelled/prebuild_gate_failed) with commit hash, branch, step-by-step status, security checks, artifact SHA-256, timeline, failure suggestions
+  - **deploymentPayloadBuilder.ts:** 6 async builders that fetch deployment/events from DB, build rich payloads with timeline (capped at 20 entries), security checks, artifact info
+  - Integration: `sendDeploymentNotification` in deployment-engine.ts uses PayloadBuilder + Publisher. `sendPrebuildGateNotification` sends gate failure before throw. Providers registered lazily on first notification send.
+- **TypeScript Fixes:** useRef initialValue (React 19), HeadersInit union fix in webauthn.ts, transferDate never-type fix in financialRoutes.ts — **zero TypeScript errors**.

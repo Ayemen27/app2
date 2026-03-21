@@ -966,14 +966,14 @@ export default function WhatsAppSetupPage() {
 
   const { data: conversations = [], isLoading: isLoadingConversations } = useQuery({
     queryKey: ["/api/whatsapp-ai/conversations"],
-    enabled: isAdmin && activeTab === "chats",
-    refetchInterval: activeTab === "chats" ? 10000 : false,
+    enabled: isAdmin && activeTab === "chats" && isConnected,
+    refetchInterval: activeTab === "chats" && isConnected ? 10000 : false,
   });
 
   const { data: convMessages, isLoading: isLoadingConvMessages } = useQuery({
     queryKey: ["/api/whatsapp-ai/conversations", selectedConvPhone, "messages"],
-    enabled: isAdmin && !!selectedConvPhone,
-    refetchInterval: selectedConvPhone ? 5000 : false,
+    enabled: isAdmin && !!selectedConvPhone && isConnected,
+    refetchInterval: selectedConvPhone && isConnected ? 5000 : false,
   });
 
   const tabItems = useMemo(() => {
@@ -1947,6 +1947,29 @@ export default function WhatsAppSetupPage() {
           {/* Chats Tab - Admin only - WhatsApp-style */}
           {isAdmin && (
             <TabsContent value="chats" className="mt-6" data-testid="tab-content-chats">
+              {!isConnected ? (
+                <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-500 to-amber-500" />
+                  <div className="flex flex-col items-center justify-center py-20 px-6">
+                    <div className="w-20 h-20 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-5">
+                      <WifiOff className="h-10 w-10 text-red-500" />
+                    </div>
+                    <p className="text-lg font-black text-slate-800 dark:text-slate-200">البوت غير متصل</p>
+                    <p className="text-sm text-slate-500 mt-2 text-center max-w-md leading-relaxed">
+                      يجب ربط البوت بواتساب أولاً لعرض المحادثات ومزامنة الرسائل. اذهب لتبويب "البوت" وقم بمسح رمز QR أو استخدم كود الاقتران.
+                    </p>
+                    <Button
+                      data-testid="btn-go-to-bot-tab"
+                      className="mt-6 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => setActiveTab("connection")}
+                    >
+                      <QrCode className="h-4 w-4" />
+                      الذهاب لربط البوت
+                    </Button>
+                  </div>
+                </Card>
+              ) : (
+              <>
               <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700">
                 <div className="flex h-[calc(100vh-220px)] min-h-[500px] max-h-[750px]" dir="rtl">
 
@@ -2201,6 +2224,8 @@ export default function WhatsAppSetupPage() {
                     data-testid="lightbox-image"
                   />
                 </div>
+              )}
+              </>
               )}
             </TabsContent>
           )}

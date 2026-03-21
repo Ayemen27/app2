@@ -601,7 +601,7 @@ export default function WhatsAppSetupPage() {
   const [isRelinking, setIsRelinking] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [protectionLevel, setProtectionLevel] = useState<ProtectionLevel>("maximum");
-  const [activeTab, setActiveTab] = useState("mylink");
+  const [activeTab, setActiveTab] = useState("connection");
   const [pairingCountdown, setPairingCountdown] = useState(0);
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -977,13 +977,13 @@ export default function WhatsAppSetupPage() {
   });
 
   const tabItems = useMemo(() => {
-    const items = [
-      { id: "mylink", label: "ربط رقمي", icon: LinkIcon, color: "data-[state=active]:bg-emerald-500" },
-      { id: "myscope", label: "نطاق وصولي", icon: Eye, color: "data-[state=active]:bg-cyan-500" },
-    ];
+    const items: { id: string; label: string; icon: any; color: string }[] = [];
     if (isAdmin) {
-      items.push({ id: "chats", label: "المحادثات", icon: MessageSquare, color: "data-[state=active]:bg-green-500" });
       items.push({ id: "connection", label: "البوت", icon: QrCode, color: "data-[state=active]:bg-blue-500" });
+      items.push({ id: "chats", label: "المحادثات", icon: MessageSquare, color: "data-[state=active]:bg-green-500" });
+    }
+    items.push({ id: "myscope", label: "نطاق وصولي", icon: Eye, color: "data-[state=active]:bg-cyan-500" });
+    if (isAdmin) {
       items.push({ id: "allowed", label: "الأرقام المسموحة", icon: ShieldCheck, color: "data-[state=active]:bg-orange-500" });
       items.push({ id: "users", label: "المستخدمون", icon: Users, color: "data-[state=active]:bg-purple-500" });
       items.push({ id: "permissions", label: "الصلاحيات", icon: Shield, color: "data-[state=active]:bg-indigo-500" });
@@ -1247,10 +1247,16 @@ export default function WhatsAppSetupPage() {
         {isConnected && <UnifiedStats stats={stats} columns={2} hideHeader />}
 
         {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
+        <Tabs value={activeTab} onValueChange={(val) => {
+          setActiveTab(val);
+          setTimeout(() => {
+            const el = document.querySelector(`[data-testid="tab-${val}"]`);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+          }, 50);
+        }} className="w-full">
+          <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
             <TabsList className={cn(
-              "inline-flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-2xl shadow-sm h-12 gap-0.5 min-w-max w-full lg:w-auto"
+              "inline-flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-2xl shadow-sm h-12 gap-0.5 min-w-max"
             )}>
               {tabItems.map((tab) => (
                 <TabsTrigger
@@ -1265,215 +1271,25 @@ export default function WhatsAppSetupPage() {
             </TabsList>
           </div>
 
-          {/* My Link Tab - Per User Phone Registration */}
-          <TabsContent value="mylink" className="mt-6 space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-7">
-                <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
-                  <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500" />
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2 font-black">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                        <LinkIcon className="h-4 w-4 text-emerald-600" />
-                      </div>
-                      ربط رقم واتساب الخاص بك
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-5">
-                    {isLoadingMyLink ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-                      </div>
-                    ) : (myLink as any)?.linked ? (
-                      <div className="space-y-4">
-                        <div className="p-5 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800">
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                              <UserCheck className="h-7 w-7 text-white" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-black text-emerald-700 dark:text-emerald-400 text-lg">رقمك مربوط</p>
-                              <p className="text-sm font-mono text-emerald-600 dark:text-emerald-500 mt-0.5" dir="ltr">
-                                +{(myLink as any).phoneNumber}
-                              </p>
-                              <div className="flex items-center gap-3 mt-2">
-                                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[9px] font-black">
-                                  <CheckCircle className="h-2.5 w-2.5 mr-0.5" /> نشط
-                                </Badge>
-                                <span className="text-[10px] text-slate-500">
-                                  {(myLink as any).totalMessages} رسالة
-                                </span>
-                                {(myLink as any).lastMessageAt && (
-                                  <span className="text-[10px] text-slate-400">
-                                    آخر رسالة: {formatDate((myLink as any).lastMessageAt)}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                          <div className="flex items-start gap-2">
-                            <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-black text-blue-700 dark:text-blue-400">كيف تستخدم واتساب مع النظام؟</p>
-                              <p className="text-[11px] text-blue-600 dark:text-blue-500 mt-1 leading-relaxed">
-                                أرسل رسالة لبوت الشركة من هاتفك المربوط. سيتعرف عليك تلقائياً ويعرض مشاريعك فقط.
-                                جرّب: "مشاريعي" أو "مساعدة" أو "5000 مصاريف اسم_العامل"
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <Button
-                          data-testid="btn-unlink-phone"
-                          variant="outline"
-                          className="w-full rounded-xl text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/30 font-bold gap-2"
-                          onClick={() => showConfirm(
-                            "إلغاء ربط الرقم",
-                            "هل تريد إلغاء ربط رقم الواتساب من حسابك؟ لن تتمكن من التفاعل مع البوت حتى تعيد الربط.",
-                            () => unlinkPhoneMutation.mutate()
-                          )}
-                          disabled={unlinkPhoneMutation.isPending}
-                        >
-                          {unlinkPhoneMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unlink className="h-4 w-4" />}
-                          إلغاء ربط الرقم
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-black text-amber-700 dark:text-amber-400">رقمك غير مربوط</p>
-                              <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-1 leading-relaxed">
-                                اربط رقم واتساب الخاص بك لتتمكن من التفاعل مع بوت الشركة.
-                                عند إرسال رسالة للبوت سيتعرف عليك تلقائياً ويعرض مشاريعك فقط.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            رقم واتساب الخاص بك (مع مفتاح الدولة)
-                          </label>
-                          <div className="flex gap-2">
-                            <div className="relative flex-1">
-                              <Input
-                                data-testid="input-link-phone"
-                                placeholder="967772293228"
-                                value={linkPhoneNumber}
-                                onChange={(e) => handleLinkPhoneChange(e.target.value)}
-                                className="rounded-xl font-mono text-base h-12 pl-16 pr-4 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-emerald-500/30"
-                                dir="ltr"
-                              />
-                              <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                                {linkCountryCode ? (
-                                  <img
-                                    src={`https://flagcdn.com/w40/${linkCountryCode.toLowerCase()}.png`}
-                                    alt={linkCountryCode}
-                                    className="w-6 h-4 rounded-sm shadow-sm object-cover"
-                                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                                  />
-                                ) : (
-                                  <Smartphone className="h-4 w-4 text-slate-400" />
-                                )}
-                                {linkCountryCode && <span className="text-[10px] font-bold text-slate-400">{linkCountryCode}</span>}
-                              </div>
-                            </div>
-                            <Button
-                              data-testid="btn-link-phone"
-                              onClick={() => linkPhoneMutation.mutate(linkPhoneNumber)}
-                              disabled={!linkPhoneNumber || linkPhoneNumber.length < 8 || linkPhoneMutation.isPending}
-                              className="h-12 px-6 rounded-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-lg shadow-emerald-500/20"
-                            >
-                              {linkPhoneMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <LinkIcon className="h-4 w-4" />
-                                  <span className="hidden sm:inline">ربط الرقم</span>
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                          <p className="text-[10px] text-slate-400 mt-1">
-                            أدخل رقمك كما يظهر في واتساب — مثال: 967772293228
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="lg:col-span-5 space-y-6">
-                <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2 font-black">
-                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                        <Info className="h-3.5 w-3.5 text-blue-600" />
-                      </div>
-                      كيف يعمل النظام؟
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {[
-                        { num: "1", title: "اربط رقمك", desc: "سجّل رقم واتساب الخاص بك هنا", icon: LinkIcon },
-                        { num: "2", title: "أرسل رسالة للبوت", desc: "راسل رقم بوت الشركة من واتساب", icon: Send },
-                        { num: "3", title: "يتعرف عليك تلقائياً", desc: "البوت يعرف من أنت ويعرض مشاريعك فقط", icon: UserCheck },
-                        { num: "4", title: "بياناتك معزولة", desc: "لا يمكنك رؤية مشاريع المستخدمين الآخرين", icon: Shield },
-                      ].map((step) => (
-                        <div key={step.num} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-black text-blue-600">{step.num}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-black text-slate-700 dark:text-slate-300">{step.title}</p>
-                            <p className="text-[10px] text-slate-500">{step.desc}</p>
-                          </div>
-                          <step.icon className="h-4 w-4 text-slate-400 shrink-0" />
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-lg overflow-hidden bg-white dark:bg-slate-900 rounded-2xl">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2 font-black">
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                        <MessageSquare className="h-3.5 w-3.5 text-purple-600" />
-                      </div>
-                      أوامر واتساب المتاحة
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {[
-                        { cmd: "مساعدة", desc: "عرض جميع الأوامر" },
-                        { cmd: "مشاريعي", desc: "عرض المشاريع المرتبطة بك" },
-                        { cmd: "5000 مصاريف أحمد", desc: "تسجيل مصروف لعامل" },
-                        { cmd: "إلغاء", desc: "إلغاء العملية الحالية" },
-                      ].map((item) => (
-                        <div key={item.cmd} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                          <code className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">{item.cmd}</code>
-                          <span className="text-[10px] text-slate-500">{item.desc}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
 
           {/* My Scope Tab */}
           <TabsContent value="myscope" className="mt-6 space-y-6" data-testid="tab-content-myscope">
+            {!isConnected ? (
+              <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-500 to-amber-500" />
+                <div className="flex flex-col items-center justify-center py-16 px-6">
+                  <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-4">
+                    <WifiOff className="h-8 w-8 text-red-500" />
+                  </div>
+                  <p className="text-lg font-black text-slate-800 dark:text-slate-200">البوت غير متصل</p>
+                  <p className="text-sm text-slate-500 mt-2 text-center max-w-md">لا يمكن عرض نطاق وصولك. يجب ربط البوت بواتساب أولاً.</p>
+                  <Button data-testid="btn-scope-go-connect" className="mt-5 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setActiveTab("connection")}>
+                    <QrCode className="h-4 w-4" />
+                    الذهاب لربط البوت
+                  </Button>
+                </div>
+              </Card>
+            ) : (
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
               <div className="h-1.5 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500" />
               <CardHeader>
@@ -1686,6 +1502,7 @@ export default function WhatsAppSetupPage() {
                   )}
                 </CardContent>
               </Card>
+            )}
             )}
           </TabsContent>
 

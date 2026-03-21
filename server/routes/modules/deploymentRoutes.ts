@@ -54,15 +54,18 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
     const latest = await deploymentEngine.getLatestAndroidRelease();
 
     if (!latest) {
+      console.log(`[check-update] لا يوجد إصدار أندرويد. client=${clientVersionName}(${clientVersionCode})`);
       res.json({ updateAvailable: false });
       return;
     }
 
-    const updateAvailable = clientVersionCode > 0
-      ? latest.versionCode > clientVersionCode
-      : compareVersions(latest.versionName, clientVersionName) > 0;
+    const byVersionName = compareVersions(latest.versionName, clientVersionName) > 0;
+    const byVersionCode = clientVersionCode > 0 && latest.versionCode > clientVersionCode;
+    const updateAvailable = byVersionName || byVersionCode;
 
     const forceUpdate = updateAvailable;
+
+    console.log(`[check-update] client=${clientVersionName}(${clientVersionCode}) latest=${latest.versionName}(${latest.versionCode}) byName=${byVersionName} byCode=${byVersionCode} update=${updateAvailable}`);
 
     res.json({
       updateAvailable,

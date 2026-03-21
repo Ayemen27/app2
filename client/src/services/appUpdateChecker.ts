@@ -65,20 +65,27 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const res = await fetch(
-      `${baseUrl}/api/deployment/app/check-update?versionCode=${current.versionCode}&versionName=${encodeURIComponent(current.versionName)}`,
-      {
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal,
-      }
-    );
+    const url = `${baseUrl}/api/deployment/app/check-update?versionCode=${current.versionCode}&versionName=${encodeURIComponent(current.versionName)}`;
+    console.log(`[update-checker] فحص التحديث: ${url}`);
+    console.log(`[update-checker] الإصدار الحالي: ${current.versionName} (code: ${current.versionCode})`);
+
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
+    });
 
     clearTimeout(timeoutId);
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[update-checker] فشل الطلب: status=${res.status}`);
+      return null;
+    }
 
     localStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
-    return await res.json();
-  } catch {
+    const data = await res.json();
+    console.log(`[update-checker] النتيجة:`, JSON.stringify(data));
+    return data;
+  } catch (err) {
+    console.error(`[update-checker] خطأ في فحص التحديث:`, err);
     return null;
   }
 }

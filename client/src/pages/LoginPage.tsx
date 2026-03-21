@@ -41,6 +41,13 @@ import {
   AlertTriangle,
   ExternalLink
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "../components/ui/dropdown-menu";
 
 const loginSchema = z.object({
   email: z.string().email("البريد الإلكتروني غير صحيح"),
@@ -99,9 +106,6 @@ export default function LoginPage() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [serverError, setServerError] = useState<{ message: string; field: string } | null>(null);
-  const [showMenu, setShowMenu] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{top: number; left: number}>({top: 0, left: 0});
-  const menuBtnRef = { current: null as HTMLButtonElement | null };
   const [showAbout, setShowAbout] = useState(false);
   const [showUpdateCheck, setShowUpdateCheck] = useState(false);
   const [updateCheckState, setUpdateCheckState] = useState<'idle' | 'checking' | 'available' | 'upToDate' | 'error'>('idle');
@@ -298,24 +302,41 @@ export default function LoginPage() {
               <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">مرحباً بعودتك</h2>
               <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">WELCOME BACK</span>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              ref={(el: HTMLButtonElement | null) => { menuBtnRef.current = el; }}
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setMenuPosition({ top: rect.bottom + 6, left: rect.left });
-                setShowMenu(!showMenu);
-              }}
-              className="w-9 h-9 rounded-full bg-blue-600 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform relative z-[101]"
-              data-testid="button-menu"
-            >
-              <div className="flex gap-0.5">
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-              </div>
-            </Button>
+            <DropdownMenu dir="rtl">
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="w-9 h-9 rounded-full bg-blue-600 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 transition-transform"
+                  data-testid="button-menu"
+                >
+                  <div className="flex gap-0.5">
+                    <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                    <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                    <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom" align="start" sideOffset={8} className="w-52 rounded-xl shadow-2xl border-border dark:border-slate-700">
+                <DropdownMenuItem
+                  onClick={() => setShowAbout(true)}
+                  className="gap-3 px-4 py-3 text-sm font-bold cursor-pointer"
+                  data-testid="button-about"
+                >
+                  <Info className="w-4 h-4 text-blue-500" />
+                  <span>حول التطبيق</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="mx-3" />
+                <DropdownMenuItem
+                  onClick={() => { setShowUpdateCheck(true); setUpdateCheckState('idle'); setUpdateData(null); }}
+                  className="gap-3 px-4 py-3 text-sm font-bold cursor-pointer"
+                  data-testid="button-check-update"
+                >
+                  <RefreshCw className="w-4 h-4 text-green-500" />
+                  <span>التحقق من التحديث</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Logo Section - AXION Real Assets */}
@@ -552,32 +573,6 @@ export default function LoginPage() {
             </div>
             <span className="text-[8px] text-gray-300 dark:text-slate-700">© 2026 AXION OPERATIONS MANAGEMENT</span>
           </div>
-
-          {/* Menu Dropdown */}
-          {showMenu && (
-            <>
-              <div className="fixed inset-0 z-[99]" onClick={() => setShowMenu(false)} />
-              <div className="fixed z-[100] w-52 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-border dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200" dir="rtl" style={{ top: menuPosition.top, left: menuPosition.left }}>
-                <button
-                  onClick={() => { setShowMenu(false); setShowAbout(true); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 active:bg-blue-100 dark:active:bg-slate-700 transition-colors"
-                  data-testid="button-about"
-                >
-                  <Info className="w-4 h-4 text-blue-500 shrink-0" />
-                  <span>حول التطبيق</span>
-                </button>
-                <div className="h-px bg-border dark:bg-slate-700 mx-3" />
-                <button
-                  onClick={() => { setShowMenu(false); setShowUpdateCheck(true); setUpdateCheckState('idle'); setUpdateData(null); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 active:bg-blue-100 dark:active:bg-slate-700 transition-colors"
-                  data-testid="button-check-update"
-                >
-                  <RefreshCw className="w-4 h-4 text-green-500 shrink-0" />
-                  <span>التحقق من التحديث</span>
-                </button>
-              </div>
-            </>
-          )}
 
           {/* About Dialog */}
           {showAbout && (

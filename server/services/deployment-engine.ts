@@ -2481,9 +2481,9 @@ export class DeploymentEngine {
       const [latest] = await db.select()
         .from(buildDeployments)
         .where(
-          sql`${buildDeployments.status} = 'success' AND ${buildDeployments.pipeline} IN ('android-build', 'full-deploy', 'git-android-build', 'android-build-test')`
+          sql`${buildDeployments.status} = 'success' AND ${buildDeployments.pipeline} IN ('android-build', 'full-deploy', 'git-android-build', 'android-build-test') AND ${buildDeployments.artifactUrl} IS NOT NULL`
         )
-        .orderBy(desc(buildDeployments.created_at))
+        .orderBy(desc(buildDeployments.buildNumber))
         .limit(1);
 
       if (!latest) return null;
@@ -2494,7 +2494,8 @@ export class DeploymentEngine {
         downloadUrl: latest.id ? `/api/deployment/app/download/${latest.id}?token=${this.generateDownloadToken(latest.id)}` : null,
         releasedAt: latest.created_at.toISOString(),
       };
-    } catch {
+    } catch (err: any) {
+      console.error("[getLatestAndroidRelease] خطأ:", err?.message);
       return null;
     }
   }

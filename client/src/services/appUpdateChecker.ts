@@ -53,8 +53,8 @@ function dismissVersion(versionCode: number) {
   localStorage.setItem(DISMISSED_VERSION_KEY, String(versionCode));
 }
 
-async function checkForUpdate(): Promise<UpdateInfo | null> {
-  if (!shouldCheck()) return null;
+async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null> {
+  if (!bypassCooldown && !shouldCheck()) return null;
 
   try {
     const current = await getAppVersion();
@@ -111,7 +111,7 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
 
   activeCallbacks = callbacks;
 
-  const info = await checkForUpdate();
+  const info = await checkForUpdate(true);
   if (!info || !info.updateAvailable) {
     callbacks.onNoUpdate?.();
   } else if (info.forceUpdate || !wasDismissed(info.latest.versionCode)) {
@@ -123,7 +123,7 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
 
     App.addListener('appStateChange', async ({ isActive }) => {
       if (!isActive || !activeCallbacks) return;
-      const fresh = await checkForUpdate();
+      const fresh = await checkForUpdate(true);
       if (fresh?.updateAvailable) {
         if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
         activeCallbacks.onUpdateAvailable(fresh);

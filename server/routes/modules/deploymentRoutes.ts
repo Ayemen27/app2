@@ -62,9 +62,11 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
       ? latest.versionCode > clientVersionCode
       : compareVersions(latest.versionName, clientVersionName) > 0;
 
+    const forceUpdate = updateAvailable;
+
     res.json({
       updateAvailable,
-      forceUpdate: false,
+      forceUpdate,
       latest: {
         versionName: latest.versionName,
         versionCode: latest.versionCode,

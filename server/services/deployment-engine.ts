@@ -1900,27 +1900,23 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "✅ متغيرات التوقيع: KEYSTORE_PASSWORD + KEYSTORE_ALIAS + KEYSTORE_KEY_PASSWORD", "success");
     }
 
-    const readinessScript = [
-      `echo "=== KEYSTORE_CHECK ==="`,
-      `if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo "KEYSTORE_FILE=OK"; else echo "KEYSTORE_FILE=MISSING"; fi`,
-
-      `echo "=== JDK_CHECK ==="`,
-      `if [ -d /usr/lib/jvm/java-21-openjdk-amd64 ]; then /usr/lib/jvm/java-21-openjdk-amd64/bin/java -version 2>&1 | head -1; elif [ -d /usr/lib/jvm/java-17-openjdk-amd64 ]; then /usr/lib/jvm/java-17-openjdk-amd64/bin/java -version 2>&1 | head -1; else echo "JDK_MISSING"; fi`,
-
-      `echo "=== SDK_CHECK ==="`,
-      `if [ -d /opt/android-sdk ]; then echo "SDK_DIR=OK"; if [ -d /opt/android-sdk/platform-tools ]; then echo "PLATFORM_TOOLS=OK"; else echo "PLATFORM_TOOLS=MISSING"; fi; if ls /opt/android-sdk/build-tools/ 2>/dev/null | head -1; then echo "BUILD_TOOLS=OK"; else echo "BUILD_TOOLS=MISSING"; fi; else echo "SDK_DIR=MISSING"; fi`,
-
-      `echo "=== GRADLEW_CHECK ==="`,
-      `if [ -f ${remoteDir}/android/gradlew ]; then echo "GRADLEW=OK"; else echo "GRADLEW=MISSING"; fi`,
-
-      `echo "=== DISK_CHECK ==="`,
-      `df -h ${remoteDir} | tail -1 | awk '{print "DISK_AVAIL=" $4 " DISK_USE=" $5}'`,
+    const readinessChecks = [
+      `echo '=== KEYSTORE_CHECK ==='`,
+      `if [ -f ${remoteDir}/android/app/axion-release.keystore ]; then echo KEYSTORE_FILE=OK; else echo KEYSTORE_FILE=MISSING; fi`,
+      `echo '=== JDK_CHECK ==='`,
+      `if [ -d /usr/lib/jvm/java-21-openjdk-amd64 ]; then /usr/lib/jvm/java-21-openjdk-amd64/bin/java -version 2>&1 | head -1; elif [ -d /usr/lib/jvm/java-17-openjdk-amd64 ]; then /usr/lib/jvm/java-17-openjdk-amd64/bin/java -version 2>&1 | head -1; else echo JDK_MISSING; fi`,
+      `echo '=== SDK_CHECK ==='`,
+      `if [ -d /opt/android-sdk ]; then echo SDK_DIR=OK; if [ -d /opt/android-sdk/platform-tools ]; then echo PLATFORM_TOOLS=OK; else echo PLATFORM_TOOLS=MISSING; fi; if ls /opt/android-sdk/build-tools/ 2>/dev/null | head -1; then echo BUILD_TOOLS=OK; else echo BUILD_TOOLS=MISSING; fi; else echo SDK_DIR=MISSING; fi`,
+      `echo '=== GRADLEW_CHECK ==='`,
+      `if [ -f ${remoteDir}/android/gradlew ]; then echo GRADLEW=OK; else echo GRADLEW=MISSING; fi`,
+      `echo '=== DISK_CHECK ==='`,
+      `DISKINFO=$(df -h ${remoteDir} | tail -1); echo "DISK_AVAIL=$(echo $DISKINFO | awk '{print $4}') DISK_USE=$(echo $DISKINFO | awk '{print $5}')"`,
     ].join(" && ");
 
     try {
       const output = await this.execWithLog(
         deploymentId,
-        `${sshCmd} '${readinessScript}'`,
+        `${sshCmd} "${readinessChecks}"`,
         "Android Readiness Check",
         30000
       );

@@ -664,6 +664,19 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
     await setupVite(app, server);
   }
 
+// ✅ **JSON Parse Error Handler** - Returns 400 instead of 500 for malformed JSON
+app.use((err: any, req: Request, res: Response, next: NextFunction): any => {
+  if (err instanceof SyntaxError && 'body' in err && err.status === 400) {
+    console.warn(`⚠️ [JSON Parse Error] ${req.method} ${req.path}: Invalid JSON body`);
+    return res.status(400).json({
+      success: false,
+      message: "صيغة JSON غير صالحة — تأكد أن جميع المفاتيح والقيم محاطة بعلامات اقتباس مزدوجة",
+      code: "INVALID_JSON",
+    });
+  }
+  next(err);
+});
+
 // ✅ **Error Handler Middleware** - Moved after static/vite
 Sentry.setupExpressErrorHandler(app);
 app.use((err: any, req: Request, res: Response, _next: NextFunction): any => {

@@ -1705,50 +1705,76 @@ export class DeploymentEngine {
   private async stepGenerateIcons(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "توليد أيقونات التطبيق (Adaptive Icons)...", "info");
     const remoteDir = "/home/administrator/app2";
+    const resDir = `${remoteDir}/android/app/src/main/res`;
     const iconSource = `${remoteDir}/client/public/assets/app_icon_light.png`;
     const fallbackSource = `${remoteDir}/client/src/assets/images/app_icon_light.png`;
     const bgColor = "#1e293b";
 
-    const scriptLines = [
+    const scriptPath = "/tmp/axion_gen_icons.sh";
+    const scriptContent = [
+      `#!/bin/bash`,
+      `set -e`,
       `cd ${remoteDir}`,
       `SOURCE='${iconSource}'`,
       `[ ! -f "$SOURCE" ] && SOURCE='${fallbackSource}'`,
       `[ ! -f "$SOURCE" ] && echo 'ICON_SOURCE_MISSING' && exit 0`,
       `echo "Icon source: $SOURCE"`,
       `which magick >/dev/null 2>&1 && CONVERT='magick' || { which convert >/dev/null 2>&1 && CONVERT='convert'; } || { echo 'ImageMagick not installed' && exit 0; }`,
-      `RES_DIR='android/app/src/main/res'`,
-      `mkdir -p $RES_DIR/mipmap-mdpi $RES_DIR/mipmap-hdpi $RES_DIR/mipmap-xhdpi $RES_DIR/mipmap-xxhdpi $RES_DIR/mipmap-xxxhdpi $RES_DIR/mipmap-anydpi-v26 $RES_DIR/values`,
+      `mkdir -p ${resDir}/mipmap-mdpi ${resDir}/mipmap-hdpi ${resDir}/mipmap-xhdpi ${resDir}/mipmap-xxhdpi ${resDir}/mipmap-xxxhdpi ${resDir}/mipmap-anydpi-v26 ${resDir}/values`,
       `echo "Source size: $($CONVERT "$SOURCE" -format '%wx%h' info:)"`,
       `$CONVERT "$SOURCE" -resize 1024x1024 -gravity center -background none -extent 1024x1024 /tmp/axion_src.png`,
       `$CONVERT -size 1024x1024 xc:none /tmp/axion_src.png -gravity center -geometry 682x682+0+0 -composite /tmp/axion_fg.png`,
-      `$CONVERT /tmp/axion_fg.png -resize 108x108 $RES_DIR/mipmap-mdpi/ic_launcher_foreground.png`,
-      `$CONVERT /tmp/axion_fg.png -resize 162x162 $RES_DIR/mipmap-hdpi/ic_launcher_foreground.png`,
-      `$CONVERT /tmp/axion_fg.png -resize 216x216 $RES_DIR/mipmap-xhdpi/ic_launcher_foreground.png`,
-      `$CONVERT /tmp/axion_fg.png -resize 324x324 $RES_DIR/mipmap-xxhdpi/ic_launcher_foreground.png`,
-      `$CONVERT /tmp/axion_fg.png -resize 432x432 $RES_DIR/mipmap-xxxhdpi/ic_launcher_foreground.png`,
-      `$CONVERT -size 1024x1024 xc:'${bgColor}' /tmp/axion_bg.png`,
+      `$CONVERT /tmp/axion_fg.png -resize 108x108 ${resDir}/mipmap-mdpi/ic_launcher_foreground.png`,
+      `$CONVERT /tmp/axion_fg.png -resize 162x162 ${resDir}/mipmap-hdpi/ic_launcher_foreground.png`,
+      `$CONVERT /tmp/axion_fg.png -resize 216x216 ${resDir}/mipmap-xhdpi/ic_launcher_foreground.png`,
+      `$CONVERT /tmp/axion_fg.png -resize 324x324 ${resDir}/mipmap-xxhdpi/ic_launcher_foreground.png`,
+      `$CONVERT /tmp/axion_fg.png -resize 432x432 ${resDir}/mipmap-xxxhdpi/ic_launcher_foreground.png`,
+      `$CONVERT -size 1024x1024 "xc:${bgColor}" /tmp/axion_bg.png`,
       `$CONVERT /tmp/axion_bg.png /tmp/axion_fg.png -gravity center -composite /tmp/axion_legacy.png`,
-      `$CONVERT /tmp/axion_legacy.png -resize 48x48 $RES_DIR/mipmap-mdpi/ic_launcher.png`,
-      `$CONVERT /tmp/axion_legacy.png -resize 72x72 $RES_DIR/mipmap-hdpi/ic_launcher.png`,
-      `$CONVERT /tmp/axion_legacy.png -resize 96x96 $RES_DIR/mipmap-xhdpi/ic_launcher.png`,
-      `$CONVERT /tmp/axion_legacy.png -resize 144x144 $RES_DIR/mipmap-xxhdpi/ic_launcher.png`,
-      `$CONVERT /tmp/axion_legacy.png -resize 192x192 $RES_DIR/mipmap-xxxhdpi/ic_launcher.png`,
-      `for D in mdpi hdpi xhdpi xxhdpi xxxhdpi; do cp $RES_DIR/mipmap-$D/ic_launcher.png $RES_DIR/mipmap-$D/ic_launcher_round.png 2>/dev/null; done`,
-      `printf '<?xml version="1.0" encoding="utf-8"?>\\n<resources>\\n    <color name="ic_launcher_background">${bgColor}</color>\\n</resources>\\n' > $RES_DIR/values/ic_launcher_background.xml`,
-      `printf '<?xml version="1.0" encoding="utf-8"?>\\n<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\\n    <background android:drawable="@color/ic_launcher_background"/>\\n    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\\n</adaptive-icon>\\n' > $RES_DIR/mipmap-anydpi-v26/ic_launcher.xml`,
-      `cp $RES_DIR/mipmap-anydpi-v26/ic_launcher.xml $RES_DIR/mipmap-anydpi-v26/ic_launcher_round.xml`,
+      `$CONVERT /tmp/axion_legacy.png -resize 48x48 ${resDir}/mipmap-mdpi/ic_launcher.png`,
+      `$CONVERT /tmp/axion_legacy.png -resize 72x72 ${resDir}/mipmap-hdpi/ic_launcher.png`,
+      `$CONVERT /tmp/axion_legacy.png -resize 96x96 ${resDir}/mipmap-xhdpi/ic_launcher.png`,
+      `$CONVERT /tmp/axion_legacy.png -resize 144x144 ${resDir}/mipmap-xxhdpi/ic_launcher.png`,
+      `$CONVERT /tmp/axion_legacy.png -resize 192x192 ${resDir}/mipmap-xxxhdpi/ic_launcher.png`,
+      `for D in mdpi hdpi xhdpi xxhdpi xxxhdpi; do cp ${resDir}/mipmap-$D/ic_launcher.png ${resDir}/mipmap-$D/ic_launcher_round.png 2>/dev/null || true; done`,
+      `cat > ${resDir}/values/ic_launcher_background.xml << 'XMLEOF'`,
+      `<?xml version="1.0" encoding="utf-8"?>`,
+      `<resources>`,
+      `    <color name="ic_launcher_background">${bgColor}</color>`,
+      `</resources>`,
+      `XMLEOF`,
+      `cat > ${resDir}/mipmap-anydpi-v26/ic_launcher.xml << 'XMLEOF'`,
+      `<?xml version="1.0" encoding="utf-8"?>`,
+      `<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">`,
+      `    <background android:drawable="@color/ic_launcher_background"/>`,
+      `    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>`,
+      `</adaptive-icon>`,
+      `XMLEOF`,
+      `cp ${resDir}/mipmap-anydpi-v26/ic_launcher.xml ${resDir}/mipmap-anydpi-v26/ic_launcher_round.xml`,
       `rm -f /tmp/axion_src.png /tmp/axion_fg.png /tmp/axion_bg.png /tmp/axion_legacy.png`,
-      `echo 'ICONS_GENERATED_OK'`
-    ];
+      `echo 'ICONS_GENERATED_OK'`,
+    ].join("\n");
 
-    const cmd = scriptLines.join(' && ');
+    writeFileSync(scriptPath, scriptContent, { mode: 0o755 });
 
-    await this.execWithLog(
-      deploymentId,
-      `${sshCmd} "${cmd}"`,
-      "Generate Adaptive Icons",
-      60000
-    );
+    try {
+      const scpCmd = this.buildSCPCommand(scriptPath, "/tmp/axion_gen_icons.sh");
+      await this.execWithLog(
+        deploymentId,
+        `${scpCmd}`,
+        "Upload Icon Script",
+        15000
+      );
+
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "chmod +x /tmp/axion_gen_icons.sh && bash /tmp/axion_gen_icons.sh && rm -f /tmp/axion_gen_icons.sh"`,
+        "Generate Adaptive Icons",
+        60000
+      );
+    } finally {
+      try { unlinkSync(scriptPath); } catch {}
+    }
 
     await this.addLog(deploymentId, "✅ تم توليد أيقونات Android Adaptive (foreground + background + XML)", "success");
   }

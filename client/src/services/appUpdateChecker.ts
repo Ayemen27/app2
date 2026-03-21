@@ -23,24 +23,34 @@ interface UpdateInfo {
   };
 }
 
-async function getAppVersion(): Promise<{ versionName: string; versionCode: number }> {
+async function getAppVersion(): Promise<{ versionName: string; versionCode: number; unknown: boolean }> {
   if (!Capacitor.isNativePlatform()) {
-    return { versionName: '0.0.0', versionCode: 0 };
+    return { versionName: '0.0.0', versionCode: 0, unknown: true };
   }
-  try {
-    const info = await App.getInfo();
-    const versionName = info.version || '0.0.0';
-    const versionCode = parseInt(info.build || '0', 10);
-    console.log(`[getAppVersion] raw info:`, JSON.stringify({ version: info.version, build: info.build, name: info.name, id: info.id }));
-    console.log(`[getAppVersion] parsed: versionName=${versionName}, versionCode=${versionCode}`);
-    if (versionName === '0.0.0' && versionCode === 0) {
-      console.warn(`[getAppVersion] App.getInfo() returned empty version — possible Capacitor plugin issue`);
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) {
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+      const info = await App.getInfo();
+      const versionName = info.version || '0.0.0';
+      const versionCode = parseInt(info.build || '0', 10);
+      console.log(`[getAppVersion] attempt=${attempt + 1} raw:`, JSON.stringify({ version: info.version, build: info.build, name: info.name, id: info.id }));
+
+      if (versionName !== '0.0.0' || versionCode > 0) {
+        console.log(`[getAppVersion] OK: ${versionName} (code: ${versionCode})`);
+        return { versionName, versionCode, unknown: false };
+      }
+
+      console.warn(`[getAppVersion] attempt=${attempt + 1} returned empty version — retrying...`);
+    } catch (err) {
+      console.error(`[getAppVersion] attempt=${attempt + 1} failed:`, err);
     }
-    return { versionName, versionCode };
-  } catch (err) {
-    console.error(`[getAppVersion] App.getInfo() failed:`, err);
-    return { versionName: '0.0.0', versionCode: 0 };
   }
+
+  console.error(`[getAppVersion] all attempts failed — returning unknown`);
+  return { versionName: '0.0.0', versionCode: 0, unknown: true };
 }
 
 function shouldCheck(): boolean {
@@ -63,6 +73,12 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
 
   try {
     const current = await getAppVersion();
+
+    if (current.unknown) {
+      console.warn(`[update-checker] تخطي فحص التحديث — لم يتم تحديد إصدار التطبيق`);
+      return null;
+    }
+
     const baseUrl = Capacitor.isNativePlatform()
       ? 'https://app2.binarjoinanelytic.info'
       : '';

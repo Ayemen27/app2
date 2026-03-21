@@ -59,13 +59,15 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
       return;
     }
 
+    const clientVersionUnknown = clientVersionName === "0.0.0" && clientVersionCode === 0;
+
     const byVersionName = compareVersions(latest.versionName, clientVersionName) > 0;
     const byVersionCode = clientVersionCode > 0 && latest.versionCode > clientVersionCode;
-    const updateAvailable = byVersionName || byVersionCode;
+    const updateAvailable = clientVersionUnknown ? false : (byVersionName || byVersionCode);
 
-    const forceUpdate = updateAvailable;
+    const forceUpdate = updateAvailable && !clientVersionUnknown;
 
-    console.log(`[check-update] client=${clientVersionName}(${clientVersionCode}) latest=${latest.versionName}(${latest.versionCode}) byName=${byVersionName} byCode=${byVersionCode} update=${updateAvailable}`);
+    console.log(`[check-update] client=${clientVersionName}(${clientVersionCode}) latest=${latest.versionName}(${latest.versionCode}) byName=${byVersionName} byCode=${byVersionCode} update=${updateAvailable} unknown=${clientVersionUnknown}`);
 
     res.json({
       updateAvailable,

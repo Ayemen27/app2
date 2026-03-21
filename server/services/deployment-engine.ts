@@ -2785,17 +2785,23 @@ export class DeploymentEngine {
       }
 
       const steps = deployment.steps as StepEntry[];
-      let firstFailedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
-      if (firstFailedIdx === -1) {
-        firstFailedIdx = steps.findIndex(s => s.status === "running");
-      }
-      if (firstFailedIdx === -1) {
-        const lastSuccessIdx = steps.map((s, i) => s.status === "success" ? i : -1).filter(i => i >= 0).pop();
-        firstFailedIdx = lastSuccessIdx !== undefined ? lastSuccessIdx + 1 : 0;
-        if (firstFailedIdx >= steps.length) {
-          throw new Error("لا توجد خطوة فاشلة للاستئناف منها");
+      let resumeFromIdx: number;
+      const failedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
+      if (failedIdx !== -1) {
+        resumeFromIdx = Math.max(0, failedIdx - 1);
+      } else {
+        const runningIdx = steps.findIndex(s => s.status === "running");
+        if (runningIdx !== -1) {
+          resumeFromIdx = Math.max(0, runningIdx - 1);
+        } else {
+          const lastSuccessIdx = steps.map((s, i) => s.status === "success" ? i : -1).filter(i => i >= 0).pop();
+          resumeFromIdx = lastSuccessIdx !== undefined ? Math.max(0, lastSuccessIdx - 1) : 0;
+          if (resumeFromIdx >= steps.length) {
+            throw new Error("لا توجد خطوة فاشلة للاستئناف منها");
+          }
         }
       }
+      const firstFailedIdx = resumeFromIdx;
 
       const updatedSteps = steps.map((s, idx) => {
         if (idx >= firstFailedIdx) {

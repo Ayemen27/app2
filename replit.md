@@ -116,3 +116,36 @@ The system maintains a consistent design using a professional navy/blue palette,
   - Explicit URL line (`🌐 https://...`) added to all 5 notification types for clickability
   - `consoleUrl` no longer uses `REPLIT_DEV_DOMAIN` — prioritizes `APP_BASE_URL` → `PRODUCTION_URL` → hardcoded
   - Added `FAILURE_SUGGESTIONS` for `validate` and `preflight-check` steps (SSH/network diagnostics)
+- **Structured Deployment Logger (`server/services/deployment-logger.ts`):**
+  - Structured JSON logs with traceId (deploymentId), step, level, metadata
+  - DORA metrics: deployment frequency, lead time, MTTR, change failure rate (30-day window)
+  - Step timing: start/end/duration with running/success/failed/skipped states
+  - Log levels: debug/info/warn/error/fatal with overloaded step-aware signatures
+  - Summary report generation (generateSummaryWithContext) with full pipeline context
+  - Persists structured logs to deployment events table
+  - API endpoint: `GET /api/deployment/dora-metrics` (admin-only)
+- **Pipeline-as-Code (`server/config/pipeline-definitions.ts`):**
+  - Externalized pipeline configurations — single source of truth for all pipeline steps
+  - Type-safe step registry with timeout, retry policy, and conditional execution
+  - Pipeline validation (unknown steps, missing critical steps, timeout sanity)
+  - `isPipelineSupported()` replaces hardcoded validPipelines arrays in routes
+  - `listAvailablePipelines()` exposes pipeline metadata via `GET /api/deployment/pipelines`
+  - `PIPELINE_ALIASES` moved here from deployment-engine.ts (removed duplication)
+- **RBAC & Deployment Approval System:**
+  - New tables: `deployment_approvals`, `deployment_permissions` (89 total tables)
+  - `checkDeployPermission` middleware: validates pipeline+environment access per user
+  - Admin/super_admin roles bypass RBAC (auto-pass)
+  - Non-admin users require explicit `deployment_permissions` record
+  - `requireApproval` middleware: creates pending approval for production deploys
+  - `checkDailyLimit`: enforces max daily deployments per user (fail-closed on error)
+- **SSH Security Hardening:**
+  - Production requires key-based SSH by default (`SSH_AUTH_METHOD=key`)
+  - Password auth requires explicit `ALLOW_SSH_PASSWORD=true` env var
+  - Auto-corrects key permissions to 600
+  - `StrictHostKeyChecking=accept-new` removed for production paths
+  - SSH key validation at deployment start (fail fast)
+- **Integration Architecture:**
+  - DeploymentLogger wired into `runPipeline` (stepStart/stepEnd/summary)
+  - Pipeline validation inside try/finally — guarantees cleanup on all paths
+  - `cleanupLogger(deploymentId)` called in both success and error paths
+  - `cleanupDeploymentState` always runs via finally block

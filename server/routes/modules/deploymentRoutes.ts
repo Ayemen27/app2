@@ -3,6 +3,9 @@ import { requireAuth, requireAdmin } from "../../middleware/auth.js";
 import { deploymentEngine } from "../../services/deployment-engine.js";
 import { getAuthUser } from "../../internal/auth-user.js";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { checkDeployPermission } from "../../middleware/deployment-auth.js";
+import { DeploymentLogger } from "../../services/deployment-logger.js";
+import { listAvailablePipelines, isPipelineSupported } from "../../config/pipeline-definitions.js";
 
 const router = Router();
 const publicRouter = Router();
@@ -81,12 +84,12 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
 
 router.use(requireAuth);
 
-router.post("/start", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (req: Request, res: Response) => {
   const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version, buildTarget = "server" } = req.body;
 
-  const validPipelines = ["web-deploy", "android-build", "full-deploy", "git-push", "hotfix", "git-android-build", "android-build-test"];
-  if (!validPipelines.includes(pipeline)) {
-    res.status(400).json({ error: `Invalid pipeline. Valid: ${validPipelines.join(", ")}` });
+  if (!isPipelineSupported(pipeline)) {
+    const available = listAvailablePipelines().map(p => p.name);
+    res.status(400).json({ error: `Invalid pipeline. Valid: ${available.join(", ")}` });
     return;
   }
 
@@ -479,6 +482,16 @@ publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
     if (!res.headersSent) res.status(500).json({ error: "خطأ داخلي" });
   }
 });
+
+router.get("/dora-metrics", requireAuth, requireAdmin, asyncHandler(async (_req: Request, res: Response) => {
+  const metrics = await DeploymentLogger.calculateDORAMetrics(30);
+  res.json({ success: true, data: metrics });
+}));
+
+router.get("/pipelines", requireAuth, asyncHandler(async (_req: Request, res: Response) => {
+  const pipelines = listAvailablePipelines();
+  res.json({ success: true, data: pipelines });
+}));
 
 export default router;
 export { publicRouter as deploymentPublicRouter };

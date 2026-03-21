@@ -2532,3 +2532,45 @@ export interface Incident {
   resolved_at?: string | null;
 }
 
+// --- Deployment RBAC & Approval Tables ---
+
+export const deploymentApprovals = pgTable("deployment_approvals", {
+  id: serial("id").primaryKey(),
+  deploymentId: varchar("deployment_id", { length: 255 }).notNull(),
+  requestedBy: varchar("requested_by", { length: 255 }).notNull(),
+  approvedBy: varchar("approved_by", { length: 255 }),
+  status: text("status").notNull().default("pending"),
+  pipeline: text("pipeline").notNull(),
+  environment: text("environment").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  idxDeploymentApprovalsDeploymentId: index("idx_deployment_approvals_deployment_id").on(table.deploymentId),
+  idxDeploymentApprovalsStatus: index("idx_deployment_approvals_status").on(table.status),
+}));
+
+export const insertDeploymentApprovalSchema = createInsertSchema(deploymentApprovals).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type DeploymentApproval = typeof deploymentApprovals.$inferSelect;
+export type InsertDeploymentApproval = z.infer<typeof insertDeploymentApprovalSchema>;
+
+export const deploymentPermissions = pgTable("deployment_permissions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  allowedPipelines: text("allowed_pipelines").array().notNull(),
+  allowedEnvironments: text("allowed_environments").array().notNull(),
+  requiresApproval: boolean("requires_approval").default(true).notNull(),
+  maxDailyDeploys: integer("max_daily_deploys").default(10).notNull(),
+}, (table) => ({
+  idxDeploymentPermissionsUserId: index("idx_deployment_permissions_user_id").on(table.userId),
+}));
+
+export const insertDeploymentPermissionSchema = createInsertSchema(deploymentPermissions).omit({
+  id: true,
+});
+
+export type DeploymentPermission = typeof deploymentPermissions.$inferSelect;
+export type InsertDeploymentPermission = z.infer<typeof insertDeploymentPermissionSchema>;
+

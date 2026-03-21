@@ -10,6 +10,13 @@ import type { Response } from "express";
 import { DeploymentNotificationPublisher } from "./deployment-notifications/DeploymentNotificationPublisher.js";
 import { DeploymentPayloadBuilder } from "./deployment-notifications/builders/deploymentPayloadBuilder.js";
 import { TelegramDeploymentProvider } from "./deployment-notifications/providers/TelegramDeploymentProvider.js";
+import { DeploymentLogger } from "./deployment-logger.js";
+import {
+  type Pipeline, type BuildTarget,
+  getPipelineSteps, getStepTimeout, getStepRetryPolicy,
+  resolvePipeline, validatePipeline, isPipelineSupported, listAvailablePipelines,
+  PIPELINE_ALIASES
+} from "../config/pipeline-definitions.js";
 
 const execAsync = promisify(exec);
 
@@ -21,17 +28,6 @@ class CancellationError extends Error {
     super(message);
     this.name = "CancellationError";
   }
-}
-
-type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback";
-
-const PIPELINE_ALIASES: Record<string, Pipeline> = {
-  "git-push": "web-deploy",
-  "git-android-build": "android-build",
-};
-
-function resolvePipeline(pipeline: string): Pipeline {
-  return (PIPELINE_ALIASES[pipeline] as Pipeline) || (pipeline as Pipeline);
 }
 
 interface DeploymentConfig {
@@ -46,71 +42,7 @@ interface DeploymentConfig {
   originalPipeline?: string;
 }
 
-const SERVER_PIPELINES: Record<Pipeline, string[]> = {
-  "web-deploy": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-  "full-deploy": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-  "hotfix": ["validate", "hotfix-guard", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
-  "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-  "rollback": ["validate", "rollback-server", "restart-pm2", "verify"],
-};
-
-const LOCAL_PIPELINES: Record<Pipeline, string[]> = {
-  "web-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build": ["validate", "preflight-check", "sync-version", "build-web", "git-push", "pull-server", "install-deps", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-  "full-deploy": ["validate", "preflight-check", "sync-version", "build-web", "transfer", "deploy-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-  "hotfix": ["validate", "hotfix-guard", "sync-version", "build-web", "hotfix-sync", "restart-pm2", "post-deploy-smoke", "verify"],
-  "android-build-test": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "firebase-test", "retrieve-artifact", "verify"],
-  "git-push": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "db-migrate", "restart-pm2", "post-deploy-smoke", "verify"],
-  "git-android-build": ["validate", "preflight-check", "sync-version", "git-push", "pull-server", "install-deps", "build-server", "restart-pm2", "prebuild-gate", "android-readiness", "sync-capacitor", "generate-icons", "gradle-build", "sign-apk", "apk-integrity", "retrieve-artifact", "verify"],
-  "rollback": ["validate", "rollback-server", "restart-pm2", "verify"],
-};
-
-function getPipelineSteps(pipeline: Pipeline, buildTarget: "server" | "local" = "server"): string[] {
-  const resolved = resolvePipeline(pipeline);
-  return buildTarget === "local" ? LOCAL_PIPELINES[resolved] : SERVER_PIPELINES[resolved];
-}
-
-const STEP_TIMEOUT_MS: Record<string, number> = {
-  "validate": 30000,
-  "git-push": 120000,
-  "build-server": 600000,
-  "gradle-build": 600000,
-  "install-deps": 180000,
-  "restart-pm2": 60000,
-  "verify": 60000,
-  "transfer": 600000,
-  "sync-capacitor": 120000,
-  "sign-apk": 60000,
-  "retrieve-artifact": 60000,
-  "preflight-check": 60000,
-  "prebuild-gate": 120000,
-  "post-deploy-smoke": 60000,
-  "android-readiness": 60000,
-  "generate-icons": 60000,
-  "apk-integrity": 60000,
-  "db-migrate": 120000,
-  "build-web": 300000,
-  "deploy-server": 120000,
-  "hotfix-sync": 120000,
-  "hotfix-guard": 30000,
-  "sync-version": 30000,
-  "pull-server": 60000,
-  "firebase-test": 600000,
-};
-
-const STEP_RETRY_POLICY: Record<string, { maxRetries: number; delayMs: number }> = {
-  "git-push":       { maxRetries: 2, delayMs: 5000 },
-  "pull-server":    { maxRetries: 2, delayMs: 5000 },
-  "install-deps":   { maxRetries: 2, delayMs: 10000 },
-  "transfer":       { maxRetries: 2, delayMs: 5000 },
-  "deploy-server":  { maxRetries: 1, delayMs: 10000 },
-  "restart-pm2":    { maxRetries: 2, delayMs: 3000 },
-  "verify":         { maxRetries: 3, delayMs: 5000 },
-  "retrieve-artifact": { maxRetries: 2, delayMs: 5000 },
-};
+export { Pipeline, BuildTarget, isPipelineSupported, listAvailablePipelines };
 
 const activeSSEClients = new Map<string, Response[]>();
 
@@ -136,9 +68,21 @@ export class DeploymentEngine {
   private static LOG_FLUSH_INTERVAL = 2000;
   private notificationPublisher: DeploymentNotificationPublisher;
   private providersRegistered = false;
+  private deploymentLoggers = new Map<string, DeploymentLogger>();
 
   constructor() {
     this.notificationPublisher = DeploymentNotificationPublisher.getInstance();
+  }
+
+  private getLogger(deploymentId: string): DeploymentLogger {
+    if (!this.deploymentLoggers.has(deploymentId)) {
+      this.deploymentLoggers.set(deploymentId, new DeploymentLogger(deploymentId));
+    }
+    return this.deploymentLoggers.get(deploymentId)!;
+  }
+
+  private cleanupLogger(deploymentId: string) {
+    this.deploymentLoggers.delete(deploymentId);
   }
 
   private resolveBaseUrl(config?: DeploymentConfig): string {
@@ -518,12 +462,33 @@ export class DeploymentEngine {
     const bt = config.buildTarget || "server";
     const pipelineSteps = getPipelineSteps(config.pipeline, bt);
     const startTime = Date.now();
-
-    await this.sendDeploymentNotification("started", config, deploymentId);
-    const targetLabel = bt === "local" ? "محلي (Replit)" : "على السيرفر (VPS)";
-    await this.addLog(deploymentId, `مكان البناء: ${targetLabel} | الخطوات: ${pipelineSteps.join(" → ")}`, "info");
+    const logger = this.getLogger(deploymentId);
 
     try {
+      logger.info("pipeline", `Pipeline started: ${config.pipeline}`, {
+        pipeline: config.pipeline,
+        buildTarget: bt,
+        environment: config.environment,
+        triggeredBy: config.triggeredBy,
+        steps: pipelineSteps,
+      });
+
+      const validation = validatePipeline(config.pipeline, bt as BuildTarget);
+      if (!validation.valid) {
+        const errMsg = `Pipeline validation failed: ${validation.errors.join(", ")}`;
+        logger.error("pipeline", errMsg);
+        await this.addLog(deploymentId, `❌ ${errMsg}`, "error");
+        throw new Error(errMsg);
+      }
+      if (validation.warnings.length > 0) {
+        for (const warn of validation.warnings) {
+          logger.warn("pipeline", `Pipeline warning: ${warn}`);
+        }
+      }
+
+      await this.sendDeploymentNotification("started", config, deploymentId);
+      const targetLabel = bt === "local" ? "محلي (Replit)" : "على السيرفر (VPS)";
+      await this.addLog(deploymentId, `مكان البناء: ${targetLabel} | الخطوات: ${pipelineSteps.join(" → ")}`, "info");
       for (let i = 0; i < pipelineSteps.length; i++) {
         if (this.isCancelled(deploymentId)) {
           await this.markRemainingStepsCancelled(deploymentId, i - 1, pipelineSteps);
@@ -541,10 +506,11 @@ export class DeploymentEngine {
         await this.updateStepStatus(deploymentId, stepName, "running");
         await this.addLog(deploymentId, `Starting step: ${stepName}`, "step");
         await this.addEvent(deploymentId, "step_start", `Step ${stepName} started`);
+        logger.stepStart(stepName);
 
         const stepStart = Date.now();
 
-        const retryPolicy = STEP_RETRY_POLICY[stepName];
+        const retryPolicy = getStepRetryPolicy(stepName);
         const maxAttempts = (retryPolicy?.maxRetries || 0) + 1;
         let lastError: any = null;
 
@@ -555,13 +521,14 @@ export class DeploymentEngine {
               await new Promise(r => setTimeout(r, retryPolicy!.delayMs));
               if (this.isCancelled(deploymentId)) throw new CancellationError();
             }
-            const timeoutMs = STEP_TIMEOUT_MS[stepName] || 300000;
+            const timeoutMs = getStepTimeout(stepName);
             await Promise.race([
               this.executeStep(deploymentId, stepName, config),
               new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`)), timeoutMs)),
             ]);
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
+            logger.stepEnd(stepName, "success");
             await this.addLog(deploymentId, `Step ${stepName} completed (${(stepDuration / 1000).toFixed(1)}s)${attempt > 1 ? ` [retry ${attempt}/${maxAttempts}]` : ""}`, "success");
             await this.addEvent(deploymentId, "step_complete", `Step ${stepName} completed`, { duration: stepDuration, attempt });
             lastError = null;
@@ -583,6 +550,7 @@ export class DeploymentEngine {
         if (lastError) {
           const stepDuration = Date.now() - stepStart;
           await this.updateStepStatus(deploymentId, stepName, "failed", stepDuration);
+          logger.stepEnd(stepName, "failed");
           await this.markRemainingStepsCancelled(deploymentId, i, pipelineSteps);
           await this.addLog(deploymentId, `Step ${stepName} failed after ${maxAttempts} attempt(s): ${lastError.message}`, "error");
           await this.addEvent(deploymentId, "step_failed", `Step ${stepName} failed: ${lastError.message}`);
@@ -598,6 +566,22 @@ export class DeploymentEngine {
         duration: totalDuration,
         endTime: new Date(),
       });
+
+      const summary = logger.generateSummaryWithContext({
+        pipeline: config.pipeline,
+        buildTarget: bt,
+        environment: config.environment,
+        triggeredBy: config.triggeredBy || "unknown",
+        version: config.version,
+      });
+      logger.info("pipeline", `Pipeline completed: ${config.pipeline}`, {
+        totalDuration,
+        stepTimings: summary.stepTimings,
+        logCounts: summary.logCounts,
+      });
+      await logger.persistStructuredLogs().catch(() => {});
+      this.cleanupLogger(deploymentId);
+
       await this.addLog(deploymentId, `Deployment completed successfully in ${(totalDuration / 1000).toFixed(1)}s`, "success");
       await this.addEvent(deploymentId, "deployment_success", "Deployment completed successfully", { duration: totalDuration });
       await this.sendDeploymentNotification("success", config, deploymentId, totalDuration);
@@ -620,6 +604,9 @@ export class DeploymentEngine {
         totalDuration,
         isCancelled ? undefined : error.message
       );
+      logger.error("pipeline", isCancelled ? "Pipeline cancelled" : `Pipeline failed: ${error.message}`);
+      await logger.persistStructuredLogs().catch(() => {});
+      this.cleanupLogger(deploymentId);
     } finally {
       this.cleanupDeploymentState(deploymentId);
     }
@@ -763,35 +750,39 @@ export class DeploymentEngine {
 
     const explicit = process.env.SSH_AUTH_METHOD;
     const hasPassword = !!(process.env.SSH_PASSWORD || process.env.SSHPASS);
+    const isProduction = process.env.NODE_ENV === "production";
+    const allowSSHPassword = process.env.ALLOW_SSH_PASSWORD === "true";
 
-    if (explicit === "password" && hasPassword) {
+    if (keyFileReady) {
+      this.resolvedAuthMethod = "key";
+    } else if (isProduction && !allowSSHPassword) {
+      throw new Error(
+        `🔒 [أمان] بيئة الإنتاج تتطلب مصادقة SSH بالمفتاح فقط.\n` +
+        `المفتاح غير متوفر في ${keyPath}\n` +
+        `الحلول:\n` +
+        `  1. اضبط SSH_PRIVATE_KEY_B64 في Secrets (base64 للمفتاح الخاص)\n` +
+        `  2. أو ضع ملف المفتاح يدوياً في ${keyPath}\n` +
+        `  3. للسماح بكلمة المرور مؤقتاً: اضبط ALLOW_SSH_PASSWORD=true`
+      );
+    } else if (explicit === "password" && hasPassword) {
+      console.warn(`[DeploymentEngine] ⚠️ استخدام SSH بكلمة المرور (غير موصى به للإنتاج)`);
       this.resolvedAuthMethod = "password";
     } else if (explicit === "password" && !hasPassword) {
       throw new Error(
         `SSH_AUTH_METHOD=password لكن لا توجد كلمة مرور.\n` +
         `اضبط SSH_PASSWORD في Secrets`
       );
-    } else if (keyFileReady) {
-      this.resolvedAuthMethod = "key";
-    } else if (explicit === "key" && !keyFileReady && hasPassword) {
-      console.warn(`[DeploymentEngine] SSH_AUTH_METHOD=key لكن المفتاح غير متوفر — انتقال تلقائي لكلمة المرور`);
+    } else if (hasPassword && allowSSHPassword) {
+      console.warn(`[DeploymentEngine] ⚠️ استخدام SSH بكلمة المرور (ALLOW_SSH_PASSWORD=true)`);
       this.resolvedAuthMethod = "password";
-    } else if (explicit === "key" && !keyFileReady && !hasPassword) {
-      throw new Error(
-        `SSH_AUTH_METHOD=key لكن المفتاح غير متوفر ولا توجد كلمة مرور بديلة.\n` +
-        `الحلول:\n` +
-        `  1. اضبط SSH_PRIVATE_KEY_B64 في Secrets (base64 للمفتاح الخاص)\n` +
-        `  2. أو اضبط SSH_PASSWORD في Secrets (سينتقل تلقائياً لوضع كلمة المرور)\n` +
-        `  3. أو ضع ملف المفتاح يدوياً في ${keyPath}`
-      );
     } else if (hasPassword) {
       this.resolvedAuthMethod = "password";
     } else {
       throw new Error(
         `لا يوجد أي وسيلة اتصال SSH مُعدّة في هذه البيئة.\n` +
         `الحلول:\n` +
-        `  1. مفتاح SSH: اضبط SSH_PRIVATE_KEY_B64 في Secrets\n` +
-        `  2. كلمة مرور: اضبط SSH_PASSWORD في Secrets`
+        `  1. مفتاح SSH: اضبط SSH_PRIVATE_KEY_B64 في Secrets (موصى به)\n` +
+        `  2. كلمة مرور: اضبط SSH_PASSWORD + ALLOW_SSH_PASSWORD=true في Secrets`
       );
     }
 
@@ -803,7 +794,19 @@ export class DeploymentEngine {
       }
     }
 
-    console.log(`[DeploymentEngine] SSH auth resolved: ${this.resolvedAuthMethod} (key file: ${keyFileReady ? "✓" : "✗"})`);
+    if (this.resolvedAuthMethod === "key") {
+      try {
+        const { stdout: perms } = await execAsync(`stat -c '%a' ${keyPath}`, { timeout: 5000 });
+        const perm = perms.trim();
+        if (perm !== "600" && perm !== "400") {
+          console.warn(`[DeploymentEngine] ⚠️ صلاحيات مفتاح SSH: ${perm} (يجب 600 أو 400)`);
+          await execAsync(`chmod 600 ${keyPath}`, { timeout: 5000 });
+          console.log(`[DeploymentEngine] ✅ تم تصحيح صلاحيات المفتاح إلى 600`);
+        }
+      } catch {}
+    }
+
+    console.log(`[DeploymentEngine] SSH auth resolved: ${this.resolvedAuthMethod} (key file: ${keyFileReady ? "✓" : "✗"}, production: ${isProduction})`);
     this.sshKeyProvisioned = true;
   }
 
@@ -2719,7 +2722,7 @@ export class DeploymentEngine {
         await this.addLog(deploymentId, `Starting step: ${stepName}`, "step");
 
         const stepStart = Date.now();
-        const retryPolicy = STEP_RETRY_POLICY[stepName];
+        const retryPolicy = getStepRetryPolicy(stepName);
         const maxAttempts = (retryPolicy?.maxRetries || 0) + 1;
         let lastError: any = null;
 
@@ -2730,7 +2733,7 @@ export class DeploymentEngine {
               await new Promise(r => setTimeout(r, retryPolicy!.delayMs));
               if (this.isCancelled(deploymentId)) throw new CancellationError();
             }
-            const timeoutMs = STEP_TIMEOUT_MS[stepName] || 300000;
+            const timeoutMs = getStepTimeout(stepName);
             await Promise.race([
               this.executeStep(deploymentId, stepName, config),
               new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`)), timeoutMs)),

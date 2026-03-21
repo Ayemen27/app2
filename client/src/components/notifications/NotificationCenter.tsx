@@ -14,8 +14,9 @@ import { Separator } from "@/components/ui/separator";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { showSuccessToast, showErrorToast } from "@/utils/enhanced-toast";
-import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, isWebCookieMode } from '@/lib/auth-token-store';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, isWebCookieMode, shouldUseBearerAuth, getRefreshToken, storeTokens } from '@/lib/auth-token-store';
 import { useAuth } from '@/components/AuthProvider';
+import { isValidJwt } from '@/lib/token-utils';
 
 
 interface Notification {
@@ -81,13 +82,40 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     setLoading(true);
     try {
 
-      const response = await fetch(ENV.getApiUrl('/api/notifications?limit=50'), {
+      let response = await fetch(ENV.getApiUrl('/api/notifications?limit=50'), {
         credentials: getFetchCredentials(),
         headers: {
           ...getClientPlatformHeader(),
           ...getAuthHeaders(),
         }
       });
+
+      if (response.status === 401) {
+        const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : null;
+        if (refreshTokenValue && isValidJwt(refreshTokenValue)) {
+          try {
+            const refreshRes = await fetch(ENV.getApiUrl('/api/auth/refresh'), {
+              method: 'POST',
+              credentials: getFetchCredentials(),
+              headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
+              body: JSON.stringify({ refreshToken: refreshTokenValue })
+            });
+            if (refreshRes.ok) {
+              const refreshData = await refreshRes.json();
+              const newToken = refreshData.data?.accessToken || refreshData.accessToken;
+              const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
+              if (newToken) {
+                storeTokens(newToken, newRefresh || refreshTokenValue);
+                response = await fetch(ENV.getApiUrl('/api/notifications?limit=50'), {
+                  credentials: getFetchCredentials(),
+                  headers: { ...getClientPlatformHeader(), ...getAuthHeaders() }
+                });
+              }
+            }
+          } catch (e) { /* refresh failed, fall through */ }
+        }
+      }
+
       if (response.ok) {
         const data = await response.json();
         console.log('🔍 [NotificationCenter] استجابة API:', data);

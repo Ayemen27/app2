@@ -11,6 +11,7 @@ import {
   projects, workers, materials, suppliers, materialPurchases, workerAttendance,
   fundTransfers, transportationExpenses, dailyExpenseSummaries,
   workerTransfers, workerMiscExpenses, workerBalances, projectFundTransfers, supplierPayments,
+  journalEntries, journalLines, financialAuditLog, reconciliationRecords, equipment,
   enhancedInsertProjectSchema, enhancedInsertWorkerSchema,
   insertMaterialSchema, insertSupplierSchema, insertMaterialPurchaseSchema,
   insertWorkerAttendanceSchema, insertFundTransferSchema, insertTransportationExpenseSchema,
@@ -1190,7 +1191,7 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
     // جلب عدد البيانات المرتبطة من جميع الجداول (نفس الجداول في deletion-stats)
     const [
       ftCount, waCount, mpCount, teCount, wtCount, wmCount,
-      dsCount, ptFromCount, ptToCount, wbCount, spCount
+      dsCount, ptFromCount, ptToCount, wbCount, spCount, jeCount, falCount, rrCount
     ] = await Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(fundTransfers).where(eq(fundTransfers.project_id, project_id)),
       db.select({ count: sql<number>`count(*)` }).from(workerAttendance).where(eq(workerAttendance.project_id, project_id)),
@@ -1202,7 +1203,10 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
       db.select({ count: sql<number>`count(*)` }).from(projectFundTransfers).where(eq(projectFundTransfers.fromProjectId, project_id)),
       db.select({ count: sql<number>`count(*)` }).from(projectFundTransfers).where(eq(projectFundTransfers.toProjectId, project_id)),
       db.select({ count: sql<number>`count(*)` }).from(workerBalances).where(eq(workerBalances.project_id, project_id)),
-      db.select({ count: sql<number>`count(*)` }).from(supplierPayments).where(eq(supplierPayments.project_id, project_id))
+      db.select({ count: sql<number>`count(*)` }).from(supplierPayments).where(eq(supplierPayments.project_id, project_id)),
+      db.select({ count: sql<number>`count(*)` }).from(journalEntries).where(eq(journalEntries.project_id, project_id)),
+      db.select({ count: sql<number>`count(*)` }).from(financialAuditLog).where(eq(financialAuditLog.project_id, project_id)),
+      db.select({ count: sql<number>`count(*)` }).from(reconciliationRecords).where(eq(reconciliationRecords.project_id, project_id))
     ]);
 
     const totalLinked = Number(ftCount[0]?.count || 0) + Number(waCount[0]?.count || 0) +
@@ -1210,7 +1214,8 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
                        Number(wtCount[0]?.count || 0) + Number(wmCount[0]?.count || 0) +
                        Number(dsCount[0]?.count || 0) + Number(ptFromCount[0]?.count || 0) +
                        Number(ptToCount[0]?.count || 0) + Number(wbCount[0]?.count || 0) +
-                       Number(spCount[0]?.count || 0);
+                       Number(spCount[0]?.count || 0) + Number(jeCount[0]?.count || 0) +
+                       Number(falCount[0]?.count || 0) + Number(rrCount[0]?.count || 0);
 
     const hasLinkedData = totalLinked > 0;
 
@@ -1247,12 +1252,22 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
       isAdmin: isAdminDel
     });
 
-    // حذف المشروع من قاعدة البيانات (CASCADE سيحذف البيانات المرتبطة تلقائياً)
     console.log('🗑️ [API] حذف المشروع من قاعدة البيانات...');
-    const deletedProject = await db
-      .delete(projects)
-      .where(eq(projects.id, project_id))
-      .returning();
+    const deletedProject = await db.transaction(async (tx) => {
+      await tx.execute(sql`
+        DELETE FROM journal_lines jl
+        USING journal_entries je
+        WHERE jl.journal_entry_id = je.id
+          AND je.project_id = ${project_id}
+      `);
+      await tx.delete(journalEntries).where(eq(journalEntries.project_id, project_id));
+      await tx.delete(financialAuditLog).where(eq(financialAuditLog.project_id, project_id));
+      await tx.delete(reconciliationRecords).where(eq(reconciliationRecords.project_id, project_id));
+      await tx.execute(sql`UPDATE equipment SET project_id = NULL WHERE project_id = ${project_id}`);
+
+      const rows = await tx.delete(projects).where(eq(projects.id, project_id)).returning();
+      return rows;
+    });
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف المشروع بنجاح في ${duration}ms:`, {
@@ -1277,8 +1292,9 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
     let errorMessage = 'فشل في حذف المشروع';
     let statusCode = 500;
 
-    if (error.code === '23503') { // foreign key violation
-      errorMessage = 'لا يمكن حذف المشروع - مرتبط ببيانات أخرى (عمال، مواد، مصروفات)';
+    const errCode = error.code || error.cause?.code;
+    if (errCode === '23503') { // foreign key violation
+      errorMessage = 'لا يمكن حذف المشروع - مرتبط ببيانات أخرى (عمال، مواد، مصروفات، قيود يومية)';
       statusCode = 409;
     } else if (error.code === '22P02') { // invalid input syntax
       errorMessage = 'معرف المشروع غير صحيح';

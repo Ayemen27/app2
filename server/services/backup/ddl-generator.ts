@@ -1,5 +1,16 @@
 import type { Pool } from 'pg';
 
+function normalizePgTextArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((v) => String(v));
+  if (typeof value !== 'string') return [];
+  const s = value.trim();
+  if (!s || s === '{}') return [];
+  if (!(s.startsWith('{') && s.endsWith('}'))) return [s];
+  const inner = s.slice(1, -1);
+  if (!inner) return [];
+  return inner.split(',').map((v) => v.replace(/^"|"$/g, '').trim()).filter(Boolean);
+}
+
 interface ColumnDef {
   column_name: string;
   data_type: string;
@@ -142,8 +153,8 @@ export async function getFullTableDDL(pool: Pool, tableName: string): Promise<st
   `, [tableName]);
 
   for (const fk of fkRes.rows) {
-    const localCols = fk.columns.map((c: string) => `"${c}"`).join(', ');
-    const foreignCols = fk.foreign_columns.map((c: string) => `"${c}"`).join(', ');
+    const localCols = normalizePgTextArray(fk.columns).map((c: string) => `"${c}"`).join(', ');
+    const foreignCols = normalizePgTextArray(fk.foreign_columns).map((c: string) => `"${c}"`).join(', ');
     let fkDef = `CONSTRAINT "${fk.constraint_name}" FOREIGN KEY (${localCols}) REFERENCES "${fk.foreign_table}" (${foreignCols})`;
     if (fk.on_update && fk.on_update !== 'NO ACTION') fkDef += ` ON UPDATE ${fk.on_update}`;
     if (fk.on_delete && fk.on_delete !== 'NO ACTION') fkDef += ` ON DELETE ${fk.on_delete}`;
@@ -165,7 +176,7 @@ export async function getFullTableDDL(pool: Pool, tableName: string): Promise<st
   `, [tableName]);
 
   for (const uq of uqRes.rows) {
-    const uqCols = uq.columns.map((c: string) => `"${c}"`).join(', ');
+    const uqCols = normalizePgTextArray(uq.columns).map((c: string) => `"${c}"`).join(', ');
     colDefs.push(`CONSTRAINT "${uq.constraint_name}" UNIQUE (${uqCols})`);
   }
 

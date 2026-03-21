@@ -1256,15 +1256,71 @@ export class DeploymentEngine {
   }
 
   private async stepRestartPM2(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
-    await this.addLog(deploymentId, "إعادة تحميل PM2 من ecosystem.config.cjs...", "info");
     const remoteDir = "/home/administrator/app2";
+    const appName = "construction-app";
 
+    const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+    const version = deployment?.version || config?.version || "unknown";
+    const buildNumber = deployment?.buildNumber || 0;
+
+    await this.addLog(deploymentId, `🗑️ حذف جميع عمليات PM2 القديمة...`, "info");
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && pm2 delete binarjoin 2>/dev/null; pm2 startOrReload ecosystem.config.cjs --env production --update-env && pm2 save && echo 'PM2_OK'"`,
-      "PM2 Reload",
+      `${sshCmd} "pm2 delete all 2>/dev/null; pm2 kill 2>/dev/null; sleep 2; echo 'PM2_CLEARED'"`,
+      "PM2 Delete All",
+      30000
+    );
+
+    await this.addLog(deploymentId, `🔍 التحقق من إزالة جميع العمليات القديمة...`, "info");
+    try {
+      const { stdout: checkOutput } = await execAsync(
+        `${sshCmd} "pm2 jlist 2>/dev/null || echo '[]'"`,
+        { timeout: 10000 }
+      );
+      const processes = JSON.parse(checkOutput.trim() || "[]");
+      if (Array.isArray(processes) && processes.length > 0) {
+        const names = processes.map((p: { name?: string }) => p.name).join(", ");
+        await this.addLog(deploymentId, `⚠️ عمليات لا تزال موجودة: ${names} — إعادة الحذف...`, "warn");
+        await this.execWithLog(
+          deploymentId,
+          `${sshCmd} "pm2 delete all --force 2>/dev/null; pm2 kill 2>/dev/null; sleep 2; echo 'PM2_FORCE_CLEARED'"`,
+          "PM2 Force Delete",
+          20000
+        );
+      } else {
+        await this.addLog(deploymentId, `✅ تم حذف جميع العمليات القديمة بنجاح`, "success");
+      }
+    } catch {
+      await this.addLog(deploymentId, `✅ لا توجد عمليات PM2 قديمة`, "success");
+    }
+
+    await this.addLog(deploymentId, `🚀 تشغيل جديد: ${appName} v${version} (build #${buildNumber})...`, "info");
+    await this.execWithLog(
+      deploymentId,
+      `${sshCmd} "cd ${remoteDir} && pm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'PM2_STARTED'"`,
+      "PM2 Fresh Start",
       45000
     );
+
+    await this.addLog(deploymentId, `🔍 التحقق من تشغيل ${appName}...`, "info");
+    try {
+      const { stdout: verifyOutput } = await execAsync(
+        `${sshCmd} "pm2 jlist 2>/dev/null || echo '[]'"`,
+        { timeout: 10000 }
+      );
+      const runningProcs = JSON.parse(verifyOutput.trim() || "[]");
+      const appProcs = Array.isArray(runningProcs)
+        ? runningProcs.filter((p: { name?: string; pm2_env?: { status?: string } }) => p.name === appName && p.pm2_env?.status === "online")
+        : [];
+      if (appProcs.length === 0) {
+        await this.addLog(deploymentId, `❌ ${appName} لم يبدأ — لا توجد عمليات online`, "error");
+        throw new Error(`PM2: ${appName} فشل في البدء — تحقق من dist/index.js`);
+      }
+      await this.addLog(deploymentId, `✅ ${appName} v${version} يعمل (${appProcs.length} instances online)`, "success");
+    } catch (err: any) {
+      if (err.message?.includes("فشل في البدء")) throw err;
+      await this.addLog(deploymentId, `⚠️ تعذر التحقق من حالة PM2: ${err.message}`, "warn");
+    }
 
     const baseUrl = this.resolveBaseUrl(config);
     const ready = await this.waitForServerReady(deploymentId, baseUrl, 90000, 5000);
@@ -1277,12 +1333,12 @@ export class DeploymentEngine {
       const { stdout: httpCode } = await execAsync(authCheckCmd, { timeout: 15000 });
       const code = httpCode.trim();
       if (code === "404") {
-        await this.addLog(deploymentId, "❌ مسار /api/auth/login يعيد 404 — الكود القديم لا يزال محملاً!", "error");
-        throw new Error("PM2 لم يحمّل الكود الجديد — /api/auth/login يعيد 404. تحقق من أن dist/index.js محدّث.");
+        await this.addLog(deploymentId, "❌ مسار /api/auth/login يعيد 404 — الكود الجديد لم يُحمّل!", "error");
+        throw new Error(`PM2: ${appName} v${version} بدأ لكن /api/auth/login يعيد 404 — dist/index.js غير محدّث`);
       }
-      await this.addLog(deploymentId, `✅ فحص مسار المصادقة: HTTP ${code}`, "success");
+      await this.addLog(deploymentId, `✅ فحص مسار المصادقة: HTTP ${code} — الكود الجديد v${version} محمّل`, "success");
     } catch (err: any) {
-      if (err.message?.includes("PM2 لم يحمّل")) throw err;
+      if (err.message?.includes("404")) throw err;
       await this.addLog(deploymentId, `⚠️ تعذر التحقق من مسار المصادقة: ${err.message}`, "warn");
     }
   }

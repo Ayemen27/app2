@@ -82,38 +82,58 @@ async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: 
   }
 }
 
-async function loginForToken(baseUrl: string): Promise<{ token: string | null; error?: string }> {
-  const email = process.env.PREBUILD_TEST_EMAIL || process.env.DEFAULT_ADMIN_EMAIL || "binarjoinanalytic@gmail.com";
-  const password = process.env.PREBUILD_TEST_PASSWORD || process.env.DEFAULT_ADMIN_PASSWORD || "";
+async function loginForToken(baseUrl: string): Promise<{ token: string | null; source?: string; error?: string }> {
+  const credSources = [
+    {
+      name: "service",
+      email: process.env.PREBUILD_SERVICE_EMAIL,
+      password: process.env.PREBUILD_SERVICE_PASSWORD,
+    },
+    {
+      name: "test",
+      email: process.env.PREBUILD_TEST_EMAIL || process.env.DEFAULT_ADMIN_EMAIL,
+      password: process.env.PREBUILD_TEST_PASSWORD || process.env.DEFAULT_ADMIN_PASSWORD,
+    },
+  ].filter(c => c.email && c.password) as { name: string; email: string; password: string }[];
 
-  if (!password) {
-    return { token: null, error: "NO_PASSWORD_ENV: PREBUILD_TEST_PASSWORD or DEFAULT_ADMIN_PASSWORD not set" };
+  if (credSources.length === 0) {
+    return {
+      token: null,
+      error: "NO_CREDENTIALS: Set PREBUILD_SERVICE_EMAIL/PASSWORD or PREBUILD_TEST_PASSWORD or DEFAULT_ADMIN_PASSWORD",
+    };
   }
 
-  try {
-    const res = await fetchWithTimeout(`${baseUrl}/api/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-client-platform": "native",
-        "Accept": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-      timeout: 15000,
-    });
+  const errors: string[] = [];
+  for (const cred of credSources) {
+    try {
+      const res = await fetchWithTimeout(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-platform": "native",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({ email: cred.email, password: cred.password }),
+        timeout: 15000,
+      });
 
-    if (!res.ok) {
-      return { token: null, error: `LOGIN_FAILED: HTTP ${res.status} — credentials may be invalid` };
+      if (!res.ok) {
+        errors.push(`[${cred.name}] LOGIN_FAILED: HTTP ${res.status}`);
+        continue;
+      }
+      const data = await res.json() as any;
+      const token = data?.token || data?.accessToken || null;
+      if (!token) {
+        errors.push(`[${cred.name}] LOGIN_NO_TOKEN: response has no token field`);
+        continue;
+      }
+      return { token, source: cred.name };
+    } catch (err: any) {
+      errors.push(`[${cred.name}] LOGIN_ERROR: ${err.message}`);
     }
-    const data = await res.json() as any;
-    const token = data?.token || data?.accessToken || null;
-    if (!token) {
-      return { token: null, error: "LOGIN_NO_TOKEN: Login succeeded but response has no token/accessToken field" };
-    }
-    return { token };
-  } catch (err: any) {
-    return { token: null, error: `LOGIN_ERROR: ${err.message}` };
   }
+
+  return { token: null, error: errors.join(" | ") };
 }
 
 async function checkRoute(baseUrl: string, route: RouteCheck, authToken: string | null): Promise<CheckResult> {
@@ -325,7 +345,17 @@ async function checkCsp(baseUrl: string): Promise<CspCheckResult> {
   return result;
 }
 
-export async function runPrebuildChecks(baseUrl: string, maxRetries = 2): Promise<PrebuildReport> {
+export interface PrebuildOptions {
+  deployerToken?: string;
+  maxRetries?: number;
+}
+
+export async function runPrebuildChecks(baseUrl: string, optionsOrRetries?: PrebuildOptions | number): Promise<PrebuildReport> {
+  const options: PrebuildOptions = typeof optionsOrRetries === "number"
+    ? { maxRetries: optionsOrRetries }
+    : optionsOrRetries || {};
+  const maxRetries = options.maxRetries ?? 2;
+
   let lastReport: PrebuildReport | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -354,11 +384,21 @@ export async function runPrebuildChecks(baseUrl: string, maxRetries = 2): Promis
     report.sslCheck = await checkSsl(hostname);
 
     const authResult = await loginForToken(baseUrl);
-    const authToken = authResult.token;
+    let authToken = authResult.token;
+    let authSource = authResult.source || "none";
+
+    if (!authToken && options.deployerToken) {
+      authToken = options.deployerToken;
+      authSource = "deployer-fallback";
+      console.log("[PrebuildChecker] Using deployer token as fallback (service credentials unavailable)");
+    }
+
     report.authTokenObtained = !!authToken;
 
     if (!authToken) {
       report.summary.authWarning = authResult.error || "Failed to obtain auth token";
+    } else {
+      console.log(`[PrebuildChecker] Auth source: ${authSource}`);
     }
 
     const routeResults = await Promise.all(

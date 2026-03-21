@@ -40,6 +40,7 @@ interface DeploymentConfig {
   version?: string;
   buildTarget?: "server" | "local";
   originalPipeline?: string;
+  deployerToken?: string;
 }
 
 export { Pipeline, BuildTarget, isPipelineSupported, listAvailablePipelines };
@@ -1913,7 +1914,9 @@ export class DeploymentEngine {
     const baseUrl = this.resolveBaseUrl(config);
 
     try {
-      const report = await runPrebuildChecks(baseUrl);
+      const report = await runPrebuildChecks(baseUrl, {
+        deployerToken: config?.deployerToken,
+      });
 
       if (report.authTokenObtained) {
         await this.addLog(deploymentId, "✅ المصادقة: تم الحصول على توكن — فحص المسارات المحمية ممكن", "success");

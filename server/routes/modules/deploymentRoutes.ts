@@ -109,6 +109,8 @@ router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (r
 
   const authUser = getAuthUser(req);
   const triggeredByDisplay = authUser?.full_name || authUser?.first_name || authUser?.email || authUser?.user_id || "admin";
+  const authHeader = req.headers.authorization;
+  const deployerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
   try {
     const deploymentId = await deploymentEngine.startDeployment({
       pipeline,
@@ -119,6 +121,7 @@ router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (r
       triggeredBy: triggeredByDisplay,
       version: safeVersion,
       buildTarget: safeBuildTarget,
+      deployerToken,
     });
 
     res.json({ id: deploymentId, message: "Deployment started" });

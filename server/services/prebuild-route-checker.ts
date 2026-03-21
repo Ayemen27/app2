@@ -13,6 +13,7 @@ export interface CheckResult {
   latencyMs?: number;
   error?: string;
   isInfraFailure?: boolean;
+  requiresAuth?: boolean;
   critical?: boolean;
 }
 

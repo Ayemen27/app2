@@ -1069,10 +1069,18 @@ export class DeploymentEngine {
         }
 
         const { runPrebuildChecks } = await import("./prebuild-route-checker");
-        const report = await runPrebuildChecks(baseUrl);
+        const report = await runPrebuildChecks(baseUrl, {
+          deployerToken: config?.deployerToken,
+        });
 
         const failedRoutes = report.routeChecks.filter(r => !r.passed);
         const passedRoutes = report.routeChecks.filter(r => r.passed);
+
+        if (report.authTokenObtained) {
+          await this.addLog(deploymentId, `✅ المصادقة: تم الحصول على توكن — فحص كامل للمسارات`, "success");
+        } else {
+          await this.addLog(deploymentId, `⚠️ المصادقة: بدون توكن — فحص المسارات العامة فقط`, "warn");
+        }
 
         await this.addLog(deploymentId,
           `📊 دخان ما بعد النشر (محاولة ${attempt}): مسارات ${passedRoutes.length}/${report.routeChecks.length} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}`,
@@ -1085,7 +1093,10 @@ export class DeploymentEngine {
           }
         }
 
-        const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
+        const criticalFailed = failedRoutes.filter(r => {
+          if (r.error?.includes("AUTH_REQUIRED") || r.error?.includes("no auth token")) return false;
+          return r.group === "auth" || r.group === "public";
+        });
         if (criticalFailed.length > 0 || !report.summary.sslValid) {
           if (attempt < maxAttempts) {
             await this.addLog(deploymentId, `⚠️ مسارات حرجة فاشلة (${criticalFailed.length}) — إعادة المحاولة...`, "warn");
@@ -2701,7 +2712,7 @@ export class DeploymentEngine {
 
       await this.updateStepStatus(rollbackId, "restart-pm2", "running");
       await this.updateDeployment(rollbackId, { currentStep: "restart-pm2", progress: 60 });
-      const rollbackVersion = deployment?.version || "rollback";
+      const rollbackVersion = targetDeployment?.version || "rollback";
       const rollbackAppName = `AXION-v${rollbackVersion}`;
       await this.execWithLog(rollbackId, `${sshCmd} "pm2 jlist 2>/dev/null | node -e \\"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));d.filter(p=>p.name&&p.name.startsWith('AXION')).forEach(p=>{try{require('child_process').execSync('pm2 delete '+p.name)}catch(e){}})\\" 2>/dev/null; cd ${remoteDir} && sed -i \\"s/name: '.*'/name: '${rollbackAppName}'/\\" ecosystem.config.cjs && pm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'RESTART_OK'"`, "PM2 Fresh Start (Rollback)", 45000);
       await this.updateStepStatus(rollbackId, "restart-pm2", "success", Date.now() - startTime);

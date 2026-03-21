@@ -1,4 +1,5 @@
-import { pool } from "../db";
+import { pool, db } from "../db";
+import { sql } from "drizzle-orm";
 import { runWellExpansionMigrations } from "./run-well-expansion-migrations";
 import { runInventoryMigrations } from "./run-inventory-migrations";
 import { applyJournalConstraints } from "../migrations/add-journal-constraints";
@@ -33,6 +34,7 @@ export async function runAllStartupMigrations(): Promise<void> {
     await runWellExpansionMigrations();
     await runInventoryMigrations();
     await applyJournalConstraints();
+    await db.execute(sql`ALTER TABLE build_deployments ADD COLUMN IF NOT EXISTS release_notes TEXT`);
 
     console.log("✅ [Migrations] تم تنفيذ جميع migrations بنجاح");
   } catch (error) {

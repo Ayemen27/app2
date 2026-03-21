@@ -186,7 +186,7 @@ function UpdateDialog({ info, onDismiss }: { info: any; onDismiss: () => void })
           </svg>
         </div>
         {isForced ? (
-          <>
+          <div className="space-y-1">
             <h3 className="text-lg font-bold text-red-600 dark:text-red-400">تحديث إجباري مطلوب</h3>
             <p className="text-sm text-muted-foreground">
               يجب تحديث التطبيق إلى الإصدار <span className="font-mono font-bold text-foreground">v{info.latest.versionName}</span> للمتابعة
@@ -194,9 +194,9 @@ function UpdateDialog({ info, onDismiss }: { info: any; onDismiss: () => void })
             <p className="text-xs text-red-500 font-medium">
               لا يمكن استخدام التطبيق بالإصدار الحالي v{info.current.versionName}
             </p>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="space-y-1">
             <h3 className="text-lg font-bold text-foreground">تحديث جديد متاح!</h3>
             <p className="text-sm text-muted-foreground">
               الإصدار <span className="font-mono font-bold text-foreground">v{info.latest.versionName}</span> متاح للتحميل
@@ -204,7 +204,20 @@ function UpdateDialog({ info, onDismiss }: { info: any; onDismiss: () => void })
             <p className="text-xs text-muted-foreground">
               الإصدار الحالي: <span className="font-mono">v{info.current.versionName}</span>
             </p>
-          </>
+          </div>
+        )}
+        {info.latest.releaseNotes && (
+          <div className="bg-muted/50 rounded-xl p-3 text-right max-h-[200px] overflow-y-auto" data-testid="release-notes">
+            <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5 justify-end">
+              <span>ما الجديد في هذا التحديث</span>
+              <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </p>
+            <div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
+              {info.latest.releaseNotes}
+            </div>
+          </div>
         )}
         <div className="flex flex-col gap-2 pt-2">
           {info.latest.downloadUrl ? (

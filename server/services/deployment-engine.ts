@@ -41,6 +41,7 @@ interface DeploymentConfig {
   buildTarget?: "server" | "local";
   originalPipeline?: string;
   deployerToken?: string;
+  releaseNotes?: string;
 }
 
 export { Pipeline, BuildTarget, isPipelineSupported, listAvailablePipelines };
@@ -478,6 +479,7 @@ export class DeploymentEngine {
             steps,
             triggeredBy: config.triggeredBy,
             commitHash,
+            releaseNotes: config.releaseNotes || null,
           }).returning();
         });
         deployment = row;
@@ -2633,7 +2635,7 @@ export class DeploymentEngine {
     return `${major}.${minor}.${patch + 1}`;
   }
 
-  async getLatestAndroidRelease(): Promise<{ versionName: string; versionCode: number; downloadUrl: string | null; releasedAt: string } | null> {
+  async getLatestAndroidRelease(): Promise<{ versionName: string; versionCode: number; downloadUrl: string | null; releasedAt: string; releaseNotes: string | null } | null> {
     try {
       const [latest] = await db.select()
         .from(buildDeployments)
@@ -2662,6 +2664,7 @@ export class DeploymentEngine {
         versionCode: latest.buildNumber,
         downloadUrl,
         releasedAt: latest.created_at.toISOString(),
+        releaseNotes: (latest as any).releaseNotes || null,
       };
     } catch (err: any) {
       console.error("[getLatestAndroidRelease] خطأ:", err?.message);

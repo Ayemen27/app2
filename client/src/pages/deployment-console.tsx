@@ -223,6 +223,7 @@ export default function DeploymentConsole() {
   const [selectedPipeline, setSelectedPipeline] = useState<string>("web-deploy");
   const [buildTarget, setBuildTarget] = useState<string>("server");
   const [commitMessage, setCommitMessage] = useState("");
+  const [releaseNotes, setReleaseNotes] = useState("");
   const [versionInput, setVersionInput] = useState("");
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
   const [liveDeployment, setLiveDeployment] = useState<Deployment | null>(null);
@@ -420,6 +421,7 @@ export default function DeploymentConsole() {
         commitMessage: commitMessage || undefined,
         version: versionInput.trim() || undefined,
         buildTarget,
+        releaseNotes: releaseNotes.trim() || undefined,
       });
 
       if (!data?.id) {
@@ -734,6 +736,14 @@ export default function DeploymentConsole() {
                   dir="ltr"
                 />
               </div>
+              <textarea
+                data-testid="input-release-notes"
+                placeholder={"ملاحظات الإصدار — ما الجديد في هذا التحديث؟\nمثال:\n✅ إصلاح مشكلة تسجيل الدخول\n✅ تحسين سرعة التحميل\n🆕 إضافة تقارير جديدة"}
+                value={releaseNotes}
+                onChange={(e) => setReleaseNotes(e.target.value)}
+                className="bg-muted/50 border-border text-foreground rounded-md border px-3 py-2 text-sm min-h-[80px] resize-y w-full placeholder:text-muted-foreground/60"
+                dir="rtl"
+              />
 
               {!isRunning ? (
                 <Button

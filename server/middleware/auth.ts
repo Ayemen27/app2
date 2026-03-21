@@ -58,10 +58,15 @@ export const syncRateLimit = rateLimit({
   }
 });
 
-// Rate Limiting للمصادقة (أكثر صرامة - 5 محاولات فقط لكل 15 دقيقة)
+// Rate Limiting للمصادقة — يعتمد على (IP + البريد) بدل IP فقط لتجنب حظر جماعي خلف proxy
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
+  keyGenerator: (req) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const email = (req.body?.email || '').toLowerCase().trim();
+    return email ? `${ip}:${email}` : ip;
+  },
   message: {
     success: false,
     message: 'تم تجاوز عدد محاولات تسجيل الدخول المسموحة، يرجى المحاولة بعد 15 دقيقة',

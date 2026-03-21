@@ -75,6 +75,7 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
         versionCode: latest.versionCode,
         downloadUrl: latest.downloadUrl,
         releasedAt: latest.releasedAt,
+        releaseNotes: latest.releaseNotes || null,
       },
       current: {
         versionName: clientVersionName,
@@ -90,7 +91,7 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
 router.use(requireAuth);
 
 router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (req: Request, res: Response) => {
-  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version, buildTarget = "server" } = req.body;
+  const { pipeline = "web-deploy", appType = "web", environment = "production", branch = "main", commitMessage, version, buildTarget = "server", releaseNotes } = req.body;
 
   if (!isPipelineSupported(pipeline)) {
     const available = listAvailablePipelines().map(p => p.name);
@@ -111,6 +112,7 @@ router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (r
   const safeBranch = typeof branch === "string" ? branch.replace(/[^a-zA-Z0-9_\-\/\.]/g, "").substring(0, 100) : "main";
   const safeMessage = typeof commitMessage === "string" ? sanitizeShellArg(commitMessage) : undefined;
   const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
+  const safeReleaseNotes = typeof releaseNotes === "string" ? releaseNotes.substring(0, 2000) : undefined;
 
   const authUser = getAuthUser(req);
   const { getUserDisplayName } = await import('../../internal/auth-user');
@@ -128,6 +130,7 @@ router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (r
       version: safeVersion,
       buildTarget: safeBuildTarget,
       deployerToken,
+      releaseNotes: safeReleaseNotes,
     });
 
     res.json({ id: deploymentId, message: "Deployment started" });

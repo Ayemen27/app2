@@ -1432,6 +1432,7 @@ export const buildDeployments = pgTable("build_deployments", {
   rollbackInfo: jsonb("rollback_info"),
   environmentSnapshot: jsonb("environment_snapshot"),
   cleanupLog: jsonb("cleanup_log"),
+  releaseNotes: text("release_notes"),
   logs: jsonb("logs").notNull().default([]),
   steps: jsonb("steps").notNull().default([]),
   duration: integer("duration"),

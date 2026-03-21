@@ -568,9 +568,8 @@ export class DeploymentEngine {
         endTime: new Date(),
       });
 
-      const summary = logger.generateSummaryWithContext({
+      const summary = logger.generateSummaryWithContext("success", {
         pipeline: config.pipeline,
-        buildTarget: bt,
         environment: config.environment,
         triggeredBy: config.triggeredBy || "unknown",
         version: config.version,

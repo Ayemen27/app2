@@ -312,7 +312,7 @@ syncRouter.post('/full-backup', async (req: Request, res: Response) => {
   }
   const startTime = Date.now();
   try {
-    const { lastSyncTime } = req.body;
+    const { lastSyncTime } = req.body || {};
     console.log(`🔄 [Sync] POST نسخة${lastSyncTime ? ' تفاضلية' : ' كاملة'} (parallel batches)`);
 
     const { results, successCount, errorCount, deltaTablesCount, fullTablesCount } = await fetchTablesInBatches(

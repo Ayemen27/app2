@@ -39,6 +39,8 @@ export async function runSilentSync() {
   _isSyncing = true;
   try {
     await _executeSilentSync();
+  } catch (err) {
+    console.warn('[Silent-Sync] خطأ في المزامنة الصامتة:', err instanceof Error ? err.message : err);
   } finally {
     _isSyncing = false;
   }
@@ -450,18 +452,18 @@ export function initSilentSyncObserver(intervalMs = 30000) {
   }
 
   if (isCurrentTabLeader()) {
-    runSilentSync();
+    runSilentSync().catch(err => console.warn('[Silent-Sync] Observer init error:', err));
   }
 
   _intervalId = setInterval(() => {
     if (navigator.onLine && isCurrentTabLeader()) {
-      runSilentSync();
+      runSilentSync().catch(err => console.warn('[Silent-Sync] Interval error:', err));
     }
   }, intervalMs);
 
   _onlineHandler = () => {
     if (isCurrentTabLeader()) {
-      runSilentSync();
+      runSilentSync().catch(err => console.warn('[Silent-Sync] Online event error:', err));
     }
   };
   window.addEventListener('online', _onlineHandler);

@@ -144,7 +144,7 @@ export async function performInitialDataPull(): Promise<boolean> {
     // محاولة جلب البيانات مع مهلة زمنية (Timeout) للتعامل مع ضعف الإنترنت
     // ترقية: استخدام نقطة النهاية المخصصة للمزامنة الكاملة بدلاً من المسار القديم
     console.log('📡 [Sync] إرسال طلب apiRequest إلى /api/sync/full-backup');
-    const result = await apiRequest('/api/sync/full-backup', 'POST', undefined, 120000);
+    const result = await apiRequest('/api/sync/full-backup', 'POST', {}, 0);
     console.log('📡 [Sync] نتيجة الطلب:', result ? 'نجح' : 'فشل');
     
     if (!result || (typeof result === 'object' && result.code === 'INVALID_TOKEN')) {
@@ -513,8 +513,8 @@ export function initSyncListener(): void {
   window.addEventListener('online', () => {
     updateSyncState({ isOnline: true });
     if (isCurrentTabLeader()) {
-      performInitialDataPull();
-      syncOfflineData();
+      performInitialDataPull().catch(err => console.warn('[Sync] Online pull failed:', err));
+      syncOfflineData().catch(err => console.warn('[Sync] Online sync failed:', err));
     }
   });
 
@@ -525,8 +525,8 @@ export function initSyncListener(): void {
   onLeaderChange((leader) => {
     if (leader && navigator.onLine) {
       console.log('[Sync] This tab became leader, starting sync...');
-      performInitialDataPull();
-      syncOfflineData();
+      performInitialDataPull().catch(err => console.warn('[Sync] Leader pull failed:', err));
+      syncOfflineData().catch(err => console.warn('[Sync] Leader sync failed:', err));
     }
   });
 
@@ -536,11 +536,11 @@ export function initSyncListener(): void {
       await performInitialDataPull();
       await syncOfflineData();
     };
-    runSync();
+    runSync().catch(err => console.warn('[Sync] Initial sync failed:', err));
   }
 
   syncInterval = setInterval(() => {
-    if (navigator.onLine && isCurrentTabLeader()) syncOfflineData();
+    if (navigator.onLine && isCurrentTabLeader()) syncOfflineData().catch(err => console.warn('[Sync] Interval sync failed:', err));
   }, 30000);
 }
 
@@ -556,7 +556,7 @@ export function triggerSync() {
 export async function loadFullBackup(): Promise<{ recordCount: number }> {
   try {
     console.log('📥 [Sync] جاري تحميل نسخة احتياطية كاملة من الخادم...');
-    const result = await apiRequest('/api/sync/full-backup', 'POST', undefined, 60000);
+    const result = await apiRequest('/api/sync/full-backup', 'POST', {}, 0);
     
     if (!result || !result.success || !result.data) {
       throw new Error('Backup failed on server');

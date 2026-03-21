@@ -43,13 +43,26 @@ class IntelligentMonitor {
         reasonStr.includes('failed to fetch') ||
         reasonStr.includes('net::') ||
         reasonStr.includes('resizeobserver') ||
-        reasonStr.includes('script error')
+        reasonStr.includes('script error') ||
+        reasonStr.includes('sync') ||
+        reasonStr.includes('indexeddb') ||
+        reasonStr.includes('idb') ||
+        reasonStr.includes('storage') ||
+        reasonStr.includes('quota') ||
+        reasonStr.includes('http error') ||
+        reasonStr.includes('status: 5') ||
+        reasonStr.includes('socket') ||
+        reasonStr.includes('websocket') ||
+        reasonStr.includes('service worker') ||
+        reasonStr.includes('prefetch') ||
+        reasonStr.includes('backup')
       ) {
+        console.warn('[IntelligentMonitor] Suppressed non-critical rejection:', reasonStr.substring(0, 100));
         return;
       }
       this.logEvent({
         type: 'error',
-        severity: 'critical',
+        severity: 'high',
         message: toUserMessage(reason, 'حدث خطأ غير متوقع'),
         metadata: { stack: reason?.stack }
       });

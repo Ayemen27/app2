@@ -1290,6 +1290,7 @@ export default function WhatsAppSetupPage() {
                 </div>
               </Card>
             ) : (
+            <div className="space-y-6">
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
               <div className="h-1.5 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500" />
               <CardHeader>
@@ -1503,6 +1504,7 @@ export default function WhatsAppSetupPage() {
                 </CardContent>
               </Card>
             )}
+            </div>
             )}
           </TabsContent>
 

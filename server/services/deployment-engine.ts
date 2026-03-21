@@ -440,6 +440,23 @@ export class DeploymentEngine {
       if (payload) {
         await this.notificationPublisher.publish(payload);
       }
+
+      if (status === "success" && (config.pipeline.includes("android") || config.pipeline === "full-deploy")) {
+        try {
+          const { FcmService } = await import("./FcmService");
+          await FcmService.sendNotification({
+            title: "تحديث جديد متاح",
+            message: `الإصدار ${config.version || "جديد"} متاح الآن. قم بتحديث التطبيق للحصول على أحدث الميزات والإصلاحات.`,
+            type: "app_update",
+            priority: 5,
+            targetPlatform: "android",
+            recipients: "all",
+          });
+          console.log("[DeploymentEngine] تم إرسال إشعار التحديث لجميع مستخدمي أندرويد");
+        } catch (fcmErr) {
+          console.error("[DeploymentEngine] فشل إرسال إشعار التحديث:", fcmErr);
+        }
+      }
     } catch (err) {
       console.error("[DeploymentEngine] Notification error:", err);
     }

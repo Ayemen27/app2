@@ -243,6 +243,15 @@ function Router() {
 
         if (Capacitor.isNativePlatform()) {
           try {
+            const { initStatusBar, setStatusBarForPage } = await import('./services/statusBarManager');
+            await initStatusBar();
+            await setStatusBarForPage('app');
+            console.log('✅ تم تهيئة شريط الحالة');
+          } catch (e) {
+            console.error('❌ خطأ في تهيئة شريط الحالة:', e);
+          }
+
+          try {
             const { requestNotificationPermission, registerResumeListener } = await import('./services/notificationPermission');
             await requestNotificationPermission();
             registerResumeListener();

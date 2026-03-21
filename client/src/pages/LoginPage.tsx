@@ -9,6 +9,7 @@ import { useAuth } from "../components/AuthProvider";
 import { useToast } from "../hooks/use-toast";
 import { toUserMessage } from "@/lib/error-utils";
 import { trackLog } from "@/lib/debug-tracker";
+import { setStatusBarForPage } from "@/services/statusBarManager";
 import {
   Form,
   FormControl,
@@ -91,8 +92,10 @@ export default function LoginPage() {
   const [showAccountMessage, setShowAccountMessage] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
+  const [serverError, setServerError] = useState<{ message: string; field: string } | null>(null);
 
   useEffect(() => {
+    setStatusBarForPage('login');
     const checkBiometric = async () => {
       const { isBiometricAvailable } = await import("../lib/webauthn");
       const available = await isBiometricAvailable();
@@ -204,9 +207,20 @@ export default function LoginPage() {
         return;
       }
       
+      const errorField = error?.errorField || error?.data?.errorField;
+      const errorMessage = error?.message || error?.data?.message || toUserMessage(error, "حدث خطأ أثناء تسجيل الدخول");
+      
+      setServerError({ message: errorMessage, field: errorField || 'general' });
+
+      if (errorField === 'email') {
+        form.setError('email', { message: errorMessage });
+      } else if (errorField === 'password') {
+        form.setError('password', { message: errorMessage });
+      }
+      
       toast({
-        title: "فشل تسجيل الدخول",
-        description: toUserMessage(error, "حدث خطأ أثناء تسجيل الدخول"),
+        title: errorField === 'connection' ? "خطأ في الاتصال" : "فشل تسجيل الدخول",
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -319,30 +333,51 @@ export default function LoginPage() {
                 });
               }
             )} className="space-y-2 animate-in fade-in slide-in-from-bottom duration-700 delay-500 fill-mode-both">
+              {serverError && (
+                <div data-testid="text-server-error" className={`flex items-center gap-2 p-3 rounded-xl text-sm font-bold animate-in fade-in slide-in-from-top duration-300 ${
+                  serverError.field === 'connection' 
+                    ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800' 
+                    : 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                }`}>
+                  <Activity className="w-4 h-4 shrink-0" />
+                  <span>{serverError.message}</span>
+                </div>
+              )}
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <div className={`bg-card dark:bg-slate-900 rounded-xl border shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.email ? 'border-red-500' : 'border-border dark:border-slate-800'}`}>
+                    <div className={`bg-card dark:bg-slate-900 rounded-xl border-2 shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.email ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/50 dark:bg-red-950/10' : 'border-border dark:border-slate-800'}`}>
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Identity / البريد</span>
+                        <span className={`text-[9px] font-black text-right uppercase tracking-tighter ${form.formState.errors.email ? 'text-red-500' : 'text-gray-400 dark:text-slate-500'}`}>Identity / البريد</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             type="text"
                             autoComplete="off"
                             placeholder="username@axion.system"
+                            onChange={(e) => {
+                              field.onChange(e);
+                              if (serverError?.field === 'email') setServerError(null);
+                              form.clearErrors('email');
+                            }}
                             className="border-none p-0 h-6 text-base font-black text-foreground focus-visible:ring-0 placeholder:text-muted-foreground/30 text-right bg-transparent shadow-none"
                             data-testid="input-email"
                           />
                         </FormControl>
                       </div>
-                      <button type="button" onClick={() => setShowAccountMessage(true)} className="flex items-center justify-center ml-2 text-slate-300 dark:text-slate-700 hover:text-slate-600 dark:hover:text-slate-400 transition-colors" data-testid="button-switch-account">
-                        <Users className="w-5 h-5" strokeWidth={1.5} />
-                      </button>
+                      {form.formState.errors.email ? (
+                        <div className="flex items-center justify-center ml-2">
+                          <Mail className="w-5 h-5 text-red-500" strokeWidth={2} />
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => setShowAccountMessage(true)} className="flex items-center justify-center ml-2 text-slate-300 dark:text-slate-700 hover:text-slate-600 dark:hover:text-slate-400 transition-colors" data-testid="button-switch-account">
+                          <Users className="w-5 h-5" strokeWidth={1.5} />
+                        </button>
+                      )}
                     </div>
-                    <FormMessage data-testid="text-error-email" />
+                    <FormMessage data-testid="text-error-email" className="text-[11px] font-bold text-red-500 pr-1 mt-1" />
                   </FormItem>
                 )}
               />
@@ -352,15 +387,20 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <div className={`bg-card dark:bg-slate-900 rounded-xl border shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.password ? 'border-red-500' : 'border-border dark:border-slate-800'}`}>
+                    <div className={`bg-card dark:bg-slate-900 rounded-xl border-2 shadow-sm h-16 flex items-center px-4 group transition-all focus-within:ring-2 focus-within:ring-slate-900/5 dark:focus-within:ring-white/5 ${form.formState.errors.password ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/50 dark:bg-red-950/10' : 'border-border dark:border-slate-800'}`}>
                       <div className="flex-1 flex flex-col justify-center">
-                        <span className="text-[9px] text-gray-400 dark:text-slate-500 font-black text-right uppercase tracking-tighter">Security / كلمة المرور</span>
+                        <span className={`text-[9px] font-black text-right uppercase tracking-tighter ${form.formState.errors.password ? 'text-red-500' : 'text-gray-400 dark:text-slate-500'}`}>Security / كلمة المرور</span>
                         <FormControl>
                           <Input 
                             {...field} 
                             type={showPassword ? "text" : "password"}
                             autoComplete="off"
                             placeholder="••••••••"
+                            onChange={(e) => {
+                              field.onChange(e);
+                              if (serverError?.field === 'password') setServerError(null);
+                              form.clearErrors('password');
+                            }}
                             className="border-none p-0 h-6 text-base font-black text-foreground text-right focus-visible:ring-0 placeholder:text-muted-foreground/30 bg-transparent shadow-none"
                             data-testid="input-password"
                             hidePasswordToggle={true}
@@ -376,11 +416,11 @@ export default function LoginPage() {
                         {showPassword ? (
                           <Eye className="w-5 h-5 text-blue-600 dark:text-blue-400" strokeWidth={2} />
                         ) : (
-                          <EyeOff className="w-5 h-5 text-slate-400 dark:text-slate-600" strokeWidth={2} />
+                          <EyeOff className={`w-5 h-5 ${form.formState.errors.password ? 'text-red-400' : 'text-slate-400 dark:text-slate-600'}`} strokeWidth={2} />
                         )}
                       </button>
                     </div>
-                    <FormMessage data-testid="text-error-password" />
+                    <FormMessage data-testid="text-error-password" className="text-[11px] font-bold text-red-500 pr-1 mt-1" />
                   </FormItem>
                 )}
               />

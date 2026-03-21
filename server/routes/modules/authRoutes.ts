@@ -132,8 +132,8 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
 
       return res.status(503).json({
         success: false,
-        message: 'عذراً، السيرفر المركزي معطل حالياً ولم نتمكن من التحقق من هويتك في وضع الطوارئ. يرجى المحاولة لاحقاً.',
-        error: dbError.message
+        message: 'تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
+        errorField: 'connection'
       });
     }
 
@@ -141,7 +141,8 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
       console.log('❌ [AUTH] المستخدم غير موجود:', email);
       return res.status(401).json({
         success: false,
-        message: 'عذراً، البريد الإلكتروني أو كلمة المرور التي أدخلتها غير صحيحة. يرجى التأكد والمحاولة مرة أخرى.'
+        message: 'البريد الإلكتروني غير مسجل في النظام',
+        errorField: 'email'
       });
     }
 
@@ -215,7 +216,8 @@ authRouter.post('/login', authRateLimit, async (req: Request, res: Response) => 
 
       return res.status(401).json({
         success: false,
-        message: 'بيانات تسجيل الدخول غير صحيحة'
+        message: 'كلمة المرور غير صحيحة',
+        errorField: 'password'
       });
     }
 

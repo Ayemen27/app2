@@ -303,7 +303,7 @@ export class DeploymentEngine {
 
   private async verifyRemoteDeploymentStatus(deployment: any): Promise<"success" | "still_running" | "unknown"> {
     try {
-      await this.ensureSSHReady();
+      await this.ensureSSHKeyProvisioned();
       const sshCmd = this.buildSSHCommand();
       const remoteDir = "/home/administrator/app2";
       const versionName = deployment.versionName || "";

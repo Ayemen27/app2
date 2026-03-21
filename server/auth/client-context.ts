@@ -158,20 +158,27 @@ export interface SessionBindingResult {
   reason?: string;
 }
 
+function arePlatformsCompatible(storedPlatform: string, currentPlatform: string, currentOsName: string): boolean {
+  if (storedPlatform === currentPlatform) return true;
+
+  if (storedPlatform === 'android' && currentPlatform === 'web' && currentOsName === 'Android') return true;
+  if (storedPlatform === 'web' && currentPlatform === 'android' && currentOsName === 'Android') return true;
+  if (storedPlatform === 'ios' && currentPlatform === 'web' && currentOsName === 'iOS') return true;
+  if (storedPlatform === 'web' && currentPlatform === 'ios' && currentOsName === 'iOS') return true;
+
+  return false;
+}
+
 export function validateSessionBinding(
   stored: { deviceHash?: string; platform?: string; ipRange?: string; deviceId?: string; hasStableDeviceId?: boolean },
   current: ClientContext,
   strictMode: boolean = false
 ): SessionBindingResult {
   if (stored.platform && stored.platform !== current.platform) {
-    const isCapacitorHttpMismatch =
-      (stored.platform === 'android' && current.platform === 'web' && current.osName === 'Android') ||
-      (stored.platform === 'ios' && current.platform === 'web' && current.osName === 'iOS');
-
-    if (!isCapacitorHttpMismatch) {
+    if (!arePlatformsCompatible(stored.platform, current.platform, current.osName)) {
       return {
         valid: false,
-        action: 'block',
+        action: strictMode ? 'block' : 'step_up',
         reason: `platform_mismatch:${stored.platform}→${current.platform}`,
       };
     }

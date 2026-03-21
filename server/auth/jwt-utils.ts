@@ -296,235 +296,129 @@ export async function verifyRefreshToken(token: string): Promise<JWTPayload | nu
 }
 
 /**
- * تجديد Access Token باستخدام Refresh Token مع تدوير الرموز
+ * نافذة السماح للتوكن القديم بعد التدوير (30 ثانية)
+ * تمنع فشل الطلبات المتزامنة من نفس الجهاز
  */
+const REFRESH_GRACE_WINDOW_MS = 30_000;
+
 /**
- * تجديد Access Token للتطوير مع تدوير كامل للرموز وكشف إعادة الاستخدام
+ * التحقق من refresh token hash مع دعم نافذة السماح للتوكن السابق
  */
-async function refreshAccessTokenDev(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
+function isValidRefreshHash(session: any, refreshTokenHash: string): boolean {
+  if (session.refresh_token_hash === refreshTokenHash) return true;
+
+  const flags = typeof session.securityFlags === 'object' && session.securityFlags !== null
+    ? session.securityFlags as Record<string, unknown>
+    : {};
+  const prevHash = flags.previousRefreshTokenHash as string | undefined;
+  const prevValidUntil = flags.previousRefreshTokenValidUntil as string | undefined;
+
+  if (prevHash && prevHash === refreshTokenHash && prevValidUntil) {
+    const validUntil = new Date(prevValidUntil).getTime();
+    if (Date.now() <= validUntil) {
+      console.log('🔄 [JWT] قبول refresh token سابق ضمن نافذة السماح');
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * تجديد Access Token مع الحفاظ على ثبات الجلسة (Stable Session)
+ * لا يتم تغيير sessionToken — فقط يتم تدوير access + refresh token hashes
+ * يدعم multi-device: كل جهاز له جلسته المستقلة
+ */
+async function refreshAccessTokenStable(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
   const startTime = Date.now();
-  console.log('🔄 [JWT-DEV] بدء تجديد مع تدوير كامل...');
+  const envLabel = isProduction ? 'PROD' : 'DEV';
+  console.log(`🔄 [JWT-${envLabel}] بدء تجديد مستقر (Stable Session)...`);
 
   try {
-    let payload: JWTPayload | null;
+    let payload: JWTPayload;
     try {
       payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
         issuer: JWT_CONFIG.issuer,
       }) as JWTPayload;
     } catch (verifyError: unknown) {
-      console.warn(`⚠️ [JWT-DEV] فشل التحقق من refresh token: ${verifyError instanceof Error ? verifyError.message : verifyError}`);
+      console.warn(`⚠️ [JWT-${envLabel}] فشل التحقق من refresh token: ${verifyError instanceof Error ? verifyError.message : verifyError}`);
       return null;
     }
 
-    console.log('🔄 [JWT-DEV] Payload processing:', { userId: payload.userId, type: payload.type });
-
     if (payload.type && payload.type !== 'refresh') {
-      console.log('❌ [JWT-DEV] نوع رمز خاطئ:', payload.type);
+      console.log(`❌ [JWT-${envLabel}] نوع رمز خاطئ:`, payload.type);
+      return null;
+    }
+
+    const userId = payload.userId;
+    const sessionId = payload.sessionId;
+    if (!userId || !sessionId) {
+      console.warn(`⚠️ [JWT-${envLabel}] بيانات ناقصة في payload`);
       return null;
     }
 
     const refreshTokenHash = hashToken(refreshToken);
-
-    const userWithSession = await db
-      .select({
-        user: users,
-        session: authUserSessions
-      })
-      .from(users)
-      .leftJoin(authUserSessions, and(
-          eq(authUserSessions.user_id, users.id),
-        eq(authUserSessions.sessionToken, payload.sessionId),
-        gte(authUserSessions.expiresAt, new Date())
-      ))
-      .where(eq(users.id, payload.userId))
-      .limit(1);
-
-    if (userWithSession.length === 0 || !userWithSession[0].user || userWithSession[0].user.is_active === false) {
-      console.log('❌ [JWT-DEV] مستخدم غير موجود أو غير نشط');
-      return null;
-    }
-
-    const user = userWithSession[0].user;
-    const session = userWithSession[0].session;
-
-    if (session) {
-      if (session.isRevoked) {
-        console.warn('🚨 [JWT-DEV] كشف إعادة استخدام refresh token لجلسة ملغاة! إبطال جميع جلسات المستخدم:', {
-          userId: payload.userId,
-          sessionId: payload.sessionId?.substring(0, 8) + '...',
-        });
-        await revokeAllUserSessions(payload.userId);
-        return null;
-      }
-
-      if (session.refresh_token_hash && session.refresh_token_hash !== refreshTokenHash) {
-        console.warn('🚨 [JWT-DEV] كشف إعادة استخدام refresh token قديم! إبطال جميع جلسات المستخدم:', {
-          userId: payload.userId,
-          sessionId: payload.sessionId?.substring(0, 8) + '...',
-        });
-        await revokeAllUserSessions(payload.userId);
-        return null;
-      }
-    }
-
-    if (!session) {
-      console.log('⚠️ [JWT-DEV] لم تُوجد جلسة في قاعدة البيانات - استمرار التجديد بدون تحديث الجلسة');
-    }
-
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-
-    const newSessionId = crypto.randomUUID();
-    const accessPayload = { userId: payload.userId, email: user.email, role: user.role, sessionId: newSessionId, type: 'access' as const };
-    const refreshPayload = { userId: payload.userId, email: user.email, sessionId: newSessionId, type: 'refresh' as const };
-
-    const newAccessToken = jwt.sign(accessPayload, JWT_ACCESS_SECRET, {
-      expiresIn: JWT_CONFIG.accessTokenExpiry,
-      issuer: JWT_CONFIG.issuer
-    } as jwt.SignOptions);
-    
-    const newRefreshToken = jwt.sign(refreshPayload, JWT_REFRESH_SECRET, {
-      expiresIn: JWT_CONFIG.refreshTokenExpiry,
-      issuer: JWT_CONFIG.issuer
-    } as jwt.SignOptions);
-
-    if (session) {
-      const newAccessTokenHash = hashToken(newAccessToken);
-      const newRefreshTokenHash = hashToken(newRefreshToken);
-      const updateData: Record<string, unknown> = {
-        sessionToken: newSessionId,
-        accessTokenHash: newAccessTokenHash,
-        refresh_token_hash: newRefreshTokenHash,
-        expiresAt: refreshExpiresAt,
-        lastActivity: now,
-        securityFlags: {
-          ...(typeof session.securityFlags === 'object' && session.securityFlags !== null ? session.securityFlags : {}),
-          status: 'active',
-          lastRotatedAt: now.toISOString(),
-          previousSessionId: payload.sessionId,
-        },
-      };
-
-      if (clientContext) {
-        updateData.ipAddress = clientContext.ip;
-        updateData.userAgent = clientContext.userAgent;
-      }
-
-      try {
-        await db
-          .update(authUserSessions)
-          .set(updateData)
-          .where(eq(authUserSessions.id, session.id));
-      } catch (updateError) {
-        console.warn('⚠️ [JWT-DEV] تحذير: فشل تحديث الجلسة (لكن سيتم الاستمرار):', updateError);
-      }
-    }
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ [JWT-DEV] تدوير كامل مكتمل في ${duration}ms:`, {
-      userId: payload.userId,
-      oldSessionId: payload.sessionId?.substring(0, 8) + '...',
-      newSessionId: newSessionId.substring(0, 8) + '...',
-    });
-
-    return {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      sessionId: newSessionId,
-      expiresAt,
-      refreshExpiresAt,
-    };
-
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    console.error(`❌ [JWT-DEV] خطأ في التجديد بعد ${duration}ms:`, error instanceof Error ? error.message : error);
-    return null;
-  }
-}
-
-/**
- * تجديد Access Token باستخدام Refresh Token (النسخة الكاملة للإنتاج مع كشف إعادة الاستخدام)
- */
-async function refreshAccessTokenProd(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
-  const startTime = Date.now();
-  console.log('🔄 [JWT-PROD] بدء تجديد كامل للإنتاج...');
-
-  try {
-    const payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET, {
-      issuer: JWT_CONFIG.issuer,
-    }) as JWTPayload;
-
-    if (payload.type !== 'refresh') {
-      return null;
-    }
 
     const user = await db
       .select()
       .from(users)
-      .where(eq(users.id, payload.userId))
+      .where(eq(users.id, userId))
       .limit(1);
 
     if (user.length === 0 || user[0].is_active === false) {
-      console.log('❌ [JWT-PROD] User not found or inactive:', { userId: payload.userId });
+      console.log(`❌ [JWT-${envLabel}] مستخدم غير موجود أو غير نشط`);
       return null;
     }
 
-    const refreshTokenHash = hashToken(refreshToken);
-
-    const sessionByHash = await db
+    const sessionRows = await db
       .select()
       .from(authUserSessions)
       .where(
         and(
-          eq(authUserSessions.user_id, payload.userId),
-          eq(authUserSessions.refresh_token_hash, refreshTokenHash),
-          eq(authUserSessions.isRevoked, false),
+          eq(authUserSessions.user_id, userId),
+          eq(authUserSessions.sessionToken, sessionId),
           gte(authUserSessions.expiresAt, new Date())
         )
       )
       .limit(1);
 
-    if (sessionByHash.length === 0) {
-      const revokedSession = await db
-        .select()
-        .from(authUserSessions)
-        .where(
-          and(
-            eq(authUserSessions.user_id, payload.userId),
-            eq(authUserSessions.sessionToken, payload.sessionId)
-          )
-        )
-        .limit(1);
+    const session = sessionRows.length > 0 ? sessionRows[0] : null;
 
-      if (revokedSession.length > 0 && (revokedSession[0].isRevoked || revokedSession[0].refresh_token_hash !== refreshTokenHash)) {
-        console.warn('🚨 [JWT-PROD] كشف إعادة استخدام refresh token! إبطال جميع جلسات المستخدم:', {
-          userId: payload.userId,
-          sessionId: payload.sessionId?.substring(0, 8) + '...',
-          wasRevoked: revokedSession[0].isRevoked,
-          hashMismatch: revokedSession[0].refresh_token_hash !== refreshTokenHash,
-        });
-        await revokeAllUserSessions(payload.userId);
-      }
-
+    if (!session) {
+      console.log(`⚠️ [JWT-${envLabel}] لم تُوجد جلسة في قاعدة البيانات للمعرف: ${sessionId.substring(0, 8)}...`);
       return null;
     }
 
-    const session = sessionByHash[0];
+    if (session.isRevoked) {
+      console.warn(`🚨 [JWT-${envLabel}] محاولة تجديد جلسة ملغاة — إبطال هذه الجلسة فقط`, {
+        userId,
+        sessionId: sessionId.substring(0, 8) + '...',
+      });
+      return null;
+    }
+
+    if (session.refresh_token_hash && !isValidRefreshHash(session, refreshTokenHash)) {
+      console.warn(`🚨 [JWT-${envLabel}] كشف refresh token غير متطابق — إبطال هذه الجلسة فقط (وليس كل الجلسات)`, {
+        userId,
+        sessionId: sessionId.substring(0, 8) + '...',
+      });
+      await revokeToken(sessionId, 'refresh_token_reuse_detected');
+      return null;
+    }
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const refreshExpiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 
-    const newSessionId = crypto.randomUUID();
-    const accessPayload = { userId: payload.userId, email: user[0].email, role: user[0].role, sessionId: newSessionId, type: 'access' as const };
-    const refreshPayload = { userId: payload.userId, email: user[0].email, sessionId: newSessionId, type: 'refresh' as const };
+    const stableSessionId = sessionId;
+    const accessPayload = { userId, email: user[0].email, role: user[0].role, sessionId: stableSessionId, type: 'access' as const };
+    const refreshPayload = { userId, email: user[0].email, sessionId: stableSessionId, type: 'refresh' as const };
 
     const newAccessToken = jwt.sign(accessPayload, JWT_ACCESS_SECRET, {
       expiresIn: JWT_CONFIG.accessTokenExpiry,
       issuer: JWT_CONFIG.issuer
     } as jwt.SignOptions);
-    
+
     const newRefreshToken = jwt.sign(refreshPayload, JWT_REFRESH_SECRET, {
       expiresIn: JWT_CONFIG.refreshTokenExpiry,
       issuer: JWT_CONFIG.issuer
@@ -533,17 +427,23 @@ async function refreshAccessTokenProd(refreshToken: string, clientContext?: Clie
     const newAccessTokenHash = hashToken(newAccessToken);
     const newRefreshTokenHash = hashToken(newRefreshToken);
 
+    const previousFlags = typeof session.securityFlags === 'object' && session.securityFlags !== null
+      ? session.securityFlags as Record<string, unknown>
+      : {};
+
+    const graceDeadline = new Date(now.getTime() + REFRESH_GRACE_WINDOW_MS).toISOString();
+
     const updateData: Record<string, unknown> = {
-      sessionToken: newSessionId,
       accessTokenHash: newAccessTokenHash,
       refresh_token_hash: newRefreshTokenHash,
       expiresAt: refreshExpiresAt,
       lastActivity: now,
       securityFlags: {
-        ...(typeof session.securityFlags === 'object' && session.securityFlags !== null ? session.securityFlags : {}),
+        ...previousFlags,
         status: 'active',
         lastRotatedAt: now.toISOString(),
-        previousSessionId: session.sessionToken,
+        previousRefreshTokenHash: session.refresh_token_hash,
+        previousRefreshTokenValidUntil: graceDeadline,
       },
     };
 
@@ -552,48 +452,81 @@ async function refreshAccessTokenProd(refreshToken: string, clientContext?: Clie
       updateData.userAgent = clientContext.userAgent;
     }
 
-    await db
-      .update(authUserSessions)
-      .set(updateData)
-      .where(eq(authUserSessions.id, session.id));
+    try {
+      const updateResult = await db
+        .update(authUserSessions)
+        .set(updateData)
+        .where(
+          and(
+            eq(authUserSessions.id, session.id),
+            eq(authUserSessions.isRevoked, false),
+            eq(authUserSessions.refresh_token_hash, session.refresh_token_hash || '')
+          )
+        );
+
+      if ((updateResult.rowCount || 0) === 0) {
+        console.warn(`⚠️ [JWT-${envLabel}] CAS فشل — طلب refresh متزامن سبقه طلب آخر. إعادة المحاولة...`);
+        const retrySession = await db
+          .select()
+          .from(authUserSessions)
+          .where(
+            and(
+              eq(authUserSessions.id, session.id),
+              eq(authUserSessions.isRevoked, false)
+            )
+          )
+          .limit(1);
+
+        if (retrySession.length > 0 && isValidRefreshHash(retrySession[0], refreshTokenHash)) {
+          console.log(`🔄 [JWT-${envLabel}] التوكن لا يزال ضمن نافذة السماح — إصدار توكنات جديدة بدون تحديث DB`);
+          return {
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+            sessionId: stableSessionId,
+            expiresAt,
+            refreshExpiresAt,
+          };
+        }
+
+        console.warn(`⚠️ [JWT-${envLabel}] CAS فشل نهائياً — الجلسة تغيرت`);
+        return null;
+      }
+    } catch (updateError) {
+      console.warn(`⚠️ [JWT-${envLabel}] تحذير: فشل تحديث الجلسة:`, updateError);
+      return null;
+    }
 
     const duration = Date.now() - startTime;
-    console.log(`✅ [JWT-PROD] تم تدوير الرموز بنجاح في ${duration}ms:`, { 
-      userId: payload.userId, 
-      oldSessionId: session.sessionToken?.substring(0, 8) + '...',
-      newSessionId: newSessionId.substring(0, 8) + '...'
+    console.log(`✅ [JWT-${envLabel}] تجديد مستقر مكتمل في ${duration}ms:`, {
+      userId,
+      sessionId: stableSessionId.substring(0, 8) + '... (ثابت)',
     });
 
     return {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
-      sessionId: newSessionId,
+      sessionId: stableSessionId,
       expiresAt,
       refreshExpiresAt,
     };
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    console.error(`❌ [JWT-PROD] خطأ في تجديد الرمز بعد ${duration}ms`);
+    console.error(`❌ [JWT-${envLabel}] خطأ في التجديد بعد ${duration}ms:`, error instanceof Error ? error.message : error);
     return null;
   }
 }
 
 /**
- * تجديد Access Token - يختار النسخة المناسبة حسب البيئة
+ * تجديد Access Token — نسخة موحدة ومستقرة لجميع البيئات
+ * تحافظ على sessionToken ثابت وتدعم multi-device
  */
 export async function refreshAccessToken(refreshToken: string, clientContext?: ClientContext): Promise<TokenPair | null> {
   if ((globalThis as any).isEmergencyMode) {
     return await refreshAccessTokenEmergency(refreshToken);
   }
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  
-  if (isDevelopment) {
-    return await refreshAccessTokenDev(refreshToken, clientContext);
-  } else {
-    return await refreshAccessTokenProd(refreshToken, clientContext);
-  }
+  return await refreshAccessTokenStable(refreshToken, clientContext);
 }
 
 async function refreshAccessTokenEmergency(refreshToken: string): Promise<TokenPair | null> {

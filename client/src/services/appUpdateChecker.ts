@@ -29,11 +29,16 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
   }
   try {
     const info = await App.getInfo();
-    return {
-      versionName: info.version || '0.0.0',
-      versionCode: parseInt(info.build || '0', 10),
-    };
-  } catch {
+    const versionName = info.version || '0.0.0';
+    const versionCode = parseInt(info.build || '0', 10);
+    console.log(`[getAppVersion] raw info:`, JSON.stringify({ version: info.version, build: info.build, name: info.name, id: info.id }));
+    console.log(`[getAppVersion] parsed: versionName=${versionName}, versionCode=${versionCode}`);
+    if (versionName === '0.0.0' && versionCode === 0) {
+      console.warn(`[getAppVersion] App.getInfo() returned empty version — possible Capacitor plugin issue`);
+    }
+    return { versionName, versionCode };
+  } catch (err) {
+    console.error(`[getAppVersion] App.getInfo() failed:`, err);
     return { versionName: '0.0.0', versionCode: 0 };
   }
 }
@@ -92,19 +97,31 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
 
 async function openDownloadUrl(url: string) {
   try {
+    let fullUrl = url;
+    if (url && !url.startsWith('http')) {
+      const base = Capacitor.isNativePlatform()
+        ? 'https://app2.binarjoinanelytic.info'
+        : window.location.origin;
+      fullUrl = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+    }
+    console.log(`[openDownloadUrl] Opening: ${fullUrl}`);
+
     if (Capacitor.isNativePlatform()) {
       try {
         const { Browser } = await import('@capacitor/browser');
-        await Browser.open({ url });
+        await Browser.open({ url: fullUrl, presentationStyle: 'popover' });
         return;
-      } catch {
-        window.location.href = url;
+      } catch (browserErr) {
+        console.warn(`[openDownloadUrl] Browser plugin failed, using window.location:`, browserErr);
+        window.open(fullUrl, '_system');
         return;
       }
     }
-    window.open(url, '_blank');
-  } catch {
-    window.location.href = url;
+    window.open(fullUrl, '_blank');
+  } catch (err) {
+    console.error(`[openDownloadUrl] Error:`, err);
+    const base = 'https://app2.binarjoinanelytic.info';
+    window.open(`${base}${url.startsWith('/') ? '' : '/'}${url}`, '_system');
   }
 }
 

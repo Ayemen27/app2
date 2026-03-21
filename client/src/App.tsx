@@ -207,7 +207,7 @@ function UpdateDialog({ info, onDismiss }: { info: any; onDismiss: () => void })
           </>
         )}
         <div className="flex flex-col gap-2 pt-2">
-          {info.latest.downloadUrl && (
+          {info.latest.downloadUrl ? (
             <button
               data-testid="button-update-now"
               onClick={handleUpdate}
@@ -215,6 +215,8 @@ function UpdateDialog({ info, onDismiss }: { info: any; onDismiss: () => void })
             >
               تحديث الآن
             </button>
+          ) : (
+            <p className="text-xs text-amber-500 font-medium" data-testid="text-no-download">رابط التحميل غير متوفر حالياً — أعد المحاولة لاحقاً</p>
           )}
           {!isForced && (
             <button

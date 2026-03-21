@@ -2647,10 +2647,13 @@ export class DeploymentEngine {
 
       let downloadUrl: string | null = null;
       if (latest.id) {
+        const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
         try {
-          downloadUrl = `/api/deployment/app/download/${latest.id}?token=${this.generateDownloadToken(latest.id)}`;
-        } catch {
-          downloadUrl = `/api/deployment/app/download/${latest.id}`;
+          const token = this.generateDownloadToken(latest.id);
+          downloadUrl = `${baseUrl}/api/deployment/app/download/${latest.id}?token=${token}`;
+        } catch (tokenErr: any) {
+          console.warn(`[getLatestAndroidRelease] فشل توليد التوكن: ${tokenErr?.message} — سيتم إرجاع downloadUrl=null`);
+          downloadUrl = null;
         }
       }
 

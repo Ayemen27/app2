@@ -1253,20 +1253,34 @@ export class DeploymentEngine {
   }
 
   private async stepRestartPM2(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
-    await this.addLog(deploymentId, "Restarting PM2 process...", "info");
+    await this.addLog(deploymentId, "إعادة تحميل PM2 من ecosystem.config.cjs...", "info");
     const remoteDir = "/home/administrator/app2";
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && pm2 restart binarjoin --update-env 2>/dev/null || pm2 restart construction-app --update-env 2>/dev/null || (PORT=6000 pm2 start ecosystem.config.cjs --name binarjoin --env production --update-env) && pm2 save && echo 'PM2_OK'"`,
-      "PM2 Restart",
-      30000
+      `${sshCmd} "cd ${remoteDir} && pm2 delete binarjoin 2>/dev/null; pm2 startOrReload ecosystem.config.cjs --env production --update-env && pm2 save && echo 'PM2_OK'"`,
+      "PM2 Reload",
+      45000
     );
 
     const baseUrl = this.resolveBaseUrl(config);
     const ready = await this.waitForServerReady(deploymentId, baseUrl, 90000, 5000);
     if (!ready) {
       await this.addLog(deploymentId, "⚠️ السيرفر لم يصل لحالة الجاهزية — متابعة مع تحذير", "warn");
+    }
+
+    try {
+      const authCheckCmd = `${sshCmd} "curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:6000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"test\",\"password\":\"test\"}' 2>/dev/null"`;
+      const { stdout: httpCode } = await execAsync(authCheckCmd, { timeout: 15000 });
+      const code = httpCode.trim();
+      if (code === "404") {
+        await this.addLog(deploymentId, "❌ مسار /api/auth/login يعيد 404 — الكود القديم لا يزال محملاً!", "error");
+        throw new Error("PM2 لم يحمّل الكود الجديد — /api/auth/login يعيد 404. تحقق من أن dist/index.js محدّث.");
+      }
+      await this.addLog(deploymentId, `✅ فحص مسار المصادقة: HTTP ${code}`, "success");
+    } catch (err: any) {
+      if (err.message?.includes("PM2 لم يحمّل")) throw err;
+      await this.addLog(deploymentId, `⚠️ تعذر التحقق من مسار المصادقة: ${err.message}`, "warn");
     }
   }
 
@@ -2587,7 +2601,7 @@ export class DeploymentEngine {
 
       await this.updateStepStatus(rollbackId, "restart-pm2", "running");
       await this.updateDeployment(rollbackId, { currentStep: "restart-pm2", progress: 60 });
-      await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && pm2 restart binarjoin --update-env 2>/dev/null || pm2 restart construction-app --update-env 2>/dev/null && pm2 save && echo 'RESTART_OK'"`, "PM2 Restart", 30000);
+      await this.execWithLog(rollbackId, `${sshCmd} "cd ${remoteDir} && pm2 delete binarjoin 2>/dev/null; pm2 startOrReload ecosystem.config.cjs --env production --update-env && pm2 save && echo 'RESTART_OK'"`, "PM2 Reload", 45000);
       await this.updateStepStatus(rollbackId, "restart-pm2", "success", Date.now() - startTime);
 
       await this.updateStepStatus(rollbackId, "verify", "running");

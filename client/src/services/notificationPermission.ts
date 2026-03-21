@@ -1,4 +1,5 @@
 import { ENV } from "@/lib/env";
+import { authFetch } from '@/lib/auth-token-store';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { App } from '@capacitor/app';
@@ -93,7 +94,7 @@ async function registerPush() {
       await PushNotifications.addListener('registration', async (token) => {
         console.log('[NativePush] Token:', token.value);
         try {
-          await fetch(ENV.getApiUrl('/api/push/token'), {
+          await authFetch(ENV.getApiUrl('/api/push/token'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 
 import { ENV } from "@/lib/env";
+import { authFetch } from '@/lib/auth-token-store';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -99,11 +100,6 @@ export default function AdminNotificationsPage() {
     ''
   );
 
-  const getAuthHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': getAccessToken() ? `Bearer ${getAccessToken()}` : '',
-  });
-
   const { data: notificationsData, isLoading: isLoadingNotifications, refetch } = useQuery({
     queryKey: QUERY_KEYS.adminNotifications(filterValues, searchValue),
     queryFn: async () => {
@@ -113,9 +109,7 @@ export default function AdminNotificationsPage() {
         ...(filterValues.priority !== 'all' && { priority: filterValues.priority }),
         ...(searchValue && { search: searchValue })
       });
-      const response = await fetch(ENV.getApiUrl(`/api/notifications/all?${params}`), {
-        headers: getAuthHeaders()
-      });
+      const response = await authFetch(ENV.getApiUrl(`/api/notifications/all?${params}`));
       if (!response.ok) throw new Error('فشل في جلب البيانات');
       return response.json();
     },
@@ -125,9 +119,7 @@ export default function AdminNotificationsPage() {
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: [QUERY_KEYS.adminNotifications, 'activity'],
     queryFn: async () => {
-      const response = await fetch(ENV.getApiUrl('/api/notifications/monitoring/stats'), {
-        headers: getAuthHeaders()
-      });
+      const response = await authFetch(ENV.getApiUrl('/api/notifications/monitoring/stats'));
       if (!response.ok) throw new Error('فشل في جلب النشاط');
       return response.json();
     },
@@ -136,9 +128,9 @@ export default function AdminNotificationsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(ENV.getApiUrl(`/api/notifications/${id}`), {
+      const response = await authFetch(ENV.getApiUrl(`/api/notifications/${id}`), {
         method: 'DELETE',
-        headers: { ...getAuthHeaders(), 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() }
+        headers: { 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() }
       });
       if (!response.ok) throw new Error('فشل الحذف');
       return response.json();

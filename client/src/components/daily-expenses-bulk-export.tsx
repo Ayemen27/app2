@@ -30,7 +30,7 @@ import html2canvas from 'html2canvas';
 import type { Project } from '@shared/schema';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders, authFetch } from '@/lib/auth-token-store';
 
 interface DailyExpenseData {
   date: string;
@@ -119,13 +119,7 @@ export default function DailyExpensesBulkExport() {
       const dateStr = date.toISOString().split('T')[0];
       
       try {
-        const response = await fetch(ENV.getApiUrl(`/api/reports/daily-expenses/${project_id}/${dateStr}`), {
-          credentials: getFetchCredentials(),
-          headers: {
-            ...getClientPlatformHeader(),
-            ...getAuthHeaders(),
-          }
-        });
+        const response = await authFetch(ENV.getApiUrl(`/api/reports/daily-expenses/${project_id}/${dateStr}`));
         if (response.ok) {
           const data = await response.json();
           if (data && Object.keys(data).length > 0) {

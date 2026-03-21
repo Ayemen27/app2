@@ -35,7 +35,7 @@ import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard
 import type { StatsRowConfig, FilterConfig, ActionButton } from "@/components/ui/unified-filter-dashboard/types";
 import { exportTransactionsToExcel } from "@/components/ui/export-transactions-excel";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders, authFetch } from '@/lib/auth-token-store';
 
 
 interface Transaction {
@@ -211,13 +211,8 @@ export default function ProjectTransactionsSimple() {
         const endpoint = isAllProjects 
           ? '/api/project-fund-transfers'
           : `/api/projects/fund-transfers/incoming/${selectedProject}`;
-        const response = await fetch(endpoint, {
-          credentials: getFetchCredentials(),
-          headers: {
-            'Content-Type': 'application/json',
-            ...getClientPlatformHeader(),
-            ...getAuthHeaders(),
-          }
+        const response = await authFetch(endpoint, {
+          headers: { 'Content-Type': 'application/json' }
         });
         if (!response.ok) {
           if (response.status === 401) {
@@ -260,13 +255,8 @@ export default function ProjectTransactionsSimple() {
         const endpoint = isAllProjects 
           ? '/api/project-fund-transfers'
           : `/api/projects/fund-transfers/outgoing/${selectedProject}`;
-        const response = await fetch(endpoint, {
-          credentials: getFetchCredentials(),
-          headers: {
-            'Content-Type': 'application/json',
-            ...getClientPlatformHeader(),
-            ...getAuthHeaders(),
-          }
+        const response = await authFetch(endpoint, {
+          headers: { 'Content-Type': 'application/json' }
         });
         if (!response.ok) {
           if (response.status === 401) {
@@ -349,13 +339,8 @@ export default function ProjectTransactionsSimple() {
           const allRecords: any[] = [];
           for (const project of projects) {
             try {
-              const response = await fetch(ENV.getApiUrl(`/api/projects/${project.id}/material-purchases`), {
-                credentials: getFetchCredentials(),
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...getClientPlatformHeader(),
-                  ...getAuthHeaders(),
-                }
+              const response = await authFetch(ENV.getApiUrl(`/api/projects/${project.id}/material-purchases`), {
+                headers: { 'Content-Type': 'application/json' }
               });
               if (response.ok) {
                 const data = await response.json();
@@ -369,13 +354,8 @@ export default function ProjectTransactionsSimple() {
           console.log(`✅ تم جلب ${allRecords.length} مشترية مواد من جميع المشاريع`);
           return allRecords;
         } else {
-          const response = await fetch(ENV.getApiUrl(`/api/projects/${selectedProject}/material-purchases`), {
-            credentials: getFetchCredentials(),
-            headers: {
-              'Content-Type': 'application/json',
-              ...getClientPlatformHeader(),
-              ...getAuthHeaders(),
-            }
+          const response = await authFetch(ENV.getApiUrl(`/api/projects/${selectedProject}/material-purchases`), {
+            headers: { 'Content-Type': 'application/json' }
           });
           if (!response.ok) {
             if (response.status === 401) {

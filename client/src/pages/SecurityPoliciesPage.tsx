@@ -1,4 +1,5 @@
 import { ENV } from "@/lib/env";
+import { authFetch } from '@/lib/auth-token-store';
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -90,7 +91,7 @@ export function SecurityPoliciesPage() {
   const { data: policies = [], isLoading: policiesLoading } = useQuery({
     queryKey: QUERY_KEYS.securityPolicies,
     queryFn: async () => {
-      const response = await fetch(ENV.getApiUrl('/api/security/policies'));
+      const response = await authFetch(ENV.getApiUrl('/api/security/policies'));
       if (!response.ok) return [];
       const result = await response.json();
       return (result.success ? result.data : result) as SecurityPolicy[];
@@ -100,7 +101,7 @@ export function SecurityPoliciesPage() {
   const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery({
     queryKey: QUERY_KEYS.securitySuggestions,
     queryFn: async () => {
-      const response = await fetch(ENV.getApiUrl('/api/security/suggestions'));
+      const response = await authFetch(ENV.getApiUrl('/api/security/suggestions'));
       if (!response.ok) return [];
       const result = await response.json();
       return (result.success ? result.data : result) as PolicySuggestion[];
@@ -110,7 +111,7 @@ export function SecurityPoliciesPage() {
   const { data: violations = [], isLoading: violationsLoading } = useQuery({
     queryKey: QUERY_KEYS.securityViolations,
     queryFn: async () => {
-      const response = await fetch(ENV.getApiUrl('/api/security/violations'));
+      const response = await authFetch(ENV.getApiUrl('/api/security/violations'));
       if (!response.ok) return [];
       const result = await response.json();
       return (result.success ? result.data : result) as PolicyViolation[];

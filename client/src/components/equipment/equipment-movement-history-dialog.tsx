@@ -9,7 +9,7 @@ import { History, ArrowRight, Calendar, User, FileText, MapPin } from "lucide-re
 import { Equipment } from "@shared/schema";
 import { formatDate } from "@/lib/utils";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, authFetch } from '@/lib/auth-token-store';
 
 interface EquipmentMovementHistoryDialogProps {
   equipment: Equipment | null;
@@ -38,13 +38,7 @@ export function EquipmentMovementHistoryDialog({
   const { data: movements = [], isLoading } = useQuery({
     queryKey: QUERY_KEYS.equipmentMovementsById(String(equipment?.id ?? '')),
     queryFn: async () => {
-      const response = await fetch(ENV.getApiUrl(`/api/equipment/${equipment?.id}/movements`), {
-        credentials: getFetchCredentials(),
-        headers: {
-          ...getClientPlatformHeader(),
-          ...getAuthHeaders(),
-        }
-      });
+      const response = await authFetch(ENV.getApiUrl(`/api/equipment/${equipment?.id}/movements`));
       if (!response.ok) throw new Error('فشل في جلب سجل الحركات');
       return response.json();
     },

@@ -7,7 +7,7 @@ import {
   type Messaging,
 } from '@/services/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, authFetch } from '@/lib/auth-token-store';
 
 interface UsePushReturn {
   isPushSupported: boolean;
@@ -124,13 +124,10 @@ export const usePush = (): UsePushReturn => {
         if (token) {
           // Send token to backend
           try {
-            const response = await fetch(ENV.getApiUrl('/api/push/token'), {
+            const response = await authFetch(ENV.getApiUrl('/api/push/token'), {
               method: 'POST',
-              credentials: getFetchCredentials(),
               headers: {
                 'Content-Type': 'application/json',
-                ...getClientPlatformHeader(),
-                ...getAuthHeaders(),
                 'x-request-nonce': crypto.randomUUID(),
                 'x-request-timestamp': new Date().toISOString(),
               },

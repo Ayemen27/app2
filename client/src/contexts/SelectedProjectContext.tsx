@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryClient as globalQueryClient } from "@/lib/queryClient";
 import { QUERY_KEYS } from "@/constants/queryKeys";
-import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders } from '@/lib/auth-token-store';
+import { getFetchCredentials, getClientPlatformHeader, getAuthHeaders, authFetch } from '@/lib/auth-token-store';
 
 const SELECTED_PROJECT_KEY = "construction-app-selected-project";
 const SELECTED_PROJECT_NAME_KEY = "construction-app-selected-project-name";
@@ -66,13 +66,7 @@ export function SelectedProjectProvider({ children }: SelectedProjectProviderPro
   const { data: projectsData, isLoading: isProjectsLoading, error: projectsError } = useQuery<Project[]>({
     queryKey: QUERY_KEYS.projects,
     queryFn: async () => {
-      const response = await fetch(ENV.getApiUrl("/api/projects"), {
-        credentials: getFetchCredentials(),
-        headers: {
-          ...getClientPlatformHeader(),
-          ...getAuthHeaders(),
-        }
-      });
+      const response = await authFetch(ENV.getApiUrl("/api/projects"));
       if (!response.ok) {
         throw new Error("فشل في جلب المشاريع");
       }

@@ -33,3 +33,60 @@ export function getAuthHeaders(): Record<string, string> {
   if (!token) return {};
   return { 'Authorization': `Bearer ${token}` };
 }
+
+let _refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = (async () => {
+    try {
+      const refreshTokenValue = getRefreshToken();
+      if (!refreshTokenValue) return false;
+      const { ENV: env } = await import('./env');
+      const res = await fetch(env.getApiUrl('/api/auth/refresh'), {
+        method: 'POST',
+        credentials: _getFetchCredentials(),
+        headers: { 'Content-Type': 'application/json', ..._getClientPlatformHeader() },
+        body: JSON.stringify({ refreshToken: refreshTokenValue })
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      const newAccess = data.data?.accessToken || data.accessToken;
+      const newRefresh = data.data?.refreshToken || data.refreshToken;
+      if (newAccess) {
+        storeTokens(newAccess, newRefresh || refreshTokenValue);
+        return true;
+      }
+      return false;
+    } catch { return false; }
+    finally { _refreshPromise = null; }
+  })();
+  return _refreshPromise;
+}
+
+export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
+  const makeHeaders = (): HeadersInit => ({
+    ...getAuthHeaders(),
+    ..._getClientPlatformHeader(),
+    ...(init?.headers || {}),
+  });
+
+  let response = await fetch(url, {
+    ...init,
+    credentials: _getFetchCredentials(),
+    headers: makeHeaders(),
+  });
+
+  if (response.status === 401) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      response = await fetch(url, {
+        ...init,
+        credentials: _getFetchCredentials(),
+        headers: makeHeaders(),
+      });
+    }
+  }
+
+  return response;
+}

@@ -14,9 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { showSuccessToast, showErrorToast } from "@/utils/enhanced-toast";
-import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, isWebCookieMode, shouldUseBearerAuth, getRefreshToken, storeTokens } from '@/lib/auth-token-store';
+import { getAccessToken, getFetchCredentials, getClientPlatformHeader, getAuthHeaders, isWebCookieMode, authFetch } from '@/lib/auth-token-store';
 import { useAuth } from '@/components/AuthProvider';
-import { isValidJwt } from '@/lib/token-utils';
 
 
 interface Notification {
@@ -82,39 +81,7 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     setLoading(true);
     try {
 
-      let response = await fetch(ENV.getApiUrl('/api/notifications?limit=50'), {
-        credentials: getFetchCredentials(),
-        headers: {
-          ...getClientPlatformHeader(),
-          ...getAuthHeaders(),
-        }
-      });
-
-      if (response.status === 401) {
-        const refreshTokenValue = shouldUseBearerAuth() ? getRefreshToken() : null;
-        if (refreshTokenValue && isValidJwt(refreshTokenValue)) {
-          try {
-            const refreshRes = await fetch(ENV.getApiUrl('/api/auth/refresh'), {
-              method: 'POST',
-              credentials: getFetchCredentials(),
-              headers: { 'Content-Type': 'application/json', ...getClientPlatformHeader() },
-              body: JSON.stringify({ refreshToken: refreshTokenValue })
-            });
-            if (refreshRes.ok) {
-              const refreshData = await refreshRes.json();
-              const newToken = refreshData.data?.accessToken || refreshData.accessToken;
-              const newRefresh = refreshData.data?.refreshToken || refreshData.refreshToken;
-              if (newToken) {
-                storeTokens(newToken, newRefresh || refreshTokenValue);
-                response = await fetch(ENV.getApiUrl('/api/notifications?limit=50'), {
-                  credentials: getFetchCredentials(),
-                  headers: { ...getClientPlatformHeader(), ...getAuthHeaders() }
-                });
-              }
-            }
-          } catch (e) { /* refresh failed, fall through */ }
-        }
-      }
+      const response = await authFetch(ENV.getApiUrl('/api/notifications?limit=50'));
 
       if (response.ok) {
         const data = await response.json();
@@ -175,13 +142,10 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         return;
       }
 
-      const response = await fetch(ENV.getApiUrl(`/api/notifications/${notificationId}/read`), {
+      const response = await authFetch(ENV.getApiUrl(`/api/notifications/${notificationId}/read`), {
         method: 'POST',
-        credentials: getFetchCredentials(),
         headers: {
           'Content-Type': 'application/json',
-          ...getClientPlatformHeader(),
-          ...getAuthHeaders(),
           'x-request-nonce': crypto.randomUUID(),
           'x-request-timestamp': new Date().toISOString(),
         },
@@ -209,13 +173,10 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
     try {
       if (!isAuthReady()) return;
 
-      const response = await fetch(ENV.getApiUrl('/api/notifications/bulk-delete-suspicious'), {
+      const response = await authFetch(ENV.getApiUrl('/api/notifications/bulk-delete-suspicious'), {
         method: 'DELETE',
-        credentials: getFetchCredentials(),
         headers: {
           'Content-Type': 'application/json',
-          ...getClientPlatformHeader(),
-          ...getAuthHeaders(),
           'x-request-nonce': crypto.randomUUID(),
           'x-request-timestamp': new Date().toISOString(),
         },
@@ -241,13 +202,10 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         return;
       }
 
-      const response = await fetch(ENV.getApiUrl('/api/notifications/mark-all-read'), {
+      const response = await authFetch(ENV.getApiUrl('/api/notifications/mark-all-read'), {
         method: 'POST',
-        credentials: getFetchCredentials(),
         headers: {
           'Content-Type': 'application/json',
-          ...getClientPlatformHeader(),
-          ...getAuthHeaders(),
           'x-request-nonce': crypto.randomUUID(),
           'x-request-timestamp': new Date().toISOString(),
         },

@@ -1,4 +1,5 @@
 import { ENV } from "@/lib/env";
+import { authFetch } from '@/lib/auth-token-store';
 import { PushNotifications, PermissionStatus, Token } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 
@@ -50,7 +51,7 @@ export const initializeNativePush = async (_user_id: string) => {
       
       // Save token to backend
       try {
-        await fetch(ENV.getApiUrl('/api/push/token'), {
+        await authFetch(ENV.getApiUrl('/api/push/token'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
           body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),

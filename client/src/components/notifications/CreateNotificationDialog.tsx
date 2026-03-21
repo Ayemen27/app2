@@ -1,4 +1,5 @@
 import { ENV } from "@/lib/env";
+import { authFetch } from '@/lib/auth-token-store';
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -122,17 +123,10 @@ export function CreateNotificationDialog({
   const { getAccessToken } = useAuth();
   const [selectedRecipientType, setSelectedRecipientType] = useState<string>('all');
 
-  const getAuthHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': getAccessToken() ? `Bearer ${getAccessToken()}` : '',
-  });
-
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: QUERY_KEYS.usersWithRoles,
     queryFn: async () => {
-      const response = await fetch(ENV.getApiUrl('/api/users?includeRole=true'), {
-        headers: getAuthHeaders()
-      });
+      const response = await authFetch(ENV.getApiUrl('/api/users?includeRole=true'));
       if (!response.ok) throw new Error('فشل في جلب المستخدمين');
       return response.json();
     },
@@ -162,9 +156,9 @@ export function CreateNotificationDialog({
         default: endpoint = '/api/notifications';
       }
 
-      const response = await fetch(endpoint, {
+      const response = await authFetch(endpoint, {
         method: 'POST',
-        headers: { ...getAuthHeaders(), 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
+        headers: { 'Content-Type': 'application/json', 'x-request-nonce': crypto.randomUUID(), 'x-request-timestamp': new Date().toISOString() },
         body: JSON.stringify({
           ...data,
           message: data.body, // Mapping for backward compatibility

@@ -21,7 +21,7 @@ import {
 const execAsync = promisify(exec);
 
 type LogEntry = { timestamp: string; message: string; type: "info" | "error" | "success" | "warn" | "step" };
-type StepEntry = { name: string; status: "pending" | "running" | "success" | "failed" | "cancelled"; duration?: number; startedAt?: string };
+type StepEntry = { name: string; status: "pending" | "running" | "success" | "failed" | "cancelled"; duration?: number; startedAt?: string; subProgress?: number; subMessage?: string };
 
 class CancellationError extends Error {
   constructor(message = "Deployment cancelled by user") {
@@ -1107,8 +1107,10 @@ export class DeploymentEngine {
 
   private async stepPreflightCheck(deploymentId: string) {
     await this.addLog(deploymentId, "🔍 فحص أولي — التحقق من صحة الكود قبل النشر...", "info");
+    this.updateStepProgress(deploymentId, "preflight-check", 0, "بدء الفحص الأولي...");
     let criticalFailures: string[] = [];
 
+    this.updateStepProgress(deploymentId, "preflight-check", 10, "فحص تعارضات Git...");
     try {
       const { stdout: conflictCheck } = await execAsync(
         "grep -rn '<<<<<<< ' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.json' /home/runner/workspace/server /home/runner/workspace/client /home/runner/workspace/shared 2>/dev/null | head -5 || echo 'NO_CONFLICTS'",
@@ -1121,6 +1123,7 @@ export class DeploymentEngine {
       }
     } catch {}
 
+    this.updateStepProgress(deploymentId, "preflight-check", 30, "فحص TypeScript...");
     try {
       const { stdout: tscResult } = await execAsync(
         "npx tsc --noEmit --pretty false 2>&1 | tail -20 || true",
@@ -1148,6 +1151,7 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, `⚠️ تعذر تشغيل فحص TypeScript: ${err.message}`, "warn");
     }
 
+    this.updateStepProgress(deploymentId, "preflight-check", 75, "فحص حالة Git...");
     try {
       const { stdout: gitStatus } = await execAsync(
         "git status --porcelain 2>/dev/null | wc -l",
@@ -1751,6 +1755,7 @@ export class DeploymentEngine {
 
   private async stepGradleBuild(deploymentId: string, sshCmd: string, config: DeploymentConfig) {
     await this.addLog(deploymentId, "بدء بناء Gradle (قد يستغرق 2-3 دقائق)...", "info");
+    this.updateStepProgress(deploymentId, "gradle-build", 5, "فحص Gradle Wrapper...");
     const remoteDir = "/home/administrator/app2";
 
     const gradlewCheck = await this.execWithLog(
@@ -1823,12 +1828,14 @@ export class DeploymentEngine {
 
     const trapCleanup = canSignRelease ? "trap 'rm -f /tmp/.ks_pass /tmp/.ks_key_pass' EXIT; " : "";
 
+    this.updateStepProgress(deploymentId, "gradle-build", 25, "بناء Gradle (قد يستغرق 2-3 دقائق)...");
     await this.execWithLog(
       deploymentId,
       `${sshCmd} "${trapCleanup}set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 && echo 'GRADLE_OK'"`,
       "Gradle Build",
       1200000
     );
+    this.updateStepProgress(deploymentId, "gradle-build", 95, "اكتمل بناء Gradle");
   }
 
   private async stepSignAPK(deploymentId: string, sshCmd: string) {
@@ -2470,6 +2477,7 @@ export class DeploymentEngine {
 
   private async stepInstallDeps(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "Installing dependencies on server...", "info");
+    this.updateStepProgress(deploymentId, "install-deps", 10, "تثبيت الحزم على السيرفر...");
     const remoteDir = "/home/administrator/app2";
 
     await this.execWithLog(
@@ -2478,10 +2486,12 @@ export class DeploymentEngine {
       "Install Deps",
       120000
     );
+    this.updateStepProgress(deploymentId, "install-deps", 95, "اكتمل تثبيت التبعيات");
   }
 
   private async stepBuildServer(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "تنظيف مخرجات البناء السابقة...", "info");
+    this.updateStepProgress(deploymentId, "build-server", 5, "تنظيف المخرجات السابقة...");
     const remoteDir = "/home/administrator/app2";
 
     await this.execWithLog(
@@ -2491,6 +2501,7 @@ export class DeploymentEngine {
       30000
     );
 
+    this.updateStepProgress(deploymentId, "build-server", 15, "بناء التطبيق (3-5 دقائق)...");
     await this.addLog(deploymentId, "بناء التطبيق على السيرفر (قد يستغرق 3-5 دقائق)...", "info");
 
     await this.execWithLog(
@@ -2499,6 +2510,7 @@ export class DeploymentEngine {
       "Server Build",
       600000
     );
+    this.updateStepProgress(deploymentId, "build-server", 90, "التحقق من المخرجات...");
 
     const verifyBuild = await this.execWithLog(
       deploymentId,
@@ -2749,10 +2761,57 @@ export class DeploymentEngine {
     broadcastToClients(deploymentId, { type: "step_update", data: { stepName, status, duration } });
   }
 
+  private updateStepProgress(deploymentId: string, stepName: string, subProgress: number, subMessage?: string) {
+    broadcastToClients(deploymentId, {
+      type: "step_progress",
+      data: { stepName, subProgress: Math.min(100, Math.max(0, Math.round(subProgress))), subMessage }
+    });
+  }
+
   private async updateDeployment(deploymentId: string, updates: Partial<Record<string, any>>) {
     await db.update(buildDeployments).set(updates).where(eq(buildDeployments.id, deploymentId));
 
     broadcastToClients(deploymentId, { type: "deployment_update", data: updates });
+  }
+
+  async getStepAverages(pipeline?: string): Promise<Record<string, { avgDuration: number; count: number }>> {
+    try {
+      const conditions = [
+        sql`${buildDeployments.status} = 'success'`,
+      ];
+      if (pipeline) {
+        conditions.push(sql`${buildDeployments.pipeline} = ${pipeline}`);
+      }
+
+      const recent = await db.select({ steps: buildDeployments.steps })
+        .from(buildDeployments)
+        .where(sql`${conditions.map(c => sql`(${c})`).reduce((a, b) => sql`${a} AND ${b}`)}`)
+        .orderBy(desc(buildDeployments.buildNumber))
+        .limit(20);
+
+      const stepTotals: Record<string, { total: number; count: number }> = {};
+
+      for (const row of recent) {
+        const steps = row.steps as StepEntry[];
+        if (!Array.isArray(steps)) continue;
+        for (const step of steps) {
+          if (step.status === "success" && step.duration && step.duration > 0) {
+            if (!stepTotals[step.name]) stepTotals[step.name] = { total: 0, count: 0 };
+            stepTotals[step.name].total += step.duration;
+            stepTotals[step.name].count += 1;
+          }
+        }
+      }
+
+      const result: Record<string, { avgDuration: number; count: number }> = {};
+      for (const [name, data] of Object.entries(stepTotals)) {
+        result[name] = { avgDuration: Math.round(data.total / data.count), count: data.count };
+      }
+      return result;
+    } catch (err: any) {
+      console.error("[getStepAverages] Error:", err.message);
+      return {};
+    }
   }
 
   async checkServerHealth(): Promise<{ status: string; checks: Record<string, any> }> {

@@ -57,7 +57,11 @@ interface StepEntry {
   status: "pending" | "running" | "success" | "failed" | "cancelled";
   duration?: number;
   startedAt?: string;
+  subProgress?: number;
+  subMessage?: string;
 }
+
+type StepAverages = Record<string, { avgDuration: number; count: number }>;
 
 interface Deployment {
   id: string;
@@ -224,6 +228,7 @@ export default function DeploymentConsole() {
   const [buildTarget, setBuildTarget] = useState<string>("server");
   const [commitMessage, setCommitMessage] = useState("");
   const [releaseNotes, setReleaseNotes] = useState("");
+  const [stepAverages, setStepAverages] = useState<StepAverages>({});
   const [versionInput, setVersionInput] = useState("");
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
   const [liveDeployment, setLiveDeployment] = useState<Deployment | null>(null);
@@ -234,6 +239,14 @@ export default function DeploymentConsole() {
   const [isCleaning, setIsCleaning] = useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const hasAutoResumedRef = useRef<string | null>(null);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const hasRunning = liveDeployment?.status === "running";
+    if (!hasRunning) return;
+    const timer = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [liveDeployment?.status]);
 
   const { data: statsData } = useQuery<DeploymentStats>({
     queryKey: ["/api/deployment/stats"],
@@ -342,7 +355,17 @@ export default function DeploymentConsole() {
               if (!prev) return null;
               const steps = (prev.steps as StepEntry[]).map(s =>
                 s.name === payload.data.stepName
-                  ? { ...s, status: payload.data.status, duration: payload.data.duration }
+                  ? { ...s, status: payload.data.status, duration: payload.data.duration, subProgress: payload.data.status === "running" ? 0 : undefined, subMessage: undefined }
+                  : s
+              );
+              return { ...prev, steps };
+            });
+          } else if (payload.type === "step_progress") {
+            setLiveDeployment(prev => {
+              if (!prev) return null;
+              const steps = (prev.steps as StepEntry[]).map(s =>
+                s.name === payload.data.stepName
+                  ? { ...s, subProgress: payload.data.subProgress, subMessage: payload.data.subMessage }
                   : s
               );
               return { ...prev, steps };
@@ -397,6 +420,7 @@ export default function DeploymentConsole() {
           setActiveDeploymentId(running.id);
           setLiveDeployment(running);
           setLiveLogs(Array.isArray(running.logs) ? running.logs : []);
+          fetchStepAverages(running.pipeline);
         }
       } else {
         hasAutoResumedRef.current = null;
@@ -413,9 +437,17 @@ export default function DeploymentConsole() {
     }
   }, [liveLogs]);
 
+  const fetchStepAverages = async (pipeline: string) => {
+    try {
+      const data = await apiRequest(`/api/deployment/step-averages?pipeline=${pipeline}`);
+      if (data && typeof data === 'object') setStepAverages(data);
+    } catch {}
+  };
+
   const handleStartDeployment = async () => {
     setIsStarting(true);
     try {
+      fetchStepAverages(selectedPipeline);
       const data = await apiRequest("/api/deployment/start", "POST", {
         pipeline: selectedPipeline,
         commitMessage: commitMessage || undefined,
@@ -840,11 +872,29 @@ export default function DeploymentConsole() {
                     const isFailed = step.status === "failed";
                     const isCancelled = step.status === "cancelled";
 
+                    const avgData = stepAverages[step.name];
+                    const avgMs = avgData?.avgDuration || 0;
+
+                    let elapsedMs = 0;
+                    if (isActive && step.startedAt) {
+                      elapsedMs = Date.now() - new Date(step.startedAt).getTime();
+                    }
+
+                    let timeProgress = 0;
+                    if (isActive && avgMs > 0) {
+                      timeProgress = Math.min(95, Math.round((elapsedMs / avgMs) * 100));
+                    }
+                    const displayProgress = isActive
+                      ? (step.subProgress != null ? step.subProgress : timeProgress)
+                      : isDone ? 100 : 0;
+
+                    const remainingMs = isActive && avgMs > 0 ? Math.max(0, avgMs - elapsedMs) : 0;
+
                     return (
                       <div
                         key={step.name}
                         data-testid={`step-${step.name}`}
-                        className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all ${
+                        className={`px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all ${
                           isActive ? "bg-blue-500/10 border border-blue-500/20" :
                           isDone ? "bg-emerald-500/5 border border-transparent" :
                           isFailed ? "bg-red-500/10 border border-red-500/20" :
@@ -852,32 +902,68 @@ export default function DeploymentConsole() {
                           "bg-transparent border border-transparent opacity-50"
                         }`}
                       >
-                        <div className={`h-6 w-6 sm:h-7 sm:w-7 rounded-lg flex items-center justify-center shrink-0 ${
-                          isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : isCancelled ? "bg-amber-500/10" : "bg-muted"
-                        }`}>
-                          {isActive ? (
-                            <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
-                          ) : isDone ? (
-                            <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          ) : isFailed ? (
-                            <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-600 dark:text-red-400" />
-                          ) : isCancelled ? (
-                            <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 dark:text-amber-400" />
-                          ) : (
-                            <StepIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs sm:text-sm font-medium truncate ${
-                            isActive ? "text-blue-700 dark:text-blue-300" : isDone ? "text-emerald-700 dark:text-emerald-300" : isFailed ? "text-red-700 dark:text-red-300" : isCancelled ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className={`h-6 w-6 sm:h-7 sm:w-7 rounded-lg flex items-center justify-center shrink-0 ${
+                            isActive ? "bg-blue-500/20" : isDone ? "bg-emerald-500/15" : isFailed ? "bg-red-500/15" : isCancelled ? "bg-amber-500/10" : "bg-muted"
                           }`}>
-                            {STEP_LABELS[step.name] || step.name.replace(/-/g, " ")}
-                          </p>
+                            {isActive ? (
+                              <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
+                            ) : isDone ? (
+                              <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            ) : isFailed ? (
+                              <XCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-red-600 dark:text-red-400" />
+                            ) : isCancelled ? (
+                              <Ban className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 dark:text-amber-400" />
+                            ) : (
+                              <StepIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs sm:text-sm font-medium truncate ${
+                              isActive ? "text-blue-700 dark:text-blue-300" : isDone ? "text-emerald-700 dark:text-emerald-300" : isFailed ? "text-red-700 dark:text-red-300" : isCancelled ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"
+                            }`}>
+                              {STEP_LABELS[step.name] || step.name.replace(/-/g, " ")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isActive && displayProgress > 0 && (
+                              <span className="text-[10px] sm:text-xs font-bold text-blue-600 dark:text-blue-400 font-mono">
+                                {displayProgress}%
+                              </span>
+                            )}
+                            {step.duration ? (
+                              <span className="text-[10px] sm:text-xs text-muted-foreground font-mono">
+                                {formatDuration(step.duration)}
+                              </span>
+                            ) : isActive && avgMs > 0 ? (
+                              <span className="text-[10px] sm:text-xs text-blue-500/70 font-mono" title={`متوسط: ${formatDuration(avgMs)}`}>
+                                ~{formatDuration(avgMs)}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                        {step.duration && (
-                          <span className="text-[10px] sm:text-xs text-muted-foreground font-mono shrink-0">
-                            {formatDuration(step.duration)}
-                          </span>
+                        {isActive && (
+                          <div className="mt-1.5 space-y-1">
+                            <div className="relative h-1.5 bg-blue-500/10 rounded-full overflow-hidden">
+                              <div
+                                className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-500 to-blue-400 rounded-full transition-all duration-700 ease-out"
+                                style={{ width: `${displayProgress}%` }}
+                              />
+                              {displayProgress < 95 && (
+                                <div className="absolute inset-0 bg-gradient-to-l from-blue-400/30 to-transparent animate-pulse rounded-full" />
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] sm:text-[10px] text-blue-500/70 truncate max-w-[60%]">
+                                {step.subMessage || (avgMs > 0 && remainingMs > 0 ? `متبقي ~${formatDuration(remainingMs)}` : "جاري التنفيذ...")}
+                              </span>
+                              {avgMs > 0 && avgData?.count && (
+                                <span className="text-[9px] text-muted-foreground/50 font-mono">
+                                  بناءً على {avgData.count} عملية
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                     );

@@ -156,6 +156,12 @@ router.get("/stats", requireAdmin, asyncHandler(async (req: Request, res: Respon
   res.json(stats);
 }));
 
+router.get("/step-averages", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const pipeline = (req.query.pipeline as string) || undefined;
+  const averages = await deploymentEngine.getStepAverages(pipeline);
+  res.json(averages);
+}));
+
 router.get("/health", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const health = await deploymentEngine.checkServerHealth();
   res.json(health);

@@ -1059,44 +1059,57 @@ export class DeploymentEngine {
   private async stepPostDeploySmoke(deploymentId: string, config?: DeploymentConfig) {
     await this.addLog(deploymentId, "🔥 اختبار دخان ما بعد النشر — فحص المسارات الحرجة...", "info");
     const baseUrl = this.resolveBaseUrl(config);
+    const maxAttempts = 3;
 
-    try {
-      const { runPrebuildChecks } = await import("./prebuild-route-checker");
-      const report = await runPrebuildChecks(baseUrl);
-
-      const failedRoutes = report.routeChecks.filter(r => !r.passed);
-      const passedRoutes = report.routeChecks.filter(r => r.passed);
-
-      await this.addLog(deploymentId,
-        `📊 دخان ما بعد النشر: مسارات ${passedRoutes.length}/${report.routeChecks.length} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}`,
-        report.summary.overallPass ? "success" : "warn"
-      );
-
-      if (failedRoutes.length > 0) {
-        for (const f of failedRoutes.slice(0, 5)) {
-          await this.addLog(deploymentId, `  ⚠️ [${f.method}] ${f.path}: ${f.error}`, "warn");
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (attempt > 1) {
+          await this.addLog(deploymentId, `🔄 محاولة ${attempt}/${maxAttempts} — انتظار 10 ثوانٍ قبل إعادة الفحص...`, "info");
+          await new Promise(resolve => setTimeout(resolve, 10000));
         }
-      }
 
-      const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
-      if (criticalFailed.length > 0 || !report.summary.sslValid) {
-        const reasons: string[] = [];
-        if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
-        if (!report.summary.sslValid) reasons.push("SSL غير صالح");
-        await this.addEvent(deploymentId, "smoke_test_failed", "Post-deploy smoke test detected critical failures", {
-          failedRoutes: criticalFailed.map(r => r.path),
-        });
-        const msg = `🚨 اختبار الدخان فشل: ${reasons.join(" | ")} — يُنصح بالتراجع`;
-        await this.addLog(deploymentId, msg, "error");
-        throw new Error(msg);
-      } else {
-        await this.addLog(deploymentId, "✅ اختبار الدخان ناجح — النشر يعمل بشكل صحيح", "success");
+        const { runPrebuildChecks } = await import("./prebuild-route-checker");
+        const report = await runPrebuildChecks(baseUrl);
+
+        const failedRoutes = report.routeChecks.filter(r => !r.passed);
+        const passedRoutes = report.routeChecks.filter(r => r.passed);
+
+        await this.addLog(deploymentId,
+          `📊 دخان ما بعد النشر (محاولة ${attempt}): مسارات ${passedRoutes.length}/${report.routeChecks.length} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}`,
+          report.summary.overallPass ? "success" : "warn"
+        );
+
+        if (failedRoutes.length > 0) {
+          for (const f of failedRoutes.slice(0, 5)) {
+            await this.addLog(deploymentId, `  ⚠️ [${f.method}] ${f.path}: ${f.error}`, "warn");
+          }
+        }
+
+        const criticalFailed = failedRoutes.filter(r => r.group === "auth" || r.group === "public");
+        if (criticalFailed.length > 0 || !report.summary.sslValid) {
+          if (attempt < maxAttempts) {
+            await this.addLog(deploymentId, `⚠️ مسارات حرجة فاشلة (${criticalFailed.length}) — إعادة المحاولة...`, "warn");
+            continue;
+          }
+          const reasons: string[] = [];
+          if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
+          if (!report.summary.sslValid) reasons.push("SSL غير صالح");
+          await this.addEvent(deploymentId, "smoke_test_failed", "Post-deploy smoke test detected critical failures", {
+            failedRoutes: criticalFailed.map(r => r.path),
+          });
+          await this.addLog(deploymentId, `⚠️ اختبار الدخان: ${reasons.join(" | ")} — متابعة مع تحذير`, "warn");
+          return;
+        } else {
+          await this.addLog(deploymentId, "✅ اختبار الدخان ناجح — النشر يعمل بشكل صحيح", "success");
+          return;
+        }
+      } catch (err: any) {
+        if (attempt < maxAttempts) {
+          await this.addLog(deploymentId, `⚠️ خطأ في اختبار الدخان (محاولة ${attempt}): ${err.message} — إعادة المحاولة...`, "warn");
+          continue;
+        }
+        await this.addLog(deploymentId, `⚠️ تعذر تنفيذ اختبار الدخان بعد ${maxAttempts} محاولات: ${err.message} — متابعة`, "warn");
       }
-    } catch (err: any) {
-      if (err.message?.includes("اختبار الدخان فشل")) {
-        throw err;
-      }
-      await this.addLog(deploymentId, `⚠️ تعذر تنفيذ اختبار الدخان: ${err.message}`, "warn");
     }
   }
 

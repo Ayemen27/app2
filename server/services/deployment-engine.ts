@@ -321,19 +321,15 @@ export class DeploymentEngine {
         )
       `);
 
-      if (!this.buildCounterInitialized) {
-        this.buildCounterInitialized = true;
-        const maxResult = await db.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
-        const currentMax = maxResult[0]?.maxBuild || 0;
-        if (currentMax > 0) {
-          await db.execute(sql`
-            INSERT INTO deployment_build_counter (id, next_build_number)
-            VALUES (1, ${currentMax + 1})
-            ON CONFLICT (id)
-            DO UPDATE SET next_build_number = GREATEST(deployment_build_counter.next_build_number, ${currentMax + 1})
-          `);
-        }
-      }
+      const maxResult = await db.select({ maxBuild: sql<number>`COALESCE(MAX(build_number), 0)` }).from(buildDeployments);
+      const currentMax = maxResult[0]?.maxBuild || 0;
+
+      await db.execute(sql`
+        INSERT INTO deployment_build_counter (id, next_build_number)
+        VALUES (1, ${currentMax + 2})
+        ON CONFLICT (id)
+        DO UPDATE SET next_build_number = GREATEST(deployment_build_counter.next_build_number, ${currentMax + 1})
+      `);
       
       const queryResult = await db.execute(sql`
         UPDATE deployment_build_counter
@@ -349,10 +345,7 @@ export class DeploymentEngine {
         return Number(firstRow.build_number);
       }
 
-      await db.execute(sql`
-        INSERT INTO deployment_build_counter (id, next_build_number) VALUES (1, 2)
-      `);
-      return 1;
+      return currentMax + 1;
     } catch (err) {
       console.error("[DeploymentEngine] Atomic build number failed, falling back:", err);
     }
@@ -389,45 +382,64 @@ export class DeploymentEngine {
     };
 
     const resolvedPipeline = resolvePipeline(config.pipeline);
-    const [deployment] = await db.transaction(async (tx: any) => {
-      await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
-
-      const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
-        .from(buildDeployments)
-        .where(eq(buildDeployments.status, "running"))
-        .limit(1);
-
-      if (running.length > 0) {
-        throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
-      }
-
-      const buildNumber = await this.getNextBuildNumber();
-
-      let commitHash: string | undefined;
+    const MAX_BUILD_NUMBER_RETRIES = 3;
+    let deployment: any;
+    for (let attempt = 0; attempt < MAX_BUILD_NUMBER_RETRIES; attempt++) {
       try {
-        const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace", timeout: 5000 });
-        commitHash = stdout.trim();
-      } catch {}
+        const [row] = await db.transaction(async (tx: any) => {
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 
-      return tx.insert(buildDeployments).values({
-        buildNumber,
-        buildTarget: bt,
-        status: "running",
-        currentStep: steps[0].name,
-        progress: 0,
-        version,
-        appType: config.appType,
-        environment: config.environment,
-        branch: config.branch || "main",
-        commitMessage: config.commitMessage,
-        pipeline: config.pipeline,
-        deploymentType: deploymentTypeMap[config.pipeline] || "web",
-        logs: [],
-        steps,
-        triggeredBy: config.triggeredBy,
-        commitHash,
-      }).returning();
-    });
+          const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
+            .from(buildDeployments)
+            .where(eq(buildDeployments.status, "running"))
+            .limit(1);
+
+          if (running.length > 0) {
+            throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
+          }
+
+          const buildNumber = await this.getNextBuildNumber();
+
+          let commitHash: string | undefined;
+          try {
+            const { stdout } = await execAsync("git rev-parse HEAD", { cwd: "/home/runner/workspace", timeout: 5000 });
+            commitHash = stdout.trim();
+          } catch {}
+
+          return tx.insert(buildDeployments).values({
+            buildNumber,
+            buildTarget: bt,
+            status: "running",
+            currentStep: steps[0].name,
+            progress: 0,
+            version,
+            appType: config.appType,
+            environment: config.environment,
+            branch: config.branch || "main",
+            commitMessage: config.commitMessage,
+            pipeline: config.pipeline,
+            deploymentType: deploymentTypeMap[config.pipeline] || "web",
+            logs: [],
+            steps,
+            triggeredBy: config.triggeredBy,
+            commitHash,
+          }).returning();
+        });
+        deployment = row;
+        break;
+      } catch (err: any) {
+        const isDuplicate = err?.cause?.code === "23505" || err?.message?.includes("build_deployments_build_number_unique");
+        if (isDuplicate && attempt < MAX_BUILD_NUMBER_RETRIES - 1) {
+          console.warn(`[DeploymentEngine] Build number conflict (attempt ${attempt + 1}/${MAX_BUILD_NUMBER_RETRIES}), retrying...`);
+          this.buildCounterInitialized = false;
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!deployment) {
+      throw new Error("فشل في تخصيص رقم بناء فريد بعد عدة محاولات");
+    }
 
     const resolvedConfig = { ...config, version };
     this.runPipeline(deployment.id, resolvedConfig).catch(err => {

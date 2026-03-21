@@ -1253,7 +1253,7 @@ projectRouter.delete('/:id', requireProjectAccess('delete'), async (req: Request
     });
 
     console.log('🗑️ [API] حذف المشروع من قاعدة البيانات...');
-    const deletedProject = await db.transaction(async (tx) => {
+    const deletedProject = await db.transaction(async (tx: any) => {
       await tx.execute(sql`
         DELETE FROM journal_lines jl
         USING journal_entries je

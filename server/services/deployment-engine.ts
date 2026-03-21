@@ -579,6 +579,7 @@ export class DeploymentEngine {
         stepTimings: summary.stepTimings,
         logCounts: summary.logCounts,
       });
+      await logger.persistSummary(summary).catch(() => {});
       await logger.persistStructuredLogs().catch(() => {});
       this.cleanupLogger(deploymentId);
 
@@ -605,6 +606,12 @@ export class DeploymentEngine {
         isCancelled ? undefined : error.message
       );
       logger.error("pipeline", isCancelled ? "Pipeline cancelled" : `Pipeline failed: ${error.message}`);
+      const failSummary = logger.generateSummaryWithContext(
+        isCancelled ? "cancelled" : "failed",
+        { pipeline: config.pipeline, environment: config.environment, triggeredBy: config.triggeredBy || "unknown", version: config.version },
+        isCancelled ? "Cancelled by user" : error.message
+      );
+      await logger.persistSummary(failSummary).catch(() => {});
       await logger.persistStructuredLogs().catch(() => {});
       this.cleanupLogger(deploymentId);
     } finally {
@@ -717,7 +724,6 @@ export class DeploymentEngine {
     if (!existsSync(keyPath) && process.env.SSH_PRIVATE_KEY_B64) {
       const keyData = Buffer.from(process.env.SSH_PRIVATE_KEY_B64, "base64").toString("utf-8");
       writeFileSync(keyPath, keyData, { mode: 0o600 });
-      console.log("[DeploymentEngine] SSH key provisioned from SSH_PRIVATE_KEY_B64");
     }
 
     if (!existsSync(knownHostsPath)) {
@@ -732,8 +738,7 @@ export class DeploymentEngine {
           if (stdout.trim()) {
             writeFileSync(knownHostsPath, stdout, { mode: 0o600 });
           }
-        } catch {
-          console.warn("[DeploymentEngine] Could not scan SSH host keys, falling back");
+        } catch (_e) {
         }
       }
     }
@@ -743,8 +748,7 @@ export class DeploymentEngine {
       try {
         accessSync(keyPath, fsConstants.R_OK);
         keyFileReady = true;
-      } catch {
-        console.warn(`[DeploymentEngine] SSH key exists at ${keyPath} but is not readable`);
+      } catch (_e) {
       }
     }
 
@@ -765,7 +769,6 @@ export class DeploymentEngine {
         `  3. للسماح بكلمة المرور مؤقتاً: اضبط ALLOW_SSH_PASSWORD=true`
       );
     } else if (explicit === "password" && hasPassword) {
-      console.warn(`[DeploymentEngine] ⚠️ استخدام SSH بكلمة المرور (غير موصى به للإنتاج)`);
       this.resolvedAuthMethod = "password";
     } else if (explicit === "password" && !hasPassword) {
       throw new Error(
@@ -773,7 +776,6 @@ export class DeploymentEngine {
         `اضبط SSH_PASSWORD في Secrets`
       );
     } else if (hasPassword && allowSSHPassword) {
-      console.warn(`[DeploymentEngine] ⚠️ استخدام SSH بكلمة المرور (ALLOW_SSH_PASSWORD=true)`);
       this.resolvedAuthMethod = "password";
     } else if (hasPassword) {
       this.resolvedAuthMethod = "password";
@@ -789,8 +791,7 @@ export class DeploymentEngine {
     if (this.resolvedAuthMethod === "password") {
       try {
         await execAsync("which sshpass", { timeout: 5000 });
-      } catch {
-        console.warn("[DeploymentEngine] sshpass not found — password auth may fail. Install: apt-get install sshpass");
+      } catch (_e) {
       }
     }
 
@@ -799,14 +800,12 @@ export class DeploymentEngine {
         const { stdout: perms } = await execAsync(`stat -c '%a' ${keyPath}`, { timeout: 5000 });
         const perm = perms.trim();
         if (perm !== "600" && perm !== "400") {
-          console.warn(`[DeploymentEngine] ⚠️ صلاحيات مفتاح SSH: ${perm} (يجب 600 أو 400)`);
           await execAsync(`chmod 600 ${keyPath}`, { timeout: 5000 });
-          console.log(`[DeploymentEngine] ✅ تم تصحيح صلاحيات المفتاح إلى 600`);
         }
-      } catch {}
+      } catch (_e) {
+      }
     }
 
-    console.log(`[DeploymentEngine] SSH auth resolved: ${this.resolvedAuthMethod} (key file: ${keyFileReady ? "✓" : "✗"}, production: ${isProduction})`);
     this.sshKeyProvisioned = true;
   }
 
@@ -827,7 +826,6 @@ export class DeploymentEngine {
     if (keyReadable) return "key";
 
     if (explicit === "key" && (process.env.SSH_PASSWORD || process.env.SSHPASS)) {
-      console.warn("[DeploymentEngine] SSH_AUTH_METHOD=key but key not readable, falling back to password");
       return "password";
     }
 

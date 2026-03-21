@@ -1,4 +1,4 @@
-import { MOBILE_CRITICAL_ROUTES, CORS_CHECK_ROUTES, CORS_ORIGINS_TO_TEST, type RouteCheck } from "../config/mobile-critical-routes";
+import { MOBILE_CRITICAL_ROUTES, CORS_CHECK_ROUTES, CORS_ORIGINS_TO_TEST, REQUIRED_CORS_HEADERS, REQUIRED_CORS_METHODS, type RouteCheck } from "../config/mobile-critical-routes";
 import https from "https";
 import tls from "tls";
 
@@ -13,6 +13,7 @@ export interface CheckResult {
   latencyMs?: number;
   error?: string;
   isInfraFailure?: boolean;
+  critical?: boolean;
 }
 
 export interface CorsCheckResult {
@@ -20,6 +21,10 @@ export interface CorsCheckResult {
   path: string;
   passed: boolean;
   allowOrigin?: string;
+  allowHeaders?: string;
+  allowMethods?: string;
+  headerCheckPassed?: boolean;
+  methodCheckPassed?: boolean;
   error?: string;
 }
 
@@ -44,6 +49,7 @@ export interface CspCheckResult {
 export interface PrebuildReport {
   timestamp: string;
   baseUrl: string;
+  authTokenObtained: boolean;
   routeChecks: CheckResult[];
   corsChecks: CorsCheckResult[];
   sslCheck: SslCheckResult;
@@ -58,6 +64,9 @@ export interface PrebuildReport {
     sslValid: boolean;
     cspValid: boolean;
     overallPass: boolean;
+    authWarning?: string;
+    avgLatencyMs?: number;
+    slowRoutes?: string[];
   };
 }
 
@@ -73,27 +82,37 @@ async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: 
   }
 }
 
-async function loginForToken(baseUrl: string): Promise<string | null> {
+async function loginForToken(baseUrl: string): Promise<{ token: string | null; error?: string }> {
   const email = process.env.PREBUILD_TEST_EMAIL || process.env.DEFAULT_ADMIN_EMAIL || "binarjoinanalytic@gmail.com";
   const password = process.env.PREBUILD_TEST_PASSWORD || process.env.DEFAULT_ADMIN_PASSWORD || "";
 
   if (!password) {
-    return null;
+    return { token: null, error: "NO_PASSWORD_ENV: PREBUILD_TEST_PASSWORD or DEFAULT_ADMIN_PASSWORD not set" };
   }
 
   try {
     const res = await fetchWithTimeout(`${baseUrl}/api/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-client-platform": "native" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-client-platform": "native",
+        "Accept": "application/json",
+      },
       body: JSON.stringify({ email, password }),
       timeout: 15000,
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return { token: null, error: `LOGIN_FAILED: HTTP ${res.status} — credentials may be invalid` };
+    }
     const data = await res.json() as any;
-    return data?.token || data?.accessToken || null;
-  } catch {
-    return null;
+    const token = data?.token || data?.accessToken || null;
+    if (!token) {
+      return { token: null, error: "LOGIN_NO_TOKEN: Login succeeded but response has no token/accessToken field" };
+    }
+    return { token };
+  } catch (err: any) {
+    return { token: null, error: `LOGIN_ERROR: ${err.message}` };
   }
 }
 
@@ -106,12 +125,14 @@ async function checkRoute(baseUrl: string, route: RouteCheck, authToken: string 
     description: route.description,
     passed: false,
     expectedStatus: route.expectedStatus,
+    critical: route.critical,
   };
 
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "x-client-platform": "native",
+      "Accept": "application/json",
     };
 
     if (route.requiresAuth && authToken) {
@@ -137,10 +158,8 @@ async function checkRoute(baseUrl: string, route: RouteCheck, authToken: string 
       result.isInfraFailure = true;
       result.error = `Infrastructure error: HTTP ${res.status} (server unreachable/restarting)`;
     } else if (route.requiresAuth && !authToken) {
-      result.passed = res.status === 401;
-      if (!result.passed) {
-        result.error = "Expected 401 without auth token but got " + res.status;
-      }
+      result.passed = false;
+      result.error = "AUTH_REQUIRED: Cannot test — no auth token obtained (route requires authentication)";
     } else {
       result.passed = route.expectedStatus.includes(res.status);
       if (!result.passed) {
@@ -149,8 +168,16 @@ async function checkRoute(baseUrl: string, route: RouteCheck, authToken: string 
     }
   } catch (err: any) {
     result.latencyMs = Date.now() - start;
-    result.isInfraFailure = true;
-    result.error = err.name === "AbortError" ? "Timeout (server unreachable)" : err.message;
+    if (err.name === "AbortError") {
+      result.isInfraFailure = true;
+      result.error = "Timeout (server unreachable)";
+    } else if (err.code === "ECONNREFUSED" || err.code === "ENOTFOUND" || err.code === "ETIMEDOUT") {
+      result.isInfraFailure = true;
+      result.error = `Network error: ${err.code} (${err.message})`;
+    } else {
+      result.isInfraFailure = true;
+      result.error = err.message;
+    }
   }
 
   return result;
@@ -171,11 +198,37 @@ async function checkCors(baseUrl: string, path: string, origin: string): Promise
     });
 
     const allowOrigin = res.headers.get("access-control-allow-origin");
+    const allowHeaders = res.headers.get("access-control-allow-headers") || "";
+    const allowMethods = res.headers.get("access-control-allow-methods") || "";
+
     result.allowOrigin = allowOrigin || undefined;
-    result.passed = allowOrigin === origin;
+    result.allowHeaders = allowHeaders || undefined;
+    result.allowMethods = allowMethods || undefined;
+
+    const originPassed = allowOrigin === origin || allowOrigin === "*";
+
+    const lowerHeaders = allowHeaders.toLowerCase();
+    const headersPassed = REQUIRED_CORS_HEADERS.every(h => lowerHeaders.includes(h.toLowerCase()));
+    result.headerCheckPassed = headersPassed;
+
+    const upperMethods = allowMethods.toUpperCase();
+    const methodsPassed = REQUIRED_CORS_METHODS.every(m => upperMethods.includes(m));
+    result.methodCheckPassed = methodsPassed;
+
+    result.passed = originPassed && headersPassed && methodsPassed;
 
     if (!result.passed) {
-      result.error = `Access-Control-Allow-Origin is "${allowOrigin}" instead of "${origin}"`;
+      const issues: string[] = [];
+      if (!originPassed) issues.push(`Origin: "${allowOrigin}" ≠ "${origin}"`);
+      if (!headersPassed) {
+        const missing = REQUIRED_CORS_HEADERS.filter(h => !lowerHeaders.includes(h.toLowerCase()));
+        issues.push(`Missing headers: ${missing.join(", ")}`);
+      }
+      if (!methodsPassed) {
+        const missing = REQUIRED_CORS_METHODS.filter(m => !upperMethods.includes(m));
+        issues.push(`Missing methods: ${missing.join(", ")}`);
+      }
+      result.error = issues.join(" | ");
     }
   } catch (err: any) {
     result.error = err.message;
@@ -279,6 +332,7 @@ export async function runPrebuildChecks(baseUrl: string, maxRetries = 2): Promis
     const report: PrebuildReport = {
       timestamp: new Date().toISOString(),
       baseUrl,
+      authTokenObtained: false,
       routeChecks: [],
       corsChecks: [],
       sslCheck: { passed: false },
@@ -299,7 +353,13 @@ export async function runPrebuildChecks(baseUrl: string, maxRetries = 2): Promis
     const hostname = new URL(baseUrl).hostname;
     report.sslCheck = await checkSsl(hostname);
 
-    const authToken = await loginForToken(baseUrl);
+    const authResult = await loginForToken(baseUrl);
+    const authToken = authResult.token;
+    report.authTokenObtained = !!authToken;
+
+    if (!authToken) {
+      report.summary.authWarning = authResult.error || "Failed to obtain auth token";
+    }
 
     const routeResults = await Promise.all(
       MOBILE_CRITICAL_ROUTES.map((route) => checkRoute(baseUrl, route, authToken))
@@ -345,6 +405,12 @@ export async function runPrebuildChecks(baseUrl: string, maxRetries = 2): Promis
       report.cspCheck = await checkCsp(baseUrl);
     }
 
+    const latencies = routeResults.filter(r => r.latencyMs != null).map(r => r.latencyMs!);
+    const avgLatency = latencies.length > 0 ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : undefined;
+    const slowRoutes = routeResults.filter(r => r.latencyMs != null && r.latencyMs > 3000).map(r => `${r.path} (${r.latencyMs}ms)`);
+
+    const unauthRoutesFailed = !authToken ? routeResults.filter(r => r.requiresAuth && r.error?.includes("AUTH_REQUIRED")).length : 0;
+
     report.summary = {
       totalRoutes: routeResults.length,
       passedRoutes: routeResults.filter((r) => r.passed).length,
@@ -357,8 +423,12 @@ export async function runPrebuildChecks(baseUrl: string, maxRetries = 2): Promis
       overallPass:
         report.sslCheck.passed &&
         report.cspCheck.passed &&
+        report.authTokenObtained &&
         routeResults.every((r) => r.passed) &&
         report.corsChecks.every((r) => r.passed),
+      authWarning: report.summary.authWarning,
+      avgLatencyMs: avgLatency,
+      slowRoutes: slowRoutes.length > 0 ? slowRoutes : undefined,
     };
 
     return report;

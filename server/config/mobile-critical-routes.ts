@@ -5,8 +5,9 @@ export interface RouteCheck {
   body?: Record<string, any>;
   expectedStatus: number[];
   description: string;
-  group: "public" | "auth" | "core" | "sync" | "cors";
+  group: "public" | "auth" | "core" | "sync" | "financial" | "cors";
   timeout: number;
+  critical?: boolean;
 }
 
 export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
@@ -18,6 +19,7 @@ export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
     description: "Health check endpoint",
     group: "public",
     timeout: 10000,
+    critical: true,
   },
   {
     method: "POST",
@@ -28,6 +30,7 @@ export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
     description: "Login endpoint reachable (expect auth rejection)",
     group: "auth",
     timeout: 15000,
+    critical: true,
   },
   {
     method: "POST",
@@ -38,6 +41,7 @@ export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
     description: "Refresh token endpoint reachable",
     group: "auth",
     timeout: 10000,
+    critical: true,
   },
   {
     method: "GET",
@@ -47,6 +51,7 @@ export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
     description: "Current user endpoint (authenticated)",
     group: "auth",
     timeout: 10000,
+    critical: true,
   },
   {
     method: "GET",
@@ -56,6 +61,7 @@ export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
     description: "Projects list",
     group: "core",
     timeout: 15000,
+    critical: true,
   },
   {
     method: "GET",
@@ -65,6 +71,7 @@ export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
     description: "Workers list",
     group: "core",
     timeout: 15000,
+    critical: true,
   },
   {
     method: "GET",
@@ -111,6 +118,73 @@ export const MOBILE_CRITICAL_ROUTES: RouteCheck[] = [
     group: "core",
     timeout: 10000,
   },
+  {
+    method: "GET",
+    path: "/api/fund-transfers",
+    requiresAuth: true,
+    expectedStatus: [200],
+    description: "Fund transfers list",
+    group: "financial",
+    timeout: 15000,
+    critical: true,
+  },
+  {
+    method: "GET",
+    path: "/api/inventory",
+    requiresAuth: true,
+    expectedStatus: [200],
+    description: "Inventory items list",
+    group: "core",
+    timeout: 10000,
+  },
+  {
+    method: "GET",
+    path: "/api/preferences",
+    requiresAuth: true,
+    expectedStatus: [200],
+    description: "User preferences",
+    group: "core",
+    timeout: 10000,
+  },
+  {
+    method: "GET",
+    path: "/api/autocomplete",
+    requiresAuth: true,
+    expectedStatus: [200],
+    description: "Autocomplete data",
+    group: "core",
+    timeout: 10000,
+  },
+  {
+    method: "POST",
+    path: "/api/sync/batch",
+    requiresAuth: true,
+    body: { operations: [], clientId: "__prebuild_test__" },
+    expectedStatus: [200, 400],
+    description: "Sync batch endpoint (empty payload probe)",
+    group: "sync",
+    timeout: 15000,
+    critical: true,
+  },
+  {
+    method: "GET",
+    path: "/api/sync/full-backup",
+    requiresAuth: true,
+    expectedStatus: [200],
+    description: "Full backup/sync endpoint",
+    group: "sync",
+    timeout: 20000,
+    critical: true,
+  },
+  {
+    method: "GET",
+    path: "/api/worker-attendance",
+    requiresAuth: true,
+    expectedStatus: [200],
+    description: "Worker attendance records",
+    group: "core",
+    timeout: 15000,
+  },
 ];
 
 export const CORS_CHECK_ROUTES = [
@@ -118,9 +192,23 @@ export const CORS_CHECK_ROUTES = [
   "/api/auth/me",
   "/api/health",
   "/api/projects",
+  "/api/sync/batch",
 ];
 
 export const CORS_ORIGINS_TO_TEST = [
   "capacitor://localhost",
   "https://localhost",
+];
+
+export const REQUIRED_CORS_HEADERS = [
+  "authorization",
+  "content-type",
+  "x-client-platform",
+];
+
+export const REQUIRED_CORS_METHODS = [
+  "GET",
+  "POST",
+  "PATCH",
+  "DELETE",
 ];

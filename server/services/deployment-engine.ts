@@ -1878,13 +1878,19 @@ export class DeploymentEngine {
   }
 
   private async stepPrebuildGate(deploymentId: string, config?: DeploymentConfig) {
-    await this.addLog(deploymentId, "🔍 بوابة ما قبل البناء — فحص المسارات + CORS + SSL...", "info");
+    await this.addLog(deploymentId, "🔍 بوابة ما قبل البناء — فحص المسارات + CORS + SSL + محاكاة أندرويد...", "info");
 
     const { runPrebuildChecks } = await import("./prebuild-route-checker");
     const baseUrl = this.resolveBaseUrl(config);
 
     try {
       const report = await runPrebuildChecks(baseUrl);
+
+      if (report.authTokenObtained) {
+        await this.addLog(deploymentId, "✅ المصادقة: تم الحصول على توكن — فحص المسارات المحمية ممكن", "success");
+      } else {
+        await this.addLog(deploymentId, `🚫 المصادقة: فشل الحصول على توكن — ${report.summary.authWarning}`, "error");
+      }
 
       if (report.sslCheck.passed) {
         await this.addLog(deploymentId, `✅ SSL: صالحة (تنتهي بعد ${report.sslCheck.daysUntilExpiry} يوم)`, "success");
@@ -1900,6 +1906,7 @@ export class DeploymentEngine {
 
       const infraFailed = report.routeChecks.filter(r => r.isInfraFailure);
       const appFailed = report.routeChecks.filter(r => !r.passed && !r.isInfraFailure);
+      const unauthFailed = report.routeChecks.filter(r => r.error?.includes("AUTH_REQUIRED"));
       const failedRoutes = report.routeChecks.filter(r => !r.passed);
       const passedRoutes = report.routeChecks.filter(r => r.passed);
 
@@ -1910,12 +1917,24 @@ export class DeploymentEngine {
         }
       }
 
+      if (unauthFailed.length > 0) {
+        await this.addLog(deploymentId, `🔒 ${unauthFailed.length} مسار لم يُختبر — بحاجة لتوكن مصادقة`, "error");
+      }
+
       if (passedRoutes.length > 0) {
         await this.addLog(deploymentId, `✅ مسارات ناجحة: ${passedRoutes.length}/${report.routeChecks.length}`, "success");
       }
 
-      for (const failed of appFailed) {
+      for (const failed of appFailed.filter(r => !r.error?.includes("AUTH_REQUIRED"))) {
         await this.addLog(deploymentId, `❌ [${failed.method}] ${failed.path}: ${failed.error} (${failed.description})`, "error");
+      }
+
+      if (report.summary.avgLatencyMs != null) {
+        const latencyStatus = report.summary.avgLatencyMs > 3000 ? "warn" : "success";
+        await this.addLog(deploymentId, `⏱️ متوسط زمن الاستجابة: ${report.summary.avgLatencyMs}ms`, latencyStatus);
+      }
+      if (report.summary.slowRoutes && report.summary.slowRoutes.length > 0) {
+        await this.addLog(deploymentId, `🐌 مسارات بطيئة (>3s): ${report.summary.slowRoutes.join(", ")}`, "warn");
       }
 
       const failedCors = report.corsChecks.filter(c => !c.passed);
@@ -1926,7 +1945,7 @@ export class DeploymentEngine {
         await this.addLog(deploymentId, `⏭️ CORS/CSP تم تخطيه — السيرفر غير متاح (لا فائدة من فحصها)`, "warn");
       } else {
         if (passedCors.length > 0) {
-          await this.addLog(deploymentId, `✅ CORS ناجح: ${passedCors.length}/${report.corsChecks.length}`, "success");
+          await this.addLog(deploymentId, `✅ CORS ناجح: ${passedCors.length}/${report.corsChecks.length} (Origin + Headers + Methods)`, "success");
         }
         for (const failed of failedCors) {
           await this.addLog(deploymentId, `❌ CORS [${failed.origin}] ${failed.path}: ${failed.error}`, "error");
@@ -1934,7 +1953,7 @@ export class DeploymentEngine {
       }
 
       await this.addLog(deploymentId,
-        `📊 ملخص البوابة: مسارات ${report.summary.passedRoutes}/${report.summary.totalRoutes} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"}${infraFailed.length > 0 ? ` | 🔧 بنية تحتية: ${infraFailed.length}` : ""}`,
+        `📊 ملخص البوابة: مسارات ${report.summary.passedRoutes}/${report.summary.totalRoutes} | CORS ${report.summary.passedCors}/${report.summary.totalCors} | SSL ${report.summary.sslValid ? "✅" : "❌"} | CSP ${report.summary.cspValid ? "✅" : "❌"} | Auth ${report.authTokenObtained ? "✅" : "❌"}${infraFailed.length > 0 ? ` | 🔧 بنية تحتية: ${infraFailed.length}` : ""}`,
         report.summary.overallPass ? "success" : "warn"
       );
 
@@ -1943,10 +1962,13 @@ export class DeploymentEngine {
         routesPassed: report.summary.passedRoutes,
         routesFailed: report.summary.failedRoutes,
         infraFailed: infraFailed.length,
+        unauthRoutes: unauthFailed.length,
         corsPassed: report.summary.passedCors,
         corsFailed: report.summary.failedCors,
         sslValid: report.summary.sslValid,
         cspValid: report.summary.cspValid,
+        authTokenObtained: report.authTokenObtained,
+        avgLatencyMs: report.summary.avgLatencyMs,
       });
 
       const allRouteFailuresAreInfra = failedRoutes.length > 0 && appFailed.length === 0 && infraFailed.length === failedRoutes.length;
@@ -1957,15 +1979,21 @@ export class DeploymentEngine {
       if (isFullInfraOutage && report.sslCheck.passed) {
         await this.addLog(deploymentId, `⚠️ السيرفر غير متاح (${infraFailed.length}/${report.routeChecks.length} مسار 502/503/504) — بنية تحتية. SSL صالحة. متابعة البناء مع تحذير.`, "warn");
       } else {
-        const criticalFailed = appFailed.filter(r => r.group === "auth" || r.group === "public");
-        const corsBlockers = isCorsCspSkipped ? [] : failedCors.filter(c => c.origin === "capacitor://localhost");
+        const reasons: string[] = [];
 
-        if (criticalFailed.length > 0 || corsBlockers.length > 0 || !report.sslCheck.passed || (!isCorsCspSkipped && !report.cspCheck.passed)) {
-          const reasons: string[] = [];
-          if (criticalFailed.length > 0) reasons.push(`${criticalFailed.length} مسار حرج فشل`);
-          if (corsBlockers.length > 0) reasons.push(`CORS محظور لـ capacitor://localhost`);
-          if (!report.sslCheck.passed) reasons.push("شهادة SSL غير صالحة");
-          if (!isCorsCspSkipped && !report.cspCheck.passed) reasons.push(`CSP: ${report.cspCheck.error}`);
+        if (!report.authTokenObtained && unauthFailed.length > 0) {
+          reasons.push(`فشل المصادقة — ${unauthFailed.length} مسار محمي لم يُختبر`);
+        }
+
+        const criticalAppFailed = appFailed.filter(r => (r.critical || r.group === "auth" || r.group === "public") && !r.error?.includes("AUTH_REQUIRED"));
+        if (criticalAppFailed.length > 0) reasons.push(`${criticalAppFailed.length} مسار حرج فشل`);
+
+        const corsBlockers = isCorsCspSkipped ? [] : failedCors.filter(c => c.origin === "capacitor://localhost");
+        if (corsBlockers.length > 0) reasons.push(`CORS محظور لـ capacitor://localhost`);
+        if (!report.sslCheck.passed) reasons.push("شهادة SSL غير صالحة");
+        if (!isCorsCspSkipped && !report.cspCheck.passed) reasons.push(`CSP: ${report.cspCheck.error}`);
+
+        if (reasons.length > 0) {
           await this.sendPrebuildGateNotification(deploymentId, report);
           throw new Error(`🚫 بوابة ما قبل البناء فشلت: ${reasons.join(" | ")}. لا يمكن بناء APK.`);
         }

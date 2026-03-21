@@ -164,11 +164,17 @@ export function validateSessionBinding(
   strictMode: boolean = false
 ): SessionBindingResult {
   if (stored.platform && stored.platform !== current.platform) {
-    return {
-      valid: false,
-      action: 'block',
-      reason: `platform_mismatch:${stored.platform}→${current.platform}`,
-    };
+    const isCapacitorHttpMismatch =
+      (stored.platform === 'android' && current.platform === 'web' && current.osName === 'Android') ||
+      (stored.platform === 'ios' && current.platform === 'web' && current.osName === 'iOS');
+
+    if (!isCapacitorHttpMismatch) {
+      return {
+        valid: false,
+        action: 'block',
+        reason: `platform_mismatch:${stored.platform}→${current.platform}`,
+      };
+    }
   }
 
   const storedHasStable = stored.hasStableDeviceId === true;

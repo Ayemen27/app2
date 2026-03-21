@@ -2488,10 +2488,19 @@ export class DeploymentEngine {
 
       if (!latest) return null;
 
+      let downloadUrl: string | null = null;
+      if (latest.id) {
+        try {
+          downloadUrl = `/api/deployment/app/download/${latest.id}?token=${this.generateDownloadToken(latest.id)}`;
+        } catch {
+          downloadUrl = `/api/deployment/app/download/${latest.id}`;
+        }
+      }
+
       return {
         versionName: latest.version,
         versionCode: latest.buildNumber,
-        downloadUrl: latest.id ? `/api/deployment/app/download/${latest.id}?token=${this.generateDownloadToken(latest.id)}` : null,
+        downloadUrl,
         releasedAt: latest.created_at.toISOString(),
       };
     } catch (err: any) {

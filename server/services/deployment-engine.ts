@@ -1282,26 +1282,30 @@ export class DeploymentEngine {
   private async stepRestartPM2(deploymentId: string, sshCmd: string, config?: DeploymentConfig) {
     const remoteDir = "/home/administrator/app2";
     const appBase = "AXION";
+    const legacyNames = ["construction-app"];
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     const version = deployment?.version || config?.version || "unknown";
     const buildNumber = deployment?.buildNumber || 0;
     const appName = `${appBase}-v${version}`;
 
-    await this.addLog(deploymentId, `🗑️ البحث عن عمليات ${appBase} القديمة وحذفها...`, "info");
+    const isOurProcess = (name: string) =>
+      name.startsWith(appBase) || legacyNames.includes(name);
+
+    await this.addLog(deploymentId, `🗑️ البحث عن عمليات التطبيق القديمة وحذفها (AXION-* + أسماء قديمة)...`, "info");
     try {
       const { stdout: listOutput } = await execAsync(
         `${sshCmd} "pm2 jlist 2>/dev/null || echo '[]'"`,
         { timeout: 10000 }
       );
       const currentProcs = JSON.parse(listOutput.trim() || "[]");
-      const axionProcs = Array.isArray(currentProcs)
-        ? currentProcs.filter((p: { name?: string }) => p.name && p.name.startsWith(appBase))
+      const ourProcs = Array.isArray(currentProcs)
+        ? currentProcs.filter((p: { name?: string }) => p.name && isOurProcess(p.name))
         : [];
 
-      if (axionProcs.length > 0) {
-        const oldNames = [...new Set(axionProcs.map((p: { name?: string }) => p.name))];
-        await this.addLog(deploymentId, `🔍 عمليات ${appBase} الموجودة: ${oldNames.join(", ")} (${axionProcs.length} عمليات)`, "info");
+      if (ourProcs.length > 0) {
+        const oldNames = [...new Set(ourProcs.map((p: { name?: string }) => p.name))];
+        await this.addLog(deploymentId, `🔍 عمليات التطبيق الموجودة: ${oldNames.join(", ")} (${ourProcs.length} عمليات)`, "info");
         for (const oldName of oldNames) {
           await this.execWithLog(
             deploymentId,
@@ -1312,13 +1316,13 @@ export class DeploymentEngine {
         }
         await this.addLog(deploymentId, `✅ تم حذف ${oldNames.length} نسخة قديمة: ${oldNames.join(", ")}`, "success");
       } else {
-        await this.addLog(deploymentId, `✅ لا توجد عمليات ${appBase} قديمة`, "success");
+        await this.addLog(deploymentId, `✅ لا توجد عمليات قديمة للتطبيق`, "success");
       }
     } catch {
       await this.addLog(deploymentId, `✅ لا توجد عمليات PM2 — جاهز للتشغيل`, "success");
     }
 
-    await this.addLog(deploymentId, `🔍 التحقق من إزالة جميع نسخ ${appBase}...`, "info");
+    await this.addLog(deploymentId, `🔍 التحقق من إزالة جميع النسخ القديمة...`, "info");
     try {
       const { stdout: verifyDelete } = await execAsync(
         `${sshCmd} "pm2 jlist 2>/dev/null || echo '[]'"`,
@@ -1326,7 +1330,7 @@ export class DeploymentEngine {
       );
       const afterDelete = JSON.parse(verifyDelete.trim() || "[]");
       const stillRunning = Array.isArray(afterDelete)
-        ? afterDelete.filter((p: { name?: string }) => p.name && p.name.startsWith(appBase))
+        ? afterDelete.filter((p: { name?: string }) => p.name && isOurProcess(p.name))
         : [];
       if (stillRunning.length > 0) {
         const names = stillRunning.map((p: { name?: string }) => p.name).join(", ");
@@ -1336,7 +1340,7 @@ export class DeploymentEngine {
         }
       }
       const otherApps = Array.isArray(afterDelete)
-        ? afterDelete.filter((p: { name?: string }) => p.name && !p.name.startsWith(appBase)).map((p: { name?: string }) => p.name)
+        ? afterDelete.filter((p: { name?: string }) => p.name && !isOurProcess(p.name)).map((p: { name?: string }) => p.name)
         : [];
       if (otherApps.length > 0) {
         await this.addLog(deploymentId, `ℹ️ تطبيقات أخرى لم تتأثر: ${otherApps.join(", ")}`, "info");
@@ -2714,7 +2718,7 @@ export class DeploymentEngine {
       await this.updateDeployment(rollbackId, { currentStep: "restart-pm2", progress: 60 });
       const rollbackVersion = targetDeployment?.version || "rollback";
       const rollbackAppName = `AXION-v${rollbackVersion}`;
-      await this.execWithLog(rollbackId, `${sshCmd} "pm2 jlist 2>/dev/null | node -e \\"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));d.filter(p=>p.name&&p.name.startsWith('AXION')).forEach(p=>{try{require('child_process').execSync('pm2 delete '+p.name)}catch(e){}})\\" 2>/dev/null; cd ${remoteDir} && sed -i \\"s/name: '.*'/name: '${rollbackAppName}'/\\" ecosystem.config.cjs && pm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'RESTART_OK'"`, "PM2 Fresh Start (Rollback)", 45000);
+      await this.execWithLog(rollbackId, `${sshCmd} "pm2 jlist 2>/dev/null | node -e \\"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const legacy=['construction-app'];d.filter(p=>p.name&&(p.name.startsWith('AXION')||legacy.includes(p.name))).forEach(p=>{try{require('child_process').execSync('pm2 delete '+p.name)}catch(e){}})\\" 2>/dev/null; cd ${remoteDir} && sed -i \\"s/name: '.*'/name: '${rollbackAppName}'/\\" ecosystem.config.cjs && pm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'RESTART_OK'"`, "PM2 Fresh Start (Rollback)", 45000);
       await this.updateStepStatus(rollbackId, "restart-pm2", "success", Date.now() - startTime);
 
       await this.updateStepStatus(rollbackId, "verify", "running");

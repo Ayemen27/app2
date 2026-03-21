@@ -22,39 +22,66 @@ interface UpdateInfo {
   };
 }
 
+async function waitForCapacitorBridge(maxWaitMs = 5000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const cap = (window as any).Capacitor;
+    if (cap && cap.PluginHeaders && cap.PluginHeaders.length > 0) {
+      console.log(`[waitForBridge] Bridge ready in ${Date.now() - start}ms, plugins: ${cap.PluginHeaders.length}`);
+      return true;
+    }
+    if (cap && cap.Plugins && cap.Plugins.App) {
+      console.log(`[waitForBridge] Plugins.App found in ${Date.now() - start}ms`);
+      return true;
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  console.warn(`[waitForBridge] Timeout after ${maxWaitMs}ms`);
+  return false;
+}
+
 async function getAppVersion(): Promise<{ versionName: string; versionCode: number; unknown: boolean }> {
   if (!Capacitor.isNativePlatform()) {
     return { versionName: '0.0.0', versionCode: 0, unknown: true };
   }
 
-  if (!Capacitor.isPluginAvailable('App')) {
-    console.error(`[getAppVersion] App plugin not available`);
-    return { versionName: '0.0.0', versionCode: 0, unknown: true };
-  }
+  await waitForCapacitorBridge(5000);
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const MAX_ATTEMPTS = 4;
+  const DELAYS = [0, 1000, 2000, 3000];
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
-      if (attempt > 0) {
-        await new Promise(r => setTimeout(r, 1500 * attempt));
+      if (DELAYS[attempt] > 0) {
+        await new Promise(r => setTimeout(r, DELAYS[attempt]));
       }
+
       const { App } = await import('@capacitor/app');
       const info = await App.getInfo();
-      const versionName = info.version || '0.0.0';
-      const versionCode = parseInt(info.build || '0', 10);
-      console.log(`[getAppVersion] attempt=${attempt + 1} raw:`, JSON.stringify({ version: info.version, build: info.build, name: info.name, id: info.id }));
 
-      if (versionName !== '0.0.0' || versionCode > 0) {
+      console.log(`[getAppVersion] attempt=${attempt + 1} raw:`, JSON.stringify(info));
+
+      const versionName = info.version && info.version.length > 0 ? info.version : '';
+      const buildStr = info.build && info.build.length > 0 ? info.build : '0';
+      const versionCode = parseInt(buildStr, 10) || 0;
+
+      if (versionName && versionName !== '0.0.0' && versionName !== '') {
         console.log(`[getAppVersion] OK: ${versionName} (code: ${versionCode})`);
         return { versionName, versionCode, unknown: false };
       }
 
-      console.warn(`[getAppVersion] attempt=${attempt + 1} returned empty version — retrying...`);
-    } catch (err) {
-      console.error(`[getAppVersion] attempt=${attempt + 1} failed:`, err);
+      if (versionCode > 0) {
+        console.log(`[getAppVersion] OK by code: ${versionCode} (name: ${versionName || 'empty'})`);
+        return { versionName: versionName || '0.0.0', versionCode, unknown: false };
+      }
+
+      console.warn(`[getAppVersion] attempt=${attempt + 1} returned empty — retrying...`);
+    } catch (err: any) {
+      console.error(`[getAppVersion] attempt=${attempt + 1} failed:`, err?.message || err);
     }
   }
 
-  console.error(`[getAppVersion] all attempts failed — returning unknown`);
+  console.error(`[getAppVersion] all ${MAX_ATTEMPTS} attempts failed — returning unknown`);
   return { versionName: '0.0.0', versionCode: 0, unknown: true };
 }
 

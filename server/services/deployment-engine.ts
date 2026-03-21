@@ -229,11 +229,16 @@ export class DeploymentEngine {
         const isRemoteStep = remoteSteps.includes(d.currentStep);
         const maxAge = isRemoteStep ? 900000 : 60000;
         if (age > maxAge) {
+          const recoveredSteps = (d.steps as StepEntry[]).map(s => {
+            if (s.status === "running") return { ...s, status: "failed" as const };
+            return s;
+          });
           await db.update(buildDeployments).set({
             status: "failed",
             errorMessage: "توقفت العملية بسبب إعادة تشغيل الخادم",
             endTime: new Date(),
             duration: age,
+            steps: recoveredSteps,
           }).where(eq(buildDeployments.id, d.id));
 
           await db.insert(deploymentEvents).values({
@@ -590,6 +595,19 @@ export class DeploymentEngine {
     } catch (error: any) {
       const totalDuration = Date.now() - startTime;
       const isCancelled = error instanceof CancellationError || this.isCancelled(deploymentId);
+
+      try {
+        const [dep] = await db.select({ steps: buildDeployments.steps, currentStep: buildDeployments.currentStep })
+          .from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
+        if (dep?.steps) {
+          const failStatus = isCancelled ? "cancelled" as const : "failed" as const;
+          const fixedSteps = (dep.steps as StepEntry[]).map(s => {
+            if (s.status === "running") return { ...s, status: failStatus };
+            return s;
+          });
+          await db.update(buildDeployments).set({ steps: fixedSteps }).where(eq(buildDeployments.id, deploymentId));
+        }
+      } catch {}
 
       await this.updateDeployment(deploymentId, {
         status: isCancelled ? "cancelled" : "failed",
@@ -2767,8 +2785,17 @@ export class DeploymentEngine {
       }
 
       const steps = deployment.steps as StepEntry[];
-      const firstFailedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
-      if (firstFailedIdx === -1) throw new Error("لا توجد خطوة فاشلة للاستئناف منها");
+      let firstFailedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
+      if (firstFailedIdx === -1) {
+        firstFailedIdx = steps.findIndex(s => s.status === "running");
+      }
+      if (firstFailedIdx === -1) {
+        const lastSuccessIdx = steps.map((s, i) => s.status === "success" ? i : -1).filter(i => i >= 0).pop();
+        firstFailedIdx = lastSuccessIdx !== undefined ? lastSuccessIdx + 1 : 0;
+        if (firstFailedIdx >= steps.length) {
+          throw new Error("لا توجد خطوة فاشلة للاستئناف منها");
+        }
+      }
 
       const updatedSteps = steps.map((s, idx) => {
         if (idx >= firstFailedIdx) {

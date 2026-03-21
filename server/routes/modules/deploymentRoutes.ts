@@ -108,7 +108,8 @@ router.post("/start", requireAdmin, checkDeployPermission, asyncHandler(async (r
   const safeVersion = typeof version === "string" ? version.replace(/[^0-9.\-a-zA-Z]/g, "").substring(0, 20) : undefined;
 
   const authUser = getAuthUser(req);
-  const triggeredByDisplay = authUser?.full_name || authUser?.first_name || authUser?.email || authUser?.user_id || "admin";
+  const { getUserDisplayName } = await import('../../internal/auth-user');
+  const triggeredByDisplay = getUserDisplayName(authUser);
   const authHeader = req.headers.authorization;
   const deployerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
   try {
@@ -222,7 +223,8 @@ router.post("/:id/rollback", requireAdmin, asyncHandler(async (req: Request, res
     ? req.body.targetCommitHash.replace(/[^a-f0-9]/gi, "").substring(0, 40)
     : undefined;
   const authUser = getAuthUser(req);
-  const triggeredBy = authUser?.full_name || authUser?.first_name || authUser?.email || "admin";
+  const { getUserDisplayName: getDisplayName } = await import('../../internal/auth-user');
+  const triggeredBy = getDisplayName(authUser);
   const rollbackId = await deploymentEngine.rollbackDeployment(req.params.id, targetBuildNumber, targetCommitHash, triggeredBy);
   res.json({ id: rollbackId, message: "Rollback started" });
 }));

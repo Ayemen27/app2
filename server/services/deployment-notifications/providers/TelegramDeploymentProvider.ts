@@ -57,7 +57,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
     const pipeline = escapeHtml(d.pipeline);
     const environment = escapeHtml(d.environment);
     const triggeredBy = escapeHtml(d.triggeredBy || "غير محدد");
-    const timestamp = new Date(payload.timestamp).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" });
+    const timestamp = new Date(payload.timestamp).toLocaleString("en-GB", { timeZone: "Asia/Riyadh", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
     const shortId = escapeHtml(d.id.substring(0, 8));
     const commitHash = s?.commitHash ? escapeHtml(s.commitHash.substring(0, 7)) : "—";
     const branch = s?.branch ? escapeHtml(s.branch) : "—";
@@ -149,7 +149,7 @@ export class TelegramDeploymentProvider implements NotificationProvider {
       lines.push(``);
       lines.push(`⏳ <b>الجدول الزمني:</b>`);
       for (const entry of payload.timeline) {
-        const time = new Date(entry.at).toLocaleTimeString("ar-SA", { timeZone: "Asia/Riyadh" });
+        const time = new Date(entry.at).toLocaleTimeString("en-GB", { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
         lines.push(`🕐 ${time} — ${escapeHtml(entry.title)}`);
       }
     }

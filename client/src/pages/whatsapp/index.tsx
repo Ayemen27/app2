@@ -601,7 +601,11 @@ export default function WhatsAppSetupPage() {
   const [isRelinking, setIsRelinking] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [protectionLevel, setProtectionLevel] = useState<ProtectionLevel>("maximum");
-  const [activeTab, setActiveTab] = useState("connection");
+  const [activeTab, setActiveTab] = useState(() => {
+    const u = JSON.parse(localStorage.getItem("user") || "{}");
+    const admin = u?.role === "admin" || u?.role === "super_admin";
+    return admin ? "connection" : "myscope";
+  });
   const [pairingCountdown, setPairingCountdown] = useState(0);
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);

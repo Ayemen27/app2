@@ -33,7 +33,13 @@ import {
   Mail,
   Users,
   X,
-  Activity
+  Activity,
+  Info,
+  RefreshCw,
+  Download,
+  CheckCircle2,
+  AlertTriangle,
+  ExternalLink
 } from "lucide-react";
 
 const loginSchema = z.object({
@@ -93,6 +99,12 @@ export default function LoginPage() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [serverError, setServerError] = useState<{ message: string; field: string } | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+  const [showUpdateCheck, setShowUpdateCheck] = useState(false);
+  const [updateCheckState, setUpdateCheckState] = useState<'idle' | 'checking' | 'available' | 'upToDate' | 'error'>('idle');
+  const [updateData, setUpdateData] = useState<any>(null);
+  const [appVersion, setAppVersion] = useState<string>(__APP_VERSION__ || '0.0.0');
 
   useEffect(() => {
     setStatusBarForPage('login');
@@ -102,7 +114,47 @@ export default function LoginPage() {
       setBiometricAvailable(available);
     };
     checkBiometric();
+
+    const loadVersion = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.isNativePlatform()) {
+          const { App } = await import('@capacitor/app');
+          const info = await App.getInfo();
+          if (info.version && info.version !== '0.0.0') {
+            setAppVersion(info.version);
+          }
+        }
+      } catch {}
+    };
+    loadVersion();
   }, []);
+
+  const handleCheckUpdate = async () => {
+    setUpdateCheckState('checking');
+    setUpdateData(null);
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      const baseUrl = Capacitor.isNativePlatform() ? 'https://app2.binarjoinanelytic.info' : '';
+      const res = await fetch(`${baseUrl}/api/deployment/app/check-update?versionCode=0&versionName=${encodeURIComponent(appVersion)}`);
+      if (!res.ok) throw new Error('فشل الاتصال');
+      const data = await res.json();
+      setUpdateData(data);
+      setUpdateCheckState(data.updateAvailable ? 'available' : 'upToDate');
+    } catch {
+      setUpdateCheckState('error');
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    if (!updateData?.latest?.downloadUrl) return;
+    try {
+      const { openDownloadUrl } = await import('../services/appUpdateChecker');
+      openDownloadUrl(updateData.latest.downloadUrl);
+    } catch {
+      window.open(updateData.latest.downloadUrl, '_blank');
+    }
+  };
 
   const handleBiometricLogin = async () => {
     const { isBiometricAvailable, checkBiometricRegistered } = await import("../lib/webauthn");
@@ -244,13 +296,45 @@ export default function LoginPage() {
               <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">مرحباً بعودتك</h2>
               <span className="text-[8px] text-gray-300 dark:text-slate-600 font-bold">WELCOME BACK</span>
             </div>
-            <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-blue-600 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform">
-              <div className="flex gap-0.5">
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-                <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
-              </div>
-            </Button>
+            <div className="relative">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowMenu(!showMenu)}
+                className="w-9 h-9 rounded-full bg-blue-600 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform"
+                data-testid="button-menu"
+              >
+                <div className="flex gap-0.5">
+                  <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                  <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                  <div className="w-1 h-1 bg-white dark:bg-slate-900 rounded-full" />
+                </div>
+              </Button>
+              {showMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                  <div className="absolute left-0 top-11 z-50 w-52 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-border dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => { setShowMenu(false); setShowAbout(true); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"
+                      data-testid="button-about"
+                    >
+                      <Info className="w-4 h-4 text-blue-500" />
+                      <span>حول التطبيق</span>
+                    </button>
+                    <div className="h-px bg-border dark:bg-slate-700 mx-3" />
+                    <button
+                      onClick={() => { setShowMenu(false); setShowUpdateCheck(true); setUpdateCheckState('idle'); setUpdateData(null); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors"
+                      data-testid="button-check-update"
+                    >
+                      <RefreshCw className="w-4 h-4 text-green-500" />
+                      <span>التحقق من التحديث</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Logo Section - AXION Real Assets */}
@@ -487,6 +571,178 @@ export default function LoginPage() {
             </div>
             <span className="text-[8px] text-gray-300 dark:text-slate-700">© 2026 AXION OPERATIONS MANAGEMENT</span>
           </div>
+
+          {/* About Dialog */}
+          {showAbout && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowAbout(false)}>
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 fade-in duration-300" onClick={e => e.stopPropagation()}>
+                <div className="bg-gradient-to-br from-blue-600 to-blue-700 dark:from-slate-800 dark:to-slate-900 p-6 flex flex-col items-center">
+                  <div className="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-2xl p-2 mb-3 border border-white/20">
+                    <img src={appIconLight} alt="AXION" className="w-full h-full object-cover rounded-xl" />
+                  </div>
+                  <h2 className="text-white text-xl font-black">AXION</h2>
+                  <p className="text-blue-200 dark:text-slate-400 text-xs font-bold">نظام إدارة الأصول الحقيقية</p>
+                </div>
+                <div className="p-5 space-y-3" dir="rtl">
+                  <div className="flex justify-between items-center py-2 border-b border-border dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">الإصدار</span>
+                    <span className="text-sm font-black text-slate-800 dark:text-slate-200" data-testid="text-about-version">v{appVersion}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-border dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">اسم التطبيق</span>
+                    <span className="text-sm font-black text-slate-800 dark:text-slate-200">AXION</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-border dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">المعرّف</span>
+                    <span className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-400">com.axion.app</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-border dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">المطوّر</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">BinarJoin Analytics</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">حقوق النشر</span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400">© 2026 AXION</span>
+                  </div>
+                  <Button
+                    onClick={() => setShowAbout(false)}
+                    className="w-full h-11 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-400 text-white font-black rounded-xl mt-2"
+                    data-testid="button-close-about"
+                  >
+                    إغلاق
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Update Check Dialog */}
+          {showUpdateCheck && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowUpdateCheck(false)}>
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+              <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 fade-in duration-300" onClick={e => e.stopPropagation()}>
+                <div className="p-5" dir="rtl">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-black text-slate-800 dark:text-white">التحقق من التحديث</h3>
+                    <button onClick={() => setShowUpdateCheck(false)} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <X className="w-4 h-4 text-slate-500" />
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 mb-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                      <img src={appIconLight} alt="" className="w-7 h-7 object-cover rounded-lg" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-800 dark:text-white">AXION</p>
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">الإصدار الحالي: v{appVersion}</p>
+                    </div>
+                  </div>
+
+                  {updateCheckState === 'idle' && (
+                    <div className="text-center py-4">
+                      <RefreshCw className="w-10 h-10 text-blue-400 mx-auto mb-3" />
+                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400 mb-4">اضغط للتحقق من وجود تحديث جديد</p>
+                      <Button
+                        onClick={handleCheckUpdate}
+                        className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl"
+                        data-testid="button-start-update-check"
+                      >
+                        <RefreshCw className="w-4 h-4 ml-2" />
+                        التحقق الآن
+                      </Button>
+                    </div>
+                  )}
+
+                  {updateCheckState === 'checking' && (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-10 h-10 text-blue-500 mx-auto mb-3 animate-spin" />
+                      <p className="text-sm font-black text-slate-700 dark:text-slate-300">جارٍ التحقق من التحديثات...</p>
+                      <p className="text-xs text-slate-400 mt-1">يرجى الانتظار</p>
+                    </div>
+                  )}
+
+                  {updateCheckState === 'upToDate' && (
+                    <div className="text-center py-6">
+                      <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <CheckCircle2 className="w-8 h-8 text-green-500" />
+                      </div>
+                      <p className="text-base font-black text-green-600 dark:text-green-400 mb-1">التطبيق محدّث</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">أنت تستخدم أحدث إصدار v{appVersion}</p>
+                      <Button
+                        onClick={() => setShowUpdateCheck(false)}
+                        variant="outline"
+                        className="mt-4 rounded-xl font-bold"
+                        data-testid="button-close-update"
+                      >
+                        حسناً
+                      </Button>
+                    </div>
+                  )}
+
+                  {updateCheckState === 'available' && updateData && (
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Download className="w-5 h-5 text-blue-500" />
+                          <span className="text-sm font-black text-blue-700 dark:text-blue-300">تحديث جديد متوفر!</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between">
+                            <span className="text-xs font-bold text-slate-500">الإصدار الجديد</span>
+                            <span className="text-xs font-black text-blue-600 dark:text-blue-400">v{updateData.latest?.versionName}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-xs font-bold text-slate-500">الإصدار الحالي</span>
+                            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">v{appVersion}</span>
+                          </div>
+                          {updateData.latest?.releasedAt && (
+                            <div className="flex justify-between">
+                              <span className="text-xs font-bold text-slate-500">تاريخ الإصدار</span>
+                              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{new Date(updateData.latest.releasedAt).toLocaleDateString('ar-SA')}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleDownloadUpdate}
+                        className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl"
+                        data-testid="button-download-update"
+                      >
+                        <Download className="w-4 h-4 ml-2" />
+                        تحميل التحديث
+                      </Button>
+                      <Button
+                        onClick={() => setShowUpdateCheck(false)}
+                        variant="ghost"
+                        className="w-full h-9 text-slate-500 font-bold rounded-xl"
+                      >
+                        لاحقاً
+                      </Button>
+                    </div>
+                  )}
+
+                  {updateCheckState === 'error' && (
+                    <div className="text-center py-6">
+                      <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <AlertTriangle className="w-8 h-8 text-amber-500" />
+                      </div>
+                      <p className="text-base font-black text-amber-600 dark:text-amber-400 mb-1">فشل التحقق</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">تعذّر الاتصال بالخادم. تأكد من اتصالك بالإنترنت.</p>
+                      <Button
+                        onClick={handleCheckUpdate}
+                        className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl"
+                      >
+                        <RefreshCw className="w-4 h-4 ml-2" />
+                        إعادة المحاولة
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Notification Overlay */}
           {showAccountMessage && (

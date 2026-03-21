@@ -1,6 +1,7 @@
 import { ENV } from "@/lib/env";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { getValidToken } from "@/lib/token-utils";
+import { shouldUseBearerAuth, getFetchCredentials, getAuthHeaders } from "@/lib/auth-token-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -749,12 +750,11 @@ export default function WhatsAppSetupPage() {
     let cancelled = false;
     const fetchQrImage = async () => {
       try {
-        const token = getValidToken('accessToken');
-        const headers: Record<string, string> = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
         const res = await fetch(ENV.getApiUrl(`/api/whatsapp-ai/qr-image?t=${Date.now()}`), {
-          headers,
-          credentials: "include",
+          headers: {
+            ...getAuthHeaders(),
+          },
+          credentials: getFetchCredentials(),
         });
         if (!res.ok) throw new Error("QR fetch failed");
         const blob = await res.blob();

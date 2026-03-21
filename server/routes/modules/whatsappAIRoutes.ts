@@ -10,6 +10,7 @@ import { z } from "zod";
 import { projectAccessService } from "../../services/ProjectAccessService";
 import { botSettingsService } from "../../services/ai-agent/whatsapp/BotSettingsService";
 import { safeErrorMessage } from '../../middleware/api-response';
+import { toBuffer as qrToBuffer } from 'qrcode';
 
 const router = Router();
 
@@ -158,12 +159,12 @@ router.get("/qr-image", requireAdminCheck, async (req: Request, res: Response) =
     const qr = bot.getQR();
     if (!qr) return res.status(404).json({ error: "No QR code available" });
     
-    const QRCode = require('qrcode');
-    const qrBuffer = await QRCode.toBuffer(qr, { width: 280, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } });
+    const qrBuffer = await qrToBuffer(qr, { width: 280, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } });
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'no-store');
     res.send(qrBuffer);
-  } catch (error) {
+  } catch (error: any) {
+    console.error('[QR] Failed to generate QR image:', error?.message || error);
     res.status(500).json({ error: "Failed to generate QR image" });
   }
 });

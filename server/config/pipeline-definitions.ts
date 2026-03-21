@@ -144,7 +144,7 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   },
   "gradle-build": {
     name: "gradle-build",
-    timeoutMs: 600000,
+    timeoutMs: 1200000,
     condition: { type: "appType", appTypes: ["android"] },
   },
   "sign-apk": {

@@ -1648,9 +1648,9 @@ export class DeploymentEngine {
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "${trapCleanup}set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew clean ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 | tail -40 && echo 'GRADLE_OK'"`,
+      `${sshCmd} "${trapCleanup}set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 && echo 'GRADLE_OK'"`,
       "Gradle Build",
-      600000
+      1200000
     );
   }
 

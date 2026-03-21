@@ -233,20 +233,22 @@ export class DeploymentLogger {
   static async calculateDORAMetrics(periodDays: number = 30): Promise<DORAMetrics> {
     const since = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
-    const allDeployments = await db
+    type DeployRow = typeof buildDeployments.$inferSelect;
+
+    const allDeployments: DeployRow[] = await db
       .select()
       .from(buildDeployments)
       .where(gte(buildDeployments.created_at, since));
 
     const total = allDeployments.length;
-    const successful = allDeployments.filter(d => d.status === "success");
-    const failed = allDeployments.filter(d => d.status === "failed");
+    const successful = allDeployments.filter((d: DeployRow) => d.status === "success");
+    const failed = allDeployments.filter((d: DeployRow) => d.status === "failed");
 
     const deploymentFrequency = total / Math.max(periodDays, 1);
 
     let leadTimeSeconds = 0;
     if (successful.length > 0) {
-      const totalLeadTime = successful.reduce((sum, d) => {
+      const totalLeadTime = successful.reduce((sum: number, d: DeployRow) => {
         return sum + (d.duration || 0);
       }, 0);
       leadTimeSeconds = (totalLeadTime / successful.length) / 1000;
@@ -257,7 +259,7 @@ export class DeploymentLogger {
       const failedWithRecovery: number[] = [];
       for (const f of failed) {
         const recovery = successful.find(
-          s => s.created_at > f.created_at && s.pipeline === f.pipeline
+          (s: DeployRow) => s.created_at > f.created_at && s.pipeline === f.pipeline
         );
         if (recovery && f.endTime) {
           const recoveryTime = new Date(recovery.created_at).getTime() - new Date(f.endTime).getTime();
@@ -267,7 +269,7 @@ export class DeploymentLogger {
         }
       }
       if (failedWithRecovery.length > 0) {
-        mttrSeconds = failedWithRecovery.reduce((a, b) => a + b, 0) / failedWithRecovery.length / 1000;
+        mttrSeconds = failedWithRecovery.reduce((a: number, b: number) => a + b, 0) / failedWithRecovery.length / 1000;
       }
     }
 

@@ -223,11 +223,54 @@ export class DeploymentEngine {
       const orphaned = await db.select().from(buildDeployments)
         .where(eq(buildDeployments.status, "running"));
 
+      if (orphaned.length === 0) return;
+
+      console.log(`[DeploymentEngine] وُجدت ${orphaned.length} عملية نشر بحالة "running" — بدء التحقق الذكي...`);
+
       for (const d of orphaned) {
         const age = Date.now() - new Date(d.created_at!).getTime();
-        const remoteSteps = ['build-server', 'sync-capacitor', 'generate-icons', 'gradle-build', 'sign-apk', 'retrieve-artifact'];
-        const isRemoteStep = remoteSteps.includes(d.currentStep);
-        const maxAge = isRemoteStep ? 900000 : 60000;
+        const allRemoteSteps = [
+          'build-server', 'restart-pm2', 'sync-capacitor', 'generate-icons',
+          'gradle-build', 'sign-apk', 'retrieve-artifact', 'install-deps',
+          'upload-server', 'health-check', 'post-deploy-checks', 'prebuild-gate',
+          'clean-previous-build', 'capacitor-sync', 'generate-app-icons'
+        ];
+        const isRemoteStep = allRemoteSteps.includes(d.currentStep || '');
+
+        if (isRemoteStep) {
+          const verified = await this.verifyRemoteDeploymentStatus(d);
+          if (verified === "success") {
+            const recoveredSteps = (d.steps as StepEntry[]).map(s => {
+              if (s.status === "running" || s.status === "pending") return { ...s, status: "success" as const };
+              return s;
+            });
+            await db.update(buildDeployments).set({
+              status: "success",
+              errorMessage: null,
+              endTime: new Date(),
+              duration: age,
+              steps: recoveredSteps,
+              currentStep: "done",
+            }).where(eq(buildDeployments.id, d.id));
+
+            await db.insert(deploymentEvents).values({
+              deploymentId: d.id,
+              eventType: "deployment_success",
+              message: "✅ تم التحقق: النشر اكتمل بنجاح على الخادم البعيد (استرداد تلقائي)",
+              metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep, verifiedRemotely: true },
+            });
+
+            console.log(`[DeploymentEngine] ✅ Deployment #${d.buildNumber} verified SUCCESS on remote server`);
+            continue;
+          }
+
+          if (verified === "still_running") {
+            console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} still running remotely — skipping recovery`);
+            continue;
+          }
+        }
+
+        const maxAge = isRemoteStep ? 1800000 : 120000;
         if (age > maxAge) {
           const recoveredSteps = (d.steps as StepEntry[]).map(s => {
             if (s.status === "running") return { ...s, status: "failed" as const };
@@ -235,7 +278,7 @@ export class DeploymentEngine {
           });
           await db.update(buildDeployments).set({
             status: "failed",
-            errorMessage: "توقفت العملية بسبب إعادة تشغيل الخادم",
+            errorMessage: "توقفت العملية بسبب انتهاء المهلة الزمنية",
             endTime: new Date(),
             duration: age,
             steps: recoveredSteps,
@@ -244,19 +287,81 @@ export class DeploymentEngine {
           await db.insert(deploymentEvents).values({
             deploymentId: d.id,
             eventType: "deployment_failed",
-            message: "توقفت العملية بسبب إعادة تشغيل الخادم (recovery)",
-            metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep },
+            message: "توقفت العملية بسبب انتهاء المهلة الزمنية (recovery)",
+            metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep, age },
           });
 
-          console.log(`[DeploymentEngine] Recovered orphaned deployment #${d.buildNumber} (${d.id})`);
+          console.log(`[DeploymentEngine] ❌ Deployment #${d.buildNumber} timed out after ${Math.round(age / 60000)}min`);
+        } else {
+          console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} age=${Math.round(age / 1000)}s < maxAge=${maxAge / 1000}s — leaving as running`);
         }
-      }
-
-      if (orphaned.length > 0) {
-        console.log(`[DeploymentEngine] Recovered ${orphaned.length} orphaned deployment(s)`);
       }
     } catch (err) {
       console.error("[DeploymentEngine] Error recovering orphaned deployments:", err);
+    }
+  }
+
+  private async verifyRemoteDeploymentStatus(deployment: any): Promise<"success" | "still_running" | "unknown"> {
+    try {
+      await this.ensureSSHReady();
+      const sshCmd = this.buildSSHCommand();
+      const remoteDir = "/home/administrator/app2";
+      const versionName = deployment.versionName || "";
+      const buildNumber = deployment.buildNumber || 0;
+      const pipelineType = deployment.pipelineType || deployment.pipeline || "";
+
+      const includesWeb = pipelineType.includes("web") || pipelineType.includes("full");
+      const includesAndroid = pipelineType.includes("android") || pipelineType.includes("full");
+
+      let webOk = !includesWeb;
+      let androidOk = !includesAndroid;
+
+      if (includesWeb) {
+        try {
+          const { stdout } = await execAsync(
+            `${sshCmd} "pm2 jlist 2>/dev/null | head -1"`,
+            { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+          );
+          const apps = JSON.parse(stdout.trim() || "[]");
+          webOk = apps.some((a: any) => a.pm2_env?.status === "online");
+        } catch {
+          try {
+            const { stdout } = await execAsync(
+              `${sshCmd} "test -f ${remoteDir}/dist/index.js && echo WEB_OK || echo WEB_MISSING"`,
+              { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+            );
+            webOk = stdout.trim().includes("WEB_OK");
+          } catch { /* ignore */ }
+        }
+      }
+
+      if (includesAndroid) {
+        try {
+          const apkPattern = versionName ? `AXION-v${versionName}` : `AXION-v`;
+          const { stdout } = await execAsync(
+            `${sshCmd} "ls -1t ${remoteDir}/releases/${apkPattern}*.apk 2>/dev/null | head -1 || echo NONE"`,
+            { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+          );
+          androidOk = stdout.trim() !== "NONE" && stdout.trim() !== "";
+        } catch { /* ignore */ }
+      }
+
+      if (webOk && androidOk) return "success";
+
+      if (includesAndroid && !androidOk) {
+        try {
+          const { stdout } = await execAsync(
+            `${sshCmd} "pgrep -f 'gradle' >/dev/null 2>&1 && echo GRADLE_RUNNING || echo GRADLE_DONE"`,
+            { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+          );
+          if (stdout.trim().includes("GRADLE_RUNNING")) return "still_running";
+        } catch { /* ignore */ }
+      }
+
+      return "unknown";
+    } catch (err) {
+      console.log(`[DeploymentEngine] SSH verification failed: ${(err as Error).message} — treating as unknown`);
+      return "unknown";
     }
   }
 

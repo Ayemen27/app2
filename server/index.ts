@@ -666,7 +666,7 @@ app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
 
 // ✅ **JSON Parse Error Handler** - Returns 400 instead of 500 for malformed JSON
 app.use((err: any, req: Request, res: Response, next: NextFunction): any => {
-  if (err instanceof SyntaxError && 'body' in err && err.status === 400) {
+  if (err?.type === 'entity.parse.failed' || (err instanceof SyntaxError && err.message?.includes('JSON') && 'body' in err)) {
     console.warn(`⚠️ [JSON Parse Error] ${req.method} ${req.path}: Invalid JSON body`);
     return res.status(400).json({
       success: false,

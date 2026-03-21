@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { whatsappUserLinks, whatsappLinkProjects, users, userProjectPermissions, projects } from "@shared/schema";
+import { whatsappUserLinks, whatsappLinkProjects, whatsappAllowedNumbers, users, userProjectPermissions, projects } from "@shared/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { projectAccessService, type ProjectPermissionInfo } from "../ProjectAccessService";
 
@@ -57,7 +57,46 @@ export class WhatsAppSecurityContext {
       .limit(1);
 
     if (link.length === 0) {
-      return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
+      const allowedEntry = await db
+        .select()
+        .from(whatsappAllowedNumbers)
+        .where(
+          and(
+            eq(whatsappAllowedNumbers.isActive, true),
+            eq(whatsappAllowedNumbers.phoneNumber, cleanPhone)
+          )
+        )
+        .limit(1);
+
+      if (allowedEntry.length > 0 && allowedEntry[0].addedBy) {
+        try {
+          console.log(`[WhatsAppSecurityContext] ربط تلقائي: الرقم ${cleanPhone} موجود في allowed_numbers (addedBy: ${allowedEntry[0].addedBy}) — إنشاء ربط في user_links`);
+          await db.insert(whatsappUserLinks).values({
+            user_id: allowedEntry[0].addedBy,
+            phoneNumber: cleanPhone,
+            isActive: true,
+          });
+          const autoLink = await db
+            .select()
+            .from(whatsappUserLinks)
+            .where(
+              and(
+                eq(whatsappUserLinks.isActive, true),
+                eq(whatsappUserLinks.phoneNumber, cleanPhone)
+              )
+            )
+            .limit(1);
+          if (autoLink.length > 0) {
+            link.push(autoLink[0]);
+          }
+        } catch (_e) {
+          return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
+        }
+      }
+
+      if (link.length === 0) {
+        return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
+      }
     }
 
     const linkData = link[0];

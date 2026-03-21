@@ -647,6 +647,21 @@ router.post("/allowed-numbers", requireAdminCheck, async (req: Request, res: Res
       isActive: true,
       addedBy: req.user!.user_id,
     }).returning();
+
+    const existingLink = await db.select()
+      .from(whatsappUserLinks)
+      .where(eq(whatsappUserLinks.phoneNumber, canonical))
+      .limit(1);
+    if (existingLink.length === 0) {
+      try {
+        await db.insert(whatsappUserLinks).values({
+          user_id: req.user!.user_id as string,
+          phoneNumber: canonical,
+          isActive: true,
+        });
+      } catch (_e) {}
+    }
+
     res.json({ success: true, number: inserted });
   } catch (error: any) {
     res.status(500).json({ error: safeErrorMessage(error, 'حدث خطأ داخلي') });

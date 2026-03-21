@@ -1244,7 +1244,7 @@ export default function WhatsAppSetupPage() {
           )}
         </div>
 
-        <UnifiedStats stats={stats} columns={2} hideHeader />
+        {isConnected && <UnifiedStats stats={stats} columns={2} hideHeader />}
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1692,6 +1692,22 @@ export default function WhatsAppSetupPage() {
           {/* Allowed Numbers Tab - Admin only */}
           {isAdmin && (
             <TabsContent value="allowed" className="mt-6">
+              {!isConnected ? (
+                <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-500 to-amber-500" />
+                  <div className="flex flex-col items-center justify-center py-16 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-4">
+                      <WifiOff className="h-8 w-8 text-red-500" />
+                    </div>
+                    <p className="text-lg font-black text-slate-800 dark:text-slate-200">البوت غير متصل</p>
+                    <p className="text-sm text-slate-500 mt-2 text-center max-w-md">لا يمكن إدارة الأرقام المسموحة. يجب ربط البوت بواتساب أولاً.</p>
+                    <Button data-testid="btn-allowed-go-connect" className="mt-5 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setActiveTab("connection")}>
+                      <QrCode className="h-4 w-4" />
+                      الذهاب لربط البوت
+                    </Button>
+                  </div>
+                </Card>
+              ) : (
               <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-orange-400 via-amber-500 to-yellow-500" />
                 <CardHeader>
@@ -1808,12 +1824,29 @@ export default function WhatsAppSetupPage() {
                   )}
                 </CardContent>
               </Card>
+              )}
             </TabsContent>
           )}
 
           {/* Users Tab - Admin only */}
           {isAdmin && (
             <TabsContent value="users" className="mt-6">
+              {!isConnected ? (
+                <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-500 to-amber-500" />
+                  <div className="flex flex-col items-center justify-center py-16 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-4">
+                      <WifiOff className="h-8 w-8 text-red-500" />
+                    </div>
+                    <p className="text-lg font-black text-slate-800 dark:text-slate-200">البوت غير متصل</p>
+                    <p className="text-sm text-slate-500 mt-2 text-center max-w-md">لا يمكن عرض المستخدمين المربوطين. يجب ربط البوت بواتساب أولاً.</p>
+                    <Button data-testid="btn-users-go-connect" className="mt-5 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setActiveTab("connection")}>
+                      <QrCode className="h-4 w-4" />
+                      الذهاب لربط البوت
+                    </Button>
+                  </div>
+                </Card>
+              ) : (
               <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-purple-400 via-violet-500 to-fuchsia-500" />
                 <CardHeader>
@@ -1929,18 +1962,36 @@ export default function WhatsAppSetupPage() {
                   )}
                 </CardContent>
               </Card>
+              )}
             </TabsContent>
           )}
 
           {/* Permissions Tab - Admin only - Full interactive */}
           {isAdmin && (
             <TabsContent value="permissions" className="mt-6" data-testid="tab-content-permissions">
-              <PermissionsTabContent
-                allLinks={allLinks as any[]}
-                isLoadingAllLinks={isLoadingAllLinks}
-                allProjects={allProjects as any[]}
-                toast={toast}
-              />
+              {!isConnected ? (
+                <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                  <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-500 to-amber-500" />
+                  <div className="flex flex-col items-center justify-center py-16 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-4">
+                      <WifiOff className="h-8 w-8 text-red-500" />
+                    </div>
+                    <p className="text-lg font-black text-slate-800 dark:text-slate-200">البوت غير متصل</p>
+                    <p className="text-sm text-slate-500 mt-2 text-center max-w-md">لا يمكن إدارة الصلاحيات. يجب ربط البوت بواتساب أولاً.</p>
+                    <Button data-testid="btn-perms-go-connect" className="mt-5 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setActiveTab("connection")}>
+                      <QrCode className="h-4 w-4" />
+                      الذهاب لربط البوت
+                    </Button>
+                  </div>
+                </Card>
+              ) : (
+                <PermissionsTabContent
+                  allLinks={allLinks as any[]}
+                  isLoadingAllLinks={isLoadingAllLinks}
+                  allProjects={allProjects as any[]}
+                  toast={toast}
+                />
+              )}
             </TabsContent>
           )}
 
@@ -2507,6 +2558,23 @@ export default function WhatsAppSetupPage() {
 
           {/* Protection Tab */}
           <TabsContent value="protection" className="mt-6 space-y-6">
+            {!isConnected ? (
+              <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-500 to-amber-500" />
+                <div className="flex flex-col items-center justify-center py-16 px-6">
+                  <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-4">
+                    <WifiOff className="h-8 w-8 text-red-500" />
+                  </div>
+                  <p className="text-lg font-black text-slate-800 dark:text-slate-200">البوت غير متصل</p>
+                  <p className="text-sm text-slate-500 mt-2 text-center max-w-md">لا يمكن عرض حالة الحماية. يجب ربط البوت بواتساب أولاً.</p>
+                  <Button data-testid="btn-protection-go-connect" className="mt-5 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setActiveTab("connection")}>
+                    <QrCode className="h-4 w-4" />
+                    الذهاب لربط البوت
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+            <>
             <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
               <div className="h-1.5 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500" />
               <CardContent className="p-6">
@@ -2690,10 +2758,28 @@ export default function WhatsAppSetupPage() {
                 </CardContent>
               )}
             </Card>
+            </>
+            )}
           </TabsContent>
 
           {/* Stats Tab */}
           <TabsContent value="stats" className="mt-6" data-testid="tab-content-stats">
+            {!isConnected ? (
+              <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-500 to-amber-500" />
+                <div className="flex flex-col items-center justify-center py-16 px-6">
+                  <div className="w-16 h-16 rounded-2xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-4">
+                    <WifiOff className="h-8 w-8 text-red-500" />
+                  </div>
+                  <p className="text-lg font-black text-slate-800 dark:text-slate-200">البوت غير متصل</p>
+                  <p className="text-sm text-slate-500 mt-2 text-center max-w-md">لا يمكن عرض الإحصائيات. يجب ربط البوت بواتساب أولاً.</p>
+                  <Button data-testid="btn-stats-go-connect" className="mt-5 rounded-xl font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setActiveTab("connection")}>
+                    <QrCode className="h-4 w-4" />
+                    الذهاب لربط البوت
+                  </Button>
+                </div>
+              </Card>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-blue-400 to-cyan-400" />
@@ -2782,6 +2868,7 @@ export default function WhatsAppSetupPage() {
                 </CardContent>
               </Card>
             </div>
+            )}
           </TabsContent>
 
           {isAdmin && (

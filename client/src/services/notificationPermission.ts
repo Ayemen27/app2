@@ -2,8 +2,6 @@ import { ENV } from "@/lib/env";
 import { authFetch } from '@/lib/auth-token-store';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
-import { App } from '@capacitor/app';
-
 const PERM_LAST_ASKED_KEY = 'push_permission_last_asked_at';
 const PERM_DENIED_COUNT_KEY = 'push_permission_denied_count';
 const ASK_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -128,12 +126,13 @@ async function registerPush() {
   }
 }
 
-function registerResumeListener() {
+async function registerResumeListener() {
   if (resumeListenerRegistered) return;
   if (!Capacitor.isNativePlatform()) return;
 
   resumeListenerRegistered = true;
 
+  const { App } = await import('@capacitor/app');
   App.addListener('appStateChange', async ({ isActive }) => {
     if (!isActive) return;
 

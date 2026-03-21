@@ -8,7 +8,6 @@ trackLog('ENV_LOADED', {
   apiBaseUrl: ENV.getApiBaseUrl(),
   isAndroid: ENV.isAndroid,
 });
-import "./lib/instrumentation";
 import { createRoot } from "react-dom/client";
 import { initializeDB } from "./offline/db";
 import App from "./App";
@@ -79,6 +78,16 @@ const startApp = async () => {
     const root = createRoot(rootElement);
     root.render(<App />);
     trackLog('RENDER_DONE', 'React root rendered');
+
+    setTimeout(async () => {
+      try {
+        const { initializeInstrumentation } = await import('./lib/instrumentation');
+        await initializeInstrumentation();
+        trackLog('INSTRUMENTATION_OK', 'Instrumentation initialized');
+      } catch (e: any) {
+        trackLog('INSTRUMENTATION_FAIL', e?.message);
+      }
+    }, 2000);
   } catch (err: any) {
     trackLog('FATAL_ERROR', err?.message || String(err));
     console.error("Fatal startup error:", err);

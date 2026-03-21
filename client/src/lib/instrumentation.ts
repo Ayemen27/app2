@@ -6,14 +6,27 @@ import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
 import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xml-http-request';
-import { Device } from '@capacitor/device';
-import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
-async function initializeInstrumentation() {
-  const [deviceInfo, appInfo] = await Promise.all([
-    Device.getInfo().catch(() => ({})),
-    App.getInfo().catch(() => ({})),
-  ]);
+export async function initializeInstrumentation() {
+  let deviceInfo: Record<string, any> = {};
+  let appInfo: Record<string, any> = {};
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      if (Capacitor.isPluginAvailable('Device')) {
+        const { Device } = await import('@capacitor/device');
+        deviceInfo = await Device.getInfo().catch(() => ({}));
+      }
+      if (Capacitor.isPluginAvailable('App')) {
+        const { App } = await import('@capacitor/app');
+        appInfo = await App.getInfo().catch(() => ({}));
+        console.log(`[instrumentation] App.getInfo() result:`, JSON.stringify(appInfo));
+      }
+    } catch (e) {
+      console.warn('[instrumentation] Failed to get native info:', e);
+    }
+  }
 
   const exporter = new OTLPTraceExporter({
     url: '/api/v1/traces',
@@ -47,5 +60,3 @@ async function initializeInstrumentation() {
     ],
   });
 }
-
-initializeInstrumentation().catch(() => {});

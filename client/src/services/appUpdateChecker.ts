@@ -1,5 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { App } from '@capacitor/app';
 
 const CHECK_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const LAST_CHECK_KEY = 'app_update_last_check';
@@ -28,11 +27,17 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
     return { versionName: '0.0.0', versionCode: 0, unknown: true };
   }
 
+  if (!Capacitor.isPluginAvailable('App')) {
+    console.error(`[getAppVersion] App plugin not available`);
+    return { versionName: '0.0.0', versionCode: 0, unknown: true };
+  }
+
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       if (attempt > 0) {
-        await new Promise(r => setTimeout(r, 1000 * attempt));
+        await new Promise(r => setTimeout(r, 1500 * attempt));
       }
+      const { App } = await import('@capacitor/app');
       const info = await App.getInfo();
       const versionName = info.version || '0.0.0';
       const versionCode = parseInt(info.build || '0', 10);
@@ -161,14 +166,19 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
   if (!resumeListenerAdded) {
     resumeListenerAdded = true;
 
-    App.addListener('appStateChange', async ({ isActive }) => {
-      if (!isActive || !activeCallbacks) return;
-      const fresh = await checkForUpdate(true);
-      if (fresh?.updateAvailable) {
-        if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
-        activeCallbacks.onUpdateAvailable(fresh);
-      }
-    });
+    try {
+      const { App } = await import('@capacitor/app');
+      App.addListener('appStateChange', async ({ isActive }) => {
+        if (!isActive || !activeCallbacks) return;
+        const fresh = await checkForUpdate(true);
+        if (fresh?.updateAvailable) {
+          if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
+          activeCallbacks.onUpdateAvailable(fresh);
+        }
+      });
+    } catch (e) {
+      console.warn('[initUpdateChecker] Failed to add resume listener:', e);
+    }
   }
 }
 

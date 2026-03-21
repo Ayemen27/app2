@@ -100,6 +100,8 @@ export default function LoginPage() {
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [serverError, setServerError] = useState<{ message: string; field: string } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{top: number; left: number}>({top: 0, left: 0});
+  const menuBtnRef = { current: null as HTMLButtonElement | null };
   const [showAbout, setShowAbout] = useState(false);
   const [showUpdateCheck, setShowUpdateCheck] = useState(false);
   const [updateCheckState, setUpdateCheckState] = useState<'idle' | 'checking' | 'available' | 'upToDate' | 'error'>('idle');
@@ -299,7 +301,12 @@ export default function LoginPage() {
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={() => setShowMenu(!showMenu)}
+              ref={(el: HTMLButtonElement | null) => { menuBtnRef.current = el; }}
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMenuPosition({ top: rect.bottom + 6, left: rect.left });
+                setShowMenu(!showMenu);
+              }}
               className="w-9 h-9 rounded-full bg-blue-600 dark:bg-slate-100 flex items-center justify-center shadow-md active:scale-95 group border-2 border-white dark:border-slate-800 hover:rotate-12 transition-transform relative z-[101]"
               data-testid="button-menu"
             >
@@ -550,7 +557,7 @@ export default function LoginPage() {
           {showMenu && (
             <>
               <div className="fixed inset-0 z-[99]" onClick={() => setShowMenu(false)} />
-              <div className="fixed top-[68px] left-4 z-[100] w-52 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-border dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200" dir="rtl">
+              <div className="fixed z-[100] w-52 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-border dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200" dir="rtl" style={{ top: menuPosition.top, left: menuPosition.left }}>
                 <button
                   onClick={() => { setShowMenu(false); setShowAbout(true); }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 active:bg-blue-100 dark:active:bg-slate-700 transition-colors"

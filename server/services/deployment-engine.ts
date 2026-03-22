@@ -1046,8 +1046,14 @@ export class DeploymentEngine {
 
       let output = "";
       let lineBuffer = "";
+      let timedOut = false;
       const timer = setTimeout(() => {
-        child.kill("SIGTERM");
+        timedOut = true;
+        try { process.kill(-child.pid!, "SIGTERM"); } catch {}
+        setTimeout(() => {
+          try { process.kill(-child.pid!, "SIGKILL"); } catch {}
+          try { child.kill("SIGKILL"); } catch {}
+        }, 5000);
         reject(new Error(`${label} timed out after ${timeoutMs / 1000}s`));
       }, timeoutMs);
 
@@ -1609,13 +1615,21 @@ export class DeploymentEngine {
 
     const capSyncResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then set -o pipefail && npx cap sync android 2>&1 | tail -15 && echo 'CAP_SYNC_OK'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
+      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then timeout 90 npx cap sync android 2>&1 | tail -15 && echo 'CAP_SYNC_OK' || echo 'CAP_SYNC_TIMEOUT_OR_FAIL'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
       "Capacitor Plugin Sync",
       120000
     );
 
     if (capSyncResult.includes("CAP_SYNC_OK")) {
       await this.addLog(deploymentId, "✅ تم مزامنة Capacitor plugins (PushNotifications, NativeBiometric, ...)", "success");
+    } else if (capSyncResult.includes("CAP_SYNC_TIMEOUT_OR_FAIL")) {
+      await this.addLog(deploymentId, "⚠️ cap sync فشل أو تجاوز المهلة — مزامنة يدوية للأصول", "warn");
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
+        "Manual Asset Sync (timeout fallback)",
+        60000
+      );
     } else {
       await this.addLog(deploymentId, "⚠️ npx غير متاح — مزامنة يدوية للأصول", "warn");
       await this.execWithLog(
@@ -1659,49 +1673,185 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, `✅ جميع علامات الكود موجودة (${countMatch?.[1] || "OK"}) — البناء من أحدث نسخة`, "success");
     }
 
-    await this.addLog(deploymentId, "فحص متطلبات الأندرويد...", "info");
+    await this.addLog(deploymentId, "🔍 فحص وإصلاح ما بعد المزامنة (post-sync validation)...", "info");
 
-    const manifest = `${remoteDir}/android/app/src/main/AndroidManifest.xml`;
-    const permsToCheck = ["POST_NOTIFICATIONS", "USE_BIOMETRIC", "USE_FINGERPRINT", "INTERNET"];
-    const scriptLines = [
+    const postSyncScript = [
       `#!/bin/bash`,
-      `M="${manifest}"`,
-      `if [ ! -f "$M" ]; then echo MANIFEST_MISSING; exit 0; fi`,
-      ...permsToCheck.map(p => `grep -q "${p}" "$M" && echo "${p}_OK" || { sed -i '/<\\/manifest>/i\\    <uses-permission android:name="android.permission.${p}"/>' "$M" && echo "${p}_ADDED"; }`),
-      `GS="${remoteDir}/android/app/google-services.json"; if [ -f "$GS" ]; then echo GOOGLE_SERVICES_OK; elif [ -f "${remoteDir}/google-services.json" ]; then cp "${remoteDir}/google-services.json" "$GS" && echo GOOGLE_SERVICES_COPIED; else echo GOOGLE_SERVICES_MISSING; fi`,
-    ];
-    const scriptB64 = Buffer.from(scriptLines.join('\n')).toString('base64');
+      `set -e`,
+      `DIR="${remoteDir}"`,
+      `MANIFEST="$DIR/android/app/src/main/AndroidManifest.xml"`,
+      `VARS="$DIR/android/variables.gradle"`,
+      `BUILD_GRADLE="$DIR/android/app/build.gradle"`,
+      `MAIN_ACT="$DIR/android/app/src/main/java/com/axion/app/MainActivity.java"`,
+      `FIXES=0`,
+      ``,
+      `echo "=== POST_SYNC_VARIABLES ==="`,
+      `if [ -f "$VARS" ]; then`,
+      `  CUR_MIN=$(grep -oP 'minSdkVersion\\s*=\\s*\\K[0-9]+' "$VARS" 2>/dev/null || echo 0)`,
+      `  CUR_TARGET=$(grep -oP 'targetSdkVersion\\s*=\\s*\\K[0-9]+' "$VARS" 2>/dev/null || echo 0)`,
+      `  CUR_COMPILE=$(grep -oP 'compileSdkVersion\\s*=\\s*\\K[0-9]+' "$VARS" 2>/dev/null || echo 0)`,
+      `  echo "BEFORE: minSdk=$CUR_MIN targetSdk=$CUR_TARGET compileSdk=$CUR_COMPILE"`,
+      `  if [ "$CUR_MIN" -lt 26 ]; then`,
+      `    sed -i "s/minSdkVersion = $CUR_MIN/minSdkVersion = 26/" "$VARS"`,
+      `    echo "FIXED_MINSDK: $CUR_MIN -> 26"`,
+      `    FIXES=$((FIXES+1))`,
+      `  fi`,
+      `  if [ "$CUR_TARGET" -lt 34 ]; then`,
+      `    sed -i "s/targetSdkVersion = $CUR_TARGET/targetSdkVersion = 35/" "$VARS"`,
+      `    echo "FIXED_TARGETSDK: $CUR_TARGET -> 35"`,
+      `    FIXES=$((FIXES+1))`,
+      `  fi`,
+      `  if [ "$CUR_COMPILE" -lt 35 ]; then`,
+      `    sed -i "s/compileSdkVersion = $CUR_COMPILE/compileSdkVersion = 35/" "$VARS"`,
+      `    echo "FIXED_COMPILESDK: $CUR_COMPILE -> 35"`,
+      `    FIXES=$((FIXES+1))`,
+      `  fi`,
+      `  echo "AFTER: $(grep -E 'minSdk|targetSdk|compileSdk' "$VARS" | tr '\\n' ' ')"`,
+      `fi`,
+      ``,
+      `echo "=== POST_SYNC_MANIFEST ==="`,
+      `if [ -f "$MANIFEST" ]; then`,
+      `  REQUIRED_PERMS="INTERNET ACCESS_NETWORK_STATE POST_NOTIFICATIONS VIBRATE RECEIVE_BOOT_COMPLETED WAKE_LOCK SCHEDULE_EXACT_ALARM USE_EXACT_ALARM USE_BIOMETRIC USE_FINGERPRINT"`,
+      `  for P in $REQUIRED_PERMS; do`,
+      `    if ! grep -q "$P" "$MANIFEST"; then`,
+      `      sed -i "/<\\/manifest>/i\\    <uses-permission android:name=\\"android.permission.$P\\"/>" "$MANIFEST"`,
+      `      echo "PERM_ADDED: $P"`,
+      `      FIXES=$((FIXES+1))`,
+      `    fi`,
+      `  done`,
+      `  STORAGE_PERMS='<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>'`,
+      `  grep -q "READ_EXTERNAL_STORAGE" "$MANIFEST" || { sed -i "/<\\/manifest>/i\\    $STORAGE_PERMS" "$MANIFEST"; echo "PERM_ADDED: READ_EXTERNAL_STORAGE"; FIXES=$((FIXES+1)); }`,
+      `  WRITE_PERM='<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>'`,
+      `  grep -q "WRITE_EXTERNAL_STORAGE" "$MANIFEST" || { sed -i "/<\\/manifest>/i\\    $WRITE_PERM" "$MANIFEST"; echo "PERM_ADDED: WRITE_EXTERNAL_STORAGE"; FIXES=$((FIXES+1)); }`,
+      `  PERM_COUNT=$(grep -c "uses-permission" "$MANIFEST")`,
+      `  echo "MANIFEST_PERMS: $PERM_COUNT"`,
+      `else`,
+      `  echo "MANIFEST_MISSING"`,
+      `fi`,
+      ``,
+      `echo "=== POST_SYNC_MAINACTIVITY ==="`,
+      `if [ -f "$MAIN_ACT" ]; then`,
+      `  if ! grep -q "onSaveInstanceState" "$MAIN_ACT"; then`,
+      `    cat > "$MAIN_ACT" << 'JAVAEOF'`,
+      `package com.axion.app;`,
+      ``,
+      `import android.os.Bundle;`,
+      `import com.getcapacitor.BridgeActivity;`,
+      ``,
+      `public class MainActivity extends BridgeActivity {`,
+      `    @Override`,
+      `    public void onSaveInstanceState(Bundle outState) {`,
+      `        super.onSaveInstanceState(outState);`,
+      `        outState.clear();`,
+      `    }`,
+      `}`,
+      `JAVAEOF`,
+      `    echo "MAINACTIVITY_FIXED"`,
+      `    FIXES=$((FIXES+1))`,
+      `  else`,
+      `    echo "MAINACTIVITY_OK"`,
+      `  fi`,
+      `fi`,
+      ``,
+      `echo "=== POST_SYNC_KEYSTORE ==="`,
+      `KS_DEST="$DIR/android/app/axion-release.keystore"`,
+      `if [ ! -f "$KS_DEST" ]; then`,
+      `  for KS_SRC in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore "$DIR/administrator/.axion-keystore/axion-release.keystore"; do`,
+      `    if [ -f "$KS_SRC" ]; then cp "$KS_SRC" "$KS_DEST" && echo "KEYSTORE_RESTORED" && FIXES=$((FIXES+1)) && break; fi`,
+      `  done`,
+      `  [ -f "$KS_DEST" ] || echo "KEYSTORE_STILL_MISSING"`,
+      `else`,
+      `  echo "KEYSTORE_OK"`,
+      `fi`,
+      ``,
+      `echo "=== POST_SYNC_GOOGLE_SERVICES ==="`,
+      `GS="$DIR/android/app/google-services.json"`,
+      `if [ -f "$GS" ]; then echo "GOOGLE_SERVICES_OK"; elif [ -f "$DIR/google-services.json" ]; then cp "$DIR/google-services.json" "$GS" && echo "GOOGLE_SERVICES_COPIED" && FIXES=$((FIXES+1)); else echo "GOOGLE_SERVICES_MISSING"; fi`,
+      ``,
+      `echo "=== POST_SYNC_FILE_PATHS ==="`,
+      `FP="$DIR/android/app/src/main/res/xml/file_paths.xml"`,
+      `if [ -f "$FP" ]; then`,
+      `  if ! grep -q "external-cache-path" "$FP"; then`,
+      `    cat > "$FP" << 'FPEOF'`,
+      `<?xml version="1.0" encoding="utf-8"?>`,
+      `<paths xmlns:android="http://schemas.android.com/apk/res/android">`,
+      `    <cache-path name="my_cache_images" path="." />`,
+      `    <files-path name="my_internal_files" path="." />`,
+      `    <external-cache-path name="my_external_cache" path="." />`,
+      `</paths>`,
+      `FPEOF`,
+      `    echo "FILE_PATHS_FIXED"`,
+      `    FIXES=$((FIXES+1))`,
+      `  else`,
+      `    echo "FILE_PATHS_OK"`,
+      `  fi`,
+      `fi`,
+      ``,
+      `echo "POST_SYNC_TOTAL_FIXES=$FIXES"`,
+    ].join('\n');
+
+    const scriptB64 = Buffer.from(postSyncScript).toString('base64');
     const checksResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "echo ${scriptB64} | base64 -d | bash"`,
-      "Android Checks",
-      20000
+      `${sshCmd} "echo '${scriptB64}' | base64 -d | bash"`,
+      "Post-Sync Validation & Auto-fix",
+      30000
     );
 
-    const permLabels: Record<string, string> = {
-      "POST_NOTIFICATIONS": "الإشعارات",
-      "USE_BIOMETRIC": "البصمة (Biometric)",
-      "USE_FINGERPRINT": "بصمة الإصبع (Fingerprint)",
-      "INTERNET": "الإنترنت",
-    };
-    for (const [perm, label] of Object.entries(permLabels)) {
-      if (checksResult.includes(`${perm}_ADDED`)) {
-        await this.addLog(deploymentId, `✅ تمت إضافة صلاحية ${label} إلى AndroidManifest.xml`, "success");
-      } else if (checksResult.includes(`${perm}_OK`)) {
-        await this.addLog(deploymentId, `✅ صلاحية ${label} موجودة`, "info");
-      }
+    const fixCountMatch = checksResult.match(/POST_SYNC_TOTAL_FIXES=(\d+)/);
+    const totalFixes = fixCountMatch ? parseInt(fixCountMatch[1]) : 0;
+
+    if (checksResult.includes("FIXED_MINSDK")) {
+      const m = checksResult.match(/FIXED_MINSDK: (\d+) -> (\d+)/);
+      await this.addLog(deploymentId, `🔧 تم إصلاح minSdk: ${m?.[1]} → ${m?.[2]} (cap sync أعاده للافتراضي)`, "success");
+    }
+    if (checksResult.includes("FIXED_TARGETSDK")) {
+      await this.addLog(deploymentId, "🔧 تم إصلاح targetSdk → 35", "success");
+    }
+    if (checksResult.includes("FIXED_COMPILESDK")) {
+      await this.addLog(deploymentId, "🔧 تم إصلاح compileSdk → 35", "success");
+    }
+
+    const addedPerms = checksResult.split('\n').filter(l => l.includes("PERM_ADDED:"));
+    if (addedPerms.length > 0) {
+      await this.addLog(deploymentId, `🔧 تمت إضافة ${addedPerms.length} صلاحية مفقودة: ${addedPerms.map(l => l.split(":")[1]?.trim()).join(", ")}`, "success");
+    }
+
+    const permCountMatch = checksResult.match(/MANIFEST_PERMS: (\d+)/);
+    if (permCountMatch) {
+      await this.addLog(deploymentId, `✅ إجمالي الصلاحيات في AndroidManifest: ${permCountMatch[1]}`, "info");
+    }
+
+    if (checksResult.includes("MAINACTIVITY_FIXED")) {
+      await this.addLog(deploymentId, "🔧 تم إصلاح MainActivity (onSaveInstanceState لـ FileSharer)", "success");
+    }
+    if (checksResult.includes("KEYSTORE_RESTORED")) {
+      await this.addLog(deploymentId, "🔧 تم استعادة Keystore تلقائياً", "success");
+    }
+    if (checksResult.includes("KEYSTORE_STILL_MISSING")) {
+      await this.addLog(deploymentId, "⚠️ Keystore لا يزال مفقوداً — سيتم التحقق في خطوة gradle-build", "warn");
     }
 
     if (checksResult.includes("GOOGLE_SERVICES_OK")) {
       await this.addLog(deploymentId, "✅ google-services.json موجود", "info");
     } else if (checksResult.includes("GOOGLE_SERVICES_COPIED")) {
-      await this.addLog(deploymentId, "✅ تم نسخ google-services.json من المسار الاحتياطي", "success");
+      await this.addLog(deploymentId, "🔧 تم نسخ google-services.json تلقائياً", "success");
     } else if (checksResult.includes("GOOGLE_SERVICES_MISSING")) {
-      await this.addLog(deploymentId, "⚠️ google-services.json مفقود — الإشعارات Push لن تعمل بدون Firebase", "warn");
+      await this.addLog(deploymentId, "⚠️ google-services.json مفقود — Push لن تعمل بدون Firebase", "warn");
+    }
+
+    if (checksResult.includes("FILE_PATHS_FIXED")) {
+      await this.addLog(deploymentId, "🔧 تم إصلاح file_paths.xml للمشاركة", "success");
     }
 
     if (checksResult.includes("MANIFEST_MISSING")) {
       await this.addLog(deploymentId, "⚠️ AndroidManifest.xml مفقود — تأكد من وجود مشروع Android صحيح", "warn");
+    }
+
+    if (totalFixes > 0) {
+      await this.addLog(deploymentId, `✅ تم تطبيق ${totalFixes} إصلاح تلقائي بعد المزامنة`, "success");
+    } else {
+      await this.addLog(deploymentId, "✅ لا حاجة لإصلاحات — جميع الإعدادات صحيحة بعد المزامنة", "success");
     }
 
     await this.addLog(deploymentId, "فحص اكتمال مشروع Gradle...", "info");
@@ -1716,7 +1866,7 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ ملفات Gradle مفقودة — جاري إعادة إنشاء المشروع...", "warn");
       const fixResult = await this.execWithLog(
         deploymentId,
-        `${sshCmd} 'cd ${remoteDir} && mkdir -p /tmp/android_app_bak && cp -r android/app /tmp/android_app_bak/ 2>/dev/null; rm -rf android && npx cap add android 2>&1 | tail -5 && cp -r /tmp/android_app_bak/app/* android/app/ 2>/dev/null; npx cap sync android 2>&1 | tail -5 && rm -rf /tmp/android_app_bak && echo CAP_READD_DONE'`,
+        `${sshCmd} 'cd ${remoteDir} && mkdir -p /tmp/android_app_bak && cp -r android/app /tmp/android_app_bak/ 2>/dev/null; rm -rf android && timeout 60 npx cap add android 2>&1 | tail -5 && cp -r /tmp/android_app_bak/app/* android/app/ 2>/dev/null; timeout 90 npx cap sync android 2>&1 | tail -5 && rm -rf /tmp/android_app_bak && echo CAP_READD_DONE'`,
         "Gradle Project Fix",
         120000
       );
@@ -1923,7 +2073,7 @@ export class DeploymentEngine {
         await this.addLog(deploymentId, "🔧 مجلد Android مفقود — جاري إعادة إنشائه...", "warn");
         await this.execWithLog(
           deploymentId,
-          `${sshCmd} "cd ${remoteDir} && npx cap add android 2>&1 | tail -5 && npx cap sync android 2>&1 | tail -5 && echo 'ANDROID_RECREATED'"`,
+          `${sshCmd} "cd ${remoteDir} && timeout 60 npx cap add android 2>&1 | tail -5 && timeout 90 npx cap sync android 2>&1 | tail -5 && echo 'ANDROID_RECREATED'"`,
           "Auto-fix Android Dir",
           120000
         );

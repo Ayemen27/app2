@@ -17,8 +17,8 @@ export const requestAllPermissions = async () => {
 
       try {
         const exactSetting = await LocalNotifications.checkExactNotificationSetting();
-        console.log('[Permissions] ExactAlarm status:', exactSetting.value);
-        if (exactSetting.value !== 'granted') {
+        console.log('[Permissions] ExactAlarm status:', exactSetting.exact_alarm);
+        if (exactSetting.exact_alarm !== 'granted') {
           console.log('[Permissions] ExactAlarm not granted, prompting user...');
           await LocalNotifications.changeExactNotificationSetting();
         }

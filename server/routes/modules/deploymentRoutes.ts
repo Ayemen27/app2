@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, requireAdmin } from "../../middleware/auth.js";
-import { deploymentEngine } from "../../services/deployment-engine.js";
+import { deploymentEngine, registerGlobalSSEClient } from "../../services/deployment-engine.js";
 import { getAuthUser } from "../../internal/auth-user.js";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { checkDeployPermission } from "../../middleware/deployment-auth.js";
@@ -217,6 +217,31 @@ router.get("/:id/events", requireAdmin, asyncHandler(async (req: Request, res: R
   const events = await deploymentEngine.getDeploymentEvents(req.params.id);
   res.json(events);
 }));
+
+router.get("/global-stream", requireAdmin, async (req: Request, res: Response) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  res.write(`data: ${JSON.stringify({ type: "connected", message: "Global SSE stream connected" })}\n\n`);
+
+  registerGlobalSSEClient(res);
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(`: heartbeat\n\n`);
+    } catch {
+      clearInterval(heartbeat);
+    }
+  }, 15000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+  });
+});
 
 router.get("/:id/stream", requireAdmin, async (req: Request, res: Response) => {
   res.writeHead(200, {

@@ -47,6 +47,7 @@ interface DeploymentConfig {
 export { Pipeline, BuildTarget, isPipelineSupported, listAvailablePipelines };
 
 const activeSSEClients = new Map<string, Response[]>();
+const globalSSEClients = new Set<Response>();
 
 function broadcastToClients(deploymentId: string, data: any) {
   const clients = activeSSEClients.get(deploymentId) || [];
@@ -59,6 +60,23 @@ function broadcastToClients(deploymentId: string, data: any) {
     }
   });
   dead.reverse().forEach(i => clients.splice(i, 1));
+}
+
+function broadcastGlobalEvent(event: { type: string; deploymentId: string; data: any }) {
+  const dead: Response[] = [];
+  globalSSEClients.forEach(res => {
+    try {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    } catch {
+      dead.push(res);
+    }
+  });
+  dead.forEach(r => globalSSEClients.delete(r));
+}
+
+function registerGlobalSSEClient(res: Response) {
+  globalSSEClients.add(res);
+  res.on("close", () => globalSSEClients.delete(res));
 }
 
 
@@ -498,6 +516,8 @@ export class DeploymentEngine {
     if (!deployment) {
       throw new Error("فشل في تخصيص رقم بناء فريد بعد عدة محاولات");
     }
+
+    broadcastGlobalEvent({ type: "deployment_started", deploymentId: deployment.id, data: { id: deployment.id, status: "running", buildNumber: deployment.buildNumber, pipeline: config.pipeline, version } });
 
     const resolvedConfig = { ...config, version };
     this.runPipeline(deployment.id, resolvedConfig).catch(err => {
@@ -3337,6 +3357,11 @@ echo 'MAINACTIVITY_FIXED'"`,
     await db.update(buildDeployments).set(updates).where(eq(buildDeployments.id, deploymentId));
 
     broadcastToClients(deploymentId, { type: "deployment_update", data: updates });
+
+    const status = updates.status as string | undefined;
+    if (status === "success" || status === "failed") {
+      broadcastGlobalEvent({ type: `deployment_${status}`, deploymentId, data: { id: deploymentId, status } });
+    }
   }
 
   async getStepAverages(pipeline?: string): Promise<Record<string, { avgDuration: number; count: number }>> {
@@ -3657,6 +3682,9 @@ echo 'MAINACTIVITY_FIXED'"`,
       await this.addLog(deploymentId, `🔄 استئناف النشر من الخطوة: ${steps[firstFailedIdx].name}`, "info");
       await this.addEvent(deploymentId, "deployment_resumed", `Resumed from step: ${steps[firstFailedIdx].name}`, { resumedFromStep: firstFailedIdx });
 
+      broadcastToClients(deploymentId, { type: "deployment_update", data: { status: "running", currentStep: steps[firstFailedIdx].name, steps: updatedSteps } });
+      broadcastGlobalEvent({ type: "deployment_resumed", deploymentId, data: { id: deploymentId, status: "running" } });
+
       const config: DeploymentConfig = {
         pipeline: deployment.pipeline as Pipeline,
         appType: deployment.appType as "web" | "android",
@@ -3800,6 +3828,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     if (!deployment) throw new Error("العملية غير موجودة");
     if (deployment.status === "running") throw new Error("لا يمكن حذف عملية قيد التنفيذ");
     await db.delete(buildDeployments).where(eq(buildDeployments.id, id));
+    broadcastGlobalEvent({ type: "deployment_deleted", deploymentId: id, data: { id } });
   }
 
   async getDeployments(limit = 20, offset = 0) {
@@ -3871,6 +3900,9 @@ echo 'MAINACTIVITY_FIXED'"`,
 
     await this.addLog(deploymentId, "تم إلغاء النشر بواسطة المستخدم", "warn");
     await this.addEvent(deploymentId, "deployment_cancelled", "Deployment cancelled by user");
+
+    broadcastToClients(deploymentId, { type: "deployment_update", data: { status: "cancelled", steps: updatedSteps, errorMessage: "تم الإلغاء بواسطة المستخدم" } });
+    broadcastGlobalEvent({ type: "deployment_cancelled", deploymentId, data: { id: deploymentId, status: "cancelled" } });
   }
 
   generateDownloadToken(deploymentId: string): string {
@@ -3904,3 +3936,4 @@ echo 'MAINACTIVITY_FIXED'"`,
 }
 
 export const deploymentEngine = new DeploymentEngine();
+export { registerGlobalSSEClient };

@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -574,9 +575,9 @@ export default function LoginPage() {
             <span className="text-[8px] text-gray-300 dark:text-slate-700">© 2026 AXION OPERATIONS MANAGEMENT</span>
           </div>
 
-          {/* About Dialog */}
-          {showAbout && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowAbout(false)}>
+          {/* About Dialog - rendered via Portal to avoid transform/animation containment issues */}
+          {showAbout && createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-6" onClick={() => setShowAbout(false)}>
               <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
               <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 fade-in duration-300" onClick={e => e.stopPropagation()}>
                 <div className="bg-gradient-to-br from-blue-600 to-blue-700 dark:from-slate-800 dark:to-slate-900 p-6 flex flex-col items-center">
@@ -616,12 +617,13 @@ export default function LoginPage() {
                   </Button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
-          {/* Update Check Dialog */}
-          {showUpdateCheck && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setShowUpdateCheck(false)}>
+          {/* Update Check Dialog - rendered via Portal */}
+          {showUpdateCheck && createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-6" onClick={() => setShowUpdateCheck(false)}>
               <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
               <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 fade-in duration-300" onClick={e => e.stopPropagation()}>
                 <div className="p-5" dir="rtl">
@@ -743,7 +745,8 @@ export default function LoginPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
 
           {/* Notification Overlay */}

@@ -138,47 +138,84 @@ export default function LoginPage() {
     loadVersion();
 
     const autoCheckUpdate = async () => {
+      trackLog('AUTO_UPDATE_START', { timestamp: Date.now() });
       try {
         const { Capacitor } = await import('@capacitor/core');
-        if (!Capacitor.isNativePlatform()) return;
+        const isNative = Capacitor.isNativePlatform();
+        trackLog('AUTO_UPDATE_PLATFORM', { isNative });
+        if (!isNative) return;
 
         const { initUpdateChecker } = await import('../services/appUpdateChecker');
+        trackLog('AUTO_UPDATE_INIT', { loaded: true });
         initUpdateChecker({
           onUpdateAvailable: (info) => {
-            console.log('[LoginPage] تحديث متوفر:', JSON.stringify(info));
+            trackLog('AUTO_UPDATE_FOUND', {
+              forceUpdate: info.forceUpdate,
+              latestVersion: info.latest?.versionName,
+              currentVersion: info.current?.versionName,
+              hasDownloadUrl: !!info.latest?.downloadUrl,
+              downloadUrl: info.latest?.downloadUrl?.substring(0, 80) || 'NULL',
+            });
             setForceUpdateInfo(info);
           },
+          onNoUpdate: () => {
+            trackLog('AUTO_UPDATE_NONE', { message: 'لا يوجد تحديث' });
+          },
         });
-        console.log('[LoginPage] ✅ تم تفعيل فاحص التحديثات التلقائي');
-      } catch (e) {
-        console.error('[LoginPage] ❌ خطأ في فاحص التحديثات:', e);
+        trackLog('AUTO_UPDATE_CHECKER_ACTIVE', { success: true });
+      } catch (e: any) {
+        trackLog('AUTO_UPDATE_ERROR', { error: e?.message || String(e) });
       }
     };
     autoCheckUpdate();
   }, []);
 
   const handleCheckUpdate = async () => {
+    trackLog('MANUAL_UPDATE_CHECK_START', { appVersion });
     setUpdateCheckState('checking');
     setUpdateData(null);
     try {
       const { Capacitor } = await import('@capacitor/core');
-      const baseUrl = Capacitor.isNativePlatform() ? 'https://app2.binarjoinanelytic.info' : '';
-      const res = await fetch(`${baseUrl}/api/deployment/app/check-update?versionCode=0&versionName=${encodeURIComponent(appVersion)}`);
-      if (!res.ok) throw new Error('فشل الاتصال');
+      const isNative = Capacitor.isNativePlatform();
+      const baseUrl = isNative ? 'https://app2.binarjoinanelytic.info' : '';
+      const url = `${baseUrl}/api/deployment/app/check-update?versionCode=0&versionName=${encodeURIComponent(appVersion)}`;
+      trackLog('MANUAL_UPDATE_CHECK_FETCH', { url, isNative });
+      const res = await fetch(url);
+      trackLog('MANUAL_UPDATE_CHECK_RESPONSE', { status: res.status, ok: res.ok });
+      if (!res.ok) throw new Error('فشل الاتصال: status=' + res.status);
       const data = await res.json();
+      trackLog('MANUAL_UPDATE_CHECK_DATA', {
+        updateAvailable: data.updateAvailable,
+        forceUpdate: data.forceUpdate,
+        latestVersion: data.latest?.versionName,
+        hasDownloadUrl: !!data.latest?.downloadUrl,
+        downloadUrl: data.latest?.downloadUrl?.substring(0, 80) || 'NULL',
+      });
       setUpdateData(data);
       setUpdateCheckState(data.updateAvailable ? 'available' : 'upToDate');
-    } catch {
+    } catch (err: any) {
+      trackLog('MANUAL_UPDATE_CHECK_ERROR', { error: err?.message || String(err) });
       setUpdateCheckState('error');
     }
   };
 
   const handleDownloadUpdate = async () => {
-    if (!updateData?.latest?.downloadUrl) return;
+    trackLog('DOWNLOAD_UPDATE_START', {
+      hasUpdateData: !!updateData,
+      hasDownloadUrl: !!updateData?.latest?.downloadUrl,
+      downloadUrl: updateData?.latest?.downloadUrl?.substring(0, 80) || 'NULL',
+    });
+    if (!updateData?.latest?.downloadUrl) {
+      trackLog('DOWNLOAD_UPDATE_NO_URL', { updateData: JSON.stringify(updateData)?.substring(0, 200) });
+      return;
+    }
     try {
       const { openDownloadUrl } = await import('../services/appUpdateChecker');
-      openDownloadUrl(updateData.latest.downloadUrl);
-    } catch {
+      trackLog('DOWNLOAD_UPDATE_OPENING', { url: updateData.latest.downloadUrl.substring(0, 80) });
+      await openDownloadUrl(updateData.latest.downloadUrl);
+      trackLog('DOWNLOAD_UPDATE_SUCCESS', { opened: true });
+    } catch (err: any) {
+      trackLog('DOWNLOAD_UPDATE_ERROR', { error: err?.message || String(err) });
       window.open(updateData.latest.downloadUrl, '_blank');
     }
   };

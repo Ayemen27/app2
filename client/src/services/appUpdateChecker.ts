@@ -101,13 +101,20 @@ function dismissVersion(versionCode: number) {
 }
 
 async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null> {
-  if (!bypassCooldown && !shouldCheck()) return null;
+  const { trackLog } = await import('../lib/debug-tracker');
+  trackLog('CHECK_FOR_UPDATE_CALL', { bypassCooldown, shouldCheck: shouldCheck() });
+  if (!bypassCooldown && !shouldCheck()) {
+    trackLog('CHECK_FOR_UPDATE_COOLDOWN_SKIP', { lastCheck: localStorage.getItem(LAST_CHECK_KEY) });
+    return null;
+  }
 
   try {
+    trackLog('CHECK_FOR_UPDATE_GET_VERSION', { step: 'getAppVersion' });
     const current = await getAppVersion();
+    trackLog('CHECK_FOR_UPDATE_VERSION_RESULT', { versionName: current.versionName, versionCode: current.versionCode, unknown: current.unknown });
 
     if (current.unknown) {
-      console.warn(`[update-checker] تخطي فحص التحديث — لم يتم تحديد إصدار التطبيق`);
+      trackLog('CHECK_FOR_UPDATE_UNKNOWN_VERSION', { skipped: true });
       return null;
     }
 
@@ -119,8 +126,7 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     const url = `${baseUrl}/api/deployment/app/check-update?versionCode=${current.versionCode}&versionName=${encodeURIComponent(current.versionName)}`;
-    console.log(`[update-checker] فحص التحديث: ${url}`);
-    console.log(`[update-checker] الإصدار الحالي: ${current.versionName} (code: ${current.versionCode})`);
+    trackLog('CHECK_FOR_UPDATE_FETCH', { url, currentVersion: current.versionName });
 
     const res = await fetch(url, {
       headers: { 'Accept': 'application/json' },
@@ -128,22 +134,30 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     });
 
     clearTimeout(timeoutId);
+    trackLog('CHECK_FOR_UPDATE_RESPONSE', { status: res.status, ok: res.ok });
     if (!res.ok) {
-      console.error(`[update-checker] فشل الطلب: status=${res.status}`);
+      trackLog('CHECK_FOR_UPDATE_FETCH_FAIL', { status: res.status });
       return null;
     }
 
     localStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
     const data = await res.json();
-    console.log(`[update-checker] النتيجة:`, JSON.stringify(data));
+    trackLog('CHECK_FOR_UPDATE_RESULT', {
+      updateAvailable: data.updateAvailable,
+      forceUpdate: data.forceUpdate,
+      latestVersion: data.latest?.versionName,
+      hasDownloadUrl: !!data.latest?.downloadUrl,
+    });
     return data;
-  } catch (err) {
-    console.error(`[update-checker] خطأ في فحص التحديث:`, err);
+  } catch (err: any) {
+    trackLog('CHECK_FOR_UPDATE_ERROR', { error: err?.message || String(err) });
     return null;
   }
 }
 
 async function openDownloadUrl(url: string) {
+  const { trackLog } = await import('../lib/debug-tracker');
+  trackLog('OPEN_DOWNLOAD_URL_START', { url: url?.substring(0, 100), isNative: Capacitor.isNativePlatform() });
   try {
     let fullUrl = url;
     if (url && !url.startsWith('http')) {
@@ -152,22 +166,24 @@ async function openDownloadUrl(url: string) {
         : window.location.origin;
       fullUrl = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
     }
-    console.log(`[openDownloadUrl] Opening: ${fullUrl}`);
+    trackLog('OPEN_DOWNLOAD_URL_FULL', { fullUrl: fullUrl?.substring(0, 120) });
 
     if (Capacitor.isNativePlatform()) {
       try {
         const { Browser } = await import('@capacitor/browser');
+        trackLog('OPEN_DOWNLOAD_URL_BROWSER_OPEN', { method: 'capacitor-browser' });
         await Browser.open({ url: fullUrl, presentationStyle: 'popover' });
+        trackLog('OPEN_DOWNLOAD_URL_BROWSER_OK', { success: true });
         return;
-      } catch (browserErr) {
-        console.warn(`[openDownloadUrl] Browser plugin failed, using window.location:`, browserErr);
+      } catch (browserErr: any) {
+        trackLog('OPEN_DOWNLOAD_URL_BROWSER_FAIL', { error: browserErr?.message || String(browserErr) });
         window.open(fullUrl, '_system');
         return;
       }
     }
     window.open(fullUrl, '_blank');
-  } catch (err) {
-    console.error(`[openDownloadUrl] Error:`, err);
+  } catch (err: any) {
+    trackLog('OPEN_DOWNLOAD_URL_ERROR', { error: err?.message || String(err) });
     const base = 'https://app2.binarjoinanelytic.info';
     window.open(`${base}${url.startsWith('/') ? '' : '/'}${url}`, '_system');
   }
@@ -245,23 +261,35 @@ interface UpdateCallbacks {
 }
 
 async function initUpdateChecker(callbacks: UpdateCallbacks) {
+  const { trackLog } = await import('../lib/debug-tracker');
+  trackLog('INIT_UPDATE_CHECKER_START', { isNative: Capacitor.isNativePlatform() });
   if (!Capacitor.isNativePlatform()) return;
 
   activeCallbacks = callbacks;
 
   await createUpdateNotificationChannel();
 
+  trackLog('INIT_UPDATE_CHECKER_CALLING_CHECK', { bypassCooldown: true });
   const info = await checkForUpdate(true);
+  trackLog('INIT_UPDATE_CHECKER_CHECK_RESULT', {
+    hasInfo: !!info,
+    updateAvailable: info?.updateAvailable,
+    forceUpdate: info?.forceUpdate,
+    latestVersion: info?.latest?.versionName,
+    hasDownloadUrl: !!info?.latest?.downloadUrl,
+  });
+
   if (!info || !info.updateAvailable) {
+    trackLog('INIT_UPDATE_CHECKER_NO_UPDATE', { reason: !info ? 'null_info' : 'not_available' });
     callbacks.onNoUpdate?.();
   } else if (info.forceUpdate || !wasDismissed(info.latest.versionCode)) {
+    trackLog('INIT_UPDATE_CHECKER_NOTIFY', { forceUpdate: info.forceUpdate, version: info.latest.versionName });
     callbacks.onUpdateAvailable(info);
     showUpdateNotification(info);
   }
 
   if (!resumeListenerAdded) {
     resumeListenerAdded = true;
-
     try {
       const { App } = await import('@capacitor/app');
       App.addListener('appStateChange', async ({ isActive }) => {
@@ -273,10 +301,11 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
           showUpdateNotification(fresh);
         }
       });
-    } catch (e) {
-      console.warn('[initUpdateChecker] Failed to add resume listener:', e);
+    } catch (e: any) {
+      trackLog('INIT_UPDATE_CHECKER_LISTENER_ERROR', { error: e?.message || String(e) });
     }
   }
+  trackLog('INIT_UPDATE_CHECKER_DONE', { success: true });
 }
 
 export {

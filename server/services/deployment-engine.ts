@@ -1049,12 +1049,15 @@ export class DeploymentEngine {
       let timedOut = false;
       const timer = setTimeout(() => {
         timedOut = true;
+        this.addLog(deploymentId, `[${label}] ⏱️ تجاوز المهلة (${timeoutMs / 1000}s) — جاري إيقاف العملية...`, "warn").catch(() => {});
         try { process.kill(-child.pid!, "SIGTERM"); } catch {}
         setTimeout(() => {
           try { process.kill(-child.pid!, "SIGKILL"); } catch {}
           try { child.kill("SIGKILL"); } catch {}
+          setTimeout(() => {
+            reject(new Error(`${label} timed out after ${timeoutMs / 1000}s`));
+          }, 1000);
         }, 5000);
-        reject(new Error(`${label} timed out after ${timeoutMs / 1000}s`));
       }, timeoutMs);
 
       const processLine = (line: string) => {
@@ -1078,6 +1081,8 @@ export class DeploymentEngine {
       child.on("close", (code, signal) => {
         clearTimeout(timer);
         if (lineBuffer.trim()) processLine(lineBuffer);
+
+        if (timedOut) return;
 
         if (this.isCancelled(deploymentId)) {
           reject(new CancellationError());
@@ -1739,9 +1744,9 @@ export class DeploymentEngine {
       `fi`,
       ``,
       `echo "=== POST_SYNC_MAINACTIVITY ==="`,
-      `if [ -f "$MAIN_ACT" ]; then`,
-      `  if ! grep -q "onSaveInstanceState" "$MAIN_ACT"; then`,
-      `    cat > "$MAIN_ACT" << 'JAVAEOF'`,
+      `mkdir -p "$(dirname "$MAIN_ACT")"`,
+      `if [ ! -f "$MAIN_ACT" ] || ! grep -q "onSaveInstanceState" "$MAIN_ACT"; then`,
+      `  cat > "$MAIN_ACT" << 'JAVAEOF'`,
       `package com.axion.app;`,
       ``,
       `import android.os.Bundle;`,
@@ -1755,11 +1760,10 @@ export class DeploymentEngine {
       `    }`,
       `}`,
       `JAVAEOF`,
-      `    echo "MAINACTIVITY_FIXED"`,
-      `    FIXES=$((FIXES+1))`,
-      `  else`,
-      `    echo "MAINACTIVITY_OK"`,
-      `  fi`,
+      `  echo "MAINACTIVITY_FIXED"`,
+      `  FIXES=$((FIXES+1))`,
+      `else`,
+      `  echo "MAINACTIVITY_OK"`,
       `fi`,
       ``,
       `echo "=== POST_SYNC_KEYSTORE ==="`,
@@ -1779,9 +1783,9 @@ export class DeploymentEngine {
       ``,
       `echo "=== POST_SYNC_FILE_PATHS ==="`,
       `FP="$DIR/android/app/src/main/res/xml/file_paths.xml"`,
-      `if [ -f "$FP" ]; then`,
-      `  if ! grep -q "external-cache-path" "$FP"; then`,
-      `    cat > "$FP" << 'FPEOF'`,
+      `mkdir -p "$(dirname "$FP")"`,
+      `if [ ! -f "$FP" ] || ! grep -q "external-cache-path" "$FP"; then`,
+      `  cat > "$FP" << 'FPEOF'`,
       `<?xml version="1.0" encoding="utf-8"?>`,
       `<paths xmlns:android="http://schemas.android.com/apk/res/android">`,
       `    <cache-path name="my_cache_images" path="." />`,
@@ -1789,11 +1793,10 @@ export class DeploymentEngine {
       `    <external-cache-path name="my_external_cache" path="." />`,
       `</paths>`,
       `FPEOF`,
-      `    echo "FILE_PATHS_FIXED"`,
-      `    FIXES=$((FIXES+1))`,
-      `  else`,
-      `    echo "FILE_PATHS_OK"`,
-      `  fi`,
+      `  echo "FILE_PATHS_FIXED"`,
+      `  FIXES=$((FIXES+1))`,
+      `else`,
+      `  echo "FILE_PATHS_OK"`,
       `fi`,
       ``,
       `echo "POST_SYNC_TOTAL_FIXES=$FIXES"`,

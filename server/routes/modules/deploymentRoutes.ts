@@ -94,9 +94,19 @@ publicRouter.get("/app/check-update", async (req: Request, res: Response) => {
     const byVersionCode = clientVersionCode > 0 && latest.versionCode > clientVersionCode;
     const updateAvailable = clientVersionUnknown ? true : (byVersionName || byVersionCode);
 
-    const forceUpdate = updateAvailable;
+    const FORCE_UPDATE_MIN_VERSION = process.env.FORCE_UPDATE_MIN_VERSION || "1.0.28";
+    const FORCE_UPDATE_EXEMPT_VERSIONS = new Set(
+      (process.env.FORCE_UPDATE_EXEMPT_VERSIONS || "").split(",").map(v => v.trim()).filter(Boolean)
+    );
 
-    console.log(`[check-update] client=${clientVersionName}(${clientVersionCode}) latest=${latest.versionName}(${latest.versionCode}) byName=${byVersionName} byCode=${byVersionCode} update=${updateAvailable} unknown=${clientVersionUnknown}`);
+    let forceUpdate = false;
+    if (updateAvailable && !clientVersionUnknown) {
+      const isExempt = FORCE_UPDATE_EXEMPT_VERSIONS.has(clientVersionName);
+      const isAtOrAboveMinForce = compareVersions(clientVersionName, FORCE_UPDATE_MIN_VERSION) >= 0;
+      forceUpdate = !isExempt && isAtOrAboveMinForce;
+    }
+
+    console.log(`[check-update] client=${clientVersionName}(${clientVersionCode}) latest=${latest.versionName}(${latest.versionCode}) byName=${byVersionName} byCode=${byVersionCode} update=${updateAvailable} force=${forceUpdate} unknown=${clientVersionUnknown} minForce=${FORCE_UPDATE_MIN_VERSION}`);
 
     res.json({
       updateAvailable,

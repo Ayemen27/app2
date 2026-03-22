@@ -10,6 +10,15 @@ import { listAvailablePipelines, isPipelineSupported } from "../../config/pipeli
 const router = Router();
 const publicRouter = Router();
 
+function setApkDownloadHeaders(res: Response, fileName: string, fileSize: number): void {
+  res.setHeader("Content-Type", "application/vnd.android.package-archive");
+  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.setHeader("Content-Length", String(fileSize));
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "no-store");
+}
+
 deploymentEngine.recoverOrphanedDeployments().catch(err => {
   console.error("[DeploymentRoutes] Failed to recover orphaned deployments:", err);
 });
@@ -303,9 +312,7 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
     return;
   }
 
-  res.setHeader("Content-Type", "application/vnd.android.package-archive");
-  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-  res.setHeader("Content-Length", String(fileSize));
+  setApkDownloadHeaders(res, fileName, fileSize);
 
   const child = spawn("bash", ["-c",
     `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${port} ${user}@${host} "cat '${remotePath}'"`
@@ -390,7 +397,7 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
+async function handlePublicApkDownload(req: Request, res: Response): Promise<void> {
   const SSH_SIZE_TIMEOUT_MS = 20000;
   const SSH_STREAM_TIMEOUT_MS = 120000;
 
@@ -490,11 +497,12 @@ publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    res.setHeader("Content-Type", "application/vnd.android.package-archive");
-    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-    res.setHeader("Content-Length", String(fileSize));
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("X-Content-Type-Options", "nosniff");
+    setApkDownloadHeaders(res, fileName, fileSize);
+
+    if (req.method === "HEAD") {
+      res.end();
+      return;
+    }
 
     const child = spawn("bash", ["-c",
       `${sshPrefix} ${user}@${host} "cat '${remotePath}'"`
@@ -532,7 +540,10 @@ publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
     console.error("[Public APK Download] Error:", err.message);
     if (!res.headersSent) res.status(500).json({ error: "خطأ داخلي" });
   }
-});
+}
+
+publicRouter.get("/app/download/:id", handlePublicApkDownload);
+publicRouter.head("/app/download/:id", handlePublicApkDownload);
 
 router.get("/dora-metrics", requireAuth, requireAdmin, asyncHandler(async (_req: Request, res: Response) => {
   const metrics = await DeploymentLogger.calculateDORAMetrics(30);

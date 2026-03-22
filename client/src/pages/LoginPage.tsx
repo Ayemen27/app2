@@ -1,6 +1,8 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { AppUpdateDialog } from "../components/update/AppUpdateDialog";
+import { dismissVersion } from "../services/appUpdateChecker";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -238,27 +240,18 @@ export default function LoginPage() {
     trackLog('DOWNLOAD_UPDATE_START', {
       hasUpdateData: !!updateData,
       hasDownloadUrl: !!updateData?.latest?.downloadUrl,
-      downloadUrl: updateData?.latest?.downloadUrl?.substring(0, 80) || 'NULL',
     });
     if (!updateData?.latest?.downloadUrl) {
-      trackLog('DOWNLOAD_UPDATE_NO_URL', { updateData: JSON.stringify(updateData)?.substring(0, 200) });
+      trackLog('DOWNLOAD_UPDATE_NO_URL', {});
       return;
     }
     setIsDownloadingUpdate(true);
     try {
       const { openDownloadUrl } = await import('../services/appUpdateChecker');
-      trackLog('DOWNLOAD_UPDATE_OPENING', { url: updateData.latest.downloadUrl.substring(0, 80) });
-      await openDownloadUrl(updateData.latest.downloadUrl);
-      trackLog('DOWNLOAD_UPDATE_SUCCESS', { opened: true });
+      const result = await openDownloadUrl(updateData.latest.downloadUrl);
+      trackLog('DOWNLOAD_UPDATE_RESULT', { success: result.success, method: result.method });
     } catch (err: any) {
       trackLog('DOWNLOAD_UPDATE_ERROR', { error: err?.message || String(err) });
-      try {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'display:none;';
-        iframe.src = updateData.latest.downloadUrl;
-        document.body.appendChild(iframe);
-        setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 30000);
-      } catch {}
     } finally {
       setTimeout(() => setIsDownloadingUpdate(false), 5000);
     }
@@ -871,83 +864,26 @@ export default function LoginPage() {
       </div>
 
       {forceUpdateInfo && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 p-4" data-testid="force-update-overlay">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-4 border border-slate-200 dark:border-slate-700" dir="rtl">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-red-500/10 flex items-center justify-center">
-              <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            {forceUpdateInfo.forceUpdate ? (
-              <div className="space-y-1">
-                <h3 className="text-lg font-bold text-red-600 dark:text-red-400" data-testid="text-force-update-title">تحديث إجباري مطلوب</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  يجب تحديث التطبيق إلى الإصدار <span className="font-mono font-bold text-slate-800 dark:text-white">v{forceUpdateInfo.latest.versionName}</span> للمتابعة
-                </p>
-                <p className="text-xs text-red-500 font-medium">
-                  لا يمكن استخدام التطبيق بالإصدار الحالي v{forceUpdateInfo.current.versionName}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white" data-testid="text-update-title">تحديث جديد متاح!</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  الإصدار <span className="font-mono font-bold text-slate-800 dark:text-white">v{forceUpdateInfo.latest.versionName}</span> متاح للتحميل
-                </p>
-                <p className="text-xs text-slate-400">
-                  الإصدار الحالي: <span className="font-mono">v{forceUpdateInfo.current.versionName}</span>
-                </p>
-              </div>
-            )}
-            {forceUpdateInfo.latest.releaseNotes && (
-              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-right max-h-[200px] overflow-y-auto">
-                <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">ما الجديد في هذا التحديث</p>
-                <div className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-line leading-relaxed">
-                  {forceUpdateInfo.latest.releaseNotes}
-                </div>
-              </div>
-            )}
-            <div className="flex flex-col gap-2 pt-2">
-              {forceUpdateInfo.latest.downloadUrl ? (
-                <button
-                  data-testid="button-force-update-download"
-                  disabled={isDownloadingUpdate}
-                  onClick={async () => {
-                    if (isDownloadingUpdate) return;
-                    setIsDownloadingUpdate(true);
-                    try {
-                      const { openDownloadUrl } = await import('../services/appUpdateChecker');
-                      await openDownloadUrl(forceUpdateInfo.latest.downloadUrl);
-                    } finally {
-                      setTimeout(() => setIsDownloadingUpdate(false), 5000);
-                    }
-                  }}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm hover:from-red-500 hover:to-red-400 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isDownloadingUpdate
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />جارٍ التحضير...</>
-                    : 'تحديث الآن'
-                  }
-                </button>
-              ) : (
-                <p className="text-xs text-amber-500 font-medium" data-testid="text-no-download-url">رابط التحميل غير متوفر حالياً — أعد المحاولة لاحقاً</p>
-              )}
-              {!forceUpdateInfo.forceUpdate && (
-                <button
-                  data-testid="button-update-dismiss"
-                  onClick={async () => {
-                    const { dismissVersion } = await import('../services/appUpdateChecker');
-                    dismissVersion(forceUpdateInfo.latest.versionCode);
-                    setForceUpdateInfo(null);
-                  }}
-                  className="w-full py-2.5 rounded-xl text-sm text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                >
-                  لاحقاً
-                </button>
-              )}
-            </div>
-          </div>
-        </div>,
+        <AppUpdateDialog
+          info={forceUpdateInfo}
+          onDismiss={() => {
+            dismissVersion(forceUpdateInfo.latest.versionCode);
+            setForceUpdateInfo(null);
+          }}
+          onUpdateNow={async (url) => {
+            const { openDownloadUrl } = await import('../services/appUpdateChecker');
+            const result = await openDownloadUrl(url);
+            return { success: result.success, method: result.method, error: result.error };
+          }}
+          onCopyLink={async (url) => {
+            try {
+              const fullUrl = url.startsWith('http') ? url : `https://app2.binarjoinanelytic.info${url.startsWith('/') ? '' : '/'}${url}`;
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(fullUrl);
+              }
+            } catch {}
+          }}
+        />,
         document.body
       )}
     </div>

@@ -183,93 +183,184 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
   }
 }
 
+interface DownloadResult {
+  success: boolean;
+  method: 'location_assign' | 'intent_chrome' | 'clipboard' | 'window_open' | 'none';
+  error?: string;
+}
+
 let _downloadInProgress = false;
 
-async function openDownloadUrl(url: string) {
+function sanitizeUrlForLog(url: string): string {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url, 'https://placeholder.local');
+    if (parsed.searchParams.has('token')) {
+      parsed.searchParams.set('token', '***REDACTED***');
+    }
+    const clean = parsed.toString().replace('https://placeholder.local', '');
+    return clean.substring(0, 120);
+  } catch {
+    return url.replace(/token=[^&]+/gi, 'token=***REDACTED***').substring(0, 120);
+  }
+}
+
+function buildFullUrl(url: string): string {
+  if (url && url.startsWith('http')) return url;
+  const base = Capacitor.isNativePlatform()
+    ? 'https://app2.binarjoinanelytic.info'
+    : window.location.origin;
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function buildIntentUri(httpsUrl: string): string {
+  const parsed = new URL(httpsUrl);
+  return `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=https;package=com.android.chrome;end;`;
+}
+
+async function tryLocationAssign(fullUrl: string): Promise<boolean> {
+  window.location.assign(fullUrl);
+  return true;
+}
+
+async function tryIntentChrome(fullUrl: string): Promise<boolean> {
+  const intentUri = buildIntentUri(fullUrl);
+  window.location.assign(intentUri);
+  return true;
+}
+
+async function tryCopyToClipboard(fullUrl: string): Promise<boolean> {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(fullUrl);
+    return true;
+  }
+  const textArea = document.createElement('textarea');
+  textArea.value = fullUrl;
+  textArea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+  document.body.appendChild(textArea);
+  textArea.select();
+  const ok = document.execCommand('copy');
+  document.body.removeChild(textArea);
+  return ok;
+}
+
+async function openDownloadUrl(url: string): Promise<DownloadResult> {
   const { trackLog } = await import('../lib/debug-tracker');
 
   if (_downloadInProgress) {
     trackLog('OPEN_DOWNLOAD_URL_DEBOUNCED', { reason: 'download_already_in_progress' });
-    return;
+    return { success: false, method: 'none', error: 'download_already_in_progress' };
   }
   _downloadInProgress = true;
   setTimeout(() => { _downloadInProgress = false; }, 8000);
 
-  trackLog('OPEN_DOWNLOAD_URL_START', { url: url?.substring(0, 100), isNative: Capacitor.isNativePlatform() });
+  const fullUrl = buildFullUrl(url);
+  trackLog('OPEN_DOWNLOAD_URL_START', { url: sanitizeUrlForLog(fullUrl), isNative: Capacitor.isNativePlatform() });
+
   try {
-    let fullUrl = url;
-    if (url && !url.startsWith('http')) {
-      const base = Capacitor.isNativePlatform()
-        ? 'https://app2.binarjoinanelytic.info'
-        : window.location.origin;
-      fullUrl = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
-    }
-    trackLog('OPEN_DOWNLOAD_URL_FULL', { fullUrl: fullUrl?.substring(0, 120) });
-
-    if (Capacitor.isNativePlatform()) {
-      const capPlugins = (window as any).Capacitor?.Plugins;
-
-      if (capPlugins?.Browser?.open) {
-        try {
-          trackLog('OPEN_DOWNLOAD_URL_NATIVE_BROWSER', { method: 'Capacitor.Plugins.Browser' });
-          await capPlugins.Browser.open({ url: fullUrl, presentationStyle: 'popover' });
-          trackLog('OPEN_DOWNLOAD_URL_NATIVE_BROWSER_OK', { success: true });
-          return;
-        } catch (e: any) {
-          trackLog('OPEN_DOWNLOAD_URL_NATIVE_BROWSER_FAIL', { error: e?.message || String(e) });
-        }
-      } else {
-        trackLog('OPEN_DOWNLOAD_URL_NO_BROWSER_PLUGIN', { hasCapPlugins: !!capPlugins, pluginKeys: Object.keys(capPlugins || {}).join(',') });
-      }
-
-      try {
-        const { Browser } = await import('@capacitor/browser');
-        trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER', { method: 'dynamic-import' });
-        await Browser.open({ url: fullUrl, presentationStyle: 'popover' });
-        trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER_OK', { success: true });
-        return;
-      } catch (browserErr: any) {
-        trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER_FAIL', { error: browserErr?.message || String(browserErr) });
-      }
-
-      try {
-        trackLog('OPEN_DOWNLOAD_URL_INAPPBROWSER', { method: 'InAppBrowser.openInExternalBrowser' });
-        const { InAppBrowser } = await import('@capacitor/inappbrowser');
-        await (InAppBrowser as any).openInExternalBrowser({ url: fullUrl });
-        trackLog('OPEN_DOWNLOAD_URL_INAPPBROWSER_OK', { success: true });
-        return;
-      } catch (iabErr: any) {
-        trackLog('OPEN_DOWNLOAD_URL_INAPPBROWSER_FAIL', {
-          error: iabErr?.message || String(iabErr),
-          note: 'requires_cap_sync_android_rebuild',
-        });
-      }
-
-      trackLog('OPEN_DOWNLOAD_URL_IFRAME', { method: 'hidden-iframe' });
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'display:none;width:0;height:0;position:absolute;left:-9999px;top:-9999px;';
-      iframe.src = fullUrl;
-      document.body.appendChild(iframe);
-      setTimeout(() => {
-        try { document.body.removeChild(iframe); } catch {}
-      }, 30000);
-      trackLog('OPEN_DOWNLOAD_URL_IFRAME_OK', { success: true });
-      return;
+    if (!Capacitor.isNativePlatform()) {
+      window.open(fullUrl, '_blank');
+      _downloadInProgress = false;
+      return { success: true, method: 'window_open' };
     }
 
-    window.open(fullUrl, '_blank');
+    trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'location_assign' });
+    try {
+      await tryLocationAssign(fullUrl);
+      trackLog('OPEN_DOWNLOAD_URL_OK', { method: 'location_assign' });
+
+      const confirmed = await waitForVisibilityConfirmation(1500);
+      if (confirmed) {
+        return { success: true, method: 'location_assign' };
+      }
+      trackLog('OPEN_DOWNLOAD_URL_NO_CONFIRM', { method: 'location_assign', note: 'no_visibility_change_detected' });
+    } catch (e: any) {
+      trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'location_assign', error: e?.message || String(e) });
+    }
+
+    trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'intent_chrome' });
+    try {
+      await tryIntentChrome(fullUrl);
+      trackLog('OPEN_DOWNLOAD_URL_OK', { method: 'intent_chrome' });
+
+      const confirmed = await waitForVisibilityConfirmation(2000);
+      if (confirmed) {
+        return { success: true, method: 'intent_chrome' };
+      }
+      trackLog('OPEN_DOWNLOAD_URL_NO_CONFIRM', { method: 'intent_chrome', note: 'chrome_may_not_be_installed' });
+    } catch (e: any) {
+      trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'intent_chrome', error: e?.message || String(e) });
+    }
+
+    trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'clipboard' });
+    try {
+      const copied = await tryCopyToClipboard(fullUrl);
+      if (copied) {
+        trackLog('OPEN_DOWNLOAD_URL_OK', { method: 'clipboard' });
+        return { success: true, method: 'clipboard' };
+      }
+    } catch (e: any) {
+      trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'clipboard', error: e?.message || String(e) });
+    }
+
+    trackLog('OPEN_DOWNLOAD_URL_ALL_FAILED', { attempts: 3 });
+    return { success: false, method: 'none', error: 'all_methods_failed' };
   } catch (err: any) {
     trackLog('OPEN_DOWNLOAD_URL_ERROR', { error: err?.message || String(err) });
-    try {
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'display:none;';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 30000);
-    } catch {}
+    return { success: false, method: 'none', error: err?.message || String(err) };
   } finally {
     setTimeout(() => { _downloadInProgress = false; }, 3000);
   }
+}
+
+function waitForVisibilityConfirmation(timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (document.hidden) {
+      resolve(true);
+      return;
+    }
+
+    let resolved = false;
+    const handler = () => {
+      if (!resolved && document.hidden) {
+        resolved = true;
+        document.removeEventListener('visibilitychange', handler);
+        resolve(true);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handler);
+
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        document.removeEventListener('visibilitychange', handler);
+        resolve(false);
+      }
+    }, timeoutMs);
+  });
+}
+
+async function openDownloadUrlWithRetry(url: string, maxAttempts = 2): Promise<DownloadResult> {
+  const { trackLog } = await import('../lib/debug-tracker');
+  const delays = [0, 2000];
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (delays[attempt] > 0) {
+      trackLog('OPEN_DOWNLOAD_RETRY_WAIT', { attempt: attempt + 1, delayMs: delays[attempt] });
+      await new Promise(r => setTimeout(r, delays[attempt]));
+    }
+
+    const result = await openDownloadUrl(url);
+    if (result.success) {
+      trackLog('OPEN_DOWNLOAD_RETRY_OK', { attempt: attempt + 1, method: result.method });
+      return result;
+    }
+
+    trackLog('OPEN_DOWNLOAD_RETRY_FAIL', { attempt: attempt + 1, error: result.error });
+  }
+
+  return { success: false, method: 'none', error: 'all_retry_attempts_exhausted' };
 }
 
 const NOTIFIED_VERSION_KEY = 'app_update_notified_version';
@@ -395,8 +486,10 @@ export {
   checkForUpdate,
   initUpdateChecker,
   openDownloadUrl,
+  openDownloadUrlWithRetry,
   dismissVersion,
   getAppVersion,
   showUpdateNotification,
   type UpdateInfo,
+  type DownloadResult,
 };

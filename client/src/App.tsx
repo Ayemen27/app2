@@ -160,91 +160,8 @@ function WorkerMiscExpensesPage() {
   );
 }
 
-function UpdateDialog({ info, onDismiss }: { info: any; onDismiss: () => void }) {
-  const isForced = info.forceUpdate === true;
-
-  const handleUpdate = async () => {
-    const { openDownloadUrl } = await import('./services/appUpdateChecker');
-    if (info.latest.downloadUrl) {
-      openDownloadUrl(info.latest.downloadUrl);
-    }
-  };
-
-  const handleLater = async () => {
-    if (isForced) return;
-    const { dismissVersion } = await import('./services/appUpdateChecker');
-    dismissVersion(info.latest.versionCode);
-    onDismiss();
-  };
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4" data-testid="update-dialog-overlay">
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-4 border border-border" dir="rtl" data-testid="update-dialog">
-        <div className="w-16 h-16 mx-auto rounded-2xl bg-red-500/10 flex items-center justify-center">
-          <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-          </svg>
-        </div>
-        {isForced ? (
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-red-600 dark:text-red-400">تحديث إجباري مطلوب</h3>
-            <p className="text-sm text-muted-foreground">
-              يجب تحديث التطبيق إلى الإصدار <span className="font-mono font-bold text-foreground">v{info.latest.versionName}</span> للمتابعة
-            </p>
-            <p className="text-xs text-red-500 font-medium">
-              لا يمكن استخدام التطبيق بالإصدار الحالي v{info.current.versionName}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-foreground">تحديث جديد متاح!</h3>
-            <p className="text-sm text-muted-foreground">
-              الإصدار <span className="font-mono font-bold text-foreground">v{info.latest.versionName}</span> متاح للتحميل
-            </p>
-            <p className="text-xs text-muted-foreground">
-              الإصدار الحالي: <span className="font-mono">v{info.current.versionName}</span>
-            </p>
-          </div>
-        )}
-        {info.latest.releaseNotes && (
-          <div className="bg-muted/50 rounded-xl p-3 text-right max-h-[200px] overflow-y-auto" data-testid="release-notes">
-            <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5 justify-end">
-              <span>ما الجديد في هذا التحديث</span>
-              <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </p>
-            <div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
-              {info.latest.releaseNotes}
-            </div>
-          </div>
-        )}
-        <div className="flex flex-col gap-2 pt-2">
-          {info.latest.downloadUrl ? (
-            <button
-              data-testid="button-update-now"
-              onClick={handleUpdate}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm hover:from-red-500 hover:to-red-400 transition-all"
-            >
-              تحديث الآن
-            </button>
-          ) : (
-            <p className="text-xs text-amber-500 font-medium" data-testid="text-no-download">رابط التحميل غير متوفر حالياً — أعد المحاولة لاحقاً</p>
-          )}
-          {!isForced && (
-            <button
-              data-testid="button-update-later"
-              onClick={handleLater}
-              className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:bg-muted/50 transition-all"
-            >
-              لاحقاً
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+import { AppUpdateDialog } from './components/update/AppUpdateDialog';
+import { openDownloadUrl as appOpenDownloadUrl, dismissVersion as appDismissVersion } from './services/appUpdateChecker';
 
 function Router() {
   useWebSocketSync();
@@ -342,7 +259,25 @@ function Router() {
   return (
     <>
       {updateInfo && (
-        <UpdateDialog info={updateInfo} onDismiss={() => setUpdateInfo(null)} />
+        <AppUpdateDialog
+          info={updateInfo}
+          onDismiss={() => {
+            appDismissVersion(updateInfo.latest.versionCode);
+            setUpdateInfo(null);
+          }}
+          onUpdateNow={async (url) => {
+            const result = await appOpenDownloadUrl(url);
+            return { success: result.success, method: result.method, error: result.error };
+          }}
+          onCopyLink={async (url) => {
+            try {
+              const fullUrl = url.startsWith('http') ? url : `https://app2.binarjoinanelytic.info${url.startsWith('/') ? '' : '/'}${url}`;
+              if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(fullUrl);
+              }
+            } catch {}
+          }}
+        />
       )}
     <Switch>
       <Route path="/">

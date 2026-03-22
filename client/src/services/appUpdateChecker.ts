@@ -190,15 +190,29 @@ async function openDownloadUrl(url: string) {
         return;
       } catch (browserErr: any) {
         trackLog('OPEN_DOWNLOAD_URL_BROWSER_FAIL', { error: browserErr?.message || String(browserErr) });
-        window.open(fullUrl, '_system');
-        return;
       }
+
+      const a = document.createElement('a');
+      a.href = fullUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.setAttribute('download', '');
+      document.body.appendChild(a);
+      trackLog('OPEN_DOWNLOAD_URL_ANCHOR_CLICK', { method: 'anchor-element', href: fullUrl?.substring(0, 80) });
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 1000);
+
+      setTimeout(() => {
+        trackLog('OPEN_DOWNLOAD_URL_LOCATION_FALLBACK', { method: 'window-location' });
+        window.location.href = fullUrl;
+      }, 2000);
+      return;
     }
     window.open(fullUrl, '_blank');
   } catch (err: any) {
     trackLog('OPEN_DOWNLOAD_URL_ERROR', { error: err?.message || String(err) });
     const base = 'https://app2.binarjoinanelytic.info';
-    window.open(`${base}${url.startsWith('/') ? '' : '/'}${url}`, '_system');
+    window.location.href = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 }
 

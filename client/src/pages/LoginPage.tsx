@@ -329,7 +329,7 @@ export default function LoginPage() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="mx-3" />
                 <DropdownMenuItem
-                  onClick={() => { setShowUpdateCheck(true); setUpdateCheckState('idle'); setUpdateData(null); }}
+                  onClick={() => { setShowUpdateCheck(true); setUpdateCheckState('checking'); setUpdateData(null); setTimeout(() => handleCheckUpdate(), 100); }}
                   className="gap-3 px-4 py-3 text-sm font-bold cursor-pointer"
                   data-testid="button-check-update"
                 >

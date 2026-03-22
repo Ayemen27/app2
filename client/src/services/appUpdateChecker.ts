@@ -125,9 +125,10 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     const current = await getAppVersion();
     trackLog('CHECK_FOR_UPDATE_VERSION_RESULT', { versionName: current.versionName, versionCode: current.versionCode, unknown: current.unknown });
 
+    const checkVersion = current.unknown ? '0.0.0' : current.versionName;
+    const checkCode = current.unknown ? 0 : current.versionCode;
     if (current.unknown) {
-      trackLog('CHECK_FOR_UPDATE_UNKNOWN_VERSION', { skipped: true });
-      return null;
+      trackLog('CHECK_FOR_UPDATE_UNKNOWN_FALLBACK', { usingVersion: checkVersion, reason: 'native_version_unknown_will_check_anyway' });
     }
 
     const baseUrl = Capacitor.isNativePlatform()
@@ -137,7 +138,7 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const url = `${baseUrl}/api/deployment/app/check-update?versionCode=${current.versionCode}&versionName=${encodeURIComponent(current.versionName)}`;
+    const url = `${baseUrl}/api/deployment/app/check-update?versionCode=${checkCode}&versionName=${encodeURIComponent(checkVersion)}`;
     trackLog('CHECK_FOR_UPDATE_FETCH', { url, currentVersion: current.versionName });
 
     const res = await fetch(url, {

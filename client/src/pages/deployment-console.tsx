@@ -277,6 +277,7 @@ export default function DeploymentConsole() {
   refetchHistoryRef.current = refetchHistory;
 
   const stopTracking = useCallback(() => {
+    trackingGenerationRef.current++;
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
@@ -322,7 +323,17 @@ export default function DeploymentConsole() {
       } catch {
         pollRetryCountRef.current++;
         if (pollRetryCountRef.current >= MAX_POLL_RETRIES) {
-          stopTracking();
+          toast({ title: "انقطع الاتصال بالخادم", description: "جارٍ إعادة المحاولة...", variant: "destructive" });
+          pollRetryCountRef.current = 0;
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          setTimeout(() => {
+            if (generation === trackingGenerationRef.current && activeDeploymentIdRef.current === deploymentId) {
+              startPollingOnly(deploymentId, 5000);
+            }
+          }, 10000);
         }
       } finally {
         pollInFlightRef.current = false;

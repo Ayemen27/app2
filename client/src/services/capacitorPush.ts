@@ -3,21 +3,41 @@ import { authFetch } from '@/lib/auth-token-store';
 import { PushNotifications, PermissionStatus, Token } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 
-/**
- * طلب جميع الصلاحيات المطلوبة للتطبيق
- */
 export const requestAllPermissions = async () => {
   if (!Capacitor.isNativePlatform()) return;
 
   try {
-    // 1. صلاحيات الإشعارات
     const pushPerm = await PushNotifications.requestPermissions();
     console.log('[Permissions] Push status:', pushPerm.receive);
 
-    // ملاحظة: الصلاحيات الأخرى مثل الكاميرا والموقع يتم طلبها عادة عند الحاجة 
-    // عبر الـ plugins الخاصة بها. هنا نضمن طلب الإشعارات على الأقل.
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      const localPerm = await LocalNotifications.requestPermissions();
+      console.log('[Permissions] LocalNotifications status:', localPerm.display);
+
+      try {
+        const exactSetting = await LocalNotifications.checkExactNotificationSetting();
+        console.log('[Permissions] ExactAlarm status:', exactSetting.value);
+        if (exactSetting.value !== 'granted') {
+          console.log('[Permissions] ExactAlarm not granted, prompting user...');
+          await LocalNotifications.changeExactNotificationSetting();
+        }
+      } catch (exactErr) {
+        console.log('[Permissions] ExactAlarm check not supported on this API level');
+      }
+    } catch (localErr) {
+      console.error('[Permissions] LocalNotifications error:', localErr);
+    }
+
+    try {
+      const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
+      const bioResult = await NativeBiometric.isAvailable();
+      console.log('[Permissions] Biometric available:', bioResult.isAvailable, 'type:', bioResult.biometryType);
+    } catch (bioErr) {
+      console.log('[Permissions] Biometric check skipped:', bioErr);
+    }
   } catch (err) {
-    console.error('[Permissions] Error requesting all permissions:', err);
+    console.error('[Permissions] Error requesting permissions:', err);
   }
 };
 

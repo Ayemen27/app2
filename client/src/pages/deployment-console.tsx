@@ -269,56 +269,20 @@ export default function DeploymentConsole() {
   const globalSSERef = useRef<EventSource | null>(null);
   const globalSSERetryRef = useRef(0);
   const sseReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeDeploymentIdRef = useRef<string | null>(null);
+  const pollInFlightRef = useRef(false);
+  const trackingGenerationRef = useRef(0);
+  const sseRetryCountRef = useRef(0);
+  const refetchHistoryRef = useRef(refetchHistory);
+  refetchHistoryRef.current = refetchHistory;
 
-  const stopPolling = useCallback(() => {
+  const stopTracking = useCallback(() => {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
     pollRetryCountRef.current = 0;
-  }, []);
-
-  const activePollingDeploymentRef = useRef<string | null>(null);
-
-  const startPolling = useCallback((deploymentId: string, interval?: number) => {
-    stopPolling();
-    activePollingDeploymentRef.current = deploymentId;
-    
-    const poll = async () => {
-      try {
-        const data = await apiRequest(`/api/deployment/${deploymentId}`);
-        pollRetryCountRef.current = 0;
-        setLiveDeployment(data);
-        setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
-        const isTerminal = data.status === "success" || data.status === "failed" || data.status === "cancelled";
-        if (isTerminal) {
-          stopPolling();
-          activePollingDeploymentRef.current = null;
-          if (eventSourceRef.current) {
-            eventSourceRef.current.close();
-            eventSourceRef.current = null;
-            sseConnectedRef.current = false;
-          }
-          refetchHistory();
-          queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
-        }
-      } catch {
-        pollRetryCountRef.current++;
-        if (pollRetryCountRef.current >= MAX_POLL_RETRIES) {
-          stopPolling();
-          activePollingDeploymentRef.current = null;
-        }
-      }
-    };
-
-    poll();
-    const POLL_INTERVAL = interval ?? (sseConnectedRef.current ? 8000 : 2000);
-    pollIntervalRef.current = setInterval(poll, POLL_INTERVAL);
-  }, [refetchHistory, queryClient, stopPolling]);
-
-  const sseRetryCountRef = useRef(0);
-
-  const connectSSE = useCallback((deploymentId: string) => {
+    pollInFlightRef.current = false;
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
@@ -328,22 +292,77 @@ export default function DeploymentConsole() {
       sseReconnectTimerRef.current = null;
     }
     sseConnectedRef.current = false;
+    sseRetryCountRef.current = 0;
+  }, []);
 
+  const startPollingOnly = useCallback((deploymentId: string, interval: number) => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    const generation = trackingGenerationRef.current;
+
+    const poll = async () => {
+      if (generation !== trackingGenerationRef.current) return;
+      if (activeDeploymentIdRef.current !== deploymentId) return;
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
+      try {
+        const data = await apiRequest(`/api/deployment/${deploymentId}`);
+        if (generation !== trackingGenerationRef.current || activeDeploymentIdRef.current !== deploymentId) return;
+        pollRetryCountRef.current = 0;
+        setLiveDeployment(data);
+        setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
+        const isTerminal = data.status === "success" || data.status === "failed" || data.status === "cancelled";
+        if (isTerminal) {
+          stopTracking();
+          refetchHistoryRef.current();
+          queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+        }
+      } catch {
+        pollRetryCountRef.current++;
+        if (pollRetryCountRef.current >= MAX_POLL_RETRIES) {
+          stopTracking();
+        }
+      } finally {
+        pollInFlightRef.current = false;
+      }
+    };
+
+    poll();
+    pollIntervalRef.current = setInterval(poll, interval);
+  }, [queryClient, stopTracking]);
+
+  const connectSSEOnly = useCallback((deploymentId: string) => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (sseReconnectTimerRef.current) {
+      clearTimeout(sseReconnectTimerRef.current);
+      sseReconnectTimerRef.current = null;
+    }
+    sseConnectedRef.current = false;
+    const generation = trackingGenerationRef.current;
     const apiBase = ENV.getApiBaseUrl();
-    
+
     try {
       const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream`, { withCredentials: true });
       eventSourceRef.current = es;
 
       es.onopen = () => {
+        if (generation !== trackingGenerationRef.current) { es.close(); return; }
         sseConnectedRef.current = true;
         sseRetryCountRef.current = 0;
-        if (activePollingDeploymentRef.current) {
-          startPolling(activePollingDeploymentRef.current, 8000);
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
         }
+        startPollingOnly(deploymentId, 8000);
       };
 
       es.onmessage = (event) => {
+        if (generation !== trackingGenerationRef.current) { es.close(); return; }
         try {
           const payload = JSON.parse(event.data);
 
@@ -351,22 +370,17 @@ export default function DeploymentConsole() {
             setLiveDeployment(payload.data);
             setLiveLogs(Array.isArray(payload.data.logs) ? payload.data.logs : []);
             if (payload.data.status !== "running") {
-              es.close();
-              eventSourceRef.current = null;
-              sseConnectedRef.current = false;
-              stopPolling();
+              stopTracking();
+              refetchHistoryRef.current();
+              queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
             }
           } else if (payload.type === "log") {
             setLiveLogs(prev => [...prev, payload.data]);
           } else if (payload.type === "deployment_update") {
             setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
-
             if (payload.data.status === "success" || payload.data.status === "failed" || payload.data.status === "cancelled") {
-              es.close();
-              eventSourceRef.current = null;
-              sseConnectedRef.current = false;
-              stopPolling();
-              refetchHistory();
+              stopTracking();
+              refetchHistoryRef.current();
               queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
             }
           } else if (payload.type === "step_update") {
@@ -390,37 +404,48 @@ export default function DeploymentConsole() {
               return { ...prev, steps };
             });
           }
-        } catch { /* malformed SSE data */ }
+        } catch {}
       };
 
       es.onerror = () => {
+        if (generation !== trackingGenerationRef.current) { es.close(); return; }
         sseConnectedRef.current = false;
         es.close();
         eventSourceRef.current = null;
         sseRetryCountRef.current++;
         const delay = Math.min(1000 * Math.pow(2, sseRetryCountRef.current - 1), 30000) + Math.random() * 1000;
         sseReconnectTimerRef.current = setTimeout(() => {
-          connectSSE(deploymentId);
+          if (generation === trackingGenerationRef.current) {
+            connectSSEOnly(deploymentId);
+          }
         }, delay);
-        if (activePollingDeploymentRef.current) {
-          startPolling(activePollingDeploymentRef.current, 2000);
-        } else {
-          startPolling(deploymentId, 2000);
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
         }
+        startPollingOnly(deploymentId, 3000);
       };
     } catch {
       sseRetryCountRef.current++;
-      if (!pollIntervalRef.current) {
-        startPolling(deploymentId);
-      }
+      startPollingOnly(deploymentId, 3000);
     }
-  }, [refetchHistory, queryClient, startPolling, stopPolling]);
+  }, [queryClient, startPollingOnly, stopTracking]);
+
+  const startTracking = useCallback((deploymentId: string) => {
+    stopTracking();
+    trackingGenerationRef.current++;
+    activeDeploymentIdRef.current = deploymentId;
+    connectSSEOnly(deploymentId);
+    startPollingOnly(deploymentId, 3000);
+  }, [stopTracking, connectSSEOnly, startPollingOnly]);
 
   useEffect(() => {
     const apiBase = ENV.getApiBaseUrl();
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isMounted = true;
 
     const connectGlobalSSE = () => {
+      if (!isMounted) return;
       if (globalSSERef.current) {
         globalSSERef.current.close();
       }
@@ -437,8 +462,8 @@ export default function DeploymentConsole() {
           const payload = JSON.parse(event.data);
           if (payload.type === "connected") return;
 
-          if (payload.type === "deployment_started" || payload.type === "deployment_success" || payload.type === "deployment_failed" || payload.type === "deployment_cancelled" || payload.type === "deployment_resumed") {
-            refetchHistory();
+          if (["deployment_started", "deployment_success", "deployment_failed", "deployment_cancelled", "deployment_resumed"].includes(payload.type)) {
+            queryClient.invalidateQueries({ queryKey: ["/api/deployment/list"] });
             queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
           }
 
@@ -471,33 +496,26 @@ export default function DeploymentConsole() {
     connectGlobalSSE();
 
     return () => {
+      isMounted = false;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       globalSSERef.current?.close();
       globalSSERef.current = null;
     };
-  }, [refetchHistory, queryClient]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const syntheticIds = ["health-check", "cleanup"];
     if (activeDeploymentId && !syntheticIds.includes(activeDeploymentId)) {
-      const isLiveDeploymentRunning = liveDeployment?.status === "running";
-      if (isLiveDeploymentRunning || !liveDeployment) {
-        connectSSE(activeDeploymentId);
-        startPolling(activeDeploymentId);
-      }
+      startTracking(activeDeploymentId);
+    } else {
+      stopTracking();
+      activeDeploymentIdRef.current = null;
     }
     return () => {
-      eventSourceRef.current?.close();
-      if (sseReconnectTimerRef.current) {
-        clearTimeout(sseReconnectTimerRef.current);
-        sseReconnectTimerRef.current = null;
-      }
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      stopTracking();
     };
-  }, [activeDeploymentId]);
+  }, [activeDeploymentId, startTracking, stopTracking]);
 
   useEffect(() => {
     if (!activeDeploymentId && historyData?.deployments) {
@@ -560,11 +578,10 @@ export default function DeploymentConsole() {
       }
 
       setActiveDeploymentId(data.id);
-      startPolling(data.id);
 
       toast({ title: "بدأ النشر", description: `المسار: ${PIPELINE_LABELS[selectedPipeline]}` });
 
-      refetchHistory();
+      queryClient.invalidateQueries({ queryKey: ["/api/deployment/list"] });
     } catch (error: any) {
       toast({ title: "فشل بدء النشر", description: toUserMessage(error), variant: "destructive" });
     } finally {
@@ -578,8 +595,9 @@ export default function DeploymentConsole() {
     setLiveDeployment(prev => prev ? { ...prev, status: "cancelled" } : null);
     try {
       await apiRequest(`/api/deployment/${activeDeploymentId}/cancel`, "POST");
+      stopTracking();
       toast({ title: "تم إلغاء النشر" });
-      refetchHistory();
+      queryClient.invalidateQueries({ queryKey: ["/api/deployment/list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
     } catch (error: any) {
       setLiveDeployment(prevDeployment);
@@ -728,15 +746,8 @@ export default function DeploymentConsole() {
       setLiveLogs(Array.isArray(data?.logs) ? data.logs : []);
       userScrolledUp.current = false;
       
-      if (data.status === "running") {
-        connectSSE(id);
-      } else {
-        stopPolling();
-        if (eventSourceRef.current) {
-          eventSourceRef.current.close();
-          eventSourceRef.current = null;
-        }
-        sseConnectedRef.current = false;
+      if (data.status !== "running") {
+        stopTracking();
       }
     } catch (error: any) {
       toast({ title: "فشل تحميل بيانات العملية", description: toUserMessage(error), variant: "destructive" });

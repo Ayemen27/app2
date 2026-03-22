@@ -31,6 +31,12 @@ const updateCheckLimiter = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX = 30;
 
+const downloadLimiter = new Map<string, { count: number; resetAt: number }>();
+const DOWNLOAD_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const DOWNLOAD_RATE_LIMIT_MAX = 10;
+
+const ANDROID_PIPELINES = new Set(["android-build", "full-deploy", "git-android-build", "android-build-test"]);
+
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
   const entry = updateCheckLimiter.get(ip);
@@ -42,10 +48,24 @@ function isRateLimited(ip: string): boolean {
   return entry.count > RATE_LIMIT_MAX;
 }
 
+function isDownloadRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = downloadLimiter.get(ip);
+  if (!entry || now > entry.resetAt) {
+    downloadLimiter.set(ip, { count: 1, resetAt: now + DOWNLOAD_RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > DOWNLOAD_RATE_LIMIT_MAX;
+}
+
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of updateCheckLimiter) {
     if (now > entry.resetAt) updateCheckLimiter.delete(ip);
+  }
+  for (const [ip, entry] of downloadLimiter) {
+    if (now > entry.resetAt) downloadLimiter.delete(ip);
   }
 }, 5 * 60 * 1000);
 
@@ -401,10 +421,26 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
   const SSH_SIZE_TIMEOUT_MS = 20000;
   const SSH_STREAM_TIMEOUT_MS = 120000;
 
+  const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+  if (isDownloadRateLimited(clientIp)) {
+    res.status(429).json({ error: "طلبات تحميل كثيرة، حاول بعد قليل" });
+    return;
+  }
+
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment || !deployment.artifactUrl) {
       res.status(404).json({ error: "الملف غير متوفر" });
+      return;
+    }
+
+    if (deployment.status !== "success") {
+      res.status(403).json({ error: "هذا الإصدار لم يكتمل بنجاح" });
+      return;
+    }
+
+    if (!ANDROID_PIPELINES.has(deployment.pipeline)) {
+      res.status(403).json({ error: "هذا الإصدار ليس إصدار أندرويد" });
       return;
     }
 

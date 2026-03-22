@@ -1050,6 +1050,19 @@ export class DeploymentEngine {
       const timer = setTimeout(() => {
         timedOut = true;
         this.addLog(deploymentId, `[${label}] ⏱️ تجاوز المهلة (${timeoutMs / 1000}s) — جاري إيقاف العملية...`, "warn").catch(() => {});
+        const isSSHCommand = command.includes("ssh ") || command.includes("sshpass ");
+        if (isSSHCommand) {
+          try {
+            const killCmd = this.buildSSHCommand();
+            const cleanupEnv = { ...process.env };
+            if (process.env.SSH_PASSWORD && !cleanupEnv.SSHPASS) {
+              cleanupEnv.SSHPASS = process.env.SSH_PASSWORD;
+            }
+            const remoteKillTargets = ["gradlew", "gradle", "npm", "npx", "cap", "node dist/index.js"].filter(t => command.includes(t));
+            const killPattern = remoteKillTargets.length > 0 ? remoteKillTargets.map(t => `pkill -f '${t}' 2>/dev/null`).join("; ") : `kill -9 \\$(ps -o pid= --ppid \\$(pgrep -f 'bash -c') 2>/dev/null) 2>/dev/null`;
+            exec(`${killCmd} "${killPattern}; echo REMOTE_CLEANUP_DONE"`, { timeout: 10000, env: cleanupEnv }, () => {});
+          } catch {}
+        }
         try { process.kill(-child.pid!, "SIGTERM"); } catch {}
         setTimeout(() => {
           try { process.kill(-child.pid!, "SIGKILL"); } catch {}
@@ -1178,6 +1191,62 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ تعذر فحص حالة Git", "warn");
     }
 
+    this.updateStepProgress(deploymentId, "preflight-check", 80, "فحص متغيرات البيئة...");
+    const missingEnvVars: string[] = [];
+    const authMethod = this.getSSHAuthMethod();
+    if (authMethod === "password") {
+      if (!process.env.SSH_PASSWORD && !process.env.SSHPASS) {
+        missingEnvVars.push("SSH credentials (SSH_PASSWORD أو SSHPASS)");
+      }
+    } else if (authMethod === "key") {
+      const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
+      if (!existsSync(keyPath) && !process.env.SSH_PRIVATE_KEY_B64) {
+        missingEnvVars.push("SSH key (SSH_PRIVATE_KEY_B64 أو ملف المفتاح)");
+      }
+    }
+    if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
+      missingEnvVars.push("GITHUB_TOKEN");
+    }
+    if (missingEnvVars.length > 0) {
+      for (const v of missingEnvVars) {
+        criticalFailures.push(`متغير بيئة مفقود: ${v}`);
+      }
+      await this.addLog(deploymentId, `🚫 متغيرات بيئة حرجة مفقودة: ${missingEnvVars.join(", ")}`, "error");
+    } else {
+      await this.addLog(deploymentId, "✅ متغيرات البيئة الحرجة متوفرة", "success");
+    }
+
+    this.updateStepProgress(deploymentId, "preflight-check", 85, "فحص مساحة القرص...");
+    try {
+      const { stdout: diskInfo } = await execAsync("df -BM /home/runner/workspace | tail -1 | awk '{print $4}'", { timeout: 5000 });
+      const availMB = parseInt(diskInfo.replace("M", ""));
+      if (availMB < 500) {
+        criticalFailures.push(`مساحة القرص المحلي منخفضة جداً: ${availMB}MB متاح`);
+        await this.addLog(deploymentId, `🚫 مساحة القرص: ${availMB}MB — أقل من الحد الأدنى (500MB)`, "error");
+      } else {
+        await this.addLog(deploymentId, `✅ مساحة القرص: ${availMB}MB متاح`, "success");
+      }
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر فحص مساحة القرص", "warn");
+    }
+
+    this.updateStepProgress(deploymentId, "preflight-check", 90, "فحص ملف القفل...");
+    try {
+      const { stdout: lockCheck } = await execAsync(
+        "if [ -f package-lock.json ]; then PKG_TIME=$(stat -c %Y package.json); LOCK_TIME=$(stat -c %Y package-lock.json); if [ $PKG_TIME -gt $LOCK_TIME ]; then echo 'LOCK_STALE'; else echo 'LOCK_OK'; fi; else echo 'LOCK_MISSING'; fi",
+        { cwd: "/home/runner/workspace", timeout: 5000 }
+      );
+      if (lockCheck.includes("LOCK_MISSING")) {
+        await this.addLog(deploymentId, "⚠️ package-lock.json غير موجود — npm install قد ينتج إصدارات مختلفة", "warn");
+      } else if (lockCheck.includes("LOCK_STALE")) {
+        await this.addLog(deploymentId, "⚠️ package-lock.json أقدم من package.json — قد تكون التبعيات غير متزامنة", "warn");
+      } else {
+        await this.addLog(deploymentId, "✅ package-lock.json محدّث ومتزامن", "success");
+      }
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر فحص package-lock.json", "warn");
+    }
+
     if (criticalFailures.length > 0) {
       const msg = `🚫 فحص أولي فشل: ${criticalFailures.join(" | ")}`;
       await this.addLog(deploymentId, msg, "error");
@@ -1263,8 +1332,8 @@ export class DeploymentEngine {
           await this.addEvent(deploymentId, "smoke_test_failed", "Post-deploy smoke test detected critical failures", {
             failedRoutes: criticalFailed.map(r => r.path),
           });
-          await this.addLog(deploymentId, `⚠️ اختبار الدخان: ${reasons.join(" | ")} — متابعة مع تحذير`, "warn");
-          return;
+          await this.addLog(deploymentId, `🚫 فشل اختبار الدخان: ${reasons.join(" | ")} — النشر مرفوض لحماية الإنتاج`, "error");
+          throw new Error("🚫 فشل اختبار الدخان: " + reasons.join(" | ") + " — النشر مرفوض لحماية الإنتاج");
         } else {
           await this.addLog(deploymentId, "✅ اختبار الدخان ناجح — النشر يعمل بشكل صحيح", "success");
           return;
@@ -1274,7 +1343,8 @@ export class DeploymentEngine {
           await this.addLog(deploymentId, `⚠️ خطأ في اختبار الدخان (محاولة ${attempt}): ${err.message} — إعادة المحاولة...`, "warn");
           continue;
         }
-        await this.addLog(deploymentId, `⚠️ تعذر تنفيذ اختبار الدخان بعد ${maxAttempts} محاولات: ${err.message} — متابعة`, "warn");
+        await this.addLog(deploymentId, `🚫 فشل اختبار الدخان بعد ${maxAttempts} محاولات: ${err.message} — النشر مرفوض`, "error");
+        throw new Error("🚫 فشل اختبار الدخان بعد " + maxAttempts + " محاولات: " + err.message + " — النشر مرفوض");
       }
     }
   }
@@ -1725,6 +1795,7 @@ export class DeploymentEngine {
       ``,
       `echo "=== POST_SYNC_MANIFEST ==="`,
       `if [ -f "$MANIFEST" ]; then`,
+      `  cp "$MANIFEST" "$MANIFEST.bak.$(date +%s)" 2>/dev/null || true`,
       `  REQUIRED_PERMS="INTERNET ACCESS_NETWORK_STATE POST_NOTIFICATIONS VIBRATE RECEIVE_BOOT_COMPLETED WAKE_LOCK SCHEDULE_EXACT_ALARM USE_EXACT_ALARM USE_BIOMETRIC USE_FINGERPRINT"`,
       `  for P in $REQUIRED_PERMS; do`,
       `    if ! grep -q "$P" "$MANIFEST"; then`,
@@ -1746,6 +1817,7 @@ export class DeploymentEngine {
       `echo "=== POST_SYNC_MAINACTIVITY ==="`,
       `mkdir -p "$(dirname "$MAIN_ACT")"`,
       `if [ ! -f "$MAIN_ACT" ] || ! grep -q "onSaveInstanceState" "$MAIN_ACT"; then`,
+      `  cp "$MAIN_ACT" "$MAIN_ACT.bak.$(date +%s)" 2>/dev/null || true`,
       `  cat > "$MAIN_ACT" << 'JAVAEOF'`,
       `package com.axion.app;`,
       ``,
@@ -2097,6 +2169,7 @@ export class DeploymentEngine {
     this.updateStepProgress(deploymentId, "gradle-build", 95, "اكتمل بناء Gradle");
   }
 
+  // NOTE: هذه الخطوة تنسخ APK من مخرجات Gradle إلى مجلد releases — التوقيع الفعلي يتم عبر Gradle signing config
   private async stepSignAPK(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "البحث عن APK وتجهيزه...", "info");
     const remoteDir = "/home/administrator/app2";
@@ -2160,7 +2233,7 @@ export class DeploymentEngine {
     const sha256 = checksumLines.find(l => /^[a-f0-9]{64}$/.test(l.trim()));
 
     if (!sha256) {
-      await this.addLog(deploymentId, "⚠️ تعذر استخراج checksum — متابعة مع تحذير", "warn");
+      throw new Error("🚫 تعذر استخراج SHA-256 checksum — فحص السلامة فشل");
     } else {
       await this.addLog(deploymentId, `✅ SHA-256: ${sha256.trim().substring(0, 16)}...`, "success");
     }
@@ -2197,10 +2270,9 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "❌ فشل التحقق من التوقيع عبر jarsigner", "error");
       throw new Error("🚫 فشل فحص سلامة APK: التوقيع الرقمي غير صالح (jarsigner)");
     } else if (sigVerify.includes("NO_SIGNER_TOOL")) {
-      await this.addLog(deploymentId, "⚠️ لا توجد أداة تحقق من التوقيع — تخطي فحص التوقيع", "warn");
+      throw new Error("🚫 لا توجد أداة تحقق من التوقيع (apksigner/jarsigner) — APK مرفوض. ثبّت build-tools أو أضف apksigner إلى PATH");
     } else {
-      await this.addLog(deploymentId, "⚠️ لم يتم التعرف على مخرجات أداة التحقق — تخطي مع تحذير", "warn");
-      await this.addLog(deploymentId, `📋 المخرجات: ${sigVerify.substring(0, 300)}`, "info");
+      throw new Error("🚫 فشل التعرف على مخرجات أداة التحقق — APK integrity غير مؤكد");
     }
 
     const integrityMeta = {
@@ -2495,7 +2567,7 @@ export class DeploymentEngine {
           const permLines = requiredPerms.map(p => `<uses-permission android:name=\\"${p}\\"/>`).join("\\n    ");
           await this.execWithLog(
             deploymentId,
-            `${sshCmd} "MANIFEST=${remoteDir}/android/app/src/main/AndroidManifest.xml; for PERM in ${requiredPerms.map(p => p.split('.').pop()).join(' ')}; do grep -q \\$PERM \\$MANIFEST 2>/dev/null || echo 'NEED_FIX'; done | head -1 | grep -q NEED_FIX && sed -i '/<\\/manifest>/i\\    ${permLines}' \\$MANIFEST 2>/dev/null; echo 'PERMS_CHECKED'; grep 'uses-permission' \\$MANIFEST | wc -l"`,
+            `${sshCmd} "MANIFEST=${remoteDir}/android/app/src/main/AndroidManifest.xml; cp \\$MANIFEST \\$MANIFEST.bak.\\$(date +%s) 2>/dev/null; for PERM in ${requiredPerms.map(p => p.split('.').pop()).join(' ')}; do grep -q \\$PERM \\$MANIFEST 2>/dev/null || echo 'NEED_FIX'; done | head -1 | grep -q NEED_FIX && sed -i '/<\\/manifest>/i\\    ${permLines}' \\$MANIFEST 2>/dev/null; echo 'PERMS_CHECKED'; grep 'uses-permission' \\$MANIFEST | wc -l"`,
             "Auto-fix Permissions",
             10000
           );
@@ -2513,7 +2585,7 @@ export class DeploymentEngine {
         try {
           await this.execWithLog(
             deploymentId,
-            `${sshCmd} "cat > ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java << 'MAINEOF'
+            `${sshCmd} "cp ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java.bak.\\$(date +%s) 2>/dev/null; cat > ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java << 'MAINEOF'
 package com.axion.app;
 
 import android.os.Bundle;

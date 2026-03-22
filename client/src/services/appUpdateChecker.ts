@@ -173,6 +173,72 @@ async function openDownloadUrl(url: string) {
   }
 }
 
+const NOTIFIED_VERSION_KEY = 'app_update_notified_version';
+
+async function showUpdateNotification(info: UpdateInfo) {
+  if (!Capacitor.isNativePlatform()) return;
+
+  const alreadyNotified = localStorage.getItem(NOTIFIED_VERSION_KEY);
+  if (alreadyNotified === String(info.latest.versionCode)) return;
+
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+
+    const permResult = await LocalNotifications.checkPermissions();
+    if (permResult.display === 'denied') {
+      const reqResult = await LocalNotifications.requestPermissions();
+      if (reqResult.display === 'denied') {
+        console.warn('[updateNotification] إذن الإشعارات مرفوض');
+        return;
+      }
+    }
+
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          title: 'تحديث جديد متوفر لـ AXION',
+          body: `الإصدار ${info.latest.versionName} متوفر الآن. قم بالتحديث للحصول على أحدث الميزات والتحسينات.`,
+          id: info.latest.versionCode,
+          channelId: 'app-updates',
+          smallIcon: 'ic_notification',
+          largeIcon: 'ic_launcher',
+          sound: 'default',
+          extra: {
+            type: 'app_update',
+            versionName: info.latest.versionName,
+            versionCode: String(info.latest.versionCode),
+            downloadUrl: info.latest.downloadUrl || '',
+          },
+        },
+      ],
+    });
+
+    localStorage.setItem(NOTIFIED_VERSION_KEY, String(info.latest.versionCode));
+    console.log(`[updateNotification] إشعار تحديث v${info.latest.versionName} تم إرساله`);
+  } catch (err) {
+    console.warn('[updateNotification] فشل إرسال الإشعار المحلي:', err);
+  }
+}
+
+async function createUpdateNotificationChannel() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.createChannel({
+      id: 'app-updates',
+      name: 'تحديثات التطبيق',
+      description: 'إشعارات عند توفر تحديث جديد لتطبيق AXION',
+      importance: 4,
+      visibility: 1,
+      sound: 'default',
+      vibration: true,
+    });
+    console.log('[updateNotification] قناة الإشعارات أُنشئت');
+  } catch (err) {
+    console.warn('[updateNotification] فشل إنشاء قناة الإشعارات:', err);
+  }
+}
+
 interface UpdateCallbacks {
   onUpdateAvailable: (info: UpdateInfo) => void;
   onNoUpdate?: () => void;
@@ -183,11 +249,14 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
 
   activeCallbacks = callbacks;
 
+  await createUpdateNotificationChannel();
+
   const info = await checkForUpdate(true);
   if (!info || !info.updateAvailable) {
     callbacks.onNoUpdate?.();
   } else if (info.forceUpdate || !wasDismissed(info.latest.versionCode)) {
     callbacks.onUpdateAvailable(info);
+    showUpdateNotification(info);
   }
 
   if (!resumeListenerAdded) {
@@ -201,6 +270,7 @@ async function initUpdateChecker(callbacks: UpdateCallbacks) {
         if (fresh?.updateAvailable) {
           if (!fresh.forceUpdate && wasDismissed(fresh.latest.versionCode)) return;
           activeCallbacks.onUpdateAvailable(fresh);
+          showUpdateNotification(fresh);
         }
       });
     } catch (e) {
@@ -215,5 +285,6 @@ export {
   openDownloadUrl,
   dismissVersion,
   getAppVersion,
+  showUpdateNotification,
   type UpdateInfo,
 };

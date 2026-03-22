@@ -276,10 +276,24 @@ function Router() {
           }
 
           try {
-            const { initUpdateChecker } = await import('./services/appUpdateChecker');
+            const { initUpdateChecker, openDownloadUrl } = await import('./services/appUpdateChecker');
             initUpdateChecker({
               onUpdateAvailable: (info) => setUpdateInfo(info),
             });
+
+            try {
+              const { LocalNotifications } = await import('@capacitor/local-notifications');
+              await LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+                const extra = action.notification?.extra;
+                if (extra?.type === 'app_update' && extra?.downloadUrl) {
+                  openDownloadUrl(extra.downloadUrl);
+                }
+              });
+              console.log('✅ تم تسجيل مستمع الإشعارات المحلية');
+            } catch (notifErr) {
+              console.warn('[LocalNotifications] listener registration skipped:', notifErr);
+            }
+
             console.log('✅ تم تفعيل فاحص التحديثات');
           } catch (e) {
             console.error('❌ خطأ في فاحص التحديثات:', e);

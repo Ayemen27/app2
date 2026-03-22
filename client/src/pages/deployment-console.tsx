@@ -248,13 +248,18 @@ export default function DeploymentConsole() {
     return () => clearInterval(timer);
   }, [liveDeployment?.status]);
 
+  const hasRunningDeployment = liveDeployment?.status === "running";
+
   const { data: statsData } = useQuery<DeploymentStats>({
     queryKey: ["/api/deployment/stats"],
-    refetchInterval: 30000,
+    refetchInterval: hasRunningDeployment ? 10000 : 30000,
+    staleTime: 5000,
   });
 
   const { data: historyData, refetch: refetchHistory } = useQuery<{ deployments: Deployment[]; total: number }>({
     queryKey: ["/api/deployment/list"],
+    refetchInterval: hasRunningDeployment ? 8000 : 30000,
+    staleTime: 5000,
   });
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

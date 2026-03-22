@@ -114,6 +114,7 @@ export default function LoginPage() {
   const [appVersion, setAppVersion] = useState<string>('...');
   const [nativeVersionResolved, setNativeVersionResolved] = useState(false);
   const [forceUpdateInfo, setForceUpdateInfo] = useState<any>(null);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
 
   useEffect(() => {
     setStatusBarForPage('login');
@@ -193,7 +194,7 @@ export default function LoginPage() {
       const isNative = Capacitor.isNativePlatform();
       const baseUrl = isNative ? 'https://app2.binarjoinanelytic.info' : '';
 
-      let checkVersion = appVersion;
+      let checkVersion = appVersion && appVersion !== '...' ? appVersion : (__APP_VERSION__ || '0.0.0');
       let checkCode = 0;
       if (isNative && !nativeVersionResolved) {
         const { getAppVersion: getNativeVersion } = await import('../services/appUpdateChecker');
@@ -203,7 +204,7 @@ export default function LoginPage() {
           checkVersion = nv.versionName;
           checkCode = nv.versionCode;
         } else {
-          checkVersion = '0.0.0';
+          checkVersion = __APP_VERSION__ || appVersion || '0.0.0';
           checkCode = 0;
         }
       }
@@ -230,6 +231,10 @@ export default function LoginPage() {
   };
 
   const handleDownloadUpdate = async () => {
+    if (isDownloadingUpdate) {
+      trackLog('DOWNLOAD_UPDATE_DEBOUNCED', { reason: 'already_downloading' });
+      return;
+    }
     trackLog('DOWNLOAD_UPDATE_START', {
       hasUpdateData: !!updateData,
       hasDownloadUrl: !!updateData?.latest?.downloadUrl,
@@ -239,6 +244,7 @@ export default function LoginPage() {
       trackLog('DOWNLOAD_UPDATE_NO_URL', { updateData: JSON.stringify(updateData)?.substring(0, 200) });
       return;
     }
+    setIsDownloadingUpdate(true);
     try {
       const { openDownloadUrl } = await import('../services/appUpdateChecker');
       trackLog('DOWNLOAD_UPDATE_OPENING', { url: updateData.latest.downloadUrl.substring(0, 80) });
@@ -246,7 +252,15 @@ export default function LoginPage() {
       trackLog('DOWNLOAD_UPDATE_SUCCESS', { opened: true });
     } catch (err: any) {
       trackLog('DOWNLOAD_UPDATE_ERROR', { error: err?.message || String(err) });
-      window.open(updateData.latest.downloadUrl, '_blank');
+      try {
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'display:none;';
+        iframe.src = updateData.latest.downloadUrl;
+        document.body.appendChild(iframe);
+        setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 30000);
+      } catch {}
+    } finally {
+      setTimeout(() => setIsDownloadingUpdate(false), 5000);
     }
   };
 
@@ -798,11 +812,14 @@ export default function LoginPage() {
                       </div>
                       <Button
                         onClick={handleDownloadUpdate}
+                        disabled={isDownloadingUpdate}
                         className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl"
                         data-testid="button-download-update"
                       >
-                        <Download className="w-4 h-4 ml-2" />
-                        تحميل التحديث
+                        {isDownloadingUpdate
+                          ? <><Loader2 className="w-4 h-4 ml-2 animate-spin" />جارٍ التحضير...</>
+                          : <><Download className="w-4 h-4 ml-2" />تحميل التحديث</>
+                        }
                       </Button>
                       <Button
                         onClick={() => setShowUpdateCheck(false)}
@@ -894,13 +911,23 @@ export default function LoginPage() {
               {forceUpdateInfo.latest.downloadUrl ? (
                 <button
                   data-testid="button-force-update-download"
+                  disabled={isDownloadingUpdate}
                   onClick={async () => {
-                    const { openDownloadUrl } = await import('../services/appUpdateChecker');
-                    openDownloadUrl(forceUpdateInfo.latest.downloadUrl);
+                    if (isDownloadingUpdate) return;
+                    setIsDownloadingUpdate(true);
+                    try {
+                      const { openDownloadUrl } = await import('../services/appUpdateChecker');
+                      await openDownloadUrl(forceUpdateInfo.latest.downloadUrl);
+                    } finally {
+                      setTimeout(() => setIsDownloadingUpdate(false), 5000);
+                    }
                   }}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm hover:from-red-500 hover:to-red-400 transition-all"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-sm hover:from-red-500 hover:to-red-400 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  تحديث الآن
+                  {isDownloadingUpdate
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />جارٍ التحضير...</>
+                    : 'تحديث الآن'
+                  }
                 </button>
               ) : (
                 <p className="text-xs text-amber-500 font-medium" data-testid="text-no-download-url">رابط التحميل غير متوفر حالياً — أعد المحاولة لاحقاً</p>

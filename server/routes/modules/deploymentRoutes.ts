@@ -391,6 +391,9 @@ function compareVersions(a: string, b: string): number {
 }
 
 publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
+  const SSH_SIZE_TIMEOUT_MS = 20000;
+  const SSH_STREAM_TIMEOUT_MS = 120000;
+
   try {
     const token = req.query.token as string;
     if (!token) {
@@ -455,8 +458,8 @@ publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
     }
 
     const sshPrefix = useKey
-      ? `ssh -i ${sshKeyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -p ${port}`
-      : `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -p ${port}`;
+      ? `ssh -i ${sshKeyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p ${port}`
+      : `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p ${port}`;
 
     const { spawn } = await import("child_process");
 
@@ -466,38 +469,65 @@ publicRouter.get("/app/download/:id", async (req: Request, res: Response) => {
 
     let sizeOutput = "";
     sizeChild.stdout.on("data", (d: Buffer) => { sizeOutput += d.toString(); });
-    await new Promise<void>((resolve) => sizeChild.on("close", resolve));
+
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        try { sizeChild.kill("SIGTERM"); } catch {}
+        resolve();
+      }, SSH_SIZE_TIMEOUT_MS);
+      sizeChild.on("close", () => { clearTimeout(timer); resolve(); });
+    });
 
     if (sizeOutput.trim() === "MISSING" || !sizeOutput.trim()) {
-      res.status(404).json({ error: "ملف APK غير موجود" });
+      console.error("[Public APK Download] SSH size check failed or file missing. output:", sizeOutput.substring(0, 200));
+      if (!res.headersSent) res.status(503).json({ error: "ملف APK غير متوفر مؤقتاً — حاول لاحقاً" });
       return;
     }
 
     const fileSize = parseInt(sizeOutput.trim(), 10);
     if (isNaN(fileSize) || fileSize < 1000) {
-      res.status(404).json({ error: "ملف APK غير صالح" });
+      if (!res.headersSent) res.status(404).json({ error: "ملف APK غير صالح" });
       return;
     }
 
     res.setHeader("Content-Type", "application/vnd.android.package-archive");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.setHeader("Content-Length", String(fileSize));
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
 
     const child = spawn("bash", ["-c",
       `${sshPrefix} ${user}@${host} "cat '${remotePath}'"`
     ], { env: execEnv });
 
-    child.stdout.pipe(res);
-    child.stderr.on("data", (data: Buffer) => {
-      console.error("[Public APK Download] stderr:", data.toString());
-    });
-    child.on("error", (err: Error) => {
-      if (!res.headersSent) res.status(500).json({ error: "فشل تحميل الملف" });
-    });
+    const streamTimeout = setTimeout(() => {
+      console.error("[Public APK Download] Stream timeout — killing SSH process");
+      try { child.kill("SIGTERM"); } catch {}
+    }, SSH_STREAM_TIMEOUT_MS);
 
-    const cleanup = () => { try { child.kill("SIGTERM"); } catch {} };
+    const cleanup = () => {
+      clearTimeout(streamTimeout);
+      try { child.kill("SIGTERM"); } catch {}
+    };
+
     req.on("close", cleanup);
     res.on("close", cleanup);
+
+    child.stdout.pipe(res);
+    child.stderr.on("data", (data: Buffer) => {
+      console.error("[Public APK Download] stderr:", data.toString().substring(0, 500));
+    });
+    child.on("error", (err: Error) => {
+      console.error("[Public APK Download] spawn error:", err.message);
+      clearTimeout(streamTimeout);
+      if (!res.headersSent) res.status(503).json({ error: "فشل الاتصال بخادم التخزين" });
+    });
+    child.on("close", (code: number | null) => {
+      clearTimeout(streamTimeout);
+      if (code !== 0) {
+        console.error(`[Public APK Download] SSH process exited with code ${code}`);
+      }
+    });
   } catch (err: any) {
     console.error("[Public APK Download] Error:", err.message);
     if (!res.headersSent) res.status(500).json({ error: "خطأ داخلي" });

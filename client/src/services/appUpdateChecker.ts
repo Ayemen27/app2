@@ -1,5 +1,17 @@
 import { Capacitor } from '@capacitor/core';
 
+declare const __APP_VERSION__: string;
+
+function getBundleVersion(): string {
+  try {
+    return (typeof __APP_VERSION__ !== 'undefined' && __APP_VERSION__ && __APP_VERSION__ !== '0.0.0')
+      ? __APP_VERSION__
+      : '';
+  } catch {
+    return '';
+  }
+}
+
 const CHECK_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const LAST_CHECK_KEY = 'app_update_last_check';
 const DISMISSED_VERSION_KEY = 'app_update_dismissed_version';
@@ -125,10 +137,13 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
     const current = await getAppVersion();
     trackLog('CHECK_FOR_UPDATE_VERSION_RESULT', { versionName: current.versionName, versionCode: current.versionCode, unknown: current.unknown });
 
-    const checkVersion = current.unknown ? '0.0.0' : current.versionName;
+    const bundleVersion = getBundleVersion();
+    const checkVersion = current.unknown
+      ? (bundleVersion || '0.0.0')
+      : current.versionName;
     const checkCode = current.unknown ? 0 : current.versionCode;
     if (current.unknown) {
-      trackLog('CHECK_FOR_UPDATE_UNKNOWN_FALLBACK', { usingVersion: checkVersion, reason: 'native_version_unknown_will_check_anyway' });
+      trackLog('CHECK_FOR_UPDATE_UNKNOWN_FALLBACK', { usingVersion: checkVersion, bundleVersion, reason: 'native_version_unknown_using_bundle' });
     }
 
     const baseUrl = Capacitor.isNativePlatform()
@@ -168,8 +183,18 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
   }
 }
 
+let _downloadInProgress = false;
+
 async function openDownloadUrl(url: string) {
   const { trackLog } = await import('../lib/debug-tracker');
+
+  if (_downloadInProgress) {
+    trackLog('OPEN_DOWNLOAD_URL_DEBOUNCED', { reason: 'download_already_in_progress' });
+    return;
+  }
+  _downloadInProgress = true;
+  setTimeout(() => { _downloadInProgress = false; }, 8000);
+
   trackLog('OPEN_DOWNLOAD_URL_START', { url: url?.substring(0, 100), isNative: Capacitor.isNativePlatform() });
   try {
     let fullUrl = url;
@@ -183,6 +208,7 @@ async function openDownloadUrl(url: string) {
 
     if (Capacitor.isNativePlatform()) {
       const capPlugins = (window as any).Capacitor?.Plugins;
+
       if (capPlugins?.Browser?.open) {
         try {
           trackLog('OPEN_DOWNLOAD_URL_NATIVE_BROWSER', { method: 'Capacitor.Plugins.Browser' });
@@ -206,15 +232,30 @@ async function openDownloadUrl(url: string) {
         trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER_FAIL', { error: browserErr?.message || String(browserErr) });
       }
 
-      trackLog('OPEN_DOWNLOAD_URL_LOCATION_ASSIGN', { method: 'window.location.assign' });
-      window.location.assign(fullUrl);
+      trackLog('OPEN_DOWNLOAD_URL_IFRAME', { method: 'hidden-iframe' });
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'display:none;width:0;height:0;position:absolute;left:-9999px;top:-9999px;';
+      iframe.src = fullUrl;
+      document.body.appendChild(iframe);
+      setTimeout(() => {
+        try { document.body.removeChild(iframe); } catch {}
+      }, 30000);
+      trackLog('OPEN_DOWNLOAD_URL_IFRAME_OK', { success: true });
       return;
     }
+
     window.open(fullUrl, '_blank');
   } catch (err: any) {
     trackLog('OPEN_DOWNLOAD_URL_ERROR', { error: err?.message || String(err) });
-    const base = 'https://app2.binarjoinanelytic.info';
-    window.location.href = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'display:none;';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 30000);
+    } catch {}
+  } finally {
+    setTimeout(() => { _downloadInProgress = false; }, 3000);
   }
 }
 

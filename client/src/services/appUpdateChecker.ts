@@ -182,30 +182,32 @@ async function openDownloadUrl(url: string) {
     trackLog('OPEN_DOWNLOAD_URL_FULL', { fullUrl: fullUrl?.substring(0, 120) });
 
     if (Capacitor.isNativePlatform()) {
-      try {
-        const { Browser } = await import('@capacitor/browser');
-        trackLog('OPEN_DOWNLOAD_URL_BROWSER_OPEN', { method: 'capacitor-browser' });
-        await Browser.open({ url: fullUrl, presentationStyle: 'popover' });
-        trackLog('OPEN_DOWNLOAD_URL_BROWSER_OK', { success: true });
-        return;
-      } catch (browserErr: any) {
-        trackLog('OPEN_DOWNLOAD_URL_BROWSER_FAIL', { error: browserErr?.message || String(browserErr) });
+      const capPlugins = (window as any).Capacitor?.Plugins;
+      if (capPlugins?.Browser?.open) {
+        try {
+          trackLog('OPEN_DOWNLOAD_URL_NATIVE_BROWSER', { method: 'Capacitor.Plugins.Browser' });
+          await capPlugins.Browser.open({ url: fullUrl, presentationStyle: 'popover' });
+          trackLog('OPEN_DOWNLOAD_URL_NATIVE_BROWSER_OK', { success: true });
+          return;
+        } catch (e: any) {
+          trackLog('OPEN_DOWNLOAD_URL_NATIVE_BROWSER_FAIL', { error: e?.message || String(e) });
+        }
+      } else {
+        trackLog('OPEN_DOWNLOAD_URL_NO_BROWSER_PLUGIN', { hasCapPlugins: !!capPlugins, pluginKeys: Object.keys(capPlugins || {}).join(',') });
       }
 
-      const a = document.createElement('a');
-      a.href = fullUrl;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.setAttribute('download', '');
-      document.body.appendChild(a);
-      trackLog('OPEN_DOWNLOAD_URL_ANCHOR_CLICK', { method: 'anchor-element', href: fullUrl?.substring(0, 80) });
-      a.click();
-      setTimeout(() => document.body.removeChild(a), 1000);
+      try {
+        const { Browser } = await import('@capacitor/browser');
+        trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER', { method: 'dynamic-import' });
+        await Browser.open({ url: fullUrl, presentationStyle: 'popover' });
+        trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER_OK', { success: true });
+        return;
+      } catch (browserErr: any) {
+        trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER_FAIL', { error: browserErr?.message || String(browserErr) });
+      }
 
-      setTimeout(() => {
-        trackLog('OPEN_DOWNLOAD_URL_LOCATION_FALLBACK', { method: 'window-location' });
-        window.location.href = fullUrl;
-      }, 2000);
+      trackLog('OPEN_DOWNLOAD_URL_LOCATION_ASSIGN', { method: 'window.location.assign' });
+      window.location.assign(fullUrl);
       return;
     }
     window.open(fullUrl, '_blank');

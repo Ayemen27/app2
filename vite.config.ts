@@ -26,7 +26,6 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2020',
     rollupOptions: {
-      external: ['@capacitor/browser'],
     },
   },
   resolve: {

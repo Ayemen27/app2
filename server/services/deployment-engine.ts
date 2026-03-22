@@ -1059,7 +1059,8 @@ export class DeploymentEngine {
               cleanupEnv.SSHPASS = process.env.SSH_PASSWORD;
             }
             const remoteKillTargets = ["gradlew", "gradle", "npm", "npx", "cap", "node dist/index.js"].filter(t => command.includes(t));
-            const killPattern = remoteKillTargets.length > 0 ? remoteKillTargets.map(t => `pkill -f '${t}' 2>/dev/null`).join("; ") : `kill -9 \\$(ps -o pid= --ppid \\$(pgrep -f 'bash -c') 2>/dev/null) 2>/dev/null`;
+            if (remoteKillTargets.length === 0) { /* no known targets — skip remote cleanup to avoid killing unrelated processes */ }
+            const killPattern = remoteKillTargets.length > 0 ? remoteKillTargets.map(t => `pkill -f '${t}' 2>/dev/null`).join("; ") : "echo NO_REMOTE_KILL_TARGET";
             exec(`${killCmd} "${killPattern}; echo REMOTE_CLEANUP_DONE"`, { timeout: 10000, env: cleanupEnv }, () => {});
           } catch {}
         }
@@ -2112,7 +2113,8 @@ export class DeploymentEngine {
           `sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 26/' variables.gradle 2>/dev/null; ` +
           `sed -i 's/minSdk [0-9]*/minSdk 26/' app/build.gradle 2>/dev/null; ` +
           `grep -q 'onSaveInstanceState' app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || ` +
-          `printf 'package com.axion.app;\\nimport android.os.Bundle;\\nimport com.getcapacitor.BridgeActivity;\\npublic class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onSaveInstanceState(Bundle outState) {\\n        super.onSaveInstanceState(outState);\\n        outState.clear();\\n    }\\n}\\n' > app/src/main/java/com/axion/app/MainActivity.java; ` +
+          `{ cp app/src/main/java/com/axion/app/MainActivity.java app/src/main/java/com/axion/app/MainActivity.java.bak.\\$(date +%s) 2>/dev/null; ` +
+          `printf 'package com.axion.app;\\nimport android.os.Bundle;\\nimport com.getcapacitor.BridgeActivity;\\npublic class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onSaveInstanceState(Bundle outState) {\\n        super.onSaveInstanceState(outState);\\n        outState.clear();\\n    }\\n}\\n' > app/src/main/java/com/axion/app/MainActivity.java; }; ` +
           `for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do ` +
             `if [ ! -f app/axion-release.keystore ] && [ -f \\$KS ]; then cp \\$KS app/axion-release.keystore; fi; done; ` +
           `echo 'PRE_BUILD_FIX_OK'"`,

@@ -185,9 +185,9 @@ async function showUpdateNotification(info: UpdateInfo) {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
 
     const permResult = await LocalNotifications.checkPermissions();
-    if (permResult.display === 'denied') {
+    if (permResult.display !== 'granted') {
       const reqResult = await LocalNotifications.requestPermissions();
-      if (reqResult.display === 'denied') {
+      if (reqResult.display !== 'granted') {
         console.warn('[updateNotification] إذن الإشعارات مرفوض');
         return;
       }

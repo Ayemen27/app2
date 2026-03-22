@@ -402,47 +402,6 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
   const SSH_STREAM_TIMEOUT_MS = 120000;
 
   try {
-    const token = req.query.token as string;
-    if (!token) {
-      res.status(401).json({ error: "رمز التحميل مطلوب" });
-      return;
-    }
-
-    const crypto = await import("crypto");
-    const secret = process.env.APP_SECRET || process.env.SESSION_SECRET;
-    if (!secret) {
-      res.status(500).json({ error: "خطأ في تكوين الخادم: APP_SECRET غير محدد" });
-      return;
-    }
-    const [timestamp, hash] = token.split(".");
-    if (!timestamp || !hash) {
-      res.status(401).json({ error: "رمز غير صالح" });
-      return;
-    }
-
-    const tokenAge = Date.now() - parseInt(timestamp, 10);
-    if (isNaN(tokenAge) || tokenAge > 24 * 60 * 60 * 1000) {
-      res.status(401).json({ error: "رمز منتهي الصلاحية" });
-      return;
-    }
-
-    if (tokenAge < 0) {
-      res.status(401).json({ error: "رمز غير صالح — طابع زمني مستقبلي" });
-      return;
-    }
-
-    const expected = crypto.createHmac("sha256", secret)
-      .update(`${req.params.id}:${timestamp}`)
-      .digest("hex")
-      .substring(0, 32);
-
-    const hashBuf = Buffer.from(hash, "utf8");
-    const expectedBuf = Buffer.from(expected, "utf8");
-    if (hashBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(hashBuf, expectedBuf)) {
-      res.status(401).json({ error: "رمز غير صالح" });
-      return;
-    }
-
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment || !deployment.artifactUrl) {
       res.status(404).json({ error: "الملف غير متوفر" });

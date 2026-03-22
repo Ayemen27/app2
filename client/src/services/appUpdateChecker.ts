@@ -185,7 +185,7 @@ async function checkForUpdate(bypassCooldown = false): Promise<UpdateInfo | null
 
 interface DownloadResult {
   success: boolean;
-  method: 'location_assign' | 'intent_chrome' | 'clipboard' | 'window_open' | 'none';
+  method: 'capacitor_browser' | 'location_assign' | 'intent_chrome' | 'clipboard' | 'window_open' | 'none';
   error?: string;
 }
 
@@ -194,14 +194,9 @@ let _downloadInProgress = false;
 function sanitizeUrlForLog(url: string): string {
   if (!url) return '';
   try {
-    const parsed = new URL(url, 'https://placeholder.local');
-    if (parsed.searchParams.has('token')) {
-      parsed.searchParams.set('token', '***REDACTED***');
-    }
-    const clean = parsed.toString().replace('https://placeholder.local', '');
-    return clean.substring(0, 120);
+    return url.substring(0, 120);
   } catch {
-    return url.replace(/token=[^&]+/gi, 'token=***REDACTED***').substring(0, 120);
+    return url.substring(0, 120);
   }
 }
 
@@ -213,19 +208,8 @@ function buildFullUrl(url: string): string {
   return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-function buildIntentUri(httpsUrl: string): string {
-  const parsed = new URL(httpsUrl);
-  return `intent://${parsed.host}${parsed.pathname}${parsed.search}#Intent;scheme=https;package=com.android.chrome;end;`;
-}
-
 async function tryLocationAssign(fullUrl: string): Promise<boolean> {
   window.location.assign(fullUrl);
-  return true;
-}
-
-async function tryIntentChrome(fullUrl: string): Promise<boolean> {
-  const intentUri = buildIntentUri(fullUrl);
-  window.location.assign(intentUri);
   return true;
 }
 
@@ -242,6 +226,16 @@ async function tryCopyToClipboard(fullUrl: string): Promise<boolean> {
   const ok = document.execCommand('copy');
   document.body.removeChild(textArea);
   return ok;
+}
+
+async function tryCapacitorBrowser(fullUrl: string): Promise<boolean> {
+  try {
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url: fullUrl, windowName: '_system' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function openDownloadUrl(url: string): Promise<DownloadResult> {
@@ -264,6 +258,17 @@ async function openDownloadUrl(url: string): Promise<DownloadResult> {
       return { success: true, method: 'window_open' };
     }
 
+    trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'capacitor_browser' });
+    try {
+      const opened = await tryCapacitorBrowser(fullUrl);
+      if (opened) {
+        trackLog('OPEN_DOWNLOAD_URL_OK', { method: 'capacitor_browser' });
+        return { success: true, method: 'capacitor_browser' };
+      }
+    } catch (e: any) {
+      trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'capacitor_browser', error: e?.message || String(e) });
+    }
+
     trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'location_assign' });
     try {
       await tryLocationAssign(fullUrl);
@@ -276,20 +281,6 @@ async function openDownloadUrl(url: string): Promise<DownloadResult> {
       trackLog('OPEN_DOWNLOAD_URL_NO_CONFIRM', { method: 'location_assign', note: 'no_visibility_change_detected' });
     } catch (e: any) {
       trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'location_assign', error: e?.message || String(e) });
-    }
-
-    trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'intent_chrome' });
-    try {
-      await tryIntentChrome(fullUrl);
-      trackLog('OPEN_DOWNLOAD_URL_OK', { method: 'intent_chrome' });
-
-      const confirmed = await waitForVisibilityConfirmation(2000);
-      if (confirmed) {
-        return { success: true, method: 'intent_chrome' };
-      }
-      trackLog('OPEN_DOWNLOAD_URL_NO_CONFIRM', { method: 'intent_chrome', note: 'chrome_may_not_be_installed' });
-    } catch (e: any) {
-      trackLog('OPEN_DOWNLOAD_URL_FAIL', { method: 'intent_chrome', error: e?.message || String(e) });
     }
 
     trackLog('OPEN_DOWNLOAD_URL_TRY', { method: 'clipboard' });

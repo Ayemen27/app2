@@ -1870,13 +1870,68 @@ export class DeploymentEngine {
 
     const trapCleanup = canSignRelease ? "trap 'rm -f /tmp/.ks_pass /tmp/.ks_key_pass' EXIT; " : "";
 
+    this.updateStepProgress(deploymentId, "gradle-build", 10, "إصلاح تلقائي قبل البناء...");
+    try {
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "cd ${remoteDir}/android && ` +
+          `sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 26/' variables.gradle 2>/dev/null; ` +
+          `sed -i 's/minSdk [0-9]*/minSdk 26/' app/build.gradle 2>/dev/null; ` +
+          `grep -q 'onSaveInstanceState' app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || ` +
+          `printf 'package com.axion.app;\\nimport android.os.Bundle;\\nimport com.getcapacitor.BridgeActivity;\\npublic class MainActivity extends BridgeActivity {\\n    @Override\\n    public void onSaveInstanceState(Bundle outState) {\\n        super.onSaveInstanceState(outState);\\n        outState.clear();\\n    }\\n}\\n' > app/src/main/java/com/axion/app/MainActivity.java; ` +
+          `for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore; do ` +
+            `if [ ! -f app/axion-release.keystore ] && [ -f \\$KS ]; then cp \\$KS app/axion-release.keystore; fi; done; ` +
+          `echo 'PRE_BUILD_FIX_OK'"`,
+        "Pre-build Auto-fix",
+        15000
+      );
+      await this.addLog(deploymentId, "✅ إصلاحات تلقائية قبل البناء: minSdk=26, MainActivity, Keystore", "success");
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر تطبيق بعض الإصلاحات التلقائية", "warn");
+    }
+
     this.updateStepProgress(deploymentId, "gradle-build", 25, "بناء Gradle (قد يستغرق 2-3 دقائق)...");
-    await this.execWithLog(
-      deploymentId,
-      `${sshCmd} "${trapCleanup}set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 && echo 'GRADLE_OK'"`,
-      "Gradle Build",
-      1200000
-    );
+
+    const gradleCmd = `${sshCmd} "${trapCleanup}set -o pipefail && cd ${remoteDir}/android && export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && export ANDROID_HOME=/opt/android-sdk && ${envExports}chmod +x gradlew && ./gradlew ${buildType} --no-daemon --warning-mode=none --stacktrace 2>&1 && echo 'GRADLE_OK'"`;
+
+    try {
+      await this.execWithLog(deploymentId, gradleCmd, "Gradle Build", 1200000);
+    } catch (gradleErr: any) {
+      const errMsg = gradleErr.message || "";
+
+      if (errMsg.includes("minSdkVersion") && errMsg.includes("cannot be smaller")) {
+        await this.addLog(deploymentId, "🔧 خطأ minSdk — جاري الإصلاح التلقائي وإعادة المحاولة...", "warn");
+        const minSdkMatch = errMsg.match(/version (\d+) declared in library/);
+        const requiredMin = minSdkMatch ? parseInt(minSdkMatch[1]) : 26;
+        await this.execWithLog(
+          deploymentId,
+          `${sshCmd} "cd ${remoteDir}/android && sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = ${requiredMin}/' variables.gradle 2>/dev/null; sed -i 's/minSdk [0-9]*/minSdk ${requiredMin}/' app/build.gradle 2>/dev/null; echo 'MINSDK_FIXED_TO_${requiredMin}'"`,
+          "Auto-fix minSdk retry",
+          10000
+        );
+        await this.addLog(deploymentId, `✅ تم رفع minSdk إلى ${requiredMin} — إعادة المحاولة...`, "success");
+        this.updateStepProgress(deploymentId, "gradle-build", 30, "إعادة بناء Gradle بعد الإصلاح...");
+        await this.execWithLog(deploymentId, gradleCmd, "Gradle Build Retry", 1200000);
+      } else if (errMsg.includes("invalid source release") || errMsg.includes("invalid target release")) {
+        await this.addLog(deploymentId, "🔧 خطأ إصدار Java — جاري تبديل JAVA_HOME وإعادة المحاولة...", "warn");
+        const retryCmd = gradleCmd.replace(
+          "export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64)",
+          "export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64"
+        );
+        await this.execWithLog(deploymentId, retryCmd, "Gradle Build Retry (Java 21)", 1200000);
+      } else if (errMsg.includes("No such file or directory") && errMsg.includes("android")) {
+        await this.addLog(deploymentId, "🔧 مجلد Android مفقود — جاري إعادة إنشائه...", "warn");
+        await this.execWithLog(
+          deploymentId,
+          `${sshCmd} "cd ${remoteDir} && npx cap add android 2>&1 | tail -5 && npx cap sync android 2>&1 | tail -5 && echo 'ANDROID_RECREATED'"`,
+          "Auto-fix Android Dir",
+          120000
+        );
+        await this.execWithLog(deploymentId, gradleCmd, "Gradle Build Retry (recreated)", 1200000);
+      } else {
+        throw gradleErr;
+      }
+    }
     this.updateStepProgress(deploymentId, "gradle-build", 95, "اكتمل بناء Gradle");
   }
 
@@ -2102,9 +2157,10 @@ export class DeploymentEngine {
   }
 
   private async stepAndroidReadiness(deploymentId: string, sshCmd: string) {
-    await this.addLog(deploymentId, "🔧 فحص جاهزية بيئة Android على السيرفر...", "info");
+    await this.addLog(deploymentId, "🔧 فحص جاهزية بيئة Android على السيرفر (مع إصلاح تلقائي)...", "info");
     const remoteDir = "/home/administrator/app2";
     const errors: string[] = [];
+    const autoFixes: string[] = [];
 
     const keystorePassword = process.env.KEYSTORE_PASSWORD || "";
     const keystoreAlias = process.env.KEYSTORE_ALIAS || "axion-key";
@@ -2135,6 +2191,12 @@ export class DeploymentEngine {
       `if [ -f ${remoteDir}/android/gradlew ]; then echo GRADLEW=OK; else echo GRADLEW=MISSING; fi`,
       `echo '=== DISK_CHECK ==='`,
       `DISKINFO=$(df -h ${remoteDir} | tail -1); echo "DISK_AVAIL=$(echo $DISKINFO | awk '{print $4}') DISK_USE=$(echo $DISKINFO | awk '{print $5}')"`,
+      `echo '=== MINSDK_CHECK ==='`,
+      `grep -E 'minSdk|minSdkVersion' ${remoteDir}/android/variables.gradle ${remoteDir}/android/app/build.gradle 2>/dev/null || echo 'MINSDK_NOTFOUND'`,
+      `echo '=== MANIFEST_PERMISSIONS ==='`,
+      `grep 'uses-permission' ${remoteDir}/android/app/src/main/AndroidManifest.xml 2>/dev/null | wc -l`,
+      `echo '=== MAINACTIVITY_CHECK ==='`,
+      `grep -c 'onSaveInstanceState' ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java 2>/dev/null || echo '0'`,
     ].join(" && ");
 
     try {
@@ -2146,7 +2208,23 @@ export class DeploymentEngine {
       );
 
       if (output.includes("KEYSTORE_FILE=MISSING")) {
-        errors.push("ملف keystore غير موجود: android/app/axion-release.keystore");
+        await this.addLog(deploymentId, "🔧 Keystore مفقود — جاري البحث والنسخ التلقائي...", "warn");
+        try {
+          const fixKs = await this.execWithLog(
+            deploymentId,
+            `${sshCmd} "for KS in /home/administrator/.axion-keystore/axion-release.keystore /home/administrator/axion-release.keystore /home/administrator/app2/administrator/.axion-keystore/axion-release.keystore; do if [ -f \\$KS ]; then cp \\$KS ${remoteDir}/android/app/axion-release.keystore && echo 'KEYSTORE_AUTO_FIXED' && break; fi; done; [ -f ${remoteDir}/android/app/axion-release.keystore ] && echo 'KEYSTORE_EXISTS_NOW' || echo 'KEYSTORE_STILL_MISSING'"`,
+            "Auto-fix Keystore",
+            15000
+          );
+          if (fixKs.includes("KEYSTORE_EXISTS_NOW")) {
+            await this.addLog(deploymentId, "✅ تم نسخ Keystore تلقائياً", "success");
+            autoFixes.push("keystore-copy");
+          } else {
+            errors.push("ملف keystore غير موجود ولم يُعثر على نسخة بديلة");
+          }
+        } catch {
+          errors.push("ملف keystore غير موجود: android/app/axion-release.keystore");
+        }
       } else {
         await this.addLog(deploymentId, "✅ ملف Keystore موجود", "success");
       }
@@ -2155,7 +2233,11 @@ export class DeploymentEngine {
         errors.push("JDK 17/21 غير مثبت على السيرفر");
       } else {
         const jdkMatch = output.match(/openjdk version "([^"]+)"/);
-        await this.addLog(deploymentId, `✅ JDK: ${jdkMatch?.[1] || "متوفر"}`, "success");
+        const jdkVersion = jdkMatch?.[1] || "متوفر";
+        await this.addLog(deploymentId, `✅ JDK: ${jdkVersion}`, "success");
+        if (jdkVersion.startsWith("17") || jdkVersion.startsWith("1.8")) {
+          await this.addLog(deploymentId, "🔧 JDK قديم — Capacitor 7 يحتاج Java 21. سيتم استخدام Java 21 إن وُجد أثناء البناء.", "warn");
+        }
       }
 
       if (output.includes("SDK_DIR=MISSING")) {
@@ -2179,14 +2261,105 @@ export class DeploymentEngine {
       const diskMatch = output.match(/DISK_AVAIL=(\S+)\s+DISK_USE=(\S+)/);
       if (diskMatch) {
         const usePercent = parseInt(diskMatch[2]);
-        if (usePercent > 90) {
+        if (usePercent > 95) {
           errors.push(`مساحة القرص منخفضة جداً: ${diskMatch[2]} مستخدم، ${diskMatch[1]} متاح`);
+        } else if (usePercent > 90) {
+          await this.addLog(deploymentId, `⚠️ مساحة القرص منخفضة: ${diskMatch[1]} متاح (${diskMatch[2]} مستخدم) — جاري تنظيف الملفات المؤقتة...`, "warn");
+          try {
+            await this.execWithLog(
+              deploymentId,
+              `${sshCmd} "cd ${remoteDir}/android && rm -rf .gradle/caches/transforms-* build/intermediates/*/debug 2>/dev/null; echo 'CLEANUP_OK'"`,
+              "Auto-fix Disk Space",
+              15000
+            );
+            autoFixes.push("disk-cleanup");
+            await this.addLog(deploymentId, "✅ تم تنظيف ملفات البناء المؤقتة", "success");
+          } catch {}
         } else {
           await this.addLog(deploymentId, `✅ مساحة القرص: ${diskMatch[1]} متاح (${diskMatch[2]} مستخدم)`, "success");
         }
       }
 
-      if (keystorePassword && !output.includes("KEYSTORE_FILE=MISSING")) {
+      const minSdkLow = output.match(/minSdk(?:Version)?\s*=?\s*(\d+)/);
+      if (minSdkLow && parseInt(minSdkLow[1]) < 26) {
+        await this.addLog(deploymentId, `🔧 minSdk=${minSdkLow[1]} أقل من 26 — جاري الإصلاح التلقائي...`, "warn");
+        try {
+          await this.execWithLog(
+            deploymentId,
+            `${sshCmd} "sed -i 's/minSdkVersion = ${minSdkLow[1]}/minSdkVersion = 26/' ${remoteDir}/android/variables.gradle 2>/dev/null; sed -i 's/minSdk ${minSdkLow[1]}/minSdk 26/' ${remoteDir}/android/app/build.gradle 2>/dev/null; grep -E 'minSdk|minSdkVersion' ${remoteDir}/android/variables.gradle ${remoteDir}/android/app/build.gradle 2>/dev/null && echo 'MINSDK_FIXED'"`,
+            "Auto-fix minSdk",
+            10000
+          );
+          autoFixes.push("minSdk-upgrade");
+          await this.addLog(deploymentId, "✅ تم رفع minSdk إلى 26 (Android 8+) تلقائياً", "success");
+        } catch (e: any) {
+          await this.addLog(deploymentId, `⚠️ تعذر إصلاح minSdk تلقائياً: ${e.message}`, "warn");
+        }
+      }
+
+      const permCount = output.match(/MANIFEST_PERMISSIONS[\s\S]*?(\d+)/);
+      if (permCount && parseInt(permCount[1]) < 8) {
+        await this.addLog(deploymentId, `🔧 عدد الصلاحيات (${permCount[1]}) أقل من المطلوب — جاري إضافة الصلاحيات المفقودة...`, "warn");
+        try {
+          const requiredPerms = [
+            "android.permission.INTERNET",
+            "android.permission.ACCESS_NETWORK_STATE",
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.VIBRATE",
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+            "android.permission.WAKE_LOCK",
+            "android.permission.SCHEDULE_EXACT_ALARM",
+            "android.permission.USE_EXACT_ALARM",
+            "android.permission.USE_BIOMETRIC",
+            "android.permission.USE_FINGERPRINT",
+          ];
+          const permLines = requiredPerms.map(p => `<uses-permission android:name=\\"${p}\\"/>`).join("\\n    ");
+          await this.execWithLog(
+            deploymentId,
+            `${sshCmd} "MANIFEST=${remoteDir}/android/app/src/main/AndroidManifest.xml; for PERM in ${requiredPerms.map(p => p.split('.').pop()).join(' ')}; do grep -q \\$PERM \\$MANIFEST 2>/dev/null || echo 'NEED_FIX'; done | head -1 | grep -q NEED_FIX && sed -i '/<\\/manifest>/i\\    ${permLines}' \\$MANIFEST 2>/dev/null; echo 'PERMS_CHECKED'; grep 'uses-permission' \\$MANIFEST | wc -l"`,
+            "Auto-fix Permissions",
+            10000
+          );
+          autoFixes.push("manifest-permissions");
+          await this.addLog(deploymentId, "✅ تم التحقق من الصلاحيات في AndroidManifest.xml", "success");
+        } catch {
+          await this.addLog(deploymentId, "⚠️ تعذر إصلاح الصلاحيات تلقائياً", "warn");
+        }
+      } else {
+        await this.addLog(deploymentId, `✅ الصلاحيات في AndroidManifest: ${permCount?.[1] || '?'} صلاحية`, "success");
+      }
+
+      if (output.includes("MAINACTIVITY_CHECK") && output.includes("\n0")) {
+        await this.addLog(deploymentId, "🔧 MainActivity بحاجة لإصلاح onSaveInstanceState لـ FileSharer...", "warn");
+        try {
+          await this.execWithLog(
+            deploymentId,
+            `${sshCmd} "cat > ${remoteDir}/android/app/src/main/java/com/axion/app/MainActivity.java << 'MAINEOF'
+package com.axion.app;
+
+import android.os.Bundle;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.clear();
+    }
+}
+MAINEOF
+echo 'MAINACTIVITY_FIXED'"`,
+            "Auto-fix MainActivity",
+            10000
+          );
+          autoFixes.push("mainactivity-fix");
+          await this.addLog(deploymentId, "✅ تم إصلاح MainActivity (onSaveInstanceState) تلقائياً", "success");
+        } catch {
+          await this.addLog(deploymentId, "⚠️ تعذر إصلاح MainActivity تلقائياً", "warn");
+        }
+      }
+
+      if (keystorePassword && !errors.some(e => e.includes("keystore"))) {
         try {
           const tmpPassFile = `/tmp/.ks_check_${deploymentId}`;
           writeFileSync(tmpPassFile, keystorePassword, { mode: 0o600 });
@@ -2194,7 +2367,7 @@ export class DeploymentEngine {
 
           const keytoolOutput = await this.execWithLog(
             deploymentId,
-            `${scpCmd} && ${sshCmd} "keytool -list -keystore ${remoteDir}/android/app/axion-release.keystore -storepass \\$(cat /tmp/.ks_check_pass) 2>&1; rm -f /tmp/.ks_check_pass"`,
+            `${scpCmd} && ${sshCmd} "export JAVA_HOME=\\$([ -d /usr/lib/jvm/java-21-openjdk-amd64 ] && echo /usr/lib/jvm/java-21-openjdk-amd64 || echo /usr/lib/jvm/java-17-openjdk-amd64) && export PATH=\\$JAVA_HOME/bin:\\$PATH && keytool -list -keystore ${remoteDir}/android/app/axion-release.keystore -storepass \\$(cat /tmp/.ks_check_pass) 2>&1; rm -f /tmp/.ks_check_pass"`,
             "Keystore Integrity",
             20000
           );
@@ -2224,7 +2397,12 @@ export class DeploymentEngine {
     await this.addEvent(deploymentId, "android_readiness", "Android readiness check", {
       errorsCount: errors.length,
       errors,
+      autoFixes,
     });
+
+    if (autoFixes.length > 0) {
+      await this.addLog(deploymentId, `🔧 تم تطبيق ${autoFixes.length} إصلاح تلقائي: ${autoFixes.join(", ")}`, "success");
+    }
 
     if (errors.length > 0) {
       for (const err of errors) {

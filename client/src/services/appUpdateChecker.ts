@@ -41,14 +41,18 @@ async function waitForCapacitorBridge(maxWaitMs = 5000): Promise<boolean> {
 }
 
 async function getAppVersion(): Promise<{ versionName: string; versionCode: number; unknown: boolean }> {
+  const { trackLog } = await import('../lib/debug-tracker');
+
   if (!Capacitor.isNativePlatform()) {
+    trackLog('GET_APP_VERSION_NOT_NATIVE', {});
     return { versionName: '0.0.0', versionCode: 0, unknown: true };
   }
 
-  await waitForCapacitorBridge(5000);
+  const bridgeReady = await waitForCapacitorBridge(5000);
+  trackLog('GET_APP_VERSION_BRIDGE', { bridgeReady });
 
   const MAX_ATTEMPTS = 4;
-  const DELAYS = [0, 1000, 2000, 3000];
+  const DELAYS = [0, 500, 1000, 2000];
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
@@ -57,31 +61,39 @@ async function getAppVersion(): Promise<{ versionName: string; versionCode: numb
       }
 
       const { App } = await import('@capacitor/app');
+      trackLog('GET_APP_VERSION_ATTEMPT', { attempt: attempt + 1, appPlugin: !!App, hasGetInfo: typeof App?.getInfo });
       const info = await App.getInfo();
 
-      console.log(`[getAppVersion] attempt=${attempt + 1} raw:`, JSON.stringify(info));
+      trackLog('GET_APP_VERSION_RAW', {
+        attempt: attempt + 1,
+        version: info?.version,
+        build: info?.build,
+        name: info?.name,
+        id: info?.id,
+        allKeys: Object.keys(info || {}),
+      });
 
       const versionName = info.version && info.version.length > 0 ? info.version : '';
       const buildStr = info.build && info.build.length > 0 ? info.build : '0';
       const versionCode = parseInt(buildStr, 10) || 0;
 
       if (versionName && versionName !== '0.0.0' && versionName !== '') {
-        console.log(`[getAppVersion] OK: ${versionName} (code: ${versionCode})`);
+        trackLog('GET_APP_VERSION_OK', { versionName, versionCode });
         return { versionName, versionCode, unknown: false };
       }
 
       if (versionCode > 0) {
-        console.log(`[getAppVersion] OK by code: ${versionCode} (name: ${versionName || 'empty'})`);
+        trackLog('GET_APP_VERSION_OK_BY_CODE', { versionName, versionCode });
         return { versionName: versionName || '0.0.0', versionCode, unknown: false };
       }
 
-      console.warn(`[getAppVersion] attempt=${attempt + 1} returned empty — retrying...`);
+      trackLog('GET_APP_VERSION_EMPTY', { attempt: attempt + 1, versionName, versionCode });
     } catch (err: any) {
-      console.error(`[getAppVersion] attempt=${attempt + 1} failed:`, err?.message || err);
+      trackLog('GET_APP_VERSION_FAIL', { attempt: attempt + 1, error: err?.message || String(err) });
     }
   }
 
-  console.error(`[getAppVersion] all ${MAX_ATTEMPTS} attempts failed — returning unknown`);
+  trackLog('GET_APP_VERSION_ALL_FAILED', { attempts: MAX_ATTEMPTS });
   return { versionName: '0.0.0', versionCode: 0, unknown: true };
 }
 

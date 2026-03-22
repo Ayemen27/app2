@@ -111,7 +111,8 @@ export default function LoginPage() {
   const [showUpdateCheck, setShowUpdateCheck] = useState(false);
   const [updateCheckState, setUpdateCheckState] = useState<'idle' | 'checking' | 'available' | 'upToDate' | 'error'>('idle');
   const [updateData, setUpdateData] = useState<any>(null);
-  const [appVersion, setAppVersion] = useState<string>(__APP_VERSION__ || '0.0.0');
+  const [appVersion, setAppVersion] = useState<string>('...');
+  const [nativeVersionResolved, setNativeVersionResolved] = useState(false);
   const [forceUpdateInfo, setForceUpdateInfo] = useState<any>(null);
 
   useEffect(() => {
@@ -127,13 +128,26 @@ export default function LoginPage() {
       try {
         const { Capacitor } = await import('@capacitor/core');
         if (Capacitor.isNativePlatform()) {
-          const { App } = await import('@capacitor/app');
-          const info = await App.getInfo();
-          if (info.version && info.version !== '0.0.0') {
-            setAppVersion(info.version);
+          const { getAppVersion: getNativeVersion } = await import('../services/appUpdateChecker');
+          const result = await getNativeVersion();
+          trackLog('LOAD_VERSION_RESULT', { versionName: result.versionName, versionCode: result.versionCode, unknown: result.unknown });
+          if (!result.unknown && result.versionName !== '0.0.0') {
+            setAppVersion(result.versionName);
+            setNativeVersionResolved(true);
+          } else {
+            setAppVersion(__APP_VERSION__ || '0.0.0');
+            setNativeVersionResolved(false);
+            trackLog('LOAD_VERSION_FALLBACK', { fallback: __APP_VERSION__, reason: 'native_version_unknown' });
           }
+        } else {
+          setAppVersion(__APP_VERSION__ || '0.0.0');
+          setNativeVersionResolved(false);
         }
-      } catch {}
+      } catch (e: any) {
+        trackLog('LOAD_VERSION_ERROR', { error: e?.message || String(e) });
+        setAppVersion(__APP_VERSION__ || '0.0.0');
+        setNativeVersionResolved(false);
+      }
     };
     loadVersion();
 
@@ -171,15 +185,31 @@ export default function LoginPage() {
   }, []);
 
   const handleCheckUpdate = async () => {
-    trackLog('MANUAL_UPDATE_CHECK_START', { appVersion });
+    trackLog('MANUAL_UPDATE_CHECK_START', { appVersion, nativeVersionResolved });
     setUpdateCheckState('checking');
     setUpdateData(null);
     try {
       const { Capacitor } = await import('@capacitor/core');
       const isNative = Capacitor.isNativePlatform();
       const baseUrl = isNative ? 'https://app2.binarjoinanelytic.info' : '';
-      const url = `${baseUrl}/api/deployment/app/check-update?versionCode=0&versionName=${encodeURIComponent(appVersion)}`;
-      trackLog('MANUAL_UPDATE_CHECK_FETCH', { url, isNative });
+
+      let checkVersion = appVersion;
+      let checkCode = 0;
+      if (isNative && !nativeVersionResolved) {
+        const { getAppVersion: getNativeVersion } = await import('../services/appUpdateChecker');
+        const nv = await getNativeVersion();
+        trackLog('MANUAL_UPDATE_NATIVE_RETRY', { versionName: nv.versionName, versionCode: nv.versionCode, unknown: nv.unknown });
+        if (!nv.unknown) {
+          checkVersion = nv.versionName;
+          checkCode = nv.versionCode;
+        } else {
+          checkVersion = '0.0.0';
+          checkCode = 0;
+        }
+      }
+
+      const url = `${baseUrl}/api/deployment/app/check-update?versionCode=${checkCode}&versionName=${encodeURIComponent(checkVersion)}`;
+      trackLog('MANUAL_UPDATE_CHECK_FETCH', { url, isNative, checkVersion, checkCode });
       const res = await fetch(url);
       trackLog('MANUAL_UPDATE_CHECK_RESPONSE', { status: res.status, ok: res.ok });
       if (!res.ok) throw new Error('فشل الاتصال: status=' + res.status);

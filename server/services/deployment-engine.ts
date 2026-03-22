@@ -1615,19 +1615,28 @@ export class DeploymentEngine {
 
     const capSyncResult = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then timeout 90 npx cap sync android 2>&1 | tail -15 && echo 'CAP_SYNC_OK' || echo 'CAP_SYNC_TIMEOUT_OR_FAIL'; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
+      `${sshCmd} "cd ${remoteDir} && if which npx >/dev/null 2>&1; then set -o pipefail; timeout 90 npx cap sync android 2>&1 | tail -20; EC=\\$?; if [ \\$EC -eq 0 ]; then echo 'CAP_SYNC_OK'; elif [ \\$EC -eq 124 ]; then echo 'CAP_SYNC_TIMEOUT'; else echo 'CAP_SYNC_FAIL_CODE='\\$EC; fi; else echo 'CAP_SYNC_SKIP_NO_NPX'; fi"`,
       "Capacitor Plugin Sync",
       120000
     );
 
     if (capSyncResult.includes("CAP_SYNC_OK")) {
       await this.addLog(deploymentId, "✅ تم مزامنة Capacitor plugins (PushNotifications, NativeBiometric, ...)", "success");
-    } else if (capSyncResult.includes("CAP_SYNC_TIMEOUT_OR_FAIL")) {
-      await this.addLog(deploymentId, "⚠️ cap sync فشل أو تجاوز المهلة — مزامنة يدوية للأصول", "warn");
+    } else if (capSyncResult.includes("CAP_SYNC_TIMEOUT")) {
+      await this.addLog(deploymentId, "⚠️ cap sync تجاوز المهلة (90 ثانية) — مزامنة يدوية للأصول", "warn");
       await this.execWithLog(
         deploymentId,
         `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
         "Manual Asset Sync (timeout fallback)",
+        60000
+      );
+    } else if (capSyncResult.includes("CAP_SYNC_FAIL_CODE")) {
+      const codeMatch = capSyncResult.match(/CAP_SYNC_FAIL_CODE=(\d+)/);
+      await this.addLog(deploymentId, `⚠️ cap sync فشل (exit code: ${codeMatch?.[1] || '?'}) — مزامنة يدوية للأصول`, "warn");
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "cd ${remoteDir} && rm -rf android/app/src/main/assets/public && mkdir -p android/app/src/main/assets/public && cp -r www/* android/app/src/main/assets/public/ && cp capacitor.config.json android/app/src/main/assets/capacitor.config.json 2>/dev/null; echo 'SYNC_OK'"`,
+        "Manual Asset Sync (error fallback)",
         60000
       );
     } else {

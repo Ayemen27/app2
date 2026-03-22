@@ -270,20 +270,23 @@ export default function DeploymentConsole() {
   const globalSSERetryRef = useRef(0);
   const sseReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeDeploymentIdRef = useRef<string | null>(null);
-  const pollInFlightRef = useRef(false);
-  const trackingGenerationRef = useRef(0);
+  const sessionTokenRef = useRef(0);
+  const pollSeqRef = useRef(0);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sseRetryCountRef = useRef(0);
   const refetchHistoryRef = useRef(refetchHistory);
   refetchHistoryRef.current = refetchHistory;
 
-  const stopTracking = useCallback(() => {
-    trackingGenerationRef.current++;
+  const cleanupTracking = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
     pollRetryCountRef.current = 0;
-    pollInFlightRef.current = false;
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
@@ -296,57 +299,75 @@ export default function DeploymentConsole() {
     sseRetryCountRef.current = 0;
   }, []);
 
-  const startPollingOnly = useCallback((deploymentId: string, interval: number) => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
-    const generation = trackingGenerationRef.current;
-    console.log(`[TRACK] startPolling id=${deploymentId.slice(0,8)} gen=${generation} interval=${interval}ms`);
+  const stopTracking = useCallback(() => {
+    console.log(`[TRACK] stopTracking session=${sessionTokenRef.current}`);
+    sessionTokenRef.current++;
+    activeDeploymentIdRef.current = null;
+    cleanupTracking();
+  }, [cleanupTracking]);
 
-    const poll = async () => {
-      if (generation !== trackingGenerationRef.current) { console.log(`[TRACK] poll SKIP: gen mismatch ${generation}!=${trackingGenerationRef.current}`); return; }
-      if (activeDeploymentIdRef.current !== deploymentId) { console.log(`[TRACK] poll SKIP: id mismatch`); return; }
-      if (pollInFlightRef.current) { console.log(`[TRACK] poll SKIP: in-flight`); return; }
-      pollInFlightRef.current = true;
+  const handleTerminal = useCallback((status: string) => {
+    if (status === "success" || status === "failed" || status === "cancelled") {
+      console.log(`[TRACK] terminal: ${status}`);
+      sessionTokenRef.current++;
+      cleanupTracking();
+      refetchHistoryRef.current();
+      queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+    }
+  }, [cleanupTracking, queryClient]);
+
+  const schedulePoll = useCallback((deploymentId: string, token: number, delayMs: number) => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+
+    pollTimerRef.current = setTimeout(async () => {
+      if (token !== sessionTokenRef.current) {
+        console.log(`[TRACK] poll SKIP: token stale ${token}!=${sessionTokenRef.current}`);
+        return;
+      }
+
+      const seq = ++pollSeqRef.current;
+      console.log(`[TRACK] poll #${seq} id=${deploymentId.slice(0,8)} token=${token}`);
+
       try {
         const data = await apiRequest(`/api/deployment/${deploymentId}`);
-        if (generation !== trackingGenerationRef.current || activeDeploymentIdRef.current !== deploymentId) { console.log(`[TRACK] poll DISCARD: stale response`); return; }
+
+        if (token !== sessionTokenRef.current) {
+          console.log(`[TRACK] poll #${seq} DISCARD: session changed`);
+          return;
+        }
+
         pollRetryCountRef.current = 0;
-        console.log(`[TRACK] poll OK: status=${data.status} logs=${Array.isArray(data.logs)?data.logs.length:0} step=${data.currentStep}`);
+        const logCount = Array.isArray(data.logs) ? data.logs.length : 0;
+        console.log(`[TRACK] poll #${seq} OK: status=${data.status} logs=${logCount} step=${data.currentStep}`);
         setLiveDeployment(data);
         setLiveLogs(Array.isArray(data.logs) ? data.logs : []);
-        const isTerminal = data.status === "success" || data.status === "failed" || data.status === "cancelled";
-        if (isTerminal) {
-          stopTracking();
-          refetchHistoryRef.current();
-          queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
+
+        if (data.status === "success" || data.status === "failed" || data.status === "cancelled") {
+          handleTerminal(data.status);
+          return;
         }
+
+        schedulePoll(deploymentId, token, 3000);
       } catch {
+        if (token !== sessionTokenRef.current) return;
         pollRetryCountRef.current++;
+        console.log(`[TRACK] poll #${seq} FAIL: retry=${pollRetryCountRef.current}/${MAX_POLL_RETRIES}`);
+
         if (pollRetryCountRef.current >= MAX_POLL_RETRIES) {
           toast({ title: "انقطع الاتصال بالخادم", description: "جارٍ إعادة المحاولة...", variant: "destructive" });
           pollRetryCountRef.current = 0;
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
-          setTimeout(() => {
-            if (generation === trackingGenerationRef.current && activeDeploymentIdRef.current === deploymentId) {
-              startPollingOnly(deploymentId, 5000);
-            }
-          }, 10000);
+          schedulePoll(deploymentId, token, 10000);
+        } else {
+          schedulePoll(deploymentId, token, 3000);
         }
-      } finally {
-        pollInFlightRef.current = false;
       }
-    };
+    }, delayMs);
+  }, [handleTerminal]);
 
-    poll();
-    pollIntervalRef.current = setInterval(poll, interval);
-  }, [queryClient, stopTracking]);
-
-  const connectSSEOnly = useCallback((deploymentId: string) => {
+  const connectSSE = useCallback((deploymentId: string, token: number) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
@@ -356,43 +377,34 @@ export default function DeploymentConsole() {
       sseReconnectTimerRef.current = null;
     }
     sseConnectedRef.current = false;
-    const generation = trackingGenerationRef.current;
     const apiBase = ENV.getApiBaseUrl();
-    console.log(`[TRACK] connectSSE id=${deploymentId.slice(0,8)} gen=${generation}`);
+    console.log(`[TRACK] SSE connect id=${deploymentId.slice(0,8)} token=${token}`);
 
     try {
       const es = new EventSource(`${apiBase}/api/deployment/${deploymentId}/stream`, { withCredentials: true });
       eventSourceRef.current = es;
 
       es.onopen = () => {
-        console.log(`[TRACK] SSE OPEN id=${deploymentId.slice(0,8)} gen=${generation}`);
-        if (generation !== trackingGenerationRef.current) { es.close(); return; }
+        if (token !== sessionTokenRef.current) { es.close(); return; }
+        console.log(`[TRACK] SSE OPEN token=${token}`);
         sseConnectedRef.current = true;
         sseRetryCountRef.current = 0;
       };
 
       es.onmessage = (event) => {
-        if (generation !== trackingGenerationRef.current) { es.close(); return; }
+        if (token !== sessionTokenRef.current) { es.close(); return; }
         try {
           const payload = JSON.parse(event.data);
 
           if (payload.type === "initial_state") {
             setLiveDeployment(payload.data);
             setLiveLogs(Array.isArray(payload.data.logs) ? payload.data.logs : []);
-            if (payload.data.status !== "running") {
-              stopTracking();
-              refetchHistoryRef.current();
-              queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
-            }
+            handleTerminal(payload.data.status);
           } else if (payload.type === "log") {
             setLiveLogs(prev => [...prev, payload.data]);
           } else if (payload.type === "deployment_update") {
             setLiveDeployment(prev => prev ? { ...prev, ...payload.data } : null);
-            if (payload.data.status === "success" || payload.data.status === "failed" || payload.data.status === "cancelled") {
-              stopTracking();
-              refetchHistoryRef.current();
-              queryClient.invalidateQueries({ queryKey: ["/api/deployment/stats"] });
-            }
+            handleTerminal(payload.data.status);
           } else if (payload.type === "step_update") {
             setLiveDeployment(prev => {
               if (!prev) return null;
@@ -418,44 +430,41 @@ export default function DeploymentConsole() {
       };
 
       es.onerror = () => {
-        console.log(`[TRACK] SSE ERROR id=${deploymentId.slice(0,8)} gen=${generation} retry=${sseRetryCountRef.current}`);
-        if (generation !== trackingGenerationRef.current) { es.close(); return; }
+        if (token !== sessionTokenRef.current) { es.close(); return; }
+        console.log(`[TRACK] SSE ERROR retry=${sseRetryCountRef.current}`);
         sseConnectedRef.current = false;
         es.close();
         eventSourceRef.current = null;
         sseRetryCountRef.current++;
 
         if (sseRetryCountRef.current <= 3) {
-          const delay = Math.min(2000 * Math.pow(2, sseRetryCountRef.current - 1), 15000) + Math.random() * 1000;
-          console.log(`[TRACK] SSE reconnect in ${Math.round(delay)}ms`);
+          const delay = 2000 * Math.pow(2, sseRetryCountRef.current - 1) + Math.random() * 1000;
           sseReconnectTimerRef.current = setTimeout(() => {
-            if (generation === trackingGenerationRef.current) {
-              connectSSEOnly(deploymentId);
+            if (token === sessionTokenRef.current) {
+              connectSSE(deploymentId, token);
             }
           }, delay);
         } else {
-          console.log(`[TRACK] SSE gave up after ${sseRetryCountRef.current} retries, polling only`);
-        }
-
-        if (!pollIntervalRef.current) {
-          startPollingOnly(deploymentId, 3000);
+          console.log(`[TRACK] SSE gave up, polling only`);
         }
       };
     } catch {
       sseRetryCountRef.current++;
-      startPollingOnly(deploymentId, 3000);
     }
-  }, [queryClient, startPollingOnly, stopTracking]);
+  }, [handleTerminal]);
 
   const startTracking = useCallback((deploymentId: string) => {
-    console.log(`[TRACK] === START TRACKING === id=${deploymentId.slice(0,8)}`);
-    stopTracking();
-    trackingGenerationRef.current++;
+    if (activeDeploymentIdRef.current === deploymentId && pollTimerRef.current) {
+      console.log(`[TRACK] startTracking NOOP: already tracking ${deploymentId.slice(0,8)}`);
+      return;
+    }
+    cleanupTracking();
+    const token = ++sessionTokenRef.current;
     activeDeploymentIdRef.current = deploymentId;
-    console.log(`[TRACK] gen=${trackingGenerationRef.current} starting SSE+Polling`);
-    connectSSEOnly(deploymentId);
-    startPollingOnly(deploymentId, 3000);
-  }, [stopTracking, connectSSEOnly, startPollingOnly]);
+    console.log(`[TRACK] === START TRACKING === id=${deploymentId.slice(0,8)} token=${token}`);
+    connectSSE(deploymentId, token);
+    schedulePoll(deploymentId, token, 0);
+  }, [cleanupTracking, connectSSE, schedulePoll]);
 
   useEffect(() => {
     const apiBase = ENV.getApiBaseUrl();
@@ -529,12 +538,15 @@ export default function DeploymentConsole() {
       startTracking(activeDeploymentId);
     } else {
       stopTracking();
-      activeDeploymentIdRef.current = null;
     }
-    return () => {
-      stopTracking();
-    };
   }, [activeDeploymentId, startTracking, stopTracking]);
+
+  useEffect(() => {
+    return () => {
+      cleanupTracking();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!activeDeploymentId && historyData?.deployments) {

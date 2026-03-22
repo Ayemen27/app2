@@ -2168,32 +2168,39 @@ export class DeploymentEngine {
     let signatureValid = false;
     const sigVerify = await this.execWithLog(
       deploymentId,
-      `${sshCmd} "if command -v apksigner >/dev/null 2>&1; then apksigner verify --print-certs ${apkPath} 2>&1; APKSIGNER_EXIT=\\$?; if [ \\$APKSIGNER_EXIT -eq 0 ]; then echo 'APKSIGNER_VERIFIED'; else echo 'APKSIGNER_FAILED'; fi; elif command -v jarsigner >/dev/null 2>&1; then JARSIGNER_OUT=\\$(jarsigner -verify ${apkPath} 2>&1); echo \\\"\\$JARSIGNER_OUT\\\"; if echo \\\"\\$JARSIGNER_OUT\\\" | grep -qi 'verified\\|no manifest'; then echo 'JARSIGNER_VERIFIED'; else echo 'JARSIGNER_FAILED'; fi; else echo 'NO_SIGNER_TOOL'; fi"`,
+      `${sshCmd} "APKSIGNER_BIN=\\$(command -v apksigner 2>/dev/null || find /opt/android-sdk/build-tools -name apksigner 2>/dev/null | sort -V | tail -1); if [ -n \\"\\$APKSIGNER_BIN\\" ] && [ -x \\"\\$APKSIGNER_BIN\\" ]; then echo \\"[TOOL] Using: \\$APKSIGNER_BIN\\"; \\$APKSIGNER_BIN verify --verbose --print-certs ${apkPath} 2>&1; if [ \\$? -eq 0 ]; then echo 'APKSIGNER_VERIFIED'; else echo 'APKSIGNER_FAILED'; fi; elif command -v jarsigner >/dev/null 2>&1; then echo '[TOOL] Using: jarsigner (fallback)'; JARSIGNER_OUT=\\$(jarsigner -verify ${apkPath} 2>&1); echo \\"\\$JARSIGNER_OUT\\"; if echo \\"\\$JARSIGNER_OUT\\" | grep -qi 'verified'; then echo 'JARSIGNER_VERIFIED'; elif echo \\"\\$JARSIGNER_OUT\\" | grep -qi 'no manifest'; then echo 'JARSIGNER_V2_LIKELY'; else echo 'JARSIGNER_FAILED'; fi; else echo 'NO_SIGNER_TOOL'; fi"`,
       "APK Signature Verify",
       30000
     );
 
     if (sigVerify.includes("APKSIGNER_VERIFIED")) {
       signatureValid = true;
-      await this.addLog(deploymentId, "✅ التوقيع الرقمي صالح (apksigner — v2/v3)", "success");
+      const v2 = sigVerify.includes("v2 scheme (APK Signature Scheme v2): true");
+      const v3 = sigVerify.includes("v3 scheme (APK Signature Scheme v3): true");
+      const scheme = v3 ? "v3" : v2 ? "v2" : "v2/v3";
+      await this.addLog(deploymentId, `✅ التوقيع الرقمي صالح (apksigner — ${scheme})`, "success");
+      const dnMatch = sigVerify.match(/certificate DN: (.+)/);
+      if (dnMatch) {
+        await this.addLog(deploymentId, `📜 الشهادة: ${dnMatch[1]}`, "info");
+      }
     } else if (sigVerify.includes("APKSIGNER_FAILED")) {
       await this.addLog(deploymentId, "❌ فشل التحقق من التوقيع عبر apksigner", "error");
       throw new Error("🚫 فشل فحص سلامة APK: التوقيع الرقمي غير صالح (apksigner)");
     } else if (sigVerify.includes("JARSIGNER_VERIFIED")) {
       signatureValid = true;
-      if (sigVerify.includes("no manifest")) {
-        await this.addLog(deploymentId, "✅ التوقيع الرقمي صالح (APK v2/v3 — jarsigner أكد عدم وجود v1 manifest وهذا طبيعي)", "success");
-      } else {
-        await this.addLog(deploymentId, "✅ التوقيع الرقمي صالح (jarsigner — v1)", "success");
-      }
+      await this.addLog(deploymentId, "✅ التوقيع الرقمي صالح (jarsigner — v1)", "success");
+    } else if (sigVerify.includes("JARSIGNER_V2_LIKELY")) {
+      signatureValid = true;
+      await this.addLog(deploymentId, "✅ APK موقّع بـ v2/v3 (jarsigner لا يرى v1 manifest — طبيعي)", "success");
+      await this.addLog(deploymentId, "💡 يُنصح بتثبيت apksigner في PATH للتحقق الكامل", "info");
     } else if (sigVerify.includes("JARSIGNER_FAILED")) {
       await this.addLog(deploymentId, "❌ فشل التحقق من التوقيع عبر jarsigner", "error");
       throw new Error("🚫 فشل فحص سلامة APK: التوقيع الرقمي غير صالح (jarsigner)");
     } else if (sigVerify.includes("NO_SIGNER_TOOL")) {
-      await this.addLog(deploymentId, "⚠️ لا توجد أداة تحقق من التوقيع (apksigner/jarsigner) — تخطي فحص التوقيع", "warn");
+      await this.addLog(deploymentId, "⚠️ لا توجد أداة تحقق من التوقيع — تخطي فحص التوقيع", "warn");
     } else {
       await this.addLog(deploymentId, "⚠️ لم يتم التعرف على مخرجات أداة التحقق — تخطي مع تحذير", "warn");
-      await this.addLog(deploymentId, `📋 المخرجات: ${sigVerify.substring(0, 200)}`, "info");
+      await this.addLog(deploymentId, `📋 المخرجات: ${sigVerify.substring(0, 300)}`, "info");
     }
 
     const integrityMeta = {

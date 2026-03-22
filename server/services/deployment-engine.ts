@@ -89,6 +89,7 @@ export class DeploymentEngine {
   private notificationPublisher: DeploymentNotificationPublisher;
   private providersRegistered = false;
   private deploymentLoggers = new Map<string, DeploymentLogger>();
+  private remoteMonitors = new Map<string, NodeJS.Timeout>();
 
   constructor() {
     this.notificationPublisher = DeploymentNotificationPublisher.getInstance();
@@ -284,7 +285,9 @@ export class DeploymentEngine {
           }
 
           if (verified === "still_running") {
-            console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} still running remotely — skipping recovery`);
+            console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} still running remotely — starting background monitor`);
+            await this.addLog(d.id, "⚠️ أُعيد تشغيل الخادم — يُراقَب النشر عن بُعد تلقائياً...", "warning");
+            this.startRemoteMonitor(d);
             continue;
           }
         }
@@ -317,6 +320,81 @@ export class DeploymentEngine {
       }
     } catch (err) {
       console.error("[DeploymentEngine] Error recovering orphaned deployments:", err);
+    }
+  }
+
+  private startRemoteMonitor(deployment: any) {
+    const id = deployment.id;
+    if (this.remoteMonitors.has(id)) return;
+
+    const checkInterval = 30000;
+    let checkCount = 0;
+    const maxChecks = 60;
+
+    const check = async () => {
+      checkCount++;
+      try {
+        const verified = await this.verifyRemoteDeploymentStatus(deployment);
+        const age = Date.now() - new Date(deployment.created_at!).getTime();
+
+        if (verified === "success") {
+          const recoveredSteps = (deployment.steps as StepEntry[]).map((s: StepEntry) => {
+            if (s.status === "running" || s.status === "pending") return { ...s, status: "success" as const };
+            return s;
+          });
+          await db.update(buildDeployments).set({
+            status: "success",
+            errorMessage: null,
+            endTime: new Date(),
+            duration: age,
+            steps: recoveredSteps,
+            currentStep: "done",
+          }).where(eq(buildDeployments.id, id));
+
+          await this.addLog(id, "✅ اكتمل النشر بنجاح على الخادم البعيد (تم الكشف تلقائياً)", "success");
+          await this.flushLogs(id);
+          broadcastGlobalEvent({ type: "deployment_completed", deploymentId: id, data: { status: "success" } });
+          console.log(`[DeploymentEngine] ✅ Remote monitor: Deployment #${deployment.buildNumber} completed successfully`);
+          this.stopRemoteMonitor(id);
+          return;
+        }
+
+        if (verified === "still_running") {
+          if (checkCount % 4 === 0) {
+            await this.addLog(id, `🔄 النشر لا يزال يعمل على الخادم البعيد... (فحص #${checkCount})`, "info");
+          }
+        } else {
+          if (checkCount >= maxChecks) {
+            await db.update(buildDeployments).set({
+              status: "failed",
+              errorMessage: "انتهت مهلة المراقبة — لم يُستكمل النشر",
+              endTime: new Date(),
+              duration: age,
+            }).where(eq(buildDeployments.id, id));
+            await this.addLog(id, "❌ انتهت مهلة المراقبة بعد " + Math.round(age / 60000) + " دقيقة", "error");
+            await this.flushLogs(id);
+            broadcastGlobalEvent({ type: "deployment_completed", deploymentId: id, data: { status: "failed" } });
+            console.log(`[DeploymentEngine] ❌ Remote monitor: Deployment #${deployment.buildNumber} timed out`);
+            this.stopRemoteMonitor(id);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error(`[DeploymentEngine] Remote monitor error for ${id}:`, err);
+      }
+    };
+
+    check();
+    const timer = setInterval(check, checkInterval);
+    this.remoteMonitors.set(id, timer);
+    console.log(`[DeploymentEngine] 🔍 Started remote monitor for deployment #${deployment.buildNumber} (check every ${checkInterval / 1000}s)`);
+  }
+
+  private stopRemoteMonitor(deploymentId: string) {
+    const timer = this.remoteMonitors.get(deploymentId);
+    if (timer) {
+      clearInterval(timer);
+      this.remoteMonitors.delete(deploymentId);
     }
   }
 

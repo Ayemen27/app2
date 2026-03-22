@@ -8,7 +8,10 @@ let _cachedPlatform: ClientPlatform | null = null;
 
 function detectPlatform(): ClientPlatform {
   if (_cachedPlatform) return _cachedPlatform;
-  if (typeof window === 'undefined') return 'web';
+  if (typeof window === 'undefined') {
+    _cachedPlatform = 'web';
+    return 'web';
+  }
 
   const cap = (window as any).Capacitor;
   const proto = window.location?.protocol || '';
@@ -52,9 +55,7 @@ function detectPlatform(): ClientPlatform {
 
   trackLog('DETECT_PLATFORM', { ...checks, result, reason, ua: ua.substring(0, 100) });
 
-  if (result !== 'web') {
-    _cachedPlatform = result;
-  }
+  _cachedPlatform = result;
   return result;
 }
 
@@ -66,18 +67,24 @@ function getIsNative(): boolean {
   return getPlatform() !== 'web';
 }
 
+let _cachedEnv: AppEnv | null = null;
 function detectEnvironment(): AppEnv {
+  if (_cachedEnv) return _cachedEnv;
   const p = getPlatform();
-  if (p !== 'web') return 'production';
-  if (typeof window === 'undefined') return 'development';
-  if (PRODUCTION_HOSTS.includes(window.location.hostname)) return 'production';
-  if (import.meta.env?.DEV) return 'development';
+  if (p !== 'web') { _cachedEnv = 'production'; return 'production'; }
+  if (typeof window === 'undefined') { _cachedEnv = 'development'; return 'development'; }
+  if (PRODUCTION_HOSTS.includes(window.location.hostname)) { _cachedEnv = 'production'; return 'production'; }
+  if (import.meta.env?.DEV) { _cachedEnv = 'development'; return 'development'; }
+  _cachedEnv = 'production';
   return 'production';
 }
 
+let _cachedApiBase: string | null = null;
 function resolveApiBaseUrl(): string {
-  if (getIsNative()) return PRODUCTION_DOMAIN;
-  if (detectEnvironment() === 'production') return PRODUCTION_DOMAIN;
+  if (_cachedApiBase !== null) return _cachedApiBase;
+  if (getIsNative()) { _cachedApiBase = PRODUCTION_DOMAIN; return PRODUCTION_DOMAIN; }
+  if (detectEnvironment() === 'production') { _cachedApiBase = PRODUCTION_DOMAIN; return PRODUCTION_DOMAIN; }
+  _cachedApiBase = '';
   return '';
 }
 

@@ -44,6 +44,7 @@ export class WhatsAppSecurityContext {
 
   static async fromPhone(phone: string): Promise<WhatsAppSecurityContext> {
     const cleanPhone = phone.replace(/\D/g, "");
+    console.log(`[WhatsAppSecurityContext] fromPhone: بحث عن الرقم ${cleanPhone}`);
 
     const link = await db
       .select()
@@ -57,6 +58,8 @@ export class WhatsAppSecurityContext {
       .limit(1);
 
     if (link.length === 0) {
+      console.log(`[WhatsAppSecurityContext] الرقم ${cleanPhone} غير موجود في user_links — البحث في allowed_numbers...`);
+
       const allowedEntry = await db
         .select()
         .from(whatsappAllowedNumbers)
@@ -69,13 +72,32 @@ export class WhatsAppSecurityContext {
         .limit(1);
 
       if (allowedEntry.length > 0 && allowedEntry[0].addedBy) {
+        const ownerId = allowedEntry[0].addedBy;
+        console.log(`[WhatsAppSecurityContext] وُجد في allowed_numbers (addedBy: ${ownerId}) — محاولة ربط تلقائي...`);
         try {
-          console.log(`[WhatsAppSecurityContext] ربط تلقائي: الرقم ${cleanPhone} موجود في allowed_numbers (addedBy: ${allowedEntry[0].addedBy}) — إنشاء ربط في user_links`);
-          await db.insert(whatsappUserLinks).values({
-            user_id: allowedEntry[0].addedBy,
-            phoneNumber: cleanPhone,
-            isActive: true,
-          });
+          const existingLink = await db
+            .select()
+            .from(whatsappUserLinks)
+            .where(eq(whatsappUserLinks.user_id, ownerId))
+            .limit(1);
+
+          if (existingLink.length > 0) {
+            console.log(`[WhatsAppSecurityContext] المستخدم ${ownerId} لديه ربط سابق بالرقم ${existingLink[0].phoneNumber} — تحديث الرقم إلى ${cleanPhone}`);
+            await db.update(whatsappUserLinks)
+              .set({
+                phoneNumber: cleanPhone,
+                isActive: true,
+              })
+              .where(eq(whatsappUserLinks.user_id, ownerId));
+          } else {
+            console.log(`[WhatsAppSecurityContext] إنشاء ربط جديد للمستخدم ${ownerId} بالرقم ${cleanPhone}`);
+            await db.insert(whatsappUserLinks).values({
+              user_id: ownerId,
+              phoneNumber: cleanPhone,
+              isActive: true,
+            });
+          }
+
           const autoLink = await db
             .select()
             .from(whatsappUserLinks)
@@ -88,13 +110,18 @@ export class WhatsAppSecurityContext {
             .limit(1);
           if (autoLink.length > 0) {
             link.push(autoLink[0]);
+            console.log(`[WhatsAppSecurityContext] ✅ ربط تلقائي نجح للمستخدم ${ownerId}`);
           }
-        } catch (_e) {
+        } catch (autoLinkErr: any) {
+          console.error(`[WhatsAppSecurityContext] ❌ فشل الربط التلقائي للرقم ${cleanPhone}:`, autoLinkErr?.message || autoLinkErr);
           return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
         }
+      } else {
+        console.log(`[WhatsAppSecurityContext] الرقم ${cleanPhone} غير موجود في allowed_numbers أو addedBy فارغ (addedBy: ${allowedEntry[0]?.addedBy || 'null'})`);
       }
 
       if (link.length === 0) {
+        console.log(`[WhatsAppSecurityContext] ❌ فشل نهائي: الرقم ${cleanPhone} لا يوجد له ربط — userId=null`);
         return new WhatsAppSecurityContext(cleanPhone, null, "unknown", [], "");
       }
     }

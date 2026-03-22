@@ -236,7 +236,7 @@ router.get("/global-stream", requireAdmin, async (req: Request, res: Response) =
     } catch {
       clearInterval(heartbeat);
     }
-  }, 15000);
+  }, 8000);
 
   req.on("close", () => {
     clearInterval(heartbeat);
@@ -267,7 +267,6 @@ router.get("/:id/stream", requireAdmin, async (req: Request, res: Response) => {
   };
   
   await sendInitialState();
-  setTimeout(() => sendInitialState(), 1500);
 
   const heartbeat = setInterval(() => {
     try {
@@ -275,7 +274,7 @@ router.get("/:id/stream", requireAdmin, async (req: Request, res: Response) => {
     } catch {
       clearInterval(heartbeat);
     }
-  }, 15000);
+  }, 8000);
 
   req.on("close", () => {
     clearInterval(heartbeat);

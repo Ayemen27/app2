@@ -232,6 +232,19 @@ async function openDownloadUrl(url: string) {
         trackLog('OPEN_DOWNLOAD_URL_IMPORT_BROWSER_FAIL', { error: browserErr?.message || String(browserErr) });
       }
 
+      try {
+        trackLog('OPEN_DOWNLOAD_URL_INAPPBROWSER', { method: 'InAppBrowser.openInExternalBrowser' });
+        const { InAppBrowser } = await import('@capacitor/inappbrowser');
+        await (InAppBrowser as any).openInExternalBrowser({ url: fullUrl });
+        trackLog('OPEN_DOWNLOAD_URL_INAPPBROWSER_OK', { success: true });
+        return;
+      } catch (iabErr: any) {
+        trackLog('OPEN_DOWNLOAD_URL_INAPPBROWSER_FAIL', {
+          error: iabErr?.message || String(iabErr),
+          note: 'requires_cap_sync_android_rebuild',
+        });
+      }
+
       trackLog('OPEN_DOWNLOAD_URL_IFRAME', { method: 'hidden-iframe' });
       const iframe = document.createElement('iframe');
       iframe.style.cssText = 'display:none;width:0;height:0;position:absolute;left:-9999px;top:-9999px;';

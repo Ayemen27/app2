@@ -3,7 +3,7 @@ import { buildDeployments, deploymentEvents } from "@shared/schema";
 import { eq, desc, sql, count } from "drizzle-orm";
 import { exec, spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
-import { existsSync, mkdirSync, writeFileSync, chmodSync, accessSync, unlinkSync, constants as fsConstants } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, accessSync, unlinkSync, constants as fsConstants } from "fs";
 import { dirname } from "path";
 import { createHmac } from "crypto";
 import type { Response } from "express";
@@ -416,6 +416,7 @@ export class DeploymentEngine {
     }
 
     this.sshKeyProvisioned = false;
+    this.knownHostsReady = false;
     this.resolvedAuthMethod = null;
     await this.ensureSSHKeyProvisioned();
 
@@ -851,6 +852,63 @@ export class DeploymentEngine {
 
   private sshKeyProvisioned = false;
   private resolvedAuthMethod: "key" | "password" | null = null;
+  private knownHostsReady = false;
+
+  private async ensureKnownHosts(knownHostsPath?: string): Promise<void> {
+    const khPath = knownHostsPath || process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+    const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
+    const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+    if (existsSync(khPath)) {
+      try {
+        const content = readFileSync(khPath, "utf-8").trim();
+        if (content.length > 0) {
+          const { stdout: lookupResult } = await execAsync(
+            `ssh-keygen -F "[${host}]:${port}" -f ${khPath} 2>/dev/null || ssh-keygen -F "${host}" -f ${khPath} 2>/dev/null`,
+            { timeout: 5000 }
+          );
+          if (lookupResult.trim().length > 0) {
+            this.knownHostsReady = true;
+            return;
+          }
+        }
+      } catch (_e) {
+      }
+    }
+    const sshDir = dirname(khPath);
+    if (!existsSync(sshDir)) {
+      mkdirSync(sshDir, { recursive: true, mode: 0o700 });
+    }
+    if (process.env.SSH_KNOWN_HOSTS_B64) {
+      const khData = Buffer.from(process.env.SSH_KNOWN_HOSTS_B64, "base64").toString("utf-8");
+      writeFileSync(khPath, khData, { mode: 0o600 });
+      try {
+        const { stdout: verifyB64 } = await execAsync(
+          `ssh-keygen -F "[${host}]:${port}" -f ${khPath} 2>/dev/null || ssh-keygen -F "${host}" -f ${khPath} 2>/dev/null`,
+          { timeout: 5000 }
+        );
+        this.knownHostsReady = verifyB64.trim().length > 0;
+      } catch {
+        this.knownHostsReady = false;
+      }
+      if (!this.knownHostsReady) {
+        console.warn("[DeploymentEngine] SSH_KNOWN_HOSTS_B64 does not contain entry for target host — falling back to accept-new");
+      }
+    } else {
+      try {
+        const { stdout } = await execAsync(`ssh-keyscan -p ${port} -H ${host} 2>/dev/null`, { timeout: 15000 });
+        if (stdout.trim()) {
+          writeFileSync(khPath, stdout, { mode: 0o600 });
+          this.knownHostsReady = true;
+        } else {
+          console.warn("[DeploymentEngine] ssh-keyscan returned empty output — falling back to StrictHostKeyChecking=accept-new");
+          this.knownHostsReady = false;
+        }
+      } catch (_e) {
+        console.warn("[DeploymentEngine] ssh-keyscan failed — falling back to StrictHostKeyChecking=accept-new");
+        this.knownHostsReady = false;
+      }
+    }
+  }
 
   private async ensureSSHKeyProvisioned(): Promise<void> {
     if (this.sshKeyProvisioned) return;
@@ -868,22 +926,7 @@ export class DeploymentEngine {
       writeFileSync(keyPath, keyData, { mode: 0o600 });
     }
 
-    if (!existsSync(knownHostsPath)) {
-      const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
-      const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
-      if (process.env.SSH_KNOWN_HOSTS_B64) {
-        const khData = Buffer.from(process.env.SSH_KNOWN_HOSTS_B64, "base64").toString("utf-8");
-        writeFileSync(knownHostsPath, khData, { mode: 0o600 });
-      } else {
-        try {
-          const { stdout } = await execAsync(`ssh-keyscan -p ${port} -H ${host} 2>/dev/null`, { timeout: 15000 });
-          if (stdout.trim()) {
-            writeFileSync(knownHostsPath, stdout, { mode: 0o600 });
-          }
-        } catch (_e) {
-        }
-      }
-    }
+    await this.ensureKnownHosts(knownHostsPath);
 
     let keyFileReady = false;
     if (existsSync(keyPath)) {
@@ -989,6 +1032,10 @@ export class DeploymentEngine {
       return `ssh -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
     }
 
+    const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+    if (this.knownHostsReady) {
+      return `sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
+    }
     return `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
   }
 
@@ -1005,20 +1052,27 @@ export class DeploymentEngine {
       return `scp -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
     }
 
+    const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+    if (this.knownHostsReady) {
+      return `sshpass -e scp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
+    }
     return `sshpass -e scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
   private maskSecrets(text: string): string {
-    const secrets = [
-      process.env.SSH_PASSWORD,
-      process.env.SSHPASS,
-      process.env.GITHUB_TOKEN,
-      process.env.GH_TOKEN,
-    ].filter(Boolean) as string[];
-
+    const explicitKeys = [
+      "SSH_PASSWORD", "SSHPASS", "GITHUB_TOKEN", "GH_TOKEN",
+      "KEYSTORE_PASSWORD", "KEYSTORE_KEY_PASSWORD", "TELEGRAM_BOT_TOKEN",
+    ];
+    const explicit = explicitKeys.map(k => process.env[k]).filter(Boolean) as string[];
+    const dynamic = Object.entries(process.env)
+      .filter(([k, v]) => v && /(SECRET|TOKEN|PASSWORD|KEY_PASS)/i.test(k) && !explicitKeys.includes(k))
+      .map(([, v]) => v!);
+    const secrets = [...new Set([...explicit, ...dynamic])]
+      .filter(s => s.length >= 4)
+      .sort((a, b) => b.length - a.length);
     let masked = text;
     for (const secret of secrets) {
-      if (secret.length < 4) continue;
       masked = masked.replace(new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '***');
     }
     return masked;
@@ -1060,7 +1114,8 @@ export class DeploymentEngine {
             }
             const remoteKillTargets = ["gradlew", "gradle", "npm", "npx", "cap", "node dist/index.js"].filter(t => command.includes(t));
             if (remoteKillTargets.length === 0) { /* no known targets — skip remote cleanup to avoid killing unrelated processes */ }
-            const killPattern = remoteKillTargets.length > 0 ? remoteKillTargets.map(t => `pkill -f '${t}' 2>/dev/null`).join("; ") : "echo NO_REMOTE_KILL_TARGET";
+            const remoteProjectDir = "/home/administrator/app2";
+            const killPattern = remoteKillTargets.length > 0 ? remoteKillTargets.map(t => `pkill -f '${remoteProjectDir}.*${t}' 2>/dev/null`).join("; ") : "echo NO_REMOTE_KILL_TARGET";
             exec(`${killCmd} "${killPattern}; echo REMOTE_CLEANUP_DONE"`, { timeout: 10000, env: cleanupEnv }, () => {});
           } catch {}
         }
@@ -1231,6 +1286,28 @@ export class DeploymentEngine {
       await this.addLog(deploymentId, "⚠️ تعذر فحص مساحة القرص", "warn");
     }
 
+    this.updateStepProgress(deploymentId, "preflight-check", 88, "فحص مساحة القرص البعيد...");
+    try {
+      const sshCmd = this.buildSSHCommand();
+      const { stdout: remoteDisk } = await execAsync(
+        `${sshCmd} "df -BM /home/administrator/app2 | tail -1 | awk '{print \\$4}'"`,
+        { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || "" } }
+      );
+      const remoteAvailMB = parseInt(remoteDisk.replace(/[^0-9]/g, ""));
+      if (!Number.isFinite(remoteAvailMB)) {
+        await this.addLog(deploymentId, `⚠️ تعذر تحليل مساحة القرص البعيد: "${remoteDisk.trim()}"`, "warn");
+      } else if (remoteAvailMB < 1000) {
+        criticalFailures.push(`مساحة القرص البعيد منخفضة جداً: ${remoteAvailMB}MB متاح (الحد الأدنى 1GB)`);
+        await this.addLog(deploymentId, `🚫 مساحة القرص البعيد: ${remoteAvailMB}MB — أقل من الحد الأدنى (1GB) لبناء Gradle`, "error");
+      } else if (remoteAvailMB < 2000) {
+        await this.addLog(deploymentId, `⚠️ مساحة القرص البعيد منخفضة: ${remoteAvailMB}MB — قد يفشل بناء Gradle`, "warn");
+      } else {
+        await this.addLog(deploymentId, `✅ مساحة القرص البعيد: ${remoteAvailMB}MB متاح`, "success");
+      }
+    } catch {
+      await this.addLog(deploymentId, "⚠️ تعذر فحص مساحة القرص البعيد", "warn");
+    }
+
     this.updateStepProgress(deploymentId, "preflight-check", 90, "فحص ملف القفل...");
     try {
       const { stdout: lockCheck } = await execAsync(
@@ -1352,6 +1429,8 @@ export class DeploymentEngine {
 
   private async stepValidate(deploymentId: string) {
     await this.addLog(deploymentId, "التحقق من البيئة...", "info");
+
+    await this.ensureKnownHosts();
 
     const host = process.env.SSH_HOST || "93.127.142.144";
     const user = process.env.SSH_USER || "administrator";
@@ -1651,9 +1730,28 @@ export class DeploymentEngine {
     }
   }
 
+  private async cleanupOldBackups(deploymentId: string, sshCmd: string, remoteDir: string, maxAgeDays = 7) {
+    try {
+      const result = await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "CNT=\\$(find ${remoteDir}/android -type f -name '*.bak.*' -mtime +${maxAgeDays} 2>/dev/null | wc -l); find ${remoteDir}/android -type f -name '*.bak.*' -mtime +${maxAgeDays} -delete 2>/dev/null; echo BAK_CLEANED=\\$CNT"`,
+        "Cleanup old backups",
+        15000
+      );
+      const countMatch = result.match(/BAK_CLEANED=(\d+)/);
+      const count = countMatch ? parseInt(countMatch[1]) : 0;
+      if (count > 0) {
+        await this.addLog(deploymentId, `تم حذف ${count} ملف نسخ احتياطي قديم (أكثر من ${maxAgeDays} أيام)`, "info");
+      }
+    } catch {
+    }
+  }
+
   private async stepSyncCapacitor(deploymentId: string, sshCmd: string) {
     await this.addLog(deploymentId, "مزامنة Capacitor للأندرويد...", "info");
     const remoteDir = "/home/administrator/app2";
+
+    await this.cleanupOldBackups(deploymentId, sshCmd, remoteDir);
 
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     if (!deployment) throw new Error("Deployment not found");
@@ -3336,6 +3434,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   async rollbackDeployment(deploymentId: string, targetBuildNumber?: number, targetCommitHash?: string, triggeredBy?: string): Promise<string> {
     this.sshKeyProvisioned = false;
+    this.knownHostsReady = false;
     this.resolvedAuthMethod = null;
     await this.ensureSSHKeyProvisioned();
     let targetDeployment: any;
@@ -3494,6 +3593,7 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   async resumeDeployment(deploymentId: string): Promise<string> {
     this.sshKeyProvisioned = false;
+    this.knownHostsReady = false;
     this.resolvedAuthMethod = null;
     await this.ensureSSHKeyProvisioned();
 
@@ -3517,15 +3617,23 @@ echo 'MAINACTIVITY_FIXED'"`,
         throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أولاً.`);
       }
 
+      const IDEMPOTENT_STEPS = new Set(["validate", "preflight-check", "verify", "prebuild-gate", "android-readiness", "apk-integrity", "post-deploy-smoke"]);
+
       const steps = deployment.steps as StepEntry[];
       let resumeFromIdx: number;
       const failedIdx = steps.findIndex(s => s.status === "failed" || s.status === "cancelled");
       if (failedIdx !== -1) {
-        resumeFromIdx = Math.max(0, failedIdx - 1);
+        const prevStep = steps[failedIdx - 1];
+        resumeFromIdx = (failedIdx > 0 && prevStep && IDEMPOTENT_STEPS.has(prevStep.name))
+          ? failedIdx
+          : Math.max(0, failedIdx - 1);
       } else {
         const runningIdx = steps.findIndex(s => s.status === "running");
         if (runningIdx !== -1) {
-          resumeFromIdx = Math.max(0, runningIdx - 1);
+          const prevStep = steps[runningIdx - 1];
+          resumeFromIdx = (runningIdx > 0 && prevStep && IDEMPOTENT_STEPS.has(prevStep.name))
+            ? runningIdx
+            : Math.max(0, runningIdx - 1);
         } else {
           const lastSuccessIdx = steps.map((s, i) => s.status === "success" ? i : -1).filter(i => i >= 0).pop();
           resumeFromIdx = lastSuccessIdx !== undefined ? Math.max(0, lastSuccessIdx - 1) : 0;

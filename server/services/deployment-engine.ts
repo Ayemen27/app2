@@ -1493,9 +1493,37 @@ export class DeploymentEngine {
     }
 
     await this.addLog(deploymentId, `🚀 تشغيل جديد: ${appName} (build #${buildNumber})...`, "info");
+    const ecosystemContent = `module.exports = {
+  apps: [{
+    name: '${appName}',
+    script: 'dist/index.js',
+    cwd: '${remoteDir}',
+    exec_mode: 'fork',
+    instances: 1,
+    env: {
+      NODE_ENV: 'production',
+      PORT: 6000
+    },
+    node_args: '--max-old-space-size=512',
+    max_memory_restart: '600M',
+    max_restarts: 15,
+    min_uptime: '10s',
+    restart_delay: 3000,
+    listen_timeout: 15000,
+    kill_timeout: 8000,
+    wait_ready: false,
+    autorestart: true,
+    watch: false,
+    merge_logs: true,
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    error_file: '/home/administrator/.pm2/logs/construction-app-error.log',
+    out_file: '/home/administrator/.pm2/logs/construction-app-out.log',
+    log_file: '/home/administrator/.pm2/logs/construction-app-combined.log'
+  }]
+};`;
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && sed -i \\"s/name: '.*'/name: '${appName}'/\\" ecosystem.config.cjs && pm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'PM2_STARTED'"`,
+      `${sshCmd} "cd ${remoteDir} && cat > ecosystem.config.cjs << 'EOFECO'\n${ecosystemContent}\nEOFECO\npm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'PM2_STARTED'"`,
       "PM2 Fresh Start",
       45000
     );
@@ -2976,7 +3004,35 @@ export class DeploymentEngine {
       await this.updateDeployment(rollbackId, { currentStep: "restart-pm2", progress: 60 });
       const rollbackVersion = targetDeployment?.version || "rollback";
       const rollbackAppName = `AXION-v${rollbackVersion}`;
-      await this.execWithLog(rollbackId, `${sshCmd} "pm2 jlist 2>/dev/null | node -e \\"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const legacy=['construction-app'];d.filter(p=>p.name&&(p.name.startsWith('AXION')||legacy.includes(p.name))).forEach(p=>{try{require('child_process').execSync('pm2 delete '+p.name)}catch(e){}})\\" 2>/dev/null; cd ${remoteDir} && sed -i \\"s/name: '.*'/name: '${rollbackAppName}'/\\" ecosystem.config.cjs && pm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'RESTART_OK'"`, "PM2 Fresh Start (Rollback)", 45000);
+      const rollbackEcosystem = `module.exports = {
+  apps: [{
+    name: '${rollbackAppName}',
+    script: 'dist/index.js',
+    cwd: '${remoteDir}',
+    exec_mode: 'fork',
+    instances: 1,
+    env: {
+      NODE_ENV: 'production',
+      PORT: 6000
+    },
+    node_args: '--max-old-space-size=512',
+    max_memory_restart: '600M',
+    max_restarts: 15,
+    min_uptime: '10s',
+    restart_delay: 3000,
+    listen_timeout: 15000,
+    kill_timeout: 8000,
+    wait_ready: false,
+    autorestart: true,
+    watch: false,
+    merge_logs: true,
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    error_file: '/home/administrator/.pm2/logs/construction-app-error.log',
+    out_file: '/home/administrator/.pm2/logs/construction-app-out.log',
+    log_file: '/home/administrator/.pm2/logs/construction-app-combined.log'
+  }]
+};`;
+      await this.execWithLog(rollbackId, `${sshCmd} "pm2 jlist 2>/dev/null | node -e \\"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const legacy=['construction-app'];d.filter(p=>p.name&&(p.name.startsWith('AXION')||legacy.includes(p.name))).forEach(p=>{try{require('child_process').execSync('pm2 delete '+p.name)}catch(e){}})\\" 2>/dev/null; cd ${remoteDir} && cat > ecosystem.config.cjs << 'EOFECO'\n${rollbackEcosystem}\nEOFECO\npm2 start ecosystem.config.cjs --env production --update-env && pm2 save && echo 'RESTART_OK'"`, "PM2 Fresh Start (Rollback)", 45000);
       await this.updateStepStatus(rollbackId, "restart-pm2", "success", Date.now() - startTime);
 
       await this.updateStepStatus(rollbackId, "verify", "running");

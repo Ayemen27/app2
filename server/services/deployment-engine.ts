@@ -3820,7 +3820,17 @@ echo 'MAINACTIVITY_FIXED'"`,
 
   async getDeployment(id: string) {
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, id));
-    return deployment || null;
+    if (!deployment) return null;
+
+    const buffered = this.logBuffers.get(id);
+    if (buffered && buffered.length > 0) {
+      const dbLogs = Array.isArray(deployment.logs) ? deployment.logs as LogEntry[] : [];
+      const maxLogs = 500;
+      const combined = [...dbLogs, ...buffered];
+      (deployment as any).logs = combined.length > maxLogs ? combined.slice(-maxLogs) : combined;
+    }
+
+    return deployment;
   }
 
   async deleteDeployment(id: string) {

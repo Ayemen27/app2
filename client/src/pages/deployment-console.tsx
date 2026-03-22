@@ -369,11 +369,6 @@ export default function DeploymentConsole() {
         if (generation !== trackingGenerationRef.current) { es.close(); return; }
         sseConnectedRef.current = true;
         sseRetryCountRef.current = 0;
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-        startPollingOnly(deploymentId, 8000);
       };
 
       es.onmessage = (event) => {
@@ -429,17 +424,22 @@ export default function DeploymentConsole() {
         es.close();
         eventSourceRef.current = null;
         sseRetryCountRef.current++;
-        const delay = Math.min(1000 * Math.pow(2, sseRetryCountRef.current - 1), 30000) + Math.random() * 1000;
-        sseReconnectTimerRef.current = setTimeout(() => {
-          if (generation === trackingGenerationRef.current) {
-            connectSSEOnly(deploymentId);
-          }
-        }, delay);
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
+
+        if (sseRetryCountRef.current <= 3) {
+          const delay = Math.min(2000 * Math.pow(2, sseRetryCountRef.current - 1), 15000) + Math.random() * 1000;
+          console.log(`[TRACK] SSE reconnect in ${Math.round(delay)}ms`);
+          sseReconnectTimerRef.current = setTimeout(() => {
+            if (generation === trackingGenerationRef.current) {
+              connectSSEOnly(deploymentId);
+            }
+          }, delay);
+        } else {
+          console.log(`[TRACK] SSE gave up after ${sseRetryCountRef.current} retries, polling only`);
         }
-        startPollingOnly(deploymentId, 3000);
+
+        if (!pollIntervalRef.current) {
+          startPollingOnly(deploymentId, 3000);
+        }
       };
     } catch {
       sseRetryCountRef.current++;

@@ -286,7 +286,7 @@ export class DeploymentEngine {
 
           if (verified === "still_running") {
             console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} still running remotely — starting background monitor`);
-            await this.addLog(d.id, "⚠️ أُعيد تشغيل الخادم — يُراقَب النشر عن بُعد تلقائياً...", "warning");
+            await this.addLog(d.id, "⚠️ أُعيد تشغيل الخادم — يُراقَب النشر عن بُعد تلقائياً...", "warn");
             this.startRemoteMonitor(d);
             continue;
           }

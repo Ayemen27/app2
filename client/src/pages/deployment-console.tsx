@@ -408,7 +408,7 @@ export default function DeploymentConsole() {
           } else if (payload.type === "step_update") {
             setLiveDeployment(prev => {
               if (!prev) return null;
-              const steps = (prev.steps as StepEntry[]).map(s =>
+              const steps = (Array.isArray(prev.steps) ? prev.steps as StepEntry[] : []).map(s =>
                 s.name === payload.data.stepName
                   ? { ...s, status: payload.data.status, duration: payload.data.duration, subProgress: payload.data.status === "running" ? 0 : undefined, subMessage: undefined }
                   : s
@@ -418,7 +418,7 @@ export default function DeploymentConsole() {
           } else if (payload.type === "step_progress") {
             setLiveDeployment(prev => {
               if (!prev) return null;
-              const steps = (prev.steps as StepEntry[]).map(s =>
+              const steps = (Array.isArray(prev.steps) ? prev.steps as StepEntry[] : []).map(s =>
                 s.name === payload.data.stepName
                   ? { ...s, subProgress: payload.data.subProgress, subMessage: payload.data.subMessage }
                   : s
@@ -1000,7 +1000,7 @@ export default function DeploymentConsole() {
                   </div>
                   <Progress value={liveDeployment.progress} className="h-1.5 mb-2 sm:mb-3" />
 
-                  {(liveDeployment.steps as StepEntry[]).map((step, i) => {
+                  {(Array.isArray(liveDeployment.steps) ? liveDeployment.steps as StepEntry[] : []).map((step, i) => {
                     const StepIcon = STEP_ICONS[step.name] || Circle;
                     const isActive = step.status === "running";
                     const isDone = step.status === "success";

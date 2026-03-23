@@ -1414,10 +1414,15 @@ export class DeploymentEngine {
         "if [ -f package-lock.json ]; then PKG_TIME=$(stat -c %Y package.json); LOCK_TIME=$(stat -c %Y package-lock.json); if [ $PKG_TIME -gt $LOCK_TIME ]; then echo 'LOCK_STALE'; else echo 'LOCK_OK'; fi; else echo 'LOCK_MISSING'; fi",
         { cwd: "/home/runner/workspace", timeout: 5000 }
       );
-      if (lockCheck.includes("LOCK_MISSING")) {
-        await this.addLog(deploymentId, "⚠️ package-lock.json غير موجود — npm install قد ينتج إصدارات مختلفة", "warn");
-      } else if (lockCheck.includes("LOCK_STALE")) {
-        await this.addLog(deploymentId, "⚠️ package-lock.json أقدم من package.json — قد تكون التبعيات غير متزامنة", "warn");
+      if (lockCheck.includes("LOCK_MISSING") || lockCheck.includes("LOCK_STALE")) {
+        const reason = lockCheck.includes("LOCK_MISSING") ? "غير موجود" : "أقدم من package.json";
+        await this.addLog(deploymentId, `🔄 package-lock.json ${reason} — جارٍ المزامنة تلقائياً...`, "info");
+        try {
+          await execAsync("npm install --package-lock-only --ignore-scripts 2>&1 | tail -3", { cwd: "/home/runner/workspace", timeout: 60000 });
+          await this.addLog(deploymentId, "✅ تم مزامنة package-lock.json تلقائياً", "success");
+        } catch (syncErr: any) {
+          await this.addLog(deploymentId, `⚠️ فشلت المزامنة التلقائية: ${syncErr?.message?.slice(0, 100) || "خطأ غير معروف"}`, "warn");
+        }
       } else {
         await this.addLog(deploymentId, "✅ package-lock.json محدّث ومتزامن", "success");
       }

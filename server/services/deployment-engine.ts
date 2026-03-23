@@ -403,12 +403,14 @@ export class DeploymentEngine {
       await this.ensureSSHKeyProvisioned();
       const sshCmd = this.buildSSHCommand();
       const remoteDir = "/home/administrator/app2";
-      const versionName = deployment.versionName || "";
-      const buildNumber = deployment.buildNumber || 0;
-      const pipelineType = deployment.pipelineType || deployment.pipeline || "";
+      const version = deployment.version || deployment.versionName || "";
+      const buildNum = deployment.buildNumber || deployment.build_number || 0;
+      const pipelineType = deployment.pipeline || deployment.pipelineType || "";
 
       const includesWeb = pipelineType.includes("web") || pipelineType.includes("full");
       const includesAndroid = pipelineType.includes("android") || pipelineType.includes("full");
+
+      console.log(`[DeploymentEngine] verifyRemote: v=${version} build=${buildNum} pipeline=${pipelineType} web=${includesWeb} android=${includesAndroid}`);
 
       let webOk = !includesWeb;
       let androidOk = !includesAndroid;
@@ -433,16 +435,27 @@ export class DeploymentEngine {
       }
 
       if (includesAndroid) {
-        try {
-          const searchPaths = versionName
-            ? `${remoteDir}/releases/v${versionName}/AXION_v${versionName}*.apk ${remoteDir}/releases/v${versionName}/AXION-v${versionName}*.apk ${remoteDir}/releases/AXION_v${versionName}*.apk ${remoteDir}/releases/AXION-v${versionName}*.apk`
-            : `${remoteDir}/releases/*/AXION_v*.apk ${remoteDir}/releases/*/AXION-v*.apk ${remoteDir}/releases/AXION_v*.apk ${remoteDir}/releases/AXION-v*.apk`;
-          const { stdout } = await execAsync(
-            `${sshCmd} "ls -1t ${searchPaths} 2>/dev/null | head -1 || echo NONE"`,
-            { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
-          );
-          androidOk = stdout.trim() !== "NONE" && stdout.trim() !== "";
-        } catch { /* ignore */ }
+        if (!version) {
+          console.log(`[DeploymentEngine] verifyRemote: no version — cannot verify Android APK`);
+          androidOk = false;
+        } else {
+          try {
+            const exactPattern = buildNum
+              ? `AXION_v${version}_build${buildNum}.apk`
+              : `AXION_v${version}*.apk`;
+            const searchPaths = [
+              `${remoteDir}/releases/v${version}/${exactPattern}`,
+              `${remoteDir}/releases/${exactPattern}`,
+            ].join(" ");
+            const { stdout } = await execAsync(
+              `${sshCmd} "ls -1t ${searchPaths} 2>/dev/null | head -1 || echo NONE"`,
+              { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+            );
+            const found = stdout.trim();
+            androidOk = found !== "NONE" && found !== "";
+            console.log(`[DeploymentEngine] verifyRemote APK check: pattern=${exactPattern} found=${found} ok=${androidOk}`);
+          } catch { /* ignore */ }
+        }
       }
 
       if (webOk && androidOk) return "success";
@@ -454,6 +467,16 @@ export class DeploymentEngine {
             { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
           );
           if (stdout.trim().includes("GRADLE_RUNNING")) return "still_running";
+        } catch { /* ignore */ }
+      }
+
+      if (includesWeb && !webOk) {
+        try {
+          const { stdout } = await execAsync(
+            `${sshCmd} "pgrep -f 'node.*dist' >/dev/null 2>&1 || pgrep -f 'npm.*start' >/dev/null 2>&1 && echo BUILD_RUNNING || echo BUILD_DONE"`,
+            { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+          );
+          if (stdout.trim().includes("BUILD_RUNNING")) return "still_running";
         } catch { /* ignore */ }
       }
 

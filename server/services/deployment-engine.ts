@@ -160,7 +160,7 @@ export class DeploymentEngine {
     const [deployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, deploymentId));
     if (!deployment) return;
 
-    const steps = (deployment.steps as StepEntry[]).map((s, idx) => {
+    const steps = (Array.isArray(deployment.steps) ? deployment.steps as StepEntry[] : []).map((s, idx) => {
       if (idx > currentStepIndex && s.status === "pending") {
         return { ...s, status: "cancelled" as const };
       }
@@ -260,7 +260,7 @@ export class DeploymentEngine {
         if (isRemoteStep) {
           const verified = await this.verifyRemoteDeploymentStatus(d);
           if (verified === "success") {
-            const recoveredSteps = (d.steps as StepEntry[]).map(s => {
+            const recoveredSteps = (Array.isArray(d.steps) ? d.steps as StepEntry[] : []).map(s => {
               if (s.status === "running" || s.status === "pending") return { ...s, status: "success" as const };
               return s;
             });
@@ -294,7 +294,7 @@ export class DeploymentEngine {
 
         const maxAge = isRemoteStep ? 1800000 : 120000;
         if (age > maxAge) {
-          const recoveredSteps = (d.steps as StepEntry[]).map(s => {
+          const recoveredSteps = (Array.isArray(d.steps) ? d.steps as StepEntry[] : []).map(s => {
             if (s.status === "running") return { ...s, status: "failed" as const };
             return s;
           });
@@ -338,7 +338,7 @@ export class DeploymentEngine {
         const age = Date.now() - new Date(deployment.created_at!).getTime();
 
         if (verified === "success") {
-          const recoveredSteps = (deployment.steps as StepEntry[]).map((s: StepEntry) => {
+          const recoveredSteps = (Array.isArray(deployment.steps) ? deployment.steps as StepEntry[] : []).map((s: StepEntry) => {
             if (s.status === "running" || s.status === "pending") return { ...s, status: "success" as const };
             return s;
           });
@@ -434,9 +434,11 @@ export class DeploymentEngine {
 
       if (includesAndroid) {
         try {
-          const apkPattern = versionName ? `AXION-v${versionName}` : `AXION-v`;
+          const searchPaths = versionName
+            ? `${remoteDir}/releases/v${versionName}/AXION_v${versionName}*.apk ${remoteDir}/releases/v${versionName}/AXION-v${versionName}*.apk ${remoteDir}/releases/AXION_v${versionName}*.apk ${remoteDir}/releases/AXION-v${versionName}*.apk`
+            : `${remoteDir}/releases/*/AXION_v*.apk ${remoteDir}/releases/*/AXION-v*.apk ${remoteDir}/releases/AXION_v*.apk ${remoteDir}/releases/AXION-v*.apk`;
           const { stdout } = await execAsync(
-            `${sshCmd} "ls -1t ${remoteDir}/releases/${apkPattern}*.apk 2>/dev/null | head -1 || echo NONE"`,
+            `${sshCmd} "ls -1t ${searchPaths} 2>/dev/null | head -1 || echo NONE"`,
             { timeout: 10000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
           );
           androidOk = stdout.trim() !== "NONE" && stdout.trim() !== "";

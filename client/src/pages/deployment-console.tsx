@@ -454,7 +454,7 @@ export default function DeploymentConsole() {
   }, [handleTerminal]);
 
   const startTracking = useCallback((deploymentId: string) => {
-    if (activeDeploymentIdRef.current === deploymentId && pollTimerRef.current) {
+    if (activeDeploymentIdRef.current === deploymentId && (pollTimerRef.current || sseConnectedRef.current)) {
       console.log(`[TRACK] startTracking NOOP: already tracking ${deploymentId.slice(0,8)}`);
       return;
     }
@@ -463,7 +463,7 @@ export default function DeploymentConsole() {
     activeDeploymentIdRef.current = deploymentId;
     console.log(`[TRACK] === START TRACKING === id=${deploymentId.slice(0,8)} token=${token}`);
     connectSSE(deploymentId, token);
-    schedulePoll(deploymentId, token, 0);
+    schedulePoll(deploymentId, token, 300);
   }, [cleanupTracking, connectSSE, schedulePoll]);
 
   useEffect(() => {

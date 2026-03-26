@@ -401,6 +401,13 @@ export default function MultiProjectExpenses() {
     setSelectedDate(getCurrentDate());
   };
 
+  const { data: projectsData } = useQuery<{ data: any[] }>({
+    queryKey: ["/api/projects"],
+  });
+  const allProjects: { id: string; name: string }[] = useMemo(() => {
+    return (projectsData?.data || []).map((p: any) => ({ id: p.id, name: p.name }));
+  }, [projectsData]);
+
   const { data, isLoading } = useQuery<{ data: ApiData }>({
     queryKey: ["/api/multi-project-expenses", selectedDate],
     queryFn: async () => {
@@ -485,7 +492,7 @@ export default function MultiProjectExpenses() {
           </Button>
         </div>
 
-        {allSummaries.length > 0 && (
+        {allProjects.length > 0 && (
           <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <Button
               variant={selectedProjectIds.size === 0 ? "default" : "outline"}
@@ -495,20 +502,22 @@ export default function MultiProjectExpenses() {
               data-testid="btn-select-all"
             >
               <Building2 className="h-4 w-4 ml-1" />
-              الكل ({allSummaries.length})
+              الكل ({allProjects.length})
             </Button>
-            {allSummaries.map((s) => {
-              const isSelected = selectedProjectIds.has(s.project_id);
+            {allProjects.map((p) => {
+              const isSelected = selectedProjectIds.has(p.id);
+              const hasData = allSummaries.some((s) => s.project_id === p.id);
               return (
                 <Button
-                  key={s.project_id}
+                  key={p.id}
                   variant={isSelected ? "default" : "outline"}
                   size="sm"
-                  className={`h-9 text-sm ${isSelected ? "" : "opacity-70"}`}
-                  onClick={() => toggleProject(s.project_id)}
-                  data-testid={`filter-project-${s.project_id}`}
+                  className={`h-9 text-sm ${isSelected ? "" : hasData ? "opacity-90" : "opacity-50"}`}
+                  onClick={() => toggleProject(p.id)}
+                  data-testid={`filter-project-${p.id}`}
                 >
-                  {s.project_name}
+                  {p.name}
+                  {hasData && <span className="mr-1 h-2 w-2 rounded-full bg-green-500 inline-block" />}
                 </Button>
               );
             })}

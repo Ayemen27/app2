@@ -89,6 +89,7 @@ const sections: SidebarSection[] = [
       { title: "ترحيل بين المشاريع", url: "/project-transfers", icon: ArrowLeftRight },
       { title: "نقل السجلات", url: "/records-transfer", icon: ArrowLeftRight, adminOnly: true },
       { title: "التقارير", url: "/reports", icon: BarChart3 },
+      { title: "مصروفات المشاريع", url: "/multi-project-expenses", icon: Wallet },
       { title: "مقارنة الإكسل", url: "/excel-comparison", icon: FileSpreadsheet },
     ]
   },

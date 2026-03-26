@@ -4073,6 +4073,79 @@ financialRouter.delete('/materials/:id', async (req: Request, res: Response) => 
   }
 });
 
+financialRouter.get('/multi-project-expenses', async (req: Request, res: Response) => {
+  try {
+    const { date } = req.query;
+    if (!date) {
+      return sendError(res, 'التاريخ مطلوب', 400);
+    }
+
+    let cleanDate = (date as string).split('T')[0].split(' ')[0];
+
+    const accessReq = req as ProjectAccessRequest;
+    const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
+    const accessibleIds = accessReq.accessibleProjectIds ?? [];
+
+    let summariesResult;
+    if (isAdminUser) {
+      summariesResult = await pool.query(
+        `SELECT des.*, p.name as project_name FROM daily_expense_summaries des JOIN projects p ON p.id = des.project_id WHERE des.date = $1 ORDER BY p.name`,
+        [cleanDate]
+      );
+    } else {
+      summariesResult = await pool.query(
+        `SELECT des.*, p.name as project_name FROM daily_expense_summaries des JOIN projects p ON p.id = des.project_id WHERE des.date = $1 AND des.project_id = ANY($2) ORDER BY p.name`,
+        [cleanDate, accessibleIds]
+      );
+    }
+
+    const projectIds = summariesResult.rows.map((s: any) => s.project_id);
+    if (projectIds.length === 0) {
+      return sendSuccess(res, { summaries: [], workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'لا توجد بيانات');
+    }
+
+    const [workersR, transportR, miscR, fundsR, purchasesR, workerTransfersR] = await Promise.all([
+      pool.query(
+        `SELECT wa.project_id, w.name as worker_name, wa.paid_amount, wa.work_days, wa.daily_wage, wa.actual_wage, wa.notes, p.name as project_name FROM worker_attendance wa JOIN projects p ON p.id = wa.project_id LEFT JOIN workers w ON w.id = wa.worker_id WHERE wa.date = $1 AND wa.project_id = ANY($2) ORDER BY p.name, w.name`,
+        [cleanDate, projectIds]
+      ),
+      pool.query(
+        `SELECT te.project_id, te.amount, te.description, te.category as transport_type, p.name as project_name FROM transportation_expenses te JOIN projects p ON p.id = te.project_id WHERE te.date = $1 AND te.project_id = ANY($2) ORDER BY p.name`,
+        [cleanDate, projectIds]
+      ),
+      pool.query(
+        `SELECT wme.project_id, wme.amount, wme.description, '' as expense_type, p.name as project_name FROM worker_misc_expenses wme JOIN projects p ON p.id = wme.project_id WHERE wme.date = $1 AND wme.project_id = ANY($2) ORDER BY p.name`,
+        [cleanDate, projectIds]
+      ),
+      pool.query(
+        `SELECT ft.project_id, ft.amount, ft.sender_name, ft.transfer_number, p.name as project_name FROM fund_transfers ft JOIN projects p ON p.id = ft.project_id WHERE ft.transfer_date = $1 AND ft.project_id = ANY($2) ORDER BY p.name`,
+        [cleanDate, projectIds]
+      ),
+      pool.query(
+        `SELECT mp.project_id, mp.total_amount, mp.paid_amount, mp.supplier_name, mp.notes, p.name as project_name FROM material_purchases mp JOIN projects p ON p.id = mp.project_id WHERE mp.purchase_date = $1 AND mp.project_id = ANY($2) ORDER BY p.name`,
+        [cleanDate, projectIds]
+      ),
+      pool.query(
+        `SELECT wt.project_id, wt.amount, w.name as worker_name, wt.transfer_number, wt.notes, p.name as project_name FROM worker_transfers wt JOIN projects p ON p.id = wt.project_id LEFT JOIN workers w ON w.id = wt.worker_id WHERE wt.transfer_date = $1 AND wt.project_id = ANY($2) ORDER BY p.name`,
+        [cleanDate, projectIds]
+      ),
+    ]);
+
+    return sendSuccess(res, {
+      summaries: summariesResult.rows,
+      workers: workersR.rows,
+      transport: transportR.rows,
+      misc: miscR.rows,
+      funds: fundsR.rows,
+      purchases: purchasesR.rows,
+      workerTransfers: workerTransfersR.rows,
+    }, 'تم جلب المصروفات بنجاح');
+  } catch (error: any) {
+    console.error('❌ خطأ في جلب المصروفات المتعددة:', error);
+    return sendError(res, 'فشل في جلب المصروفات', 500);
+  }
+});
+
 console.log('💰 [FinancialRouter] تم تهيئة مسارات التحويلات المالية + endpoints التقارير');
 console.log('📦 [FinancialRouter] تم تهيئة مسارات المواد: /api/materials');
 

@@ -91,6 +91,7 @@ const AIChatPage = lazy(() => import("./pages/ai-chat"));
 const WhatsAppSetupPage = lazy(() => import("./pages/whatsapp/index"));
 const SyncComparisonPage = lazy(() => import("./pages/sync-comparison"));
 const ExcelComparisonReport = lazy(() => import("./pages/excel-comparison-report"));
+const MultiProjectExpenses = lazy(() => import("./pages/multi-project-expenses"));
 const PermissionManagementPage = lazy(() => import("./pages/permission-management"));
 const CentralLogsPage = lazy(() => import("./pages/central-logs"));
 
@@ -528,6 +529,11 @@ function Router() {
       <Route path="/excel-comparison">
         <Suspense fallback={<PageLoader />}>
           <ExcelComparisonReport />
+        </Suspense>
+      </Route>
+      <Route path="/multi-project-expenses">
+        <Suspense fallback={<PageLoader />}>
+          <MultiProjectExpenses />
         </Suspense>
       </Route>
       <Route path="/admin/data-health">

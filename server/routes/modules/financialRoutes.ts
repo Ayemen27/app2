@@ -1198,6 +1198,85 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
 
     console.log('✅ [API] نجح validation تحويل العامل');
 
+    const confirmGuard = req.body.confirmGuard === true;
+    const transferAmount = parseFloat(validationResult.data.amount || '0');
+
+    if (!confirmGuard && transferAmount > 0 && validationResult.data.worker_id && validationResult.data.project_id) {
+      try {
+        const balanceResult = await pool.query(
+          `SELECT total_earned, total_paid, balance FROM worker_balances WHERE worker_id = $1 AND project_id = $2`,
+          [validationResult.data.worker_id, validationResult.data.project_id]
+        );
+        const currentBalance = balanceResult.rows.length > 0 ? parseFloat(balanceResult.rows[0].balance || '0') : 0;
+        const totalEarned = balanceResult.rows.length > 0 ? parseFloat(balanceResult.rows[0].total_earned || '0') : 0;
+        const resultingBalance = currentBalance - transferAmount;
+
+        if (resultingBalance < 0) {
+          const workerResult = await pool.query(`SELECT name FROM workers WHERE id = $1`, [validationResult.data.worker_id]);
+          const workerName = workerResult.rows[0]?.name || 'عامل';
+          const duration = Date.now() - startTime;
+
+          return res.status(422).json({
+            success: false,
+            requiresConfirmation: true,
+            guardType: 'negative_balance',
+            message: `تحويل ${transferAmount} سيجعل رصيد ${workerName} سالباً (${resultingBalance})`,
+            guardData: {
+              workerName,
+              currentBalance,
+              transferAmount,
+              resultingBalance,
+              totalEarned,
+              maxSafeAmount: Math.max(0, currentBalance),
+            },
+            suggestions: [
+              {
+                id: 'proceed_as_advance',
+                label: 'متابعة كسلفة',
+                description: `تسجيل المبلغ كاملاً (${transferAmount}) كسلفة مع ملاحظة تلقائية`,
+                action: 'proceed_with_note',
+                icon: 'check',
+              },
+              ...(currentBalance > 0 ? [{
+                id: 'reduce_to_balance',
+                label: `تحويل الرصيد المتاح فقط (${currentBalance})`,
+                description: `تحويل ${currentBalance} فقط — المبلغ المتاح في رصيد العامل`,
+                action: 'adjust_amount' as const,
+                adjustedAmount: currentBalance,
+                icon: 'edit' as const,
+              }] : []),
+              {
+                id: 'custom_amount',
+                label: 'تعديل المبلغ يدوياً',
+                description: 'أدخل مبلغ مختلف حسب الاتفاق',
+                action: 'adjust_amount' as const,
+                adjustedAmount: transferAmount,
+                icon: 'edit' as const,
+              },
+              {
+                id: 'cancel',
+                label: 'إلغاء العملية',
+                description: 'عدم تنفيذ التحويل والرجوع',
+                action: 'cancel' as const,
+                icon: 'cancel' as const,
+              }
+            ],
+            processingTime: duration,
+          });
+        }
+      } catch (balanceErr) {
+        console.error('[FinancialGuard] Balance check error:', balanceErr);
+      }
+    }
+
+    const guardNote = req.body.guardNote || '';
+    if (confirmGuard && guardNote) {
+      validationResult.data.notes = ((validationResult.data.notes || '') + ' | ' + guardNote).trim();
+    }
+    if (confirmGuard && req.body.adjustedAmount !== undefined) {
+      validationResult.data.amount = String(req.body.adjustedAmount);
+    }
+
     const newTransfer = await withTransaction(async (client) => {
       const txDb = createDrizzle(client);
       const result = await txDb.insert(workerTransfers).values(validationResult.data).returning();

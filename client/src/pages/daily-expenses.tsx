@@ -29,6 +29,7 @@ import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { TeamSelector } from "@/components/team-selector";
 import ExpenseSummary from "@/components/expense-summary";
 import { OverpaymentSplitDialog, type OverpaymentData } from "@/components/overpayment-split-dialog";
+import { FinancialGuardDialog, type FinancialGuardData } from "@/components/financial-guard-dialog";
 import WorkerMiscExpenses from "./worker-misc-expenses";
 import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
@@ -211,6 +212,8 @@ function DailyExpensesContent() {
   const [editWorkerNotes, setEditWorkerNotes] = useState<string>("");
   const [showOverpaymentDialog, setShowOverpaymentDialog] = useState(false);
   const [overpaymentData, setOverpaymentData] = useState<OverpaymentData | null>(null);
+  const [showGuardTransferDialog, setShowGuardTransferDialog] = useState(false);
+  const [guardTransferData, setGuardTransferData] = useState<FinancialGuardData | null>(null);
 
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -1725,6 +1728,40 @@ function DailyExpensesContent() {
         saveAutocompleteValue('recipientNames', workerTransferRecipientName).catch(() => {});
       }
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
+
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const gd = error.responseData.guardData;
+        const suggestions = error.responseData.suggestions || [];
+        setGuardTransferData({
+          type: 'negative_balance',
+          title: 'تنبيه: التحويل يتجاوز رصيد العامل',
+          workerName: gd?.workerName,
+          enteredAmount: gd?.transferAmount || 0,
+          currentBalance: gd?.currentBalance || 0,
+          resultingBalance: gd?.resultingBalance || 0,
+          suggestions,
+          details: [
+            { label: 'العامل', value: gd?.workerName || '' },
+            { label: 'الرصيد الحالي', value: `${gd?.currentBalance ?? 0}`, color: (gd?.currentBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' },
+            { label: 'مبلغ التحويل', value: `${gd?.transferAmount ?? 0}`, color: 'text-amber-600' },
+            { label: 'الرصيد بعد التحويل', value: `${gd?.resultingBalance ?? 0}`, color: 'text-red-600 font-bold' },
+          ],
+          originalData: {
+            worker_id: workerTransferWorkerId,
+            project_id: selectedProjectId,
+            amount: workerTransferAmount ? parseFloat(workerTransferAmount) : 0,
+            recipientName: workerTransferRecipientName,
+            recipientPhone: workerTransferRecipientPhone,
+            transferMethod: workerTransferMethod,
+            transferNumber: workerTransferNumber,
+            senderName: workerTransferSenderName,
+            transferDate: selectedDate,
+            notes: workerTransferNotes,
+          },
+        });
+        setShowGuardTransferDialog(true);
+        return;
+      }
 
       try {
         const transferData = {
@@ -4231,6 +4268,25 @@ function DailyExpensesContent() {
               advanceNotes,
             });
           }
+        }}
+      />
+      <FinancialGuardDialog
+        open={showGuardTransferDialog}
+        onClose={() => {
+          setShowGuardTransferDialog(false);
+          setGuardTransferData(null);
+        }}
+        data={guardTransferData}
+        onConfirm={({ adjustedAmount, guardNote }) => {
+          setShowGuardTransferDialog(false);
+          const origData = guardTransferData?.originalData || {};
+          setGuardTransferData(null);
+          addWorkerTransferMutation.mutate({
+            ...origData,
+            amount: adjustedAmount,
+            notes: guardNote || origData.notes || '',
+            confirmGuard: true,
+          });
         }}
       />
     </div>

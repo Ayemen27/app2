@@ -1193,6 +1193,59 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
 
     const sanitizedTransferData = pickAllowedFields(validationResult.data as Record<string, unknown>, ALLOWED_TRANSFER_PATCH_FIELDS);
 
+    const confirmGuard = req.body.confirmGuard === true;
+    const newAmount = sanitizedTransferData.amount !== undefined ? parseFloat(String(sanitizedTransferData.amount)) : null;
+    const oldAmount = parseFloat(String(existingTransfer[0].amount));
+    const workerId = sanitizedTransferData.worker_id || existingTransfer[0].worker_id;
+    const projectId = sanitizedTransferData.project_id || existingTransfer[0].project_id;
+
+    if (!confirmGuard && newAmount !== null && newAmount > oldAmount && workerId && projectId) {
+      const amountDelta = newAmount - oldAmount;
+      try {
+        const balanceResult = await pool.query(
+          `SELECT COALESCE(balance, 0) as balance, COALESCE(name, '') as name FROM workers WHERE id = $1 AND project_id = $2 LIMIT 1`,
+          [workerId, projectId]
+        );
+        if (balanceResult.rows.length > 0) {
+          const currentBalance = parseFloat(balanceResult.rows[0].balance) || 0;
+          const workerName = balanceResult.rows[0].name || '';
+          const resultingBalance = currentBalance - amountDelta;
+          if (resultingBalance < 0) {
+            const maxSafeIncrease = Math.max(0, currentBalance);
+            const maxSafeAmount = oldAmount + maxSafeIncrease;
+            return res.status(422).json({
+              requiresConfirmation: true,
+              guardType: 'negative_balance',
+              message: `تحديث التحويل سيجعل رصيد ${workerName} سالباً (${resultingBalance.toFixed(2)})`,
+              guardData: {
+                workerName,
+                currentBalance,
+                transferAmount: newAmount,
+                oldAmount,
+                resultingBalance,
+                maxSafeAmount,
+              },
+              suggestions: [
+                { id: 'proceed', label: 'متابعة رغم الرصيد السالب', description: `الرصيد سيصبح ${resultingBalance.toFixed(2)}`, action: 'proceed_with_note', icon: 'check' },
+                ...(maxSafeAmount > 0 ? [{ id: 'reduce', label: `تقليل إلى ${maxSafeAmount.toFixed(2)}`, description: `أقصى مبلغ لا يسبب رصيد سالب`, action: 'adjust_amount', adjustedAmount: maxSafeAmount, icon: 'edit' }] : []),
+                { id: 'cancel', label: 'إلغاء', description: 'العودة دون تعديل', action: 'cancel', icon: 'cancel' },
+              ],
+              _originalBody: req.body,
+            });
+          }
+        }
+      } catch (balanceErr) {
+        console.error('[PATCH worker-transfers] Balance check error:', balanceErr);
+      }
+    }
+
+    if (confirmGuard && req.body.guardNote) {
+      sanitizedTransferData.notes = ((sanitizedTransferData.notes || existingTransfer[0].notes || '') + ' | ' + req.body.guardNote).trim();
+    }
+    if (confirmGuard && req.body.adjustedAmount !== undefined) {
+      sanitizedTransferData.amount = String(req.body.adjustedAmount);
+    }
+
     const userId = getAuthUser(req)?.user_id;
 
     const updatedTransfer = await withTransaction(async (client) => {

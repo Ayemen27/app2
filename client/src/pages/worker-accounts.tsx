@@ -51,6 +51,7 @@ import {
 import { apiRequest } from '@/lib/queryClient';
 import { downloadExcelFile } from '@/utils/webview-download';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input-database';
+import { FinancialGuardDialog, type FinancialGuardData } from '@/components/financial-guard-dialog';
 import '@/styles/unified-print-styles.css';
 import { QUERY_KEYS } from "@/constants/queryKeys";
 
@@ -104,6 +105,8 @@ export default function WorkerAccountsPage() {
   const [dateTo, setDateTo] = useState('');
   const [specificDate, setSpecificDate] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showGuardDialog, setShowGuardDialog] = useState(false);
+  const [guardData, setGuardData] = useState<FinancialGuardData | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -246,8 +249,33 @@ export default function WorkerAccountsPage() {
       await saveAllTransferAutocompleteValues();
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const gd = error.responseData.guardData;
+        const suggestions = error.responseData.suggestions || [];
+        setGuardData({
+          type: 'negative_balance',
+          title: 'تنبيه: التحويل يتجاوز رصيد العامل',
+          workerName: gd?.workerName,
+          enteredAmount: gd?.transferAmount || 0,
+          currentBalance: gd?.currentBalance || 0,
+          resultingBalance: gd?.resultingBalance || 0,
+          suggestions,
+          details: [
+            { label: 'العامل', value: gd?.workerName || '' },
+            { label: 'الرصيد الحالي', value: `${gd?.currentBalance ?? 0}`, color: (gd?.currentBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' },
+            { label: 'مبلغ التحويل', value: `${gd?.transferAmount ?? 0}`, color: 'text-amber-600' },
+            { label: 'الرصيد بعد التحويل', value: `${gd?.resultingBalance ?? 0}`, color: 'text-red-600 font-bold' },
+          ],
+          originalData: error.responseData._originalBody || {},
+        });
+        setShowGuardDialog(true);
+        return;
+      }
+      
       let errorMessage = "فشل في إرسال الحولة";
-      if (error?.response?.data?.message) {
+      if (error?.responseData?.message) {
+        errorMessage = error.responseData.message;
+      } else if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
@@ -281,8 +309,33 @@ export default function WorkerAccountsPage() {
       await saveAllTransferAutocompleteValues();
       queryClient.refetchQueries({ queryKey: QUERY_KEYS.autocomplete });
       
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const gd = error.responseData.guardData;
+        const suggestions = error.responseData.suggestions || [];
+        setGuardData({
+          type: 'negative_balance',
+          title: 'تنبيه: تحديث التحويل يتجاوز رصيد العامل',
+          workerName: gd?.workerName,
+          enteredAmount: gd?.transferAmount || 0,
+          currentBalance: gd?.currentBalance || 0,
+          resultingBalance: gd?.resultingBalance || 0,
+          suggestions,
+          details: [
+            { label: 'العامل', value: gd?.workerName || '' },
+            { label: 'الرصيد الحالي', value: `${gd?.currentBalance ?? 0}`, color: (gd?.currentBalance ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' },
+            { label: 'المبلغ الجديد', value: `${gd?.transferAmount ?? 0}`, color: 'text-amber-600' },
+            { label: 'الرصيد بعد التحديث', value: `${gd?.resultingBalance ?? 0}`, color: 'text-red-600 font-bold' },
+          ],
+          originalData: { ...error.responseData._originalBody, _editId: editingTransfer?.id },
+        });
+        setShowGuardDialog(true);
+        return;
+      }
+
       let errorMessage = "فشل في تحديث الحولة";
-      if (error?.response?.data?.message) {
+      if (error?.responseData?.message) {
+        errorMessage = error.responseData.message;
+      } else if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error?.message) {
         errorMessage = error.message;
@@ -975,6 +1028,38 @@ export default function WorkerAccountsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <FinancialGuardDialog
+        open={showGuardDialog}
+        onClose={() => {
+          setShowGuardDialog(false);
+          setGuardData(null);
+        }}
+        data={guardData}
+        onConfirm={({ adjustedAmount, guardNote }) => {
+          setShowGuardDialog(false);
+          const editId = guardData?.originalData?._editId;
+          setGuardData(null);
+          if (editId) {
+            updateTransferMutation.mutate({
+              id: editId,
+              updates: {
+                ...formData,
+                amount: adjustedAmount,
+                notes: guardNote || formData.notes,
+                confirmGuard: true,
+              } as any,
+            });
+          } else {
+            createTransferMutation.mutate({
+              ...formData,
+              amount: adjustedAmount,
+              notes: guardNote || formData.notes,
+              confirmGuard: true,
+            } as any);
+          }
+        }}
+      />
     </div>
   );
 }

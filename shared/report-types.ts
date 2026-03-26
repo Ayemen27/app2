@@ -373,9 +373,139 @@ export interface MultiProjectFinalReportData {
   };
 }
 
+export interface ProjectComprehensiveReportData {
+  reportType: 'project-comprehensive';
+  generatedAt: string;
+  project: {
+    id: string;
+    name: string;
+    location?: string;
+    engineerName?: string;
+    managerName?: string;
+    budget?: number;
+    startDate?: string;
+    status?: string;
+  };
+  period: {
+    from: string;
+    to: string;
+  };
+  kpis: ReportKPI[];
+  workforce: {
+    totalWorkers: number;
+    activeWorkers: number;
+    workersByType: Array<{
+      type: string;
+      count: number;
+      totalDays: number;
+      totalWages: number;
+    }>;
+    topWorkers: Array<{
+      name: string;
+      type: string;
+      totalDays: number;
+      totalEarned: number;
+      totalPaid: number;
+      balance: number;
+    }>;
+  };
+  wells: {
+    totalWells: number;
+    byStatus: Array<{
+      status: string;
+      count: number;
+    }>;
+    avgCompletionPercentage: number;
+    totalDepth: number;
+    wellsList: Array<{
+      wellNumber: number;
+      ownerName: string;
+      region: string;
+      depth: number;
+      status: string;
+      completionPercentage: number;
+      crewCount: number;
+      totalCrewWages: number;
+    }>;
+  };
+  attendance: {
+    totalWorkDays: number;
+    totalWages: number;
+    totalPaid: number;
+    dailySummary: Array<{
+      date: string;
+      workerCount: number;
+      totalWorkDays: number;
+      totalWages: number;
+    }>;
+  };
+  expenses: {
+    materials: {
+      total: number;
+      totalPaid: number;
+      byCategory: Array<{
+        category: string;
+        total: number;
+        count: number;
+      }>;
+    };
+    transport: {
+      total: number;
+      tripCount: number;
+    };
+    miscExpenses: {
+      total: number;
+      count: number;
+    };
+    workerTransfers: {
+      total: number;
+      count: number;
+    };
+  };
+  cashCustody: {
+    totalFundTransfersIn: number;
+    totalProjectTransfersIn: number;
+    totalProjectTransfersOut: number;
+    totalExpenses: number;
+    netBalance: number;
+    fundTransferItems: Array<{
+      date: string;
+      amount: number;
+      senderName: string;
+      transferType: string;
+    }>;
+  };
+  equipmentSummary: {
+    totalEquipment: number;
+    byStatus: Array<{
+      status: string;
+      count: number;
+    }>;
+    items: Array<{
+      name: string;
+      code: string;
+      type: string;
+      status: string;
+      condition: string;
+      quantity: number;
+    }>;
+  };
+  totals: {
+    totalIncome: number;
+    totalExpenses: number;
+    totalWages: number;
+    totalMaterials: number;
+    totalTransport: number;
+    totalMisc: number;
+    totalWorkerTransfers: number;
+    balance: number;
+    budgetUtilization?: number;
+  };
+}
+
 export interface ReportExportOptions {
   format: 'pdf' | 'xlsx';
-  type: 'daily' | 'worker-statement' | 'period-final' | 'daily-range' | 'multi-project-final';
+  type: 'daily' | 'worker-statement' | 'period-final' | 'daily-range' | 'multi-project-final' | 'project-comprehensive';
   companyInfo?: {
     name: string;
     subtitle?: string;

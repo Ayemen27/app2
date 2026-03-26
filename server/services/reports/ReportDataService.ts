@@ -1259,6 +1259,381 @@ export class ReportDataService {
       },
     };
   }
+
+  async getProjectComprehensiveReport(projectId: string, dateFrom: string, dateTo: string): Promise<import('../../../shared/report-types').ProjectComprehensiveReportData> {
+    const client = await pool.connect();
+    try {
+      const projectInfo = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1);
+      const proj = projectInfo[0];
+      if (!proj) throw new Error('المشروع غير موجود');
+
+      const [
+        workforceResult,
+        workersByTypeResult,
+        topWorkersResult,
+        wellsResult,
+        wellStatusResult,
+        wellCrewsResult,
+        attendanceDailyResult,
+        attendanceTotalsResult,
+        materialsTotalResult,
+        materialsByCategoryResult,
+        transportResult,
+        miscResult,
+        workerTransfersResult,
+        fundTransfersResult,
+        fundTransferItemsResult,
+        projectTransfersInResult,
+        projectTransfersOutResult,
+        equipmentResult,
+        equipmentByStatusResult,
+      ] = await Promise.all([
+        client.query(`
+          SELECT
+            COUNT(DISTINCT wa.worker_id) AS total_workers,
+            COUNT(DISTINCT CASE WHEN wa.attendance_date >= $2 THEN wa.worker_id END) AS active_workers
+          FROM worker_attendance wa
+          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(w.type, 'غير محدد') AS type,
+            COUNT(DISTINCT wa.worker_id) AS count,
+            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_days,
+            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_wages
+          FROM worker_attendance wa
+          LEFT JOIN workers w ON wa.worker_id = w.id
+          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+          GROUP BY w.type ORDER BY total_wages DESC
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            w.name, w.type,
+            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_days,
+            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_earned,
+            COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
+          FROM worker_attendance wa
+          LEFT JOIN workers w ON wa.worker_id = w.id
+          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+          GROUP BY w.name, w.type
+          ORDER BY total_earned DESC LIMIT 20
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT id, well_number, owner_name, region, well_depth, status,
+            COALESCE(CAST(completion_percentage AS DECIMAL), 0) AS completion_percentage
+          FROM wells WHERE project_id = $1
+          ORDER BY well_number
+        `, [projectId]),
+
+        client.query(`
+          SELECT status, COUNT(*) AS count FROM wells WHERE project_id = $1 GROUP BY status
+        `, [projectId]),
+
+        client.query(`
+          SELECT wc.well_id,
+            COUNT(*) AS crew_count,
+            COALESCE(SUM(CAST(wc.total_wages AS DECIMAL)), 0) AS total_wages
+          FROM well_work_crews wc
+          JOIN wells w ON wc.well_id = w.id
+          WHERE w.project_id = $1
+          GROUP BY wc.well_id
+        `, [projectId]),
+
+        client.query(`
+          SELECT
+            wa.attendance_date AS date,
+            COUNT(DISTINCT wa.worker_id) AS worker_count,
+            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_work_days,
+            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_wages
+          FROM worker_attendance wa
+          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+          GROUP BY wa.attendance_date ORDER BY wa.attendance_date
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_work_days,
+            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_wages,
+            COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
+          FROM worker_attendance wa
+          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) AS total,
+            COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) AS total_paid
+          FROM material_purchases
+          WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(material_category, 'غير مصنف') AS category,
+            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) AS total,
+            COUNT(*) AS count
+          FROM material_purchases
+          WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
+          GROUP BY material_category ORDER BY total DESC
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total,
+            COUNT(*) AS trip_count
+          FROM transportation_expenses
+          WHERE project_id = $1 AND date >= $2 AND date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total,
+            COUNT(*) AS count
+          FROM worker_misc_expenses
+          WHERE project_id = $1 AND date >= $2 AND date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total,
+            COUNT(*) AS count
+          FROM worker_transfers
+          WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT
+            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total
+          FROM fund_transfers
+          WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT transfer_date AS date, CAST(amount AS DECIMAL) AS amount,
+            COALESCE(sender_name, '-') AS sender_name,
+            COALESCE(transfer_type, '-') AS transfer_type
+          FROM fund_transfers
+          WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+          ORDER BY transfer_date
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total
+          FROM project_fund_transfers
+          WHERE to_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total
+          FROM project_fund_transfers
+          WHERE from_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+        `, [projectId, dateFrom, dateTo]),
+
+        client.query(`
+          SELECT name, COALESCE(code, '-') AS code, COALESCE(type, '-') AS type,
+            COALESCE(status, 'active') AS status, COALESCE(condition, '-') AS condition,
+            COALESCE(quantity, 1) AS quantity
+          FROM equipment WHERE project_id = $1
+          ORDER BY name
+        `, [projectId]),
+
+        client.query(`
+          SELECT COALESCE(status, 'active') AS status, COUNT(*) AS count
+          FROM equipment WHERE project_id = $1
+          GROUP BY status
+        `, [projectId]),
+      ]);
+
+      const wf = workforceResult.rows[0];
+      const totalWorkers = safeNum(wf?.total_workers);
+      const activeWorkers = safeNum(wf?.active_workers);
+
+      const att = attendanceTotalsResult.rows[0];
+      const totalWorkDays = safeNum(att?.total_work_days);
+      const totalWages = safeNum(att?.total_wages);
+      const totalPaid = safeNum(att?.total_paid);
+
+      const mat = materialsTotalResult.rows[0];
+      const totalMaterials = safeNum(mat?.total);
+      const totalMaterialsPaid = safeNum(mat?.total_paid);
+
+      const trn = transportResult.rows[0];
+      const totalTransport = safeNum(trn?.total);
+      const tripCount = safeNum(trn?.trip_count);
+
+      const misc = miscResult.rows[0];
+      const totalMisc = safeNum(misc?.total);
+      const miscCount = safeNum(misc?.count);
+
+      const wt = workerTransfersResult.rows[0];
+      const totalWorkerTransfers = safeNum(wt?.total);
+      const wtCount = safeNum(wt?.count);
+
+      const totalFundTransfersIn = safeNum(fundTransfersResult.rows[0]?.total);
+      const totalProjectTransfersIn = safeNum(projectTransfersInResult.rows[0]?.total);
+      const totalProjectTransfersOut = safeNum(projectTransfersOutResult.rows[0]?.total);
+
+      const totalIncome = totalFundTransfersIn + totalProjectTransfersIn;
+      const totalExpenses = totalWages + totalMaterials + totalTransport + totalMisc + totalWorkerTransfers + totalProjectTransfersOut;
+      const balance = totalIncome - totalExpenses;
+
+      const budget = proj.budget ? safeNum(proj.budget) : undefined;
+      const budgetUtilization = budget && budget > 0 ? (totalExpenses / budget) * 100 : undefined;
+
+      const crewMap = new Map<number, { crewCount: number; totalWages: number }>();
+      for (const row of wellCrewsResult.rows) {
+        crewMap.set(Number(row.well_id), {
+          crewCount: safeNum(row.crew_count),
+          totalWages: safeNum(row.total_wages),
+        });
+      }
+
+      const wellsList = wellsResult.rows.map(w => {
+        const crew = crewMap.get(Number(w.id)) || { crewCount: 0, totalWages: 0 };
+        return {
+          wellNumber: safeNum(w.well_number),
+          ownerName: w.owner_name || '-',
+          region: w.region || '-',
+          depth: safeNum(w.well_depth),
+          status: w.status || 'pending',
+          completionPercentage: safeNum(w.completion_percentage),
+          crewCount: crew.crewCount,
+          totalCrewWages: crew.totalWages,
+        };
+      });
+
+      const totalWells = wellsResult.rows.length;
+      const avgCompletion = totalWells > 0
+        ? wellsList.reduce((s, w) => s + w.completionPercentage, 0) / totalWells
+        : 0;
+      const totalDepth = wellsList.reduce((s, w) => s + w.depth, 0);
+
+      const costPerWell = totalWells > 0 ? totalExpenses / totalWells : 0;
+      const costPerWorkerDay = totalWorkDays > 0 ? totalExpenses / totalWorkDays : 0;
+
+      const kpis: import('../../../shared/report-types').ReportKPI[] = [
+        { label: 'إجمالي الإيرادات', value: totalIncome, format: 'currency' },
+        { label: 'إجمالي المصروفات', value: totalExpenses, format: 'currency' },
+        { label: 'الرصيد', value: balance, format: 'currency' },
+        { label: 'عدد العمال', value: totalWorkers, format: 'number' },
+        { label: 'عدد الآبار', value: totalWells, format: 'number' },
+        { label: 'أيام العمل', value: totalWorkDays, format: 'days' },
+        { label: 'تكلفة / بئر', value: costPerWell, format: 'currency' },
+        { label: 'تكلفة / عامل / يوم', value: costPerWorkerDay, format: 'currency' },
+      ];
+      if (budgetUtilization !== undefined) {
+        kpis.push({ label: 'نسبة استخدام الميزانية', value: budgetUtilization, format: 'percentage' });
+      }
+
+      return {
+        reportType: 'project-comprehensive',
+        generatedAt: new Date().toISOString(),
+        project: {
+          id: proj.id,
+          name: proj.name || 'بدون اسم',
+          location: proj.location || undefined,
+          engineerName: proj.engineerName || undefined,
+          managerName: proj.managerName || undefined,
+          budget: budget,
+          startDate: proj.startDate || undefined,
+          status: proj.status || undefined,
+        },
+        period: { from: dateFrom, to: dateTo },
+        kpis,
+        workforce: {
+          totalWorkers,
+          activeWorkers,
+          workersByType: workersByTypeResult.rows.map(r => ({
+            type: r.type || 'غير محدد',
+            count: safeNum(r.count),
+            totalDays: safeNum(r.total_days),
+            totalWages: safeNum(r.total_wages),
+          })),
+          topWorkers: topWorkersResult.rows.map(r => ({
+            name: r.name || '-',
+            type: r.type || '-',
+            totalDays: safeNum(r.total_days),
+            totalEarned: safeNum(r.total_earned),
+            totalPaid: safeNum(r.total_paid),
+            balance: safeNum(r.total_earned) - safeNum(r.total_paid),
+          })),
+        },
+        wells: {
+          totalWells,
+          byStatus: wellStatusResult.rows.map(r => ({ status: r.status, count: safeNum(r.count) })),
+          avgCompletionPercentage: avgCompletion,
+          totalDepth,
+          wellsList,
+        },
+        attendance: {
+          totalWorkDays,
+          totalWages,
+          totalPaid,
+          dailySummary: attendanceDailyResult.rows.map(r => ({
+            date: r.date || '-',
+            workerCount: safeNum(r.worker_count),
+            totalWorkDays: safeNum(r.total_work_days),
+            totalWages: safeNum(r.total_wages),
+          })),
+        },
+        expenses: {
+          materials: {
+            total: totalMaterials,
+            totalPaid: totalMaterialsPaid,
+            byCategory: materialsByCategoryResult.rows.map(r => ({
+              category: r.category || 'غير مصنف',
+              total: safeNum(r.total),
+              count: safeNum(r.count),
+            })),
+          },
+          transport: { total: totalTransport, tripCount },
+          miscExpenses: { total: totalMisc, count: miscCount },
+          workerTransfers: { total: totalWorkerTransfers, count: wtCount },
+        },
+        cashCustody: {
+          totalFundTransfersIn,
+          totalProjectTransfersIn,
+          totalProjectTransfersOut,
+          totalExpenses,
+          netBalance: balance,
+          fundTransferItems: fundTransferItemsResult.rows.map(r => ({
+            date: r.date || '-',
+            amount: safeNum(r.amount),
+            senderName: r.sender_name || '-',
+            transferType: r.transfer_type || '-',
+          })),
+        },
+        equipmentSummary: {
+          totalEquipment: equipmentResult.rows.length,
+          byStatus: equipmentByStatusResult.rows.map(r => ({ status: r.status, count: safeNum(r.count) })),
+          items: equipmentResult.rows.map(r => ({
+            name: r.name || '-',
+            code: r.code || '-',
+            type: r.type || '-',
+            status: r.status || 'active',
+            condition: r.condition || '-',
+            quantity: safeNum(r.quantity),
+          })),
+        },
+        totals: {
+          totalIncome,
+          totalExpenses,
+          totalWages,
+          totalMaterials,
+          totalTransport,
+          totalMisc,
+          totalWorkerTransfers,
+          balance,
+          budgetUtilization,
+        },
+      };
+    } finally {
+      client.release();
+    }
+  }
 }
 
 export const reportDataService = new ReportDataService();

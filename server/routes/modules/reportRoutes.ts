@@ -35,6 +35,8 @@ import { generateDailyRangeExcel } from '../../services/reports/templates/DailyR
 import { generateDailyRangeHTML } from '../../services/reports/templates/DailyRangePDF';
 import { generateMultiProjectFinalExcel } from '../../services/reports/templates/MultiProjectFinalExcel';
 import { generateMultiProjectFinalHTML } from '../../services/reports/templates/MultiProjectFinalPDF';
+import { generateProjectComprehensiveExcel } from '../../services/reports/templates/ProjectComprehensiveExcel';
+import { generateProjectComprehensiveHTML } from '../../services/reports/templates/ProjectComprehensivePDF';
 import { safeErrorMessage } from '../../middleware/api-response';
 
 export const reportRouter = express.Router();
@@ -1103,8 +1105,8 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
     const { type } = req.params;
     const { format, project_id, date, worker_id, dateFrom, dateTo } = req.query;
 
-    if (!format || !['pdf', 'xlsx'].includes(format as string)) {
-      return res.status(400).json({ success: false, error: 'صيغة التصدير مطلوبة (pdf أو xlsx)' });
+    if (!format || !['pdf', 'xlsx', 'json'].includes(format as string)) {
+      return res.status(400).json({ success: false, error: 'صيغة التصدير مطلوبة (pdf أو xlsx أو json)' });
     }
 
     const accessReq = req as ProjectAccessRequest;
@@ -1241,6 +1243,49 @@ reportRouter.get('/reports/v2/export/:type', async (req: Request, res: Response)
         return res.send(Buffer.from(buffer));
       } else {
         const html = generateMultiProjectFinalHTML(data);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      }
+    }
+
+    if (type === 'project-comprehensive') {
+      if (!project_id || !dateFrom || !dateTo) {
+        return res.status(400).json({ success: false, error: 'معرف المشروع وفترة التاريخ مطلوبة' });
+      }
+      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية' });
+      }
+      const dfStr = dateFrom as string;
+      const dtStr = dateTo as string;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dfStr) || !/^\d{4}-\d{2}-\d{2}$/.test(dtStr)) {
+        return res.status(400).json({ success: false, error: 'صيغة التاريخ غير صالحة (YYYY-MM-DD)' });
+      }
+      if (new Date(dfStr) > new Date(dtStr)) {
+        return res.status(400).json({ success: false, error: 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية' });
+      }
+      const rangeDays = Math.ceil((new Date(dtStr).getTime() - new Date(dfStr).getTime()) / (1000 * 60 * 60 * 24));
+      if (rangeDays > 365) {
+        return res.status(400).json({ success: false, error: `نطاق التاريخ كبير جداً (${rangeDays} يوم). الحد الأقصى هو 365 يوم` });
+      }
+      let data;
+      try {
+        data = await reportDataService.getProjectComprehensiveReport(project_id as string, dfStr, dtStr);
+      } catch (err: any) {
+        if (err.message === 'المشروع غير موجود') {
+          return res.status(404).json({ success: false, error: 'المشروع غير موجود' });
+        }
+        throw err;
+      }
+      if (format === 'json') {
+        return res.json({ success: true, data });
+      }
+      if (format === 'xlsx') {
+        const buffer = await generateProjectComprehensiveExcel(data);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="project-comprehensive-${dateFrom}-${dateTo}.xlsx"`);
+        return res.send(Buffer.from(buffer));
+      } else {
+        const html = generateProjectComprehensiveHTML(data);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.send(html);
       }

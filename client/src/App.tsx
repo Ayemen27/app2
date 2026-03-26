@@ -90,6 +90,7 @@ const UsersManagementPage = lazy(() => import("./pages/users-management"));
 const AIChatPage = lazy(() => import("./pages/ai-chat"));
 const WhatsAppSetupPage = lazy(() => import("./pages/whatsapp/index"));
 const SyncComparisonPage = lazy(() => import("./pages/sync-comparison"));
+const ExcelComparisonReport = lazy(() => import("./pages/excel-comparison-report"));
 const PermissionManagementPage = lazy(() => import("./pages/permission-management"));
 const CentralLogsPage = lazy(() => import("./pages/central-logs"));
 
@@ -524,6 +525,11 @@ function Router() {
           </Suspense>
         </AdminRoute>
       </Route>
+      <Route path="/excel-comparison">
+        <Suspense fallback={<PageLoader />}>
+          <ExcelComparisonReport />
+        </Suspense>
+      </Route>
       <Route path="/admin/data-health">
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
@@ -612,6 +618,11 @@ function App() {
                     <Route path="/reset-password">
                       <Suspense fallback={<PageLoader />}>
                         <ResetPasswordPage />
+                      </Suspense>
+                    </Route>
+                    <Route path="/excel-comparison">
+                      <Suspense fallback={<PageLoader />}>
+                        <ExcelComparisonReport />
                       </Suspense>
                     </Route>
                     <Route path="*" component={() => (

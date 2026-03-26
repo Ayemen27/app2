@@ -401,11 +401,18 @@ export default function MultiProjectExpenses() {
     setSelectedDate(getCurrentDate());
   };
 
+  const allowedProjectIds = [
+    '00735182-397d-4d04-8205-d3e11f1dec77',
+    'b23ad9a5-bed2-43c7-8193-2261c76358cb',
+  ];
+
   const { data: projectsData } = useQuery<{ data: any[] }>({
     queryKey: ["/api/projects"],
   });
   const allProjects: { id: string; name: string }[] = useMemo(() => {
-    return (projectsData?.data || []).map((p: any) => ({ id: p.id, name: p.name }));
+    return (projectsData?.data || [])
+      .filter((p: any) => allowedProjectIds.includes(p.id))
+      .map((p: any) => ({ id: p.id, name: p.name }));
   }, [projectsData]);
 
   const { data, isLoading } = useQuery<{ data: ApiData }>({
@@ -418,7 +425,9 @@ export default function MultiProjectExpenses() {
   });
 
   const apiData = data?.data;
-  const allSummaries = apiData?.summaries || [];
+  const allSummaries = useMemo(() => {
+    return (apiData?.summaries || []).filter((s: Summary) => allowedProjectIds.includes(s.project_id));
+  }, [apiData]);
 
   const summaries = useMemo(() => {
     if (selectedProjectIds.size === 0) return allSummaries;

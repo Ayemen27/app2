@@ -555,7 +555,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         .map((a: any) => {
           const days = parseFloat(a.workDays || '0');
           const wage = parseFloat(a.dailyWage || '0');
-          const earnedAmount = Math.round(days * wage);
+          const earnedAmount = parseFloat((days * wage).toFixed(2));
           
           return {
             date: a.attendanceDate,

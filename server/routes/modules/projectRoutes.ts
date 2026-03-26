@@ -2813,7 +2813,7 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         SELECT CAST(amount AS DECIMAL(15,2)) as amount
         FROM project_fund_transfers 
         WHERE to_project_id = $1 
-          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\d{4}-\d{2}-\d{2}'
+          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
       ),
@@ -2848,7 +2848,7 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         SELECT CAST(amount AS DECIMAL(15,2)) as amount
         FROM worker_transfers 
         WHERE project_id = $1 
-          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\d{4}-\d{2}-\d{2}'
+          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL
@@ -2862,7 +2862,7 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
         SELECT CAST(amount AS DECIMAL(15,2)) as amount
         FROM project_fund_transfers 
         WHERE from_project_id = $1 
-          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\d{4}-\d{2}-\d{2}'
+          AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL

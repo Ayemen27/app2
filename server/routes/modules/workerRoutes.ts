@@ -2543,7 +2543,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     let dailyWage = parseFloat(resolvedWage);
     console.log(`💰 [API] الأجر الفعلي للعامل: ${dailyWage}`);
 
-    const actualWageValue = Math.round(dailyWage * workDays);
+    const actualWageValue = parseFloat((dailyWage * workDays).toFixed(2));
 
     const rawPaidAmount = validationResult.data.paidAmount ?? req.body.paid_amount ?? req.body.paidAmount ?? '0';
     const parsedPaid = Number(rawPaidAmount);
@@ -2555,7 +2555,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     
     const dataWithCalculatedFields: Record<string, any> = {
       ...validationResult.data,
-      dailyWage: Math.round(dailyWage).toString(),
+      dailyWage: dailyWage.toString(),
       date: attendanceDate,
       workDays: workDays.toString(),
       actualWage: actualWageValue.toString(),
@@ -2937,7 +2937,7 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     let createdAdvanceTransferPatch: any = null;
 
     if (dailyWage && workDays) {
-      const actualWageValue = Math.round(parseFloat(dailyWage) * parseFloat(workDays));
+      const actualWageValue = parseFloat((parseFloat(dailyWage) * parseFloat(workDays)).toFixed(2));
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
       

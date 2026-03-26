@@ -365,7 +365,7 @@ function DailyExpensesContent() {
           projectId: selectedProjectId,
           date: selectedDate || getCurrentDate(),
           totalAmount: parseFloat(workerAmount || '0'),
-          actualWage: suggestedAction?.attendancePaidAmount ?? Math.round(dailyWage * workDaysVal),
+          actualWage: suggestedAction?.attendancePaidAmount ?? parseFloat((dailyWage * workDaysVal).toFixed(2)),
           workDays: workDaysVal,
           originalRecord: {
             worker_id: selectedWorkerId,
@@ -434,7 +434,7 @@ function DailyExpensesContent() {
           projectId: attendance?.project_id || selectedProjectId,
           date: attendance?.date || selectedDate || getCurrentDate(),
           totalAmount: parseFloat(editWorkerAmount || '0'),
-          actualWage: suggestedAction?.attendancePaidAmount ?? Math.round(dailyWage * workDaysVal),
+          actualWage: suggestedAction?.attendancePaidAmount ?? parseFloat((dailyWage * workDaysVal).toFixed(2)),
           workDays: workDaysVal,
           originalRecord: { id: editingAttendanceId, workDays: editWorkerDays, paidAmount: editWorkerAmount, notes: editWorkerNotes },
           recordId: editingAttendanceId || undefined,

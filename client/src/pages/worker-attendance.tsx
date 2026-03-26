@@ -506,7 +506,7 @@ export default function WorkerAttendance() {
               projectId: record.project_id!,
               date: record.date || record.attendanceDate || selectedDate || '',
               totalAmount: parseFloat(record.paidAmount?.toString() || '0'),
-              actualWage: suggestedAction?.attendancePaidAmount ?? Math.round(dailyWage * workDaysVal),
+              actualWage: suggestedAction?.attendancePaidAmount ?? parseFloat((dailyWage * workDaysVal).toFixed(2)),
               workDays: workDaysVal,
               originalRecord: record,
               recordId: (record as any).recordId,

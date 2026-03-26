@@ -3708,7 +3708,7 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
     const attendanceData = attendanceRecords.map((record: any) => {
       const workDays = parseFloat(record.workDays || '0');
       const dailyWage = parseFloat(record.dailyWage || worker.dailyWage || '0');
-      const actualWage = parseFloat(record.actualWage || '0') || Math.round(workDays * dailyWage);
+      const actualWage = parseFloat(record.actualWage || '0') || parseFloat((workDays * dailyWage).toFixed(2));
       const paidAmount = parseFloat(record.paidAmount || '0');
       const remainingAmount = actualWage - paidAmount;
 

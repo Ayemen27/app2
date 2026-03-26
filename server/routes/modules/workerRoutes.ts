@@ -1199,43 +1199,50 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
     const workerId = sanitizedTransferData.worker_id || existingTransfer[0].worker_id;
     const projectId = sanitizedTransferData.project_id || existingTransfer[0].project_id;
 
-    if (!confirmGuard && newAmount !== null && newAmount > oldAmount && workerId && projectId) {
+    if (!confirmGuard && newAmount !== null && newAmount > oldAmount && workerId) {
       const amountDelta = newAmount - oldAmount;
       try {
         const balanceResult = await pool.query(
-          `SELECT COALESCE(balance, 0) as balance, COALESCE(name, '') as name FROM workers WHERE id = $1 AND project_id = $2 LIMIT 1`,
-          [workerId, projectId]
+          `SELECT 
+             COALESCE(SUM(wb.current_balance), 0) as total_balance,
+             (SELECT name FROM workers WHERE id = $1 LIMIT 1) as worker_name
+           FROM worker_balances wb
+           WHERE wb.worker_id = $1`,
+          [workerId]
         );
-        if (balanceResult.rows.length > 0) {
-          const currentBalance = parseFloat(balanceResult.rows[0].balance) || 0;
-          const workerName = balanceResult.rows[0].name || '';
-          const resultingBalance = currentBalance - amountDelta;
-          if (resultingBalance < 0) {
-            const maxSafeIncrease = Math.max(0, currentBalance);
-            const maxSafeAmount = oldAmount + maxSafeIncrease;
-            return res.status(422).json({
-              requiresConfirmation: true,
-              guardType: 'negative_balance',
-              message: `تحديث التحويل سيجعل رصيد ${workerName} سالباً (${resultingBalance.toFixed(2)})`,
-              guardData: {
-                workerName,
-                currentBalance,
-                transferAmount: newAmount,
-                oldAmount,
-                resultingBalance,
-                maxSafeAmount,
-              },
-              suggestions: [
-                { id: 'proceed', label: 'متابعة رغم الرصيد السالب', description: `الرصيد سيصبح ${resultingBalance.toFixed(2)}`, action: 'proceed_with_note', icon: 'check' },
-                ...(maxSafeAmount > 0 ? [{ id: 'reduce', label: `تقليل إلى ${maxSafeAmount.toFixed(2)}`, description: `أقصى مبلغ لا يسبب رصيد سالب`, action: 'adjust_amount', adjustedAmount: maxSafeAmount, icon: 'edit' }] : []),
-                { id: 'cancel', label: 'إلغاء', description: 'العودة دون تعديل', action: 'cancel', icon: 'cancel' },
-              ],
-              _originalBody: req.body,
-            });
-          }
+        const currentBalance = parseFloat(balanceResult.rows[0]?.total_balance || '0');
+        const workerName = balanceResult.rows[0]?.worker_name || 'عامل';
+        const resultingBalance = currentBalance - amountDelta;
+        if (resultingBalance < 0) {
+          const maxSafeIncrease = Math.max(0, currentBalance);
+          const maxSafeAmount = oldAmount + maxSafeIncrease;
+          return res.status(422).json({
+            requiresConfirmation: true,
+            guardType: 'negative_balance',
+            message: `تحديث التحويل سيجعل رصيد ${workerName} سالباً (${resultingBalance.toFixed(2)})`,
+            guardData: {
+              workerName,
+              currentBalance,
+              transferAmount: newAmount,
+              oldAmount,
+              resultingBalance,
+              maxSafeAmount,
+            },
+            suggestions: [
+              { id: 'proceed', label: 'متابعة رغم الرصيد السالب', description: `الرصيد الإجمالي سيصبح ${resultingBalance.toFixed(2)}`, action: 'proceed_with_note', icon: 'check' },
+              ...(maxSafeAmount > 0 ? [{ id: 'reduce', label: `تقليل إلى ${maxSafeAmount.toFixed(2)}`, description: `أقصى مبلغ لا يسبب رصيد سالب`, action: 'adjust_amount', adjustedAmount: maxSafeAmount, icon: 'edit' }] : []),
+              { id: 'cancel', label: 'إلغاء', description: 'العودة دون تعديل', action: 'cancel', icon: 'cancel' },
+            ],
+            _originalBody: req.body,
+          });
         }
       } catch (balanceErr) {
-        console.error('[PATCH worker-transfers] Balance check error:', balanceErr);
+        console.error('[PATCH worker-transfers] FAIL-CLOSED: Balance check error, blocking update:', balanceErr);
+        return res.status(500).json({
+          success: false,
+          message: 'فشل في التحقق من رصيد العامل. لأسباب أمنية، تم حظر التعديل. حاول مرة أخرى.',
+          error: 'BALANCE_CHECK_FAILED',
+        });
       }
     }
 

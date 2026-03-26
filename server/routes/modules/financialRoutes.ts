@@ -1204,16 +1204,21 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
     if (!confirmGuard && transferAmount > 0 && validationResult.data.worker_id && validationResult.data.project_id) {
       try {
         const balanceResult = await pool.query(
-          `SELECT total_earned, total_paid, balance FROM worker_balances WHERE worker_id = $1 AND project_id = $2`,
-          [validationResult.data.worker_id, validationResult.data.project_id]
+          `SELECT 
+             COALESCE(SUM(wb.current_balance), 0) as total_balance,
+             COALESCE(SUM(wb.total_earned), 0) as total_earned,
+             COALESCE(SUM(wb.total_paid), 0) as total_paid,
+             (SELECT name FROM workers WHERE id = $1 LIMIT 1) as worker_name
+           FROM worker_balances wb
+           WHERE wb.worker_id = $1`,
+          [validationResult.data.worker_id]
         );
-        const currentBalance = balanceResult.rows.length > 0 ? parseFloat(balanceResult.rows[0].balance || '0') : 0;
+        const currentBalance = balanceResult.rows.length > 0 ? parseFloat(balanceResult.rows[0].total_balance || '0') : 0;
         const totalEarned = balanceResult.rows.length > 0 ? parseFloat(balanceResult.rows[0].total_earned || '0') : 0;
         const resultingBalance = currentBalance - transferAmount;
 
         if (resultingBalance < 0) {
-          const workerResult = await pool.query(`SELECT name FROM workers WHERE id = $1`, [validationResult.data.worker_id]);
-          const workerName = workerResult.rows[0]?.name || 'عامل';
+          const workerName = balanceResult.rows[0]?.worker_name || 'عامل';
           const duration = Date.now() - startTime;
 
           return res.status(422).json({
@@ -1265,7 +1270,12 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
           });
         }
       } catch (balanceErr) {
-        console.error('[FinancialGuard] Balance check error:', balanceErr);
+        console.error('[FinancialGuard] FAIL-CLOSED: Balance check error, blocking transfer:', balanceErr);
+        return res.status(500).json({
+          success: false,
+          message: 'فشل في التحقق من رصيد العامل. لأسباب أمنية، تم حظر التحويل. حاول مرة أخرى.',
+          error: 'BALANCE_CHECK_FAILED',
+        });
       }
     }
 

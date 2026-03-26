@@ -25,6 +25,9 @@ interface Summary {
   total_worker_transfers: string;
   total_material_costs: string;
   carried_forward_amount: string;
+  cumulative_funds?: string;
+  cumulative_expenses?: string;
+  cumulative_balance?: string;
 }
 
 interface Worker {
@@ -116,6 +119,9 @@ function ProjectCard({
   const totalIncome = num(summary.total_income);
   const carried = num(summary.carried_forward_amount);
   const newFunds = num(summary.total_fund_transfers);
+  const cumFunds = num(summary.cumulative_funds);
+  const cumExpenses = num(summary.cumulative_expenses);
+  const cumBalance = num(summary.cumulative_balance);
 
   return (
     <Card className="overflow-hidden" data-testid={`project-card-${summary.project_id}`}>
@@ -137,17 +143,13 @@ function ProjectCard({
         </div>
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <div className="text-xs text-muted-foreground">الدخل</div>
-            <div className="font-bold text-green-600" data-testid={`income-${summary.project_id}`}>{formatCurrency(totalIncome)}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xs text-muted-foreground">المصروف</div>
+            <div className="text-xs text-muted-foreground">مصروف اليوم</div>
             <div className="font-bold text-red-600" data-testid={`expense-${summary.project_id}`}>{formatCurrency(totalExp)}</div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-muted-foreground">المتبقي</div>
-            <div className={`font-bold ${remaining >= 0 ? "text-blue-600" : "text-red-600"}`} data-testid={`remaining-${summary.project_id}`}>
-              {formatCurrency(remaining)}
+            <div className="text-xs text-muted-foreground">الرصيد التراكمي</div>
+            <div className={`font-bold text-lg ${cumBalance >= 0 ? "text-green-600" : "text-red-600"}`} data-testid={`cumulative-${summary.project_id}`}>
+              {formatCurrency(cumBalance)}
             </div>
           </div>
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -156,36 +158,55 @@ function ProjectCard({
 
       {expanded && (
         <CardContent className="p-4 space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-950/20">
-              <TrendingUp className="h-4 w-4 text-green-600" />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-2">
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+              <DollarSign className="h-4 w-4 text-green-600" />
               <div>
-                <div className="text-xs text-muted-foreground">مرحّل</div>
-                <div className="font-semibold text-sm">{formatCurrency(carried)}</div>
+                <div className="text-xs text-muted-foreground">إجمالي الحوالات (تراكمي)</div>
+                <div className="font-bold text-sm text-green-700">{formatCurrency(cumFunds)}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20">
-              <DollarSign className="h-4 w-4 text-blue-600" />
-              <div>
-                <div className="text-xs text-muted-foreground">حوالات</div>
-                <div className="font-semibold text-sm">{formatCurrency(newFunds)}</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/20">
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
               <TrendingDown className="h-4 w-4 text-red-600" />
               <div>
-                <div className="text-xs text-muted-foreground">إجمالي المصروف</div>
-                <div className="font-semibold text-sm">{formatCurrency(totalExp)}</div>
+                <div className="text-xs text-muted-foreground">إجمالي المصروفات (تراكمي)</div>
+                <div className="font-bold text-sm text-red-700">{formatCurrency(cumExpenses)}</div>
               </div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-purple-50 dark:bg-purple-950/20">
-              <Wallet className="h-4 w-4 text-purple-600" />
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-300 dark:border-blue-700">
+              <Wallet className="h-4 w-4 text-blue-600" />
               <div>
-                <div className="text-xs text-muted-foreground">المتبقي</div>
-                <div className="font-semibold text-sm">{formatCurrency(remaining)}</div>
+                <div className="text-xs text-muted-foreground font-bold">الرصيد التراكمي</div>
+                <div className={`font-black text-base ${cumBalance >= 0 ? "text-blue-700" : "text-red-700"}`}>{formatCurrency(cumBalance)}</div>
               </div>
             </div>
           </div>
+
+          {(newFunds > 0 || totalExp > 0) && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50/50 dark:bg-green-950/10">
+                <TrendingUp className="h-3 w-3 text-green-500" />
+                <div>
+                  <div className="text-[10px] text-muted-foreground">حوالات اليوم</div>
+                  <div className="font-semibold text-xs">{formatCurrency(newFunds)}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50/50 dark:bg-red-950/10">
+                <TrendingDown className="h-3 w-3 text-red-500" />
+                <div>
+                  <div className="text-[10px] text-muted-foreground">مصروف اليوم</div>
+                  <div className="font-semibold text-xs">{formatCurrency(totalExp)}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-950/10">
+                <Wallet className="h-3 w-3 text-slate-500" />
+                <div>
+                  <div className="text-[10px] text-muted-foreground">متبقي اليوم</div>
+                  <div className="font-semibold text-xs">{formatCurrency(remaining)}</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {funds.length > 0 && (
             <div>
@@ -450,9 +471,10 @@ export default function MultiProjectExpenses() {
     setSelectedProjectIds(new Set());
   };
 
-  const grandTotalIncome = summaries.reduce((s, r) => s + num(r.total_income), 0);
   const grandTotalExpenses = summaries.reduce((s, r) => s + num(r.total_expenses), 0);
-  const grandTotalRemaining = summaries.reduce((s, r) => s + num(r.remaining_balance), 0);
+  const grandCumFunds = summaries.reduce((s, r) => s + num(r.cumulative_funds), 0);
+  const grandCumExpenses = summaries.reduce((s, r) => s + num(r.cumulative_expenses), 0);
+  const grandCumBalance = summaries.reduce((s, r) => s + num(r.cumulative_balance), 0);
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6" dir="rtl" data-testid="multi-project-expenses-page">
@@ -536,17 +558,17 @@ export default function MultiProjectExpenses() {
         {summaries.length > 1 && (
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-              <div className="text-xs text-muted-foreground mb-1">إجمالي الدخل</div>
-              <div className="text-xl font-bold text-green-600" data-testid="grand-total-income">{formatCurrency(grandTotalIncome)}</div>
+              <div className="text-xs text-muted-foreground mb-1">إجمالي الحوالات (تراكمي)</div>
+              <div className="text-xl font-bold text-green-600" data-testid="grand-cum-funds">{formatCurrency(grandCumFunds)}</div>
             </div>
             <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
-              <div className="text-xs text-muted-foreground mb-1">إجمالي المصروف</div>
-              <div className="text-xl font-bold text-red-600" data-testid="grand-total-expenses">{formatCurrency(grandTotalExpenses)}</div>
+              <div className="text-xs text-muted-foreground mb-1">إجمالي المصروفات (تراكمي)</div>
+              <div className="text-xl font-bold text-red-600" data-testid="grand-cum-expenses">{formatCurrency(grandCumExpenses)}</div>
             </div>
-            <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-              <div className="text-xs text-muted-foreground mb-1">إجمالي المتبقي</div>
-              <div className={`text-xl font-bold ${grandTotalRemaining >= 0 ? "text-blue-600" : "text-red-600"}`} data-testid="grand-total-remaining">
-                {formatCurrency(grandTotalRemaining)}
+            <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-300 dark:border-blue-700">
+              <div className="text-xs text-muted-foreground mb-1 font-bold">الرصيد التراكمي</div>
+              <div className={`text-xl font-black ${grandCumBalance >= 0 ? "text-blue-600" : "text-red-600"}`} data-testid="grand-cum-balance">
+                {formatCurrency(grandCumBalance)}
               </div>
             </div>
           </div>

@@ -4099,9 +4099,50 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       );
     }
 
+    const cumulativeResult = await pool.query(
+      `SELECT des.project_id, p.name as project_name,
+        COALESCE(SUM(CAST(des.total_fund_transfers AS numeric)), 0) as cumulative_funds,
+        COALESCE(SUM(CAST(des.total_expenses AS numeric)), 0) as cumulative_expenses,
+        COALESCE(SUM(CAST(des.total_fund_transfers AS numeric)), 0) - COALESCE(SUM(CAST(des.total_expenses AS numeric)), 0) as cumulative_balance
+      FROM daily_expense_summaries des
+      JOIN projects p ON p.id = des.project_id
+      WHERE des.date <= $1
+      GROUP BY des.project_id, p.name
+      ORDER BY p.name`,
+      [cleanDate]
+    );
+    const cumulativeMap: Record<string, { cumulative_funds: string; cumulative_expenses: string; cumulative_balance: string }> = {};
+    for (const row of cumulativeResult.rows) {
+      cumulativeMap[row.project_id] = {
+        cumulative_funds: row.cumulative_funds,
+        cumulative_expenses: row.cumulative_expenses,
+        cumulative_balance: row.cumulative_balance,
+      };
+    }
+
+    for (const s of summariesResult.rows) {
+      const cum = cumulativeMap[s.project_id];
+      if (cum) {
+        s.cumulative_funds = cum.cumulative_funds;
+        s.cumulative_expenses = cum.cumulative_expenses;
+        s.cumulative_balance = cum.cumulative_balance;
+      }
+    }
+
     const projectIds = summariesResult.rows.map((s: any) => s.project_id);
     if (projectIds.length === 0) {
-      return sendSuccess(res, { summaries: [], workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'لا توجد بيانات');
+      const cumulativeOnly = cumulativeResult.rows.map((r: any) => ({
+        project_id: r.project_id,
+        project_name: r.project_name,
+        total_income: '0', total_expenses: '0', remaining_balance: '0',
+        total_fund_transfers: '0', total_worker_wages: '0', total_transportation_costs: '0',
+        total_worker_misc_expenses: '0', total_worker_transfers: '0', total_material_costs: '0',
+        carried_forward_amount: '0',
+        cumulative_funds: r.cumulative_funds,
+        cumulative_expenses: r.cumulative_expenses,
+        cumulative_balance: r.cumulative_balance,
+      }));
+      return sendSuccess(res, { summaries: cumulativeOnly, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
     }
 
     const [workersR, transportR, miscR, fundsR, purchasesR, workerTransfersR] = await Promise.all([

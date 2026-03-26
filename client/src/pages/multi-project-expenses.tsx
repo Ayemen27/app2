@@ -5,11 +5,10 @@ import { ar } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   ChevronLeft, ChevronRight, Calendar, Building2, Users, Car,
   DollarSign, Receipt, Send, Package, Wallet, TrendingUp, TrendingDown,
-  ChevronDown, ChevronUp, Banknote, Filter, CheckSquare, Square
+  ChevronDown, ChevronUp, Banknote
 } from "lucide-react";
 import { formatCurrency, getCurrentDate } from "@/lib/utils";
 
@@ -385,7 +384,6 @@ function ProjectCard({
 export default function MultiProjectExpenses() {
   const [selectedDate, setSelectedDate] = useState<string>(getCurrentDate());
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(new Set());
-  const [showFilter, setShowFilter] = useState(false);
 
   const nextDate = () => {
     const date = new Date(selectedDate);
@@ -487,75 +485,33 @@ export default function MultiProjectExpenses() {
           </Button>
         </div>
 
-        {allSummaries.length > 1 && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div
-              className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/30 transition-colors"
-              onClick={() => setShowFilter(!showFilter)}
-              data-testid="btn-toggle-filter"
+        {allSummaries.length > 0 && (
+          <div className="flex flex-wrap gap-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <Button
+              variant={selectedProjectIds.size === 0 ? "default" : "outline"}
+              size="sm"
+              className="h-9 text-sm font-bold"
+              onClick={selectAll}
+              data-testid="btn-select-all"
             >
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-sm">تحديد المشاريع</span>
-                {selectedProjectIds.size > 0 && (
-                  <Badge variant="secondary" className="text-xs" data-testid="filter-count">
-                    {selectedProjectIds.size} من {allSummaries.length}
-                  </Badge>
-                )}
-                {selectedProjectIds.size === 0 && (
-                  <Badge variant="outline" className="text-xs">الكل</Badge>
-                )}
-              </div>
-              {showFilter ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </div>
-
-            {showFilter && (
-              <div className="border-t border-slate-200 dark:border-slate-800 p-3 space-y-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <Button
-                    variant={selectedProjectIds.size === 0 ? "default" : "outline"}
-                    size="sm"
-                    className="text-xs h-7"
-                    onClick={selectAll}
-                    data-testid="btn-select-all"
-                  >
-                    عرض الكل
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {allSummaries.map((s) => {
-                    const isSelected = selectedProjectIds.size === 0 || selectedProjectIds.has(s.project_id);
-                    return (
-                      <div
-                        key={s.project_id}
-                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors border ${
-                          isSelected
-                            ? "bg-primary/5 border-primary/30"
-                            : "bg-muted/20 border-transparent opacity-60"
-                        }`}
-                        onClick={() => toggleProject(s.project_id)}
-                        data-testid={`filter-project-${s.project_id}`}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          className="pointer-events-none"
-                          data-testid={`checkbox-project-${s.project_id}`}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{s.project_name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            مصروف: {formatCurrency(num(s.total_expenses))}
-                          </div>
-                        </div>
-                        <div className={`text-xs font-bold ${num(s.remaining_balance) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {formatCurrency(num(s.remaining_balance))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+              <Building2 className="h-4 w-4 ml-1" />
+              الكل ({allSummaries.length})
+            </Button>
+            {allSummaries.map((s) => {
+              const isSelected = selectedProjectIds.has(s.project_id);
+              return (
+                <Button
+                  key={s.project_id}
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  className={`h-9 text-sm ${isSelected ? "" : "opacity-70"}`}
+                  onClick={() => toggleProject(s.project_id)}
+                  data-testid={`filter-project-${s.project_id}`}
+                >
+                  {s.project_name}
+                </Button>
+              );
+            })}
           </div>
         )}
 

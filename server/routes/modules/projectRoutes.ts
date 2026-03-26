@@ -655,6 +655,117 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
       });
     }
 
+    // ═══════════════ حارس المشتريات المالي ═══════════════
+    const confirmGuardPurchase = req.body.confirmGuard === true;
+    const parsedTotal = parseFloat(String(validation.data.totalAmount || '0'));
+    if (!confirmGuardPurchase && parsedTotal > 0) {
+      try {
+        const guardWarnings: any[] = [];
+
+        const duplicateResult = await pool.query(
+          `SELECT id, material_name, total_amount, purchase_date
+           FROM material_purchases 
+           WHERE project_id = $1 AND material_name = $2 AND total_amount = $3 AND purchase_date = $4
+           LIMIT 1`,
+          [project_id, validation.data.materialName, String(parsedTotal), validation.data.purchaseDate]
+        );
+        if (duplicateResult.rows.length > 0) {
+          guardWarnings.push({
+            guardType: 'duplicate_purchase',
+            message: `يوجد شراء مماثل: ${duplicateResult.rows[0].material_name} بمبلغ ${duplicateResult.rows[0].total_amount} بتاريخ ${duplicateResult.rows[0].purchase_date}`,
+          });
+        }
+
+        const projectResult = await pool.query(
+          `SELECT name, COALESCE(budget, 0) as budget FROM projects WHERE id = $1`, [project_id]
+        );
+        const pName = projectResult.rows[0]?.name || '';
+        const pBudget = parseFloat(projectResult.rows[0]?.budget || '0');
+
+        if (pBudget > 0) {
+          const spentResult = await pool.query(
+            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent FROM material_purchases WHERE project_id = $1`,
+            [project_id]
+          );
+          const totalSpent = parseFloat(spentResult.rows[0]?.total_spent || '0');
+          const afterPurchase = totalSpent + parsedTotal;
+          if (afterPurchase > pBudget) {
+            guardWarnings.push({
+              guardType: 'budget_overrun',
+              message: `المشتريات ستتجاوز ميزانية المشروع "${pName}"`,
+              projectBudget: pBudget, totalSpent, afterPurchase,
+              overrunAmount: afterPurchase - pBudget,
+              usagePercent: Math.round((afterPurchase / pBudget) * 100),
+            });
+          }
+        }
+
+        const avgResult = await pool.query(
+          `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, COUNT(*) as cnt
+           FROM material_purchases WHERE project_id = $1 AND CAST(total_amount AS numeric) > 0`,
+          [project_id]
+        );
+        const avgAmt = parseFloat(avgResult.rows[0]?.avg_amount || '0');
+        const cnt = parseInt(avgResult.rows[0]?.cnt || '0');
+        if ((cnt >= 3 && avgAmt > 0 && parsedTotal > avgAmt * 5) || parsedTotal >= 500000) {
+          guardWarnings.push({
+            guardType: 'large_amount',
+            message: cnt >= 3 ? `المبلغ أكبر بـ ${Math.round(parsedTotal / avgAmt)}x من المتوسط` : `مبلغ كبير: ${parsedTotal}`,
+            avgAmount: Math.round(avgAmt),
+          });
+        }
+
+        if (guardWarnings.length > 0) {
+          const pw = guardWarnings[0];
+          const details: any[] = [
+            { label: 'المشروع', value: pName },
+            { label: 'المادة', value: validation.data.materialName || '' },
+            { label: 'المبلغ الإجمالي', value: `${parsedTotal}`, color: 'text-amber-600 font-bold' },
+          ];
+          const suggestions: any[] = [
+            { id: 'proceed', label: 'متابعة الحفظ', description: 'تأكيد أن البيانات صحيحة', action: 'proceed_with_note', icon: 'check' },
+            { id: 'cancel', label: 'إلغاء', description: 'عدم الحفظ', action: 'cancel', icon: 'cancel' },
+          ];
+          if (pw.guardType === 'budget_overrun') {
+            details.push({ label: 'تجاوز بمقدار', value: `${Math.round(pw.overrunAmount)}`, color: 'text-red-600 font-bold' });
+            suggestions.splice(1, 0, { id: 'reduce', label: 'تعديل المبلغ', description: 'تقليل المبلغ', action: 'adjust_amount', adjustedAmount: parsedTotal, icon: 'edit' });
+          }
+          for (let i = 1; i < guardWarnings.length; i++) {
+            details.push({ label: `⚠️ تنبيه`, value: guardWarnings[i].message, color: 'text-amber-600' });
+          }
+          const titles: Record<string, string> = {
+            duplicate_purchase: 'تنبيه: مشتريات مكررة محتملة',
+            budget_overrun: 'تنبيه: تجاوز ميزانية المشروع',
+            large_amount: 'تنبيه: مبلغ كبير غير اعتيادي',
+          };
+          return res.status(422).json({
+            requiresConfirmation: true, guardType: pw.guardType,
+            title: titles[pw.guardType] || 'تنبيه مالي',
+            message: pw.message, guardData: { projectName: pName, materialName: validation.data.materialName, totalAmount: parsedTotal, warnings: guardWarnings },
+            details, suggestions, _originalBody: req.body,
+          });
+        }
+      } catch (guardErr) {
+        console.error('[ProjectMaterialGuard] FAIL-CLOSED:', guardErr);
+        return res.status(500).json({ success: false, message: 'فشل في فحص حماية المشتريات. حاول مرة أخرى.', error: 'PURCHASE_GUARD_CHECK_FAILED' });
+      }
+    }
+
+    if (confirmGuardPurchase) {
+      const gNote = String(req.body.guardNote || '').trim();
+      if (gNote.length < 5) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      }
+      validation.data.notes = ((validation.data.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
+      console.log(`[ProjectMaterialGuard] OVERRIDE by user for project ${project_id}: ${gNote}`);
+      if (req.body.adjustedAmount !== undefined) {
+        const adj = parseFloat(req.body.adjustedAmount);
+        if (!isNaN(adj) && adj >= 0) {
+          (validation.data as any).totalAmount = String(adj);
+        }
+      }
+    }
+
     const [newPurchase] = await db.insert(materialPurchases).values(validation.data).returning();
     
     try {

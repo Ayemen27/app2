@@ -1279,12 +1279,16 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
       }
     }
 
-    const guardNote = req.body.guardNote || '';
-    if (confirmGuard && guardNote) {
-      validationResult.data.notes = ((validationResult.data.notes || '') + ' | ' + guardNote).trim();
-    }
-    if (confirmGuard && req.body.adjustedAmount !== undefined) {
-      validationResult.data.amount = String(req.body.adjustedAmount);
+    if (confirmGuard) {
+      const gNote = String(req.body.guardNote || '').trim();
+      if (gNote.length < 5) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      }
+      validationResult.data.notes = ((validationResult.data.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
+      console.log(`[FinancialTransferGuard] OVERRIDE by user for worker ${validationResult.data.worker_id}: ${gNote}`);
+      if (req.body.adjustedAmount !== undefined) {
+        validationResult.data.amount = String(req.body.adjustedAmount);
+      }
     }
 
     const newTransfer = await withTransaction(async (client) => {
@@ -2360,7 +2364,8 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
     }
 
     // التحقق من أن المبلغ الإجمالي ليس سالباً
-    if (parseFloat(String(purchaseData.totalAmount)) < 0) {
+    const parsedTotalAmount = parseFloat(String(purchaseData.totalAmount));
+    if (parsedTotalAmount < 0) {
       const duration = Date.now() - startTime;
       return res.status(400).json({
         success: false,
@@ -2368,6 +2373,205 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
         message: 'يجب ألا يكون المبلغ الإجمالي سالباً',
         processingTime: duration
       });
+    }
+
+    // ═══════════════ حارس المشتريات المالي ═══════════════
+    const confirmGuardPurchase = req.body.confirmGuard === true;
+    if (!confirmGuardPurchase && parsedTotalAmount > 0 && validated.project_id) {
+      try {
+        const guardWarnings: any[] = [];
+
+        // 1) حارس المشتريات المكررة
+        const duplicateResult = await pool.query(
+          `SELECT id, material_name, total_amount, purchase_date, supplier_name, invoice_number
+           FROM material_purchases 
+           WHERE project_id = $1 
+             AND material_name = $2 
+             AND total_amount = $3 
+             AND purchase_date = $4
+             AND id IS NOT NULL
+           LIMIT 1`,
+          [validated.project_id, validated.materialName, String(parsedTotalAmount), validated.purchaseDate]
+        );
+        if (duplicateResult.rows.length > 0) {
+          const dup = duplicateResult.rows[0];
+          guardWarnings.push({
+            guardType: 'duplicate_purchase',
+            message: `يوجد شراء مماثل: ${dup.material_name} بمبلغ ${dup.total_amount} بتاريخ ${dup.purchase_date}`,
+            duplicateId: dup.id,
+          });
+        }
+
+        // 2) حارس تجاوز ميزانية المشروع
+        const projectResult = await pool.query(
+          `SELECT name, COALESCE(budget, 0) as budget FROM projects WHERE id = $1`,
+          [validated.project_id]
+        );
+        const projectName = projectResult.rows[0]?.name || '';
+        const projectBudget = parseFloat(projectResult.rows[0]?.budget || '0');
+
+        if (projectBudget > 0) {
+          const spentResult = await pool.query(
+            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent 
+             FROM material_purchases WHERE project_id = $1`,
+            [validated.project_id]
+          );
+          const totalSpent = parseFloat(spentResult.rows[0]?.total_spent || '0');
+          const afterPurchase = totalSpent + parsedTotalAmount;
+          const usagePercent = (afterPurchase / projectBudget) * 100;
+
+          if (afterPurchase > projectBudget) {
+            guardWarnings.push({
+              guardType: 'budget_overrun',
+              message: `المشتريات ستتجاوز ميزانية المشروع "${projectName}"`,
+              projectBudget,
+              totalSpent,
+              afterPurchase,
+              overrunAmount: afterPurchase - projectBudget,
+              usagePercent: Math.round(usagePercent),
+            });
+          } else if (usagePercent >= 90) {
+            guardWarnings.push({
+              guardType: 'budget_warning',
+              message: `المشتريات ستصل إلى ${Math.round(usagePercent)}% من ميزانية المشروع`,
+              projectBudget,
+              totalSpent,
+              afterPurchase,
+              usagePercent: Math.round(usagePercent),
+            });
+          }
+        }
+
+        // 3) حارس المبالغ الكبيرة غير الاعتيادية
+        const avgResult = await pool.query(
+          `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, 
+                  COUNT(*) as purchase_count
+           FROM material_purchases 
+           WHERE project_id = $1 AND CAST(total_amount AS numeric) > 0`,
+          [validated.project_id]
+        );
+        const avgAmount = parseFloat(avgResult.rows[0]?.avg_amount || '0');
+        const purchaseCount = parseInt(avgResult.rows[0]?.purchase_count || '0');
+
+        if (purchaseCount >= 3 && avgAmount > 0 && parsedTotalAmount > avgAmount * 5) {
+          guardWarnings.push({
+            guardType: 'large_amount',
+            message: `المبلغ (${parsedTotalAmount}) أكبر بـ ${Math.round(parsedTotalAmount / avgAmount)}x من متوسط المشتريات (${Math.round(avgAmount)})`,
+            avgAmount: Math.round(avgAmount),
+            multiplier: Math.round(parsedTotalAmount / avgAmount),
+          });
+        } else if (parsedTotalAmount >= 500000) {
+          guardWarnings.push({
+            guardType: 'large_amount',
+            message: `مبلغ كبير: ${parsedTotalAmount}`,
+            avgAmount: Math.round(avgAmount),
+          });
+        }
+
+        // إرسال التحذيرات إذا وجدت
+        if (guardWarnings.length > 0) {
+          const primaryWarning = guardWarnings[0];
+          const suggestions: any[] = [];
+          const details: any[] = [
+            { label: 'المشروع', value: projectName },
+            { label: 'المادة', value: validated.materialName || '' },
+            { label: 'المبلغ الإجمالي', value: `${parsedTotalAmount}`, color: 'text-amber-600 font-bold' },
+          ];
+
+          if (primaryWarning.guardType === 'duplicate_purchase') {
+            details.push({ label: '⚠️ تكرار', value: 'يوجد شراء مماثل مسجل مسبقاً', color: 'text-red-600 font-bold' });
+            suggestions.push(
+              { id: 'proceed_anyway', label: 'ليس مكرراً — متابعة الحفظ', description: 'أنا متأكد أن هذا شراء مختلف', action: 'proceed_with_note', icon: 'check' },
+              { id: 'cancel', label: 'إلغاء — مشتريات مكررة', description: 'عدم الحفظ والعودة', action: 'cancel', icon: 'cancel' },
+            );
+          } else if (primaryWarning.guardType === 'budget_overrun') {
+            details.push(
+              { label: 'ميزانية المشروع', value: `${primaryWarning.projectBudget}`, color: 'text-blue-600' },
+              { label: 'إجمالي المصروف', value: `${Math.round(primaryWarning.totalSpent)}`, color: 'text-amber-600' },
+              { label: 'بعد هذا الشراء', value: `${Math.round(primaryWarning.afterPurchase)}`, color: 'text-red-600 font-bold' },
+              { label: 'تجاوز بمقدار', value: `${Math.round(primaryWarning.overrunAmount)}`, color: 'text-red-700 font-bold' },
+            );
+            suggestions.push(
+              { id: 'proceed_over_budget', label: 'متابعة رغم تجاوز الميزانية', description: 'الشراء ضروري رغم تجاوز الميزانية', action: 'proceed_with_note', icon: 'check' },
+              { id: 'reduce_amount', label: 'تعديل المبلغ', description: 'تقليل المبلغ ليتناسب مع الميزانية', action: 'adjust_amount', adjustedAmount: Math.max(0, primaryWarning.projectBudget - primaryWarning.totalSpent), icon: 'edit' },
+              { id: 'cancel', label: 'إلغاء', description: 'عدم تنفيذ الشراء', action: 'cancel', icon: 'cancel' },
+            );
+          } else if (primaryWarning.guardType === 'budget_warning') {
+            details.push(
+              { label: 'ميزانية المشروع', value: `${primaryWarning.projectBudget}`, color: 'text-blue-600' },
+              { label: 'نسبة الاستهلاك بعد الشراء', value: `${primaryWarning.usagePercent}%`, color: 'text-amber-600 font-bold' },
+            );
+            suggestions.push(
+              { id: 'proceed_budget_ok', label: 'متابعة — الميزانية كافية', description: `لا يزال ضمن الميزانية (${primaryWarning.usagePercent}%)`, action: 'proceed_with_note', icon: 'check' },
+              { id: 'cancel', label: 'إلغاء', description: 'مراجعة قبل الشراء', action: 'cancel', icon: 'cancel' },
+            );
+          } else if (primaryWarning.guardType === 'large_amount') {
+            details.push({ label: 'متوسط المشتريات', value: `${primaryWarning.avgAmount || '—'}`, color: 'text-muted-foreground' });
+            suggestions.push(
+              { id: 'proceed_large', label: 'المبلغ صحيح — متابعة', description: 'تأكيد أن المبلغ الكبير مقصود', action: 'proceed_with_note', icon: 'check' },
+              { id: 'fix_amount', label: 'تعديل المبلغ', description: 'ربما خطأ في الإدخال — تعديل', action: 'adjust_amount', adjustedAmount: parsedTotalAmount, icon: 'edit' },
+              { id: 'cancel', label: 'إلغاء', description: 'مراجعة المبلغ', action: 'cancel', icon: 'cancel' },
+            );
+          }
+
+          // إضافة تحذيرات إضافية في details
+          if (guardWarnings.length > 1) {
+            for (let i = 1; i < guardWarnings.length; i++) {
+              details.push({ label: `⚠️ تنبيه ${i + 1}`, value: guardWarnings[i].message, color: 'text-amber-600' });
+            }
+          }
+
+          const guardTypeMap: Record<string, string> = {
+            duplicate_purchase: 'تنبيه: مشتريات مكررة محتملة',
+            budget_overrun: 'تنبيه: تجاوز ميزانية المشروع',
+            budget_warning: 'تنبيه: اقتراب من حد الميزانية',
+            large_amount: 'تنبيه: مبلغ كبير غير اعتيادي',
+          };
+
+          return res.status(422).json({
+            requiresConfirmation: true,
+            guardType: primaryWarning.guardType,
+            title: guardTypeMap[primaryWarning.guardType] || 'تنبيه مالي',
+            message: primaryWarning.message,
+            guardData: {
+              projectName,
+              materialName: validated.materialName,
+              totalAmount: parsedTotalAmount,
+              warnings: guardWarnings,
+            },
+            details,
+            suggestions,
+            _originalBody: req.body,
+          });
+        }
+      } catch (guardErr) {
+        console.error('[MaterialPurchaseGuard] FAIL-CLOSED: Guard check error, blocking purchase:', guardErr);
+        return res.status(500).json({
+          success: false,
+          message: 'فشل في فحص حماية المشتريات. لأسباب أمنية، تم حظر العملية. حاول مرة أخرى.',
+          error: 'PURCHASE_GUARD_CHECK_FAILED',
+        });
+      }
+    }
+
+    if (confirmGuardPurchase) {
+      const gNote = String(req.body.guardNote || '').trim();
+      if (gNote.length < 5) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      }
+      purchaseData.notes = ((purchaseData.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).toString().trim();
+      console.log(`[FinancialMaterialGuard] OVERRIDE by user for project ${purchaseData.project_id}: ${gNote}`);
+      if (req.body.adjustedAmount !== undefined) {
+        const adj = parseFloat(req.body.adjustedAmount);
+        if (!isNaN(adj) && adj >= 0) {
+          purchaseData.totalAmount = String(adj);
+          if (purchaseData.purchaseType === 'نقد' || purchaseData.purchaseType === 'نقداً') {
+            purchaseData.paidAmount = String(adj);
+          } else if (purchaseData.purchaseType === 'آجل') {
+            purchaseData.remainingAmount = String(adj);
+          }
+        }
+      }
     }
 
     const shouldAddToInventory = req.body.addToInventory === true || req.body.addToInventory === 'true';

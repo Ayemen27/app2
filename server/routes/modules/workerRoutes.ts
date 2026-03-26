@@ -1246,11 +1246,16 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       }
     }
 
-    if (confirmGuard && req.body.guardNote) {
-      sanitizedTransferData.notes = ((sanitizedTransferData.notes || existingTransfer[0].notes || '') + ' | ' + req.body.guardNote).trim();
-    }
-    if (confirmGuard && req.body.adjustedAmount !== undefined) {
-      sanitizedTransferData.amount = String(req.body.adjustedAmount);
+    if (confirmGuard) {
+      const gNote = String(req.body.guardNote || '').trim();
+      if (gNote.length < 5) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      }
+      sanitizedTransferData.notes = ((sanitizedTransferData.notes || existingTransfer[0].notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
+      console.log(`[WorkerTransferGuard] OVERRIDE PATCH for transfer ${id}: ${gNote}`);
+      if (req.body.adjustedAmount !== undefined) {
+        sanitizedTransferData.amount = String(req.body.adjustedAmount);
+      }
     }
 
     const userId = getAuthUser(req)?.user_id;

@@ -214,6 +214,8 @@ function DailyExpensesContent() {
   const [overpaymentData, setOverpaymentData] = useState<OverpaymentData | null>(null);
   const [showGuardTransferDialog, setShowGuardTransferDialog] = useState(false);
   const [guardTransferData, setGuardTransferData] = useState<FinancialGuardData | null>(null);
+  const [showGuardPurchaseDialog, setShowGuardPurchaseDialog] = useState(false);
+  const [guardPurchaseData, setGuardPurchaseData] = useState<FinancialGuardData | null>(null);
 
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -1283,6 +1285,36 @@ function DailyExpensesContent() {
       if (purchaseSupplierName) saveAutocompleteValue('supplierNames', purchaseSupplierName).catch(() => {});
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const rd = error.responseData;
+        setGuardPurchaseData({
+          type: rd.guardType === 'budget_overrun' ? 'overpaid_purchase' : rd.guardType === 'duplicate_purchase' ? 'large_amount' : 'large_amount',
+          title: rd.title || 'تنبيه مالي',
+          enteredAmount: rd.guardData?.totalAmount || 0,
+          suggestions: rd.suggestions || [],
+          details: rd.details || [],
+          originalData: {
+            project_id: selectedProjectId,
+            materialName: purchaseMaterialName,
+            quantity: purchaseQuantity ? parseFloat(purchaseQuantity) : 0,
+            unit: purchaseUnit,
+            unitPrice: purchaseUnitPrice ? parseFloat(purchaseUnitPrice) : 0,
+            totalAmount: purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0,
+            purchaseType: purchaseType,
+            supplierName: purchaseSupplierName || null,
+            purchaseDate: selectedDate,
+            notes: purchaseNotes || null,
+            well_id: purchaseWellIds[0] || null,
+            well_ids: purchaseWellIds.length > 0 ? JSON.stringify(purchaseWellIds) : null,
+            crew_type: purchaseCrewTypes.length > 0 ? JSON.stringify(purchaseCrewTypes) : null,
+            paidAmount: purchaseType === 'نقد' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
+            remainingAmount: purchaseType === 'آجل' ? (purchaseTotalAmount ? parseFloat(purchaseTotalAmount) : 0).toString() : '0',
+          },
+        });
+        setShowGuardPurchaseDialog(true);
+        return;
+      }
+
       try {
         const purchaseData = {
           project_id: selectedProjectId,
@@ -1337,6 +1369,19 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const rd = error.responseData;
+        setGuardPurchaseData({
+          type: rd.guardType === 'budget_overrun' ? 'overpaid_purchase' : 'large_amount',
+          title: rd.title || 'تنبيه مالي',
+          enteredAmount: rd.guardData?.totalAmount || 0,
+          suggestions: rd.suggestions || [],
+          details: rd.details || [],
+          originalData: { ...(rd._originalBody || {}), _editId: editingMaterialPurchaseId },
+        });
+        setShowGuardPurchaseDialog(true);
+        return;
+      }
       toast({
         title: "فشل في تحديث الشراء",
         description: error?.message || "حدث خطأ أثناء تحديث شراء المواد",
@@ -4287,6 +4332,33 @@ function DailyExpensesContent() {
             notes: guardNote || origData.notes || '',
             confirmGuard: true,
           });
+        }}
+      />
+      <FinancialGuardDialog
+        open={showGuardPurchaseDialog}
+        onClose={() => {
+          setShowGuardPurchaseDialog(false);
+          setGuardPurchaseData(null);
+        }}
+        data={guardPurchaseData}
+        onConfirm={({ adjustedAmount, guardNote }) => {
+          setShowGuardPurchaseDialog(false);
+          const origData = guardPurchaseData?.originalData || {};
+          const editId = origData._editId;
+          setGuardPurchaseData(null);
+          if (editId) {
+            updateMaterialPurchaseMutation.mutate({
+              id: editId,
+              data: { ...origData, totalAmount: adjustedAmount, notes: guardNote || origData.notes || '', confirmGuard: true },
+            });
+          } else {
+            addMaterialPurchaseMutation.mutate({
+              ...origData,
+              totalAmount: adjustedAmount,
+              notes: guardNote || origData.notes || '',
+              confirmGuard: true,
+            });
+          }
         }}
       />
     </div>

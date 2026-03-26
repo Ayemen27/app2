@@ -28,6 +28,7 @@ import { QUERY_KEYS } from "@/constants/queryKeys";
 import { apiRequest } from "@/lib/queryClient";
 import { useFloatingButton } from "@/components/layout/floating-button-context";
 import { UnifiedFilterDashboard } from "@/components/ui/unified-filter-dashboard";
+import { FinancialGuardDialog, type FinancialGuardData } from "@/components/financial-guard-dialog";
 import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filter-dashboard/types";
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import { exportMaterialPurchasesToExcel } from "@/components/ui/export-material-purchases-excel";
@@ -101,6 +102,8 @@ export default function MaterialPurchase() {
   const [selectedWellIds, setSelectedWellIds] = useState<number[]>([]);
   const [selectedCrewTypes, setSelectedCrewTypes] = useState<string[]>([]);
   const [selectedTeamNames, setSelectedTeamNames] = useState<string[]>([]);
+  const [showGuardPurchaseDialog, setShowGuardPurchaseDialog] = useState(false);
+  const [guardPurchaseData, setGuardPurchaseData] = useState<FinancialGuardData | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('date') || "";
@@ -495,19 +498,29 @@ export default function MaterialPurchase() {
       // تحديث كاش autocomplete
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.autocomplete });
 
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const rd = error.responseData;
+        setGuardPurchaseData({
+          type: rd.guardType === 'budget_overrun' ? 'overpaid_purchase' : 'large_amount',
+          title: rd.title || 'تنبيه مالي',
+          enteredAmount: rd.guardData?.totalAmount || 0,
+          suggestions: rd.suggestions || [],
+          details: rd.details || [],
+          originalData: rd._originalBody || {},
+        });
+        setShowGuardPurchaseDialog(true);
+        return;
+      }
+
       console.error("Material purchase error:", error);
       let errorMessage = "حدث خطأ أثناء حفظ شراء المواد";
       let errorDetails: string[] = [];
 
       if (error?.response?.data) {
         const errorData = error.response.data;
-
-        // استخدام الرسالة والتفاصيل من الخادم
         if (errorData.message) {
           errorMessage = errorData.message;
         }
-
-        // إضافة التفاصيل إذا كانت متوفرة
         if (errorData.details && Array.isArray(errorData.details)) {
           errorDetails = errorData.details;
         } else if (errorData.validationErrors && Array.isArray(errorData.validationErrors)) {
@@ -515,9 +528,7 @@ export default function MaterialPurchase() {
         }
       }
 
-      // تحسين عرض الرسالة مع التفاصيل
       let fullMessage = errorMessage;
-
       if (errorDetails.length > 0) {
         fullMessage = `${errorMessage}:\n${errorDetails.map(detail => `• ${detail}`).join('\n')}`;
       } else if (error?.response?.data?.error) {
@@ -530,7 +541,6 @@ export default function MaterialPurchase() {
         variant: "destructive",
         duration: 10000, 
       });
-      // لا تقم بإعادة تعيين النموذج عند حدوث خطأ
     },
   });
 
@@ -1625,6 +1635,25 @@ export default function MaterialPurchase() {
           </UnifiedCardGrid>
         </div>
       )}
+      <FinancialGuardDialog
+        open={showGuardPurchaseDialog}
+        onClose={() => {
+          setShowGuardPurchaseDialog(false);
+          setGuardPurchaseData(null);
+        }}
+        data={guardPurchaseData}
+        onConfirm={({ adjustedAmount, guardNote }) => {
+          setShowGuardPurchaseDialog(false);
+          const origData = guardPurchaseData?.originalData || {};
+          setGuardPurchaseData(null);
+          addMaterialPurchaseMutation.mutate({
+            ...origData,
+            totalAmount: adjustedAmount,
+            notes: guardNote || origData.notes || '',
+            confirmGuard: true,
+          });
+        }}
+      />
     </div>
   );
 }

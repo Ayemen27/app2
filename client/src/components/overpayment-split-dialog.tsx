@@ -41,11 +41,19 @@ export function OverpaymentSplitDialog({ open, onClose, onConfirm, data }: Overp
   useEffect(() => {
     if (data) {
       const defaultWage = data.workDays === 0 ? 0 : Math.min(data.actualWage, data.totalAmount);
+      const defaultAdvance = data.totalAmount - defaultWage;
       setWageAmount(defaultWage);
-      setAdvanceAmount(data.totalAmount - defaultWage);
-      setAdvanceNotes("");
+      setAdvanceAmount(defaultAdvance);
+      setAdvanceNotes(
+        `تم تقسيم مبلغ ${formatCurrency(data.totalAmount)} — أجور: ${formatCurrency(defaultWage)}، سلفة: ${formatCurrency(defaultAdvance)} | ${data.workDays === 0 ? 'دفع بدون أيام عمل' : `الأجر الفعلي ${formatCurrency(data.actualWage)} والزيادة ${formatCurrency(defaultAdvance)}`}`
+      );
       setError("");
     }
+  }, [data]);
+
+  const buildAutoNote = useCallback((wage: number, advance: number) => {
+    if (!data) return '';
+    return `تم تقسيم مبلغ ${formatCurrency(data.totalAmount)} — أجور: ${formatCurrency(wage)}، سلفة: ${formatCurrency(advance)} | ${data.workDays === 0 ? 'دفع بدون أيام عمل' : `الأجر الفعلي ${formatCurrency(data.actualWage)} والزيادة ${formatCurrency(advance)}`}`;
   }, [data]);
 
   const handleWageChange = useCallback((val: string) => {
@@ -56,10 +64,12 @@ export function OverpaymentSplitDialog({ open, onClose, onConfirm, data }: Overp
       setError(`مبلغ الأجور لا يمكن أن يتجاوز المبلغ الإجمالي (${formatCurrency(data.totalAmount)})`);
       return;
     }
+    const newAdvance = data.totalAmount - num;
     setWageAmount(num);
-    setAdvanceAmount(data.totalAmount - num);
+    setAdvanceAmount(newAdvance);
+    setAdvanceNotes(buildAutoNote(num, newAdvance));
     setError("");
-  }, [data]);
+  }, [data, buildAutoNote]);
 
   const handleAdvanceChange = useCallback((val: string) => {
     const num = parseFloat(val) || 0;
@@ -69,10 +79,12 @@ export function OverpaymentSplitDialog({ open, onClose, onConfirm, data }: Overp
       setError(`مبلغ السلفة لا يمكن أن يتجاوز المبلغ الإجمالي (${formatCurrency(data.totalAmount)})`);
       return;
     }
+    const newWage = data.totalAmount - num;
     setAdvanceAmount(num);
-    setWageAmount(data.totalAmount - num);
+    setWageAmount(newWage);
+    setAdvanceNotes(buildAutoNote(newWage, num));
     setError("");
-  }, [data]);
+  }, [data, buildAutoNote]);
 
   const handleConfirm = () => {
     if (!data) return;

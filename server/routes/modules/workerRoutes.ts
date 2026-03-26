@@ -2527,6 +2527,81 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       });
     }
 
+    const confirmOverpayment = req.body.confirmOverpayment === true;
+    let createdAdvanceTransfer: any = null;
+
+    if (paidAmount > actualWageValue && actualWageValue >= 0 && !confirmOverpayment) {
+      const excessAmount = paidAmount - actualWageValue;
+      const duration = Date.now() - startTime;
+      return res.status(422).json({
+        success: false,
+        error: 'overpayment_detected',
+        message: `المبلغ المدفوع (${paidAmount}) يتجاوز الأجر الفعلي (${actualWageValue}). الزيادة: ${excessAmount}`,
+        requiresConfirmation: true,
+        suggestedAction: {
+          type: 'split_to_advance',
+          description: `سيتم تسجيل ${actualWageValue} كأجر مدفوع، و ${excessAmount} كسلفة/تحويل تلقائياً`,
+          attendancePaidAmount: actualWageValue,
+          advanceAmount: excessAmount,
+          advanceType: 'advance'
+        },
+        processingTime: duration
+      });
+    }
+
+    if (workDays === 0 && paidAmount > 0 && !confirmOverpayment) {
+      const duration = Date.now() - startTime;
+      return res.status(422).json({
+        success: false,
+        error: 'zero_days_payment',
+        message: `لا يمكن تسجيل مبلغ مدفوع (${paidAmount}) بدون أيام عمل. المبلغ سيُحوّل كسلفة/تحويل`,
+        requiresConfirmation: true,
+        suggestedAction: {
+          type: 'convert_to_advance',
+          description: `سيتم تسجيل الحضور بدون مبلغ مدفوع، و ${paidAmount} كسلفة/تحويل تلقائياً`,
+          attendancePaidAmount: 0,
+          advanceAmount: paidAmount,
+          advanceType: 'advance'
+        },
+        processingTime: duration
+      });
+    }
+
+    if (confirmOverpayment && paidAmount > actualWageValue) {
+      const userWageAmount = req.body.wageAmount !== undefined ? Number(req.body.wageAmount) : (workDays === 0 ? 0 : actualWageValue);
+      const userAdvanceAmount = req.body.advanceAmount !== undefined ? Number(req.body.advanceAmount) : (paidAmount - userWageAmount);
+      const advanceNotes = req.body.advanceNotes || '';
+      const duration0 = Date.now() - startTime;
+
+      if (userWageAmount < 0 || userAdvanceAmount <= 0 || !Number.isFinite(userWageAmount) || !Number.isFinite(userAdvanceAmount)) {
+        return res.status(400).json({ success: false, error: 'invalid_split', message: 'مبلغ الأجور يجب ≥ 0 ومبلغ السلفة يجب > 0', processingTime: duration0 });
+      }
+      if (userWageAmount > actualWageValue) {
+        return res.status(400).json({ success: false, error: 'wage_exceeds_actual', message: `مبلغ الأجور (${userWageAmount}) لا يمكن أن يتجاوز الأجر الفعلي (${actualWageValue})`, processingTime: duration0 });
+      }
+      if (workDays === 0 && userWageAmount !== 0) {
+        return res.status(400).json({ success: false, error: 'zero_days_wage', message: 'لا يمكن تسجيل أجور عندما أيام العمل = 0', processingTime: duration0 });
+      }
+      if (userWageAmount + userAdvanceAmount !== paidAmount) {
+        return res.status(400).json({ success: false, error: 'split_mismatch', message: `مجموع الأجور (${userWageAmount}) والسلفة (${userAdvanceAmount}) يجب أن يساوي المبلغ الإجمالي (${paidAmount})`, processingTime: duration0 });
+      }
+
+      dataWithCalculatedFields.paidAmount = userWageAmount.toString();
+      dataWithCalculatedFields.remainingAmount = Math.max(0, actualWageValue - userWageAmount).toString();
+      dataWithCalculatedFields.paymentType = userWageAmount >= actualWageValue && actualWageValue > 0 ? "full" : "partial";
+      dataWithCalculatedFields.notes = (dataWithCalculatedFields.notes || '') + (dataWithCalculatedFields.notes ? ' | ' : '') + `تم تحويل ${userAdvanceAmount} كسلفة`;
+      createdAdvanceTransfer = {
+        worker_id: dataWithCalculatedFields.worker_id,
+        project_id: dataWithCalculatedFields.project_id,
+        amount: userAdvanceAmount.toString(),
+        transferDate: dataWithCalculatedFields.date,
+        transfer_method: 'cash',
+        recipientName: '',
+        notes: advanceNotes || `سلفة — من سجل حضور ${dataWithCalculatedFields.date} (المبلغ الأصلي: ${paidAmount}، الأجور: ${userWageAmount})`,
+      };
+      console.log(`🔄 [FinancialGuard] تقسيم مخصص: أجور=${userWageAmount}, سلفة=${userAdvanceAmount}`);
+    }
+
     console.log('💾 [API] حفظ حضور العامل في قاعدة البيانات...');
     console.log('📝 [API] البيانات المُدرجة تشمل الملاحظات:', { notes: dataWithCalculatedFields.notes });
 
@@ -2634,12 +2709,65 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       });
     }
 
+    let advanceTransferRecord: any = null;
+    if (createdAdvanceTransfer) {
+      const existingAdvance = await pool.query(
+        `SELECT id FROM worker_transfers WHERE worker_id = $1 AND project_id = $2 AND transfer_date = $3 
+         AND CAST(amount AS DECIMAL(15,2)) = CAST($4 AS DECIMAL(15,2)) 
+         AND notes LIKE '%سلفة%' AND notes LIKE $5 LIMIT 1`,
+        [createdAdvanceTransfer.worker_id, createdAdvanceTransfer.project_id, createdAdvanceTransfer.transferDate, 
+         createdAdvanceTransfer.amount, `%${paidAmount}%`]
+      );
+      
+      if (existingAdvance.rows.length > 0) {
+        console.log(`⚠️ [FinancialGuard] سلفة مكررة - تخطي الإنشاء`);
+        advanceTransferRecord = existingAdvance.rows[0];
+      } else {
+        const transferResult = await pool.query(
+          `INSERT INTO worker_transfers (worker_id, project_id, amount, transfer_date, transfer_method, recipient_name, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [
+            createdAdvanceTransfer.worker_id, createdAdvanceTransfer.project_id,
+            createdAdvanceTransfer.amount, createdAdvanceTransfer.transferDate,
+            createdAdvanceTransfer.transfer_method, createdAdvanceTransfer.recipientName || '',
+            createdAdvanceTransfer.notes
+          ]
+        );
+        advanceTransferRecord = transferResult.rows[0];
+
+        await FinancialIntegrityService.syncWorkerBalance(createdAdvanceTransfer.worker_id, createdAdvanceTransfer.project_id);
+        
+        FinancialIntegrityService.logFinancialChange({
+          projectId: createdAdvanceTransfer.project_id,
+          action: 'create',
+          entityType: 'worker_transfer',
+          entityId: advanceTransferRecord.id,
+          newData: { amount: createdAdvanceTransfer.amount, type: 'advance_auto', source: 'attendance_overpayment', attendance_id: record.id },
+          userId: getAuthUser(req)?.user_id,
+          userEmail: (req as any).user?.email,
+          reason: `سلفة تلقائية من حضور ${record.date} — المبلغ الأصلي: ${paidAmount}، الأجور: ${Number(createdAdvanceTransfer.amount)}`
+        }).catch(err => console.error('[FinancialIntegrity] Advance audit log error:', err));
+        
+        console.log(`✅ [FinancialGuard] تم إنشاء سلفة تلقائية: ${createdAdvanceTransfer.amount} للعامل ${createdAdvanceTransfer.worker_id}`);
+      }
+    }
+
     res.status(201).json({
       success: true,
       data: record,
-      message: `تم تسجيل حضور العامل بتاريخ ${record.date} بنجاح`,
+      message: advanceTransferRecord
+        ? `تم تسجيل الحضور وتحويل ${createdAdvanceTransfer.amount} كسلفة تلقائياً`
+        : `تم تسجيل حضور العامل بتاريخ ${record.date} بنجاح`,
       processingTime: duration,
-      ...(balanceWarning.isNegative ? { balanceWarning: balanceWarning.warning } : {})
+      ...(balanceWarning.isNegative ? { balanceWarning: balanceWarning.warning } : {}),
+      ...(advanceTransferRecord ? {
+        advanceTransfer: {
+          id: advanceTransferRecord.id,
+          amount: createdAdvanceTransfer.amount,
+          type: 'advance',
+          notes: createdAdvanceTransfer.notes
+        }
+      } : {})
     });
 
   } catch (error: any) {
@@ -2736,6 +2864,9 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     const dailyWage = (updateData.dailyWage || existingAttendance[0].dailyWage) as string;
     const workDays = (updateData.workDays || existingAttendance[0].workDays) as string;
 
+    const confirmOverpaymentPatch = req.body.confirmOverpayment === true;
+    let createdAdvanceTransferPatch: any = null;
+
     if (dailyWage && workDays) {
       const actualWageValue = Math.round(parseFloat(dailyWage) * parseFloat(workDays));
       updateData.actualWage = actualWageValue.toString();
@@ -2746,12 +2877,86 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       const safePaidAmount = (rawPaid === '' || rawPaid === null || rawPaid === undefined || !Number.isFinite(parsedPaidUpdate))
         ? 0
         : parsedPaidUpdate;
-      updateData.paidAmount = safePaidAmount.toString();
-      updateData.remainingAmount = Math.max(0, actualWageValue - safePaidAmount).toString();
-      updateData.paymentType = safePaidAmount >= actualWageValue ? "full" : "partial";
+
+      const workDaysNum = parseFloat(workDays);
+
+      if (safePaidAmount > actualWageValue && actualWageValue >= 0 && !confirmOverpaymentPatch) {
+        const excessAmount = safePaidAmount - actualWageValue;
+        const duration = Date.now() - startTime;
+        return res.status(422).json({
+          success: false,
+          error: 'overpayment_detected',
+          message: `المبلغ المدفوع (${safePaidAmount}) يتجاوز الأجر الفعلي (${actualWageValue}). الزيادة: ${excessAmount}`,
+          requiresConfirmation: true,
+          suggestedAction: {
+            type: 'split_to_advance',
+            description: `سيتم تسجيل ${actualWageValue} كأجر مدفوع، و ${excessAmount} كسلفة/تحويل تلقائياً`,
+            attendancePaidAmount: actualWageValue,
+            advanceAmount: excessAmount,
+            advanceType: 'advance'
+          },
+          processingTime: duration
+        });
+      }
+
+      if (workDaysNum === 0 && safePaidAmount > 0 && !confirmOverpaymentPatch) {
+        const duration = Date.now() - startTime;
+        return res.status(422).json({
+          success: false,
+          error: 'zero_days_payment',
+          message: `لا يمكن تسجيل مبلغ مدفوع (${safePaidAmount}) بدون أيام عمل. المبلغ سيُحوّل كسلفة/تحويل`,
+          requiresConfirmation: true,
+          suggestedAction: {
+            type: 'convert_to_advance',
+            description: `سيتم تسجيل الحضور بدون مبلغ مدفوع، و ${safePaidAmount} كسلفة/تحويل تلقائياً`,
+            attendancePaidAmount: 0,
+            advanceAmount: safePaidAmount,
+            advanceType: 'advance'
+          },
+          processingTime: duration
+        });
+      }
+
+      if (confirmOverpaymentPatch && safePaidAmount > actualWageValue) {
+        const userWageAmount = req.body.wageAmount !== undefined ? Number(req.body.wageAmount) : (workDaysNum === 0 ? 0 : actualWageValue);
+        const userAdvanceAmount = req.body.advanceAmount !== undefined ? Number(req.body.advanceAmount) : (safePaidAmount - userWageAmount);
+        const advanceNotes = req.body.advanceNotes || '';
+        const durationP = Date.now() - startTime;
+
+        if (userWageAmount < 0 || userAdvanceAmount <= 0 || !Number.isFinite(userWageAmount) || !Number.isFinite(userAdvanceAmount)) {
+          return res.status(400).json({ success: false, error: 'invalid_split', message: 'مبلغ الأجور يجب ≥ 0 ومبلغ السلفة يجب > 0', processingTime: durationP });
+        }
+        if (userWageAmount > actualWageValue) {
+          return res.status(400).json({ success: false, error: 'wage_exceeds_actual', message: `مبلغ الأجور (${userWageAmount}) لا يمكن أن يتجاوز الأجر الفعلي (${actualWageValue})`, processingTime: durationP });
+        }
+        if (workDaysNum === 0 && userWageAmount !== 0) {
+          return res.status(400).json({ success: false, error: 'zero_days_wage', message: 'لا يمكن تسجيل أجور عندما أيام العمل = 0', processingTime: durationP });
+        }
+        if (userWageAmount + userAdvanceAmount !== safePaidAmount) {
+          return res.status(400).json({ success: false, error: 'split_mismatch', message: `مجموع الأجور (${userWageAmount}) والسلفة (${userAdvanceAmount}) يجب أن يساوي المبلغ الإجمالي (${safePaidAmount})`, processingTime: durationP });
+        }
+
+        updateData.paidAmount = userWageAmount.toString();
+        updateData.remainingAmount = Math.max(0, actualWageValue - userWageAmount).toString();
+        updateData.paymentType = userWageAmount >= actualWageValue && actualWageValue > 0 ? "full" : "partial";
+        updateData.notes = ((updateData.notes || existingAttendance[0].notes || '') + ' | ' + `تم تحويل ${userAdvanceAmount} كسلفة`).trim();
+        createdAdvanceTransferPatch = {
+          worker_id: existingAttendance[0].worker_id,
+          project_id: existingAttendance[0].project_id,
+          amount: userAdvanceAmount.toString(),
+          transferDate: existingAttendance[0].date,
+          transfer_method: 'cash',
+          recipientName: '',
+          notes: advanceNotes || `سلفة — من تعديل حضور ${existingAttendance[0].date} (المبلغ الأصلي: ${safePaidAmount}، الأجور: ${userWageAmount})`,
+        };
+        console.log(`🔄 [FinancialGuard-PATCH] تقسيم مخصص: أجور=${userWageAmount}, سلفة=${userAdvanceAmount}`);
+      } else {
+        updateData.paidAmount = safePaidAmount.toString();
+        updateData.remainingAmount = Math.max(0, actualWageValue - safePaidAmount).toString();
+        updateData.paymentType = safePaidAmount >= actualWageValue ? "full" : "partial";
+      }
     }
 
-    // تحديث حضور العامل
     const updated_attendance = await db
       .update(workerAttendance)
       .set(updateData)
@@ -2828,14 +3033,67 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث حضور العامل بنجاح في ${duration}ms`);
 
+    let advanceTransferRecordPatch: any = null;
+    if (createdAdvanceTransferPatch) {
+      const existingAdvancePatch = await pool.query(
+        `SELECT id FROM worker_transfers WHERE worker_id = $1 AND project_id = $2 AND transfer_date = $3 
+         AND CAST(amount AS DECIMAL(15,2)) = CAST($4 AS DECIMAL(15,2)) 
+         AND notes LIKE '%سلفة%' AND notes LIKE $5 LIMIT 1`,
+        [createdAdvanceTransferPatch.worker_id, createdAdvanceTransferPatch.project_id, createdAdvanceTransferPatch.transferDate,
+         createdAdvanceTransferPatch.amount, `%${safePaidAmount}%`]
+      );
+      
+      if (existingAdvancePatch.rows.length > 0) {
+        console.log(`⚠️ [FinancialGuard-PATCH] سلفة مكررة - تخطي الإنشاء`);
+        advanceTransferRecordPatch = existingAdvancePatch.rows[0];
+      } else {
+        const transferResult = await pool.query(
+          `INSERT INTO worker_transfers (worker_id, project_id, amount, transfer_date, transfer_method, recipient_name, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+          [
+            createdAdvanceTransferPatch.worker_id, createdAdvanceTransferPatch.project_id,
+            createdAdvanceTransferPatch.amount, createdAdvanceTransferPatch.transferDate,
+            createdAdvanceTransferPatch.transfer_method, createdAdvanceTransferPatch.recipientName || '',
+            createdAdvanceTransferPatch.notes
+          ]
+        );
+        advanceTransferRecordPatch = transferResult.rows[0];
+
+        await FinancialIntegrityService.syncWorkerBalance(createdAdvanceTransferPatch.worker_id, createdAdvanceTransferPatch.project_id);
+        
+        FinancialIntegrityService.logFinancialChange({
+          projectId: createdAdvanceTransferPatch.project_id,
+          action: 'create',
+          entityType: 'worker_transfer',
+          entityId: advanceTransferRecordPatch.id,
+          newData: { amount: createdAdvanceTransferPatch.amount, type: 'advance_auto', source: 'attendance_overpayment_patch', attendance_id: attendanceId },
+          userId: getAuthUser(req)?.user_id,
+          userEmail: (req as any).user?.email,
+          reason: `سلفة تلقائية من تعديل حضور ${updated_attendance[0].date} — المبلغ الأصلي: ${safePaidAmount}، الأجور: ${Number(updateData.paidAmount)}`
+        }).catch(err => console.error('[FinancialIntegrity] Advance audit log error:', err));
+
+        console.log(`✅ [FinancialGuard-PATCH] تم إنشاء سلفة تلقائية: ${createdAdvanceTransferPatch.amount}`);
+      }
+    }
+
     const balanceWarning = await FinancialIntegrityService.getBalanceWarnings(updated_attendance[0].worker_id, updated_attendance[0].project_id);
 
     res.json({
       success: true,
       data: updated_attendance[0],
-      message: `تم تحديث حضور العامل بتاريخ ${updated_attendance[0].date} بنجاح`,
+      message: advanceTransferRecordPatch
+        ? `تم تحديث الحضور وتحويل ${createdAdvanceTransferPatch.amount} كسلفة تلقائياً`
+        : `تم تحديث حضور العامل بتاريخ ${updated_attendance[0].date} بنجاح`,
       processingTime: duration,
-      ...(balanceWarning.isNegative ? { balanceWarning: balanceWarning.warning } : {})
+      ...(balanceWarning.isNegative ? { balanceWarning: balanceWarning.warning } : {}),
+      ...(advanceTransferRecordPatch ? {
+        advanceTransfer: {
+          id: advanceTransferRecordPatch.id,
+          amount: createdAdvanceTransferPatch.amount,
+          type: 'advance',
+          notes: createdAdvanceTransferPatch.notes
+        }
+      } : {})
     });
 
   } catch (error: any) {

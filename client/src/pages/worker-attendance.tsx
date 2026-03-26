@@ -24,6 +24,7 @@ import type { StatsRowConfig, FilterConfig } from "@/components/ui/unified-filte
 import { UnifiedCard, UnifiedCardGrid } from "@/components/ui/unified-card";
 import type { Worker, InsertWorkerAttendance } from "@shared/schema";
 import { QUERY_KEYS } from "@/constants/queryKeys";
+import { OverpaymentSplitDialog, type OverpaymentData } from "@/components/overpayment-split-dialog";
 
 interface AttendanceData {
   [worker_id: string]: {
@@ -56,6 +57,8 @@ export default function WorkerAttendance() {
   const [, setLocation] = useLocation();
   const { selectedProjectId, selectProject, isAllProjects, projects, isWellsProject } = useSelectedProject();
   const [searchValue, setSearchValue] = useState("");
+  const [overpaymentData, setOverpaymentData] = useState<OverpaymentData | null>(null);
+  const [showOverpaymentDialog, setShowOverpaymentDialog] = useState(false);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({
     dateRange: undefined,
     type: 'all'
@@ -492,10 +495,35 @@ export default function WorkerAttendance() {
           console.error(`❌ فشل في حفظ حضور العامل ${record.worker_id}:`, error);
           const worker = workers.find(w => w.id === record.worker_id);
           const workerName = worker?.name || 'عامل غير معروف';
-          
-          // استخراج رسالة الخطأ بشكل أفضل
+
+          if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+            const suggestedAction = error.responseData.suggestedAction;
+            const dailyWage = parseFloat(record.dailyWage?.toString() || worker?.dailyWage?.toString() || '0');
+            const workDaysVal = parseFloat(record.workDays?.toString() || '0');
+            setOverpaymentData({
+              workerName,
+              workerId: record.worker_id,
+              projectId: record.project_id!,
+              date: record.date || record.attendanceDate || selectedDate || '',
+              totalAmount: parseFloat(record.paidAmount?.toString() || '0'),
+              actualWage: suggestedAction?.attendancePaidAmount ?? Math.round(dailyWage * workDaysVal),
+              workDays: workDaysVal,
+              originalRecord: record,
+              recordId: (record as any).recordId,
+            });
+            setShowOverpaymentDialog(true);
+            errors.push({
+              worker_id: record.worker_id,
+              workerName,
+              error: 'overpayment_pending'
+            });
+            continue;
+          }
+
           let errorMsg = "خطأ غير معروف";
-          if (error?.response?.data?.message) {
+          if (error?.responseData?.message) {
+            errorMsg = error.responseData.message;
+          } else if (error?.response?.data?.message) {
             errorMsg = error.response.data.message;
           } else if (error?.response?.data?.error) {
             errorMsg = error.response.data.error;
@@ -529,27 +557,32 @@ export default function WorkerAttendance() {
 
       const { successful, failed, totalProcessed } = result;
 
-      if (failed.length === 0) {
-        // جميع العمليات نجحت
+      const realFailed = failed.filter((f: any) => f.error !== 'overpayment_pending');
+      const hasPendingOverpayment = failed.some((f: any) => f.error === 'overpayment_pending');
+
+      if (realFailed.length === 0 && !hasPendingOverpayment) {
         toast({
           title: "✅ تم الحفظ بنجاح",
           description: `تم حفظ حضور ${successful.length} عامل بنجاح`,
         });
-      } else if (successful.length > 0) {
-        // بعض العمليات نجحت وبعضها فشل
-        const failedDetails = failed.map((f: any) => `• ${f.workerName}: ${f.error}`).join('\n');
+      } else if (realFailed.length === 0 && hasPendingOverpayment && successful.length > 0) {
+        toast({
+          title: "✅ تم حفظ الحضور — بانتظار تأكيد التقسيم",
+          description: `تم حفظ ${successful.length} عامل. يرجى تأكيد تقسيم المبلغ في النافذة المنبثقة`,
+        });
+      } else if (successful.length > 0 && realFailed.length > 0) {
+        const failedDetails = realFailed.map((f: any) => `• ${f.workerName}: ${f.error}`).join('\n');
         toast({
           title: "⚠️ تم الحفظ جزئياً",
-          description: `نجح: ${successful.length} عامل\nفشل: ${failed.length} عامل\n\n${failedDetails}`,
+          description: `نجح: ${successful.length} عامل\nفشل: ${realFailed.length} عامل\n\n${failedDetails}`,
           variant: "default",
         });
-        console.error("تفاصيل الأخطاء:", failed);
-      } else {
-        // جميع العمليات فشلت
-        const failedDetails = failed.map((f: any) => `• ${f.workerName}: ${f.error}`).join('\n');
+        console.error("تفاصيل الأخطاء:", realFailed);
+      } else if (realFailed.length > 0) {
+        const failedDetails = realFailed.map((f: any) => `• ${f.workerName}: ${f.error}`).join('\n');
         toast({
           title: "❌ فشل الحفظ",
-          description: `فشل في حفظ جميع سجلات الحضور:\n\n${failedDetails}`,
+          description: `فشل في حفظ سجلات الحضور:\n\n${failedDetails}`,
           variant: "destructive",
         });
       }
@@ -883,6 +916,58 @@ export default function WorkerAttendance() {
       worker.type?.toLowerCase().includes(searchLower)
     );
   }, [workers, searchValue]);
+
+  const handleOverpaymentConfirm = async (splitData: {
+    wageAmount: number;
+    advanceAmount: number;
+    advanceNotes: string;
+    originalRecord: any;
+    recordId?: string;
+  }) => {
+    setShowOverpaymentDialog(false);
+    try {
+      const recordWithConfirmation = {
+        ...splitData.originalRecord,
+        confirmOverpayment: true,
+        wageAmount: splitData.wageAmount,
+        advanceAmount: splitData.advanceAmount,
+        advanceNotes: splitData.advanceNotes,
+      };
+
+      let result;
+      if (splitData.recordId) {
+        const { recordId, ...body } = recordWithConfirmation;
+        result = await apiRequest(`/api/worker-attendance/${splitData.recordId}`, "PATCH", body);
+      } else {
+        result = await apiRequest("/api/worker-attendance", "POST", recordWithConfirmation);
+      }
+
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.workerAttendanceAll(selectedProjectId) });
+
+      const advanceInfo = result?.advanceTransfer
+        ? `\nتم إنشاء سلفة: ${formatCurrency(parseFloat(result.advanceTransfer.amount))}`
+        : '';
+
+      toast({
+        title: "✅ تم الحفظ بنجاح",
+        description: `تم تسجيل الأجور: ${formatCurrency(splitData.wageAmount)} والسلفة: ${formatCurrency(splitData.advanceAmount)}${advanceInfo}`,
+      });
+
+      setAttendanceData(prev => {
+        const newData = { ...prev };
+        delete newData[splitData.originalRecord.worker_id];
+        return newData;
+      });
+    } catch (err: any) {
+      console.error('❌ فشل حفظ التقسيم:', err);
+      toast({
+        title: "❌ فشل الحفظ",
+        description: err?.responseData?.message || err?.message || 'حدث خطأ أثناء حفظ التقسيم',
+        variant: "destructive",
+      });
+    }
+    setOverpaymentData(null);
+  };
 
   const handleExportAttendance = async () => {
     if (filteredAttendance.length === 0) return;
@@ -1515,6 +1600,15 @@ export default function WorkerAttendance() {
           ) : null}
         </div>
       )}
+      <OverpaymentSplitDialog
+        open={showOverpaymentDialog}
+        onClose={() => {
+          setShowOverpaymentDialog(false);
+          setOverpaymentData(null);
+        }}
+        onConfirm={handleOverpaymentConfirm}
+        data={overpaymentData}
+      />
     </div>
   );
 }

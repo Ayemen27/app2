@@ -238,11 +238,12 @@ export async function apiRequest(
     }
 
     if (!response.ok) {
-      // محاولة استخراج رسالة الخطأ من JSON
       let errorMessage = `HTTP error! status: ${response.status}`;
+      let fullErrorData: any = null;
       try {
         if (contentType && contentType.includes("application/json")) {
           const errorData = await response.json();
+          fullErrorData = errorData;
           errorMessage = errorData.message || errorMessage;
         } else {
           const errorText = await response.text();
@@ -253,9 +254,11 @@ export async function apiRequest(
           });
         }
       } catch (e) {
-        // إذا فشل parse JSON، استخدم الرسالة الافتراضية
       }
-      throw new Error(errorMessage);
+      const error: any = new Error(errorMessage);
+      error.status = response.status;
+      error.responseData = fullErrorData;
+      throw error;
     }
 
     // تحقق من أن الاستجابة هي JSON

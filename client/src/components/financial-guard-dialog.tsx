@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Shield, Lightbulb, DollarSign, CheckCircle2, XCircle } from "lucide-react";
+import { AlertTriangle, Shield, Lightbulb, DollarSign, CheckCircle2, XCircle, ShieldAlert, ChevronDown, ChevronUp } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 export type GuardType = 'negative_balance' | 'overpaid_purchase' | 'large_amount';
@@ -51,16 +51,25 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
   const [guardNote, setGuardNote] = useState("");
   const [showAmountInput, setShowAmountInput] = useState(false);
 
+  const [isNegativeOverride, setIsNegativeOverride] = useState(false);
+  const [overrideExpanded, setOverrideExpanded] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+
   useEffect(() => {
     if (data) {
       setSelectedSuggestion("");
       setAdjustedAmount(data.enteredAmount);
       setShowAmountInput(false);
       setGuardNote("");
+      setIsNegativeOverride(false);
+      setOverrideExpanded(false);
+      setOverrideReason("");
     }
   }, [data]);
 
   const handleSelectSuggestion = (suggestion: GuardSuggestion) => {
+    setIsNegativeOverride(false);
+    setOverrideReason("");
     setSelectedSuggestion(suggestion.id);
     if (suggestion.action === 'adjust_amount') {
       setShowAmountInput(true);
@@ -76,6 +85,20 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
       onClose();
       return;
     }
+  };
+
+  const handleNegativeOverride = () => {
+    setIsNegativeOverride(true);
+    setSelectedSuggestion("");
+    setShowAmountInput(false);
+    setAdjustedAmount(data?.enteredAmount ?? 0);
+    setOverrideExpanded(true);
+  };
+
+  const handleCancelOverride = () => {
+    setIsNegativeOverride(false);
+    setOverrideReason("");
+    setOverrideExpanded(false);
   };
 
   const buildAutoNote = (suggestion: GuardSuggestion, amount: number) => {
@@ -94,6 +117,14 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
     return '';
   };
 
+  const buildOverrideNote = () => {
+    if (!data) return '';
+    const balance = data.currentBalance ?? 0;
+    const amount = data.enteredAmount;
+    const resultBalance = balance - amount;
+    return `🔴 [FG_OVERRIDE_NEGATIVE_BALANCE] السماح بالرصيد السالب | العامل: ${data.workerName || ''} | الرصيد قبل: ${formatCurrency(balance)} | مبلغ التحويل: ${formatCurrency(amount)} | الرصيد بعد: ${formatCurrency(resultBalance)} | السبب: ${overrideReason.trim()}`;
+  };
+
   const handleAmountChange = (val: string) => {
     const num = parseFloat(val) || 0;
     setAdjustedAmount(num);
@@ -104,7 +135,18 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
   };
 
   const handleConfirm = () => {
-    if (!data || !selectedSuggestion) return;
+    if (!data) return;
+    if (isNegativeOverride) {
+      if (overrideReason.trim().length < 10) return;
+      onConfirm({
+        selectedSuggestion: 'negative_override',
+        adjustedAmount: data.enteredAmount,
+        guardNote: buildOverrideNote(),
+        originalData: data.originalData,
+      });
+      return;
+    }
+    if (!selectedSuggestion) return;
     onConfirm({
       selectedSuggestion,
       adjustedAmount,
@@ -116,7 +158,11 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
   if (!data) return null;
 
   const selectedSug = data.suggestions.find(s => s.id === selectedSuggestion);
-  const canConfirm = selectedSuggestion && selectedSug?.action !== 'cancel' && adjustedAmount > 0;
+  const canConfirmSuggestion = selectedSuggestion && selectedSug?.action !== 'cancel' && adjustedAmount > 0;
+  const canConfirmOverride = isNegativeOverride && overrideReason.trim().length >= 10;
+  const canConfirm = canConfirmSuggestion || canConfirmOverride;
+
+  const resultingBalanceAfterOverride = (data.currentBalance ?? 0) - (data.enteredAmount ?? 0);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -138,38 +184,40 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
             ))}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Lightbulb className="h-4 w-4 text-blue-500" />
-              <span>اختر الإجراء المناسب:</span>
-            </div>
+          {!isNegativeOverride && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Lightbulb className="h-4 w-4 text-blue-500" />
+                <span>اختر الإجراء المناسب:</span>
+              </div>
 
-            {data.suggestions.map((suggestion) => (
-              <button
-                key={suggestion.id}
-                onClick={() => handleSelectSuggestion(suggestion)}
-                className={`w-full text-right p-3 rounded-lg border-2 transition-all ${
-                  selectedSuggestion === suggestion.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted hover:border-primary/50'
-                }`}
-                data-testid={`suggestion-${suggestion.id}`}
-              >
-                <div className="flex items-start gap-2">
-                  {suggestion.icon === 'check' && <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
-                  {suggestion.icon === 'edit' && <DollarSign className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />}
-                  {suggestion.icon === 'cancel' && <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />}
-                  {!suggestion.icon && <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />}
-                  <div>
-                    <p className="font-medium text-sm">{suggestion.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{suggestion.description}</p>
+              {data.suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.id}
+                  onClick={() => handleSelectSuggestion(suggestion)}
+                  className={`w-full text-right p-3 rounded-lg border-2 transition-all ${
+                    selectedSuggestion === suggestion.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-muted hover:border-primary/50'
+                  }`}
+                  data-testid={`suggestion-${suggestion.id}`}
+                >
+                  <div className="flex items-start gap-2">
+                    {suggestion.icon === 'check' && <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />}
+                    {suggestion.icon === 'edit' && <DollarSign className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />}
+                    {suggestion.icon === 'cancel' && <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />}
+                    {!suggestion.icon && <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />}
+                    <div>
+                      <p className="font-medium text-sm">{suggestion.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{suggestion.description}</p>
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                </button>
+              ))}
+            </div>
+          )}
 
-          {showAmountInput && (
+          {showAmountInput && !isNegativeOverride && (
             <div className="space-y-1.5 bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
               <Label htmlFor="guard-amount" className="flex items-center gap-1.5">
                 <DollarSign className="h-3.5 w-3.5" />
@@ -187,7 +235,7 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
             </div>
           )}
 
-          {selectedSuggestion && selectedSug?.action !== 'cancel' && (
+          {selectedSuggestion && selectedSug?.action !== 'cancel' && !isNegativeOverride && (
             <div className="space-y-1.5">
               <Label htmlFor="guard-note">ملاحظة (تلقائية — يمكنك تعديلها)</Label>
               <Textarea
@@ -200,21 +248,121 @@ export function FinancialGuardDialog({ open, onClose, onConfirm, data }: Financi
               />
             </div>
           )}
+
+          {data.type === 'negative_balance' && !isNegativeOverride && (
+            <div className="border-t pt-3 mt-3">
+              <button
+                onClick={() => setOverrideExpanded(!overrideExpanded)}
+                className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-red-600 transition-colors py-1"
+                data-testid="button-expand-negative-override"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4" />
+                  <span>استثناء: السماح بالرصيد السالب</span>
+                </div>
+                {overrideExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+
+              {overrideExpanded && (
+                <div className="mt-2">
+                  <button
+                    onClick={handleNegativeOverride}
+                    className="w-full text-right p-3 rounded-lg border-2 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50 transition-all"
+                    data-testid="button-allow-negative-balance"
+                  >
+                    <div className="flex items-start gap-2">
+                      <ShieldAlert className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-bold text-sm text-red-700 dark:text-red-400">السماح بالرصيد السالب</p>
+                        <p className="text-xs text-red-600/80 dark:text-red-400/70 mt-1">
+                          سيتم تحويل المبلغ كاملاً ({formatCurrency(data.enteredAmount)}) ورصيد العامل سيصبح{' '}
+                          <span className="font-bold">{formatCurrency(resultingBalanceAfterOverride)}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isNegativeOverride && (
+            <div className="space-y-3 bg-red-50 dark:bg-red-950/20 border-2 border-red-300 dark:border-red-800 rounded-lg p-4">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-red-600" />
+                <span className="font-bold text-red-700 dark:text-red-400 text-sm">تأكيد السماح بالرصيد السالب</span>
+              </div>
+
+              <div className="bg-red-100 dark:bg-red-950/40 rounded-md p-2.5 text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-red-700/70 dark:text-red-300/70">المبلغ:</span>
+                  <span className="font-bold text-red-800 dark:text-red-300">{formatCurrency(data.enteredAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-red-700/70 dark:text-red-300/70">الرصيد الحالي:</span>
+                  <span className="font-bold">{formatCurrency(data.currentBalance ?? 0)}</span>
+                </div>
+                <div className="flex justify-between border-t border-red-200 dark:border-red-700 pt-1">
+                  <span className="text-red-700/70 dark:text-red-300/70">الرصيد بعد التحويل:</span>
+                  <span className="font-black text-red-700 dark:text-red-400">{formatCurrency(resultingBalanceAfterOverride)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="override-reason" className="text-red-700 dark:text-red-400 font-semibold text-xs flex items-center gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  سبب السماح بالرصيد السالب (إلزامي)
+                </Label>
+                <Textarea
+                  id="override-reason"
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  placeholder="اذكر السبب بوضوح — مثال: سلفة طارئة بموافقة المدير للحالة الإنسانية..."
+                  className="h-24 resize-none text-sm border-red-300 dark:border-red-700 focus:border-red-500 bg-white dark:bg-red-950/30"
+                  dir="rtl"
+                  data-testid="input-override-reason"
+                />
+                {overrideReason.trim().length > 0 && overrideReason.trim().length < 10 && (
+                  <p className="text-xs text-red-500">السبب يجب أن لا يقل عن 10 أحرف ({overrideReason.trim().length}/10)</p>
+                )}
+              </div>
+
+              <button
+                onClick={handleCancelOverride}
+                className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+                data-testid="button-cancel-override"
+              >
+                ← العودة للخيارات الأخرى
+              </button>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex gap-2 sm:gap-2">
           <Button variant="outline" onClick={onClose} data-testid="button-guard-cancel">
             إلغاء
           </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!canConfirm}
-            className="bg-primary"
-            data-testid="button-guard-confirm"
-          >
-            <Shield className="h-4 w-4 ml-1" />
-            تأكيد وحفظ
-          </Button>
+          {isNegativeOverride ? (
+            <Button
+              onClick={handleConfirm}
+              disabled={!canConfirmOverride}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              data-testid="button-override-confirm"
+            >
+              <ShieldAlert className="h-4 w-4 ml-1" />
+              تأكيد السماح بالسالب
+            </Button>
+          ) : (
+            <Button
+              onClick={handleConfirm}
+              disabled={!canConfirmSuggestion}
+              className="bg-primary"
+              data-testid="button-guard-confirm"
+            >
+              <Shield className="h-4 w-4 ml-1" />
+              تأكيد وحفظ
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

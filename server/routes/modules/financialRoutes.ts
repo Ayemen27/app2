@@ -39,6 +39,7 @@ import { WellExpenseAutoAllocationService } from '../../services/WellExpenseAuto
 import { sanitizeZodErrors } from '../../lib/error-utils';
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
+import { FinancialIntegrityService } from '../../services/FinancialIntegrityService';
 
 export const financialRouter = express.Router();
 
@@ -1213,6 +1214,23 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
       await SummaryRebuildService.markInvalid(wt.project_id, wt.transferDate.substring(0, 10));
     } catch (e) { console.error('[SummaryRebuild] worker-transfer/POST markInvalid error:', e); }
 
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(wt.worker_id, wt.project_id);
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error on transfer POST:', err); }
+
+    try {
+      await FinancialIntegrityService.logFinancialChange({
+        projectId: wt.project_id,
+        action: 'create',
+        entityType: 'worker_transfer',
+        entityId: wt.id,
+        newData: { worker_id: wt.worker_id, amount: wt.amount, transferDate: wt.transferDate, transfer_method: wt.transfer_method },
+        userId: getAuthUser(req)?.user_id || null,
+        userEmail: getAuthUser(req)?.email || null,
+        reason: 'إنشاء تحويل عامل جديد'
+      });
+    } catch (err) { console.error('[FinancialIntegrity] Audit log error on transfer POST:', err); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم إنشاء تحويل العامل بنجاح في ${duration}ms`);
 
@@ -1322,6 +1340,27 @@ financialRouter.patch('/worker-transfers/:id', async (req: Request, res: Respons
       }
     } catch (e) { console.error('[SummaryRebuild] worker-transfers/PATCH markInvalid error:', e); }
 
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(t.worker_id, t.project_id);
+      if (existingTransfer[0].project_id !== t.project_id) {
+        await FinancialIntegrityService.syncWorkerBalance(existingTransfer[0].worker_id, existingTransfer[0].project_id);
+      }
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error on transfer PATCH:', err); }
+
+    try {
+      await FinancialIntegrityService.logFinancialChange({
+        projectId: t.project_id,
+        action: 'update',
+        entityType: 'worker_transfer',
+        entityId: t.id,
+        previousData: { amount: existingTransfer[0].amount, transferDate: existingTransfer[0].transferDate },
+        newData: { amount: t.amount, transferDate: t.transferDate },
+        userId: getAuthUser(req)?.user_id || null,
+        userEmail: getAuthUser(req)?.email || null,
+        reason: 'تعديل تحويل عامل'
+      });
+    } catch (err) { console.error('[FinancialIntegrity] Audit log error on transfer PATCH:', err); }
+
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث تحويل العامل بنجاح في ${duration}ms`);
 
@@ -1402,6 +1441,23 @@ financialRouter.delete('/worker-transfers/:id', async (req: Request, res: Respon
     try {
       await SummaryRebuildService.markInvalid(transferToDelete.project_id, transferToDelete.transferDate.substring(0, 10));
     } catch (e) { console.error('[SummaryRebuild] worker-transfers/DELETE markInvalid error:', e); }
+
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(transferToDelete.worker_id, transferToDelete.project_id);
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error on transfer DELETE:', err); }
+
+    try {
+      await FinancialIntegrityService.logFinancialChange({
+        projectId: transferToDelete.project_id,
+        action: 'delete',
+        entityType: 'worker_transfer',
+        entityId: transferToDelete.id,
+        previousData: { worker_id: transferToDelete.worker_id, amount: transferToDelete.amount, transferDate: transferToDelete.transferDate },
+        userId: getAuthUser(req)?.user_id || null,
+        userEmail: getAuthUser(req)?.email || null,
+        reason: 'حذف تحويل عامل'
+      });
+    } catch (err) { console.error('[FinancialIntegrity] Audit log error on transfer DELETE:', err); }
 
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم حذف حوالة العامل بنجاح في ${duration}ms:`, {
@@ -3271,8 +3327,8 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
 
     const attendanceData = attendanceRecords.map((record: any) => {
       const workDays = parseFloat(record.workDays || '0');
-      const dailyWage = parseFloat(worker.dailyWage || '0');
-      const actualWage = workDays * dailyWage;
+      const dailyWage = parseFloat(record.dailyWage || worker.dailyWage || '0');
+      const actualWage = parseFloat(record.actualWage || '0') || Math.round(workDays * dailyWage);
       const paidAmount = parseFloat(record.paidAmount || '0');
       const remainingAmount = actualWage - paidAmount;
 

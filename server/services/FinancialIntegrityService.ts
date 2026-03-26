@@ -77,6 +77,7 @@ export class FinancialIntegrityService {
       computedBalance: number;
       difference: number;
     }>;
+    missingBalanceRows: number;
     attendanceMismatches: number;
     negativeBalances: Array<{
       workerId: string;
@@ -88,7 +89,6 @@ export class FinancialIntegrityService {
     status: 'healthy' | 'warning' | 'critical';
     timestamp: string;
   }> {
-    const projectFilter = projectId ? 'AND wa.project_id = $1' : '';
     const params = projectId ? [projectId] : [];
 
     const balanceCheck = await pool.query(`
@@ -117,6 +117,16 @@ export class FinancialIntegrityService {
         difference: parseFloat(r.stored_balance) - parseFloat(r.computed_balance)
       }));
 
+    const missingBalanceCheck = await pool.query(`
+      SELECT COUNT(DISTINCT (wa.worker_id, wa.project_id)) as cnt
+      FROM worker_attendance wa
+      WHERE NOT EXISTS (
+        SELECT 1 FROM worker_balances wb 
+        WHERE wb.worker_id = wa.worker_id AND wb.project_id = wa.project_id
+      )
+      ${projectId ? 'AND wa.project_id = $1' : ''}
+    `, params);
+
     const attendanceMismatchCount = await pool.query(`
       SELECT COUNT(*) as cnt FROM worker_attendance
       WHERE CAST(COALESCE(actual_wage, '0') AS DECIMAL(15,2)) != 
@@ -135,13 +145,15 @@ export class FinancialIntegrityService {
       }))
       .sort((a, b) => a.balance - b.balance);
 
-    const status = discrepancies.length > 0 ? 'critical' :
+    const missingRows = parseInt(missingBalanceCheck.rows[0].cnt);
+    const status = (discrepancies.length > 0 || missingRows > 0) ? 'critical' :
       negativeBalances.length > 5 ? 'warning' : 'healthy';
 
     const result = {
       totalWorkers: balanceCheck.rows.length,
       totalChecked: balanceCheck.rows.length,
       discrepancies,
+      missingBalanceRows: missingRows,
       attendanceMismatches: parseInt(attendanceMismatchCount.rows[0].cnt),
       negativeBalances,
       status: status as 'healthy' | 'warning' | 'critical',
@@ -157,13 +169,15 @@ export class FinancialIntegrityService {
       if (safeProjectId) {
         await pool.query(`
           INSERT INTO reconciliation_records (project_id, reconciliation_date, ledger_balance, computed_balance, discrepancy, status, notes, created_at)
-          VALUES ($1, $2, 0, 0, $3, $4, $5, NOW())
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
         `, [
           safeProjectId,
           new Date().toISOString().split('T')[0],
-          discrepancies.length.toString(),
+          balanceCheck.rows.reduce((sum: number, r: any) => sum + parseFloat(r.stored_balance || 0), 0).toString(),
+          balanceCheck.rows.reduce((sum: number, r: any) => sum + parseFloat(r.computed_balance || 0), 0).toString(),
+          discrepancies.reduce((sum, d) => sum + Math.abs(d.difference), 0).toString(),
           status === 'healthy' ? 'matched' : 'discrepancy',
-          JSON.stringify({ discrepancies: discrepancies.length, negativeBalances: negativeBalances.length, attendanceMismatches: result.attendanceMismatches })
+          JSON.stringify({ discrepancies: discrepancies.length, missingBalanceRows: missingRows, negativeBalances: negativeBalances.length, attendanceMismatches: result.attendanceMismatches })
         ]);
       }
     } catch (err) {

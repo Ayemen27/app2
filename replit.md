@@ -50,10 +50,12 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Financial Integrity System (March 2026):** Comprehensive overhaul to match global accounting standards:
   - **Unified Source of Truth:** All wage calculations throughout the system (settlements, reports, balances, AI agent) now use `actual_wage` instead of `daily_wage * work_days`. This eliminates the critical discrepancy bug that caused incorrect settlement amounts.
   - **FinancialIntegrityService** (`server/services/FinancialIntegrityService.ts`): Central service providing `syncWorkerBalance()` (auto-recalculation after every financial operation), `logFinancialChange()` (audit trail), `runReconciliation()` (health check), `rebuildAllBalances()`, and `getBalanceWarnings()` (negative balance alerts).
-  - **Auto-sync Worker Balances:** Every attendance POST/PATCH/DELETE and transfer PATCH/DELETE triggers automatic balance recalculation from source data.
-  - **Financial Audit Trail:** Every financial mutation (create/update/delete on attendance and transfers) is logged to `financial_audit_log` with before/after data, user identity, and reason.
-  - **Reconciliation API:** `GET /api/financial-integrity/reconciliation` runs full data integrity check. `POST /api/financial-integrity/rebuild-balances` rebuilds all balances. `GET /api/financial-integrity/audit-log` retrieves audit history.
+  - **Auto-sync Worker Balances:** Every attendance POST/PATCH/DELETE and transfer POST/PATCH/DELETE triggers automatic balance recalculation from source data. Balance sync is awaited (not fire-and-forget) to guarantee consistency before response.
+  - **Financial Audit Trail:** Every financial mutation (create/update/delete on attendance and transfers) is logged to `financial_audit_log` with before/after data, user identity, and reason. Covers both workerRoutes and financialRoutes.
+  - **Reconciliation API:** `GET /api/financial-integrity/reconciliation` runs full data integrity check including missing balance rows detection. `POST /api/financial-integrity/rebuild-balances` rebuilds all balances. `GET /api/financial-integrity/audit-log` retrieves audit history.
   - **Negative Balance Warnings:** API responses include warnings when a worker's balance goes negative.
+  - **recalculateAttendanceAndBalances Helper:** Uses `actual_wage` for balance recomputation (fixed from `daily_wage * work_days`).
+  - **Worker Statement Excel:** Uses per-record `actualWage` from attendance (fixed from current worker dailyWage * workDays).
   - **Data Repair (March 2026):** 79 worker balances rebuilt from source of truth (0 mismatches), 28 inconsistent attendance records documented in audit log.
 
 ## System Audit & Cleanup (March 2026)

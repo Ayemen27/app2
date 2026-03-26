@@ -300,16 +300,14 @@ async function recalculateAttendanceAndBalances(
        SET
          total_earned = COALESCE((
            SELECT SUM(
-             CAST(COALESCE(wa.daily_wage, '0') AS DECIMAL(15,2)) *
-             CAST(COALESCE(wa.work_days, '0') AS DECIMAL(15,2))
+             CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL(15,2))
            )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
          ), 0),
          current_balance = COALESCE((
            SELECT SUM(
-             CAST(COALESCE(wa.daily_wage, '0') AS DECIMAL(15,2)) *
-             CAST(COALESCE(wa.work_days, '0') AS DECIMAL(15,2))
+             CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL(15,2))
            )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
@@ -1231,8 +1229,9 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
     const freshTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
     const responseData = freshTransfer[0];
 
-    FinancialIntegrityService.syncWorkerBalance(responseData.worker_id, responseData.project_id)
-      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(responseData.worker_id, responseData.project_id);
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error:', err); }
 
     FinancialIntegrityService.logFinancialChange({
       projectId: responseData.project_id,
@@ -1346,8 +1345,9 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       return deleteResult.rows;
     });
 
-    FinancialIntegrityService.syncWorkerBalance(transferToDelete.worker_id, transferToDelete.project_id)
-      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(transferToDelete.worker_id, transferToDelete.project_id);
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error:', err); }
 
     FinancialIntegrityService.logFinancialChange({
       projectId: transferToDelete.project_id,
@@ -2330,8 +2330,9 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       }
     }
 
-    FinancialIntegrityService.syncWorkerBalance(attendanceToDelete.worker_id, attendanceToDelete.project_id)
-      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(attendanceToDelete.worker_id, attendanceToDelete.project_id);
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error:', err); }
 
     FinancialIntegrityService.logFinancialChange({
       projectId: attendanceToDelete.project_id,
@@ -2607,8 +2608,9 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       crew_type: req.body.crew_type || record.crew_type,
     }).catch(err => console.error('[syncAttendanceToWellCrews] POST error:', err));
 
-    FinancialIntegrityService.syncWorkerBalance(record.worker_id, record.project_id)
-      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(record.worker_id, record.project_id);
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error:', err); }
 
     FinancialIntegrityService.logFinancialChange({
       projectId: record.project_id,
@@ -2798,8 +2800,9 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       }).catch(err => console.error('[syncAttendanceToWellCrews] PATCH error:', err));
     }
 
-    FinancialIntegrityService.syncWorkerBalance(updated_attendance[0].worker_id, updated_attendance[0].project_id)
-      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+    try {
+      await FinancialIntegrityService.syncWorkerBalance(updated_attendance[0].worker_id, updated_attendance[0].project_id);
+    } catch (err) { console.error('[FinancialIntegrity] Balance sync error:', err); }
 
     FinancialIntegrityService.logFinancialChange({
       projectId: updated_attendance[0].project_id,

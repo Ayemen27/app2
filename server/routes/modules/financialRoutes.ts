@@ -1287,7 +1287,11 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
       validationResult.data.notes = ((validationResult.data.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[FinancialTransferGuard] OVERRIDE by user for worker ${validationResult.data.worker_id}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
-        validationResult.data.amount = String(req.body.adjustedAmount);
+        const adj = parseFloat(req.body.adjustedAmount);
+        if (!Number.isFinite(adj) || adj < 0) {
+          return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح (يجب أن يكون رقماً موجباً).' });
+        }
+        validationResult.data.amount = String(adj);
       }
     }
 
@@ -2563,7 +2567,10 @@ financialRouter.post('/material-purchases', async (req: Request, res: Response) 
       console.log(`[FinancialMaterialGuard] OVERRIDE by user for project ${purchaseData.project_id}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
         const adj = parseFloat(req.body.adjustedAmount);
-        if (!isNaN(adj) && adj >= 0) {
+        if (!Number.isFinite(adj) || adj < 0) {
+          return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح (يجب أن يكون رقماً موجباً).' });
+        }
+        if (adj >= 0) {
           purchaseData.totalAmount = String(adj);
           if (purchaseData.purchaseType === 'نقد' || purchaseData.purchaseType === 'نقداً') {
             purchaseData.paidAmount = String(adj);
@@ -2765,6 +2772,86 @@ financialRouter.patch('/material-purchases/:id', async (req: Request, res: Respo
     const alreadyHasEquipment = !!existing.equipmentId;
     const preservedAddToInventory = alreadyHasEquipment ? true : (shouldAddToInventory ? false : (existing.addToInventory ?? false));
     const purchaseId = req.params.id;
+
+    // ═══════════════ حارس PATCH المشتريات المالي ═══════════════
+    const confirmGuardPatch = req.body.confirmGuard === true;
+    const newTotalAmount = validated.totalAmount !== undefined ? parseFloat(String(validated.totalAmount)) : 0;
+    if (!confirmGuardPatch && newTotalAmount > 0 && existing.project_id) {
+      try {
+        const guardWarnings: any[] = [];
+        const projResult = await pool.query(`SELECT name, COALESCE(budget, 0) as budget FROM projects WHERE id = $1`, [existing.project_id]);
+        const pName = projResult.rows[0]?.name || '';
+        const pBudget = parseFloat(projResult.rows[0]?.budget || '0');
+
+        if (pBudget > 0) {
+          const spentResult = await pool.query(
+            `SELECT COALESCE(SUM(CAST(total_amount AS numeric)), 0) as total_spent FROM material_purchases WHERE project_id = $1 AND id != $2`,
+            [existing.project_id, purchaseId]
+          );
+          const totalSpentExcluding = parseFloat(spentResult.rows[0]?.total_spent || '0');
+          const afterPatch = totalSpentExcluding + newTotalAmount;
+          if (afterPatch > pBudget) {
+            guardWarnings.push({
+              guardType: 'budget_overrun',
+              message: `المشتريات ستتجاوز ميزانية المشروع "${pName}" بعد التعديل`,
+              projectBudget: pBudget, totalSpent: totalSpentExcluding, afterPurchase: afterPatch,
+              overrunAmount: afterPatch - pBudget,
+            });
+          }
+        }
+
+        const avgResult = await pool.query(
+          `SELECT AVG(CAST(total_amount AS numeric)) as avg_amount, COUNT(*) as cnt FROM material_purchases WHERE project_id = $1 AND id != $2 AND CAST(total_amount AS numeric) > 0`,
+          [existing.project_id, purchaseId]
+        );
+        const avgAmt = parseFloat(avgResult.rows[0]?.avg_amount || '0');
+        const cnt = parseInt(avgResult.rows[0]?.cnt || '0');
+        if ((cnt >= 3 && avgAmt > 0 && newTotalAmount > avgAmt * 5) || newTotalAmount >= 500000) {
+          guardWarnings.push({
+            guardType: 'large_amount',
+            message: cnt >= 3 ? `المبلغ المعدّل أكبر بـ ${Math.round(newTotalAmount / avgAmt)}x من المتوسط` : `مبلغ كبير: ${newTotalAmount}`,
+          });
+        }
+
+        if (guardWarnings.length > 0) {
+          const pw = guardWarnings[0];
+          return res.status(422).json({
+            requiresConfirmation: true, guardType: pw.guardType,
+            title: pw.guardType === 'budget_overrun' ? 'تنبيه: تجاوز ميزانية بعد التعديل' : 'تنبيه: مبلغ كبير غير اعتيادي',
+            message: pw.message,
+            guardData: { projectName: pName, materialName: validated.materialName || '', totalAmount: newTotalAmount, warnings: guardWarnings },
+            details: [
+              { label: 'المشروع', value: pName },
+              { label: 'المبلغ الجديد', value: `${newTotalAmount}`, color: 'text-amber-600 font-bold' },
+            ],
+            suggestions: [
+              { id: 'proceed', label: 'متابعة التعديل', description: 'تأكيد أن البيانات صحيحة', action: 'proceed_with_note', icon: 'check' },
+              { id: 'cancel', label: 'إلغاء', description: 'عدم التعديل', action: 'cancel', icon: 'cancel' },
+            ],
+            _originalBody: req.body,
+          });
+        }
+      } catch (guardErr) {
+        console.error('[FinancialMaterialPatchGuard] FAIL-CLOSED:', guardErr);
+        return res.status(500).json({ success: false, message: 'فشل في فحص حماية المشتريات. حاول مرة أخرى.', error: 'PURCHASE_GUARD_CHECK_FAILED' });
+      }
+    }
+
+    if (confirmGuardPatch) {
+      const gNote = String(req.body.guardNote || '').trim();
+      if (gNote.length < 5) {
+        return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
+      }
+      validatedWithoutInventory.notes = ((validatedWithoutInventory.notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
+      console.log(`[FinancialMaterialPatchGuard] OVERRIDE for purchase ${purchaseId}: ${gNote}`);
+      if (req.body.adjustedAmount !== undefined) {
+        const adj = parseFloat(req.body.adjustedAmount);
+        if (!Number.isFinite(adj) || adj < 0) {
+          return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح.' });
+        }
+        validatedWithoutInventory.totalAmount = String(adj);
+      }
+    }
 
     const oldPurchaseType = existing.purchaseType;
     const newPurchaseType = validated.purchaseType || oldPurchaseType;

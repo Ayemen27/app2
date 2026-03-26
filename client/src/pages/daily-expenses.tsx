@@ -1855,6 +1855,23 @@ function DailyExpensesContent() {
       });
     },
     onError: (error: any) => {
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const rd = error.responseData;
+        setGuardTransferData({
+          type: 'negative_balance',
+          title: rd.title || 'تنبيه: رصيد سالب',
+          enteredAmount: rd.guardData?.transferAmount || parseFloat(workerTransferAmount) || 0,
+          currentBalance: rd.guardData?.currentBalance,
+          suggestions: rd.suggestions || [],
+          details: rd.details || [],
+          originalData: {
+            ...(rd._originalBody || {}),
+            _patchId: editingWorkerTransferId,
+          },
+        });
+        setShowGuardTransferDialog(true);
+        return;
+      }
       toast({
         title: "فشل في تحديث الحوالة",
         description: error?.message || "حدث خطأ أثناء تحديث حوالة العامل",
@@ -4325,13 +4342,22 @@ function DailyExpensesContent() {
         onConfirm={({ adjustedAmount, guardNote }) => {
           setShowGuardTransferDialog(false);
           const origData = guardTransferData?.originalData || {};
+          const patchId = origData._patchId;
           setGuardTransferData(null);
-          addWorkerTransferMutation.mutate({
-            ...origData,
-            amount: adjustedAmount,
-            notes: guardNote || origData.notes || '',
-            confirmGuard: true,
-          });
+          if (patchId) {
+            updateWorkerTransferMutation.mutate({
+              id: patchId,
+              data: { ...origData, amount: adjustedAmount, notes: guardNote || origData.notes || '', confirmGuard: true, guardNote },
+            });
+          } else {
+            addWorkerTransferMutation.mutate({
+              ...origData,
+              amount: adjustedAmount,
+              notes: guardNote || origData.notes || '',
+              confirmGuard: true,
+              guardNote,
+            });
+          }
         }}
       />
       <FinancialGuardDialog

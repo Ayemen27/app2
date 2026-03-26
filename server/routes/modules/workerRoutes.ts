@@ -1254,7 +1254,11 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
       sanitizedTransferData.notes = ((sanitizedTransferData.notes || existingTransfer[0].notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
       console.log(`[WorkerTransferGuard] OVERRIDE PATCH for transfer ${id}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
-        sanitizedTransferData.amount = String(req.body.adjustedAmount);
+        const adj = parseFloat(req.body.adjustedAmount);
+        if (!Number.isFinite(adj) || adj < 0) {
+          return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح (يجب أن يكون رقماً موجباً).' });
+        }
+        sanitizedTransferData.amount = String(adj);
       }
     }
 

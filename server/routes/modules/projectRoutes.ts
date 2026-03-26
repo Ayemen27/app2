@@ -760,9 +760,10 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
       console.log(`[ProjectMaterialGuard] OVERRIDE by user for project ${project_id}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
         const adj = parseFloat(req.body.adjustedAmount);
-        if (!isNaN(adj) && adj >= 0) {
-          (validation.data as any).totalAmount = String(adj);
+        if (!Number.isFinite(adj) || adj < 0) {
+          return res.status(400).json({ success: false, message: 'المبلغ المعدّل غير صالح (يجب أن يكون رقماً موجباً).' });
         }
+        (validation.data as any).totalAmount = String(adj);
       }
     }
 

@@ -28,6 +28,7 @@ import { MultiWellSelector } from "@/components/multi-well-selector";
 import { CrewTypeSelector } from "@/components/crew-type-selector";
 import { TeamSelector } from "@/components/team-selector";
 import ExpenseSummary from "@/components/expense-summary";
+import { OverpaymentSplitDialog, type OverpaymentData } from "@/components/overpayment-split-dialog";
 import WorkerMiscExpenses from "./worker-misc-expenses";
 import { getCurrentDate, formatCurrency, formatDate, cleanNumber } from "@/lib/utils";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input-database";
@@ -208,6 +209,8 @@ function DailyExpensesContent() {
   const [editWorkerDays, setEditWorkerDays] = useState<string>("");
   const [editWorkerAmount, setEditWorkerAmount] = useState<string>("");
   const [editWorkerNotes, setEditWorkerNotes] = useState<string>("");
+  const [showOverpaymentDialog, setShowOverpaymentDialog] = useState(false);
+  const [overpaymentData, setOverpaymentData] = useState<OverpaymentData | null>(null);
 
   const queryClient = useQueryClient();
   const { setFloatingAction } = useFloatingButton();
@@ -346,7 +349,38 @@ function DailyExpensesContent() {
       toast({ title: "تم إضافة الحضور", description: "تم تسجيل أجر العامل بنجاح" });
     },
     onError: async (error: any) => {
-      // ✅ حفظ محلي في قائمة الانتظار عند الفشل
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const suggestedAction = error.responseData.suggestedAction;
+        const worker = workers.find((w: any) => w.id === selectedWorkerId);
+        const dailyWage = parseFloat(worker?.dailyWage?.toString() || '0');
+        const workDaysVal = parseFloat(workerDays || '0');
+        setOverpaymentData({
+          workerName: worker?.name || 'عامل',
+          workerId: selectedWorkerId,
+          projectId: selectedProjectId,
+          date: selectedDate || getCurrentDate(),
+          totalAmount: parseFloat(workerAmount || '0'),
+          actualWage: suggestedAction?.attendancePaidAmount ?? Math.round(dailyWage * workDaysVal),
+          workDays: workDaysVal,
+          originalRecord: {
+            worker_id: selectedWorkerId,
+            project_id: selectedProjectId,
+            attendanceDate: selectedDate || getCurrentDate(),
+            workDays: workDaysVal,
+            dailyWage: dailyWage.toString(),
+            actualWage: (dailyWage * workDaysVal).toString(),
+            totalPay: (dailyWage * workDaysVal).toString(),
+            paidAmount: workerAmount || '0',
+            workDescription: workerNotes || (workDaysVal > 0 ? 'أيام عمل' : 'مصروف بدون عمل'),
+            notes: workerNotes,
+            well_id: selectedWellIds[0] || null,
+            well_ids: selectedWellIds.length > 0 ? JSON.stringify(selectedWellIds) : null,
+            crew_type: selectedCrewTypes.length > 0 ? JSON.stringify(selectedCrewTypes) : null,
+          },
+        });
+        setShowOverpaymentDialog(true);
+        return;
+      }
       try {
         const attendanceData = {
           worker_id: selectedWorkerId,
@@ -383,9 +417,29 @@ function DailyExpensesContent() {
       toast({ title: "تم التحديث", description: "تم تحديث بيانات الحضور بنجاح" });
     },
     onError: (error: any) => {
+      if (error?.status === 422 && error?.responseData?.requiresConfirmation) {
+        const suggestedAction = error.responseData.suggestedAction;
+        const attendance = safeAttendance.find((a: any) => a.id === editingAttendanceId);
+        const worker = workers.find((w: any) => w.id === attendance?.worker_id);
+        const dailyWage = parseFloat(worker?.dailyWage?.toString() || attendance?.daily_wage?.toString() || '0');
+        const workDaysVal = parseFloat(editWorkerDays || '0');
+        setOverpaymentData({
+          workerName: worker?.name || 'عامل',
+          workerId: attendance?.worker_id || '',
+          projectId: attendance?.project_id || selectedProjectId,
+          date: attendance?.date || selectedDate || getCurrentDate(),
+          totalAmount: parseFloat(editWorkerAmount || '0'),
+          actualWage: suggestedAction?.attendancePaidAmount ?? Math.round(dailyWage * workDaysVal),
+          workDays: workDaysVal,
+          originalRecord: { id: editingAttendanceId, workDays: editWorkerDays, paidAmount: editWorkerAmount, notes: editWorkerNotes },
+          recordId: editingAttendanceId || undefined,
+        });
+        setShowOverpaymentDialog(true);
+        return;
+      }
       toast({ 
         title: "خطأ", 
-        description: error?.message || "حدث خطأ أثناء تحديث الحضور", 
+        description: error?.responseData?.message || error?.message || "حدث خطأ أثناء تحديث الحضور", 
         variant: "destructive" 
       });
     }
@@ -4149,6 +4203,36 @@ function DailyExpensesContent() {
           </CollapsibleContent>
       </Card>
     </Collapsible>
+      <OverpaymentSplitDialog
+        open={showOverpaymentDialog}
+        onClose={() => {
+          setShowOverpaymentDialog(false);
+          setOverpaymentData(null);
+        }}
+        data={overpaymentData}
+        onConfirm={({ wageAmount, advanceAmount, advanceNotes, originalRecord, recordId }) => {
+          setShowOverpaymentDialog(false);
+          setOverpaymentData(null);
+          if (recordId) {
+            updateWorkerAttendanceMutation.mutate({
+              ...originalRecord,
+              id: recordId,
+              confirmOverpayment: true,
+              wageAmount,
+              advanceAmount,
+              advanceNotes,
+            });
+          } else {
+            addWorkerAttendanceMutation.mutate({
+              ...originalRecord,
+              confirmOverpayment: true,
+              wageAmount,
+              advanceAmount,
+              advanceNotes,
+            });
+          }
+        }}
+      />
     </div>
   );
 }

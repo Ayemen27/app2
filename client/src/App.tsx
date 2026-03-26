@@ -620,11 +620,6 @@ function App() {
                         <ResetPasswordPage />
                       </Suspense>
                     </Route>
-                    <Route path="/excel-comparison">
-                      <Suspense fallback={<PageLoader />}>
-                        <ExcelComparisonReport />
-                      </Suspense>
-                    </Route>
                     <Route path="*" component={() => (
                       <ProtectedRoute>
                         <EmailVerificationGuard>

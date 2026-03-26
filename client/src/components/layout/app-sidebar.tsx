@@ -2,7 +2,7 @@ import {
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
   ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText, KeyRound,
-  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale, ScrollText
+  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale, ScrollText, FileSpreadsheet
 } from "lucide-react";
 import { 
   Sidebar,
@@ -89,6 +89,7 @@ const sections: SidebarSection[] = [
       { title: "ترحيل بين المشاريع", url: "/project-transfers", icon: ArrowLeftRight },
       { title: "نقل السجلات", url: "/records-transfer", icon: ArrowLeftRight, adminOnly: true },
       { title: "التقارير", url: "/reports", icon: BarChart3 },
+      { title: "مقارنة الإكسل", url: "/excel-comparison", icon: FileSpreadsheet },
     ]
   },
   {

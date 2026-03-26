@@ -278,7 +278,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .select({
         date: workerAttendance.attendanceDate,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CAST(${workerAttendance.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+        totalWages: sql<number>`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`
       })
@@ -948,9 +948,7 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
     // حساب الإجماليات - باستخدام الأجر المسجل في كل سجل حضور (وليس الأجر الحالي)
     const totalWorkDays = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.workDays || '0'), 0);
     const totalEarned = attendanceRecords.reduce((sum: any, r: any) => {
-      const dailyWage = parseFloat(r.dailyWage || '0');
-      const workDays = parseFloat(r.workDays || '0');
-      return sum + (dailyWage * workDays);
+      return sum + parseFloat(r.actualWage || '0');
     }, 0);
     const totalPaid = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.paidAmount || '0'), 0);
     const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
@@ -958,13 +956,11 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
 
     // بيانات الرسم البياني - باستخدام الأجر المسجل في كل سجل
     const chartData = attendanceRecords.map((r: any) => {
-      const dailyWage = parseFloat(r.dailyWage || '0');
-      const workDays = parseFloat(r.workDays || '0');
       return {
         date: r.date,
-        earned: dailyWage * workDays,
+        earned: parseFloat(r.actualWage || '0'),
         paid: parseFloat(r.paidAmount || '0'),
-        workDays: workDays
+        workDays: parseFloat(r.workDays || '0')
       };
     }).reverse();
 

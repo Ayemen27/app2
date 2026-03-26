@@ -616,7 +616,7 @@ export class ReportDataService {
         .select({
           date: workerAttendance.attendanceDate,
           totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-          totalWages: sql<number>`COALESCE(SUM(CAST(${workerAttendance.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+          totalWages: sql<number>`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)), 0)`,
           totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
           workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`,
         })
@@ -637,7 +637,7 @@ export class ReportDataService {
           workerName: workers.name,
           workerType: workers.type,
           totalDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-          totalEarned: sql<number>`COALESCE(SUM(CAST(${workerAttendance.dailyWage} AS DECIMAL) * CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
+          totalEarned: sql<number>`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)), 0)`,
           totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         })
         .from(workerAttendance)
@@ -1301,7 +1301,7 @@ export class ReportDataService {
             COALESCE(w.type, 'غير محدد') AS type,
             COUNT(DISTINCT wa.worker_id) AS count,
             COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_days,
-            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_wages
+            COALESCE(SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL)), 0) AS total_wages
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
@@ -1312,7 +1312,7 @@ export class ReportDataService {
           SELECT
             w.name, w.type,
             COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_days,
-            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_earned,
+            COALESCE(SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL)), 0) AS total_earned,
             COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
@@ -1347,7 +1347,7 @@ export class ReportDataService {
             wa.attendance_date AS date,
             COUNT(DISTINCT wa.worker_id) AS worker_count,
             COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_work_days,
-            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_wages
+            COALESCE(SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL)), 0) AS total_wages
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
           GROUP BY wa.attendance_date ORDER BY wa.attendance_date
@@ -1356,7 +1356,7 @@ export class ReportDataService {
         client.query(`
           SELECT
             COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_work_days,
-            COALESCE(SUM(CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)), 0) AS total_wages,
+            COALESCE(SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL)), 0) AS total_wages,
             COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3

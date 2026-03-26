@@ -34,6 +34,7 @@ import { projectAccessService } from '../../services/ProjectAccessService';
 import { inArray } from 'drizzle-orm';
 import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
+import { FinancialIntegrityService } from '../../services/FinancialIntegrityService.js';
 
 declare global {
   var io: { emit: (event: string, data: unknown) => void } | undefined;
@@ -635,7 +636,7 @@ workerRouter.get('/workers/balances', async (req: Request, res: Response) => {
       SELECT 
         w.id as worker_id,
         COALESCE((
-          SELECT SUM(CAST(COALESCE(wa.daily_wage, '0') AS DECIMAL) * CAST(COALESCE(wa.work_days, '0') AS DECIMAL))
+          SELECT SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL))
           FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
         ), 0) as total_earnings,
         COALESCE((
@@ -1230,6 +1231,21 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
     const freshTransfer = await db.select().from(workerTransfers).where(eq(workerTransfers.id, transferId)).limit(1);
     const responseData = freshTransfer[0];
 
+    FinancialIntegrityService.syncWorkerBalance(responseData.worker_id, responseData.project_id)
+      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+
+    FinancialIntegrityService.logFinancialChange({
+      projectId: responseData.project_id,
+      action: 'update',
+      entityType: 'worker_transfer',
+      entityId: responseData.id,
+      previousData: existingTransfer[0],
+      newData: responseData,
+      userId: getAuthUser(req)?.user_id,
+      userEmail: (req as any).user?.email,
+      reason: 'تعديل تحويل عامل'
+    }).catch(err => console.error('[FinancialIntegrity] Audit log error:', err));
+
     try {
       const oldDate = existingTransfer[0].transferDate.substring(0, 10);
       const newDate = responseData.transferDate.substring(0, 10);
@@ -1329,6 +1345,20 @@ workerRouter.delete('/worker-transfers/:id', async (req: Request, res: Response)
       );
       return deleteResult.rows;
     });
+
+    FinancialIntegrityService.syncWorkerBalance(transferToDelete.worker_id, transferToDelete.project_id)
+      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+
+    FinancialIntegrityService.logFinancialChange({
+      projectId: transferToDelete.project_id,
+      action: 'delete',
+      entityType: 'worker_transfer',
+      entityId: transferToDelete.id,
+      previousData: transferToDelete,
+      userId: getAuthUser(req)?.user_id,
+      userEmail: (req as any).user?.email,
+      reason: 'حذف تحويل عامل'
+    }).catch(err => console.error('[FinancialIntegrity] Audit log error:', err));
 
     try {
       await SummaryRebuildService.markInvalid(transferToDelete.project_id, transferToDelete.transferDate.substring(0, 10));
@@ -2300,6 +2330,20 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
       }
     }
 
+    FinancialIntegrityService.syncWorkerBalance(attendanceToDelete.worker_id, attendanceToDelete.project_id)
+      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+
+    FinancialIntegrityService.logFinancialChange({
+      projectId: attendanceToDelete.project_id,
+      action: 'delete',
+      entityType: 'worker_attendance',
+      entityId: attendanceToDelete.id,
+      previousData: { daily_wage: attendanceToDelete.dailyWage, work_days: attendanceToDelete.workDays, actual_wage: attendanceToDelete.actualWage, paid_amount: attendanceToDelete.paidAmount, date: attendanceToDelete.date },
+      userId: getAuthUser(req)?.user_id,
+      userEmail: (req as any).user?.email,
+      reason: 'حذف سجل حضور'
+    }).catch(err => console.error('[FinancialIntegrity] Audit log error:', err));
+
     if (globalThis.io && deletedAttendance[0]) {
       (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
@@ -2563,6 +2607,22 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       crew_type: req.body.crew_type || record.crew_type,
     }).catch(err => console.error('[syncAttendanceToWellCrews] POST error:', err));
 
+    FinancialIntegrityService.syncWorkerBalance(record.worker_id, record.project_id)
+      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+
+    FinancialIntegrityService.logFinancialChange({
+      projectId: record.project_id,
+      action: 'create',
+      entityType: 'worker_attendance',
+      entityId: record.id,
+      newData: { daily_wage: record.daily_wage, work_days: record.work_days, actual_wage: record.actual_wage, paid_amount: record.paid_amount },
+      userId: getAuthUser(req)?.user_id,
+      userEmail: (req as any).user?.email,
+      reason: 'تسجيل حضور جديد'
+    }).catch(err => console.error('[FinancialIntegrity] Audit log error:', err));
+
+    const balanceWarning = await FinancialIntegrityService.getBalanceWarnings(record.worker_id, record.project_id);
+
     if (globalThis.io) {
       (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
@@ -2576,7 +2636,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       success: true,
       data: record,
       message: `تم تسجيل حضور العامل بتاريخ ${record.date} بنجاح`,
-      processingTime: duration
+      processingTime: duration,
+      ...(balanceWarning.isNegative ? { balanceWarning: balanceWarning.warning } : {})
     });
 
   } catch (error: any) {
@@ -2737,6 +2798,21 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
       }).catch(err => console.error('[syncAttendanceToWellCrews] PATCH error:', err));
     }
 
+    FinancialIntegrityService.syncWorkerBalance(updated_attendance[0].worker_id, updated_attendance[0].project_id)
+      .catch(err => console.error('[FinancialIntegrity] Balance sync error:', err));
+
+    FinancialIntegrityService.logFinancialChange({
+      projectId: updated_attendance[0].project_id,
+      action: 'update',
+      entityType: 'worker_attendance',
+      entityId: updated_attendance[0].id,
+      previousData: { daily_wage: existingAttendance[0].dailyWage, work_days: existingAttendance[0].workDays, actual_wage: existingAttendance[0].actualWage, paid_amount: existingAttendance[0].paidAmount },
+      newData: { daily_wage: updated_attendance[0].dailyWage, work_days: updated_attendance[0].workDays, actual_wage: updated_attendance[0].actualWage, paid_amount: updated_attendance[0].paidAmount },
+      userId: getAuthUser(req)?.user_id,
+      userEmail: (req as any).user?.email,
+      reason: 'تعديل حضور عامل'
+    }).catch(err => console.error('[FinancialIntegrity] Audit log error:', err));
+
     if (globalThis.io && updated_attendance[0]) {
       (globalThis.io as any).to('authenticated').emit('entity:update', {
         type: 'INVALIDATE',
@@ -2749,11 +2825,14 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     const duration = Date.now() - startTime;
     console.log(`✅ [API] تم تحديث حضور العامل بنجاح في ${duration}ms`);
 
+    const balanceWarning = await FinancialIntegrityService.getBalanceWarnings(updated_attendance[0].worker_id, updated_attendance[0].project_id);
+
     res.json({
       success: true,
       data: updated_attendance[0],
       message: `تم تحديث حضور العامل بتاريخ ${updated_attendance[0].date} بنجاح`,
-      processingTime: duration
+      processingTime: duration,
+      ...(balanceWarning.isNegative ? { balanceWarning: balanceWarning.warning } : {})
     });
 
   } catch (error: any) {
@@ -2986,11 +3065,9 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
     );
     const workerProjectNames = projectNamesResult.rows.map((r: any) => ({ id: r.id, name: r.name }));
 
-    // حساب إجمالي المستحقات من dailyWage * workDays لضمان الدقة
     const totalEarningsResult = await db.select({
       totalEarnings: sql`COALESCE(SUM(
-        CAST(COALESCE(${workerAttendance.dailyWage}, '0') AS DECIMAL) * 
-        CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)
+        CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)
       ), 0)`
     })
     .from(workerAttendance)
@@ -3089,6 +3166,76 @@ workerRouter.get('/workers/:id/project-wages', async (req: Request, res: Respons
       data: [],
       message: 'فشل في جلب أجور المشاريع للعامل'
     });
+  }
+});
+
+workerRouter.get('/financial-integrity/reconciliation', async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    const projectId = req.query.project_id as string | undefined;
+    const result = await FinancialIntegrityService.runReconciliation(projectId);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error('[Reconciliation] Error:', error);
+    res.status(500).json({ success: false, message: 'فشل في تنفيذ المراجعة' });
+  }
+});
+
+workerRouter.post('/financial-integrity/rebuild-balances', async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+
+    await FinancialIntegrityService.logFinancialChange({
+      projectId: null,
+      action: 'rebuild_all_balances',
+      entityType: 'system',
+      entityId: 'manual_trigger',
+      userId: getAuthUser(req)?.user_id,
+      userEmail: (req as any).user?.email,
+      reason: 'إعادة بناء يدوية لجميع أرصدة العمال'
+    });
+
+    const result = await FinancialIntegrityService.rebuildAllBalances();
+    res.json({ success: true, data: result, message: `تم إعادة بناء ${result.rebuilt} رصيد عامل` });
+  } catch (error: any) {
+    console.error('[RebuildBalances] Error:', error);
+    res.status(500).json({ success: false, message: 'فشل في إعادة بناء الأرصدة' });
+  }
+});
+
+workerRouter.get('/financial-integrity/audit-log', async (req: Request, res: Response) => {
+  try {
+    if (!isAdmin(req)) {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+    const entityType = req.query.entity_type as string;
+    const action = req.query.action as string;
+
+    let query = `SELECT * FROM financial_audit_log WHERE 1=1`;
+    const params: any[] = [];
+
+    if (entityType) {
+      params.push(entityType);
+      query += ` AND entity_type = $${params.length}`;
+    }
+    if (action) {
+      params.push(action);
+      query += ` AND action = $${params.length}`;
+    }
+
+    params.push(limit);
+    query += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+
+    const result = await pool.query(query, params);
+    res.json({ success: true, data: result.rows, total: result.rows.length });
+  } catch (error: any) {
+    console.error('[AuditLog] Error:', error);
+    res.status(500).json({ success: false, message: 'فشل في جلب سجل التدقيق' });
   }
 });
 

@@ -47,6 +47,14 @@ The system maintains a consistent design using a professional navy/blue palette,
 - **Central Log Bank:** A PostgreSQL-based centralized log system (`central_event_logs`) with an in-memory queue for batch inserts, sensitive data redaction, retention policies, and dual-write sources from various system components.
 - **Daily Expense Summaries - Lazy Recalculation:** Implements an invalidation cascade and lazy recalculation pattern via `SummaryRebuildService` to ensure accurate daily expense summaries after financial record edits.
 - **Double-Entry Accounting Integrity:** Critical fixes implemented to ensure all financial transactions adhere to double-entry accounting principles, eliminating error swallowing, adding settlement accounting, and applying database safety constraints. A backfill script was created for orphan journal entries.
+- **Financial Integrity System (March 2026):** Comprehensive overhaul to match global accounting standards:
+  - **Unified Source of Truth:** All wage calculations throughout the system (settlements, reports, balances, AI agent) now use `actual_wage` instead of `daily_wage * work_days`. This eliminates the critical discrepancy bug that caused incorrect settlement amounts.
+  - **FinancialIntegrityService** (`server/services/FinancialIntegrityService.ts`): Central service providing `syncWorkerBalance()` (auto-recalculation after every financial operation), `logFinancialChange()` (audit trail), `runReconciliation()` (health check), `rebuildAllBalances()`, and `getBalanceWarnings()` (negative balance alerts).
+  - **Auto-sync Worker Balances:** Every attendance POST/PATCH/DELETE and transfer PATCH/DELETE triggers automatic balance recalculation from source data.
+  - **Financial Audit Trail:** Every financial mutation (create/update/delete on attendance and transfers) is logged to `financial_audit_log` with before/after data, user identity, and reason.
+  - **Reconciliation API:** `GET /api/financial-integrity/reconciliation` runs full data integrity check. `POST /api/financial-integrity/rebuild-balances` rebuilds all balances. `GET /api/financial-integrity/audit-log` retrieves audit history.
+  - **Negative Balance Warnings:** API responses include warnings when a worker's balance goes negative.
+  - **Data Repair (March 2026):** 79 worker balances rebuilt from source of truth (0 mismatches), 28 inconsistent attendance records documented in audit log.
 
 ## System Audit & Cleanup (March 2026)
 - **Removed Legacy Files:** `libs/AgentForge_archived/`, `fly.toml`, `Dockerfile`, `docker-compose.signoz.yaml`, `server/services/DrizzleWrapper.ts`, `scripts/_deprecated/`, `pyproject.toml`, `agent_bridge.py`, `remote_analyze.py`, `remote_execute.sh`, 8 stale audit report .md files, `depcheck_report.json`, `audit_scan.json`, `cookies.txt`, `local_deps.txt`, `index.lock`.

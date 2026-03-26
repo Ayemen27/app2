@@ -141,7 +141,7 @@ export class ReportGenerator {
       const attendanceRecords = data.attendance?.records || [];
       let runningBalance = 0;
       for (const rec of attendanceRecords) {
-        const earned = parseFloat(rec.dailyWage || '0') * parseFloat(rec.workDays || '0');
+        const earned = parseFloat(rec.actualWage || rec.actual_wage || '0');
         const paid = parseFloat(rec.paidAmount || '0');
         runningBalance += earned - paid;
         const row = worksheet.addRow([
@@ -861,7 +861,7 @@ export class ReportGenerator {
       try {
         const result = await client.query(
           `SELECT wa.attendance_date, wa.work_days, wa.daily_wage,
-                  (CAST(wa.daily_wage AS DECIMAL) * CAST(wa.work_days AS DECIMAL)) as earned,
+                  CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL) as earned,
                   wa.paid_amount, wa.remaining_amount, wa.work_description, wa.is_present,
                   wa.hours_worked, wa.overtime, wa.start_time, wa.end_time, wa.notes,
                   w.name as worker_name, w.type as worker_type, w.phone as worker_phone,
@@ -1013,7 +1013,7 @@ export class ReportGenerator {
           rec.worker_type || "-",
           parseFloat(rec.work_days || "0"),
           parseFloat(rec.daily_wage || "0"),
-          parseFloat(rec.daily_wage || "0") * parseFloat(rec.work_days || "0"),
+          parseFloat(rec.earned || rec.actual_wage || "0"),
           parseFloat(rec.paid_amount || "0"),
           rec.work_description || "-",
         ]);

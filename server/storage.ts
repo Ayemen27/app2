@@ -2063,9 +2063,7 @@ export class DatabaseStorage implements IStorage {
       // حساب الإحصائيات الإجمالية
       const totalWorkDays = attendance.reduce((sum: number, record: any) => sum + (Number(record.workDays) || 0), 0);
       const totalWagesEarned = attendance.reduce((sum: number, record: any) => {
-        const dailyWage = Number(record.dailyWage) || 0;
-        const workDays = Number(record.workDays) || 0;
-        return sum + (dailyWage * workDays);
+        return sum + (Number(record.actualWage) || 0);
       }, 0);
       const totalPaidAmount = attendance.reduce((sum: number, record: any) => sum + (Number(record.paidAmount) || 0), 0);
       const totalTransfers = transfers.reduce((sum: number, transfer: any) => sum + (Number(transfer.amount) || 0), 0);
@@ -2315,9 +2313,7 @@ export class DatabaseStorage implements IStorage {
         const transfers = allTransfersData.filter(t => t.project_id === project_id);
 
         const projectEarned = attendance.reduce((sum, record) => {
-          const dailyWage = Number(record.dailyWage) || Number(worker.dailyWage) || 0;
-          const workDays = Number(record.workDays) || 1;
-          return sum + Math.round(dailyWage * workDays * 100) / 100;
+          return sum + Math.round((Number(record.actualWage) || 0) * 100) / 100;
         }, 0);
         
         const projectPaid = attendance.reduce((sum, record) => sum + (Math.round((Number(record.paidAmount) || 0) * 100) / 100), 0);

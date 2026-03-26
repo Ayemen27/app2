@@ -66,3 +66,9 @@ id = "PgWdtnLwjrQeDs96Grv2c"
 uri = "file://ANDROID_FULL_AUDIT_REPORT.md"
 type = "text"
 title = "تقرير الفحص الشامل لتطبيق Android — 10 بنود"
+
+[[outputs]]
+id = "Mr-cjuvCi7emt1zG0o-KX"
+uri = "file://تقرير_المقارنة.xlsx"
+type = "table"
+title = "تقرير المقارنة اليومية - الإكسل مقابل النظام"

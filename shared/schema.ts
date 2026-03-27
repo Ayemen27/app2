@@ -2663,6 +2663,7 @@ export const waCanonicalTransactions = pgTable("wa_canonical_transactions", {
   projectId: varchar("project_id"),
   workerId: varchar("worker_id"),
   mergedFromCandidates: integer("merged_from_candidates").array(),
+  category: text("category"),
   excludeReason: text("exclude_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -2810,6 +2811,7 @@ export const waPostingResults = pgTable("wa_posting_results", {
   waPostingPostedByFkey: foreignKey({ name: "wa_posting_results_posted_by_fkey", columns: [table.postedBy], foreignColumns: [users.id] }),
   idxWaPostingResultsCanonicalId: index("idx_wa_posting_results_canonical_id").on(table.canonicalTransactionId),
   idxWaPostingResultsStatus: index("idx_wa_posting_results_posting_status").on(table.postingStatus),
+  idxWaPostingSuccessUnique: uniqueIndex("idx_wa_posting_success_unique").on(table.canonicalTransactionId).where(sql`posting_status = 'success'`),
 }));
 
 export const waReviewActions = pgTable("wa_review_actions", {

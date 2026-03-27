@@ -30,12 +30,14 @@ interface SidebarItem {
   url: string;
   icon: any;
   adminOnly?: boolean;
+  editorVisible?: boolean;
 }
 
 interface SidebarSection {
   title: string;
   icon: any;
   adminOnly?: boolean;
+  editorVisible?: boolean;
   items: SidebarItem[];
 }
 
@@ -111,6 +113,7 @@ const sections: SidebarSection[] = [
     title: "الذكاء الاصطناعي والمراقبة",
     icon: BrainCircuit,
     adminOnly: true,
+    editorVisible: true,
     items: [
       { title: "المساعد الذكي", icon: MessageSquare, url: "/ai-chat" },
       { title: "كشف الأخطاء الذكي", icon: AlertTriangle, url: "/smart-errors" },
@@ -118,7 +121,7 @@ const sections: SidebarSection[] = [
       { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },
       { title: "مقارنة المزامنة", icon: GitCompare, url: "/sync-comparison" },
       { title: "بنك السجلات", icon: ScrollText, url: "/admin/central-logs" },
-      { title: "استيراد واتساب", icon: FileUp, url: "/wa-import" },
+      { title: "استيراد واتساب", icon: FileUp, url: "/wa-import", editorVisible: true },
     ]
   },
   {
@@ -141,12 +144,16 @@ export function AppSidebar() {
   const { setOpenMobile, isMobile } = useSidebar();
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isEditor = user?.role === 'editor';
 
   const visibleSections = sections
-    .filter(section => !section.adminOnly || isAdmin)
+    .filter(section => !section.adminOnly || isAdmin || (section.editorVisible && isEditor))
     .map(section => ({
       ...section,
-      items: section.items.filter(item => !item.adminOnly || isAdmin)
+      items: section.items.filter(item => {
+        if (item.editorVisible && (isAdmin || isEditor)) return true;
+        return !item.adminOnly || isAdmin;
+      })
     }));
 
   const displayName = user?.name || 

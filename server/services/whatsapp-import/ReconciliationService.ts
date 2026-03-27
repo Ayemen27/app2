@@ -271,17 +271,29 @@ export async function runReconciliation(
   }
 
   for (const [candidateId, { reason, priority }] of uniqueVerifications) {
-    await db.insert(waVerificationQueue).values({
-      candidateId,
-      reason,
-      priority,
-    });
+    const existingVQ = await db.select({ id: waVerificationQueue.id })
+      .from(waVerificationQueue)
+      .where(eq(waVerificationQueue.candidateId, candidateId))
+      .limit(1);
+
+    if (existingVQ.length > 0) {
+      await db.update(waVerificationQueue)
+        .set({ reason, priority })
+        .where(eq(waVerificationQueue.candidateId, candidateId));
+    } else {
+      await db.insert(waVerificationQueue).values({
+        candidateId,
+        reason,
+        priority,
+      });
+    }
   }
 
   let custodianStatements: CustodianStatement[] = [];
   try {
     custodianStatements = await reconcileAllCustodians();
   } catch (e) {
+    console.error('[Reconciliation] Custodian reconciliation failed:', e);
   }
 
   const unresolvedDelta = totalAmount - matchedAmount - newEntryAmount - duplicateAmount - conflictAmount;

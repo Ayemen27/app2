@@ -104,3 +104,20 @@ See Rules 1-10 in `00-continuity-guide.md` for exact format and rules.
   - Re-approval guard: throws error if candidate already has canonicalTransactionId
 - **Status**: Task #4 COMPLETE. Tasks #5 and #6 are now unblocked.
 
+### 2026-03-27 — Final Architecture Review: Comprehensive Pipeline Audit (8.1→9.1/10)
+- **First-pass score**: 5.1/10 (3 CRITICAL + 3 HIGH)
+- **Second-pass score**: 8.1/10 (all CRITICALs fixed, 1 HIGH remaining)
+- **Final fixes applied** (post-second-pass):
+  - Partial unique index `idx_wa_posting_success_unique` added to schema.ts + DB
+  - Unique violation handler in postApprovedTransaction catches race duplicates → skipped_duplicate
+- **All CRITICAL fixes verified**:
+  1. resolveTargetTable receives txn.category (not null) — correct ledger routing
+  2. AdminRoute requiredRole="editor" allows editor+admin+super_admin
+  3. postBatchApproved scopes by batchId via candidate join
+- **All HIGH fixes verified**:
+  4. Verification queue uses upsert (check→update/insert)
+  5. approveCandidate resolves WA timestamp via DateResolver
+  6. Partial unique index + unique-violation catch prevents concurrent double-posting
+- **Schema additions**: category column on wa_canonical_transactions, partial unique index on wa_posting_results
+- **Sidebar**: editorVisible flag for WA import section+item, editors see only their permitted items
+

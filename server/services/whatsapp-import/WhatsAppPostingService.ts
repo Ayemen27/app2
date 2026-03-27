@@ -209,7 +209,7 @@ export async function postApprovedTransaction(
   }
 
   const amount = safeParseNum(txn.amount);
-  const targetTable = resolveTargetTable(txn.transactionType, null);
+  const targetTable = resolveTargetTable(txn.transactionType, txn.category);
   const dateStr = txn.transactionDate || new Date().toISOString().split('T')[0];
   const projectId = txn.projectId;
 
@@ -302,6 +302,26 @@ export async function postApprovedTransaction(
   } catch (error: any) {
     await client.query('ROLLBACK');
 
+    if (error.code === '23505' && error.constraint?.includes('posting_success')) {
+      const attemptNum = await getNextAttemptNumber(canonicalTransactionId);
+      await db.insert(waPostingResults).values({
+        canonicalTransactionId,
+        targetTable: 'skipped',
+        postingStatus: 'skipped_duplicate',
+        postedBy,
+        attemptNumber: attemptNum,
+        errorMessage: 'concurrent_duplicate_detected',
+      });
+      return {
+        canonicalTransactionId,
+        status: 'skipped_duplicate',
+        targetTable,
+        targetRecordId: null,
+        errorMessage: 'concurrent_duplicate_detected',
+        attemptNumber: attemptNum,
+      };
+    }
+
     const attemptNum = await getNextAttemptNumber(canonicalTransactionId);
     await db.insert(waPostingResults).values({
       canonicalTransactionId,
@@ -329,9 +349,24 @@ export async function postBatchApproved(
   batchId: number,
   postedBy: string
 ): Promise<PostingResult[]> {
+  const batchCandidates = await db.select()
+    .from(waExtractionCandidates)
+    .where(eq(waExtractionCandidates.batchId, batchId));
+
+  const canonicalIds = batchCandidates
+    .filter(c => c.canonicalTransactionId !== null)
+    .map(c => c.canonicalTransactionId!);
+
+  if (canonicalIds.length === 0) return [];
+
   const canonicals = await db.select()
     .from(waCanonicalTransactions)
-    .where(eq(waCanonicalTransactions.status, 'confirmed'));
+    .where(
+      and(
+        sql`${waCanonicalTransactions.id} = ANY(${canonicalIds})`,
+        eq(waCanonicalTransactions.status, 'confirmed')
+      )
+    );
 
   const results: PostingResult[] = [];
   for (const txn of canonicals) {
@@ -360,7 +395,16 @@ export async function approveCandidate(
 
   const beforeState = { matchStatus: c.matchStatus, candidateType: c.candidateType };
 
-  const dateStr = c.createdAt ? formatDateForFingerprint(new Date(c.createdAt)) : null;
+  let dateStr: string | null = null;
+  if (c.sourceMessageId) {
+    try {
+      const waDate = await getTransactionDate(c.sourceMessageId);
+      dateStr = waDate ? formatDateForFingerprint(new Date(waDate)) : null;
+    } catch { /* fallback below */ }
+  }
+  if (!dateStr && c.createdAt) {
+    dateStr = formatDateForFingerprint(new Date(c.createdAt));
+  }
 
   const [canonical] = await db.insert(waCanonicalTransactions).values({
     status: 'confirmed',
@@ -369,6 +413,7 @@ export async function approveCandidate(
     description: c.description,
     transactionDate: dateStr,
     projectId,
+    category: c.category,
     mergedFromCandidates: [c.id],
   }).returning();
 

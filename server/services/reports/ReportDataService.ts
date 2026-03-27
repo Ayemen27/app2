@@ -37,8 +37,11 @@ const SAFE_DATE_EXPR = (col: any) =>
   sql`(CASE WHEN ${col} IS NULL OR ${col}::text = '' OR ${col}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${col}::date END)`;
 
 function safeNum(val: any): number {
-  const n = Number(val);
-  return isNaN(n) ? 0 : n;
+  if (val === null || val === undefined) return 0;
+  const str = String(val).replace(/,/g, '').trim();
+  if (str === '' || str.toLowerCase() === 'nan' || str.toLowerCase().includes('infinity')) return 0;
+  const n = Number(str);
+  return Number.isFinite(n) ? n : 0;
 }
 
 const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;

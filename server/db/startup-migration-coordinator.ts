@@ -79,6 +79,7 @@ export async function runAllStartupMigrations(): Promise<void> {
     console.log("✅ [Migrations] تم تنفيذ جميع migrations بنجاح");
   } catch (error) {
     console.error("❌ [Migrations] خطأ أثناء تنفيذ migrations:", error);
+    throw error;
   } finally {
     if (lockAcquired) {
       await client.query(`SELECT pg_advisory_unlock($1)`, [MIGRATION_LOCK_ID]).catch(() => {});

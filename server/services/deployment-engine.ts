@@ -107,17 +107,23 @@ export class DeploymentEngine {
 
         for (const d of orphaned) {
           if (this.remoteMonitors.has(d.id)) continue;
+          if (this.isDeploymentLocallyActive(d.id)) continue;
 
-          const age = Date.now() - new Date(d.created_at!).getTime();
+          const steps = Array.isArray(d.steps) ? d.steps as StepEntry[] : [];
+          const runningStep = steps.find(s => s.status === "running");
+          const stepStartedAt = runningStep?.startedAt ? new Date(runningStep.startedAt).getTime() : 0;
+          const stepAge = stepStartedAt > 0 ? Date.now() - stepStartedAt : 0;
+          const deploymentAge = Date.now() - new Date(d.created_at!).getTime();
           const isRemote = this.isRemoteStep(d.currentStep || '');
 
           if (isRemote) {
             console.log(`[RecoverySupervisor] Found orphaned deployment #${d.buildNumber} without monitor — starting one`);
             this.startRemoteMonitor(d);
           } else {
+            const effectiveAge = stepAge > 0 ? stepAge : deploymentAge;
             const maxAge = 120000;
-            if (age > maxAge) {
-              const recoveredSteps = (Array.isArray(d.steps) ? d.steps as StepEntry[] : []).map(s => {
+            if (effectiveAge > maxAge) {
+              const recoveredSteps = steps.map(s => {
                 if (s.status === "running") return { ...s, status: "failed" as const };
                 return s;
               });
@@ -125,11 +131,11 @@ export class DeploymentEngine {
                 status: "failed",
                 errorMessage: "توقفت العملية بعد إعادة تشغيل الخادم (خطوة محلية)",
                 endTime: new Date(),
-                duration: age,
+                duration: deploymentAge,
                 steps: recoveredSteps,
               }).where(eq(buildDeployments.id, d.id));
               broadcastGlobalEvent({ type: "deployment_completed", deploymentId: d.id, data: { status: "failed" } });
-              console.log(`[RecoverySupervisor] ❌ Marked local-step deployment #${d.buildNumber} as failed (age: ${Math.round(age / 1000)}s)`);
+              console.log(`[RecoverySupervisor] ❌ Marked local-step deployment #${d.buildNumber} as failed (step age: ${Math.round(effectiveAge / 1000)}s)`);
             }
           }
         }
@@ -284,11 +290,17 @@ export class DeploymentEngine {
   }
 
   private static LOCAL_ONLY_STEPS = new Set<string>([
-    'validate', 'preflight-check', 'sync-version', 'git-push', 'build-web'
+    'validate', 'preflight-check', 'sync-version', 'git-push', 'build-web',
+    'verify', 'prebuild-gate', 'android-readiness', 'apk-integrity', 'post-deploy-smoke'
   ]);
 
   private isRemoteStep(stepName: string): boolean {
     return !DeploymentEngine.LOCAL_ONLY_STEPS.has(stepName);
+  }
+
+  private isDeploymentLocallyActive(deploymentId: string): boolean {
+    const procs = this.activeProcesses.get(deploymentId);
+    return !!procs && procs.size > 0;
   }
 
   async recoverOrphanedDeployments() {
@@ -301,7 +313,16 @@ export class DeploymentEngine {
       console.log(`[DeploymentEngine] وُجدت ${orphaned.length} عملية نشر بحالة "running" — بدء التحقق الذكي...`);
 
       for (const d of orphaned) {
-        const age = Date.now() - new Date(d.created_at!).getTime();
+        if (this.isDeploymentLocallyActive(d.id)) {
+          console.log(`[DeploymentEngine] ⏭️ Deployment #${d.buildNumber} has active local processes — skipping recovery`);
+          continue;
+        }
+
+        const deploymentAge = Date.now() - new Date(d.created_at!).getTime();
+        const steps = Array.isArray(d.steps) ? d.steps as StepEntry[] : [];
+        const runningStep = steps.find(s => s.status === "running");
+        const stepStartedAt = runningStep?.startedAt ? new Date(runningStep.startedAt).getTime() : 0;
+        const effectiveAge = stepStartedAt > 0 ? Date.now() - stepStartedAt : deploymentAge;
         const isRemote = this.isRemoteStep(d.currentStep || '');
         let verified: "success" | "still_running" | "unknown" = "unknown";
 
@@ -309,7 +330,7 @@ export class DeploymentEngine {
           verified = await this.verifyRemoteDeploymentStatus(d);
 
           if (verified === "success") {
-            await this.handleRecoveredSuccess(d, age);
+            await this.handleRecoveredSuccess(d, deploymentAge);
             console.log(`[DeploymentEngine] ✅ Deployment #${d.buildNumber} verified SUCCESS on remote server`);
             continue;
           }
@@ -324,7 +345,7 @@ export class DeploymentEngine {
         }
 
         const maxAge = isRemote ? 1800000 : 120000;
-        if (age > maxAge) {
+        if (effectiveAge > maxAge) {
           const recoveredSteps = (Array.isArray(d.steps) ? d.steps as StepEntry[] : []).map(s => {
             if (s.status === "running") return { ...s, status: "failed" as const };
             return s;
@@ -333,7 +354,7 @@ export class DeploymentEngine {
             status: "failed",
             errorMessage: "توقفت العملية بسبب انتهاء المهلة الزمنية",
             endTime: new Date(),
-            duration: age,
+            duration: deploymentAge,
             steps: recoveredSteps,
           }).where(eq(buildDeployments.id, d.id));
 
@@ -341,13 +362,13 @@ export class DeploymentEngine {
             deploymentId: d.id,
             eventType: "deployment_failed",
             message: "توقفت العملية بسبب انتهاء المهلة الزمنية (recovery)",
-            metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep, age },
+            metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep, stepAge: effectiveAge, deploymentAge },
           });
 
           broadcastGlobalEvent({ type: "deployment_completed", deploymentId: d.id, data: { status: "failed" } });
-          console.log(`[DeploymentEngine] ❌ Deployment #${d.buildNumber} timed out after ${Math.round(age / 60000)}min`);
+          console.log(`[DeploymentEngine] ❌ Deployment #${d.buildNumber} timed out (step age: ${Math.round(effectiveAge / 1000)}s, deployment age: ${Math.round(deploymentAge / 60000)}min)`);
         } else {
-          console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} age=${Math.round(age / 1000)}s — starting background monitor`);
+          console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} effectiveAge=${Math.round(effectiveAge / 1000)}s — starting background monitor`);
           this.startRemoteMonitor(d);
         }
       }
@@ -359,7 +380,12 @@ export class DeploymentEngine {
   private async handleRecoveredSuccess(d: any, age: number) {
     const steps = Array.isArray(d.steps) ? d.steps as StepEntry[] : [];
     const currentStepIdx = steps.findIndex(s => s.name === d.currentStep);
-    const hasRemainingSteps = steps.some((s, idx) => idx > currentStepIdx && s.status === "pending");
+
+    if (currentStepIdx === -1) {
+      console.log(`[DeploymentEngine] handleRecoveredSuccess: currentStep "${d.currentStep}" not found in steps — marking all as success`);
+    }
+
+    const hasRemainingSteps = currentStepIdx >= 0 && steps.some((s, idx) => idx > currentStepIdx && s.status === "pending");
 
     if (hasRemainingSteps && currentStepIdx >= 0) {
       const updatedSteps = steps.map((s, idx) => {
@@ -3835,6 +3861,9 @@ echo 'MAINACTIVITY_FIXED'"`,
       if (deployment.status !== "failed" && deployment.status !== "running") throw new Error("يمكن استئناف عمليات النشر الفاشلة أو المعلقة فقط");
 
       if (deployment.status === "running") {
+        if (this.isDeploymentLocallyActive(deploymentId)) {
+          throw new Error("هذه العملية لا تزال نشطة محلياً — لا يمكن استئنافها. انتظر حتى تنتهي أو قم بإلغائها أولاً.");
+        }
         this.stopRemoteMonitor(deploymentId);
       }
 

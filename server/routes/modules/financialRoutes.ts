@@ -4204,17 +4204,14 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       today_total_expenses: String(todayTotalExpenses),
     };
 
-    const projectIds = summariesResult.rows.map((s: any) => s.project_id);
-    if (projectIds.length === 0) {
-      const missingNames = await pool.query(
-        `SELECT id, name FROM projects WHERE id = ANY($1)`,
-        [Array.from(allProjectIds)]
-      );
+    const allKnownProjectIds = Array.from(allProjectIds);
+    const missingFromSummaries = allKnownProjectIds.filter(pid => !summariesResult.rows.some((s: any) => s.project_id === pid));
+    if (missingFromSummaries.length > 0) {
+      const missingNames = await pool.query(`SELECT id, name FROM projects WHERE id = ANY($1)`, [missingFromSummaries]);
       for (const r of missingNames.rows) projectNameMap[r.id] = r.name;
-
-      const cumulativeOnly = Array.from(allProjectIds).map((pid) => {
+      for (const pid of missingFromSummaries) {
         const cum = cumulativeMap[pid];
-        return {
+        summariesResult.rows.push({
           project_id: pid,
           project_name: projectNameMap[pid] || pid,
           total_income: '0', total_expenses: '0', remaining_balance: '0',
@@ -4224,10 +4221,16 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
           cumulative_funds: String(cum?.cumulative_funds || 0),
           cumulative_expenses: String(cum?.cumulative_expenses || 0),
           cumulative_balance: String(cum?.cumulative_balance || 0),
-        };
-      });
-      return sendSuccess(res, { summaries: cumulativeOnly, globalTotals, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
+        });
+      }
     }
+
+    const projectIds = summariesResult.rows.filter((s: any) => num(s.total_expenses) > 0 || num(s.total_fund_transfers) > 0).map((s: any) => s.project_id);
+    if (projectIds.length === 0) {
+      return sendSuccess(res, { summaries: summariesResult.rows, globalTotals, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
+    }
+
+    function num(v: any) { return parseFloat(v) || 0; }
 
     const [workersR, transportR, miscR, fundsR, purchasesR, workerTransfersR] = await Promise.all([
       pool.query(

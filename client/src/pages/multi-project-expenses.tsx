@@ -55,9 +55,6 @@ export default function MultiProjectExpenses() {
   const prevDate = () => { const d = new Date(selectedDate); d.setDate(d.getDate() - 1); setSelectedDate(d.toISOString().split("T")[0]); };
   const goToToday = () => setSelectedDate(getCurrentDate());
 
-  const { data: projectsData } = useQuery<{ data: any[] }>({ queryKey: ["/api/projects"] });
-  const allProjects = useMemo(() => (projectsData?.data || []).map((p: any) => ({ id: p.id, name: p.name })), [projectsData]);
-
   const { data, isLoading } = useQuery<{ data: ApiData }>({
     queryKey: ["/api/multi-project-expenses", selectedDate],
     queryFn: async () => { const r = await fetch(`/api/multi-project-expenses?date=${selectedDate}`); if (!r.ok) throw new Error("fail"); return r.json(); },
@@ -66,13 +63,18 @@ export default function MultiProjectExpenses() {
   const apiData = data?.data;
   const hasSelection = selectedProjectIds.size > 0;
 
+  const allProjects = useMemo(() => {
+    const all = apiData?.summaries || [];
+    const map = new Map<string, string>();
+    for (const s of all) map.set(s.project_id, s.project_name);
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [apiData]);
+
   const summaries = useMemo(() => {
     const all = apiData?.summaries || [];
     if (!hasSelection) return [];
     return all.filter(s => selectedProjectIds.has(s.project_id));
   }, [apiData, selectedProjectIds, hasSelection]);
-
-  const projectsWithData = useMemo(() => new Set((apiData?.summaries || []).map(s => s.project_id)), [apiData]);
 
   const toggleProject = (id: string) => {
     setSelectedProjectIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });

@@ -11,15 +11,17 @@ Build the intelligent extraction engine that analyzes parsed WhatsApp messages a
   - Pattern 4: Image+context clustering (receipt image + explanatory text within ±2 messages/15 min = ONE transaction) — confidence: 0.85
   - Pattern 5: Running total detector (اجمالي الحساب) — marks as excluded (non-transaction)
   - Pattern 6: Work conversation filter (construction planning without payment) — marks as excluded
-  - Special Type A: Inter-contractor loan detector — detects money borrowed/lent between contractors, flags as "loan" type with mandatory review
-  - Special Type B: Personal account flag — detects amounts recorded on عمار's personal account for another project, flags with "personal_account" marker
+  - Special Type A: Inter-contractor loan detector — detects money borrowed/lent between contractors, flags as candidate_type="loan" with mandatory review
+  - Special Type B: Personal account flag — detects amounts recorded on عمار's personal account for another project, flags with candidate_type="personal_account"
+  - Special Type C: Custodian fund receipt — detects amounts sent to ANY of the 3 custodians (عمار الشيعي, عدنان/ابو فارس, العباسي), flags with candidate_type="custodian_receipt"
+  - Special Type D: Settlement message parser (تصفية) — detects settlement/reconciliation messages from custodians (especially العباسي's تصفية in chat), parses itemized disbursements, flags with candidate_type="settlement"
 - Deterministic confidence scoring rubric (exact values, no ranges):
-  - Base scores: Pattern1(structured_receipt)=0.95, Pattern2(inline_expense)=0.80, Pattern3(multiline_list)=0.75, Pattern4(image_context)=0.85, SpecialA(loan)=0.60, SpecialB(personal)=0.65
+  - Base scores: Pattern1(structured_receipt)=0.95, Pattern2(inline_expense)=0.80, Pattern3(multiline_list)=0.75, Pattern4(image_context)=0.85, SpecialA(loan)=0.60, SpecialB(personal_account)=0.65, SpecialC(custodian_receipt)=0.85, SpecialD(settlement)=0.80
   - Penalties (boolean, applied if true): missing_date=-0.10, ambiguous_project=-0.10, amount_below_1000=-0.05, no_supporting_image=-0.05, ambiguous_worker_name=-0.05
   - Bonuses (boolean, applied if true): has_transfer_number=+0.05, has_supporting_image=+0.05, explicit_project_mention=+0.05, explicit_amount_with_currency=+0.03
   - Formula: final = clamp(base + sum(bonuses) - sum(penalties), 0.0, 1.0)
   - Score breakdown stored per candidate for auditability
-- Each extracted candidate stored in wa_extraction_candidates with: amount, currency (always YER), description, confidence score, source pattern, linked evidence, category, candidate_type (expense/transfer/loan/personal)
+- Each extracted candidate stored in wa_extraction_candidates with: amount, currency (always YER), description, confidence score, source pattern, linked evidence, category, candidate_type enum: expense/transfer/loan/personal_account/custodian_receipt/settlement
 - Context clustering links messages and images into transaction groups via wa_transaction_evidence_links
 - Project inference with 4-project disambiguation matrix:
   - "الجراحي" + contractor context → either "مشروع ابار الجراحي زين العابدين" (6c9d8a97) OR "ابار الجراحي المهندس محمد" (00735182)
@@ -62,9 +64,13 @@ Build the intelligent extraction engine that analyzes parsed WhatsApp messages a
 
 8. **Build personal account flag detector** — Identify amounts recorded on عمار's personal account for work on another project. Flag with candidate_type="personal_account" for separate tracking.
 
-9. **Build expense categorization engine** — Classify extracted transactions into categories matching existing material_purchases schema fields (material_category, material_name). Map to target ERP table: structured transfers → fund_transfers, materials → material_purchases, labor → worker expenses, misc → daily_expense_summaries.
+9. **Build custodian fund receipt detector** — Identify amounts sent to ANY of the 3 custodians: عمار الشيعي (all projects), عدنان/ابو فارس (الجراحي only), العباسي (temporary period with زين). For عدنان: if no details → candidate_type="custodian_receipt" routed to fund_transfer. Unsettled amounts → expense on his account with "pending settlement" note. For العباسي: detect his settlement (تصفية) message in chat and parse as itemized reconciliation.
 
-10. **Implement deterministic confidence scoring** — Apply the rubric: base score per pattern, penalties for missing data, bonuses for supporting evidence. Log scoring breakdown for auditability.
+10. **Build settlement message parser (تصفية)** — Parse structured settlement messages from custodians (العباسي sent one in chat). Extract: list of disbursements, amounts, dates, recipients. Create candidates with candidate_type="settlement" that reconcile against previously recorded custodian receipts.
+
+11. **Build expense categorization engine** — Classify extracted transactions into categories matching existing material_purchases schema fields (material_category, material_name). Map to target ERP table: structured transfers → fund_transfers, materials → material_purchases, labor → worker expenses, misc → daily_expense_summaries.
+
+12. **Implement deterministic confidence scoring** — Apply the rubric: base score per pattern, penalties for missing data, bonuses for supporting evidence. Log scoring breakdown for auditability.
 
 ## Relevant files
 - `shared/schema.ts`

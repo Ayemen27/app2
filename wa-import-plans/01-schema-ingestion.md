@@ -41,9 +41,24 @@ Build the foundational database schema and ingestion service for importing Whats
 
 3. **Build ZIP ingestion service with security** — Accept uploaded ZIP, validate file size (max 500MB), defend against ZIP-slip (path traversal), extract to temp directory, validate MIME types of extracted files, identify chat TXT file, catalogue all media files with SHA256 hashes, store in wa_media_assets, link to parent messages by filename match. Clean up temp files after processing.
 
-4. **Seed worker aliases with worker_id linking** — Create wa_worker_aliases entries for known aliases linked to actual worker IDs from the workers table: سمهرير(worker_id)↔النخرة, عمي احمد(worker_id)↔الحج احمد, العباسي(worker_id)↔عبداللة العباسي. Include API to add/edit/delete aliases. Resolve aliases to canonical worker_id in all lookups.
+4. **Create missing workers and seed aliases** — First, create two workers that don't exist yet: (a) "عدنان محمد حسين حمدين" — volunteer supervisor الجراحي, alias: ابو فارس, (b) "عبداللة العباسي" — worker, temporary supervisor with زين (DIFFERENT person from عبدالله عمر يوسف). Then seed wa_worker_aliases with ALL known aliases linked to worker IDs:
+   - النخرة → سمهرير (`6066edb5`)
+   - عمي احمد → الحج احمد (`51165865`)
+   - سعيد → سعيد الحداد (`w004-سعيد`)
+   - عبدالله الخلاطة → عبدالله سواق الخلاطة (`47f0c37a`)
+   - عمال الحفر → عمال حفر (`1389a5ea`)
+   - عمال الصبة → عمال الصبة (`2943956a`)
+   - نجار باجل → نجار من باجل (`78c1e5ab`)
+   - ناجي / ناجي المساعد → ناجي مساعد نحار (`0350b938`)
+   - حسن النجار / حسن → محمد حسن نجار (`d9f327e5`)
+   - ابو فارس → عدنان محمد حسين حمدين (newly created)
+   Include API to add/edit/delete aliases. Resolve aliases to canonical worker_id in all lookups.
 
-5. **Build custodian ledger table and service** — wa_custodian_entries tracks funds for TWO custodians: (a) عمار الشيعي (worker_id=w002-عمار) — primary custodian for all projects, and (b) عدنان — site supervisor at الجراحي, receives funds and disburses on-site (NOT IN DB YET — must be created as a worker during ingestion setup). Track: custodian_worker_id, received_amount, disbursed_amount, settled_amount, settlement_date, linked_batch_id, project_id. Include flags for "recorded on personal account for another project".
+5. **Build custodian ledger table and service** — wa_custodian_entries tracks funds for THREE custodians:
+   (a) عمار الشيعي (worker_id=w002-عمار) — primary custodian for ALL projects
+   (b) عدنان محمد حسين حمدين (newly created) — volunteer supervisor الجراحي ONLY. No salary. Undetailed amounts → fund_transfer. Unsettled amounts → expense on his account with "pending settlement" note and "بدون عمل" flag
+   (c) العباسي (newly created) — temporary custodian during specific period with زين. Has settlement (تصفية) message in chat that must be parsed as final reconciliation
+   Track: custodian_worker_id, received_amount, disbursed_amount, settled_amount, settlement_date, linked_batch_id, project_id. Include flags for "recorded on personal account" and "pending settlement".
 
 6. **Create import API endpoints with RBAC** — POST /api/wa-import/upload (ZIP, admin/editor only), GET /api/wa-import/batches, GET /api/wa-import/batch/:id/messages, GET /api/wa-import/batch/:id/media. Protected by existing auth middleware with role checks. Input validation on all endpoints.
 

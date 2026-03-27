@@ -70,19 +70,38 @@ grep "wa_" shared/schema.ts | head -20
 ### Key Personnel & Roles
 | Name in Chat | Name in DB | Worker ID | Role |
 |---|---|---|---|
-| عمار / المهندس عمار | عمار الشيعي | `w002-عمار` | Custodian (أمين عهدة) — receives & disburses funds. Primary custodian for all projects. |
-| عدنان | NOT IN DB — must be created | N/A | Site supervisor (مشرف) at الجراحي project. Receives funds and disburses them on-site. Second custodian, specific to Jarahi. |
+| عمار / المهندس عمار | عمار الشيعي | `w002-عمار` | Primary Custodian (أمين عهدة) — receives & disburses funds for ALL projects |
+| عدنان / ابو فارس | NOT IN DB — must be created as "عدنان محمد حسين حمدين" | N/A | Volunteer supervisor (مشرف متطوع) at الجراحي ONLY. Beneficiary from wells project (مستفيد من كشف الابار). Receives funds and disburses on-site. Does NOT receive salary. Unsettled amounts on his account until cleared. |
+| العباسي / عبداللة العباسي | NOT IN DB — must be created | N/A | Worker. Temporarily acted as supervisor with زين العابدين — received عهدة and disbursed to workers. Sent settlement (تصفية) via WhatsApp chat. DIFFERENT from عبدالله عمر يوسف. |
 | زين العابدين / زين | (contractor, not a worker) | N/A | Contractor — concrete foundations & materials. Chat counterparty. |
 | المهندس محمد / محمد الفتيني | (contractor, not a worker) | N/A | Contractor — platform/panel installation. Brother of زين. |
-| زين صالح الفتيني | (same family as المهندس محمد) | N/A | Brother of المهندس محمد الفتيني (the contractor) |
+| زين صالح الفتيني | (same family) | N/A | Brother of المهندس محمد الفتيني (the contractor) |
+
+### Workers Who Must Be Created During Setup
+1. **عدنان محمد حسين حمدين** — volunteer supervisor الجراحي, alias: ابو فارس
+2. **عبداللة العباسي** — worker, temporary supervisor with زين
 
 ### Worker Aliases (Names in Chat → Canonical DB Records)
-| Alias in Chat | Canonical Name in DB | Worker ID |
-|---|---|---|
-| النخرة | سمهرير | `6066edb5-8774-4d78-a459-b538fc49fa9f` |
-| عمي احمد | الحج احمد | `51165865-8406-4499-a020-2e71d8a5f78b` |
-| العباسي | عبدالله عمر يوسف | `4b95919a-02e7-42ce-a4af-bce15d982ed7` |
-| سعيد | سعيد الحداد | `w004-سعيد` |
+| Alias in Chat | Canonical Name in DB | Worker ID | Notes |
+|---|---|---|---|
+| النخرة | سمهرير | `6066edb5-8774-4d78-a459-b538fc49fa9f` | |
+| عمي احمد | الحج احمد | `51165865-8406-4499-a020-2e71d8a5f78b` | |
+| سعيد | سعيد الحداد | `w004-سعيد` | |
+| عبدالله الخلاطة | عبدالله سواق الخلاطة | `47f0c37a-a6fd-46d6-a02b-cc2fb5523163` | |
+| عمال الحفر | عمال حفر | `1389a5ea-a685-4bd2-9e8d-88ea87f0abad` | Group worker |
+| عمال الصبة | عمال الصبة | `2943956a-ef00-4993-b3d1-dde7ffbe7cc9` | Group worker |
+| نجار باجل | نجار من باجل | `78c1e5ab-0d39-441b-9053-76d6df68aa93` | |
+| ناجي / ناجي المساعد | ناجي مساعد نحار | `0350b938-bfee-4022-8a89-c3b93a427555` | Carpenter assistant |
+| حسن النجار / حسن | محمد حسن نجار | `d9f327e5-bc42-4305-ad06-046d12ca6fb6` | Carpenter, worked in الجراحي and التحيتا |
+| ابو فارس | عدنان محمد حسين حمدين | (to be created) | Volunteer supervisor |
+
+### Custodian Fund Handling Rules
+1. **عمار الشيعي** — full custodian (أمين عهدة). All unspecified amounts = fund_transfers. Settlement messages contain itemized disbursements.
+2. **عدنان (ابو فارس)** — volunteer, NO salary. If amount has no details → register as fund_transfer (حوالة دخل). Unsettled amounts → register as expense on his account with note "pending settlement" (حتى يتم تصفيته). Record reason why it's on his account. Mark as "بدون عمل" (no work performed for payment).
+3. **العباسي** — temporary custodian during specific period with زين. Sent settlement (تصفية) in chat. Handle settlement message as final reconciliation of his عهدة.
+
+### Carpenter Debt Note (Important)
+عمار الشيعي, when managing funds in الجراحي, entered carpenter debts under محمد حسن نجار's account (worker ID: d9f327e5-bc42-4305-ad06-046d12ca6fb6). This may affect reconciliation — some expenses attributed to محمد حسن may actually be for other carpenters in الجراحي (بدر نجار الجراحي, نجار الجراحي, نجار الجراحي رقم 2, مساعد نحار الجراحي, etc.).
 
 ### Existing Financial Records (For Dedup Matching)
 | Table | Count | Across Projects |

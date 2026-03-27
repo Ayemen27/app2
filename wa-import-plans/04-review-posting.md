@@ -31,7 +31,10 @@ Build the review dashboard for human verification of extracted transactions and 
   - Supports dry-run mode (preview what would be posted without writing, shows full posting plan)
   - RBAC: only admin role can trigger posting
 - **Worker alias management UI** — view, add, edit, delete worker name aliases. Shows canonical name + all aliases + linked worker_id. data-testid on all interactive elements.
-- **Custodian ledger view** — timeline showing عمار الشيعي's fund receipt/disbursement/settlement history with running balance. Links to posted transactions.
+- **Custodian ledger view for ALL 3 custodians** — Tabbed/selectable view for each custodian:
+  - عمار الشيعي: timeline of receipts/disbursements/settlements across all projects with running balance. Links to posted transactions. Separate section for personal-account entries.
+  - عدنان محمد حسين حمدين (ابو فارس): الجراحي only. Show receipts, disbursements, unsettled amounts with "pending settlement" flag. No salary entries.
+  - العباسي (عبداللة العباسي): temporary custodian period. Show receipts, disbursements, and تصفية (settlement) with final balance (should be zero after settlement).
 - **Inter-contractor loan view** — shows identified loans between contractors with match status.
 
 ## Out of scope
@@ -53,7 +56,7 @@ Build the review dashboard for human verification of extracted transactions and 
 
 6. **Build worker alias management** — CRUD UI for managing worker name aliases. Show current mappings (alias → canonical worker name + ID), search workers to link, validate no duplicate aliases. data-testid on all elements.
 
-7. **Build custodian ledger view** — Timeline/table showing: date, amount received, amount disbursed, settlement reference, running balance. Filter by date range. Highlight unsettled amounts. Link disbursements to their posted transactions.
+7. **Build custodian ledger view for ALL 3 custodians** — Tabbed interface to select custodian (عمار الشيعي, عدنان/ابو فارس, العباسي). For each: timeline/table showing date, amount received, amount disbursed, settlement reference, running balance. Filter by date range. Highlight unsettled amounts. For عدنان: show "pending settlement" and "بدون عمل" flags. For العباسي: show تصفية with zero-balance confirmation. Link disbursements to their posted transactions. data-testid on all elements.
 
 8. **Build inter-contractor loan view** — Table showing identified loans: date, amount, from_contractor, to_contractor, matched_status (balanced/unbalanced), linked transactions.
 

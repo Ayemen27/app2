@@ -58,6 +58,7 @@ const pageInfo: Record<string, { title: string; icon: any }> = {
   '/whatsapp-setup': { title: 'ربط الواتساب', icon: MessageSquare },
   '/admin/permissions': { title: 'إدارة الصلاحيات', icon: Lock },
   '/worker-settlements': { title: 'تصفية حساب العمال', icon: Scale },
+  '/wa-import': { title: 'استيراد واتساب', icon: MessageSquare },
 };
 
 export default function Header() {

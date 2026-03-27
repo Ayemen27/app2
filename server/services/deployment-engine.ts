@@ -409,6 +409,7 @@ export class DeploymentEngine {
         version: d.version || undefined,
         triggeredBy: d.triggeredBy || undefined,
         buildTarget: ((d as any).buildTarget as "server" | "local") || "server",
+        deployerToken: (d as any).deployerToken || undefined,
       };
 
       this.runPipelineFromStep(d.id, config, currentStepIdx + 1).catch(err => {
@@ -536,8 +537,12 @@ export class DeploymentEngine {
       const buildNum = deployment.buildNumber || deployment.build_number || 0;
       const pipelineType = deployment.pipeline || deployment.pipelineType || "";
 
-      const includesWeb = pipelineType.includes("web") || pipelineType.includes("full");
-      const includesAndroid = pipelineType.includes("android") || pipelineType.includes("full");
+      const PIPELINE_WEB_TYPES = new Set(["web-deploy", "full-deploy", "hotfix", "git-push"]);
+      const PIPELINE_ANDROID_TYPES = new Set(["android-build", "full-deploy", "git-android-build", "android-build-test"]);
+      const PIPELINE_ROLLBACK_TYPE = "rollback";
+      const isRollback = pipelineType === PIPELINE_ROLLBACK_TYPE;
+      const includesWeb = isRollback ? true : PIPELINE_WEB_TYPES.has(pipelineType);
+      const includesAndroid = isRollback ? false : PIPELINE_ANDROID_TYPES.has(pipelineType);
 
       console.log(`[DeploymentEngine] verifyRemote: v=${version} build=${buildNum} pipeline=${pipelineType} web=${includesWeb} android=${includesAndroid}`);
 
@@ -907,7 +912,10 @@ export class DeploymentEngine {
             const timeoutMs = getStepTimeout(stepName);
             await Promise.race([
               this.executeStep(deploymentId, stepName, config),
-              new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`)), timeoutMs)),
+              new Promise<never>((_, reject) => setTimeout(() => {
+                this.terminateActiveProcesses(deploymentId);
+                reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`));
+              }, timeoutMs)),
             ]);
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
@@ -942,13 +950,23 @@ export class DeploymentEngine {
       }
 
       const totalDuration = Date.now() - startTime;
-      await this.updateDeployment(deploymentId, {
+
+      if (this.isCancelled(deploymentId)) {
+        throw new CancellationError();
+      }
+
+      const [successResult] = await db.update(buildDeployments).set({
         status: "success",
         progress: 100,
         currentStep: "complete",
         duration: totalDuration,
         endTime: new Date(),
-      });
+      }).where(sql`${buildDeployments.id} = ${deploymentId} AND ${buildDeployments.status} = 'running'`).returning({ id: buildDeployments.id });
+
+      if (!successResult) {
+        await this.addLog(deploymentId, "⚠️ تم إلغاء العملية أثناء الاكتمال — لن يتم تسجيل النجاح", "warn");
+        return;
+      }
 
       const summary = logger.generateSummaryWithContext("success", {
         pipeline: config.pipeline,
@@ -1100,6 +1118,17 @@ export class DeploymentEngine {
 
   private sanitizeShellArg(value: string): string {
     return value.replace(/[^a-zA-Z0-9._\-@\/]/g, '').replace(/\.\./g, '');
+  }
+
+  private validatePath(value: string, label: string): string {
+    const cleaned = value.replace(/\.\./g, '');
+    if (/[`$;|&(){}\[\]!~<>'"\\#\n\r\0]/.test(cleaned)) {
+      throw new Error(`${label} يحتوي على محارف غير آمنة: ${cleaned}`);
+    }
+    if (cleaned.length === 0 || cleaned.length > 256) {
+      throw new Error(`${label} غير صالح (طول ${cleaned.length})`);
+    }
+    return cleaned;
   }
 
   private sshKeyProvisioned = false;
@@ -1279,12 +1308,12 @@ export class DeploymentEngine {
     const authMethod = this.getSSHAuthMethod();
 
     if (authMethod === "key") {
-      const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
-      const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+      const keyPath = this.validatePath(process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key", "SSH_KEY_PATH");
+      const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
       return `ssh -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
     }
 
-    const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+    const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
     if (this.knownHostsReady) {
       return `sshpass -e ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=20 -p ${port} ${user}@${host}`;
     }
@@ -1299,12 +1328,12 @@ export class DeploymentEngine {
     const authMethod = this.getSSHAuthMethod();
 
     if (authMethod === "key") {
-      const keyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
-      const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+      const keyPath = this.validatePath(process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key", "SSH_KEY_PATH");
+      const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
       return `scp -i ${keyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
     }
 
-    const knownHostsPath = process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts";
+    const knownHostsPath = this.validatePath(process.env.SSH_KNOWN_HOSTS_PATH || "/home/runner/.ssh/known_hosts", "SSH_KNOWN_HOSTS_PATH");
     if (this.knownHostsReady) {
       return `sshpass -e scp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsPath} -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
     }
@@ -3714,7 +3743,6 @@ echo 'MAINACTIVITY_FIXED'"`,
       targetDeployment = deployment;
     }
 
-    const rollbackBuildNumber = await this.getNextBuildNumber();
     const steps: StepEntry[] = [
       { name: "validate", status: "pending" },
       { name: "rollback-server", status: "pending" },
@@ -3733,6 +3761,8 @@ echo 'MAINACTIVITY_FIXED'"`,
       if (running.length > 0) {
         throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
       }
+
+      const rollbackBuildNumber = await this.getNextBuildNumber();
 
       return tx.insert(buildDeployments).values({
         buildNumber: rollbackBuildNumber,
@@ -3827,6 +3857,12 @@ echo 'MAINACTIVITY_FIXED'"`,
       const health = await this.checkServerHealth();
       await this.updateDeployment(rollbackId, { serverHealthResult: health, commitHash: targetCommit });
       await this.addLog(rollbackId, `Health check: ${health.status}`, health.status === "healthy" ? "success" : "warn");
+
+      if (health.status === "down" || health.status === "error") {
+        await this.updateStepStatus(rollbackId, "verify", "failed", Date.now() - startTime);
+        throw new Error(`فشل فحص الصحة بعد التراجع: الخادم ${health.status}`);
+      }
+
       await this.updateStepStatus(rollbackId, "verify", "success", Date.now() - startTime);
 
       await this.updateDeployment(rollbackId, {
@@ -3937,6 +3973,7 @@ echo 'MAINACTIVITY_FIXED'"`,
         version: deployment.version || undefined,
         triggeredBy: deployment.triggeredBy || undefined,
         buildTarget: ((deployment as any).buildTarget as "server" | "local") || "server",
+        deployerToken: (deployment as any).deployerToken || undefined,
       };
 
       this.runPipelineFromStep(deploymentId, config, firstFailedIdx).catch(err => {
@@ -3984,7 +4021,10 @@ echo 'MAINACTIVITY_FIXED'"`,
             const timeoutMs = getStepTimeout(stepName);
             await Promise.race([
               this.executeStep(deploymentId, stepName, config),
-              new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`)), timeoutMs)),
+              new Promise<never>((_, reject) => setTimeout(() => {
+                this.terminateActiveProcesses(deploymentId);
+                reject(new Error(`⏱️ الخطوة ${stepName} تجاوزت الحد الزمني (${timeoutMs/1000}ث)`));
+              }, timeoutMs)),
             ]);
             const stepDuration = Date.now() - stepStart;
             await this.updateStepStatus(deploymentId, stepName, "success", stepDuration);
@@ -4159,17 +4199,34 @@ echo 'MAINACTIVITY_FIXED'"`,
     broadcastGlobalEvent({ type: "deployment_cancelled", deploymentId, data: { id: deploymentId, status: "cancelled" } });
   }
 
+  private static DOWNLOAD_TOKEN_EXPIRY_MS = 3600000;
+
   generateDownloadToken(deploymentId: string): string {
     const secret = process.env.APP_SECRET || process.env.SESSION_SECRET;
     if (!secret) {
       throw new Error("APP_SECRET أو SESSION_SECRET مطلوب لتوليد رمز التحميل");
     }
-    const timestamp = Date.now().toString();
+    const expiresAt = (Date.now() + DeploymentEngine.DOWNLOAD_TOKEN_EXPIRY_MS).toString();
     const hash = createHmac("sha256", secret)
-      .update(`${deploymentId}:${timestamp}`)
+      .update(`${deploymentId}:${expiresAt}`)
       .digest("hex")
       .substring(0, 32);
-    return `${timestamp}.${hash}`;
+    return `${expiresAt}.${hash}`;
+  }
+
+  verifyDownloadToken(deploymentId: string, token: string): boolean {
+    const secret = process.env.APP_SECRET || process.env.SESSION_SECRET;
+    if (!secret) return false;
+    const parts = token.split(".");
+    if (parts.length !== 2) return false;
+    const [expiresAt, hash] = parts;
+    const expiry = parseInt(expiresAt, 10);
+    if (isNaN(expiry) || Date.now() > expiry) return false;
+    const expectedHash = createHmac("sha256", secret)
+      .update(`${deploymentId}:${expiresAt}`)
+      .digest("hex")
+      .substring(0, 32);
+    return hash === expectedHash;
   }
 
   registerSSEClient(deploymentId: string, res: Response) {

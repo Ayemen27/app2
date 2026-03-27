@@ -581,6 +581,31 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       }))
     ];
 
+    let stmtSettlementFilter = '';
+    const stmtSettlementParams: any[] = [worker_id];
+    let stmtParamIdx = 2;
+    if (project_id && project_id !== 'all') {
+      stmtSettlementFilter += ` AND (wsl.from_project_id = $${stmtParamIdx} OR wsl.to_project_id = $${stmtParamIdx})`;
+      stmtSettlementParams.push(project_id);
+      stmtParamIdx++;
+    } else if (!isAdminUser && accessibleIds.length > 0) {
+      const ph = accessibleIds.map((_: string, i: number) => `$${stmtParamIdx + i}`).join(',');
+      stmtSettlementFilter += ` AND (wsl.from_project_id IN (${ph}) OR wsl.to_project_id IN (${ph}))`;
+      stmtSettlementParams.push(...accessibleIds);
+      stmtParamIdx += accessibleIds.length;
+    } else if (!isAdminUser) {
+      stmtSettlementFilter += ' AND 1=0';
+    }
+    if (dateFrom) {
+      stmtSettlementFilter += ` AND ws.settlement_date >= $${stmtParamIdx}`;
+      stmtSettlementParams.push(dateFrom);
+      stmtParamIdx++;
+    }
+    if (dateTo) {
+      stmtSettlementFilter += ` AND ws.settlement_date <= $${stmtParamIdx}`;
+      stmtSettlementParams.push(dateTo);
+      stmtParamIdx++;
+    }
     const settlementRes = await pool.query(`
       SELECT wsl.amount, ws.settlement_date,
         fp.name AS from_project_name, tp.name AS to_project_name
@@ -589,10 +614,9 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       LEFT JOIN projects fp ON fp.id = wsl.from_project_id
       LEFT JOIN projects tp ON tp.id = wsl.to_project_id
       WHERE wsl.worker_id = $1 AND ws.status = 'completed'
-      ${dateFrom ? `AND ws.settlement_date >= $2` : ''}
-      ${dateTo ? `AND ws.settlement_date <= $${dateFrom ? '3' : '2'}` : ''}
+      ${stmtSettlementFilter}
       ORDER BY ws.settlement_date
-    `, [worker_id, ...(dateFrom ? [dateFrom] : []), ...(dateTo ? [dateTo] : [])]);
+    `, stmtSettlementParams);
 
     for (const s of settlementRes.rows) {
       const amt = parseFloat(s.amount) || 0;

@@ -1073,7 +1073,7 @@ export class DatabaseStorage implements IStorage {
   async getWorkerAttendance(project_id: string, date?: string): Promise<WorkerAttendance[]> {
     if (date) {
       const result = await db.select().from(workerAttendance)
-        .where(and(eq(workerAttendance.project_id, project_id), eq(workerAttendance.date, date)));
+        .where(and(eq(workerAttendance.project_id, project_id), sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${date}`));
       return result;
     } else {
       const result = await db.select().from(workerAttendance)
@@ -1092,7 +1092,7 @@ export class DatabaseStorage implements IStorage {
     const existingAttendance = await db.select().from(workerAttendance)
       .where(and(
         eq(workerAttendance.worker_id, attendance.worker_id),
-        eq(workerAttendance.date, attendance.date ?? ''),
+        sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${attendance.date ?? ''}`,
         eq(workerAttendance.project_id, attendance.project_id)
       ));
     
@@ -2006,16 +2006,16 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (dateFrom) {
-        attendanceConditions.push(gte(workerAttendance.date, dateFrom));
+        attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`);
       }
       
       if (dateTo) {
-        attendanceConditions.push(lte(workerAttendance.date, dateTo));
+        attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`);
       }
       
       const attendanceData = await db.select().from(workerAttendance)
         .where(and(...attendanceConditions))
-        .orderBy(workerAttendance.date);
+        .orderBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`);
 
       // جلب بيانات المشاريع المرتبطة بالحضور
       const projectsMap = new Map();
@@ -2129,16 +2129,16 @@ export class DatabaseStorage implements IStorage {
       ];
       
       if (dateFrom) {
-        attendanceConditions.push(gte(workerAttendance.date, dateFrom));
+        attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`);
       }
       
       if (dateTo) {
-        attendanceConditions.push(lte(workerAttendance.date, dateTo));
+        attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`);
       }
       
       const attendanceData = await db.select().from(workerAttendance)
         .where(and(...attendanceConditions))
-        .orderBy(workerAttendance.date);
+        .orderBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`);
       
       const projectsMap = new Map();
       if (project_ids.length > 0) {
@@ -2252,11 +2252,11 @@ export class DatabaseStorage implements IStorage {
       let projectConditions = [eq(workerAttendance.worker_id, worker_id)];
       
       if (dateFrom) {
-        projectConditions.push(gte(workerAttendance.date, dateFrom));
+        projectConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`);
       }
       
       if (dateTo) {
-        projectConditions.push(lte(workerAttendance.date, dateTo));
+        projectConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`);
       }
       
       // الحصول على المشاريع المميزة
@@ -2283,9 +2283,9 @@ export class DatabaseStorage implements IStorage {
       let allBalancesData: WorkerBalance[] = [];
 
       if (distinctProjectIds.length > 0) {
-        const attendanceConditions: ReturnType<typeof eq>[] = [eq(workerAttendance.worker_id, worker_id), inArray(workerAttendance.project_id, distinctProjectIds)];
-        if (dateFrom) attendanceConditions.push(gte(workerAttendance.date, dateFrom));
-        if (dateTo) attendanceConditions.push(lte(workerAttendance.date, dateTo));
+        const attendanceConditions: any[] = [eq(workerAttendance.worker_id, worker_id), inArray(workerAttendance.project_id, distinctProjectIds)];
+        if (dateFrom) attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`);
+        if (dateTo) attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`);
 
         const transferConditions: ReturnType<typeof eq>[] = [eq(workerTransfers.worker_id, worker_id), inArray(workerTransfers.project_id, distinctProjectIds)];
         if (dateFrom) transferConditions.push(gte(workerTransfers.transferDate, dateFrom));
@@ -2293,7 +2293,7 @@ export class DatabaseStorage implements IStorage {
 
         [allProjectsData, allAttendanceData, allTransfersData, allBalancesData] = await Promise.all([
           db.select().from(projects).where(inArray(projects.id, distinctProjectIds)),
-          db.select().from(workerAttendance).where(and(...attendanceConditions)).orderBy(workerAttendance.date),
+          db.select().from(workerAttendance).where(and(...attendanceConditions)).orderBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`),
           db.select().from(workerTransfers).where(and(...transferConditions)).orderBy(workerTransfers.transferDate),
           db.select().from(workerBalances).where(and(
             eq(workerBalances.worker_id, worker_id),
@@ -2388,10 +2388,10 @@ export class DatabaseStorage implements IStorage {
         .where(and(
           eq(workerAttendance.worker_id, worker_id),
           eq(workerAttendance.project_id, project_id),
-          gte(workerAttendance.date, dateFrom),
-          lte(workerAttendance.date, dateTo)
+          sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`,
+          sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`
         ))
-        .orderBy(workerAttendance.date);
+        .orderBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`);
     } catch (error) {
       console.error('Error getting worker attendance for period:', error);
       return [];
@@ -2860,7 +2860,7 @@ export class DatabaseStorage implements IStorage {
     const workerWages = await db.select({
       id: workerAttendance.id,
       project_id: workerAttendance.project_id,
-      date: workerAttendance.date,
+      date: sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`.as('date'),
       category: sql`'عمالة'`.as('category'),
       subcategory: workers.type,
       description: workers.name,
@@ -2873,8 +2873,8 @@ export class DatabaseStorage implements IStorage {
     .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(and(
       eq(workerAttendance.project_id, project_id),
-      gte(workerAttendance.date, dateFrom),
-      lte(workerAttendance.date, dateTo),
+      sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`,
+      sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`,
       eq(workerAttendance.isPresent, true),
       gt(workerAttendance.paidAmount, "0") // فقط الأجور المدفوعة
     ));

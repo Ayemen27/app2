@@ -446,7 +446,7 @@ export class ReportDataService {
 
     const rawEntries: Array<{
       date: string;
-      type: 'عمل' | 'حوالة' | 'دفعة';
+      type: 'عمل' | 'حوالة' | 'دفعة' | 'تصفية';
       description: string;
       projectName: string;
       workDays: number;

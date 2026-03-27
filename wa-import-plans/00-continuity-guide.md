@@ -15,6 +15,48 @@ Each task MUST be completed and verified before dependent tasks can begin. A tas
 
 ## How to Resume If Agent Stops Mid-Task
 
+### Step 0: Verify Plan Files Sync (MANDATORY FIRST ACTION)
+Before ANY other work, the agent MUST verify that plan files are synchronized between the source directory and the task system:
+
+```bash
+# Auto-sync: copies ANY missing or changed files from source to task system
+mkdir -p .local/tasks
+for f in 00-continuity-guide.md 01-schema-ingestion.md 02-extraction-engine.md 03-dedup-matching.md 04-review-posting.md 05-ai-learning-engine.md 06-interactive-clarification.md; do
+  if [ -f "wa-import-plans/$f" ]; then
+    if [ ! -f ".local/tasks/$f" ] || ! diff -q "wa-import-plans/$f" ".local/tasks/$f" > /dev/null 2>&1; then
+      cp "wa-import-plans/$f" ".local/tasks/$f"
+      echo "SYNCED: $f (copied to .local/tasks/)"
+    else
+      echo "OK: $f (already in sync)"
+    fi
+  else
+    echo "WARNING: $f missing from wa-import-plans/"
+  fi
+done
+```
+
+After running the sync script above, for each file that was SYNCED (not OK), the agent MUST also update the project task:
+```javascript
+// Only for task files (not 00-continuity-guide.md which is a shared reference)
+await updateProjectTask({ taskRef: "#N", filePath: ".local/tasks/<filename>" });
+```
+Then log all sync actions in PROGRESS.md.
+
+**Source of truth**: `wa-import-plans/` is the authoritative source. `.local/tasks/` is the task system copy. If conflict, `wa-import-plans/` wins.
+
+**File mapping:**
+| Source File | Task |
+|---|---|
+| `00-continuity-guide.md` | Shared reference (not a task) |
+| `01-schema-ingestion.md` | Task #1 |
+| `02-extraction-engine.md` | Task #2 |
+| `03-dedup-matching.md` | Task #3 |
+| `04-review-posting.md` | Task #4 |
+| `05-ai-learning-engine.md` | Task #5 |
+| `06-interactive-clarification.md` | Task #6 |
+
+Only proceed to Step 1 after sync is confirmed.
+
 ### Step 1: Identify Current State
 Run these checks:
 ```sql

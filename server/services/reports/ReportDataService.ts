@@ -502,6 +502,31 @@ export class ReportDataService {
       });
     }
 
+    let settlementProjectFilter = '';
+    const settlementParams: any[] = [workerId];
+    let sParamIdx = 2;
+    if (projectId && projectId !== 'all') {
+      settlementProjectFilter += ` AND (wsl.from_project_id = $${sParamIdx} OR wsl.to_project_id = $${sParamIdx})`;
+      settlementParams.push(projectId);
+      sParamIdx++;
+    } else if (!isAdmin && accessibleProjectIds && accessibleProjectIds.length > 0) {
+      const placeholders = accessibleProjectIds.map((_: string, i: number) => `$${sParamIdx + i}`).join(',');
+      settlementProjectFilter += ` AND (wsl.from_project_id IN (${placeholders}) OR wsl.to_project_id IN (${placeholders}))`;
+      settlementParams.push(...accessibleProjectIds);
+      sParamIdx += accessibleProjectIds.length;
+    } else if (!isAdmin) {
+      settlementProjectFilter += ' AND 1=0';
+    }
+    if (dateFrom) {
+      settlementProjectFilter += ` AND ws.settlement_date >= $${sParamIdx}`;
+      settlementParams.push(dateFrom);
+      sParamIdx++;
+    }
+    if (dateTo) {
+      settlementProjectFilter += ` AND ws.settlement_date <= $${sParamIdx}`;
+      settlementParams.push(dateTo);
+      sParamIdx++;
+    }
     const settlementResult = await pool.query(`
       SELECT wsl.amount, wsl.balance_before, wsl.balance_after,
         ws.settlement_date, ws.notes,
@@ -512,10 +537,9 @@ export class ReportDataService {
       LEFT JOIN projects fp ON fp.id = wsl.from_project_id
       LEFT JOIN projects tp ON tp.id = wsl.to_project_id
       WHERE wsl.worker_id = $1 AND ws.status = 'completed'
-      ${dateFrom ? `AND ws.settlement_date >= $2` : ''}
-      ${dateTo ? `AND ws.settlement_date <= $${dateFrom ? '3' : '2'}` : ''}
+      ${settlementProjectFilter}
       ORDER BY ws.settlement_date
-    `, [workerId, ...(dateFrom ? [dateFrom] : []), ...(dateTo ? [dateTo] : [])]);
+    `, settlementParams);
 
     for (const s of settlementResult.rows) {
       const amt = parseFloat(s.amount) || 0;

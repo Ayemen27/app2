@@ -3684,28 +3684,25 @@ financialRouter.get('/worker-statement-excel', async (req: Request, res: Respons
 
     const worker = workerData[0];
 
-    // جلب سجلات الحضور - بدون فلترة التواريخ (جميع السجلات)
+    // جلب سجلات الحضور - باستخدام نمط التاريخ الموحّد
+    const attendanceConditions: any[] = [
+      eq(workerAttendance.project_id, project_id as string),
+      eq(workerAttendance.worker_id, worker_id as string)
+    ];
+    if (dateFrom && dateFrom !== '') {
+      attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom as string}`);
+    }
+    if (dateTo && dateTo !== '') {
+      attendanceConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo as string}`);
+    }
     let attendanceRecords = await db
       .select()
       .from(workerAttendance)
-      .where(and(
-        eq(workerAttendance.project_id, project_id as string),
-        eq(workerAttendance.worker_id, worker_id as string)
-      ))
-      .orderBy(desc(workerAttendance.date))
+      .where(and(...attendanceConditions))
+      .orderBy(desc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`))
       .limit(5000);
     
-    console.log(`🔍 [WorkerStatement] عدد سجلات الحضور الكاملة: ${attendanceRecords.length}`);
-    
-    // فلترة يدوية حسب التاريخ على مستوى التطبيق
-    if (dateFrom && dateFrom !== '') {
-      attendanceRecords = attendanceRecords.filter((r: any) => r.date && r.date >= (dateFrom as string));
-      console.log(`🔍 [WorkerStatement] بعد فلترة dateFrom (${dateFrom}): ${attendanceRecords.length} سجل`);
-    }
-    if (dateTo && dateTo !== '') {
-      attendanceRecords = attendanceRecords.filter((r: any) => r.date && r.date <= (dateTo as string));
-      console.log(`🔍 [WorkerStatement] بعد فلترة dateTo (${dateTo}): ${attendanceRecords.length} سجل`);
-    }
+    console.log(`🔍 [WorkerStatement] عدد سجلات الحضور: ${attendanceRecords.length}`);
 
     // حساب الملخص
     let totalWorkDays = 0;

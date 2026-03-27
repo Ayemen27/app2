@@ -920,8 +920,8 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
           `),
           db.execute(sql`
             SELECT
-              COALESCE(SUM(CAST(actual_wage AS DECIMAL)), 0) as worker_wages,
-              COUNT(DISTINCT date) as completed_days
+              COALESCE(SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL) END), 0) as worker_wages,
+              COUNT(DISTINCT COALESCE(NULLIF(date,''), attendance_date)) as completed_days
             FROM worker_attendance
             WHERE project_id = ${id} AND is_present = true
           `),

@@ -335,21 +335,24 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
   }
 
   const remotePath = deployment.artifactUrl;
-  const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
+  if (/[`$;|&(){}\[\]!~<>'"\\#\n\r\0]/.test(remotePath) || remotePath.includes("..")) {
+    res.status(400).json({ error: "مسار الملف غير صالح" });
+    return;
+  }
 
-  const host = (process.env.SSH_HOST || "93.127.142.144").replace(/[^a-zA-Z0-9.\-]/g, "");
-  const user = (process.env.SSH_USER || "administrator").replace(/[^a-zA-Z0-9_\-]/g, "");
-  const port = String(parseInt(process.env.SSH_PORT || "22", 10) || 22);
+  const sshCmd = deploymentEngine.getSSHCommandForDownload();
+  const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
 
   const execEnv = { ...process.env };
   if (process.env.SSH_PASSWORD && !execEnv.SSHPASS) {
     execEnv.SSHPASS = process.env.SSH_PASSWORD;
   }
 
+  const host = (process.env.SSH_HOST || "93.127.142.144").replace(/[^a-zA-Z0-9.\-]/g, "");
   const { spawn } = await import("child_process");
 
   const sizeChild = spawn("bash", ["-c",
-    `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -p ${port} ${user}@${host} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
+    `${sshCmd} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
   ], { env: execEnv });
 
   let sizeOutput = "";
@@ -370,7 +373,7 @@ router.get("/download/:id", requireAdmin, asyncHandler(async (req: Request, res:
   setApkDownloadHeaders(res, fileName, fileSize);
 
   const child = spawn("bash", ["-c",
-    `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${port} ${user}@${host} "cat '${remotePath}'"`
+    `${sshCmd} "cat '${remotePath}'"`
   ], { env: execEnv });
 
   const killChild = () => {
@@ -462,6 +465,16 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
     return;
   }
 
+  const token = (req.query.token as string) || (req.headers["x-download-token"] as string);
+  if (!token) {
+    res.status(401).json({ error: "رمز التحميل مطلوب — أضف ?token=... أو header x-download-token" });
+    return;
+  }
+  if (!deploymentEngine.verifyDownloadToken(req.params.id, token)) {
+    res.status(403).json({ error: "رمز التحميل غير صالح أو منتهي الصلاحية" });
+    return;
+  }
+
   try {
     const deployment = await deploymentEngine.getDeployment(req.params.id);
     if (!deployment || !deployment.artifactUrl) {
@@ -480,28 +493,23 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
     }
 
     const remotePath = deployment.artifactUrl;
-    const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
-    const host = (process.env.SSH_HOST || "93.127.142.144").replace(/[^a-zA-Z0-9.\-]/g, "");
-    const user = (process.env.SSH_USER || "administrator").replace(/[^a-zA-Z0-9_\-]/g, "");
-    const port = String(parseInt(process.env.SSH_PORT || "22", 10) || 22);
-
-    const sshKeyPath = process.env.SSH_KEY_PATH || "/home/runner/.ssh/axion_deploy_key";
-    const fs = await import("fs");
-    const useKey = fs.existsSync(sshKeyPath);
-
-    const execEnv = { ...process.env };
-    if (!useKey && process.env.SSH_PASSWORD) {
-      execEnv.SSHPASS = process.env.SSH_PASSWORD;
+    if (/[`$;|&(){}\[\]!~<>'"\\#\n\r\0]/.test(remotePath) || remotePath.includes("..")) {
+      res.status(400).json({ error: "مسار الملف غير صالح" });
+      return;
     }
 
-    const sshPrefix = useKey
-      ? `ssh -i ${sshKeyPath} -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p ${port}`
-      : `sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -p ${port}`;
+    const sshCmd = deploymentEngine.getSSHCommandForDownload();
+    const fileName = `AXION_v${deployment.version}_build${deployment.buildNumber}.apk`;
+
+    const execEnv = { ...process.env };
+    if (process.env.SSH_PASSWORD && !execEnv.SSHPASS) {
+      execEnv.SSHPASS = process.env.SSH_PASSWORD;
+    }
 
     const { spawn } = await import("child_process");
 
     const sizeChild = spawn("bash", ["-c",
-      `${sshPrefix} ${user}@${host} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
+      `${sshCmd} "stat -c%s '${remotePath}' 2>/dev/null || echo MISSING"`
     ], { env: execEnv });
 
     let sizeOutput = "";
@@ -535,7 +543,7 @@ async function handlePublicApkDownload(req: Request, res: Response): Promise<voi
     }
 
     const child = spawn("bash", ["-c",
-      `${sshPrefix} ${user}@${host} "cat '${remotePath}'"`
+      `${sshCmd} "cat '${remotePath}'"`
     ], { env: execEnv });
 
     const streamTimeout = setTimeout(() => {

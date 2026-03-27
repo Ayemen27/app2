@@ -1340,6 +1340,10 @@ export class DeploymentEngine {
     return `sshpass -e scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -P ${port} ${src} ${user}@${host}:${dest}`;
   }
 
+  getSSHCommandForDownload(): string {
+    return this.buildSSHCommand();
+  }
+
   private maskSecrets(text: string): string {
     const explicitKeys = [
       "SSH_PASSWORD", "SSHPASS", "GITHUB_TOKEN", "GH_TOKEN",
@@ -3519,7 +3523,8 @@ echo 'MAINACTIVITY_FIXED'"`,
       let downloadUrl: string | null = null;
       if (latest.id) {
         const baseUrl = process.env.PRODUCTION_URL || "https://app2.binarjoinanelytic.info";
-        downloadUrl = `${baseUrl}/api/deployment/app/download/${latest.id}`;
+        const token = this.generateDownloadToken(latest.id);
+        downloadUrl = `${baseUrl}/api/deployment/app/download/${latest.id}?token=${token}`;
       }
 
       return {
@@ -4054,13 +4059,24 @@ echo 'MAINACTIVITY_FIXED'"`,
       }
 
       const totalDuration = Date.now() - startTime;
-      await this.updateDeployment(deploymentId, {
+
+      if (this.isCancelled(deploymentId)) {
+        throw new CancellationError();
+      }
+
+      const [resumeSuccess] = await db.update(buildDeployments).set({
         status: "success",
         progress: 100,
         currentStep: "complete",
         duration: totalDuration,
         endTime: new Date(),
-      });
+      }).where(sql`${buildDeployments.id} = ${deploymentId} AND ${buildDeployments.status} = 'running'`).returning({ id: buildDeployments.id });
+
+      if (!resumeSuccess) {
+        await this.addLog(deploymentId, "⚠️ تم إلغاء العملية أثناء الاكتمال — لن يتم تسجيل النجاح", "warn");
+        return;
+      }
+
       await this.addLog(deploymentId, `Deployment resumed and completed successfully in ${(totalDuration / 1000).toFixed(1)}s`, "success");
       await this.sendDeploymentNotification("success", config, deploymentId, totalDuration);
     } catch (error: any) {
@@ -4185,12 +4201,17 @@ echo 'MAINACTIVITY_FIXED'"`,
       return s;
     });
 
-    const result = await db.update(buildDeployments).set({
+    const [updated] = await db.update(buildDeployments).set({
       steps: updatedSteps,
       status: "cancelled",
       errorMessage: "تم الإلغاء بواسطة المستخدم",
       endTime: new Date(),
-    }).where(sql`${buildDeployments.id} = ${deploymentId} AND ${buildDeployments.status} = 'running'`);
+    }).where(sql`${buildDeployments.id} = ${deploymentId} AND ${buildDeployments.status} = 'running'`).returning({ id: buildDeployments.id });
+
+    if (!updated) {
+      console.log(`[DeploymentEngine] cancelDeployment: deployment ${deploymentId} already transitioned — skipping broadcast`);
+      return;
+    }
 
     await this.addLog(deploymentId, "تم إلغاء النشر بواسطة المستخدم", "warn");
     await this.addEvent(deploymentId, "deployment_cancelled", "Deployment cancelled by user");

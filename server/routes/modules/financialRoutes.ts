@@ -4099,13 +4099,20 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       );
     }
 
+    const staleProjectIds: string[] = [];
     if (invalidatedQuery.rows.length > 0) {
-      await Promise.all(
+      const rebuildResults = await Promise.allSettled(
         invalidatedQuery.rows.map((r: any) =>
           SummaryRebuildService.ensureValidSummary(r.project_id, cleanDate)
-            .catch(err => console.warn(`⚠️ [MultiProject] فشل إعادة بناء ملخص مشروع ${r.project_id}:`, err))
         )
       );
+      rebuildResults.forEach((result, idx) => {
+        if (result.status === 'rejected') {
+          const failedPid = invalidatedQuery.rows[idx].project_id;
+          staleProjectIds.push(failedPid);
+          console.error(`❌ [MultiProject] فشل إعادة بناء ملخص مشروع ${failedPid}:`, result.reason);
+        }
+      });
     }
 
     let summariesResult;
@@ -4205,9 +4212,13 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       }
     }
 
+    const dataFreshness = staleProjectIds.length > 0
+      ? { stale: true, staleProjectIds, warning: 'بعض المشاريع تحتوي بيانات قد تكون غير محدثة' }
+      : { stale: false };
+
     const projectIds = summariesResult.rows.filter((s: any) => num(s.total_expenses) > 0 || num(s.total_fund_transfers) > 0).map((s: any) => s.project_id);
     if (projectIds.length === 0) {
-      return sendSuccess(res, { summaries: summariesResult.rows, globalTotals, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
+      return sendSuccess(res, { summaries: summariesResult.rows, globalTotals, dataFreshness, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
     }
 
     function num(v: any) { return parseFloat(v) || 0; }
@@ -4242,6 +4253,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
     return sendSuccess(res, {
       summaries: summariesResult.rows,
       globalTotals,
+      dataFreshness,
       workers: workersR.rows,
       transport: transportR.rows,
       misc: miscR.rows,

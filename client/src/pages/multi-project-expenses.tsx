@@ -35,6 +35,12 @@ interface Fund { project_id: string; project_name: string; amount: string; sende
 interface Purchase { project_id: string; project_name: string; total_amount: string; paid_amount: string; supplier_name: string; notes: string; }
 interface WorkerTransfer { project_id: string; project_name: string; amount: string; worker_name: string; transfer_number: string; notes: string; }
 
+interface DataFreshness {
+  stale: boolean;
+  staleProjectIds?: string[];
+  warning?: string;
+}
+
 interface ApiData {
   summaries: Summary[];
   workers: Worker[];
@@ -43,6 +49,7 @@ interface ApiData {
   funds: Fund[];
   purchases: Purchase[];
   workerTransfers: WorkerTransfer[];
+  dataFreshness?: DataFreshness;
 }
 
 const num = (v: string | number | null | undefined) => parseFloat(v as string) || 0;
@@ -174,6 +181,14 @@ export default function MultiProjectExpenses() {
 
         {!isLoading && hasSelection && (
           <>
+            {apiData?.dataFreshness?.stale && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-3 flex items-center gap-2" data-testid="stale-data-warning">
+                <Wallet className="h-4 w-4 text-amber-600 shrink-0" />
+                <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  ⚠️ بعض البيانات قد تكون غير محدثة - يرجى تحديث الصفحة أو المحاولة لاحقاً
+                </span>
+              </div>
+            )}
             <div className="bg-card rounded-2xl border-2 border-primary/20 shadow-sm p-4 space-y-3" data-testid="global-summary-card">
               <div className="grid grid-cols-2 gap-2">
                 <StatsCard title="المرحّل من سابق" value={formatCurrency(carriedForward)} icon={Wallet} color={carriedForward >= 0 ? "amber" : "red"} data-testid="carried-forward" />

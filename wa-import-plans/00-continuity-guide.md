@@ -40,20 +40,152 @@ ls -la client/src/pages/wa-import/
 | Review page exists but no PostingEngine | Task #4 partially done | Continue Task #4 |
 | Everything exists and compiles | All tasks complete | Verify and test |
 
-### Step 3: Read the Relevant Task Plan
+### Step 3: Read the Progress Log
+Check `wa-import-plans/PROGRESS.md` — this file is MANDATORY and tracks exactly what was done, what's pending, and any issues encountered.
+
+### Step 4: Read the Relevant Task Plan
 Plans are in this directory:
 - `wa-import-plans/01-schema-ingestion.md`
 - `wa-import-plans/02-extraction-engine.md`
 - `wa-import-plans/03-dedup-matching.md`
 - `wa-import-plans/04-review-posting.md`
 
-### Step 4: Check What's Already Built
+### Step 5: Check What's Already Built
 ```bash
 # List all WhatsApp import related files
 find server/services/whatsapp-import/ -type f 2>/dev/null
 find client/src/pages/wa-import/ -type f 2>/dev/null
 grep "wa_" shared/schema.ts | head -20
 ```
+
+---
+
+## MANDATORY DOCUMENTATION RULES FOR ALL AGENTS
+
+These rules are NON-NEGOTIABLE. Every agent working on this pipeline MUST follow them.
+
+### Rule 1: Update PROGRESS.md After Every Sub-Task
+File: `wa-import-plans/PROGRESS.md`
+After completing EACH numbered sub-task within a task plan, the agent MUST update PROGRESS.md with:
+```markdown
+### [Task#]-[SubTask#]: [Title]
+- **Status**: DONE / IN_PROGRESS / BLOCKED / FAILED
+- **Date**: YYYY-MM-DD HH:MM
+- **Files Created/Modified**:
+  - path/to/file1.ts — description of what was added
+  - path/to/file2.ts — description of what was changed
+- **Key Decisions Made**: (any design choices not in the plan)
+- **Issues Encountered**: (any problems and how they were resolved)
+- **Tests Passing**: YES / NO / NOT_YET
+- **Next Step**: what the next agent should do if this agent stops
+```
+
+### Rule 2: Never Delete or Overwrite Previous Progress Entries
+PROGRESS.md is append-only. New entries go at the bottom. Never delete previous agent's entries.
+
+### Rule 3: Mark Blockers Explicitly
+If something cannot be completed, write a BLOCKER entry:
+```markdown
+### BLOCKER: [Description]
+- **Blocking Task**: Task#X Sub-task #Y
+- **Reason**: [why it's blocked]
+- **What's Needed**: [what must happen to unblock]
+- **Workaround Attempted**: [if any]
+```
+
+### Rule 4: Verify Before Marking Done
+Before marking any sub-task as DONE:
+1. The app must compile without errors (`npm run dev` starts successfully)
+2. New tables must exist in the database (verify with SQL query)
+3. New API endpoints must respond (verify with curl or test)
+4. New UI pages must render (verify with screenshot or test)
+
+### Rule 5: Handoff Summary on Stop/Pause
+If an agent stops mid-task (timeout, error, user request), it MUST write a handoff entry:
+```markdown
+### HANDOFF — [Date/Time]
+- **Current Task**: Task #X, Sub-task #Y
+- **What's Done**: [list of completed items]
+- **What's In Progress**: [current work, state of files]
+- **What's Left**: [remaining sub-tasks]
+- **Known Issues**: [any bugs or problems]
+- **Critical Context**: [anything the next agent needs to know that isn't in the plan]
+```
+
+### Rule 6: Schema Contract File
+After Task #1 creates the 13 tables, a schema contract file MUST be created at:
+`wa-import-plans/SCHEMA_CONTRACT.md`
+This file lists:
+- Every table name with its columns and types
+- Every enum with its exact values
+- This is the SINGLE SOURCE OF TRUTH for all downstream tasks
+
+### Rule 7: Canonical Enum Definitions (SINGLE SOURCE OF TRUTH)
+These enums MUST be used consistently across ALL files, services, and UI:
+
+**candidate_type**: `expense` | `transfer` | `loan` | `personal_account` | `custodian_receipt` | `settlement`
+
+**canonical_transaction_status**: `confirmed` | `doubtful` | `duplicate` | `unclassified` | `excluded`
+
+**batch_status**: `pending` | `processing` | `completed` | `failed`
+
+**chat_source**: `zain` | `abbasi` | `other`
+
+**verification_priority**: `P1_critical` | `P2_high` | `P3_medium` | `P4_low`
+
+**review_decision**: `approved` | `rejected` | `edited` | `merged` | `split` | `reclassified`
+
+**posting_target_table**: `fund_transfers` | `material_purchases` | `worker_misc_expenses` | `transportation_expenses` | `daily_expense_summaries`
+
+**date_mismatch_reason**: `wrong_day_name` | `wrong_date` | `wrong_year` | `wrong_month` | `multi_day_discrepancy` | `date_mismatch_whatsapp_vs_inline`
+
+### Rule 8: Task Ownership for Duplicate Detection
+- **Task #2 owns**: Message-level duplicate text block detection (same sender, same text, ≤30 min). Collapses duplicates BEFORE extraction.
+- **Task #3 owns**: Transaction-level dedup (fingerprinting, cross-chat matching, historical matching). Works on extracted candidates AFTER Task #2.
+- There is NO overlap. Task #2 deduplicates RAW MESSAGES. Task #3 deduplicates EXTRACTED CANDIDATES.
+
+### Rule 9: MANDATORY Architect Review After Each Task (GATE — Cannot Skip)
+After completing ALL sub-tasks within a task, the agent MUST call the architect for a full review BEFORE marking the task as complete.
+
+**Procedure:**
+1. Agent finishes all sub-tasks within the task plan
+2. Agent updates PROGRESS.md with all completion entries
+3. Agent calls `architect()` with:
+   ```
+   architect({
+     task: "POST-TASK GATE REVIEW — Task #X: [Title]. Verify: (1) all sub-tasks implemented, (2) schema contract followed, (3) enum consistency with Rule 7, (4) no regressions in existing ERP, (5) code quality, (6) PROGRESS.md updated, (7) all tests passing. Score 1-10, PASS/FAIL.",
+     relevantFiles: [all files created/modified in this task],
+     includeGitDiff: true
+   })
+   ```
+4. If architect returns **PASS (≥8/10)**: Agent marks task complete in PROGRESS.md and notifies user
+5. If architect returns **FAIL (<8/10)**: Agent MUST fix ALL issues identified by architect, then re-run the review
+6. Maximum 3 review rounds — if still failing after 3 rounds, write a BLOCKER entry and escalate to user
+
+**What the Architect Checks Per Task:**
+- **Task #1**: 13 tables created, enums match Rule 7, parser handles both chat formats (زين+العباسي), worker aliases seeded, custodian entries table works, API endpoints respond, SCHEMA_CONTRACT.md created
+- **Task #2**: All 6 patterns + 4 special types extract correctly, confidence rubric matches exact values, date validation engine works for العباسي, duplicate text block detection works, categorization is correct
+- **Task #3**: Fingerprinting is deterministic, cross-chat dedup works, historical matching against existing 110+ transfers and 155+ purchases, custodian reconciliation for all 3, carpenter aggregation flagging, verification queue populated correctly
+- **Task #4**: Review dashboard renders, all CRUD actions work, posting engine uses WithClient methods within withTransaction, audit trail is immutable, RBAC enforced, custodian views show correct balances, navigation integrated
+
+**Architect Review Results Are Logged:**
+After each architect review, append the result to PROGRESS.md:
+```markdown
+### ARCHITECT REVIEW — Task #X, Round Y
+- **Score**: X/10
+- **Verdict**: PASS / FAIL
+- **Issues Found**: [list]
+- **Issues Fixed**: [list, if re-review]
+```
+
+### Rule 10: Transfer Company Parser Coverage
+All 3 transfer companies MUST have explicit parser rules:
+| Company | Format | Regex Pattern |
+|---|---|---|
+| شركه رشاد بحير | Structured multi-line receipt | رقم الحوالة followed by digits |
+| الحوشبي | 12-digit transfer number | `رقم\s*:?\s*(202\d{9})` |
+| النجم | Variable format | `رقم\s*:?\s*(\d{6,12})` with company name النجم in context |
+Each parser extracts: transfer_number, amount, sender_name, recipient_name, date, company_name. All three parsers share the same output schema for uniform downstream processing.
 
 ## CRITICAL: Database Entity Mappings (Exact IDs from Production)
 

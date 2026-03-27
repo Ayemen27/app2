@@ -48,7 +48,11 @@ Build the intelligent extraction engine that analyzes parsed WhatsApp messages a
 - User review dashboard (Task #4)
 
 ## Tasks
-1. **Build structured transfer receipt parser** — Regex-based parser for شركه رشاد بحير format. Extract: amount (مبلغ الحوالة), fee (خدمة تحويل), recipient (المستلم), sender (المرسل), transfer number (رقم الحوالة). Handle both رقم الحوالة:NNNN and الرقم العام:NNNN formats. Confidence: 0.95.
+1. **Build structured transfer receipt parsers for ALL 3 companies** — Three separate regex-based parsers sharing the same output schema (transfer_number, amount, fee, sender, recipient, company_name, date):
+   - **1a. شركه رشاد بحير parser**: Multi-line receipt format. Extract: مبلغ الحوالة, خدمة تحويل, المستلم, المرسل, رقم الحوالة/الرقم العام. Confidence: 0.95.
+   - **1b. الحوشبي parser**: 12-digit transfer number format. Regex: `رقم\s*:?\s*(202\d{9})`. Extract amount and parties from surrounding context. Confidence: 0.95.
+   - **1c. النجم parser**: Variable-length transfer number. Regex: `رقم\s*:?\s*(\d{6,12})` with company name النجم in ±2 messages. Extract amount and parties from surrounding context. Confidence: 0.95.
+   All three parsers return the same TransferReceiptResult type for uniform downstream processing.
 
 2. **Build inline expense parser** — Regex for patterns like "10000بترول" and "50الف ريال". Must handle: Eastern Arabic digits (٠-٩→0-9 conversion), Arabic thousands word (الف/آلاف), amounts with/without spaces, Yemeni currency terms. Apply confidence rubric.
 
@@ -79,6 +83,19 @@ Build the intelligent extraction engine that analyzes parsed WhatsApp messages a
 11. **Build expense categorization engine** — Classify extracted transactions into categories matching existing material_purchases schema fields (material_category, material_name). Map to target ERP table: structured transfers → fund_transfers, materials → material_purchases, labor → worker expenses, misc → daily_expense_summaries.
 
 12. **Implement deterministic confidence scoring** — Apply the rubric: base score per pattern, penalties for missing data, bonuses for supporting evidence. Log scoring breakdown for auditability.
+
+## MANDATORY: Post-Task Completion Checklist
+Before marking this task complete, the agent MUST:
+1. Update `wa-import-plans/PROGRESS.md` with completion entries for ALL 12 sub-tasks
+2. Read `wa-import-plans/SCHEMA_CONTRACT.md` and verify all enums/types match exactly
+3. Verify extraction runs on BOTH chat files (زين + العباسي) without errors
+4. Verify date validation catches العباسي's date errors (test with known bad dates)
+5. Verify duplicate text block detection works (test with known duplicates)
+6. Verify all 3 transfer company parsers extract correctly (رشاد بحير, الحوشبي, النجم)
+7. Verify confidence scores match the exact rubric values
+8. Call `architect()` for POST-TASK GATE REVIEW (see Rule 9 in 00-continuity-guide.md)
+9. If architect PASS (≥8/10) → mark complete. If FAIL → fix issues and re-review (max 3 rounds)
+10. Log architect review result in PROGRESS.md
 
 ## Relevant files
 - `shared/schema.ts`

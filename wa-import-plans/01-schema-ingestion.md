@@ -1,7 +1,7 @@
 # WhatsApp Import — Schema & Ingestion Engine
 
 ## What & Why
-Build the foundational database schema and ingestion service for importing WhatsApp exported chat archives (ZIP files containing TXT + media). This is the base layer that all subsequent import phases depend on. The system must handle Arabic text with Eastern numerals, RTL markers, and Yemeni dialect patterns. All 12 tables for the entire pipeline are defined here upfront to ensure consistency.
+Build the foundational database schema and ingestion service for importing WhatsApp exported chat archives (ZIP files containing TXT + media). This is the base layer that all subsequent import phases depend on. The system must handle Arabic text with Eastern numerals, RTL markers, and Yemeni dialect patterns. All 13 tables for the entire pipeline are defined here upfront to ensure consistency.
 
 ## Done looks like
 - 13 new database tables created via Drizzle schema for the entire WhatsApp import pipeline
@@ -22,10 +22,10 @@ Build the foundational database schema and ingestion service for importing Whats
 
 ## Tasks
 1. **Define Drizzle schema for all 13 import tables** — The complete table set for the entire pipeline:
-   - `wa_import_batches` — batch tracking (source file, owner, status, stats)
-   - `wa_raw_messages` — parsed chat messages (timestamp, sender, text, is_multiline, attachment_ref)
+   - `wa_import_batches` — batch tracking (source file, owner, status, stats, chat_source enum: zain/abbasi/other — identifies which WhatsApp conversation this batch is from)
+   - `wa_raw_messages` — parsed chat messages (wa_timestamp, sender, text, is_multiline, attachment_ref, inline_claimed_date nullable, date_mismatch_reason nullable, chat_source enum: zain/abbasi/other)
    - `wa_media_assets` — media files (path, sha256, mime_type, size, ocr_text, linked_message_id)
-   - `wa_extraction_candidates` — extracted financial items (amount, currency, description, pattern_type, confidence, project_hypothesis_id, category, candidate_type enum: expense/transfer/loan/personal)
+   - `wa_extraction_candidates` — extracted financial items (amount, currency, description, pattern_type, confidence, project_hypothesis_id, category, candidate_type enum: expense/transfer/loan/personal_account/custodian_receipt/settlement)
    - `wa_canonical_transactions` — deduped final transactions (status: confirmed/doubtful/duplicate/unclassified/excluded, merged evidence)
    - `wa_transaction_evidence_links` — many-to-many linking candidates to raw messages and media
    - `wa_worker_aliases` — worker name mappings linked to workers.id (alias_name, canonical_worker_id)
@@ -61,6 +61,17 @@ Build the foundational database schema and ingestion service for importing Whats
    Track: custodian_worker_id, received_amount, disbursed_amount, settled_amount, settlement_date, linked_batch_id, project_id. Include flags for "recorded on personal account" and "pending settlement".
 
 6. **Create import API endpoints with RBAC** — POST /api/wa-import/upload (ZIP, admin/editor only), GET /api/wa-import/batches, GET /api/wa-import/batch/:id/messages, GET /api/wa-import/batch/:id/media. Protected by existing auth middleware with role checks. Input validation on all endpoints.
+
+## MANDATORY: Post-Task Completion Checklist
+Before marking this task complete, the agent MUST:
+1. Update `wa-import-plans/PROGRESS.md` with completion entries for ALL 6 sub-tasks
+2. Create `wa-import-plans/SCHEMA_CONTRACT.md` listing all 13 tables with columns and types
+3. Verify the app compiles (`npm run dev` runs without errors)
+4. Verify all 13 tables exist in the database (SQL query)
+5. Verify API endpoints respond (curl test)
+6. Call `architect()` for POST-TASK GATE REVIEW (see Rule 9 in 00-continuity-guide.md)
+7. If architect PASS (≥8/10) → mark complete. If FAIL → fix issues and re-review (max 3 rounds)
+8. Log architect review result in PROGRESS.md
 
 ## Relevant files
 - `shared/schema.ts`

@@ -38,7 +38,7 @@ Build the critical dedup engine and historical matching system. This is the MOST
 
 1b. **Build cross-chat dedup engine** — The pipeline processes TWO chat exports (زين + العباسي) that reference the SAME transactions (same حوالة numbers, same amounts). For example, a 30000 حوالة from زين appears in both chats. Cross-chat dedup uses: transfer_number (exact match), amount+date±1day+counterparty_context. Mark as single transaction with evidence from both chats.
 
-1c. **Build duplicate text block detector** — العباسي sometimes sends the same expense list twice (copy-paste or accidental resend). Detect identical or near-identical text blocks sent within ≤30 minutes by the same sender. Count as ONE transaction set, link duplicates via wa_transaction_evidence_links.
+1c. **[REMOVED — Owned by Task #2, Rule 8]** Message-level duplicate text block detection is handled by Task #2 sub-task 5. Task #3 only handles TRANSACTION-level dedup (extracted candidates, not raw messages).
 
 2. **Build historical matcher for fund_transfers** — Query existing 110+ fund_transfers across 4 projects. Match by: transfer_number (exact match = skip), or amount+sender_name+date±1day (near match = review). IMPORTANT: Same رقم الحوالة = always the SAME transaction (primary dedup key, guaranteed unique). Different transfer numbers with same amount on different dates = SEPARATE valid transactions.
 
@@ -55,6 +55,20 @@ Build the critical dedup engine and historical matching system. This is the MOST
 7. **Build reconciliation report generator** — Per-batch summary with configurable tolerance (default 1%). Show breakdown by category, project, and match status. Highlight any delta > tolerance. Include per-project sub-totals for Jarahi and Tuhaita.
 
 8. **Build verification queue populator with priority scoring** — Route candidates to review queue. Priority scoring: P1 (critical) = conflicts + high-value (>500K YER), P2 (high) = near_matches + loans, P3 (medium) = low confidence + ambiguous project, P4 (low) = minor discrepancies. Store routing reason for reviewer context.
+
+## MANDATORY: Post-Task Completion Checklist
+Before marking this task complete, the agent MUST:
+1. Update `wa-import-plans/PROGRESS.md` with completion entries for ALL 8 sub-tasks
+2. Read `wa-import-plans/SCHEMA_CONTRACT.md` and verify all enums/types match exactly
+3. Verify fingerprint engine produces deterministic results (same input = same fingerprint)
+4. Verify cross-chat dedup correctly merges transactions appearing in both زين and العباسي chats
+5. Verify historical matching runs against existing fund_transfers (110+) and material_purchases (155+)
+6. Verify custodian reconciliation works for all 3 custodians with correct balances
+7. Verify محمد حسن نجار aggregation flagging works
+8. Verify verification queue is populated with correct priority scoring
+9. Call `architect()` for POST-TASK GATE REVIEW (see Rule 9 in 00-continuity-guide.md)
+10. If architect PASS (≥8/10) → mark complete. If FAIL → fix issues and re-review (max 3 rounds)
+11. Log architect review result in PROGRESS.md
 
 ## Relevant files
 - `shared/schema.ts`

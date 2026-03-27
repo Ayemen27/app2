@@ -62,6 +62,21 @@ Build the review dashboard for human verification of extracted transactions and 
 
 9. **Add navigation and integration** — Add wa-import to sidebar navigation with appropriate icon. Ensure auth guards (admin/editor for view, admin for posting). Register page route in App.tsx.
 
+## MANDATORY: Post-Task Completion Checklist
+Before marking this task complete, the agent MUST:
+1. Update `wa-import-plans/PROGRESS.md` with completion entries for ALL 9 sub-tasks
+2. Read `wa-import-plans/SCHEMA_CONTRACT.md` and verify all enums/types match exactly
+3. Verify review dashboard renders at /wa-import with all panels
+4. Verify approve/reject/edit actions work and are logged in wa_review_actions (immutable)
+5. Verify posting engine uses WithClient methods within withTransaction (atomic)
+6. Verify RBAC: admin/editor can view, admin-only can post
+7. Verify custodian views show correct running balances for all 3 custodians
+8. Verify navigation is integrated in sidebar
+9. Run end-to-end test: upload ZIP → extract → dedup → review → approve → post → verify ledger
+10. Call `architect()` for POST-TASK GATE REVIEW (see Rule 9 in 00-continuity-guide.md)
+11. If architect PASS (≥8/10) → mark complete. If FAIL → fix issues and re-review (max 3 rounds)
+12. Log architect review result in PROGRESS.md
+
 ## Relevant files
 - `client/src/App.tsx`
 - `client/src/pages/`

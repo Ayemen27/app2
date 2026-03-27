@@ -8,6 +8,7 @@ import express from 'express';
 import { Request, Response } from 'express';
 import { sql } from 'drizzle-orm';
 import { db, pool } from '../../db.js';
+import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 import { requireAuth, syncRateLimit } from '../../middleware/auth.js';
 import { SyncAuditService } from '../../services/SyncAuditService.js';
 import { SYNCABLE_TABLES } from '../../../shared/schema.js';
@@ -1110,6 +1111,49 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
     }
 
     await client.query('COMMIT');
+
+    const FINANCIAL_TABLES = new Set([
+      'fund_transfers', 'worker_attendance', 'transportation_expenses',
+      'material_purchases', 'worker_transfers', 'worker_misc_expenses',
+      'supplier_payments'
+    ]);
+    const DATE_FIELD_MAP: Record<string, string[]> = {
+      'fund_transfers': ['transfer_date', 'transferDate'],
+      'worker_attendance': ['date', 'attendance_date', 'attendanceDate'],
+      'transportation_expenses': ['date'],
+      'material_purchases': ['purchase_date', 'purchaseDate'],
+      'worker_transfers': ['transfer_date', 'transferDate'],
+      'worker_misc_expenses': ['date'],
+      'supplier_payments': ['payment_date', 'paymentDate'],
+    };
+    const invalidations = new Map<string, string>();
+    for (const op of operations) {
+      const cleanEp = (op.endpoint || '').split('?')[0];
+      const epParts = cleanEp.split('/').filter(Boolean);
+      if (epParts[0] !== 'api' || epParts.length < 2) continue;
+      const rawTbl = epParts.slice(1).join('-');
+      const tbl = ALLOWED_BATCH_TABLES[rawTbl];
+      if (!tbl || !FINANCIAL_TABLES.has(tbl)) continue;
+      const p = op.payload as Record<string, any> | undefined;
+      if (!p) continue;
+      const projectId = p.project_id || p.projectId;
+      if (!projectId) continue;
+      const dateFields = DATE_FIELD_MAP[tbl] || ['date'];
+      let opDate = '';
+      for (const df of dateFields) {
+        if (p[df]) { opDate = String(p[df]).substring(0, 10); break; }
+      }
+      if (!opDate || !/^\d{4}-\d{2}-\d{2}$/.test(opDate)) continue;
+      const existing = invalidations.get(projectId);
+      if (!existing || opDate < existing) {
+        invalidations.set(projectId, opDate);
+      }
+    }
+    for (const [pid, fromDate] of invalidations) {
+      SummaryRebuildService.markInvalid(pid, fromDate).catch(e =>
+        console.error(`[Sync-Batch] markInvalid error for ${pid}:`, e)
+      );
+    }
 
     Promise.all(auditPromises).catch(err => {
       console.error('[Sync-Batch] خطأ في تسجيل التدقيق:', err);

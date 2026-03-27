@@ -782,6 +782,13 @@ projectRouter.post('/:id/material-purchases', requireProjectAccess('add'), async
       console.error('⚠️ [API] فشل تحديث سجل الأستاذ العام:', ledgerError);
     }
 
+    try {
+      const purchaseDate = String(validation.data.purchaseDate || '').substring(0, 10);
+      if (purchaseDate && /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate)) {
+        await SummaryRebuildService.markInvalid(project_id, purchaseDate);
+      }
+    } catch (e) { console.error('[SummaryRebuild] material-purchases/POST markInvalid error:', e); }
+
     res.status(201).json({
       success: true,
       data: newPurchase,
@@ -2708,7 +2715,10 @@ projectRouter.get('/:project_id/previous-balance/:date', requireProjectAccess('v
     let source = 'none';
 
     try {
-      // أولاً: محاولة العثور على أحدث ملخص محفوظ قبل التاريخ المطلوب
+      try {
+        await SummaryRebuildService.ensureValidSummary(project_id, previousDateStr);
+      } catch (e) { console.error('[SummaryRebuild] GET previous-balance ensureValidSummary error:', e); }
+
       const latestSummary = await db.select({
         remainingBalance: dailyExpenseSummaries.remainingBalance,
         date: dailyExpenseSummaries.date

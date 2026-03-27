@@ -197,8 +197,10 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
 
     console.log(`🔍 [API] جلب الملخص اليومي للمشروع ${project_id} بتاريخ ${cleanDate}`);
     
-    // البحث في قاعدة البيانات باستخدام التاريخ المنظف
-    // نستخدم db مباشرة لتجنب التخمين في storage interface
+    try {
+      await SummaryRebuildService.ensureValidSummary(project_id as string, cleanDate);
+    } catch (e) { console.error('[SummaryRebuild] GET daily-expense-summaries ensureValidSummary error:', e); }
+
     const results = await db.select()
       .from(dailyExpenseSummaries)
       .where(
@@ -226,27 +228,39 @@ financialRouter.get('/daily-expense-summaries', async (req: Request, res: Respon
 financialRouter.post('/daily-expense-summaries', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
-    console.log('📝 [API] حفظ ملخص مصروفات يومي جديد:', req.body);
+    console.log('📝 [API] إعادة بناء ملخص مصروفات يومي:', req.body);
     const body = req.body;
+    const { project_id, date } = body;
 
-    // التحقق من صحة البيانات باستخدام Zod schema
-    const result = insertDailyExpenseSummarySchema.safeParse(body);
-    if (!result.success) {
-      return sendError(res, 'بيانات الملخص غير صحيحة', 400, result.error.issues);
+    if (!project_id || !date) {
+      return sendError(res, 'معرف المشروع والتاريخ مطلوبان', 400);
     }
 
     const accessReq = req as ProjectAccessRequest;
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
-    if (!isAdminUser && result.data.project_id && !accessibleIds.includes(result.data.project_id)) {
+    if (!isAdminUser && !accessibleIds.includes(project_id)) {
       return sendError(res, 'ليس لديك صلاحية للوصول لهذا المشروع', 403);
     }
 
-    const summary = await storage.createOrUpdateDailyExpenseSummary(result.data);
-    return sendSuccess(res, summary, 'تم حفظ الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
+    const cleanDate = String(date).split('T')[0].split(' ')[0];
+    await SummaryRebuildService.markInvalid(project_id, cleanDate);
+    await SummaryRebuildService.ensureValidSummary(project_id, cleanDate);
+
+    const results = await db.select()
+      .from(dailyExpenseSummaries)
+      .where(
+        and(
+          eq(dailyExpenseSummaries.project_id, project_id),
+          eq(dailyExpenseSummaries.date, cleanDate)
+        )
+      )
+      .limit(1);
+
+    return sendSuccess(res, results[0] || null, 'تم إعادة بناء الملخص اليومي بنجاح', { processingTime: Date.now() - startTime });
   } catch (error: any) {
-    console.error('❌ [API] خطأ في حفظ الملخص اليومي:', error);
-    return sendError(res, 'فشل في حفظ الملخص اليومي', 500);
+    console.error('❌ [API] خطأ في إعادة بناء الملخص اليومي:', error);
+    return sendError(res, 'فشل في إعادة بناء الملخص اليومي', 500);
   }
 });
 
@@ -3408,26 +3422,30 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
-    // جلب ملخص المصاريف اليومية
+    const cleanExcelDate = String(date).split('T')[0].split(' ')[0];
+
+    try {
+      await SummaryRebuildService.ensureValidSummary(project_id as string, cleanExcelDate);
+    } catch (e) { console.error('[SummaryRebuild] GET daily-expenses-excel ensureValidSummary error:', e); }
+
     const summary = await db
       .select()
       .from(dailyExpenseSummaries)
       .where(
         and(
           eq(dailyExpenseSummaries.project_id, project_id as string),
-          eq(dailyExpenseSummaries.date, date as string)
+          eq(dailyExpenseSummaries.date, cleanExcelDate)
         )
       )
       .limit(1);
 
-    // جلب عدد أيام العمل من سجلات الحضور
     const attendanceRecords = await db
       .select()
       .from(workerAttendance)
       .where(
         and(
           eq(workerAttendance.project_id, project_id as string),
-          eq(workerAttendance.date, date as string)
+          eq(workerAttendance.date, cleanExcelDate)
         )
       );
 

@@ -245,9 +245,17 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
     `SELECT MIN(invalidated_from) as invalidated_from FROM summary_invalidations WHERE project_id = $1`,
     [projectId]
   );
-  if (invalidation.rows.length === 0 || !invalidation.rows[0].invalidated_from) return;
-  const invalidFromDate = invalidation.rows[0].invalidated_from;
-  if (dateToNum(invalidFromDate) > dateToNum(targetDate)) return;
+  const hasInvalidation = invalidation.rows.length > 0 && !!invalidation.rows[0].invalidated_from;
+  const invalidFromDate = hasInvalidation ? invalidation.rows[0].invalidated_from : null;
+  const invalidationRelevant = hasInvalidation && dateToNum(invalidFromDate!) <= dateToNum(targetDate);
+
+  if (!invalidationRelevant) {
+    const summaryCheck = await pool.query(
+      `SELECT 1 FROM daily_expense_summaries WHERE project_id = $1 AND date = $2 LIMIT 1`,
+      [projectId, targetDate]
+    );
+    if (summaryCheck.rows.length > 0) return;
+  }
 
   const client = await pool.connect();
   try {
@@ -255,37 +263,69 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
     const lockId = Math.abs(hashCode(projectId)) % 2147483647;
     await client.query(`SELECT pg_advisory_xact_lock($1)`, [lockId]);
 
-    const recheckResult = await client.query(
+    const recheckInvalidation = await client.query(
       `SELECT MIN(invalidated_from) as invalidated_from FROM summary_invalidations WHERE project_id = $1`,
       [projectId]
     );
-    if (recheckResult.rows.length === 0 || !recheckResult.rows[0].invalidated_from) {
-      await client.query('COMMIT');
-      return;
-    }
-    const confirmedInvalidFrom = recheckResult.rows[0].invalidated_from;
-    if (dateToNum(confirmedInvalidFrom) > dateToNum(targetDate)) {
+    const hasInvalidationNow = recheckInvalidation.rows.length > 0 && !!recheckInvalidation.rows[0].invalidated_from;
+    const confirmedInvalidFrom = hasInvalidationNow ? recheckInvalidation.rows[0].invalidated_from : null;
+    const invalidationRelevantNow = hasInvalidationNow && dateToNum(confirmedInvalidFrom!) <= dateToNum(targetDate);
+
+    const recheckSummary = await client.query(
+      `SELECT 1 FROM daily_expense_summaries WHERE project_id = $1 AND date = $2 LIMIT 1`,
+      [projectId, targetDate]
+    );
+    if (!invalidationRelevantNow && recheckSummary.rows.length > 0) {
       await client.query('COMMIT');
       return;
     }
 
-    await client.query(
-      `DELETE FROM daily_expense_summaries WHERE project_id = $1 AND date >= $2`,
-      [projectId, confirmedInvalidFrom]
-    );
+    let rebuildFromDate: string;
+    if (invalidationRelevantNow) {
+      rebuildFromDate = confirmedInvalidFrom!;
+      await client.query(
+        `DELETE FROM daily_expense_summaries WHERE project_id = $1 AND date >= $2`,
+        [projectId, rebuildFromDate]
+      );
+    } else {
+      const lastSummary = await client.query(`
+        SELECT date FROM daily_expense_summaries
+        WHERE project_id = $1 AND date < $2
+        ORDER BY date DESC LIMIT 1
+      `, [projectId, targetDate]);
+      if (lastSummary.rows.length > 0) {
+        const lastDate = new Date(lastSummary.rows[0].date);
+        lastDate.setDate(lastDate.getDate() + 1);
+        rebuildFromDate = lastDate.toISOString().substring(0, 10);
+      } else {
+        const firstActivity = await client.query(`
+          SELECT MIN(sub_date) as first_date FROM (
+            SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != ''
+            UNION SELECT purchase_date FROM material_purchases WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != ''
+            UNION SELECT date FROM transportation_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
+            UNION SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) FROM fund_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
+            UNION SELECT date FROM worker_misc_expenses WHERE project_id = $1 AND date IS NOT NULL AND date != ''
+            UNION SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) FROM worker_transfers WHERE project_id = $1 AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
+            UNION SELECT SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) FROM project_fund_transfers WHERE (from_project_id = $1 OR to_project_id = $1) AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
+            UNION SELECT SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) FROM supplier_payments WHERE project_id = $1 AND payment_date IS NOT NULL AND CAST(payment_date AS TEXT) != ''
+          ) all_dates
+        `, [projectId]);
+        rebuildFromDate = firstActivity.rows[0]?.first_date || targetDate;
+      }
+    }
 
     const lastValidResult = await client.query(`
       SELECT remaining_balance, date FROM daily_expense_summaries
       WHERE project_id = $1 AND date < $2
       ORDER BY date DESC LIMIT 1
-    `, [projectId, confirmedInvalidFrom]);
+    `, [projectId, rebuildFromDate]);
 
     let carriedForward = 0;
     if (lastValidResult.rows.length > 0) {
       carriedForward = Math.round(parseFloat(lastValidResult.rows[0].remaining_balance || '0'));
     }
 
-    const dates = await getActiveDatesWithClient(client, projectId, confirmedInvalidFrom, targetDate);
+    const dates = await getActiveDatesWithClient(client, projectId, rebuildFromDate, targetDate);
 
     for (const date of dates) {
       const daySummary = await computeDaySummaryWithClient(client, projectId, date, carriedForward);
@@ -300,10 +340,12 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
       }
     }
 
-    await client.query(
-      `DELETE FROM summary_invalidations WHERE project_id = $1 AND invalidated_from <= $2`,
-      [projectId, targetDate]
-    );
+    if (invalidationRelevantNow) {
+      await client.query(
+        `DELETE FROM summary_invalidations WHERE project_id = $1 AND invalidated_from <= $2`,
+        [projectId, targetDate]
+      );
+    }
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

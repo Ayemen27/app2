@@ -4086,6 +4086,23 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
 
+    const scopeCondition = isAdminUser ? '' : ' AND project_id = ANY($2)';
+    const scopeParamsForRaw = isAdminUser ? [cleanDate] : [cleanDate, accessibleIds];
+    const rawProjectsQuery = await pool.query(
+      `SELECT DISTINCT sub.project_id FROM (
+        SELECT project_id FROM worker_attendance WHERE COALESCE(NULLIF(date,''), attendance_date) = $1 ${scopeCondition}
+        UNION SELECT project_id FROM worker_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition}
+        UNION SELECT project_id FROM transportation_expenses WHERE date = $1 ${scopeCondition}
+        UNION SELECT project_id FROM material_purchases WHERE purchase_date = $1 ${scopeCondition}
+        UNION SELECT project_id FROM fund_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition}
+        UNION SELECT project_id FROM worker_misc_expenses WHERE date = $1 ${scopeCondition}
+        UNION SELECT from_project_id as project_id FROM project_fund_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'from_project_id') : ''}
+        UNION SELECT to_project_id as project_id FROM project_fund_transfers WHERE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition ? scopeCondition.replace('project_id', 'to_project_id') : ''}
+        UNION SELECT project_id FROM supplier_payments WHERE SUBSTRING(CAST(payment_date AS TEXT) FROM 1 FOR 10) = $1 ${scopeCondition}
+      ) sub`,
+      scopeParamsForRaw
+    );
+
     let invalidatedQuery;
     if (isAdminUser) {
       invalidatedQuery = await pool.query(
@@ -4099,16 +4116,20 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       );
     }
 
+    const allProjectIdsToCheck = new Set<string>();
+    rawProjectsQuery.rows.forEach((r: any) => allProjectIdsToCheck.add(r.project_id));
+    invalidatedQuery.rows.forEach((r: any) => allProjectIdsToCheck.add(r.project_id));
+
     const staleProjectIds: string[] = [];
-    if (invalidatedQuery.rows.length > 0) {
+    if (allProjectIdsToCheck.size > 0) {
       const rebuildResults = await Promise.allSettled(
-        invalidatedQuery.rows.map((r: any) =>
-          SummaryRebuildService.ensureValidSummary(r.project_id, cleanDate)
+        Array.from(allProjectIdsToCheck).map((pid) =>
+          SummaryRebuildService.ensureValidSummary(pid, cleanDate)
         )
       );
       rebuildResults.forEach((result, idx) => {
         if (result.status === 'rejected') {
-          const failedPid = invalidatedQuery.rows[idx].project_id;
+          const failedPid = Array.from(allProjectIdsToCheck)[idx];
           staleProjectIds.push(failedPid);
           console.error(`❌ [MultiProject] فشل إعادة بناء ملخص مشروع ${failedPid}:`, result.reason);
         }

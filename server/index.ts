@@ -863,6 +863,13 @@ const activeIntervals: NodeJS.Timeout[] = [];
         } catch (error: any) {
           console.warn('⚠️ [Schema Check] خطأ في الفحص:', error.message);
         }
+
+        try {
+          const { SummaryRebuildService } = await import('./services/SummaryRebuildService');
+          await SummaryRebuildService.ensureTriggersExist();
+        } catch (error: any) {
+          console.warn('⚠️ [SummaryTriggers] خطأ في فحص الـ triggers:', error.message);
+        }
       }, 3000);
     });
 

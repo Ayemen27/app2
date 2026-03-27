@@ -474,6 +474,9 @@ export class DeploymentEngine {
         const [freshDeployment] = await db.select().from(buildDeployments).where(eq(buildDeployments.id, id));
         if (!freshDeployment || freshDeployment.status !== "running") {
           console.log(`[DeploymentEngine] 🔍 Remote monitor: Deployment ${id} no longer running (${freshDeployment?.status}) — stopping`);
+          if (freshDeployment?.status === "cancelled") {
+            this.killRemoteBuildProcess(id).catch(() => {});
+          }
           this.stopRemoteMonitor(id);
           return;
         }
@@ -5099,6 +5102,10 @@ echo 'MAINACTIVITY_FIXED'"`,
       return;
     }
 
+    this.killRemoteBuildProcess(deploymentId).catch(err => {
+      console.error(`[DeploymentEngine] killRemoteBuildProcess error:`, err?.message);
+    });
+
     const steps = deployment.steps as StepEntry[];
     const updatedSteps = steps.map(s => {
       if (s.status === "pending" || s.status === "running") {
@@ -5119,11 +5126,39 @@ echo 'MAINACTIVITY_FIXED'"`,
       return;
     }
 
+    this.stopRemoteMonitor(deploymentId);
+    this.stopHeartbeat(deploymentId);
+
     await this.addLog(deploymentId, "تم إلغاء النشر بواسطة المستخدم", "warn");
     await this.addEvent(deploymentId, "deployment_cancelled", "Deployment cancelled by user");
+    await this.flushLogs(deploymentId);
 
     broadcastToClients(deploymentId, { type: "deployment_update", data: { status: "cancelled", steps: updatedSteps, errorMessage: "تم الإلغاء بواسطة المستخدم" } });
     broadcastGlobalEvent({ type: "deployment_cancelled", deploymentId, data: { id: deploymentId, status: "cancelled" } });
+  }
+
+  private async killRemoteBuildProcess(deploymentId: string): Promise<void> {
+    try {
+      await this.ensureSSHKeyProvisioned();
+      const sshCmd = this.buildSSHCommand();
+      const buildId = deploymentId.substring(0, 8);
+      const pidFile = `/tmp/axion_build_${buildId}.pid`;
+      const exitFile = `/tmp/axion_build_${buildId}.exit`;
+      const logFile = `/tmp/axion_build_${buildId}.log`;
+
+      const { stdout } = await execAsync(
+        `${sshCmd} "if [ -f ${pidFile} ]; then PID=\\$(cat ${pidFile}); kill \\$PID 2>/dev/null && echo KILLED:\\$PID || echo ALREADY_DEAD; rm -f ${pidFile} ${exitFile}; else echo NO_PID_FILE; fi"`,
+        { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+      );
+      const result = stdout.trim();
+      console.log(`[DeploymentEngine] killRemoteBuildProcess(${buildId}): ${result}`);
+
+      if (result.startsWith("KILLED:")) {
+        await this.addLog(deploymentId, `🛑 تم إيقاف عملية البناء على السيرفر البعيد (PID: ${result.replace("KILLED:", "")})`, "warn");
+      }
+    } catch (err: any) {
+      console.error(`[DeploymentEngine] killRemoteBuildProcess failed:`, err?.message);
+    }
   }
 
   private static DOWNLOAD_TOKEN_EXPIRY_MS = 3600000;

@@ -209,9 +209,37 @@ router.get("/health", requireAdmin, asyncHandler(async (req: Request, res: Respo
   res.json(health);
 }));
 
+router.post("/health-check", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const deploymentId = await deploymentEngine.startDeployment({
+    pipeline: "health-check" as any,
+    appType: "web",
+    environment: "production",
+    branch: "main",
+    triggeredBy: user?.username || user?.email || "admin",
+    version: "health-check",
+    commitMessage: "فحص صحة السيرفر الشامل",
+  });
+  res.json({ id: deploymentId, message: "بدأ فحص صحة السيرفر الشامل" });
+}));
+
 router.post("/cleanup", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
   const result = await deploymentEngine.runCleanup();
   res.json(result);
+}));
+
+router.post("/server-cleanup", requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const deploymentId = await deploymentEngine.startDeployment({
+    pipeline: "server-cleanup" as any,
+    appType: "web",
+    environment: "production",
+    branch: "main",
+    triggeredBy: user?.username || user?.email || "admin",
+    version: "server-cleanup",
+    commitMessage: "تنظيف السيرفر العميق",
+  });
+  res.json({ id: deploymentId, message: "بدأ تنظيف السيرفر العميق" });
 }));
 
 router.get("/:id/events", requireAdmin, asyncHandler(async (req: Request, res: Response) => {

@@ -1,4 +1,4 @@
-export type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback";
+export type Pipeline = "web-deploy" | "android-build" | "full-deploy" | "hotfix" | "android-build-test" | "git-push" | "git-android-build" | "rollback" | "health-check" | "server-cleanup";
 
 export type BuildTarget = "server" | "local";
 
@@ -28,7 +28,34 @@ export type StepName =
   | "deploy-server"
   | "hotfix-sync"
   | "hotfix-guard"
-  | "rollback-server";
+  | "rollback-server"
+  | "hc-http"
+  | "hc-pm2"
+  | "hc-disk"
+  | "hc-memory"
+  | "hc-cpu"
+  | "hc-db"
+  | "hc-ssl"
+  | "hc-runtime"
+  | "hc-nginx"
+  | "hc-network"
+  | "hc-fd"
+  | "hc-connections"
+  | "hc-latency"
+  | "hc-log-errors"
+  | "hc-evaluate"
+  | "cl-android"
+  | "cl-tmp"
+  | "cl-pm2-logs"
+  | "cl-old-apk"
+  | "cl-docker"
+  | "cl-npm-cache"
+  | "cl-journal"
+  | "cl-old-logs"
+  | "cl-git-gc"
+  | "cl-orphans"
+  | "cl-apt-cache"
+  | "cl-summary";
 
 export interface RetryPolicy {
   maxRetries: number;
@@ -195,6 +222,141 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
     timeoutMs: 60000,
     condition: { type: "pipeline", pipelines: ["rollback"] },
   },
+  "hc-http": {
+    name: "hc-http",
+    timeoutMs: 20000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-pm2": {
+    name: "hc-pm2",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-disk": {
+    name: "hc-disk",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-memory": {
+    name: "hc-memory",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-cpu": {
+    name: "hc-cpu",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-db": {
+    name: "hc-db",
+    timeoutMs: 20000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-ssl": {
+    name: "hc-ssl",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-runtime": {
+    name: "hc-runtime",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-nginx": {
+    name: "hc-nginx",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-network": {
+    name: "hc-network",
+    timeoutMs: 20000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-fd": {
+    name: "hc-fd",
+    timeoutMs: 10000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-connections": {
+    name: "hc-connections",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-latency": {
+    name: "hc-latency",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-log-errors": {
+    name: "hc-log-errors",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "hc-evaluate": {
+    name: "hc-evaluate",
+    timeoutMs: 10000,
+    condition: { type: "pipeline", pipelines: ["health-check"] },
+  },
+  "cl-android": {
+    name: "cl-android",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-tmp": {
+    name: "cl-tmp",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-pm2-logs": {
+    name: "cl-pm2-logs",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-old-apk": {
+    name: "cl-old-apk",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-docker": {
+    name: "cl-docker",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-npm-cache": {
+    name: "cl-npm-cache",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-journal": {
+    name: "cl-journal",
+    timeoutMs: 20000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-old-logs": {
+    name: "cl-old-logs",
+    timeoutMs: 20000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-git-gc": {
+    name: "cl-git-gc",
+    timeoutMs: 60000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-orphans": {
+    name: "cl-orphans",
+    timeoutMs: 15000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-apt-cache": {
+    name: "cl-apt-cache",
+    timeoutMs: 30000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
+  "cl-summary": {
+    name: "cl-summary",
+    timeoutMs: 10000,
+    condition: { type: "pipeline", pipelines: ["server-cleanup"] },
+  },
 };
 
 export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
@@ -268,6 +430,24 @@ export const PIPELINE_DEFINITIONS: Record<Pipeline, PipelineDefinition> = {
     steps: {
       server: ["validate", "rollback-server", "restart-pm2", "verify"],
       local: ["validate", "rollback-server", "restart-pm2", "verify"],
+    },
+  },
+  "health-check": {
+    name: "health-check",
+    description: "Comprehensive server health check — world-class diagnostics",
+    supportedTargets: ["server"],
+    steps: {
+      server: ["hc-http", "hc-pm2", "hc-disk", "hc-memory", "hc-cpu", "hc-db", "hc-ssl", "hc-runtime", "hc-nginx", "hc-network", "hc-fd", "hc-connections", "hc-latency", "hc-log-errors", "hc-evaluate"],
+      local: ["hc-http", "hc-pm2", "hc-disk", "hc-memory", "hc-cpu", "hc-db", "hc-ssl", "hc-runtime", "hc-nginx", "hc-network", "hc-fd", "hc-connections", "hc-latency", "hc-log-errors", "hc-evaluate"],
+    },
+  },
+  "server-cleanup": {
+    name: "server-cleanup",
+    description: "Deep server cleanup with retention policies and resource reclamation",
+    supportedTargets: ["server"],
+    steps: {
+      server: ["cl-android", "cl-tmp", "cl-pm2-logs", "cl-old-apk", "cl-docker", "cl-npm-cache", "cl-journal", "cl-old-logs", "cl-git-gc", "cl-orphans", "cl-apt-cache", "cl-summary"],
+      local: ["cl-android", "cl-tmp", "cl-pm2-logs", "cl-old-apk", "cl-docker", "cl-npm-cache", "cl-journal", "cl-old-logs", "cl-git-gc", "cl-orphans", "cl-apt-cache", "cl-summary"],
     },
   },
 };

@@ -40,6 +40,19 @@ import {
   Shield,
   Ban,
   ChevronDown,
+  HardDrive,
+  Cpu,
+  Database,
+  Lock,
+  Globe,
+  Wifi,
+  FileText,
+  BarChart3,
+  Gauge,
+  AlertTriangle,
+  ClipboardCheck,
+  FolderOpen,
+  Eraser,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/lib/error-utils";
@@ -111,7 +124,8 @@ const LEGACY_PIPELINES: Record<string, string> = {
 
 const PIPELINE_LABELS_FULL: Record<string, string> = {
   ...PIPELINE_LABELS,
-  "health-check": "فحص السلامة",
+  "health-check": "🏥 فحص صحة السيرفر الشامل",
+  "server-cleanup": "🧹 تنظيف السيرفر العميق",
   "cleanup": "تنظيف السيرفر",
 };
 
@@ -144,6 +158,33 @@ const STEP_LABELS: Record<string, string> = {
   "hotfix-guard": "حماية الإصلاح السريع",
   "post-deploy-smoke": "اختبار دخان ما بعد النشر",
   "apk-integrity": "فحص سلامة APK (SHA-256 + توقيع)",
+  "hc-http": "فحص HTTP و زمن الاستجابة",
+  "hc-pm2": "فحص عمليات PM2",
+  "hc-disk": "فحص مساحة القرص",
+  "hc-memory": "فحص الذاكرة",
+  "hc-cpu": "فحص حمل المعالج",
+  "hc-db": "فحص قاعدة البيانات",
+  "hc-ssl": "فحص شهادة SSL",
+  "hc-runtime": "فحص بيئة التشغيل",
+  "hc-nginx": "فحص Nginx",
+  "hc-network": "فحص الشبكة و DNS",
+  "hc-fd": "فحص واصفات الملفات",
+  "hc-connections": "فحص الاتصالات النشطة",
+  "hc-latency": "فحص زمن الاستجابة المتقدم",
+  "hc-log-errors": "فحص أخطاء السجلات",
+  "hc-evaluate": "التقييم النهائي والدرجة",
+  "cl-android": "تنظيف مخلفات Android",
+  "cl-tmp": "تنظيف الملفات المؤقتة",
+  "cl-pm2-logs": "تنظيف سجلات PM2",
+  "cl-old-apk": "تنظيف APK القديمة",
+  "cl-docker": "تنظيف Docker",
+  "cl-npm-cache": "تنظيف ذاكرة npm",
+  "cl-journal": "تنظيف سجل النظام",
+  "cl-old-logs": "تنظيف السجلات القديمة",
+  "cl-git-gc": "تنظيف Git",
+  "cl-orphans": "تنظيف العمليات اليتيمة",
+  "cl-apt-cache": "تنظيف ذاكرة APT",
+  "cl-summary": "ملخص التنظيف",
 };
 
 const STEP_ICONS: Record<string, any> = {
@@ -175,6 +216,33 @@ const STEP_ICONS: Record<string, any> = {
   "hotfix-guard": Shield,
   "post-deploy-smoke": Activity,
   "apk-integrity": Shield,
+  "hc-http": Globe,
+  "hc-pm2": Activity,
+  "hc-disk": HardDrive,
+  "hc-memory": Gauge,
+  "hc-cpu": Cpu,
+  "hc-db": Database,
+  "hc-ssl": Lock,
+  "hc-runtime": Terminal,
+  "hc-nginx": Server,
+  "hc-network": Wifi,
+  "hc-fd": FileText,
+  "hc-connections": BarChart3,
+  "hc-latency": Timer,
+  "hc-log-errors": AlertTriangle,
+  "hc-evaluate": ClipboardCheck,
+  "cl-android": Smartphone,
+  "cl-tmp": Eraser,
+  "cl-pm2-logs": FileText,
+  "cl-old-apk": FolderOpen,
+  "cl-docker": Package,
+  "cl-npm-cache": Package,
+  "cl-journal": FileText,
+  "cl-old-logs": Trash2,
+  "cl-git-gc": GitBranch,
+  "cl-orphans": XCircle,
+  "cl-apt-cache": HardDrive,
+  "cl-summary": ClipboardCheck,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -532,9 +600,8 @@ export default function DeploymentConsole() {
   }, []);
 
   useEffect(() => {
-    const syntheticIds = ["health-check", "cleanup"];
     console.log(`[TRACK] useEffect: activeDeploymentId=${activeDeploymentId?.slice(0,8)||'null'}`);
-    if (activeDeploymentId && !syntheticIds.includes(activeDeploymentId)) {
+    if (activeDeploymentId) {
       startTracking(activeDeploymentId);
     } else {
       stopTracking();
@@ -638,45 +705,15 @@ export default function DeploymentConsole() {
 
   const handleCheckHealth = async () => {
     setIsCheckingHealth(true);
-    const now = () => new Date().toISOString();
-    const logs: LogEntry[] = [];
-    const addLocalLog = (message: string, type: LogEntry["type"] = "info") => {
-      logs.push({ timestamp: now(), message, type });
-      setLiveLogs([...logs]);
-    };
-
-    setLiveDeployment({
-      id: "health-check", buildNumber: 0, status: "running", currentStep: "health-check",
-      progress: 50, version: "", appType: "web", environment: "production", branch: "main",
-      pipeline: "health-check", logs: [], steps: [
-        { name: "health-check", status: "running" }
-      ], startTime: now(), created_at: now(),
-    } as Deployment);
-    setActiveDeploymentId("health-check");
-
-    addLocalLog("بدء فحص سلامة السيرفر...", "step");
     try {
-      const data = await apiRequest("/api/deployment/health");
-      setHealthData(data);
-      const isHealthy = data.status === "healthy";
-      addLocalLog(`حالة السيرفر: ${isHealthy ? "سليم" : "متدهور"}`, isHealthy ? "success" : "warn");
-      addLocalLog(`HTTP Status: ${data.checks?.httpStatus || "غير معروف"}`, "info");
-      if (data.checks?.pm2) {
-        addLocalLog(`PM2: ${JSON.stringify(data.checks.pm2)}`, "info");
+      const data = await apiRequest("/api/deployment/health-check", "POST");
+      if (data.id) {
+        startTracking(data.id);
+        toast({ title: "بدأ فحص صحة السيرفر الشامل (15 خطوة)" });
+        queryClient.invalidateQueries({ queryKey: ["/api/deployment/list"] });
       }
-      if (data.checks?.disk) {
-        addLocalLog(`القرص: ${data.checks.disk}`, "info");
-      }
-      if (data.checks?.memory) {
-        addLocalLog(`الذاكرة: ${data.checks.memory}`, "info");
-      }
-      addLocalLog("اكتمل فحص السلامة", "success");
-      setLiveDeployment(prev => prev ? { ...prev, status: "success", progress: 100, currentStep: "complete",
-        steps: [{ name: "health-check", status: "success" }] } : null);
     } catch (error: any) {
-      addLocalLog(`فشل فحص السلامة: ${toUserMessage(error)}`, "error");
-      setLiveDeployment(prev => prev ? { ...prev, status: "failed", progress: 100, currentStep: "complete",
-        steps: [{ name: "health-check", status: "failed" }] } : null);
+      toast({ title: "فشل بدء الفحص", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsCheckingHealth(false);
     }
@@ -708,40 +745,15 @@ export default function DeploymentConsole() {
 
   const handleCleanup = async () => {
     setIsCleaning(true);
-    const now = () => new Date().toISOString();
-    const logs: LogEntry[] = [];
-    const addLocalLog = (message: string, type: LogEntry["type"] = "info") => {
-      logs.push({ timestamp: now(), message, type });
-      setLiveLogs([...logs]);
-    };
-
-    setLiveDeployment({
-      id: "cleanup", buildNumber: 0, status: "running", currentStep: "cleanup",
-      progress: 50, version: "", appType: "web", environment: "production", branch: "main",
-      pipeline: "cleanup", logs: [], steps: [
-        { name: "cleanup", status: "running" }
-      ], startTime: now(), created_at: now(),
-    } as Deployment);
-    setActiveDeploymentId("cleanup");
-
-    addLocalLog("بدء تنظيف السيرفر...", "step");
     try {
-      const data = await apiRequest("/api/deployment/cleanup", "POST");
-      if (data.cleaned?.length > 0) {
-        data.cleaned.forEach((item: string) => addLocalLog(`تم تنظيف: ${item}`, "success"));
-      } else {
-        addLocalLog("لا يوجد شيء يحتاج تنظيف", "info");
+      const data = await apiRequest("/api/deployment/server-cleanup", "POST");
+      if (data.id) {
+        startTracking(data.id);
+        toast({ title: "بدأ تنظيف السيرفر العميق (12 خطوة)" });
+        queryClient.invalidateQueries({ queryKey: ["/api/deployment/list"] });
       }
-      if (data.errors?.length > 0) {
-        data.errors.forEach((err: string) => addLocalLog(`خطأ: ${err}`, "error"));
-      }
-      addLocalLog("اكتمل التنظيف", "success");
-      setLiveDeployment(prev => prev ? { ...prev, status: "success", progress: 100, currentStep: "complete",
-        steps: [{ name: "cleanup", status: "success" }] } : null);
     } catch (error: any) {
-      addLocalLog(`فشل التنظيف: ${toUserMessage(error)}`, "error");
-      setLiveDeployment(prev => prev ? { ...prev, status: "failed", progress: 100, currentStep: "complete",
-        steps: [{ name: "cleanup", status: "failed" }] } : null);
+      toast({ title: "فشل بدء التنظيف", description: toUserMessage(error), variant: "destructive" });
     } finally {
       setIsCleaning(false);
     }

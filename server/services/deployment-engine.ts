@@ -92,6 +92,8 @@ export class DeploymentEngine {
   private remoteMonitors = new Map<string, NodeJS.Timeout>();
   private recoverySupervisorTimer: NodeJS.Timeout | null = null;
   private static RECOVERY_INTERVAL = 30000;
+  private healthCheckResults = new Map<string, Record<string, any>>();
+  private cleanupResults = new Map<string, { totalReclaimedBytes: number; steps: { name: string; reclaimedBytes: number; detail: string }[]; errors: string[] }>();
 
   constructor() {
     this.notificationPublisher = DeploymentNotificationPublisher.getInstance();
@@ -291,7 +293,8 @@ export class DeploymentEngine {
 
   private static LOCAL_ONLY_STEPS = new Set<string>([
     'validate', 'preflight-check', 'sync-version', 'git-push', 'build-web',
-    'verify', 'prebuild-gate', 'android-readiness', 'apk-integrity', 'post-deploy-smoke'
+    'verify', 'prebuild-gate', 'android-readiness', 'apk-integrity', 'post-deploy-smoke',
+    'hc-evaluate', 'cl-summary'
   ]);
 
   private isRemoteStep(stepName: string): boolean {
@@ -691,9 +694,12 @@ export class DeploymentEngine {
       "hotfix": "hotfix",
       "git-android-build": "android",
       "android-build-test": "android",
+      "health-check": "health-check",
+      "server-cleanup": "server-cleanup",
     };
 
     const resolvedPipeline = resolvePipeline(config.pipeline);
+    const isNonBlockingPipeline = config.pipeline === "health-check" || config.pipeline === "server-cleanup";
     const MAX_BUILD_NUMBER_RETRIES = 3;
     let deployment: any;
     for (let attempt = 0; attempt < MAX_BUILD_NUMBER_RETRIES; attempt++) {
@@ -701,13 +707,15 @@ export class DeploymentEngine {
         const [row] = await db.transaction(async (tx: any) => {
           await tx.execute(sql`SELECT pg_advisory_xact_lock(7777001)`);
 
-          const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
-            .from(buildDeployments)
-            .where(eq(buildDeployments.status, "running"))
-            .limit(1);
+          if (!isNonBlockingPipeline) {
+            const running = await tx.select({ id: buildDeployments.id, buildNumber: buildDeployments.buildNumber })
+              .from(buildDeployments)
+              .where(sql`${buildDeployments.status} = 'running' AND ${buildDeployments.pipeline} NOT IN ('health-check', 'server-cleanup')`)
+              .limit(1);
 
-          if (running.length > 0) {
-            throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
+            if (running.length > 0) {
+              throw new Error(`عملية نشر أخرى (#${running[0].buildNumber}) قيد التنفيذ حالياً. انتظر انتهاءها أو ألغها أولاً.`);
+            }
           }
 
           const buildNumber = await this.getNextBuildNumber();
@@ -1110,6 +1118,87 @@ export class DeploymentEngine {
         break;
       case "apk-integrity":
         await this.stepApkIntegrity(deploymentId, sshCmd);
+        break;
+      case "hc-http":
+        await this.stepHcHttp(deploymentId);
+        break;
+      case "hc-pm2":
+        await this.stepHcPm2(deploymentId, sshCmd);
+        break;
+      case "hc-disk":
+        await this.stepHcDisk(deploymentId, sshCmd);
+        break;
+      case "hc-memory":
+        await this.stepHcMemory(deploymentId, sshCmd);
+        break;
+      case "hc-cpu":
+        await this.stepHcCpu(deploymentId, sshCmd);
+        break;
+      case "hc-db":
+        await this.stepHcDb(deploymentId, sshCmd);
+        break;
+      case "hc-ssl":
+        await this.stepHcSsl(deploymentId);
+        break;
+      case "hc-runtime":
+        await this.stepHcRuntime(deploymentId, sshCmd);
+        break;
+      case "hc-nginx":
+        await this.stepHcNginx(deploymentId, sshCmd);
+        break;
+      case "hc-network":
+        await this.stepHcNetwork(deploymentId, sshCmd);
+        break;
+      case "hc-fd":
+        await this.stepHcFd(deploymentId, sshCmd);
+        break;
+      case "hc-connections":
+        await this.stepHcConnections(deploymentId, sshCmd);
+        break;
+      case "hc-latency":
+        await this.stepHcLatency(deploymentId);
+        break;
+      case "hc-log-errors":
+        await this.stepHcLogErrors(deploymentId, sshCmd);
+        break;
+      case "hc-evaluate":
+        await this.stepHcEvaluate(deploymentId);
+        break;
+      case "cl-android":
+        await this.stepClAndroid(deploymentId, sshCmd);
+        break;
+      case "cl-tmp":
+        await this.stepClTmp(deploymentId, sshCmd);
+        break;
+      case "cl-pm2-logs":
+        await this.stepClPm2Logs(deploymentId, sshCmd);
+        break;
+      case "cl-old-apk":
+        await this.stepClOldApk(deploymentId, sshCmd);
+        break;
+      case "cl-docker":
+        await this.stepClDocker(deploymentId, sshCmd);
+        break;
+      case "cl-npm-cache":
+        await this.stepClNpmCache(deploymentId, sshCmd);
+        break;
+      case "cl-journal":
+        await this.stepClJournal(deploymentId, sshCmd);
+        break;
+      case "cl-old-logs":
+        await this.stepClOldLogs(deploymentId, sshCmd);
+        break;
+      case "cl-git-gc":
+        await this.stepClGitGc(deploymentId, sshCmd);
+        break;
+      case "cl-orphans":
+        await this.stepClOrphans(deploymentId, sshCmd);
+        break;
+      case "cl-apt-cache":
+        await this.stepClAptCache(deploymentId, sshCmd);
+        break;
+      case "cl-summary":
+        await this.stepClSummary(deploymentId);
         break;
       default:
         await this.addLog(deploymentId, `Unknown step: ${stepName}`, "warn");
@@ -3673,6 +3762,572 @@ echo 'MAINACTIVITY_FIXED'"`,
       console.error("[getStepAverages] Error:", err.message);
       return {};
     }
+  }
+
+  private async stepHcHttp(deploymentId: string) {
+    await this.addLog(deploymentId, "🌐 فحص HTTP — الاستجابة وحالة السيرفر...", "info");
+    const baseUrl = this.resolveBaseUrl();
+    try {
+      const start = Date.now();
+      const { stdout } = await execAsync(`curl -s -o /dev/null -w '%{http_code}|%{time_total}' ${baseUrl}/api/health`, { timeout: 15000 });
+      const [statusCode, timeStr] = stdout.trim().replace(/'/g, "").split("|");
+      const responseMs = Math.round(parseFloat(timeStr || "0") * 1000);
+      const ok = statusCode === "200";
+      if (!this.healthCheckResults.has(deploymentId)) this.healthCheckResults.set(deploymentId, {});
+      this.healthCheckResults.get(deploymentId)!.http = { statusCode, responseMs, healthy: ok };
+      await this.addLog(deploymentId, `${ok ? "✅" : "❌"} HTTP: ${statusCode} — زمن الاستجابة: ${responseMs}ms`, ok ? "success" : "error");
+      if (!ok) throw new Error(`HTTP health failed: ${statusCode}`);
+    } catch (err: any) {
+      if (!this.healthCheckResults.has(deploymentId)) this.healthCheckResults.set(deploymentId, {});
+      this.healthCheckResults.get(deploymentId)!.http = { statusCode: "unreachable", responseMs: 0, healthy: false };
+      await this.addLog(deploymentId, `❌ HTTP: السيرفر لا يستجيب — ${err.message}`, "error");
+    }
+  }
+
+  private async stepHcPm2(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "⚙️ فحص عمليات PM2...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "pm2 jlist 2>/dev/null | head -500"`, { timeout: 15000 });
+      const processes = JSON.parse(stdout || "[]");
+      const pm2Data = processes.map((p: any) => ({
+        name: p.name,
+        status: p.pm2_env?.status,
+        uptime: p.pm2_env?.pm_uptime ? Math.round((Date.now() - p.pm2_env.pm_uptime) / 1000) : 0,
+        restarts: p.pm2_env?.restart_time || 0,
+        memoryMB: p.monit?.memory ? Math.round(p.monit.memory / 1024 / 1024) : 0,
+        cpu: p.monit?.cpu || 0,
+      }));
+      const onlineCount = pm2Data.filter((p: any) => p.status === "online").length;
+      const totalRestarts = pm2Data.reduce((s: number, p: any) => s + p.restarts, 0);
+      const totalMemory = pm2Data.reduce((s: number, p: any) => s + p.memoryMB, 0);
+      this.healthCheckResults.get(deploymentId)!.pm2 = { processes: pm2Data, onlineCount, totalCount: pm2Data.length, totalRestarts, totalMemoryMB: totalMemory };
+      for (const p of pm2Data) {
+        const icon = p.status === "online" ? "✅" : "❌";
+        await this.addLog(deploymentId, `  ${icon} ${p.name}: ${p.status} | RAM: ${p.memoryMB}MB | CPU: ${p.cpu}% | Restarts: ${p.restarts} | Uptime: ${Math.round(p.uptime / 3600)}h`, p.status === "online" ? "info" : "warn");
+      }
+      await this.addLog(deploymentId, `📊 PM2: ${onlineCount}/${pm2Data.length} عمليات نشطة | إجمالي RAM: ${totalMemory}MB | إجمالي إعادة التشغيل: ${totalRestarts}`, onlineCount === pm2Data.length ? "success" : "warn");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.pm2 = { processes: [], onlineCount: 0, totalCount: 0, totalRestarts: 0, totalMemoryMB: 0 };
+      await this.addLog(deploymentId, `❌ PM2: تعذر الوصول — ${err.message}`, "error");
+    }
+  }
+
+  private async stepHcDisk(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "💾 فحص مساحة القرص...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "df -BM / /home/administrator 2>/dev/null | tail -n +2"`, { timeout: 10000 });
+      const lines = stdout.trim().split("\n");
+      const disks: any[] = [];
+      for (const line of lines) {
+        const parts = line.split(/\s+/);
+        if (parts.length >= 6) {
+          const usedPct = parseInt(parts[4].replace("%", ""));
+          const totalMB = parseInt(parts[1].replace("M", ""));
+          const usedMB = parseInt(parts[2].replace("M", ""));
+          const availMB = parseInt(parts[3].replace("M", ""));
+          const mount = parts[5];
+          const level = usedPct >= 90 ? "critical" : usedPct >= 80 ? "warning" : "ok";
+          disks.push({ mount, totalMB, usedMB, availMB, usedPct, level });
+          const icon = level === "ok" ? "✅" : level === "warning" ? "⚠️" : "🚨";
+          await this.addLog(deploymentId, `  ${icon} ${mount}: ${usedPct}% مستخدم (${Math.round(availMB / 1024)}GB متاح من ${Math.round(totalMB / 1024)}GB)`, level === "ok" ? "success" : "warn");
+        }
+      }
+      this.healthCheckResults.get(deploymentId)!.disk = { disks, hasCritical: disks.some((d: any) => d.level === "critical") };
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.disk = { disks: [], hasCritical: false };
+      await this.addLog(deploymentId, `❌ Disk: تعذر الفحص — ${err.message}`, "error");
+    }
+  }
+
+  private async stepHcMemory(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🧠 فحص الذاكرة...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "free -m | head -3"`, { timeout: 10000 });
+      const lines = stdout.trim().split("\n");
+      let totalMB = 0, usedMB = 0, availMB = 0, swapTotalMB = 0, swapUsedMB = 0;
+      for (const line of lines) {
+        const parts = line.split(/\s+/);
+        if (parts[0]?.toLowerCase().startsWith("mem")) {
+          totalMB = parseInt(parts[1]) || 0;
+          usedMB = parseInt(parts[2]) || 0;
+          availMB = parseInt(parts[6] || parts[3]) || 0;
+        } else if (parts[0]?.toLowerCase().startsWith("swap")) {
+          swapTotalMB = parseInt(parts[1]) || 0;
+          swapUsedMB = parseInt(parts[2]) || 0;
+        }
+      }
+      const usedPct = totalMB > 0 ? Math.round((usedMB / totalMB) * 100) : 0;
+      const level = usedPct >= 90 ? "critical" : usedPct >= 80 ? "warning" : "ok";
+      this.healthCheckResults.get(deploymentId)!.memory = { totalMB, usedMB, availMB, usedPct, swapTotalMB, swapUsedMB, level };
+      const icon = level === "ok" ? "✅" : level === "warning" ? "⚠️" : "🚨";
+      await this.addLog(deploymentId, `${icon} RAM: ${usedPct}% مستخدم (${usedMB}MB/${totalMB}MB) | متاح: ${availMB}MB | Swap: ${swapUsedMB}MB/${swapTotalMB}MB`, level === "ok" ? "success" : "warn");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.memory = { totalMB: 0, usedMB: 0, availMB: 0, usedPct: 0, swapTotalMB: 0, swapUsedMB: 0, level: "unknown" };
+      await this.addLog(deploymentId, `❌ Memory: تعذر الفحص — ${err.message}`, "error");
+    }
+  }
+
+  private async stepHcCpu(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "⚡ فحص حمل المعالج...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "cat /proc/loadavg && nproc"`, { timeout: 10000 });
+      const lines = stdout.trim().split("\n");
+      const loadParts = (lines[0] || "").split(/\s+/);
+      const cores = parseInt(lines[1]) || 1;
+      const load1 = parseFloat(loadParts[0]) || 0;
+      const load5 = parseFloat(loadParts[1]) || 0;
+      const load15 = parseFloat(loadParts[2]) || 0;
+      const loadPct = Math.round((load1 / cores) * 100);
+      const level = loadPct >= 90 ? "critical" : loadPct >= 70 ? "warning" : "ok";
+      this.healthCheckResults.get(deploymentId)!.cpu = { load1, load5, load15, cores, loadPct, level };
+      const icon = level === "ok" ? "✅" : level === "warning" ? "⚠️" : "🚨";
+      await this.addLog(deploymentId, `${icon} CPU: Load ${load1}/${load5}/${load15} (1/5/15 min) | ${cores} أنوية | حمل: ${loadPct}%`, level === "ok" ? "success" : "warn");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.cpu = { load1: 0, load5: 0, load15: 0, cores: 0, loadPct: 0, level: "unknown" };
+      await this.addLog(deploymentId, `❌ CPU: تعذر الفحص — ${err.message}`, "error");
+    }
+  }
+
+  private async stepHcDb(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🗄️ فحص قاعدة البيانات...", "info");
+    try {
+      const start = Date.now();
+      const { stdout } = await execAsync(`${sshCmd} "pg_isready -h localhost -p 5432 2>&1 && psql -U newuser -d newdb -c 'SELECT 1' -t 2>&1 | head -5"`, { timeout: 15000 });
+      const latencyMs = Date.now() - start;
+      const isReady = stdout.includes("accepting connections");
+      const queryOk = stdout.includes("1");
+      this.healthCheckResults.get(deploymentId)!.database = { isReady, queryOk, latencyMs, level: isReady && queryOk ? "ok" : "critical" };
+      const icon = isReady && queryOk ? "✅" : "❌";
+      await this.addLog(deploymentId, `${icon} DB: ${isReady ? "متصل" : "غير متصل"} | استعلام: ${queryOk ? "نجح" : "فشل"} | زمن: ${latencyMs}ms`, isReady && queryOk ? "success" : "error");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.database = { isReady: false, queryOk: false, latencyMs: 0, level: "critical" };
+      await this.addLog(deploymentId, `❌ DB: تعذر الاتصال — ${err.message}`, "error");
+    }
+  }
+
+  private async stepHcSsl(deploymentId: string) {
+    await this.addLog(deploymentId, "🔒 فحص شهادة SSL...", "info");
+    const host = process.env.PRODUCTION_DOMAIN || "app2.binarjoinanelytic.info";
+    try {
+      const { stdout } = await execAsync(`echo | openssl s_client -servername ${host} -connect ${host}:443 2>/dev/null | openssl x509 -noout -dates -subject 2>/dev/null`, { timeout: 15000 });
+      const afterMatch = stdout.match(/notAfter=(.+)/);
+      const beforeMatch = stdout.match(/notBefore=(.+)/);
+      let daysRemaining = 0;
+      let expiryDate = "";
+      if (afterMatch) {
+        const expiry = new Date(afterMatch[1].trim());
+        expiryDate = expiry.toISOString().split("T")[0];
+        daysRemaining = Math.round((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      }
+      const level = daysRemaining <= 7 ? "critical" : daysRemaining <= 30 ? "warning" : "ok";
+      this.healthCheckResults.get(deploymentId)!.ssl = { daysRemaining, expiryDate, valid: daysRemaining > 0, level, issuedAt: beforeMatch?.[1]?.trim() || "" };
+      const icon = level === "ok" ? "✅" : level === "warning" ? "⚠️" : "🚨";
+      await this.addLog(deploymentId, `${icon} SSL: ${daysRemaining} يوم متبقي | انتهاء: ${expiryDate}`, level === "ok" ? "success" : "warn");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.ssl = { daysRemaining: 0, expiryDate: "", valid: false, level: "unknown" };
+      await this.addLog(deploymentId, `⚠️ SSL: تعذر الفحص — ${err.message}`, "warn");
+    }
+  }
+
+  private async stepHcRuntime(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🔧 فحص بيئة التشغيل...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "node -v && npm -v && uptime -s 2>/dev/null"`, { timeout: 10000 });
+      const lines = stdout.trim().split("\n");
+      const nodeVersion = lines[0]?.trim() || "unknown";
+      const npmVersion = lines[1]?.trim() || "unknown";
+      const uptimeSince = lines[2]?.trim() || "";
+      this.healthCheckResults.get(deploymentId)!.runtime = { nodeVersion, npmVersion, uptimeSince };
+      await this.addLog(deploymentId, `✅ Node: ${nodeVersion} | npm: ${npmVersion} | تشغيل منذ: ${uptimeSince}`, "success");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.runtime = { nodeVersion: "unknown", npmVersion: "unknown", uptimeSince: "" };
+      await this.addLog(deploymentId, `⚠️ Runtime: تعذر الفحص — ${err.message}`, "warn");
+    }
+  }
+
+  private async stepHcNginx(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🌍 فحص Nginx...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "systemctl is-active nginx 2>/dev/null && nginx -v 2>&1 | head -1"`, { timeout: 10000 });
+      const lines = stdout.trim().split("\n");
+      const isActive = lines[0]?.trim() === "active";
+      const version = lines[1]?.trim() || "";
+      this.healthCheckResults.get(deploymentId)!.nginx = { isActive, version, level: isActive ? "ok" : "critical" };
+      await this.addLog(deploymentId, `${isActive ? "✅" : "❌"} Nginx: ${isActive ? "نشط" : "متوقف"} | ${version}`, isActive ? "success" : "error");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.nginx = { isActive: false, version: "", level: "unknown" };
+      await this.addLog(deploymentId, `⚠️ Nginx: تعذر الفحص — ${err.message}`, "warn");
+    }
+  }
+
+  private async stepHcNetwork(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📡 فحص الشبكة و DNS...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "dig +short google.com 2>/dev/null | head -1 && curl -s -o /dev/null -w '%{http_code}' --max-time 5 https://google.com 2>/dev/null"`, { timeout: 15000 });
+      const lines = stdout.trim().split("\n");
+      const dnsResolve = lines[0]?.trim() || "";
+      const externalHttp = lines[1]?.trim()?.replace(/'/g, "") || "";
+      const dnsOk = dnsResolve.length > 0;
+      const externalOk = externalHttp === "200" || externalHttp === "301";
+      this.healthCheckResults.get(deploymentId)!.network = { dnsOk, dnsResolve, externalReachable: externalOk, externalHttp, level: dnsOk && externalOk ? "ok" : "warning" };
+      await this.addLog(deploymentId, `${dnsOk ? "✅" : "❌"} DNS: ${dnsOk ? dnsResolve : "فشل"} | External: ${externalOk ? "متاح" : "غير متاح"} (${externalHttp})`, dnsOk && externalOk ? "success" : "warn");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.network = { dnsOk: false, dnsResolve: "", externalReachable: false, externalHttp: "", level: "unknown" };
+      await this.addLog(deploymentId, `⚠️ Network: تعذر الفحص — ${err.message}`, "warn");
+    }
+  }
+
+  private async stepHcFd(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📂 فحص واصفات الملفات المفتوحة...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "cat /proc/sys/fs/file-nr 2>/dev/null"`, { timeout: 10000 });
+      const parts = stdout.trim().split(/\s+/);
+      const openFd = parseInt(parts[0]) || 0;
+      const maxFd = parseInt(parts[2]) || 1;
+      const usedPct = Math.round((openFd / maxFd) * 100);
+      const level = usedPct >= 80 ? "critical" : usedPct >= 60 ? "warning" : "ok";
+      this.healthCheckResults.get(deploymentId)!.fileDescriptors = { openFd, maxFd, usedPct, level };
+      const icon = level === "ok" ? "✅" : "⚠️";
+      await this.addLog(deploymentId, `${icon} FD: ${openFd}/${maxFd} (${usedPct}%)`, level === "ok" ? "success" : "warn");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.fileDescriptors = { openFd: 0, maxFd: 0, usedPct: 0, level: "unknown" };
+      await this.addLog(deploymentId, `⚠️ FD: تعذر الفحص — ${err.message}`, "warn");
+    }
+  }
+
+  private async stepHcConnections(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🔗 فحص الاتصالات النشطة...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "ss -s 2>/dev/null"`, { timeout: 10000 });
+      const tcpMatch = stdout.match(/TCP:\s+(\d+)/);
+      const estabMatch = stdout.match(/estab\s+(\d+)/);
+      const totalTcp = parseInt(tcpMatch?.[1] || "0");
+      const established = parseInt(estabMatch?.[1] || "0");
+      this.healthCheckResults.get(deploymentId)!.connections = { totalTcp, established };
+      await this.addLog(deploymentId, `✅ اتصالات TCP: ${totalTcp} إجمالي | ${established} نشط`, "success");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.connections = { totalTcp: 0, established: 0 };
+      await this.addLog(deploymentId, `⚠️ Connections: تعذر الفحص — ${err.message}`, "warn");
+    }
+  }
+
+  private async stepHcLatency(deploymentId: string) {
+    await this.addLog(deploymentId, "⏱️ فحص زمن الاستجابة المتقدم (p50/p95/p99)...", "info");
+    const baseUrl = this.resolveBaseUrl();
+    const latencies: number[] = [];
+    const sampleCount = 10;
+    for (let i = 0; i < sampleCount; i++) {
+      try {
+        const start = Date.now();
+        await execAsync(`curl -s -o /dev/null ${baseUrl}/api/health`, { timeout: 10000 });
+        latencies.push(Date.now() - start);
+      } catch { latencies.push(10000); }
+    }
+    latencies.sort((a, b) => a - b);
+    const p50 = latencies[Math.floor(sampleCount * 0.5)] || 0;
+    const p95 = latencies[Math.floor(sampleCount * 0.95)] || 0;
+    const p99 = latencies[Math.floor(sampleCount * 0.99)] || 0;
+    const avg = Math.round(latencies.reduce((s, v) => s + v, 0) / latencies.length);
+    const level = p95 > 5000 ? "critical" : p95 > 2000 ? "warning" : "ok";
+    this.healthCheckResults.get(deploymentId)!.latency = { samples: sampleCount, avg, p50, p95, p99, level };
+    const icon = level === "ok" ? "✅" : "⚠️";
+    await this.addLog(deploymentId, `${icon} زمن الاستجابة: avg=${avg}ms | p50=${p50}ms | p95=${p95}ms | p99=${p99}ms (${sampleCount} عينة)`, level === "ok" ? "success" : "warn");
+  }
+
+  private async stepHcLogErrors(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📋 فحص أخطاء السجلات (آخر ساعة)...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "pm2 logs --nostream --lines 500 2>/dev/null | grep -ic 'error\\|exception\\|fatal\\|ECONNREFUSED\\|ENOTFOUND' 2>/dev/null || echo 0"`, { timeout: 15000 });
+      const errorCount = parseInt(stdout.trim()) || 0;
+      const level = errorCount >= 50 ? "critical" : errorCount >= 10 ? "warning" : "ok";
+      this.healthCheckResults.get(deploymentId)!.logErrors = { count: errorCount, period: "1h", level };
+      const icon = level === "ok" ? "✅" : level === "warning" ? "⚠️" : "🚨";
+      await this.addLog(deploymentId, `${icon} أخطاء السجلات: ${errorCount} خطأ في آخر 500 سطر`, level === "ok" ? "success" : "warn");
+    } catch (err: any) {
+      this.healthCheckResults.get(deploymentId)!.logErrors = { count: 0, period: "1h", level: "unknown" };
+      await this.addLog(deploymentId, `⚠️ Log Errors: تعذر الفحص — ${err.message}`, "warn");
+    }
+  }
+
+  private async stepHcEvaluate(deploymentId: string) {
+    await this.addLog(deploymentId, "📊 التقييم النهائي والدرجة...", "info");
+    const results = this.healthCheckResults.get(deploymentId) || {};
+    let score = 100;
+    const issues: string[] = [];
+
+    if (results.http?.statusCode !== "200") { score -= 25; issues.push("HTTP غير مستجيب"); }
+    if (results.pm2?.onlineCount === 0) { score -= 20; issues.push("لا توجد عمليات PM2 نشطة"); }
+    if (results.disk?.hasCritical) { score -= 15; issues.push("مساحة قرص حرجة"); }
+    if (results.memory?.level === "critical") { score -= 15; issues.push("ذاكرة حرجة"); }
+    if (results.cpu?.level === "critical") { score -= 10; issues.push("حمل معالج حرج"); }
+    if (results.database?.level === "critical") { score -= 20; issues.push("قاعدة البيانات معطلة"); }
+    if (results.ssl?.daysRemaining !== undefined && results.ssl.daysRemaining <= 7) { score -= 10; issues.push("شهادة SSL تنتهي قريباً"); }
+    if (results.nginx?.level === "critical") { score -= 15; issues.push("Nginx متوقف"); }
+    if (results.latency?.level === "critical") { score -= 10; issues.push("زمن استجابة مرتفع جداً"); }
+    if (results.logErrors?.level === "critical") { score -= 5; issues.push("أخطاء كثيرة في السجلات"); }
+    if (results.memory?.level === "warning") score -= 5;
+    if (results.cpu?.level === "warning") score -= 5;
+    if (results.disk?.disks?.some((d: any) => d.level === "warning")) score -= 5;
+    if (results.ssl?.level === "warning") score -= 5;
+    if (results.latency?.level === "warning") score -= 5;
+
+    score = Math.max(0, score);
+    const overallStatus = score >= 80 ? "healthy" : score >= 50 ? "degraded" : "down";
+
+    const report = {
+      score,
+      overallStatus,
+      issues,
+      timestamp: new Date().toISOString(),
+      checks: results,
+    };
+
+    await db.update(buildDeployments).set({ serverHealthResult: report }).where(eq(buildDeployments.id, deploymentId));
+
+    const statusIcon = overallStatus === "healthy" ? "✅" : overallStatus === "degraded" ? "⚠️" : "🚨";
+    await this.addLog(deploymentId, `\n${"═".repeat(50)}`, "info");
+    await this.addLog(deploymentId, `${statusIcon} النتيجة النهائية: ${score}/100 — ${overallStatus === "healthy" ? "سليم" : overallStatus === "degraded" ? "متدهور" : "معطل"}`, score >= 80 ? "success" : score >= 50 ? "warn" : "error");
+    if (issues.length > 0) {
+      await this.addLog(deploymentId, `⚠️ مشاكل مكتشفة (${issues.length}): ${issues.join(" | ")}`, "warn");
+    }
+    await this.addLog(deploymentId, `${"═".repeat(50)}`, "info");
+
+    this.healthCheckResults.delete(deploymentId);
+
+    if (overallStatus === "down") {
+      throw new Error(`فحص الصحة فشل: الدرجة ${score}/100 — السيرفر معطل`);
+    }
+  }
+
+  private ensureCleanupResults(deploymentId: string) {
+    if (!this.cleanupResults.has(deploymentId)) {
+      this.cleanupResults.set(deploymentId, { totalReclaimedBytes: 0, steps: [], errors: [] });
+    }
+    return this.cleanupResults.get(deploymentId)!;
+  }
+
+  private addCleanupStep(deploymentId: string, name: string, reclaimedMB: number, detail: string) {
+    const r = this.ensureCleanupResults(deploymentId);
+    const bytes = reclaimedMB * 1024 * 1024;
+    r.totalReclaimedBytes += bytes;
+    r.steps.push({ name, reclaimedBytes: bytes, detail });
+  }
+
+  private async stepClAndroid(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📱 تنظيف مخلفات بناء Android...", "info");
+    const remoteDir = "/home/administrator/app2";
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/android/app/build ${remoteDir}/android/.gradle ${remoteDir}/android/build 2>/dev/null | awk '{s+=\\$1} END{print s}'"`, { timeout: 15000 });
+      const sizeMB = parseInt(stdout.trim()) || 0;
+      await execAsync(`${sshCmd} "cd ${remoteDir} && rm -rf android/app/build android/.gradle android/build 2>/dev/null && echo 'DONE'"`, { timeout: 30000 });
+      this.addCleanupStep(deploymentId, "cl-android", sizeMB, `Android build artifacts (${sizeMB}MB)`);
+      await this.addLog(deploymentId, `✅ تم تنظيف مخلفات Android: ${sizeMB}MB`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Android: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Android cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClTmp(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🗑️ تنظيف الملفات المؤقتة...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "du -sm /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000 });
+      const sizeMB = parseInt(stdout.trim()) || 0;
+      await execAsync(`${sshCmd} "rm -f /tmp/deploy-*.tar.gz /tmp/app-build-*.tar.gz /tmp/www_assets.tar.gz /tmp/android_project.tar.gz 2>/dev/null && echo 'DONE'"`, { timeout: 15000 });
+      this.addCleanupStep(deploymentId, "cl-tmp", sizeMB, `Temp archives (${sizeMB}MB)`);
+      await this.addLog(deploymentId, `✅ تم تنظيف ملفات مؤقتة: ${sizeMB}MB`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Tmp: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Tmp cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClPm2Logs(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📄 تنظيف سجلات PM2...", "info");
+    try {
+      const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ~/.pm2/logs/ 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const sizeMB = parseInt(beforeSize.trim()) || 0;
+      await execAsync(`${sshCmd} "cd /home/administrator/app2 && pm2 flush 2>/dev/null && echo 'DONE'"`, { timeout: 15000 });
+      this.addCleanupStep(deploymentId, "cl-pm2-logs", sizeMB, `PM2 logs (${sizeMB}MB)`);
+      await this.addLog(deploymentId, `✅ تم تنظيف سجلات PM2: ${sizeMB}MB`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`PM2 logs: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ PM2 logs cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClOldApk(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📦 تنظيف APK القديمة (الاحتفاظ بآخر 5)...", "info");
+    const releasesDir = "/home/administrator/app2/android-releases";
+    try {
+      const { stdout: listOut } = await execAsync(`${sshCmd} "ls -1t ${releasesDir}/*.apk 2>/dev/null"`, { timeout: 10000 });
+      const files = listOut.trim().split("\n").filter(Boolean);
+      if (files.length <= 5) {
+        await this.addLog(deploymentId, `✅ APK: ${files.length} ملفات فقط — لا حاجة للتنظيف`, "success");
+        return;
+      }
+      const toDelete = files.slice(5);
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm ${toDelete.join(" ")} 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000 });
+      const sizeMB = parseInt(sizeOut.trim()) || 0;
+      await execAsync(`${sshCmd} "rm -f ${toDelete.join(" ")} 2>/dev/null && echo 'DONE'"`, { timeout: 15000 });
+      this.addCleanupStep(deploymentId, "cl-old-apk", sizeMB, `Old APKs: ${toDelete.length} ملف (${sizeMB}MB)`);
+      await this.addLog(deploymentId, `✅ تم حذف ${toDelete.length} APK قديمة (${sizeMB}MB) — الاحتفاظ بآخر 5`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Old APK: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Old APK cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClDocker(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🐳 تنظيف Docker...", "info");
+    try {
+      const { stdout: check } = await execAsync(`${sshCmd} "which docker 2>/dev/null && echo 'EXISTS' || echo 'NONE'"`, { timeout: 5000 });
+      if (!check.includes("EXISTS")) {
+        await this.addLog(deploymentId, `ℹ️ Docker غير مثبت — تخطي`, "info");
+        return;
+      }
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "docker system df --format '{{.Reclaimable}}' 2>/dev/null | head -1"`, { timeout: 10000 });
+      await execAsync(`${sshCmd} "docker system prune -f 2>/dev/null"`, { timeout: 30000 });
+      this.addCleanupStep(deploymentId, "cl-docker", 0, `Docker dangling (${sizeOut.trim()})`);
+      await this.addLog(deploymentId, `✅ تم تنظيف Docker: ${sizeOut.trim()} قابل للاسترداد`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Docker: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Docker cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClNpmCache(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📦 تنظيف ذاكرة npm...", "info");
+    try {
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm ~/.npm 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const sizeMB = parseInt(sizeOut.trim()) || 0;
+      await execAsync(`${sshCmd} "npm cache clean --force 2>/dev/null"`, { timeout: 30000 });
+      this.addCleanupStep(deploymentId, "cl-npm-cache", sizeMB, `npm cache (${sizeMB}MB)`);
+      await this.addLog(deploymentId, `✅ تم تنظيف ذاكرة npm: ${sizeMB}MB`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`npm cache: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ npm cache cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClJournal(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "📓 تنظيف سجل النظام (journalctl)...", "info");
+    try {
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "journalctl --disk-usage 2>/dev/null | grep -oP '\\d+\\.?\\d*[MGK]' | head -1"`, { timeout: 10000 });
+      await execAsync(`${sshCmd} "sudo journalctl --vacuum-time=3d 2>/dev/null || journalctl --vacuum-time=3d 2>/dev/null"`, { timeout: 20000 });
+      this.addCleanupStep(deploymentId, "cl-journal", 0, `System journal (was: ${sizeOut.trim() || "unknown"})`);
+      await this.addLog(deploymentId, `✅ تم تنظيف سجل النظام (كان: ${sizeOut.trim() || "غير معروف"})`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Journal: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Journal cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClOldLogs(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🗂️ تنظيف ملفات السجلات القديمة (> 7 أيام)...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f 2>/dev/null | head -20"`, { timeout: 10000 });
+      const files = stdout.trim().split("\n").filter(Boolean);
+      if (files.length === 0) {
+        await this.addLog(deploymentId, `✅ لا توجد سجلات قديمة`, "success");
+        return;
+      }
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f -exec du -sm {} + 2>/dev/null | awk '{s+=\\$1} END{print s+0}'"`, { timeout: 10000 });
+      const sizeMB = parseInt(sizeOut.trim()) || 0;
+      await execAsync(`${sshCmd} "find /var/log -name '*.log' -mtime +7 -type f -delete 2>/dev/null; find /var/log -name '*.gz' -mtime +7 -type f -delete 2>/dev/null"`, { timeout: 15000 });
+      this.addCleanupStep(deploymentId, "cl-old-logs", sizeMB, `Old logs: ${files.length} ملف (${sizeMB}MB)`);
+      await this.addLog(deploymentId, `✅ تم حذف ${files.length} ملف سجلات قديمة (${sizeMB}MB)`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Old logs: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Old logs cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClGitGc(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🔀 تنظيف Git (garbage collection)...", "info");
+    const remoteDir = "/home/administrator/app2";
+    try {
+      const { stdout: beforeSize } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/.git 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const beforeMB = parseInt(beforeSize.trim()) || 0;
+      await execAsync(`${sshCmd} "cd ${remoteDir} && git gc --aggressive --prune=now 2>&1 | tail -3"`, { timeout: 60000 });
+      const { stdout: afterSize } = await execAsync(`${sshCmd} "du -sm ${remoteDir}/.git 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const afterMB = parseInt(afterSize.trim()) || 0;
+      const saved = Math.max(0, beforeMB - afterMB);
+      this.addCleanupStep(deploymentId, "cl-git-gc", saved, `Git GC (${beforeMB}MB → ${afterMB}MB, saved ${saved}MB)`);
+      await this.addLog(deploymentId, `✅ Git GC: ${beforeMB}MB → ${afterMB}MB (وُفّر ${saved}MB)`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Git GC: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Git GC: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClOrphans(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "👻 فحص العمليات اليتيمة...", "info");
+    try {
+      const { stdout } = await execAsync(`${sshCmd} "ps aux --sort=-%mem | awk 'NR>1 && \\$3>50{print \\$2,\\$3,\\$4,\\$11}' | head -5"`, { timeout: 10000 });
+      if (stdout.trim()) {
+        await this.addLog(deploymentId, `⚠️ عمليات عالية الاستهلاك:\n${stdout.trim()}`, "warn");
+        this.addCleanupStep(deploymentId, "cl-orphans", 0, "Orphan check (found high-resource processes)");
+      } else {
+        await this.addLog(deploymentId, `✅ لا توجد عمليات يتيمة عالية الاستهلاك`, "success");
+      }
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`Orphans: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ Orphan check: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClAptCache(deploymentId: string, sshCmd: string) {
+    await this.addLog(deploymentId, "🗃️ تنظيف ذاكرة APT...", "info");
+    try {
+      const { stdout: sizeOut } = await execAsync(`${sshCmd} "du -sm /var/cache/apt/archives 2>/dev/null | awk '{print \\$1}'"`, { timeout: 10000 });
+      const sizeMB = parseInt(sizeOut.trim()) || 0;
+      await execAsync(`${sshCmd} "sudo apt-get clean 2>/dev/null || apt-get clean 2>/dev/null"`, { timeout: 30000 });
+      this.addCleanupStep(deploymentId, "cl-apt-cache", sizeMB, `APT cache (${sizeMB}MB)`);
+      await this.addLog(deploymentId, `✅ تم تنظيف ذاكرة APT: ${sizeMB}MB`, "success");
+    } catch (err: any) {
+      this.ensureCleanupResults(deploymentId).errors.push(`APT cache: ${err.message}`);
+      await this.addLog(deploymentId, `⚠️ APT cache cleanup: ${err.message}`, "warn");
+    }
+  }
+
+  private async stepClSummary(deploymentId: string) {
+    await this.addLog(deploymentId, "📊 ملخص التنظيف...", "info");
+    const results = this.cleanupResults.get(deploymentId) || { totalReclaimedBytes: 0, steps: [], errors: [] };
+
+    const totalMB = Math.round(results.totalReclaimedBytes / (1024 * 1024) * 100) / 100;
+    const report = {
+      totalReclaimedBytes: results.totalReclaimedBytes,
+      totalReclaimedMB: totalMB,
+      steps: results.steps.map(s => ({
+        name: s.name,
+        reclaimedBytes: s.reclaimedBytes,
+        reclaimedMB: Math.round(s.reclaimedBytes / (1024 * 1024) * 100) / 100,
+        detail: s.detail,
+      })),
+      errors: results.errors,
+      timestamp: new Date().toISOString(),
+    };
+
+    await db.update(buildDeployments).set({ serverHealthResult: report as any }).where(eq(buildDeployments.id, deploymentId));
+
+    await this.addLog(deploymentId, `\n${"═".repeat(50)}`, "info");
+    await this.addLog(deploymentId, `🧹 ملخص التنظيف:`, "info");
+    await this.addLog(deploymentId, `  💾 إجمالي المساحة المستردة: ${totalMB}MB (${results.totalReclaimedBytes} bytes)`, "success");
+    await this.addLog(deploymentId, `  ✅ عمليات ناجحة: ${results.steps.length}`, "success");
+    if (results.errors.length > 0) {
+      await this.addLog(deploymentId, `  ⚠️ أخطاء: ${results.errors.length}`, "warn");
+      for (const err of results.errors) {
+        await this.addLog(deploymentId, `    ❌ ${err}`, "warn");
+      }
+    }
+    for (const s of results.steps) {
+      const mb = Math.round(s.reclaimedBytes / (1024 * 1024) * 100) / 100;
+      await this.addLog(deploymentId, `    ✓ ${s.detail}${mb > 0 ? ` [${mb}MB]` : ""}`, "info");
+    }
+    await this.addLog(deploymentId, `${"═".repeat(50)}`, "info");
+
+    this.cleanupResults.delete(deploymentId);
   }
 
   async checkServerHealth(): Promise<{ status: string; checks: Record<string, any> }> {

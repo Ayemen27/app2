@@ -40,6 +40,8 @@ function safeNum(val: any): number {
   return isNaN(n) ? 0 : n;
 }
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 interface WorkerStatementOptions {
   dateFrom?: string;
   dateTo?: string;
@@ -672,9 +674,9 @@ export class ReportDataService {
       db
         .select({
           date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
-          totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-          totalWages: sql<number>`COALESCE(SUM(CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(${workerAttendance.actualWage} AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END), 0)`,
-          totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+          totalWorkDays: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerAttendance.workDays}::text,''),'0') AS DECIMAL)), 0)`,
+          totalWages: sql<number>`COALESCE(SUM(CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(COALESCE(NULLIF(${workerAttendance.actualWage}::text,''),'0') AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END), 0)`,
+          totalPaid: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerAttendance.paidAmount}::text,''),'0') AS DECIMAL)), 0)`,
           workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`,
         })
         .from(workerAttendance)
@@ -693,9 +695,9 @@ export class ReportDataService {
           workerId: workerAttendance.worker_id,
           workerName: workers.name,
           workerType: workers.type,
-          totalDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-          totalEarned: sql<number>`COALESCE(SUM(CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(${workerAttendance.actualWage} AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END), 0)`,
-          totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+          totalDays: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerAttendance.workDays}::text,''),'0') AS DECIMAL)), 0)`,
+          totalEarned: sql<number>`COALESCE(SUM(CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(COALESCE(NULLIF(${workerAttendance.actualWage}::text,''),'0') AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END), 0)`,
+          totalPaid: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerAttendance.paidAmount}::text,''),'0') AS DECIMAL)), 0)`,
         })
         .from(workerAttendance)
         .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
@@ -711,9 +713,9 @@ export class ReportDataService {
       db
         .select({
           materialName: materialPurchases.materialName,
-          totalQuantity: sql<number>`COALESCE(SUM(CAST(${materialPurchases.quantity} AS DECIMAL)), 0)`,
-          totalAmount: sql<number>`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`,
-          totalPaid: sql<number>`COALESCE(SUM(CAST(${materialPurchases.paidAmount} AS DECIMAL)), 0)`,
+          totalQuantity: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${materialPurchases.quantity}::text,''),'0') AS DECIMAL)), 0)`,
+          totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${materialPurchases.totalAmount}::text,''),'0') AS DECIMAL)), 0)`,
+          totalPaid: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${materialPurchases.paidAmount}::text,''),'0') AS DECIMAL)), 0)`,
           supplierName: materialPurchases.supplierName,
         })
         .from(materialPurchases)
@@ -728,7 +730,7 @@ export class ReportDataService {
 
       db
         .select({
-          totalAmount: sql<number>`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`,
+          totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${transportationExpenses.amount}::text,''),'0') AS DECIMAL)), 0)`,
           tripCount: sql<number>`COUNT(*)`,
         })
         .from(transportationExpenses)
@@ -742,7 +744,7 @@ export class ReportDataService {
 
       db
         .select({
-          totalAmount: sql<number>`COALESCE(SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL)), 0)`,
+          totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerMiscExpenses.amount}::text,''),'0') AS DECIMAL)), 0)`,
           count: sql<number>`COUNT(*)`,
         })
         .from(workerMiscExpenses)
@@ -773,7 +775,7 @@ export class ReportDataService {
 
       db
         .select({
-          totalAmount: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+          totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerTransfers.amount}::text,''),'0') AS DECIMAL)), 0)`,
           count: sql<number>`COUNT(*)`,
         })
         .from(workerTransfers)
@@ -791,7 +793,7 @@ export class ReportDataService {
         workerId: workerTransfers.worker_id,
         workerName: workers.name,
         workerType: workers.type,
-        totalTransferred: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+        totalTransferred: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerTransfers.amount}::text,''),'0') AS DECIMAL)), 0)`,
       })
       .from(workerTransfers)
       .leftJoin(workers, eq(workerTransfers.worker_id, workers.id))
@@ -1018,7 +1020,7 @@ export class ReportDataService {
     const materialsByDateQuery = await db
       .select({
         date: materialPurchases.purchaseDate,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${materialPurchases.totalAmount}::text,''),'0') AS DECIMAL)), 0)`,
       })
       .from(materialPurchases)
       .where(
@@ -1033,7 +1035,7 @@ export class ReportDataService {
     const transportByDateQuery = await db
       .select({
         date: transportationExpenses.date,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${transportationExpenses.amount}::text,''),'0') AS DECIMAL)), 0)`,
       })
       .from(transportationExpenses)
       .where(
@@ -1048,7 +1050,7 @@ export class ReportDataService {
     const miscByDateQuery = await db
       .select({
         date: workerMiscExpenses.date,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerMiscExpenses.amount}::text,''),'0') AS DECIMAL)), 0)`,
       })
       .from(workerMiscExpenses)
       .where(
@@ -1063,7 +1065,7 @@ export class ReportDataService {
     const transfersByDateQuery = await db
       .select({
         date: workerTransfers.transferDate,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(CAST(COALESCE(NULLIF(${workerTransfers.amount}::text,''),'0') AS DECIMAL)), 0)`,
       })
       .from(workerTransfers)
       .where(

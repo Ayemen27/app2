@@ -1067,19 +1067,19 @@ export const insertProjectSchema = createInsertSchema(projects).omit({ id: true,
 export const insertWorkerSchema = createInsertSchema(workers).omit({ id: true, created_at: true });
 export const insertFundTransferSchema = createInsertSchema(fundTransfers).omit({ id: true, created_at: true }).extend({
   transferDate: dateStringSchema,
-  amount: z.preprocess((val) => (val === null || val === undefined) ? "0" : val.toString(), z.string()),
+  amount: z.preprocess((val) => (val === null || val === undefined || val === '') ? "0" : val.toString(), z.string()),
 });
 export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance).omit({ id: true, created_at: true }).extend({
   attendanceDate: dateStringSchema,
-  dailyWage: z.coerce.string(),
-  actualWage: z.coerce.string().optional(),
-  totalPay: z.coerce.string(),
-  paidAmount: z.coerce.string().optional(),
-  remainingAmount: z.coerce.string().optional(),
+  dailyWage: z.coerce.string().transform(v => v === '' ? '0' : v),
+  actualWage: z.coerce.string().transform(v => v === '' ? undefined : v).optional(),
+  totalPay: z.coerce.string().transform(v => v === '' ? '0' : v),
+  paidAmount: z.coerce.string().transform(v => v === '' ? '0' : v).optional(),
+  remainingAmount: z.coerce.string().transform(v => v === '' ? '0' : v).optional(),
   paymentType: z.string().optional().default("partial"), // نوع الدفع
-  hoursWorked: z.coerce.string().optional(), // ساعات العمل
-  overtime: z.coerce.string().optional(), // ساعات إضافية
-  overtimeRate: z.coerce.string().optional(), // معدل الساعات الإضافية
+  hoursWorked: z.coerce.string().transform(v => v === '' ? '0' : v).optional(),
+  overtime: z.coerce.string().transform(v => v === '' ? '0' : v).optional(),
+  overtimeRate: z.coerce.string().transform(v => v === '' ? '0' : v).optional(),
   notes: z.string().optional(), // ملاحظات
   // إضافة validation للأوقات
   startTime: z.string().optional().refine((val) => {
@@ -1105,32 +1105,32 @@ export const insertWorkerAttendanceSchema = createInsertSchema(workerAttendance)
 export const insertMaterialSchema = createInsertSchema(materials).omit({ id: true, created_at: true });
 export const insertMaterialPurchaseSchema = createInsertSchema(materialPurchases).omit({ id: true, created_at: true }).extend({
   purchaseDate: dateStringSchema,
-  quantity: z.coerce.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن تكون الكمية 0 أو أكثر"), 
+  quantity: z.coerce.string().transform(v => v === '' ? '0' : v).refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن تكون الكمية 0 أو أكثر"), 
   unit: z.string().min(1, "وحدة القياس مطلوبة").default("كيس"), 
-  unitPrice: z.coerce.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون سعر الوحدة 0 أو أكثر").optional().or(z.literal("")), 
-  totalAmount: z.coerce.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون إجمالي المبلغ 0 أو أكثر").optional().or(z.literal("")), 
+  unitPrice: z.coerce.string().transform(v => v === '' ? '0' : v).refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون سعر الوحدة 0 أو أكثر").optional().or(z.literal("")), 
+  totalAmount: z.coerce.string().transform(v => v === '' ? '0' : v).refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون إجمالي المبلغ 0 أو أكثر").optional().or(z.literal("")), 
   purchaseType: z.string().default("نقد"), 
-  paidAmount: z.coerce.string().default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المدفوع 0 أو أكثر"), 
-  remainingAmount: z.coerce.string().default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المتبقي 0 أو أكثر"), 
+  paidAmount: z.coerce.string().transform(v => v === '' ? '0' : v).default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المدفوع 0 أو أكثر"), 
+  remainingAmount: z.coerce.string().transform(v => v === '' ? '0' : v).default("0").refine(val => !isNaN(parseFloat(val)) && parseFloat(val) >= 0, "يجب أن يكون المبلغ المتبقي 0 أو أكثر"), 
 });
 export const insertTransportationExpenseSchema = createInsertSchema(transportationExpenses).omit({ id: true, created_at: true }).extend({
   date: dateStringSchema,
-  amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
+  amount: z.coerce.string().transform(v => v === '' ? '0' : v),
 });
 export const insertWorkerTransferSchema = createInsertSchema(workerTransfers).omit({ id: true, created_at: true }).extend({
   transferDate: dateStringSchema,
-  amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal في قاعدة البيانات
+  amount: z.coerce.string().transform(v => v === '' ? '0' : v),
 });
 export const insertProjectFundTransferSchema = createInsertSchema(projectFundTransfers).omit({ id: true, created_at: true }).extend({
   transferDate: dateStringSchema,
-  amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
+  amount: z.coerce.string().transform(v => v === '' ? '0' : v),
 });
 export const insertDailyExpenseSummarySchema = createInsertSchema(dailyExpenseSummaries).omit({ id: true, created_at: true, updated_at: true });
 export const insertWorkerTypeSchema = createInsertSchema(workerTypes).omit({ id: true, created_at: true, lastUsed: true });
 export const insertAutocompleteDataSchema = createInsertSchema(autocompleteData).omit({ id: true, created_at: true, lastUsed: true });
 export const insertWorkerMiscExpenseSchema = createInsertSchema(workerMiscExpenses).omit({ id: true, created_at: true }).extend({
   date: dateStringSchema,
-  amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
+  amount: z.coerce.string().transform(v => v === '' ? '0' : v),
 });
 
 // 🔐 **User Project Permissions Schema**
@@ -1224,7 +1224,7 @@ export const uuidSchema = z.string()
 
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, created_at: true });
 export const insertSupplierPaymentSchema = createInsertSchema(supplierPayments).omit({ id: true, created_at: true }).extend({
-  amount: z.coerce.string(), // تحويل number إلى string تلقائياً للتوافق مع نوع decimal
+  amount: z.coerce.string().transform(v => v === '' ? '0' : v),
 });
 export const insertPrintSettingsSchema = createInsertSchema(printSettings).omit({ id: true, created_at: true, updated_at: true });
 

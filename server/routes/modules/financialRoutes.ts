@@ -4172,6 +4172,20 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       };
     }
 
+    let totalCumFunds = 0, totalCumExpenses = 0;
+    for (const pid of allProjectIds) {
+      totalCumFunds += cumulativeMap[pid]?.cumulative_funds || 0;
+      totalCumExpenses += cumulativeMap[pid]?.cumulative_expenses || 0;
+    }
+    const totalCumBalance = totalCumFunds - totalCumExpenses;
+
+    let todayTotalFunds = 0, todayTotalExpenses = 0;
+    for (const s of summariesResult.rows) {
+      todayTotalFunds += parseFloat(s.total_fund_transfers) || 0;
+      todayTotalExpenses += parseFloat(s.total_expenses) || 0;
+    }
+    const carriedForwardAll = totalCumBalance - todayTotalFunds + todayTotalExpenses;
+
     for (const s of summariesResult.rows) {
       const cum = cumulativeMap[s.project_id];
       if (cum) {
@@ -4180,6 +4194,15 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
         s.cumulative_balance = String(cum.cumulative_balance);
       }
     }
+
+    const globalTotals = {
+      total_cumulative_funds: String(totalCumFunds),
+      total_cumulative_expenses: String(totalCumExpenses),
+      total_cumulative_balance: String(totalCumBalance),
+      carried_forward_all: String(carriedForwardAll),
+      today_total_funds: String(todayTotalFunds),
+      today_total_expenses: String(todayTotalExpenses),
+    };
 
     const projectIds = summariesResult.rows.map((s: any) => s.project_id);
     if (projectIds.length === 0) {
@@ -4203,7 +4226,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
           cumulative_balance: String(cum?.cumulative_balance || 0),
         };
       });
-      return sendSuccess(res, { summaries: cumulativeOnly, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
+      return sendSuccess(res, { summaries: cumulativeOnly, globalTotals, workers: [], transport: [], misc: [], funds: [], purchases: [], workerTransfers: [] }, 'تم جلب المصروفات بنجاح');
     }
 
     const [workersR, transportR, miscR, fundsR, purchasesR, workerTransfersR] = await Promise.all([
@@ -4235,6 +4258,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
 
     return sendSuccess(res, {
       summaries: summariesResult.rows,
+      globalTotals,
       workers: workersR.rows,
       transport: transportR.rows,
       misc: miscR.rows,

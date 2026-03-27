@@ -14,6 +14,7 @@ import { journalEntries, journalLines, financialAuditLog, reconciliationRecords,
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import type pg from 'pg';
 import { CentralLogService } from './CentralLogService';
+import { safeParseNum } from '../utils/safe-numbers';
 
 const ACCOUNT_CODES = {
   CASH: '1100',
@@ -317,8 +318,8 @@ export class FinancialLedgerService {
         createdBy,
         lines: originalLines.map((line: any) => ({
           accountCode: line.account_code,
-          debitAmount: Math.round(parseFloat(String(line.credit_amount || '0')) * 100) / 100,
-          creditAmount: Math.round(parseFloat(String(line.debit_amount || '0')) * 100) / 100,
+          debitAmount: Math.round(safeParseNum(line.credit_amount) * 100) / 100,
+          creditAmount: Math.round(safeParseNum(line.debit_amount) * 100) / 100,
           description: `عكس: ${line.description || ''}`,
         }))
       });
@@ -360,8 +361,8 @@ export class FinancialLedgerService {
       createdBy,
       lines: originalLines.map((line: any) => ({
         accountCode: line.account_code,
-        debitAmount: Math.round(parseFloat(String(line.credit_amount || '0')) * 100) / 100,
-        creditAmount: Math.round(parseFloat(String(line.debit_amount || '0')) * 100) / 100,
+        debitAmount: Math.round(safeParseNum(line.credit_amount) * 100) / 100,
+        creditAmount: Math.round(safeParseNum(line.debit_amount) * 100) / 100,
         description: `عكس: ${line.description || ''}`,
       }))
     });
@@ -608,7 +609,7 @@ export class FinancialLedgerService {
       WHERE je.project_id = $1 AND je.entry_date <= $2 AND je.status = 'posted'
         AND jl.account_code = '1100'
     `, [project_id, date]);
-    const ledgerBalance = Math.round(parseFloat(String(ledgerResult.rows[0]?.balance || '0')) * 100) / 100;
+    const ledgerBalance = Math.round(safeParseNum(ledgerResult.rows[0]?.balance) * 100) / 100;
 
     const computedResult = await pool.query(`
       WITH income AS (
@@ -641,7 +642,7 @@ export class FinancialLedgerService {
       SELECT 
         COALESCE((SELECT SUM(total) FROM income), 0) - COALESCE((SELECT SUM(total) FROM expenses), 0) as balance
     `, [project_id, date]);
-    const computedBalance = Math.round(parseFloat(String(computedResult.rows[0]?.balance || '0')) * 100) / 100;
+    const computedBalance = Math.round(safeParseNum(computedResult.rows[0]?.balance) * 100) / 100;
 
     const discrepancy = Math.round(Math.abs(ledgerBalance - computedBalance) * 100) / 100;
     const status = discrepancy < 0.01 ? 'matched' : 'discrepancy';
@@ -674,7 +675,7 @@ export class FinancialLedgerService {
         ${dateFilter}
     `, params);
 
-    return Math.round(parseFloat(String(result.rows[0]?.balance || '0')) * 100) / 100;
+    return Math.round(safeParseNum(result.rows[0]?.balance) * 100) / 100;
   }
 
   static async getProjectJournalEntries(project_id: string, fromDate?: string, toDate?: string) {

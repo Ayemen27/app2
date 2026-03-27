@@ -1,5 +1,6 @@
 import { eq, and, sql, gte, lte, desc, asc, inArray } from 'drizzle-orm';
 import { db } from '../../db';
+import { safeParseNum } from '../../utils/safe-numbers';
 import {
   projects,
   workers,
@@ -299,7 +300,7 @@ export class ReportDataService {
     const totalFundTransfers = fundTransfersList.reduce((s, f) => s + f.amount, 0);
     const totalProjectTransfersOut = projectFundTransfersOutData.reduce((s: number, f: any) => s + safeNum(f.amount), 0);
     const supplierPaymentsResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [projectId, date]);
-    const totalSupplierPayments = parseFloat(supplierPaymentsResult.rows[0]?.total || '0');
+    const totalSupplierPayments = safeParseNum(supplierPaymentsResult.rows[0]?.total);
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPayments;
     const balance = totalFundTransfers - totalExpenses;
 
@@ -544,7 +545,7 @@ export class ReportDataService {
     `, settlementParams);
 
     for (const s of settlementResult.rows) {
-      const amt = parseFloat(s.amount) || 0;
+      const amt = safeParseNum(s.amount);
       rawEntries.push({
         date: s.settlement_date,
         type: 'تصفية',
@@ -928,7 +929,7 @@ export class ReportDataService {
       CASE WHEN safe_numeric(paid_amount::text) > 0 THEN safe_numeric(paid_amount::text)
            ELSE safe_numeric(total_amount::text) END
     ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقد' OR purchase_type = 'نقداً') AND purchase_date >= $2 AND purchase_date <= $3`, [projectId, dateFrom, dateTo]);
-    const totalMaterialsCash = parseFloat(cashMaterialsResult.rows[0]?.total || '0');
+    const totalMaterialsCash = safeParseNum(cashMaterialsResult.rows[0]?.total);
 
     const transportTotal = safeNum(transportRows[0]?.totalAmount);
     const transportTripCount = safeNum(transportRows[0]?.tripCount);
@@ -971,7 +972,7 @@ export class ReportDataService {
     const projectTransfersNet = totalProjectTransfersIn - totalProjectTransfersOut;
 
     const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3`, [projectId, dateFrom, dateTo]);
-    const totalSupplierPaymentsPeriod = parseFloat(supplierPayPeriodResult.rows[0]?.total || '0');
+    const totalSupplierPaymentsPeriod = safeParseNum(supplierPayPeriodResult.rows[0]?.total);
 
     const inventoryPeriodResult = await pool.query(`
       WITH lot_totals AS (
@@ -1193,7 +1194,7 @@ export class ReportDataService {
           items: supplierPaymentRows.rows.map((r: any) => ({
             id: r.id,
             supplierName: r.supplier_name || '-',
-            amount: parseFloat(r.amount) || 0,
+            amount: safeParseNum(r.amount),
             paymentMethod: r.payment_method || '-',
             paymentDate: r.payment_date || '-',
             referenceNumber: r.reference_number || '',

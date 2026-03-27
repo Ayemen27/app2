@@ -6,6 +6,7 @@ import {
   wellWorkCrews, wellSolarComponents, wellTransportDetails, wellReceptions
 } from '../../shared/schema';
 import { CentralLogService } from './CentralLogService';
+import { safeParseNum } from '../utils/safe-numbers';
 
 export interface CreateWellDTO {
   project_id: string;
@@ -542,7 +543,7 @@ export class WellService {
         completedWells: projectWells.filter((w: any) => w.status === 'completed').length,
         averageCompletion: projectWells.length > 0
           ? Math.round(
-              projectWells.reduce((sum: number, w: any) => sum + (parseFloat(String(w.completionPercentage)) || 0), 0) / projectWells.length
+              projectWells.reduce((sum: number, w: any) => sum + safeParseNum(w.completionPercentage), 0) / projectWells.length
             )
           : 0
       };
@@ -944,7 +945,7 @@ export class WellService {
   static async getWellCrewsCost(well_id: number): Promise<number> {
     try {
       const crews = await this.getWellCrews(well_id);
-      return crews.reduce((sum: any, c: any) => sum + (parseFloat(String(c.totalWages)) || 0), 0);
+      return crews.reduce((sum: any, c: any) => sum + safeParseNum(c.totalWages), 0);
     } catch (error) {
       return 0;
     }
@@ -954,7 +955,7 @@ export class WellService {
     try {
       const details = await this.getWellTransportDetails(well_id);
       return details.reduce((sum: any, d: any) => {
-        return sum + (parseFloat(String(d.transportPrice)) || 0) + (parseFloat(String(d.crewEntitlements)) || 0);
+        return sum + safeParseNum(d.transportPrice) + safeParseNum(d.crewEntitlements);
       }, 0);
     } catch (error) {
       return 0;

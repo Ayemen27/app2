@@ -40,6 +40,8 @@ import {
 import { normalizeArabic, normalizeForSearch } from "./whatsapp/ArabicNormalizer";
 import { buildSuggestions } from "./whatsapp/SmartSuggestions";
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 export interface WhatsAppContext {
   step: 'idle' | 'awaiting_project' | 'awaiting_days' | 'awaiting_type'
     | 'expense_awaiting_project_summary'
@@ -1995,18 +1997,18 @@ export class WhatsAppAIService {
 
     try {
       const fundResult = await db.select({
-        total: sql<string>`COALESCE(SUM(${fundTransfers.amount}::numeric), 0)`,
+        total: sql<string>`COALESCE(SUM(${NUM(fundTransfers.amount)}), 0)`,
         count: sql<string>`COUNT(*)`,
       }).from(fundTransfers)
         .where(eq(fundTransfers.project_id, selectedProject.id));
 
       const expenseResult = await db.select({
-        totalExpenses: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalExpenses}::numeric), 0)`,
-        totalWages: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalWorkerWages}::numeric), 0)`,
-        totalMaterials: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalMaterialCosts}::numeric), 0)`,
-        totalTransport: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalTransportationCosts}::numeric), 0)`,
-        totalMisc: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalWorkerMiscExpenses}::numeric), 0)`,
-        totalTransfers: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalWorkerTransfers}::numeric), 0)`,
+        totalExpenses: sql<string>`COALESCE(SUM(${NUM(dailyExpenseSummaries.totalExpenses)}), 0)`,
+        totalWages: sql<string>`COALESCE(SUM(${NUM(dailyExpenseSummaries.totalWorkerWages)}), 0)`,
+        totalMaterials: sql<string>`COALESCE(SUM(${NUM(dailyExpenseSummaries.totalMaterialCosts)}), 0)`,
+        totalTransport: sql<string>`COALESCE(SUM(${NUM(dailyExpenseSummaries.totalTransportationCosts)}), 0)`,
+        totalMisc: sql<string>`COALESCE(SUM(${NUM(dailyExpenseSummaries.totalWorkerMiscExpenses)}), 0)`,
+        totalTransfers: sql<string>`COALESCE(SUM(${NUM(dailyExpenseSummaries.totalWorkerTransfers)}), 0)`,
       }).from(dailyExpenseSummaries)
         .where(eq(dailyExpenseSummaries.project_id, selectedProject.id));
 
@@ -2090,14 +2092,14 @@ export class WhatsAppAIService {
 
     const fundResults = await db.select({
       projectId: fundTransfers.project_id,
-      total: sql<string>`COALESCE(SUM(${fundTransfers.amount}::numeric), 0)`,
+      total: sql<string>`COALESCE(SUM(${NUM(fundTransfers.amount)}), 0)`,
     }).from(fundTransfers)
       .where(inArray(fundTransfers.project_id, userProjectIds))
       .groupBy(fundTransfers.project_id);
 
     const expenseResults = await db.select({
       projectId: dailyExpenseSummaries.project_id,
-      totalExpenses: sql<string>`COALESCE(SUM(${dailyExpenseSummaries.totalExpenses}::numeric), 0)`,
+      totalExpenses: sql<string>`COALESCE(SUM(${NUM(dailyExpenseSummaries.totalExpenses)}), 0)`,
     }).from(dailyExpenseSummaries)
       .where(inArray(dailyExpenseSummaries.project_id, userProjectIds))
       .groupBy(dailyExpenseSummaries.project_id);
@@ -2266,15 +2268,13 @@ export class WhatsAppAIService {
     try {
       const topWorkers = await db.select({
         workerId: workerAttendance.worker_id,
-        totalPaid: sql<string>`COALESCE(SUM(${workerAttendance.paidAmount}::numeric), 0)`,
-        totalPay: sql<string>`COALESCE(SUM(
-          CASE WHEN ${workerAttendance.actualWage}::text != 'NaN' THEN ${workerAttendance.actualWage}::numeric ELSE 0 END
-        ), 0)`,
+        totalPaid: sql<string>`COALESCE(SUM(${NUM(workerAttendance.paidAmount)}), 0)`,
+        totalPay: sql<string>`COALESCE(SUM(${NUM(workerAttendance.actualWage)}), 0)`,
         daysCount: sql<string>`COUNT(*)`,
       }).from(workerAttendance)
         .where(inArray(workerAttendance.project_id, userProjectIds))
         .groupBy(workerAttendance.worker_id)
-        .orderBy(desc(sql`COALESCE(SUM(${workerAttendance.paidAmount}::numeric), 0)`))
+        .orderBy(desc(sql`COALESCE(SUM(${NUM(workerAttendance.paidAmount)}), 0)`))
         .limit(5);
 
       if (topWorkers.length === 0) {

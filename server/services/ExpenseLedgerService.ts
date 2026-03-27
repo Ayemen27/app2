@@ -11,6 +11,7 @@
 
 import { db, pool } from '../db';
 import { sql } from 'drizzle-orm';
+import { safeParseNum } from '../utils/safe-numbers';
 
 export interface ExpenseSummary {
   materialExpenses: number;      // مصاريف المواد (النقدية فقط)
@@ -71,7 +72,7 @@ export class ExpenseLedgerService {
     const strValue = String(value).trim();
     if (strValue === '' || strValue === 'null' || strValue === 'undefined') return 0;
 
-    const parsed = type === 'integer' ? parseInt(strValue, 10) : parseFloat(strValue);
+    const parsed = type === 'integer' ? parseInt(strValue, 10) : safeParseNum(strValue);
     
     if (isNaN(parsed) || !isFinite(parsed)) return 0;
     

@@ -755,6 +755,8 @@ const activeIntervals: NodeJS.Timeout[] = [];
       await runAllStartupMigrations();
     } catch (err) {
       console.error("❌ [Startup] Failed to run startup migrations:", err);
+      console.error("🛑 [Startup] Server cannot start without migrations. Exiting.");
+      process.exit(1);
     }
 
     getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));

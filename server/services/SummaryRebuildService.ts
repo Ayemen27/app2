@@ -1,5 +1,6 @@
 import { pool } from '../db';
 import type { PoolClient } from 'pg';
+import { safeParseNum } from '../utils/safe-numbers';
 
 async function markInvalid(projectId: string, fromDate: string): Promise<void> {
   const dateStr = String(fromDate || '').substring(0, 10);
@@ -115,7 +116,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
   `, [projectId, date]);
 
   const row = result.rows[0];
-  const toTwo = (v: string) => Math.round(parseFloat(v || '0') * 100) / 100;
+  const toTwo = (v: string) => Math.round(safeParseNum(v) * 100) / 100;
   const fundTransfers = toTwo(row.fund_transfers);
   const incomingTransfers = toTwo(row.incoming_transfers);
   const outgoingTransfers = toTwo(row.outgoing_transfers);
@@ -323,7 +324,7 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
 
     let carriedForward = 0;
     if (lastValidResult.rows.length > 0) {
-      carriedForward = Math.round(parseFloat(lastValidResult.rows[0].remaining_balance || '0') * 100) / 100;
+      carriedForward = Math.round(safeParseNum(lastValidResult.rows[0].remaining_balance) * 100) / 100;
     }
 
     const dates = await getActiveDatesWithClient(client, projectId, rebuildFromDate, targetDate);

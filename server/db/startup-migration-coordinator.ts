@@ -68,7 +68,7 @@ export async function runAllStartupMigrations(): Promise<void> {
       DECLARE result numeric;
       BEGIN
         result := safe_numeric(v, d);
-        IF result = d AND v IS NOT NULL AND btrim(v) != '' THEN
+        IF result = d AND v IS NOT NULL AND btrim(v) != '' AND btrim(v) NOT IN ('0', '0.0', '0.00', '+0', '-0') THEN
           RAISE WARNING '[safe_numeric] fallback to default for value=% in context=%', v, ctx;
         END IF;
         RETURN result;

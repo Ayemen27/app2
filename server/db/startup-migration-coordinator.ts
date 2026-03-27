@@ -76,6 +76,37 @@ export async function runAllStartupMigrations(): Promise<void> {
       $$;
     `);
 
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_wa_posting_results_canonical_success
+      ON wa_posting_results (canonical_transaction_id)
+      WHERE posting_status = 'success';
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_wa_posting_results_idempotency_success
+      ON wa_posting_results (idempotency_key)
+      WHERE posting_status = 'success';
+    `);
+
+    const waCheckConstraints = [
+      { table: 'wa_extraction_candidates', col: 'candidate_type', vals: ['expense','transfer','loan','personal_account','custodian_receipt','settlement'] },
+      { table: 'wa_extraction_candidates', col: 'match_status', vals: ['exact_match','near_match','conflict','new_entry'] },
+      { table: 'wa_media_assets', col: 'media_status', vals: ['processed','skipped_too_large','skipped_unsupported','error'] },
+      { table: 'wa_posting_results', col: 'posting_status', vals: ['success','failed','skipped_duplicate'] },
+      { table: 'wa_verification_queue', col: 'priority', vals: ['P1_critical','P2_high','P3_medium','P4_low'] },
+    ];
+    for (const c of waCheckConstraints) {
+      const constraintName = `chk_${c.table}_${c.col}`;
+      const valList = c.vals.map(v => `'${v}'`).join(', ');
+      await client.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '${constraintName}') THEN
+            ALTER TABLE ${c.table} ADD CONSTRAINT ${constraintName}
+              CHECK (${c.col} IN (${valList}));
+          END IF;
+        END $$;
+      `);
+    }
+
     console.log("✅ [Migrations] تم تنفيذ جميع migrations بنجاح");
   } catch (error) {
     console.error("❌ [Migrations] خطأ أثناء تنفيذ migrations:", error);

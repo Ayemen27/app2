@@ -2595,3 +2595,282 @@ export const insertDeploymentPermissionSchema = createInsertSchema(deploymentPer
 export type DeploymentPermission = typeof deploymentPermissions.$inferSelect;
 export type InsertDeploymentPermission = z.infer<typeof insertDeploymentPermissionSchema>;
 
+// --- WhatsApp Import Pipeline Tables (13 tables) ---
+
+export const waImportBatches = pgTable("wa_import_batches", {
+  id: serial("id").primaryKey(),
+  filename: text("filename").notNull(),
+  zipSha256: text("zip_sha256").notNull().unique("wa_import_batches_zip_sha256_unique"),
+  chatSource: text("chat_source").notNull().default("other"),
+  status: text("status").notNull().default("pending"),
+  totalMessages: integer("total_messages").default(0),
+  totalMedia: integer("total_media").default(0),
+  errorMessage: text("error_message"),
+  uploadedBy: varchar("uploaded_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+}, (table) => ({
+  waImportBatchesUploadedByFkey: foreignKey({ name: "wa_import_batches_uploaded_by_fkey", columns: [table.uploadedBy], foreignColumns: [users.id] }),
+  idxWaImportBatchesStatus: index("idx_wa_import_batches_status").on(table.status),
+}));
+
+export const waRawMessages = pgTable("wa_raw_messages", {
+  id: serial("id").primaryKey(),
+  batchId: integer("batch_id").notNull(),
+  waTimestamp: timestamp("wa_timestamp", { withTimezone: true }).notNull(),
+  sender: text("sender").notNull(),
+  messageText: text("message_text"),
+  isMultiline: boolean("is_multiline").default(false).notNull(),
+  attachmentRef: text("attachment_ref"),
+  inlineClaimedDate: text("inline_claimed_date"),
+  dateMismatchReason: text("date_mismatch_reason"),
+  chatSource: text("chat_source").notNull().default("other"),
+  messageOrder: integer("message_order").notNull(),
+}, (table) => ({
+  waRawMessagesBatchIdFkey: foreignKey({ name: "wa_raw_messages_batch_id_fkey", columns: [table.batchId], foreignColumns: [waImportBatches.id] }).onDelete("cascade"),
+  idxWaRawMessagesBatchId: index("idx_wa_raw_messages_batch_id").on(table.batchId),
+  idxWaRawMessagesSender: index("idx_wa_raw_messages_sender").on(table.sender),
+  idxWaRawMessagesTimestamp: index("idx_wa_raw_messages_wa_timestamp").on(table.waTimestamp),
+}));
+
+export const waMediaAssets = pgTable("wa_media_assets", {
+  id: serial("id").primaryKey(),
+  batchId: integer("batch_id").notNull(),
+  messageId: integer("message_id"),
+  filePath: text("file_path").notNull(),
+  originalFilename: text("original_filename").notNull(),
+  sha256: text("sha256").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  ocrText: text("ocr_text"),
+  mediaStatus: text("media_status").notNull().default("processed"),
+  skipReason: text("skip_reason"),
+}, (table) => ({
+  waMediaAssetsBatchIdFkey: foreignKey({ name: "wa_media_assets_batch_id_fkey", columns: [table.batchId], foreignColumns: [waImportBatches.id] }).onDelete("cascade"),
+  waMediaAssetsMessageIdFkey: foreignKey({ name: "wa_media_assets_message_id_fkey", columns: [table.messageId], foreignColumns: [waRawMessages.id] }).onDelete("set null"),
+  idxWaMediaAssetsBatchId: index("idx_wa_media_assets_batch_id").on(table.batchId),
+  idxWaMediaAssetsSha256: index("idx_wa_media_assets_sha256").on(table.sha256),
+}));
+
+export const waCanonicalTransactions = pgTable("wa_canonical_transactions", {
+  id: serial("id").primaryKey(),
+  status: text("status").notNull().default("unclassified"),
+  transactionType: text("transaction_type"),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  currency: text("currency").default("YER"),
+  description: text("description"),
+  transactionDate: date("transaction_date"),
+  projectId: varchar("project_id"),
+  workerId: varchar("worker_id"),
+  mergedFromCandidates: integer("merged_from_candidates").array(),
+  excludeReason: text("exclude_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waCanonicalTransactionsProjectIdFkey: foreignKey({ name: "wa_canonical_transactions_project_id_fkey", columns: [table.projectId], foreignColumns: [projects.id] }),
+  waCanonicalTransactionsWorkerIdFkey: foreignKey({ name: "wa_canonical_transactions_worker_id_fkey", columns: [table.workerId], foreignColumns: [workers.id] }),
+  idxWaCanonicalTransactionsStatus: index("idx_wa_canonical_transactions_status").on(table.status),
+}));
+
+export const waExtractionCandidates = pgTable("wa_extraction_candidates", {
+  id: serial("id").primaryKey(),
+  batchId: integer("batch_id").notNull(),
+  sourceMessageId: integer("source_message_id"),
+  amount: decimal("amount", { precision: 15, scale: 2 }),
+  currency: text("currency").default("YER"),
+  description: text("description"),
+  patternType: text("pattern_type"),
+  confidence: decimal("confidence", { precision: 5, scale: 4 }),
+  confidenceBreakdownJson: jsonb("confidence_breakdown_json"),
+  projectHypothesisId: integer("project_hypothesis_id"),
+  category: text("category"),
+  candidateType: text("candidate_type").notNull().default("expense"),
+  matchStatus: text("match_status").notNull().default("new_entry"),
+  reviewFlags: text("review_flags").array(),
+  canonicalTransactionId: integer("canonical_transaction_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waExtractionCandidatesBatchIdFkey: foreignKey({ name: "wa_extraction_candidates_batch_id_fkey", columns: [table.batchId], foreignColumns: [waImportBatches.id] }).onDelete("cascade"),
+  waExtractionCandidatesSourceMsgFkey: foreignKey({ name: "wa_extraction_candidates_source_msg_fkey", columns: [table.sourceMessageId], foreignColumns: [waRawMessages.id] }),
+  waExtractionCandidatesCanonicalFkey: foreignKey({ name: "wa_extraction_candidates_canonical_fkey", columns: [table.canonicalTransactionId], foreignColumns: [waCanonicalTransactions.id] }),
+  idxWaExtractionCandidatesBatchId: index("idx_wa_extraction_candidates_batch_id").on(table.batchId),
+  idxWaExtractionCandidatesMatchStatus: index("idx_wa_extraction_candidates_match_status").on(table.matchStatus),
+  idxWaExtractionCandidatesCandidateType: index("idx_wa_extraction_candidates_candidate_type").on(table.candidateType),
+}));
+
+export const waTransactionEvidenceLinks = pgTable("wa_transaction_evidence_links", {
+  id: serial("id").primaryKey(),
+  candidateId: integer("candidate_id").notNull(),
+  rawMessageId: integer("raw_message_id"),
+  mediaAssetId: integer("media_asset_id"),
+  linkType: text("link_type").notNull().default("source"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waEvidenceLinksCandidateFkey: foreignKey({ name: "wa_evidence_links_candidate_fkey", columns: [table.candidateId], foreignColumns: [waExtractionCandidates.id] }).onDelete("cascade"),
+  waEvidenceLinksMessageFkey: foreignKey({ name: "wa_evidence_links_message_fkey", columns: [table.rawMessageId], foreignColumns: [waRawMessages.id] }),
+  waEvidenceLinksMediaFkey: foreignKey({ name: "wa_evidence_links_media_fkey", columns: [table.mediaAssetId], foreignColumns: [waMediaAssets.id] }),
+  idxWaEvidenceLinksCandidateId: index("idx_wa_evidence_links_candidate_id").on(table.candidateId),
+}));
+
+export const waWorkerAliases = pgTable("wa_worker_aliases", {
+  id: serial("id").primaryKey(),
+  aliasName: text("alias_name").notNull(),
+  canonicalWorkerId: varchar("canonical_worker_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdBy: varchar("created_by"),
+}, (table) => ({
+  waWorkerAliasesWorkerFkey: foreignKey({ name: "wa_worker_aliases_worker_fkey", columns: [table.canonicalWorkerId], foreignColumns: [workers.id] }),
+  waWorkerAliasesCreatedByFkey: foreignKey({ name: "wa_worker_aliases_created_by_fkey", columns: [table.createdBy], foreignColumns: [users.id] }),
+  uniqueAliasPerWorker: uniqueIndex("wa_worker_aliases_alias_worker_unique").on(table.aliasName, table.canonicalWorkerId),
+  idxWaWorkerAliasesAliasName: index("idx_wa_worker_aliases_alias_name").on(table.aliasName),
+}));
+
+export const waCustodianEntries = pgTable("wa_custodian_entries", {
+  id: serial("id").primaryKey(),
+  custodianWorkerId: varchar("custodian_worker_id").notNull(),
+  projectId: varchar("project_id"),
+  receivedAmount: decimal("received_amount", { precision: 15, scale: 2 }).default("0"),
+  disbursedAmount: decimal("disbursed_amount", { precision: 15, scale: 2 }).default("0"),
+  settledAmount: decimal("settled_amount", { precision: 15, scale: 2 }).default("0"),
+  settlementDate: date("settlement_date"),
+  linkedBatchId: integer("linked_batch_id"),
+  canonicalTransactionId: integer("canonical_transaction_id"),
+  entryType: text("entry_type").notNull().default("receipt"),
+  description: text("description"),
+  isPersonalAccount: boolean("is_personal_account").default(false).notNull(),
+  pendingSettlement: boolean("pending_settlement").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waCustodianWorkerFkey: foreignKey({ name: "wa_custodian_entries_worker_fkey", columns: [table.custodianWorkerId], foreignColumns: [workers.id] }),
+  waCustodianProjectFkey: foreignKey({ name: "wa_custodian_entries_project_fkey", columns: [table.projectId], foreignColumns: [projects.id] }),
+  waCustodianBatchFkey: foreignKey({ name: "wa_custodian_entries_batch_fkey", columns: [table.linkedBatchId], foreignColumns: [waImportBatches.id] }),
+  waCustodianCanonicalFkey: foreignKey({ name: "wa_custodian_entries_canonical_fkey", columns: [table.canonicalTransactionId], foreignColumns: [waCanonicalTransactions.id] }),
+  idxWaCustodianEntriesCustodian: index("idx_wa_custodian_entries_custodian").on(table.custodianWorkerId),
+}));
+
+export const waProjectHypotheses = pgTable("wa_project_hypotheses", {
+  id: serial("id").primaryKey(),
+  candidateId: integer("candidate_id").notNull(),
+  projectId: varchar("project_id").notNull(),
+  confidence: decimal("confidence", { precision: 5, scale: 4 }),
+  evidenceKeywords: text("evidence_keywords").array(),
+  inferenceMethod: text("inference_method"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waProjectHypCandidateFkey: foreignKey({ name: "wa_project_hypotheses_candidate_fkey", columns: [table.candidateId], foreignColumns: [waExtractionCandidates.id] }).onDelete("cascade"),
+  waProjectHypProjectFkey: foreignKey({ name: "wa_project_hypotheses_project_fkey", columns: [table.projectId], foreignColumns: [projects.id] }),
+  idxWaProjectHypothesesCandidateId: index("idx_wa_project_hypotheses_candidate_id").on(table.candidateId),
+}));
+
+export const waDedupKeys = pgTable("wa_dedup_keys", {
+  id: serial("id").primaryKey(),
+  candidateId: integer("candidate_id").notNull(),
+  canonicalTransactionId: integer("canonical_transaction_id"),
+  fingerprintHash: text("fingerprint_hash").notNull().unique("wa_dedup_keys_fingerprint_hash_unique"),
+  fingerprintComponentsJson: jsonb("fingerprint_components_json"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waDedupKeysCandidateFkey: foreignKey({ name: "wa_dedup_keys_candidate_fkey", columns: [table.candidateId], foreignColumns: [waExtractionCandidates.id] }).onDelete("cascade"),
+  waDedupKeysCanonicalFkey: foreignKey({ name: "wa_dedup_keys_canonical_fkey", columns: [table.canonicalTransactionId], foreignColumns: [waCanonicalTransactions.id] }),
+  idxWaDedupKeysFingerprintHash: index("idx_wa_dedup_keys_fingerprint_hash").on(table.fingerprintHash),
+}));
+
+export const waVerificationQueue = pgTable("wa_verification_queue", {
+  id: serial("id").primaryKey(),
+  candidateId: integer("candidate_id").notNull(),
+  canonicalTransactionId: integer("canonical_transaction_id"),
+  reason: text("reason").notNull(),
+  priority: text("priority").notNull().default("P4_low"),
+  reviewerId: varchar("reviewer_id"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  decision: text("decision"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waVerificationCandidateFkey: foreignKey({ name: "wa_verification_queue_candidate_fkey", columns: [table.candidateId], foreignColumns: [waExtractionCandidates.id] }),
+  waVerificationCanonicalFkey: foreignKey({ name: "wa_verification_queue_canonical_fkey", columns: [table.canonicalTransactionId], foreignColumns: [waCanonicalTransactions.id] }),
+  waVerificationReviewerFkey: foreignKey({ name: "wa_verification_queue_reviewer_fkey", columns: [table.reviewerId], foreignColumns: [users.id] }),
+  idxWaVerificationQueuePriority: index("idx_wa_verification_queue_priority").on(table.priority),
+  idxWaVerificationQueueDecision: index("idx_wa_verification_queue_decision").on(table.decision),
+}));
+
+export const waPostingResults = pgTable("wa_posting_results", {
+  id: serial("id").primaryKey(),
+  canonicalTransactionId: integer("canonical_transaction_id").notNull(),
+  targetTable: text("target_table").notNull(),
+  targetRecordId: text("target_record_id"),
+  postedAt: timestamp("posted_at", { withTimezone: true }).defaultNow().notNull(),
+  postedBy: varchar("posted_by"),
+  idempotencyKey: text("idempotency_key"),
+  postingStatus: text("posting_status").notNull().default("success"),
+  errorMessage: text("error_message"),
+  attemptNumber: integer("attempt_number").notNull().default(1),
+}, (table) => ({
+  waPostingCanonicalFkey: foreignKey({ name: "wa_posting_results_canonical_fkey", columns: [table.canonicalTransactionId], foreignColumns: [waCanonicalTransactions.id] }),
+  waPostingPostedByFkey: foreignKey({ name: "wa_posting_results_posted_by_fkey", columns: [table.postedBy], foreignColumns: [users.id] }),
+  idxWaPostingResultsCanonicalId: index("idx_wa_posting_results_canonical_id").on(table.canonicalTransactionId),
+  idxWaPostingResultsStatus: index("idx_wa_posting_results_posting_status").on(table.postingStatus),
+}));
+
+export const waReviewActions = pgTable("wa_review_actions", {
+  id: serial("id").primaryKey(),
+  actionType: text("action_type").notNull(),
+  canonicalTransactionId: integer("canonical_transaction_id"),
+  candidateId: integer("candidate_id"),
+  reviewerId: varchar("reviewer_id").notNull(),
+  beforeState: jsonb("before_state"),
+  afterState: jsonb("after_state"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  waReviewActionsCanonicalFkey: foreignKey({ name: "wa_review_actions_canonical_fkey", columns: [table.canonicalTransactionId], foreignColumns: [waCanonicalTransactions.id] }),
+  waReviewActionsCandidateFkey: foreignKey({ name: "wa_review_actions_candidate_fkey", columns: [table.candidateId], foreignColumns: [waExtractionCandidates.id] }),
+  waReviewActionsReviewerFkey: foreignKey({ name: "wa_review_actions_reviewer_fkey", columns: [table.reviewerId], foreignColumns: [users.id] }),
+  idxWaReviewActionsCanonicalId: index("idx_wa_review_actions_canonical_id").on(table.canonicalTransactionId),
+}));
+
+// --- WhatsApp Import Insert Schemas ---
+
+export const insertWaImportBatchSchema = createInsertSchema(waImportBatches).omit({ id: true, createdAt: true, completedAt: true });
+export const insertWaRawMessageSchema = createInsertSchema(waRawMessages).omit({ id: true });
+export const insertWaMediaAssetSchema = createInsertSchema(waMediaAssets).omit({ id: true });
+export const insertWaCanonicalTransactionSchema = createInsertSchema(waCanonicalTransactions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWaExtractionCandidateSchema = createInsertSchema(waExtractionCandidates).omit({ id: true, createdAt: true });
+export const insertWaTransactionEvidenceLinkSchema = createInsertSchema(waTransactionEvidenceLinks).omit({ id: true, createdAt: true });
+export const insertWaWorkerAliasSchema = createInsertSchema(waWorkerAliases).omit({ id: true, createdAt: true });
+export const insertWaCustodianEntrySchema = createInsertSchema(waCustodianEntries).omit({ id: true, createdAt: true });
+export const insertWaProjectHypothesisSchema = createInsertSchema(waProjectHypotheses).omit({ id: true, createdAt: true });
+export const insertWaDedupKeySchema = createInsertSchema(waDedupKeys).omit({ id: true, createdAt: true });
+export const insertWaVerificationQueueSchema = createInsertSchema(waVerificationQueue).omit({ id: true, createdAt: true });
+export const insertWaPostingResultSchema = createInsertSchema(waPostingResults).omit({ id: true, postedAt: true });
+export const insertWaReviewActionSchema = createInsertSchema(waReviewActions).omit({ id: true, createdAt: true });
+
+// --- WhatsApp Import Types ---
+
+export type WaImportBatch = typeof waImportBatches.$inferSelect;
+export type InsertWaImportBatch = z.infer<typeof insertWaImportBatchSchema>;
+export type WaRawMessage = typeof waRawMessages.$inferSelect;
+export type InsertWaRawMessage = z.infer<typeof insertWaRawMessageSchema>;
+export type WaMediaAsset = typeof waMediaAssets.$inferSelect;
+export type InsertWaMediaAsset = z.infer<typeof insertWaMediaAssetSchema>;
+export type WaCanonicalTransaction = typeof waCanonicalTransactions.$inferSelect;
+export type InsertWaCanonicalTransaction = z.infer<typeof insertWaCanonicalTransactionSchema>;
+export type WaExtractionCandidate = typeof waExtractionCandidates.$inferSelect;
+export type InsertWaExtractionCandidate = z.infer<typeof insertWaExtractionCandidateSchema>;
+export type WaTransactionEvidenceLink = typeof waTransactionEvidenceLinks.$inferSelect;
+export type InsertWaTransactionEvidenceLink = z.infer<typeof insertWaTransactionEvidenceLinkSchema>;
+export type WaWorkerAlias = typeof waWorkerAliases.$inferSelect;
+export type InsertWaWorkerAlias = z.infer<typeof insertWaWorkerAliasSchema>;
+export type WaCustodianEntry = typeof waCustodianEntries.$inferSelect;
+export type InsertWaCustodianEntry = z.infer<typeof insertWaCustodianEntrySchema>;
+export type WaProjectHypothesis = typeof waProjectHypotheses.$inferSelect;
+export type InsertWaProjectHypothesis = z.infer<typeof insertWaProjectHypothesisSchema>;
+export type WaDedupKey = typeof waDedupKeys.$inferSelect;
+export type InsertWaDedupKey = z.infer<typeof insertWaDedupKeySchema>;
+export type WaVerificationQueueItem = typeof waVerificationQueue.$inferSelect;
+export type InsertWaVerificationQueueItem = z.infer<typeof insertWaVerificationQueueSchema>;
+export type WaPostingResult = typeof waPostingResults.$inferSelect;
+export type InsertWaPostingResult = z.infer<typeof insertWaPostingResultSchema>;
+export type WaReviewAction = typeof waReviewActions.$inferSelect;
+export type InsertWaReviewAction = z.infer<typeof insertWaReviewActionSchema>;
+

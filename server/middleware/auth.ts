@@ -607,6 +607,25 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 // تصدير middleware الأساسي
 export const requireAuth = authenticate;
 
+export const requireAdminOrEditor = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'غير مصرح لك بالوصول',
+      code: 'UNAUTHORIZED'
+    });
+  }
+  const role = req.user.role;
+  if (role !== 'admin' && role !== 'editor' && role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'تحتاج صلاحيات admin أو editor للوصول لهذا المحتوى',
+      code: 'ROLE_REQUIRED'
+    });
+  }
+  next();
+};
+
 // تصدير middleware للأدوار
 export const requireRole = (role: string) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

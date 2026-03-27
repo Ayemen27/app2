@@ -38,6 +38,7 @@ import recordTransferRouter from './recordTransferRoutes.js';
 import settlementRouter from './settlementRoutes.js';
 import inventoryRouter from './inventoryRoutes.js';
 import centralLogRouter from './centralLogRoutes.js';
+import waImportRouter from './waImportRoutes.js';
 import { globalErrorHandler } from '../../middleware/api-response.js';
 import { telemetryRouter } from './telemetryRoutes.js';
 import { monitoringRouter } from '../../monitoring/routes.js';
@@ -98,6 +99,10 @@ export function registerOrganizedRoutes(app: Express) {
   // 📱 مسارات واتساب الذكاء الاصطناعي
   app.use('/api/whatsapp-ai', whatsappAIRoutes);
   console.log('✅ [OrganizedRoutes] تم تسجيل مسارات واتساب الذكاء الاصطناعي: /api/whatsapp-ai');
+
+  // 📦 مسارات استيراد محادثات واتساب
+  app.use('/api/wa-import', waImportRouter);
+  console.log('✅ [OrganizedRoutes] تم تسجيل مسارات استيراد واتساب: /api/wa-import');
 
   // مسارات العمال - تحتوي على مسارات أساسية ومسارات فرعية
   app.use('/api/workers', workerRouter);

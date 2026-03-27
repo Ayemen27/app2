@@ -472,6 +472,8 @@ export const workerAttendance = pgTable("worker_attendance", {
   chkAttendanceDateFormat: check("chk_attendance_date_format", sql`attendance_date ~ '^\d{4}-\d{2}-\d{2}$'`),
   chkAttendanceDateNotEmpty: check("chk_attendance_date_not_empty", sql`attendance_date <> ''`),
   chkWorkDaysPositive: check("chk_work_days_positive", sql`work_days >= 0`),
+  worker_attendance_worker_id_fkey: foreignKey({ name: "worker_attendance_worker_id_fkey", columns: [table.worker_id], foreignColumns: [workers.id] }).onDelete("cascade"),
+  worker_attendance_project_id_fkey: foreignKey({ name: "worker_attendance_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade"),
 }));
 
 // Suppliers (الموردين)
@@ -923,8 +925,8 @@ export const projectFundTransfers = pgTable("project_fund_transfers", {
   idxProjectFundTransfersToProjectDate: index("idx_project_fund_transfers_to_project_date").on(table.toProjectId, table.transferDate),
   idxProjectFundTransfersTransferDate: index("idx_project_fund_transfers_transfer_date").on(table.transferDate),
   chkProjectTransferDateNotEmpty: check("chk_project_transfer_date_not_empty", sql`transfer_date <> ''`),
-  project_fund_transfers_from_project_id_fkey: foreignKey({ name: "project_fund_transfers_from_project_id_fkey", columns: [table.fromProjectId], foreignColumns: [projects.id] }).onDelete("cascade"),
-  project_fund_transfers_to_project_id_fkey: foreignKey({ name: "project_fund_transfers_to_project_id_fkey", columns: [table.toProjectId], foreignColumns: [projects.id] }).onDelete("cascade"),
+  project_fund_transfers_from_project_id_fkey: foreignKey({ name: "project_fund_transfers_from_project_id_fkey", columns: [table.fromProjectId], foreignColumns: [projects.id] }).onDelete("restrict"),
+  project_fund_transfers_to_project_id_fkey: foreignKey({ name: "project_fund_transfers_to_project_id_fkey", columns: [table.toProjectId], foreignColumns: [projects.id] }).onDelete("restrict"),
 }));
 
 // Security Policies (سياسات الأمان)

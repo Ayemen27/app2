@@ -571,7 +571,12 @@ export const supplierPayments = pgTable("supplier_payments", {
   pendingSync: boolean("pending_sync").default(false),
 }, (table) => ({
   idxSupplierPaymentsSupplierId: index("idx_supplier_payments_supplier_id").on(table.supplier_id),
+  idxSupplierPaymentsProjectId: index("idx_supplier_payments_project_id").on(table.project_id),
+  idxSupplierPaymentsPurchaseId: index("idx_supplier_payments_purchase_id").on(table.purchase_id),
   chkSuppAmountPositive: check("chk_supp_amount_positive", sql`amount > 0`),
+  supplier_payments_supplier_id_fkey: foreignKey({ name: "supplier_payments_supplier_id_fkey", columns: [table.supplier_id], foreignColumns: [suppliers.id] }).onDelete("cascade"),
+  supplier_payments_project_id_fkey: foreignKey({ name: "supplier_payments_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade"),
+  supplier_payments_purchase_id_fkey: foreignKey({ name: "supplier_payments_purchase_id_fkey", columns: [table.purchase_id], foreignColumns: [materialPurchases.id] }).onDelete("set null"),
 }));
 
 // Transportation expenses (أجور المواصلات)
@@ -595,9 +600,12 @@ export const transportationExpenses = pgTable("transportation_expenses", {
 }, (table) => ({
   idxTransportExpensesProjectDate: index("idx_transport_expenses_project_date").on(table.project_id, table.date),
   idxTransportationExpensesProjectDate: index("idx_transportation_expenses_project_date").on(table.project_id, table.date),
+  idxTransportationExpensesWorkerId: index("idx_transportation_expenses_worker_id").on(table.worker_id),
   chkDateFormat: check("chk_date_format", sql`date ~ '^\d{4}-\d{2}-\d{2}$'`),
   chkDateNotEmpty: check("chk_date_not_empty", sql`date <> ''`),
   chkTransAmountPositive: check("chk_trans_amount_positive", sql`amount > 0`),
+  transportation_expenses_project_id_fkey: foreignKey({ name: "transportation_expenses_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade"),
+  transportation_expenses_worker_id_fkey: foreignKey({ name: "transportation_expenses_worker_id_fkey", columns: [table.worker_id], foreignColumns: [workers.id] }).onDelete("set null"),
 }));
 
 // Worker balance transfers (حوالات الحساب للأهالي)
@@ -624,6 +632,8 @@ export const workerTransfers = pgTable("worker_transfers", {
   chkTransferDateFormat: check("chk_transfer_date_format", sql`transfer_date ~ '^\d{4}-\d{2}-\d{2}$'`),
   chkTransferDateNotEmpty: check("chk_transfer_date_not_empty", sql`transfer_date <> ''`),
   chkWorkerTransAmountPositive: check("chk_worker_trans_amount_positive", sql`amount > 0`),
+  worker_transfers_worker_id_fkey: foreignKey({ name: "worker_transfers_worker_id_fkey", columns: [table.worker_id], foreignColumns: [workers.id] }).onDelete("cascade"),
+  worker_transfers_project_id_fkey: foreignKey({ name: "worker_transfers_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade"),
 }));
 
 // Worker Project Wages (أجور العمال حسب المشروع)
@@ -663,9 +673,11 @@ export const workerBalances = pgTable("worker_balances", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-}, (table) => [
-  uniqueIndex("idx_worker_balances_worker_project").on(table.worker_id, table.project_id),
-]);
+}, (table) => ({
+  idxWorkerBalancesWorkerProject: uniqueIndex("idx_worker_balances_worker_project").on(table.worker_id, table.project_id),
+  worker_balances_worker_id_fkey: foreignKey({ name: "worker_balances_worker_id_fkey", columns: [table.worker_id], foreignColumns: [workers.id] }).onDelete("cascade"),
+  worker_balances_project_id_fkey: foreignKey({ name: "worker_balances_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade"),
+}));
 
 // Daily Activity Logs (سجلات النشاط اليومي)
 export const dailyActivityLogs = pgTable("daily_activity_logs", {
@@ -779,6 +791,7 @@ export const workerMiscExpenses = pgTable("worker_misc_expenses", {
   idxWorkerMiscExpensesProjectDate: index("idx_worker_misc_expenses_project_date").on(table.project_id, table.date),
   chkMiscDateFormat: check("chk_misc_date_format", sql`date ~ '^\d{4}-\d{2}-\d{2}$'`),
   chkMiscDateNotEmpty: check("chk_misc_date_not_empty", sql`date <> ''`),
+  worker_misc_expenses_project_id_fkey: foreignKey({ name: "worker_misc_expenses_project_id_fkey", columns: [table.project_id], foreignColumns: [projects.id] }).onDelete("cascade"),
 }));
 
 // Backup Logs Table (سجل النسخ الاحتياطي)
@@ -910,6 +923,8 @@ export const projectFundTransfers = pgTable("project_fund_transfers", {
   idxProjectFundTransfersToProjectDate: index("idx_project_fund_transfers_to_project_date").on(table.toProjectId, table.transferDate),
   idxProjectFundTransfersTransferDate: index("idx_project_fund_transfers_transfer_date").on(table.transferDate),
   chkProjectTransferDateNotEmpty: check("chk_project_transfer_date_not_empty", sql`transfer_date <> ''`),
+  project_fund_transfers_from_project_id_fkey: foreignKey({ name: "project_fund_transfers_from_project_id_fkey", columns: [table.fromProjectId], foreignColumns: [projects.id] }).onDelete("cascade"),
+  project_fund_transfers_to_project_id_fkey: foreignKey({ name: "project_fund_transfers_to_project_id_fkey", columns: [table.toProjectId], foreignColumns: [projects.id] }).onDelete("cascade"),
 }));
 
 // Security Policies (سياسات الأمان)
@@ -1407,7 +1422,10 @@ export const notificationReadStates = pgTable("notification_read_states", {
   isLocal: boolean("is_local").default(false),
   synced: boolean("synced").default(true),
   pendingSync: boolean("pending_sync").default(false),
-});
+}, (table) => ({
+  idxNotificationReadStatesNotificationId: index("idx_notification_read_states_notification_id").on(table.notificationId),
+  notification_read_states_user_id_fkey: foreignKey({ name: "notification_read_states_user_id_fkey", columns: [table.user_id], foreignColumns: [users.id] }).onDelete("cascade"),
+}));
 
 // Build & Deployment table (جدول عمليات البناء والنشر)
 export const buildDeployments = pgTable("build_deployments", {

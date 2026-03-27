@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import DOMPurify from "dompurify";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -102,12 +103,12 @@ function generatePrintPDF(content: string, tableData: any[] | null, title?: stri
 
   const contentDiv = doc.createElement('div');
   contentDiv.className = 'content';
-  contentDiv.innerHTML = contentHTML;
+  contentDiv.innerHTML = DOMPurify.sanitize(contentHTML, { ADD_TAGS: ['style'], ADD_ATTR: ['dir', 'lang'] });
   doc.body.appendChild(contentDiv);
 
   if (tableHTML) {
     const tableContainer = doc.createElement('div');
-    tableContainer.innerHTML = tableHTML;
+    tableContainer.innerHTML = DOMPurify.sanitize(tableHTML, { ADD_TAGS: ['style'], ADD_ATTR: ['dir', 'lang'] });
     doc.body.appendChild(tableContainer);
   }
 

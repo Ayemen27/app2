@@ -231,3 +231,10 @@ The system maintains a consistent design using a professional navy/blue palette,
   - Pipeline validation inside try/finally — guarantees cleanup on all paths
   - `cleanupLogger(deploymentId)` called in both success and error paths
   - `cleanupDeploymentState` always runs via finally block
+
+## Architect Audit Log (2026-03-27)
+- **Security**: All 5 critical vulnerabilities from March 12 audit are now CLOSED (Mass Assignment, Auth Gaps, XSS×2, Token Leakage). DOMPurify added to ai-chat.tsx.
+- **Performance**: Polling storm mitigated (3s→15s, conditional). N+1 queries mitigated (statsCache with 120s TTL).
+- **WhatsApp Pipeline**: 4,894 lines of code implemented across 21 services, routes, and UI. PROGRESS.md corrected from "NOT STARTED" to "IMPLEMENTED".
+- **Remaining Debt**: God files (5 files >2,400 lines), ~2,500 `any` usages, ~1,100 console.log calls.
+- **Full report**: `.local/audit_report_2026-03-27.md`

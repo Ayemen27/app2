@@ -4086,6 +4086,28 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
     const isAdminUser = projectAccessService.isAdmin(accessReq.user?.role || '');
     const accessibleIds = accessReq.accessibleProjectIds ?? [];
 
+    let invalidatedQuery;
+    if (isAdminUser) {
+      invalidatedQuery = await pool.query(
+        `SELECT DISTINCT si.project_id FROM summary_invalidations si WHERE si.invalidated_from <= $1`,
+        [cleanDate]
+      );
+    } else {
+      invalidatedQuery = await pool.query(
+        `SELECT DISTINCT si.project_id FROM summary_invalidations si WHERE si.invalidated_from <= $1 AND si.project_id = ANY($2)`,
+        [cleanDate, accessibleIds]
+      );
+    }
+
+    if (invalidatedQuery.rows.length > 0) {
+      await Promise.all(
+        invalidatedQuery.rows.map((r: any) =>
+          SummaryRebuildService.ensureValidSummary(r.project_id, cleanDate)
+            .catch(err => console.warn(`⚠️ [MultiProject] فشل إعادة بناء ملخص مشروع ${r.project_id}:`, err))
+        )
+      );
+    }
+
     let summariesResult;
     if (isAdminUser) {
       summariesResult = await pool.query(
@@ -4099,94 +4121,30 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
       );
     }
 
-    const scopeFilter = isAdminUser ? '' : ' AND sub.project_id = ANY($2)';
+    const scopeFilter = isAdminUser ? '' : ' AND des.project_id = ANY($2)';
     const scopeParams = isAdminUser ? [cleanDate] : [cleanDate, accessibleIds];
 
-    const [cumFundsR, cumWagesR, cumTransportR, cumMiscR, cumWorkerTransR, cumPurchasesR, cumIncomingProjTransR, cumOutgoingProjTransR, cumSupplierPayR] = await Promise.all([
-      pool.query(
-        `SELECT ft.project_id, p.name as project_name, COALESCE(SUM(ft.amount), 0) as total
-         FROM fund_transfers ft JOIN projects p ON p.id = ft.project_id
-         WHERE ft.transfer_date <= $1${scopeFilter}`.replace('sub.project_id', 'ft.project_id') + ` GROUP BY ft.project_id, p.name`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT wa.project_id, COALESCE(SUM(wa.paid_amount), 0) as total
-         FROM worker_attendance wa
-         WHERE wa.date <= $1${scopeFilter}`.replace('sub.project_id', 'wa.project_id') + ` GROUP BY wa.project_id`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT te.project_id, COALESCE(SUM(te.amount), 0) as total
-         FROM transportation_expenses te
-         WHERE te.date <= $1${scopeFilter}`.replace('sub.project_id', 'te.project_id') + ` GROUP BY te.project_id`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT wme.project_id, COALESCE(SUM(wme.amount), 0) as total
-         FROM worker_misc_expenses wme
-         WHERE wme.date <= $1${scopeFilter}`.replace('sub.project_id', 'wme.project_id') + ` GROUP BY wme.project_id`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT wt.project_id, COALESCE(SUM(wt.amount), 0) as total
-         FROM worker_transfers wt
-         WHERE wt.transfer_date <= $1${scopeFilter}`.replace('sub.project_id', 'wt.project_id') + ` GROUP BY wt.project_id`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT mp.project_id, COALESCE(SUM(mp.paid_amount), 0) as total
-         FROM material_purchases mp
-         WHERE mp.purchase_date <= $1${scopeFilter}`.replace('sub.project_id', 'mp.project_id') + ` GROUP BY mp.project_id`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT pft.to_project_id as project_id, COALESCE(SUM(pft.amount), 0) as total
-         FROM project_fund_transfers pft
-         WHERE pft.transfer_date <= $1${scopeFilter}`.replace('sub.project_id', 'pft.to_project_id') + ` GROUP BY pft.to_project_id`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT pft.from_project_id as project_id, COALESCE(SUM(pft.amount), 0) as total
-         FROM project_fund_transfers pft
-         WHERE pft.transfer_date <= $1${scopeFilter}`.replace('sub.project_id', 'pft.from_project_id') + ` GROUP BY pft.from_project_id`,
-        scopeParams
-      ),
-      pool.query(
-        `SELECT sp.project_id, COALESCE(SUM(sp.amount), 0) as total
-         FROM supplier_payments sp
-         WHERE sp.payment_date <= $1${scopeFilter}`.replace('sub.project_id', 'sp.project_id') + ` GROUP BY sp.project_id`,
-        scopeParams
-      ),
-    ]);
+    const cumulativeResult = await pool.query(
+      `SELECT des.project_id, p.name as project_name,
+              COALESCE(SUM(CAST(des.total_fund_transfers AS DECIMAL(15,2))), 0) as cumulative_funds,
+              COALESCE(SUM(CAST(des.total_expenses AS DECIMAL(15,2))), 0) as cumulative_expenses
+       FROM daily_expense_summaries des
+       JOIN projects p ON p.id = des.project_id
+       WHERE des.date <= $1${scopeFilter}
+       GROUP BY des.project_id, p.name`,
+      scopeParams
+    );
 
-    const toMap = (rows: any[]) => {
-      const m: Record<string, number> = {};
-      for (const r of rows) m[r.project_id] = parseFloat(r.total) || 0;
-      return m;
-    };
-    const fundsMap = toMap(cumFundsR.rows);
-    const wagesMap = toMap(cumWagesR.rows);
-    const transportMap = toMap(cumTransportR.rows);
-    const miscMap = toMap(cumMiscR.rows);
-    const workerTransMap = toMap(cumWorkerTransR.rows);
-    const purchasesMap = toMap(cumPurchasesR.rows);
-    const incomingProjTransMap = toMap(cumIncomingProjTransR.rows);
-    const outgoingProjTransMap = toMap(cumOutgoingProjTransR.rows);
-    const supplierPayMap = toMap(cumSupplierPayR.rows);
-
-    const allProjectIds = new Set([
-      ...Object.keys(fundsMap), ...Object.keys(wagesMap), ...Object.keys(transportMap),
-      ...Object.keys(miscMap), ...Object.keys(workerTransMap), ...Object.keys(purchasesMap),
-      ...Object.keys(incomingProjTransMap), ...Object.keys(outgoingProjTransMap), ...Object.keys(supplierPayMap),
-    ]);
-
+    const allProjectIds = new Set<string>();
     const projectNameMap: Record<string, string> = {};
-    for (const r of cumFundsR.rows) projectNameMap[r.project_id] = r.project_name;
-
     const cumulativeMap: Record<string, { cumulative_funds: number; cumulative_expenses: number; cumulative_balance: number }> = {};
-    for (const pid of allProjectIds) {
-      const funds = (fundsMap[pid] || 0) + (incomingProjTransMap[pid] || 0);
-      const expenses = (wagesMap[pid] || 0) + (transportMap[pid] || 0) + (miscMap[pid] || 0) + (workerTransMap[pid] || 0) + (purchasesMap[pid] || 0) + (outgoingProjTransMap[pid] || 0) + (supplierPayMap[pid] || 0);
+
+    for (const r of cumulativeResult.rows) {
+      const pid = r.project_id;
+      const funds = parseFloat(r.cumulative_funds) || 0;
+      const expenses = parseFloat(r.cumulative_expenses) || 0;
+      allProjectIds.add(pid);
+      projectNameMap[pid] = r.project_name;
       cumulativeMap[pid] = {
         cumulative_funds: funds,
         cumulative_expenses: expenses,

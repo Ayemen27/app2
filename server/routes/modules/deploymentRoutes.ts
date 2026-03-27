@@ -22,6 +22,7 @@ function setApkDownloadHeaders(res: Response, fileName: string, fileSize: number
 deploymentEngine.recoverOrphanedDeployments().catch(err => {
   console.error("[DeploymentRoutes] Failed to recover orphaned deployments:", err);
 });
+deploymentEngine.startRecoverySupervisor();
 
 function sanitizeShellArg(input: string): string {
   return input.replace(/[^\w\s\u0600-\u06FF.,!?@#$%^&*()\-=+\[\]{}|:;<>\/~`'"]/g, "").substring(0, 200);
@@ -314,8 +315,8 @@ router.post("/:id/resume", requireAdmin, asyncHandler(async (req: Request, res: 
     res.status(404).json({ error: "Deployment not found" });
     return;
   }
-  if (deployment.status !== "failed") {
-    res.status(400).json({ error: "يمكن استئناف عمليات النشر الفاشلة فقط" });
+  if (deployment.status !== "failed" && deployment.status !== "running") {
+    res.status(400).json({ error: "يمكن استئناف عمليات النشر الفاشلة أو المعلقة فقط" });
     return;
   }
   const resumedId = await deploymentEngine.resumeDeployment(req.params.id);

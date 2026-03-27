@@ -26,7 +26,7 @@ Build the review dashboard for human verification of extracted transactions and 
     - Labor (عمال/نجار/حداد) → worker expenses + recordMiscExpense()
     - Meals (صبوح/غداء/عشاء) → daily expense summaries
   - Each posting is atomic using existing WithClient methods: within a single withTransaction(client), call storage insert + FinancialLedgerService.recordFundTransferWithClient(client, ...) or recordMaterialPurchaseWithClient(client, ...) + insert wa_posting_results — all sharing the same client/transaction, rollback on any failure
-  - Idempotent: checks wa_posting_results by idempotency_key before writing. Re-running = no duplicates.
+  - Idempotent (dual guard): (1) Primary: check wa_posting_results for canonical_transaction_id with posting_status='success' — if exists, insert wa_posting_results with posting_status='skipped_duplicate' for audit trail, then skip. (2) Secondary: check idempotency_key for same guarantee. Both guards must pass before posting. Re-running = no duplicates. Every skip is auditable via the 'skipped_duplicate' record.
   - Logs every posting action in financial_audit_log
   - Supports dry-run mode (preview what would be posted without writing, shows full posting plan)
   - RBAC: only admin role can trigger posting
@@ -48,7 +48,7 @@ Build the review dashboard for human verification of extracted transactions and 
 
 2. **Build batch approval workflow** — UI for: bulk-approve high-confidence items (≥0.95 + new_entry), individual review with approve/reject/edit actions for medium confidence, forced review for conflicts and loans. Each action creates an immutable wa_review_actions record.
 
-3. **Build atomic posting engine service** — WhatsAppPostingService that maps approved canonical transactions to ERP tables. For each transaction: use withTransaction(async (client) => { insert ERP record via client → call FinancialLedgerService.recordFundTransferWithClient(client, ...) or recordMaterialPurchaseWithClient(client, ...) for journal entries → insert wa_posting_results with idempotency_key via client → all in same transaction }). On failure: automatic rollback. Use safeParseNum from server/utils/safe-numbers.ts for all numeric conversions. The WithClient variants already exist in FinancialLedgerService (lines 480, 493).
+3. **Build atomic posting engine service** — WhatsAppPostingService that maps approved canonical transactions to ERP tables. For each transaction: (a) Pre-check: query wa_posting_results for this canonical_transaction_id with posting_status='success' — if found, insert wa_posting_results with posting_status='skipped_duplicate' + attempt_number=next + error_message='already_posted', then return (auditable skip, never silent). (b) Post: use withTransaction(async (client) => { insert ERP record via client → call FinancialLedgerService.recordFundTransferWithClient(client, ...) or recordMaterialPurchaseWithClient(client, ...) for journal entries → insert wa_posting_results with posting_status='success' + idempotency_key via client → all in same transaction }). (c) On failure: automatic rollback, then insert wa_posting_results with posting_status='failed' + error_message + attempt_number OUTSIDE the failed transaction (this is a log entry, NOT an idempotency guard — failed rows have no unique constraint so retries are NOT blocked). attempt_number is computed as: SELECT COALESCE(MAX(attempt_number), 0) + 1 FROM wa_posting_results WHERE canonical_transaction_id = :id. (d) Retry scenario: after failure, same canonical_transaction_id can retry — pre-check finds no posting_status='success' row → proceeds to post → succeeds exactly once. Use safeParseNum from server/utils/safe-numbers.ts for all numeric conversions. The WithClient variants already exist in FinancialLedgerService (lines 480, 493). Verify evidence chain (Rule 13) before posting — reject with "broken_evidence_chain" if any FK link is missing.
 
 4. **Build dry-run mode** — Preview mode that shows exactly what would be posted: target table, amounts, project, journal entry debits/credits. Returns full posting plan as JSON without any database writes. Requires admin role.
 
@@ -73,6 +73,7 @@ Before marking this task complete, the agent MUST:
 7. Verify custodian views show correct running balances for all 3 custodians
 8. Verify navigation is integrated in sidebar
 9. Run end-to-end test: upload ZIP → extract → dedup → review → approve → post → verify ledger
+9b. Verify duplicate re-run creates auditable skipped_duplicate row(s) in wa_posting_results — never silent skip
 10. Call `architect()` for POST-TASK GATE REVIEW (see Rule 9 in 00-continuity-guide.md)
 11. If architect PASS (≥8/10) → mark complete. If FAIL → fix issues and re-review (max 3 rounds)
 12. Log architect review result in PROGRESS.md

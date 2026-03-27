@@ -131,6 +131,12 @@ These enums MUST be used consistently across ALL files, services, and UI:
 
 **posting_target_table**: `fund_transfers` | `material_purchases` | `worker_misc_expenses` | `transportation_expenses` | `daily_expense_summaries`
 
+**match_status**: `exact_match` | `near_match` | `conflict` | `new_entry`
+
+**media_status**: `processed` | `skipped_too_large` | `skipped_unsupported` | `error`
+
+**posting_status**: `success` | `failed` | `skipped_duplicate`
+
 **date_mismatch_reason**: `wrong_day_name` | `wrong_date` | `wrong_year` | `wrong_month` | `multi_day_discrepancy` | `date_mismatch_whatsapp_vs_inline`
 
 ### Rule 8: Task Ownership for Duplicate Detection
@@ -180,6 +186,69 @@ All 3 transfer companies MUST have explicit parser rules:
 | الحوشبي | 12-digit transfer number | `رقم\s*:?\s*(202\d{9})` |
 | النجم | Variable format | `رقم\s*:?\s*(\d{6,12})` with company name النجم in context |
 Each parser extracts: transfer_number, amount, fee (if available), sender_name, recipient_name, date, company_name. All three parsers share the same TransferReceiptResult output schema for uniform downstream processing.
+
+شركه رشاد بحير regex pattern: Multi-line block starting with company name, fields on separate lines:
+- `مبلغ\s*الحوالة\s*:?\s*([\d,٠-٩,]+)` for amount
+- `رقم\s*الحوالة\s*:?\s*([\d٠-٩]+)` or `الرقم\s*العام\s*:?\s*([\d٠-٩]+)` for transfer number
+- `المستلم\s*:?\s*(.+)` for recipient
+- `المرسل\s*:?\s*(.+)` for sender
+
+### Rule 11: Failure Semantics & Edge Cases (MANDATORY)
+Every implementation MUST handle these edge cases explicitly. Silent failures are FORBIDDEN — all edge cases must either reject with error or flag for human review.
+
+**Amount Edge Cases:**
+- **Zero amounts (0 or ٠)**: REJECT — log warning "zero_amount_rejected", do NOT create candidate. Zero-amount transactions are data entry errors.
+- **Negative amounts**: REJECT — log warning "negative_amount_rejected". All amounts must be positive. If a refund/correction is detected (keywords: إرجاع, تعديل, خصم), create candidate with candidate_type="expense" and add review_flag="possible_refund_or_correction" for human review.
+- **Amounts exceeding 10,000,000 YER**: FLAG for mandatory human review with reason "unusually_large_amount". Do NOT auto-process.
+- **Amounts below 100 YER**: FLAG for review with reason "unusually_small_amount" — likely data entry error.
+- **All numeric conversions**: MUST use `safeParseNum` from `server/utils/safe-numbers.ts`. This applies to: extraction engine, confidence scoring, custodian balances, reconciliation totals, posting amounts. NO EXCEPTIONS.
+
+**ZIP/File Edge Cases:**
+- **Corrupt ZIP**: Catch extraction error, mark batch as `failed` with error message, do NOT partially process.
+- **Empty ZIP (no TXT file)**: Mark batch as `failed` with reason "no_chat_txt_found".
+- **ZIP with multiple TXT files**: Process each TXT as a separate sub-batch within the same import batch, but flag for review.
+- **Duplicate ZIP upload**: Compute SHA256 of the ZIP file. If identical SHA256 exists in wa_import_batches, REJECT with "duplicate_zip_already_imported" and reference the existing batch_id. Do NOT re-process.
+- **ZIP-slip attack**: Validate all extracted paths are within the target directory. Reject any path containing `..` or absolute paths.
+- **Media files >50MB**: Skip the file, log warning "media_file_too_large", continue processing other files. Link a placeholder record in wa_media_assets with status="skipped_too_large".
+
+**Message Edge Cases:**
+- **Messages without timestamps**: Skip the message, log warning "message_no_timestamp". Do NOT attempt to extract financial data from undated messages — dates are critical for financial records.
+- **Messages with only media (no text)**: Store in wa_raw_messages with empty text. Link media. Do NOT extract candidates from image-only messages (no OCR in current scope).
+- **System messages (encryption notices, group changes)**: Filter out completely, do NOT store in wa_raw_messages.
+
+**Posting/Crash Recovery:**
+- **Posting engine crash mid-transaction**: `withTransaction` ensures automatic rollback. The canonical_transaction status remains "confirmed" (not "posted"). The agent can retry posting.
+- **Idempotent posting**: Before posting, check if wa_posting_results already has an entry for this canonical_transaction_id with posting_status='success'. If yes, insert wa_posting_results with posting_status='skipped_duplicate' + error_message='already_posted' for audit trail, then return WITHOUT posting (auditable skip — never silent). Failed attempt rows (posting_status='failed') do NOT block retries — only success rows trigger the skip. Retry scenario: fail → log failed attempt → retry → pre-check finds no success row → posts → succeeds exactly once. Duplicate re-run scenario: success exists → log skipped_duplicate → return.
+- **Partial batch failure**: If posting fails for some transactions in a batch, mark failed ones as posting_status='failed' with error message, continue with remaining. Do NOT rollback successful postings.
+
+### Rule 12: Match Status Enum (for dedup/historical matching)
+**match_status**: `exact_match` | `near_match` | `conflict` | `new_entry`
+
+Semantics (AUTHORITATIVE — all files must follow this):
+- `exact_match`: Transaction already exists in ERP (same transfer number or identical fingerprint). Action: Create candidate row WITH match_status='exact_match', but automatically set canonical_transaction status to 'excluded' with reason 'already_in_erp'. The candidate EXISTS for audit trail but is NOT posted. This preserves the evidence chain (Rule 13) while preventing double-posting.
+- `near_match`: Similar transaction found (amount+date close but not identical). Action: Create candidate with match_status='near_match', flag for human review at P2_high priority.
+- `conflict`: Contradicting data found (same transfer number but different amount). Action: Create candidate with match_status='conflict', flag as P1_critical for mandatory review.
+- `new_entry`: No matching transaction in ERP. Action: Create candidate with match_status='new_entry', proceed to confidence scoring and normal review flow.
+
+### Rule 13: Evidence Chain FK Contract (Referential Integrity)
+The full evidence chain MUST maintain referential integrity through foreign keys:
+```
+wa_raw_messages (source) 
+  → wa_transaction_evidence_links (many-to-many bridge)
+    → wa_extraction_candidates (extracted items)
+      → wa_canonical_transactions (deduped final)
+        → wa_posting_results (posted to ERP)
+          → wa_review_actions (audit trail, links to canonical_transaction_id)
+
+wa_media_assets → wa_transaction_evidence_links (images/receipts linked to candidates)
+wa_worker_aliases → wa_extraction_candidates (resolved worker identity)
+wa_project_hypotheses → wa_extraction_candidates (project assignment)
+wa_dedup_keys → wa_extraction_candidates (fingerprint source, via candidate_id)
+wa_dedup_keys → wa_canonical_transactions (post-dedup link, via canonical_transaction_id, nullable until Task #3 sets it)
+wa_custodian_entries → wa_canonical_transactions (custodian tracking)
+wa_verification_queue → wa_canonical_transactions (review routing)
+```
+Every record in wa_posting_results MUST trace back to a wa_raw_message through this chain. If any link is broken, the posting engine MUST refuse to post with error "broken_evidence_chain".
 
 ## CRITICAL: Database Entity Mappings (Exact IDs from Production)
 

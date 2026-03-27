@@ -10,7 +10,7 @@ Build the critical dedup engine and historical matching system. This is the MOST
   - material_purchases (155+ records): match by amount+supplier_name_similarity+date (±2 days)+material_description
   - worker_attendance/worker_misc_expenses: match by worker_id+date+amount
   - transportation_expenses: match by amount+date+description
-  - Classification per candidate: exact_match (skip) / near_match (review) / conflict (flag) / new_entry (proceed)
+  - Classification per candidate per Rule 12: exact_match (create candidate + auto-exclude canonical with reason 'already_in_erp' — preserves audit trail) / near_match (create candidate, flag for P2_high review) / conflict (create candidate, flag for P1_critical review) / new_entry (create candidate, proceed to confidence scoring)
 - **Custodian reconciliation for ALL 3 custodians**:
   - عمار الشيعي: Track receipts, disbursements, settlements across ALL projects. Handle "personal account" entries separately.
   - عدنان محمد حسين حمدين (ابو فارس): Track receipts and disbursements for الجراحي ONLY. No salary — unsettled amounts stay on his account with "pending settlement" flag. Amounts without details → fund_transfer.
@@ -40,7 +40,7 @@ Build the critical dedup engine and historical matching system. This is the MOST
 
 NOTE: Message-level duplicate text block detection is owned by Task #2 (Rule 8). Task #3 only handles TRANSACTION-level dedup of extracted candidates.
 
-3. **Build historical matcher for fund_transfers** — Query existing 110+ fund_transfers across 4 projects. Match by: transfer_number (exact match = skip), or amount+sender_name+date±1day (near match = review). IMPORTANT: Same رقم الحوالة = always the SAME transaction (primary dedup key, guaranteed unique). Different transfer numbers with same amount on different dates = SEPARATE valid transactions.
+3. **Build historical matcher for fund_transfers** — Query existing 110+ fund_transfers across 4 projects. Match by: transfer_number (exact_match per Rule 12: create candidate + auto-exclude canonical), or amount+sender_name+date±1day (near_match: create candidate, flag for review). IMPORTANT: Same رقم الحوالة = always the SAME transaction (primary dedup key, guaranteed unique). Different transfer numbers with same amount on different dates = SEPARATE valid transactions.
 
 4. **Build historical matcher for material_purchases** — Query existing 155 material_purchases. Match by: amount+supplier_name_similarity(>0.8)+date±2days. Handle same supplier with different name spellings using worker alias system. Use fuzzy string matching for Arabic names.
 
@@ -54,7 +54,7 @@ NOTE: Message-level duplicate text block detection is owned by Task #2 (Rule 8).
 
 9. **Build reconciliation report generator** — Per-batch summary with configurable tolerance (default 1%). Show breakdown by category, project, and match status. Highlight any delta > tolerance. Include per-project sub-totals for Jarahi and Tuhaita.
 
-10. **Build verification queue populator with priority scoring** — Route candidates to review queue. Priority scoring: P1 (critical) = conflicts + high-value (>500K YER), P2 (high) = near_matches + loans, P3 (medium) = low confidence + ambiguous project, P4 (low) = minor discrepancies. Store routing reason for reviewer context.
+10. **Build verification queue populator with priority scoring** — Route candidates to review queue. Priority scoring using canonical enum values: P1_critical = conflicts + high-value (>500K YER), P2_high = near_matches + loans, P3_medium = low confidence + ambiguous project, P4_low = minor discrepancies. Store routing reason for reviewer context.
 
 ## MANDATORY: Post-Task Completion Checklist (10 implementation sub-tasks: #1 through #10, plus verification steps below)
 Before marking this task complete, the agent MUST:

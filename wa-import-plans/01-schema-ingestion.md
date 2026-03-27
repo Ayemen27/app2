@@ -22,19 +22,19 @@ Build the foundational database schema and ingestion service for importing Whats
 
 ## Tasks
 1. **Define Drizzle schema for all 13 import tables** — The complete table set for the entire pipeline:
-   - `wa_import_batches` — batch tracking (source file, owner, status, stats, chat_source enum: zain/abbasi/other — identifies which WhatsApp conversation this batch is from)
+   - `wa_import_batches` — batch tracking (source file, owner, status, stats, chat_source enum: zain/abbasi/other, zip_sha256 for duplicate detection — reject re-upload of identical ZIP)
    - `wa_raw_messages` — parsed chat messages (wa_timestamp, sender, text, is_multiline, attachment_ref, inline_claimed_date nullable, date_mismatch_reason nullable, chat_source enum: zain/abbasi/other)
-   - `wa_media_assets` — media files (path, sha256, mime_type, size, ocr_text, linked_message_id)
-   - `wa_extraction_candidates` — extracted financial items (amount, currency, description, pattern_type, confidence, project_hypothesis_id, category, candidate_type enum: expense/transfer/loan/personal_account/custodian_receipt/settlement)
+   - `wa_media_assets` — media files (path, sha256, mime_type, size, ocr_text, linked_message_id, media_status enum: processed/skipped_too_large/skipped_unsupported/error, skip_reason nullable)
+   - `wa_extraction_candidates` — extracted financial items (amount, currency, description, pattern_type, confidence, confidence_breakdown_json, project_hypothesis_id, category, candidate_type enum: expense/transfer/loan/personal_account/custodian_receipt/settlement, match_status enum: exact_match/near_match/conflict/new_entry, review_flags text[] nullable)
    - `wa_canonical_transactions` — deduped final transactions (status: confirmed/doubtful/duplicate/unclassified/excluded, merged evidence)
    - `wa_transaction_evidence_links` — many-to-many linking candidates to raw messages and media
    - `wa_worker_aliases` — worker name mappings linked to workers.id (alias_name, canonical_worker_id)
-   - `wa_custodian_entries` — custodian fund tracking (custodian_worker_id, received_amount, disbursed_amount, settled_amount, settlement_date, linked_batch_id)
+   - `wa_custodian_entries` — custodian fund tracking (custodian_worker_id, received_amount, disbursed_amount, settled_amount, settlement_date, linked_batch_id, canonical_transaction_id FK→wa_canonical_transactions nullable, project_id)
    - `wa_project_hypotheses` — project inference results (candidate_id, project_id, confidence, evidence_keywords, inference_method)
-   - `wa_dedup_keys` — fingerprint storage for cross-batch deduplication (candidate_id, fingerprint_hash, fingerprint_components_json, created_at)
-   - `wa_verification_queue` — review tasks (candidate_id, reason, priority, reviewer_id, reviewed_at, decision, notes)
-   - `wa_posting_results` — idempotent posting log (canonical_txn_id, target_table, target_record_id, posted_at, posted_by, idempotency_key)
-   - `wa_review_actions` — immutable audit trail (action_type, candidate_id, reviewer_id, before_state, after_state, timestamp, notes)
+   - `wa_dedup_keys` — fingerprint storage for cross-batch deduplication (candidate_id FK→wa_extraction_candidates, canonical_transaction_id FK→wa_canonical_transactions nullable, fingerprint_hash UNIQUE, fingerprint_components_json, created_at). candidate_id links to the source candidate; canonical_transaction_id is set after dedup merging in Task #3.
+   - `wa_verification_queue` — review tasks (candidate_id FK→wa_extraction_candidates, canonical_transaction_id FK→wa_canonical_transactions nullable, reason, priority enum: P1_critical/P2_high/P3_medium/P4_low, reviewer_id, reviewed_at, decision, notes). canonical_transaction_id is set after dedup merging in Task #3.
+   - `wa_posting_results` — idempotent posting log (canonical_transaction_id FK→wa_canonical_transactions, target_table, target_record_id, posted_at, posted_by, idempotency_key, posting_status enum: success/failed/skipped_duplicate, error_message nullable, attempt_number integer default 1). Constraints: UNIQUE partial index on (canonical_transaction_id) WHERE posting_status='success' — prevents double-posting. UNIQUE partial index on (idempotency_key) WHERE posting_status='success' — secondary guard. Failed attempts are logged with incremented attempt_number and do NOT block retries (no unique constraint on failed rows). This allows: fail → retry → succeed exactly once.
+   - `wa_review_actions` — immutable audit trail (action_type, canonical_transaction_id, candidate_id nullable, reviewer_id, before_state, after_state, timestamp, notes). Links to canonical_transaction for post-dedup audit chain AND optionally to candidate for pre-dedup audit.
    Follow existing schema patterns in shared/schema.ts. Use proper enums for statuses.
 
 2. **Build WhatsApp TXT parser** — Parse the exported chat.txt format with Eastern Arabic date/time (١٢/٣/٢٠٢٦، ٨:١٩ م), Unicode RTL mark stripping (U+200F), sender name extraction, multi-line message grouping, and attachment reference detection (patterns like "IMG-20251212-WA0010.jpg (الملف مرفق)").

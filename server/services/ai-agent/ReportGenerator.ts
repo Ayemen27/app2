@@ -861,7 +861,7 @@ export class ReportGenerator {
       try {
         const result = await client.query(
           `SELECT wa.attendance_date, wa.work_days, wa.daily_wage,
-                  CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL) END as earned,
+                  CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text, 0) ELSE safe_numeric(wa.daily_wage::text, 0) * safe_numeric(wa.work_days::text, 0) END as earned,
                   wa.paid_amount, wa.remaining_amount, wa.work_description, wa.is_present,
                   wa.hours_worked, wa.overtime, wa.start_time, wa.end_time, wa.notes,
                   w.name as worker_name, w.type as worker_type, w.phone as worker_phone,

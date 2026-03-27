@@ -25,6 +25,8 @@ import { projectAccessService } from '../../services/ProjectAccessService';
 import { getAuthUser } from '../../internal/auth-user.js';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 export const projectRouter = express.Router();
 
 const balanceCache = new Map<string, { value: number; timestamp: number }>();
@@ -260,8 +262,8 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           .where(and(
             sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${effectiveDate}`,
             or(
-              sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
-              sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
+              sql`${NUM(workerAttendance.workDays)} > 0`,
+              sql`${NUM(workerAttendance.paidAmount)} > 0`
             )
           ))
           .orderBy(desc(sql`CASE WHEN date IS NULL OR CAST(date AS TEXT) = '' THEN '1970-01-01' ELSE date END`)),
@@ -443,19 +445,19 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       ? { rows: [{ total_fund_transfers: 0, total_worker_wages: 0, total_material_costs: 0, total_transportation: 0, total_worker_transfers: 0, total_misc_expenses: 0, total_supplier_payments: 0 }] }
       : await pool.query(`
       SELECT
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_fund_transfers,
-        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) AND COALESCE(NULLIF(date,''), attendance_date) = $1 ${projectFilter}), 0) as total_worker_wages,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_fund_transfers,
+        COALESCE((SELECT SUM(safe_numeric(paid_amount::text, 0)) FROM worker_attendance WHERE (safe_numeric(work_days::text, 0) > 0 OR safe_numeric(paid_amount::text, 0) > 0) AND COALESCE(NULLIF(date,''), attendance_date) = $1 ${projectFilter}), 0) as total_worker_wages,
         COALESCE((SELECT SUM(
           CASE 
-            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL(15,2))
-            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN CAST(total_amount AS DECIMAL(15,2))
+            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (safe_numeric(paid_amount::text, 0) > 0) THEN safe_numeric(paid_amount::text, 0)
+            WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') THEN safe_numeric(total_amount::text, 0)
             ELSE 0
           END
         ) FROM material_purchases WHERE purchase_date = $1 AND (purchase_type = 'نقداً' OR purchase_type = 'نقد') ${projectFilter}), 0) as total_material_costs,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM transportation_expenses WHERE date = $1 ${projectFilter}), 0) as total_transportation,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_worker_transfers,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM worker_misc_expenses WHERE date = $1 ${projectFilter}), 0) as total_misc_expenses,
-        COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM supplier_payments WHERE payment_date = $1 ${projectFilter}), 0) as total_supplier_payments
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM transportation_expenses WHERE date = $1 ${projectFilter}), 0) as total_transportation,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_worker_transfers,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_misc_expenses WHERE date = $1 ${projectFilter}), 0) as total_misc_expenses,
+        COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM supplier_payments WHERE payment_date = $1 ${projectFilter}), 0) as total_supplier_payments
     `, queryParams);
     const overallSums = overallSumsQuery.rows[0];
     const overallTotalFundTransfers = Number(overallSums.total_fund_transfers);
@@ -914,34 +916,34 @@ projectRouter.get('/:id', requireProjectAccess('view'), async (req: Request, res
           db.execute(sql`
             SELECT
               COUNT(*) as material_purchases,
-              COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) as material_expenses
+              COALESCE(SUM(safe_numeric(total_amount::text, 0)), 0) as material_expenses
             FROM material_purchases
             WHERE project_id = ${id}
           `),
           db.execute(sql`
             SELECT
-              COALESCE(SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL) END), 0) as worker_wages,
+              COALESCE(SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN safe_numeric(actual_wage::text, 0) ELSE safe_numeric(daily_wage::text, 0) * safe_numeric(work_days::text, 0) END), 0) as worker_wages,
               COUNT(DISTINCT COALESCE(NULLIF(date,''), attendance_date)) as completed_days
             FROM worker_attendance
             WHERE project_id = ${id} AND is_present = true
           `),
           db.execute(sql`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_income
+            SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total_income
             FROM fund_transfers
             WHERE project_id = ${id}
           `),
           db.execute(sql`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as transport_expenses
+            SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as transport_expenses
             FROM transportation_expenses
             WHERE project_id = ${id}
           `),
           db.execute(sql`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as worker_transfers
+            SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as worker_transfers
             FROM worker_transfers
             WHERE project_id = ${id}
           `),
           db.execute(sql`
-            SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as misc_expenses
+            SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as misc_expenses
             FROM worker_misc_expenses
             WHERE project_id = ${id}
           `)
@@ -2265,8 +2267,8 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
         eq(workerAttendance.project_id, project_id), 
         sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${finalDate}`,
         or(
-          sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
-          sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
+          sql`${NUM(workerAttendance.workDays)} > 0`,
+          sql`${NUM(workerAttendance.paidAmount)} > 0`
         )
       )),
       db.select().from(materialPurchases)
@@ -2444,8 +2446,8 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
       .where(and(
         eq(workerAttendance.project_id, project_id),
         or(
-          sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
-          sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
+          sql`${NUM(workerAttendance.workDays)} > 0`,
+          sql`${NUM(workerAttendance.paidAmount)} > 0`
         )
       ))
       .orderBy(desc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)),
@@ -2599,7 +2601,7 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
     const overallTotalTransportation = transportationResult.reduce((sum: number, t: any) => sum + parseFloat(t.amount || '0'), 0);
     const overallTotalWorkerTransfers = workerTransfersResult.reduce((sum: number, w: any) => sum + parseFloat(w.amount || '0'), 0);
     const overallTotalMiscExpenses = miscExpensesResult.reduce((sum: number, m: any) => sum + parseFloat(m.amount || '0'), 0);
-    const supplierPayResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1`, [project_id]);
+    const supplierPayResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM supplier_payments WHERE project_id = $1`, [project_id]);
     const overallTotalSupplierPayments2 = parseFloat(supplierPayResult.rows[0]?.total || '0');
 
     const overallTotalIncome = overallTotalFundTransfers;
@@ -2813,14 +2815,14 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
   try {
     const result = await pool.query(`
       WITH all_income AS (
-        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(amount::text, 0) as amount
         FROM fund_transfers 
         WHERE project_id = $1 
           AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL
-        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(amount::text, 0) as amount
         FROM project_fund_transfers 
         WHERE to_project_id = $1 
           AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
@@ -2828,18 +2830,18 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
       ),
       all_expenses AS (
-        SELECT CAST(paid_amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(paid_amount::text, 0) as amount
         FROM worker_attendance 
         WHERE project_id = $1 
           AND attendance_date IS NOT NULL AND CAST(attendance_date AS TEXT) != ''
           AND CAST(SUBSTRING(CAST(attendance_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(attendance_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
-          AND CAST(paid_amount AS DECIMAL) > 0
+          AND safe_numeric(paid_amount::text, 0) > 0
         UNION ALL
         SELECT 
           CASE 
-            WHEN CAST(paid_amount AS DECIMAL) > 0 THEN CAST(paid_amount AS DECIMAL(15,2))
-            ELSE CAST(total_amount AS DECIMAL(15,2))
+            WHEN safe_numeric(paid_amount::text, 0) > 0 THEN safe_numeric(paid_amount::text, 0)
+            ELSE safe_numeric(total_amount::text, 0)
           END as amount
         FROM material_purchases 
         WHERE project_id = $1 
@@ -2848,35 +2850,35 @@ async function calculateCumulativeBalance(project_id: string, fromDate: string |
           AND CAST(SUBSTRING(CAST(purchase_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(purchase_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL
-        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(amount::text, 0) as amount
         FROM transportation_expenses 
         WHERE project_id = $1 
           AND date IS NOT NULL AND CAST(date AS TEXT) != ''
           AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL
-        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(amount::text, 0) as amount
         FROM worker_transfers 
         WHERE project_id = $1 
           AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL
-        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(amount::text, 0) as amount
         FROM worker_misc_expenses 
-        WHERE project_id = $1 
+        Where project_id = $1 
           AND date IS NOT NULL AND CAST(date AS TEXT) != ''
           AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL
-        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(amount::text, 0) as amount
         FROM project_fund_transfers 
         WHERE from_project_id = $1 
           AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != '' AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) >= COALESCE($2::date, '1900-01-01'::date)
           AND CAST(SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) AS date) <= $3::date
         UNION ALL
-        SELECT CAST(amount AS DECIMAL(15,2)) as amount
+        SELECT safe_numeric(amount::text, 0) as amount
         FROM supplier_payments 
         WHERE project_id = $1 
           AND payment_date IS NOT NULL AND CAST(payment_date AS TEXT) != ''

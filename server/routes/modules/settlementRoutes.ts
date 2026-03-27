@@ -90,9 +90,9 @@ async function calculatePreviewData(
   const earnedResult = await queryFn(
     `SELECT wa.worker_id, wa.project_id, p.name as project_name, w.name as worker_name,
             COALESCE(SUM(
-              CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL(15,2)) END
+              CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text, 0) ELSE safe_numeric(wa.daily_wage::text, 0) * safe_numeric(wa.work_days::text, 0) END
             ), 0) as total_earned,
-            COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL(15,2))), 0) as total_paid
+            COALESCE(SUM(safe_numeric(wa.paid_amount::text, 0)), 0) as total_paid
      FROM worker_attendance wa
      JOIN workers w ON w.id = wa.worker_id
      JOIN projects p ON p.id = wa.project_id
@@ -119,7 +119,7 @@ async function calculatePreviewData(
 
   const transferredResult = await queryFn(
     `SELECT wt.worker_id, wt.project_id,
-            COALESCE(SUM(CAST(wt.amount AS DECIMAL(15,2))), 0) as total_transferred
+            COALESCE(SUM(safe_numeric(wt.amount::text, 0)), 0) as total_transferred
      FROM worker_transfers wt
      JOIN workers w ON w.id = wt.worker_id
      WHERE 1=1 AND (wt.transfer_method IS NULL OR wt.transfer_method != 'settlement') ${tProjectAccessFilter} ${tWorkerFilter}
@@ -150,7 +150,7 @@ async function calculatePreviewData(
 
   const settledResult = await queryFn(
     `SELECT wsl.worker_id, wsl.from_project_id as project_id,
-            COALESCE(SUM(CAST(wsl.amount AS DECIMAL(15,2))), 0) as total_settled
+            COALESCE(SUM(safe_numeric(wsl.amount::text, 0)), 0) as total_settled
      FROM worker_settlement_lines wsl
      JOIN worker_settlements ws ON ws.id = wsl.settlement_id
      WHERE ws.status = 'completed' ${sProjectAccessFilter} ${sWorkerFilter}
@@ -519,7 +519,7 @@ settlementRouter.post('/execute', async (req: Request, res: Response) => {
 
           const wtResult = await client.query(
             `INSERT INTO worker_transfers (id, worker_id, project_id, amount, transfer_method, transfer_date, notes, description, sender_name, recipient_name, created_at)
-             VALUES (gen_random_uuid(), $1, $2, CAST($3 AS DECIMAL(15,2)), 'settlement', $4, $5, $6, $7, $8, NOW())
+             VALUES (gen_random_uuid(), $1, $2, safe_numeric($3::text, 0), 'settlement', $4, $5, $6, $7, $8, NOW())
              RETURNING id`,
             [
               worker.workerId,

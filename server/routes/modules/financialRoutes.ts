@@ -41,6 +41,8 @@ import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 import { FinancialIntegrityService } from '../../services/FinancialIntegrityService';
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 export const financialRouter = express.Router();
 
 // تطبيق المصادقة وتحميل المشاريع المتاحة على جميع المسارات المالية
@@ -2005,28 +2007,28 @@ financialRouter.get('/reports/summary', async (req: Request, res: Response) => {
       db.execute(sql`
         SELECT
           COUNT(*) as total_transfers,
-          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+          COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total_amount
         FROM fund_transfers
       `),
       // إحصائيات تحويلات المشاريع
       db.execute(sql`
         SELECT
           COUNT(*) as total_transfers,
-          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+          COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total_amount
         FROM project_fund_transfers
       `),
       // إحصائيات تحويلات العمال
       db.execute(sql`
         SELECT
           COUNT(*) as total_transfers,
-          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+          COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total_amount
         FROM worker_transfers
       `),
       // إحصائيات مصاريف العمال المتنوعة
       db.execute(sql`
         SELECT
           COUNT(*) as total_expenses,
-          COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total_amount
+          COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total_amount
         FROM worker_misc_expenses
       `),
       // عدد المشاريع
@@ -4158,8 +4160,8 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
 
     const cumulativeResult = await pool.query(
       `SELECT des.project_id, p.name as project_name,
-              COALESCE(SUM(CAST(des.total_fund_transfers AS DECIMAL(15,2))), 0) as cumulative_funds,
-              COALESCE(SUM(CAST(des.total_expenses AS DECIMAL(15,2))), 0) as cumulative_expenses
+              COALESCE(SUM(safe_numeric(des.total_fund_transfers::text, 0)), 0) as cumulative_funds,
+              COALESCE(SUM(safe_numeric(des.total_expenses::text, 0)), 0) as cumulative_expenses
        FROM daily_expense_summaries des
        JOIN projects p ON p.id = des.project_id
        WHERE des.date <= $1${scopeFilter}

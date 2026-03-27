@@ -39,6 +39,8 @@ import { generateProjectComprehensiveExcel } from '../../services/reports/templa
 import { generateProjectComprehensiveHTML } from '../../services/reports/templates/ProjectComprehensivePDF';
 import { safeErrorMessage } from '../../middleware/api-response';
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 export const reportRouter = express.Router();
 
 reportRouter.use(requireAuth);
@@ -278,9 +280,9 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const attendanceSummary = await db
       .select({
         date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
-        totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(${workerAttendance.actualWage} AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END), 0)`,
-        totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+        totalWorkDays: sql<number>`COALESCE(SUM(${NUM(workerAttendance.workDays)}), 0)`,
+        totalWages: sql<number>`COALESCE(SUM(CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN ${NUM(workerAttendance.actualWage)} ELSE ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} END), 0)`,
+        totalPaid: sql<number>`COALESCE(SUM(${NUM(workerAttendance.paidAmount)}), 0)`,
         workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`
       })
       .from(workerAttendance)
@@ -299,8 +301,8 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const materialsSummary = await db
       .select({
         date: materialPurchases.purchaseDate,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`,
-        totalPaid: sql<number>`COALESCE(SUM(CAST(${materialPurchases.paidAmount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(${NUM(materialPurchases.totalAmount)}), 0)`,
+        totalPaid: sql<number>`COALESCE(SUM(${NUM(materialPurchases.paidAmount)}), 0)`,
         purchaseCount: sql<number>`COUNT(*)`
       })
       .from(materialPurchases)
@@ -318,7 +320,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const transportSummary = await db
       .select({
         date: transportationExpenses.date,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(${NUM(transportationExpenses.amount)}), 0)`,
         tripCount: sql<number>`COUNT(*)`
       })
       .from(transportationExpenses)
@@ -336,7 +338,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const fundTransfersSummary = await db
       .select({
         date: sql<string>`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END)`,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(${NUM(fundTransfers.amount)}), 0)`,
         transferCount: sql<number>`COUNT(*)`
       })
       .from(fundTransfers)
@@ -354,7 +356,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const miscExpensesSummary = await db
       .select({
         date: workerMiscExpenses.date,
-        totalAmount: sql<number>`COALESCE(SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL)), 0)`,
+        totalAmount: sql<number>`COALESCE(SUM(${NUM(workerMiscExpenses.amount)}), 0)`,
         expenseCount: sql<number>`COUNT(*)`
       })
       .from(workerMiscExpenses)
@@ -423,11 +425,11 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     const duration = Date.now() - startTime;
 
     // حساب الإجماليات الكلية للمشروع
-    const [totalFundsResult] = await db.select({ sum: sql<string>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(eq(fundTransfers.project_id, project_id as string));
-    const [totalWagesResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))` }).from(workerAttendance).where(eq(workerAttendance.project_id, project_id as string));
-    const [totalMaterialsResult] = await db.select({ sum: sql<string>`SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL))` }).from(materialPurchases).where(eq(materialPurchases.project_id, project_id as string));
-    const [totalTransportResult] = await db.select({ sum: sql<string>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(eq(transportationExpenses.project_id, project_id as string));
-    const [totalMiscResult] = await db.select({ sum: sql<string>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.project_id, project_id as string));
+    const [totalFundsResult] = await db.select({ sum: sql<string>`SUM(${NUM(fundTransfers.amount)})` }).from(fundTransfers).where(eq(fundTransfers.project_id, project_id as string));
+    const [totalWagesResult] = await db.select({ sum: sql<string>`SUM(${NUM(workerAttendance.paidAmount)})` }).from(workerAttendance).where(eq(workerAttendance.project_id, project_id as string));
+    const [totalMaterialsResult] = await db.select({ sum: sql<string>`SUM(${NUM(materialPurchases.totalAmount)})` }).from(materialPurchases).where(eq(materialPurchases.project_id, project_id as string));
+    const [totalTransportResult] = await db.select({ sum: sql<string>`SUM(${NUM(transportationExpenses.amount)})` }).from(transportationExpenses).where(eq(transportationExpenses.project_id, project_id as string));
+    const [totalMiscResult] = await db.select({ sum: sql<string>`SUM(${NUM(workerMiscExpenses.amount)})` }).from(workerMiscExpenses).where(eq(workerMiscExpenses.project_id, project_id as string));
 
     const overallTotalFunds = Number(totalFundsResult?.sum || 0);
     const overallTotalWages = Number(totalWagesResult?.sum || 0);
@@ -722,18 +724,18 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
       range === 'this-month' ? sql`(CASE WHEN ${fundTransfers.transferDate} IS NULL OR ${fundTransfers.transferDate}::text = '' OR ${fundTransfers.transferDate}::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${fundTransfers.transferDate}::date END) >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}::date` : sql`1=1`
     );
 
-    const [totalFunds] = await db.select({ sum: sql<string>`SUM(CAST(${fundTransfers.amount} AS DECIMAL))` }).from(fundTransfers).where(fundsTimeFilter);
-    const [totalWages] = await db.select({ sum: sql<string>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))` }).from(workerAttendance).where(attendanceFilter);
-    const [totalMaterials] = await db.select({ sum: sql<string>`SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL))` }).from(materialPurchases).where(materialsFilter);
-    const [totalTransport] = await db.select({ sum: sql<string>`SUM(CAST(${transportationExpenses.amount} AS DECIMAL))` }).from(transportationExpenses).where(transportFilter);
-    const [totalMisc] = await db.select({ sum: sql<string>`SUM(CAST(${workerMiscExpenses.amount} AS DECIMAL))` }).from(workerMiscExpenses).where(miscFilter);
+    const [totalFunds] = await db.select({ sum: sql<string>`SUM(${NUM(fundTransfers.amount)})` }).from(fundTransfers).where(fundsTimeFilter);
+    const [totalWages] = await db.select({ sum: sql<string>`SUM(${NUM(workerAttendance.paidAmount)})` }).from(workerAttendance).where(attendanceFilter);
+    const [totalMaterials] = await db.select({ sum: sql<string>`SUM(${NUM(materialPurchases.totalAmount)})` }).from(materialPurchases).where(materialsFilter);
+    const [totalTransport] = await db.select({ sum: sql<string>`SUM(${NUM(transportationExpenses.amount)})` }).from(transportationExpenses).where(transportFilter);
+    const [totalMisc] = await db.select({ sum: sql<string>`SUM(${NUM(workerMiscExpenses.amount)})` }).from(workerMiscExpenses).where(miscFilter);
 
     const [activeWorkers] = await db.select({ count: sql<number>`count(distinct ${workerAttendance.worker_id})` }).from(workerAttendance).where(attendanceFilter);
 
     // بناء بيانات الرسم البياني الزمني (آخر 7 أيام كعينة)
     const chartData = await db.select({
       date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
-      total: sql<number>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))`
+      total: sql<number>`SUM(${NUM(workerAttendance.paidAmount)})`
     }).from(workerAttendance)
     .where(attendanceFilter)
     .groupBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)
@@ -804,8 +806,8 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
         // إحصائيات الحضور
         const attendanceStats = await db
           .select({
-            totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-            totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
+            totalWorkDays: sql<number>`COALESCE(SUM(${NUM(workerAttendance.workDays)}), 0)`,
+            totalPaid: sql<number>`COALESCE(SUM(${NUM(workerAttendance.paidAmount)}), 0)`,
             workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`
           })
           .from(workerAttendance)
@@ -820,7 +822,7 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
 
         const materialsStats = await db
           .select({
-            total: sql<number>`COALESCE(SUM(CAST(${materialPurchases.totalAmount} AS DECIMAL)), 0)`
+            total: sql<number>`COALESCE(SUM(${NUM(materialPurchases.totalAmount)}), 0)`
           })
           .from(materialPurchases)
           .where(and(...materialConditions));
@@ -834,7 +836,7 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
 
         const transportStats = await db
           .select({
-            total: sql<number>`COALESCE(SUM(CAST(${transportationExpenses.amount} AS DECIMAL)), 0)`
+            total: sql<number>`COALESCE(SUM(${NUM(transportationExpenses.amount)}), 0)`
           })
           .from(transportationExpenses)
           .where(and(...transportConditions));
@@ -842,7 +844,7 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
         // إحصائيات الدخل
         const fundStats = await db
           .select({
-            total: sql<number>`COALESCE(SUM(CAST(${fundTransfers.amount} AS DECIMAL)), 0)`
+            total: sql<number>`COALESCE(SUM(${NUM(fundTransfers.amount)}), 0)`
           })
           .from(fundTransfers)
           .where(eq(fundTransfers.project_id, project_id));

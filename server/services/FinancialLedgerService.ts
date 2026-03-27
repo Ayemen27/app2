@@ -601,8 +601,8 @@ export class FinancialLedgerService {
   }> {
     const ledgerResult = await pool.query(`
       SELECT 
-        COALESCE(SUM(CAST(jl.debit_amount AS DECIMAL(15,2))), 0) - 
-        COALESCE(SUM(CAST(jl.credit_amount AS DECIMAL(15,2))), 0) as balance
+        COALESCE(SUM(safe_numeric(jl.debit_amount::text, 0)), 0) - 
+        COALESCE(SUM(safe_numeric(jl.credit_amount::text, 0)), 0) as balance
       FROM journal_lines jl
       INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
       WHERE je.project_id = $1 AND je.entry_date <= $2 AND je.status = 'posted'
@@ -612,31 +612,31 @@ export class FinancialLedgerService {
 
     const computedResult = await pool.query(`
       WITH income AS (
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
         FROM fund_transfers WHERE project_id = $1 AND transfer_date::date <= $2::date
         UNION ALL
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
         FROM project_fund_transfers WHERE to_project_id = $1 AND transfer_date::date <= $2::date
       ),
       expenses AS (
-        SELECT COALESCE(SUM(CAST(paid_amount AS DECIMAL(15,2))), 0) as total
-        FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date)::date <= $2::date AND CAST(paid_amount AS DECIMAL) > 0
+        SELECT COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total
+        FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date)::date <= $2::date AND safe_numeric(paid_amount::text, 0) > 0
         UNION ALL
         SELECT COALESCE(SUM(
-          CASE WHEN CAST(paid_amount AS DECIMAL) > 0 THEN CAST(paid_amount AS DECIMAL(15,2))
-               ELSE CAST(total_amount AS DECIMAL(15,2)) END
+          CASE WHEN safe_numeric(paid_amount::text, 0) > 0 THEN safe_numeric(paid_amount::text, 0)
+               ELSE safe_numeric(total_amount::text, 0) END
         ), 0) as total
         FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقد' OR purchase_type = 'نقداً') AND purchase_date::date <= $2::date
         UNION ALL
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date <= $2::date
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM transportation_expenses WHERE project_id = $1 AND date::date <= $2::date
         UNION ALL
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date <= $2::date
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_transfers WHERE project_id = $1 AND transfer_date::date <= $2::date
         UNION ALL
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date <= $2::date
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM worker_misc_expenses WHERE project_id = $1 AND date::date <= $2::date
         UNION ALL
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date <= $2::date
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM project_fund_transfers WHERE from_project_id = $1 AND transfer_date::date <= $2::date
         UNION ALL
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date <= $2::date
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date::date <= $2::date
       )
       SELECT 
         COALESCE((SELECT SUM(total) FROM income), 0) - COALESCE((SELECT SUM(total) FROM expenses), 0) as balance
@@ -665,8 +665,8 @@ export class FinancialLedgerService {
 
     const result = await pool.query(`
       SELECT 
-        COALESCE(SUM(CAST(jl.debit_amount AS DECIMAL(15,2))), 0) - 
-        COALESCE(SUM(CAST(jl.credit_amount AS DECIMAL(15,2))), 0) as balance
+        COALESCE(SUM(safe_numeric(jl.debit_amount::text, 0)), 0) - 
+        COALESCE(SUM(safe_numeric(jl.credit_amount::text, 0)), 0) as balance
       FROM journal_lines jl
       INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
       WHERE je.project_id = $1 AND je.status = 'posted'
@@ -722,10 +722,10 @@ export class FinancialLedgerService {
         jl.account_code,
         at.name_ar as account_name,
         at.category,
-        COALESCE(SUM(CAST(jl.debit_amount AS DECIMAL(15,2))), 0) as total_debit,
-        COALESCE(SUM(CAST(jl.credit_amount AS DECIMAL(15,2))), 0) as total_credit,
-        COALESCE(SUM(CAST(jl.debit_amount AS DECIMAL(15,2))), 0) - 
-        COALESCE(SUM(CAST(jl.credit_amount AS DECIMAL(15,2))), 0) as balance
+        COALESCE(SUM(safe_numeric(jl.debit_amount::text, 0)), 0) as total_debit,
+        COALESCE(SUM(safe_numeric(jl.credit_amount::text, 0)), 0) as total_credit,
+        COALESCE(SUM(safe_numeric(jl.debit_amount::text, 0)), 0) - 
+        COALESCE(SUM(safe_numeric(jl.credit_amount::text, 0)), 0) as balance
       FROM journal_lines jl
       INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
       LEFT JOIN account_types at ON at.code = jl.account_code

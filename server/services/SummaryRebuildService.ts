@@ -37,7 +37,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
 }> {
   const result = await client.query(`
     WITH day_income AS (
-      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM fund_transfers
       WHERE project_id = $1
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
@@ -45,7 +45,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
     ),
     day_incoming_transfers AS (
-      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM project_fund_transfers
       WHERE to_project_id = $1
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
@@ -53,7 +53,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
     ),
     day_outgoing_transfers AS (
-      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM project_fund_transfers
       WHERE from_project_id = $1
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
@@ -61,17 +61,17 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
     ),
     day_wages AS (
-      SELECT COALESCE(SUM(CAST(paid_amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as total
       FROM worker_attendance
       WHERE project_id = $1
         AND COALESCE(NULLIF(date,''), attendance_date) = $2
-        AND CAST(paid_amount AS DECIMAL) > 0
+        AND safe_numeric(paid_amount::text, 0) > 0
     ),
     day_materials AS (
       SELECT COALESCE(SUM(
         CASE
-          WHEN CAST(paid_amount AS DECIMAL) > 0 THEN CAST(paid_amount AS DECIMAL(15,2))
-          ELSE CAST(total_amount AS DECIMAL(15,2))
+          WHEN safe_numeric(paid_amount::text, 0) > 0 THEN safe_numeric(paid_amount::text, 0)
+          ELSE safe_numeric(total_amount::text, 0)
         END
       ), 0) as total
       FROM material_purchases
@@ -80,12 +80,12 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND purchase_date = $2
     ),
     day_transport AS (
-      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM transportation_expenses
       WHERE project_id = $1 AND date = $2
     ),
     day_worker_transfers AS (
-      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM worker_transfers
       WHERE project_id = $1
         AND transfer_date IS NOT NULL AND CAST(transfer_date AS TEXT) != ''
@@ -93,12 +93,12 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) = $2
     ),
     day_misc AS (
-      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM worker_misc_expenses
       WHERE project_id = $1 AND date = $2
     ),
     day_supplier_payments AS (
-      SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM supplier_payments
       WHERE project_id = $1 AND payment_date = $2
     )

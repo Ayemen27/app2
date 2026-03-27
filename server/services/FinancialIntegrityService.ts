@@ -2,6 +2,8 @@ import { db, pool } from '../db.js';
 import { workerAttendance, workerBalances, workerTransfers, financialAuditLog, reconciliationRecords } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 export class FinancialIntegrityService {
 
   static async syncWorkerBalance(workerId: string, projectId: string): Promise<void> {
@@ -12,12 +14,12 @@ export class FinancialIntegrityService {
         COALESCE(a.total_earned, 0) - COALESCE(a.total_paid, 0) - COALESCE(t.total_transferred, 0),
         NOW(), NOW()
       FROM (
-        SELECT SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END) as total_earned,
-               SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))) as total_paid
+        SELECT SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN safe_numeric(actual_wage::text, 0) ELSE safe_numeric(daily_wage::text, 0) * safe_numeric(work_days::text, 0) END) as total_earned,
+               SUM(safe_numeric(paid_amount::text, 0)) as total_paid
         FROM worker_attendance WHERE worker_id = $1 AND project_id = $2
       ) a
       CROSS JOIN (
-        SELECT COALESCE(SUM(CAST(COALESCE(amount,'0') AS DECIMAL(15,2))), 0) as total_transferred
+        SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total_transferred
         FROM worker_transfers WHERE worker_id = $1 AND project_id = $2
           AND COALESCE(transfer_method, '') != 'settlement'
       ) t
@@ -93,11 +95,11 @@ export class FinancialIntegrityService {
 
     const balanceCheck = await pool.query(`
       SELECT wb.worker_id, w.name as worker_name, wb.project_id, p.name as project_name,
-        CAST(wb.current_balance AS DECIMAL(15,2)) as stored_balance,
+        safe_numeric(wb.current_balance::text, 0) as stored_balance,
         (
-          COALESCE((SELECT SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END) FROM worker_attendance wa WHERE wa.worker_id=wb.worker_id AND wa.project_id=wb.project_id), 0)
-          - COALESCE((SELECT SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))) FROM worker_attendance wa WHERE wa.worker_id=wb.worker_id AND wa.project_id=wb.project_id), 0)
-          - COALESCE((SELECT SUM(CAST(COALESCE(amount,'0') AS DECIMAL(15,2))) FROM worker_transfers wt WHERE wt.worker_id=wb.worker_id AND wt.project_id=wb.project_id AND COALESCE(wt.transfer_method,'')!='settlement'), 0)
+          COALESCE((SELECT SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN safe_numeric(actual_wage::text, 0) ELSE safe_numeric(daily_wage::text, 0) * safe_numeric(work_days::text, 0) END) FROM worker_attendance wa WHERE wa.worker_id=wb.worker_id AND wa.project_id=wb.project_id), 0)
+          - COALESCE((SELECT SUM(safe_numeric(paid_amount::text, 0)) FROM worker_attendance wa WHERE wa.worker_id=wb.worker_id AND wa.project_id=wb.project_id), 0)
+          - COALESCE((SELECT SUM(safe_numeric(amount::text, 0)) FROM worker_transfers wt WHERE wt.worker_id=wb.worker_id AND wt.project_id=wb.project_id AND COALESCE(wt.transfer_method,'')!='settlement'), 0)
         ) as computed_balance
       FROM worker_balances wb
       JOIN workers w ON w.id = wb.worker_id
@@ -129,8 +131,8 @@ export class FinancialIntegrityService {
 
     const attendanceMismatchCount = await pool.query(`
       SELECT COUNT(*) as cnt FROM worker_attendance
-      WHERE CAST(COALESCE(actual_wage, '0') AS DECIMAL(15,2)) != 
-            (CAST(COALESCE(daily_wage, '0') AS DECIMAL(15,2)) * CAST(COALESCE(work_days, '0') AS DECIMAL(15,2)))
+      WHERE safe_numeric(actual_wage::text, 0) != 
+            (safe_numeric(daily_wage::text, 0) * safe_numeric(work_days::text, 0))
       ${projectId ? 'AND project_id = $1' : ''}
     `, params);
 
@@ -198,12 +200,12 @@ export class FinancialIntegrityService {
           NOW(), NOW()
         FROM (
           SELECT worker_id, project_id,
-            SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END) as total_earned,
-            SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))) as total_paid
+            SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN safe_numeric(actual_wage::text, 0) ELSE safe_numeric(daily_wage::text, 0) * safe_numeric(work_days::text, 0) END) as total_earned,
+            SUM(safe_numeric(paid_amount::text, 0)) as total_paid
           FROM worker_attendance GROUP BY worker_id, project_id
         ) c
         LEFT JOIN (
-          SELECT worker_id, project_id, SUM(CAST(COALESCE(amount,'0') AS DECIMAL(15,2))) as total_transferred
+          SELECT worker_id, project_id, SUM(safe_numeric(amount::text, 0)) as total_transferred
           FROM worker_transfers WHERE COALESCE(transfer_method,'') != 'settlement'
           GROUP BY worker_id, project_id
         ) t ON t.worker_id = c.worker_id AND t.project_id = c.project_id
@@ -225,13 +227,13 @@ export class FinancialIntegrityService {
   }> {
     const result = await pool.query(`
       SELECT
-        COALESCE(SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END), 0)
-        - COALESCE(SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))), 0) as net
+        COALESCE(SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN safe_numeric(actual_wage::text, 0) ELSE safe_numeric(daily_wage::text, 0) * safe_numeric(work_days::text, 0) END), 0)
+        - COALESCE(SUM(safe_numeric(paid_amount::text, 0)), 0) as net
       FROM worker_attendance WHERE worker_id = $1 AND project_id = $2
     `, [workerId, projectId]);
 
     const transfers = await pool.query(`
-      SELECT COALESCE(SUM(CAST(COALESCE(amount,'0') AS DECIMAL(15,2))), 0) as total
+      SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
       FROM worker_transfers WHERE worker_id = $1 AND project_id = $2
         AND COALESCE(transfer_method, '') != 'settlement'
     `, [workerId, projectId]);

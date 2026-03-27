@@ -36,6 +36,8 @@ import { validateWholeAmounts } from '../../middleware/validateWholeAmounts';
 import { SummaryRebuildService } from '../../services/SummaryRebuildService';
 import { FinancialIntegrityService } from '../../services/FinancialIntegrityService.js';
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 declare global {
   var io: { emit: (event: string, data: unknown) => void } | undefined;
 }
@@ -272,9 +274,9 @@ async function recalculateAttendanceAndBalances(
       `UPDATE worker_attendance
        SET
          daily_wage = $1,
-         actual_wage = CAST($1 AS DECIMAL(15,2)) * COALESCE(work_days, 0),
-         total_pay = CAST($1 AS DECIMAL(15,2)) * COALESCE(work_days, 0),
-         remaining_amount = (CAST($1 AS DECIMAL(15,2)) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
+         actual_wage = safe_numeric($1::text, 0) * COALESCE(work_days, 0),
+         total_pay = safe_numeric($1::text, 0) * COALESCE(work_days, 0),
+         remaining_amount = (safe_numeric($1::text, 0) * COALESCE(work_days, 0)) - COALESCE(paid_amount, 0)
        WHERE id = $2`,
       [resolvedWage, record.id]
     );
@@ -300,14 +302,14 @@ async function recalculateAttendanceAndBalances(
        SET
          total_earned = COALESCE((
            SELECT SUM(
-             CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL(15,2)) END
+             CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text, 0) ELSE safe_numeric(wa.daily_wage::text, 0) * safe_numeric(wa.work_days::text, 0) END
            )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
          ), 0),
          current_balance = COALESCE((
            SELECT SUM(
-             CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL(15,2)) END
+             CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text, 0) ELSE safe_numeric(wa.daily_wage::text, 0) * safe_numeric(wa.work_days::text, 0) END
            )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
@@ -412,7 +414,7 @@ workerRouter.get('/workers', async (req: Request, res: Response) => {
       }).from(workerBalances).where(
         and(
           eq(workerBalances.project_id, project_id!),
-          sql`CAST(${workerBalances.totalEarned} AS DECIMAL) > 0`
+          sql`${NUM(workerBalances.totalEarned)} > 0`
         )
       );
 
@@ -634,18 +636,18 @@ workerRouter.get('/workers/balances', async (req: Request, res: Response) => {
       SELECT 
         w.id as worker_id,
         COALESCE((
-          SELECT SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL) END)
+          SELECT SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN safe_numeric(wa.actual_wage::text, 0) ELSE safe_numeric(wa.daily_wage::text, 0) * safe_numeric(wa.work_days::text, 0) END)
           FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
         ), 0) as total_earnings,
         COALESCE((
-          SELECT SUM(CAST(wt.amount AS DECIMAL))
+          SELECT SUM(safe_numeric(wt.amount::text, 0))
           FROM worker_transfers wt WHERE wt.worker_id = w.id AND (wt.transfer_method IS NULL OR wt.transfer_method != 'settlement') ${wtFilter}
         ), 0) + COALESCE((
-          SELECT SUM(CAST(COALESCE(wa.paid_amount, '0') AS DECIMAL))
+          SELECT SUM(safe_numeric(COALESCE(wa.paid_amount, '0')::text, 0))
           FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
         ), 0) as total_withdrawals,
         COALESCE((
-          SELECT SUM(CAST(wt.amount AS DECIMAL))
+          SELECT SUM(safe_numeric(wt.amount::text, 0))
           FROM worker_transfers wt WHERE wt.worker_id = w.id AND wt.transfer_method = 'settlement' ${wtFilter}
         ), 0) as total_settled
       FROM workers w
@@ -2581,8 +2583,8 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
         eq(workerAttendance.worker_id, validationResult.data.worker_id),
         eq(workerAttendance.project_id, validationResult.data.project_id),
         sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${attendanceDate}`,
-        sql`CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL(15,2)) = CAST(${paidAmount.toString()} AS DECIMAL(15,2))`,
-        sql`CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL(15,2)) = CAST(${workDays.toString()} AS DECIMAL(15,2))`
+        sql`safe_numeric(COALESCE(${workerAttendance.paidAmount}, '0')::text, 0) = safe_numeric(${paidAmount.toString()}::text, 0)`,
+        sql`safe_numeric(COALESCE(${workerAttendance.workDays}, '0')::text, 0) = safe_numeric(${workDays.toString()}::text, 0)`
       ))
       .limit(1);
 
@@ -2784,7 +2786,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     if (createdAdvanceTransfer) {
       const existingAdvance = await pool.query(
         `SELECT id FROM worker_transfers WHERE worker_id = $1 AND project_id = $2 AND transfer_date = $3 
-         AND CAST(amount AS DECIMAL(15,2)) = CAST($4 AS DECIMAL(15,2)) 
+         AND safe_numeric(amount::text, 0) = safe_numeric($4::text, 0) 
          AND notes LIKE '%سلفة%' AND notes LIKE $5 LIMIT 1`,
         [createdAdvanceTransfer.worker_id, createdAdvanceTransfer.project_id, createdAdvanceTransfer.transferDate, 
          createdAdvanceTransfer.amount, `%${paidAmount}%`]
@@ -3108,7 +3110,7 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     if (createdAdvanceTransferPatch) {
       const existingAdvancePatch = await pool.query(
         `SELECT id FROM worker_transfers WHERE worker_id = $1 AND project_id = $2 AND transfer_date = $3 
-         AND CAST(amount AS DECIMAL(15,2)) = CAST($4 AS DECIMAL(15,2)) 
+         AND safe_numeric(amount::text, 0) = safe_numeric($4::text, 0) 
          AND notes LIKE '%سلفة%' AND notes LIKE $5 LIMIT 1`,
         [createdAdvanceTransferPatch.worker_id, createdAdvanceTransferPatch.project_id, createdAdvanceTransferPatch.transferDate,
          createdAdvanceTransferPatch.amount, `%${safePaidAmount}%`]
@@ -3314,7 +3316,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     // حساب إجمالي عدد أيام العمل من جدول workerAttendance
     const totalWorkDaysResult = await db.select({
-      totalDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
+      totalDays: sql`COALESCE(SUM(safe_numeric(COALESCE(${workerAttendance.workDays}, '0')::text, 0)), 0)`
     })
     .from(workerAttendance)
     .where(attendanceWhereCondition);
@@ -3345,7 +3347,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       : and(eq(workerAttendance.worker_id, worker_id), eq(workerAttendance.project_id, project_id), sql`${workerAttendance.attendanceDate} >= ${thirtyDaysAgoString}`);
 
     const monthlyAttendanceResult = await db.select({
-      monthlyDays: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL)), 0)`
+      monthlyDays: sql`COALESCE(SUM(safe_numeric(COALESCE(${workerAttendance.workDays}, '0')::text, 0)), 0)`
     })
     .from(workerAttendance)
     .where(monthlyAttendanceCondition);
@@ -3355,7 +3357,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     // حساب إجمالي التحويلات المالية من جدول workerTransfers
     const totalTransfersResult = await db.select({
-      totalTransfers: sql`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`,
+      totalTransfers: sql`COALESCE(SUM(${NUM(workerTransfers.amount)}), 0)`,
       transfersCount: sql`COUNT(*)`
     })
     .from(workerTransfers)
@@ -3366,7 +3368,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     // حساب إجمالي الأجور المدفوعة من جدول workerAttendance (paidAmount)
     const totalPaidWagesResult = await db.select({
-      totalPaidWages: sql`COALESCE(SUM(CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL)), 0)`
+      totalPaidWages: sql`COALESCE(SUM(safe_numeric(COALESCE(${workerAttendance.paidAmount}, '0')::text, 0)), 0)`
     })
     .from(workerAttendance)
     .where(attendanceWhereCondition);
@@ -3399,7 +3401,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     const totalEarningsResult = await db.select({
       totalEarnings: sql`COALESCE(SUM(
-        CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(${workerAttendance.actualWage} AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END
+        CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN ${NUM(workerAttendance.actualWage)} ELSE ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} END
       ), 0)`
     })
     .from(workerAttendance)
@@ -3412,7 +3414,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
       : and(eq(workerTransfers.worker_id, worker_id), eq(workerTransfers.project_id, project_id), sql`${workerTransfers.transferMethod} = 'settlement'`);
 
     const settlementTransfersResult = await db.select({
-      totalSettled: sql`COALESCE(SUM(CAST(${workerTransfers.amount} AS DECIMAL)), 0)`
+      totalSettled: sql`COALESCE(SUM(${NUM(workerTransfers.amount)}), 0)`
     })
     .from(workerTransfers)
     .where(settlementTransfersCondition);

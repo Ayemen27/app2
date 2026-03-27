@@ -52,6 +52,8 @@ import {
 import { db, pool } from "./db";
 import { and, eq, isNull, or, gte, lte, desc, ilike, like, isNotNull, asc, count, sum, ne, max, sql, inArray, gt } from 'drizzle-orm';
 
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
+
 interface SqlAggregateRow {
   count?: string;
   total?: string;
@@ -1672,7 +1674,7 @@ export class DatabaseStorage implements IStorage {
         this.getFilteredWorkerTransfers(project_id, date),
         this.getWorkerMiscExpenses(project_id, date),
         this.getPreviousDayBalance(project_id, date).then(balance => parseFloat(balance)),
-        pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [project_id, date])
+        pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [project_id, date])
       ]);
 
       const tocents = (val: string) => Math.round(parseFloat(val || '0') * 100);
@@ -1808,7 +1810,7 @@ export class DatabaseStorage implements IStorage {
         const totalTransportationCostsCents = transportationExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
         const totalWorkerTransferCostsCents = workerTransfers.reduce((sum, t) => sum + tocents(t.amount), 0);
         const totalWorkerMiscCostsCents = workerMiscExpenses.reduce((sum, e) => sum + tocents(e.amount), 0);
-        const supplierPayResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [project_id, date]);
+        const supplierPayResult = await pool.query(`SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [project_id, date]);
         const totalSupplierPaymentsCents = Math.round(parseFloat(supplierPayResult.rows[0]?.total || '0') * 100);
 
         const carriedForwardCents = Math.round(carriedForwardAmount * 100);
@@ -2466,21 +2468,21 @@ export class DatabaseStorage implements IStorage {
         
         // إجمالي تحويلات العهدة
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
           FROM fund_transfers 
           WHERE project_id = ${project_id}
         `),
         
         // التحويلات الواردة للمشروع
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
           FROM project_fund_transfers 
           WHERE to_project_id = ${project_id}
         `),
         
         // التحويلات الصادرة من المشروع
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
           FROM project_fund_transfers 
           WHERE from_project_id = ${project_id}
         `),
@@ -2488,7 +2490,7 @@ export class DatabaseStorage implements IStorage {
         // إجمالي المبالغ المدفوعة فعلياً فقط (المبالغ التي تم صرفها فعلاً) والأيام
         db.execute(sql`
           SELECT 
-            COALESCE(SUM(CASE WHEN paid_amount > 0 THEN CAST(paid_amount AS DECIMAL) ELSE 0 END), 0) as total_wages,
+            COALESCE(SUM(CASE WHEN paid_amount > 0 THEN safe_numeric(paid_amount::text, 0) ELSE 0 END), 0) as total_wages,
             COUNT(DISTINCT date) as completed_days
           FROM worker_attendance 
           WHERE project_id = ${project_id}
@@ -2497,8 +2499,8 @@ export class DatabaseStorage implements IStorage {
         // إجمالي مشتريات المواد النقدية (المدفوعة فعلياً)
         db.execute(sql`
           SELECT 
-            COALESCE(SUM(CASE WHEN purchase_type = 'نقد' THEN CAST(total_amount AS DECIMAL) ELSE 0 END), 0) as cash_total,
-            COALESCE(SUM(CASE WHEN purchase_type = 'أجل' THEN CAST(total_amount AS DECIMAL) ELSE 0 END), 0) as credit_total,
+            COALESCE(SUM(CASE WHEN purchase_type = 'نقد' THEN safe_numeric(total_amount::text, 0) ELSE 0 END), 0) as cash_total,
+            COALESCE(SUM(CASE WHEN purchase_type = 'أجل' THEN safe_numeric(total_amount::text, 0) ELSE 0 END), 0) as credit_total,
             COUNT(DISTINCT id) as count
           FROM material_purchases 
           WHERE project_id = ${project_id}
@@ -2506,21 +2508,21 @@ export class DatabaseStorage implements IStorage {
         
         // إجمالي النقل
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
           FROM transportation_expenses 
           WHERE project_id = ${project_id}
         `),
         
         // مصاريف العمال المتنوعة
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
           FROM worker_misc_expenses 
           WHERE project_id = ${project_id}
         `),
         
         // حوالات الأهل (من العامل للأهل)
         db.execute(sql`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
+          SELECT COALESCE(SUM(safe_numeric(amount::text, 0)), 0) as total
           FROM worker_transfers 
           WHERE project_id = ${project_id}
         `)

@@ -618,7 +618,6 @@ import { registerRoutes } from "./routes.js";
 registerRoutes(app).catch(err => console.error("Failed to initialize services:", err));
 
 import { runAllStartupMigrations } from "./db/startup-migration-coordinator.js";
-runAllStartupMigrations().catch(err => console.error("Failed to run startup migrations:", err));
 
 // ✅ تسجيل مسار قائمة المستخدمين (للاستخدام في اختيار المهندس)
 app.get("/api/users/list", requireAuth, async (req: Request, res: Response) => {
@@ -752,6 +751,12 @@ const activeIntervals: NodeJS.Timeout[] = [];
 
 (async () => {
   try {
+    try {
+      await runAllStartupMigrations();
+    } catch (err) {
+      console.error("❌ [Startup] Failed to run startup migrations:", err);
+    }
+
     getWhatsAppBot().start().catch(err => console.error('❌ [WhatsAppBot] Startup error:', err));
 
     startNonceCleanup();

@@ -6,6 +6,8 @@
 
 import { db, pool } from "../../db";
 import { eq, and, sql, desc, like, gte, lte, inArray } from "drizzle-orm";
+
+const NUM = (col: any) => sql`safe_numeric(${col}::text, 0)`;
 import {
   projects,
   workers,
@@ -2316,7 +2318,7 @@ export class DatabaseActions {
         type: sql<string>`'حضور'`,
         description: sql<string>`${workers.name} || ' - ' || ${workerAttendance.workDays} || ' يوم'`,
         date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
-        amount: sql<string>`CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN ${workerAttendance.actualWage} ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0')::numeric * COALESCE(NULLIF(${workerAttendance.workDays},''),'0')::numeric AS TEXT) END`,
+        amount: sql<string>`CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN ${workerAttendance.actualWage} ELSE CAST(${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} AS TEXT) END`,
       }).from(workerAttendance)
         .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
         .where(attFilter!)

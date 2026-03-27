@@ -1614,7 +1614,7 @@ projectRouter.get('/:project_id/worker-attendance', requireProjectAccess('view')
     .from(workerAttendance)
     .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
     .where(and(...conditions))
-    .orderBy(workerAttendance.date)
+    .orderBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)
     .limit(5000);
 
     const duration = Date.now() - startTime;
@@ -2448,7 +2448,7 @@ projectRouter.get('/:project_id/all-expenses', requireProjectAccess('view'), asy
           sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
         )
       ))
-      .orderBy(desc(workerAttendance.date)),
+      .orderBy(desc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)),
       db.select().from(materialPurchases)
         .where(eq(materialPurchases.project_id, project_id))
         .orderBy(desc(materialPurchases.purchaseDate)),

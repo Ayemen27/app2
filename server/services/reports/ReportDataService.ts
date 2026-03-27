@@ -1586,6 +1586,15 @@ export class ReportDataService {
       const totalSupplierPaymentsComp = safeNum(supplierPayCompResult.rows[0]?.total);
       const supplierPaymentsCount = safeNum(supplierPayCompResult.rows[0]?.count);
 
+      const supplierPayItemsResult = await client.query(`
+        SELECT sp.amount, sp.payment_date, sp.payment_method, sp.reference_number, sp.notes,
+          COALESCE(s.name, sp.supplier_id) AS supplier_name
+        FROM supplier_payments sp
+        LEFT JOIN suppliers s ON s.id = sp.supplier_id
+        WHERE sp.project_id = $1 AND sp.payment_date >= $2 AND sp.payment_date <= $3
+        ORDER BY sp.payment_date
+      `, [projectId, dateFrom, dateTo]);
+
       const wf = workforceResult.rows[0];
       const totalWorkers = safeNum(wf?.total_workers);
       const activeWorkers = safeNum(wf?.active_workers);
@@ -1731,7 +1740,18 @@ export class ReportDataService {
           transport: { total: totalTransport, tripCount },
           miscExpenses: { total: totalMisc, count: miscCount },
           workerTransfers: { total: totalWorkerTransfers, count: wtCount },
-          supplierPayments: { total: totalSupplierPaymentsComp, count: supplierPaymentsCount },
+          supplierPayments: {
+            total: totalSupplierPaymentsComp,
+            count: supplierPaymentsCount,
+            items: supplierPayItemsResult.rows.map((r: any) => ({
+              supplierName: r.supplier_name || '-',
+              amount: safeNum(r.amount),
+              paymentDate: r.payment_date || '-',
+              paymentMethod: r.payment_method || '-',
+              referenceNumber: r.reference_number || '-',
+              notes: r.notes || '',
+            })),
+          },
         },
         cashCustody: {
           totalFundTransfersIn,

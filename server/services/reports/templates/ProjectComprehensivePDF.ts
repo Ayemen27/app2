@@ -184,6 +184,16 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     body += `</tbody></table>`;
   }
 
+  if (data.expenses.supplierPayments?.items && data.expenses.supplierPayments.items.length > 0) {
+    body += `<div style="font-size:9px;font-weight:700;color:${PDF_COLORS.navy};margin:6px 0 3px;">تفاصيل دفعات الموردين</div>`;
+    body += `<table><thead><tr><th>#</th><th>المورد</th><th>التاريخ</th><th>المبلغ</th><th>طريقة الدفع</th><th>رقم المرجع</th></tr></thead><tbody>`;
+    data.expenses.supplierPayments.items.forEach((sp, i) => {
+      body += `<tr><td>${i + 1}</td><td style="text-align:right;">${escapeHtml(sp.supplierName)}</td><td>${formatDateBR(sp.paymentDate)}</td><td class="debit-cell">${formatNum(sp.amount)}</td><td>${escapeHtml(sp.paymentMethod)}</td><td>${escapeHtml(sp.referenceNumber)}</td></tr>`;
+    });
+    body += pdfGrandTotalRow(['الإجمالي', '', '', formatNum(data.expenses.supplierPayments.total), '', '']);
+    body += `</tbody></table>`;
+  }
+
   body += pdfSectionTitle('🏦 الصندوق والأمانات');
   body += `<table class="summary-table" style="width:100%;"><tbody>
     <tr><td class="label-cell">إجمالي التحويلات الواردة</td><td class="value-cell debit-cell">${formatNum(data.cashCustody.totalFundTransfersIn)}</td></tr>

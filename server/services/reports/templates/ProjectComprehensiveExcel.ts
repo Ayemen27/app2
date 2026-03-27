@@ -140,6 +140,16 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
     row++;
   }
 
+  if (data.expenses.supplierPayments?.items && data.expenses.supplierPayments.items.length > 0) {
+    row = xlInfoRow(ws, row, 'تفاصيل دفعات الموردين', COL_COUNT);
+    row = xlTableHeader(ws, row, ['#', 'المورد', 'التاريخ', 'المبلغ', 'طريقة الدفع', 'رقم المرجع', 'ملاحظات', '', '']);
+    data.expenses.supplierPayments.items.forEach((sp, i) => {
+      row = xlDataRow(ws, row, [i + 1, sp.supplierName, formatDateBR(sp.paymentDate), formatNum(sp.amount), sp.paymentMethod, sp.referenceNumber, sp.notes || '', '', ''], i % 2 === 1);
+    });
+    row = xlGrandTotalRow(ws, row, ['الإجمالي', '', '', formatNum(data.expenses.supplierPayments.total), '', '', '', '', '']);
+    row++;
+  }
+
   row = xlSectionHeader(ws, row, '🏦 الصندوق والأمانات', COL_COUNT);
   row = xlTableHeader(ws, row, ['البند', 'المبلغ', '', '', '', '', '', '', '']);
   row = xlDataRow(ws, row, ['إجمالي التحويلات الواردة', formatNum(data.cashCustody.totalFundTransfersIn), '', '', '', '', '', '', ''], false);

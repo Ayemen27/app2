@@ -497,6 +497,9 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
     const transferFilters = [eq(workerTransfers.worker_id, worker_id as string)];
 
     if (project_id && project_id !== 'all') {
+      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+      }
       filters.push(eq(workerAttendance.project_id, project_id as string));
       transferFilters.push(eq(workerTransfers.project_id, project_id as string));
     } else if (!isAdminUser && accessibleIds.length > 0) {
@@ -936,6 +939,9 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
     // بناء شروط الاستعلام
     let conditions: any[] = [eq(workerAttendance.worker_id, worker_id)];
     if (project_id) {
+      if (!isAdminUser && !accessibleIds.includes(project_id as string)) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
+      }
       conditions.push(eq(workerAttendance.project_id, project_id as string));
     } else if (!isAdminUser && accessibleIds.length > 0) {
       conditions.push(inArray(workerAttendance.project_id, accessibleIds));

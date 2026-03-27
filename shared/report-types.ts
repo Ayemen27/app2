@@ -486,6 +486,14 @@ export interface ProjectComprehensiveReportData {
     supplierPayments?: {
       total: number;
       count: number;
+      items?: Array<{
+        supplierName: string;
+        amount: number;
+        paymentDate: string;
+        paymentMethod: string;
+        referenceNumber: string;
+        notes: string;
+      }>;
     };
   };
   cashCustody: {

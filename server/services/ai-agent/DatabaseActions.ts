@@ -44,6 +44,14 @@ export interface ActionResult {
 
 export class DatabaseActions {
 
+  private safeParseNum(val: any, fallback: number = 0): number {
+    if (val === null || val === undefined) return fallback;
+    const str = String(val).trim();
+    if (str === '' || str.toLowerCase() === 'nan' || str.toLowerCase() === 'infinity') return fallback;
+    const n = Number(str);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
   private static readonly SENSITIVE_TABLES = [
     'users',
     'auth_user_sessions',
@@ -242,11 +250,11 @@ export class DatabaseActions {
           .groupBy(workerMiscExpenses.project_id),
       ]);
 
-      const fundsMap = new Map<string, number>(fundsAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
-      const wagesMap = new Map<string, number>(wagesAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
-      const materialsMap = new Map<string, number>(materialsAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
-      const transportMap = new Map<string, number>(transportAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
-      const miscMap = new Map<string, number>(miscAgg.map((r: any) => [r.project_id, parseFloat(r.total || "0")]));
+      const fundsMap = new Map<string, number>(fundsAgg.map((r: any) => [r.project_id, this.safeParseNum(r.total)]));
+      const wagesMap = new Map<string, number>(wagesAgg.map((r: any) => [r.project_id, this.safeParseNum(r.total)]));
+      const materialsMap = new Map<string, number>(materialsAgg.map((r: any) => [r.project_id, this.safeParseNum(r.total)]));
+      const transportMap = new Map<string, number>(transportAgg.map((r: any) => [r.project_id, this.safeParseNum(r.total)]));
+      const miscMap = new Map<string, number>(miscAgg.map((r: any) => [r.project_id, this.safeParseNum(r.total)]));
 
       const projectSummaries = allProjects.map((project: any) => {
         const totalFunds: number = fundsMap.get(project.id) || 0;
@@ -259,7 +267,7 @@ export class DatabaseActions {
         return {
           المشروع: project.name,
           الحالة: project.status || "نشط",
-          الميزانية: parseFloat(String(project.budget || "0")),
+          الميزانية: this.safeParseNum(project.budget),
           إجمالي_التمويل: totalFunds,
           الأجور: totalWages,
           المواد: totalMaterials,
@@ -348,11 +356,11 @@ export class DatabaseActions {
         .where(eq(workerMiscExpenses.project_id, projectId));
 
       const summary = {
-        totalFunds: parseFloat(fundsResult[0]?.total || "0"),
-        totalWages: parseFloat(wagesResult[0]?.total || "0"),
-        totalMaterials: parseFloat(materialsResult[0]?.total || "0"),
-        totalTransport: parseFloat(transportResult[0]?.total || "0"),
-        totalMisc: parseFloat(miscResult[0]?.total || "0"),
+        totalFunds: this.safeParseNum(fundsResult[0]?.total),
+        totalWages: this.safeParseNum(wagesResult[0]?.total),
+        totalMaterials: this.safeParseNum(materialsResult[0]?.total),
+        totalTransport: this.safeParseNum(transportResult[0]?.total),
+        totalMisc: this.safeParseNum(miscResult[0]?.total),
       };
 
       const totalExpenses = 
@@ -396,13 +404,13 @@ export class DatabaseActions {
         result = result.filter((r: any) => r.project_id === projectId);
       }
 
-      const totalDays = result.reduce((sum: number, r: any) => sum + parseFloat(r.workDays || "0"), 0);
+      const totalDays = result.reduce((sum: number, r: any) => sum + this.safeParseNum(r.workDays), 0);
       const totalEarned = result.reduce((sum: number, r: any) => {
-        const dw = parseFloat(r.dailyWage || "0");
-        const wd = parseFloat(r.workDays || "0");
+        const dw = this.safeParseNum(r.dailyWage);
+        const wd = this.safeParseNum(r.workDays);
         return sum + (dw * wd);
       }, 0);
-      const totalPaid = result.reduce((sum: number, r: any) => sum + parseFloat(r.paidAmount || "0"), 0);
+      const totalPaid = result.reduce((sum: number, r: any) => sum + this.safeParseNum(r.paidAmount), 0);
 
       return {
         success: true,
@@ -436,7 +444,7 @@ export class DatabaseActions {
         .where(and(...conditions))
         .orderBy(desc(workerTransfers.transferDate));
 
-      const total = result.reduce((sum: number, r: any) => sum + parseFloat(r.amount), 0);
+      const total = result.reduce((sum: number, r: any) => sum + this.safeParseNum(r.amount), 0);
 
       return {
         success: true,
@@ -639,7 +647,7 @@ export class DatabaseActions {
     paidAmount?: string;
   }): Promise<ActionResult> {
     try {
-      const totalPay = (parseFloat(data.workDays) * parseFloat(data.dailyWage)).toString();
+      const totalPay = (this.safeParseNum(data.workDays) * this.safeParseNum(data.dailyWage)).toString();
       
       const [result] = await db.insert(workerAttendance).values({
         project_id: data.projectId,
@@ -1331,6 +1339,17 @@ export class DatabaseActions {
         };
       }
 
+      const BLOCKED_SCHEMAS = /\b(pg_catalog|information_schema|pg_toast)\b/i;
+      if (BLOCKED_SCHEMAS.test(normalized)) {
+        return { success: false, message: "الوصول إلى جداول النظام غير مسموح لأسباب أمنية.", action: "raw_select" };
+      }
+
+      for (const table of DatabaseActions.SENSITIVE_TABLES) {
+        if (new RegExp(`\\b${table}\\b`, 'i').test(normalized)) {
+          return { success: false, message: "الوصول إلى هذا الجدول محظور.", action: "raw_select" };
+        }
+      }
+
       const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? trimmed : `${trimmed} LIMIT 500`;
       const client = await pool.connect();
       try {
@@ -1384,6 +1403,17 @@ export class DatabaseActions {
         message: "الاستعلام يحتوي على دوال PostgreSQL غير مسموحة لأسباب أمنية.",
         action: "execute_sql",
       };
+    }
+
+    const BLOCKED_SCHEMAS = /\b(pg_catalog|information_schema|pg_toast)\b/i;
+    if (BLOCKED_SCHEMAS.test(normalized)) {
+      return { success: false, message: "الوصول إلى جداول النظام غير مسموح لأسباب أمنية.", action: "execute_sql" };
+    }
+
+    for (const table of DatabaseActions.SENSITIVE_TABLES) {
+      if (new RegExp(`\\b${table}\\b`, 'i').test(normalized)) {
+        return { success: false, message: "الوصول إلى هذا الجدول محظور.", action: "execute_sql" };
+      }
     }
 
     const limitedQuery = /\bLIMIT\s+\d+/i.test(normalized) ? query.trim() : `${query.trim()} LIMIT 500`;
@@ -1442,25 +1472,25 @@ export class DatabaseActions {
 
       const fundCondition = hasFilter ? inArray(fundTransfers.project_id, allowedProjectIds!) : undefined;
       const [fundStats] = await db.select({
-        totalFunds: sql<string>`coalesce(sum(case when ${fundTransfers.amount}::text != 'NaN' then ${fundTransfers.amount}::numeric else 0 end), 0)`,
+        totalFunds: sql<string>`coalesce(sum(${NUM(fundTransfers.amount)}), 0)`,
       }).from(fundTransfers).where(fundCondition!);
 
       const attCondition = hasFilter ? inArray(workerAttendance.project_id, allowedProjectIds!) : undefined;
       const [attendanceStats] = await db.select({
         totalWages: sql<string>`coalesce(sum(
-          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${workerAttendance.actualWage}::numeric else COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0')::numeric * COALESCE(NULLIF(${workerAttendance.workDays},''),'0')::numeric end
+          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${NUM(workerAttendance.actualWage)} else ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} end
         ), 0)`,
-        totalPaid: sql<string>`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
+        totalPaid: sql<string>`coalesce(sum(${NUM(workerAttendance.paidAmount)}), 0)`,
       }).from(workerAttendance).where(attCondition!);
 
       const matCondition = hasFilter ? inArray(materialPurchases.project_id, allowedProjectIds!) : undefined;
       const [materialStats] = await db.select({
-        totalMaterials: sql<string>`coalesce(sum(case when ${materialPurchases.totalAmount}::text != 'NaN' then ${materialPurchases.totalAmount}::numeric else 0 end), 0)`,
+        totalMaterials: sql<string>`coalesce(sum(${NUM(materialPurchases.totalAmount)}), 0)`,
       }).from(materialPurchases).where(matCondition!);
 
       const transCondition = hasFilter ? inArray(transportationExpenses.project_id, allowedProjectIds!) : undefined;
       const [transportStats] = await db.select({
-        totalTransport: sql<string>`coalesce(sum(case when ${transportationExpenses.amount}::text != 'NaN' then ${transportationExpenses.amount}::numeric else 0 end), 0)`,
+        totalTransport: sql<string>`coalesce(sum(${NUM(transportationExpenses.amount)}), 0)`,
       }).from(transportationExpenses).where(transCondition!);
 
       let supplierStats: { totalSuppliers: number; totalDebt: string };
@@ -1472,7 +1502,7 @@ export class DatabaseActions {
         if (ids.length > 0) {
           [supplierStats] = await db.select({
             totalSuppliers: sql<number>`count(*)`,
-            totalDebt: sql<string>`coalesce(sum(${suppliers.totalDebt}::numeric), 0)`,
+            totalDebt: sql<string>`coalesce(sum(${NUM(suppliers.totalDebt)}), 0)`,
           }).from(suppliers).where(inArray(suppliers.id, ids));
         } else {
           supplierStats = { totalSuppliers: 0, totalDebt: '0' };
@@ -1480,7 +1510,7 @@ export class DatabaseActions {
       } else {
         [supplierStats] = await db.select({
           totalSuppliers: sql<number>`count(*)`,
-          totalDebt: sql<string>`coalesce(sum(${suppliers.totalDebt}::numeric), 0)`,
+          totalDebt: sql<string>`coalesce(sum(${NUM(suppliers.totalDebt)}), 0)`,
         }).from(suppliers);
       }
 
@@ -1494,10 +1524,10 @@ export class DatabaseActions {
         totalWells: sql<number>`count(*)`,
       }).from(wells).where(wellCondition!);
 
-      const totalFunds = parseFloat(fundStats.totalFunds || '0');
-      const totalWages = parseFloat(attendanceStats.totalWages || '0');
-      const totalMaterials = parseFloat(materialStats.totalMaterials || '0');
-      const totalTransport = parseFloat(transportStats.totalTransport || '0');
+      const totalFunds = this.safeParseNum(fundStats.totalFunds);
+      const totalWages = this.safeParseNum(attendanceStats.totalWages);
+      const totalMaterials = this.safeParseNum(materialStats.totalMaterials);
+      const totalTransport = this.safeParseNum(transportStats.totalTransport);
       const totalExpenses = totalWages + totalMaterials + totalTransport;
 
       return {
@@ -1512,9 +1542,9 @@ export class DatabaseActions {
             totalMaterials,
             totalTransport,
             balance: totalFunds - totalExpenses,
-            wagesPaid: parseFloat(attendanceStats.totalPaid || '0'),
+            wagesPaid: this.safeParseNum(attendanceStats.totalPaid),
           },
-          suppliers: { total: supplierStats.totalSuppliers, totalDebt: parseFloat(supplierStats.totalDebt || '0') },
+          suppliers: { total: supplierStats.totalSuppliers, totalDebt: this.safeParseNum(supplierStats.totalDebt) },
           equipment: { total: equipmentStats.totalEquipment },
           wells: { total: wellStats.totalWells },
         },
@@ -1599,8 +1629,8 @@ export class DatabaseActions {
         .where(paymentConditions)
         .orderBy(desc(supplierPayments.paymentDate));
 
-      const totalPurchases = purchases.reduce((sum: number, p: any) => sum + parseFloat(p.totalAmount || '0'), 0);
-      const totalPayments = payments.reduce((sum: number, p: any) => sum + parseFloat(p.amount || '0'), 0);
+      const totalPurchases = purchases.reduce((sum: number, p: any) => sum + this.safeParseNum(p.totalAmount), 0);
+      const totalPayments = payments.reduce((sum: number, p: any) => sum + this.safeParseNum(p.amount), 0);
 
       return {
         success: true,
@@ -1683,7 +1713,7 @@ export class DatabaseActions {
         crewStats = await db.select({
           well_id: wellWorkCrews.well_id,
           crewCount: sql<number>`count(*)`,
-          totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+          totalWages: sql<string>`coalesce(sum(${NUM(wellWorkCrews.totalWages)}), 0)`,
         }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
           .groupBy(wellWorkCrews.well_id);
 
@@ -1709,7 +1739,7 @@ export class DatabaseActions {
         ...w,
         projectName: projectNames[w.project_id] || '-',
         crewCount: crewMap[w.id]?.crewCount || 0,
-        totalCrewWages: parseFloat(crewMap[w.id]?.totalWages || '0'),
+        totalCrewWages: this.safeParseNum(crewMap[w.id]?.totalWages),
         solarStatus: solarMap[w.id]?.installationStatus || 'no_data',
       }));
 
@@ -1769,11 +1799,11 @@ export class DatabaseActions {
       ]);
 
       const solar = solarArr[0] || null;
-      const totalEstimated = tasks.reduce((s: number, t: any) => s + parseFloat(t.estimatedCost || '0'), 0);
-      const totalActual = tasks.reduce((s: number, t: any) => s + parseFloat(t.actualCost || '0'), 0);
-      const totalExpenses = expenses.reduce((s: number, e: any) => s + parseFloat(e.totalAmount || '0'), 0);
+      const totalEstimated = tasks.reduce((s: number, t: any) => s + this.safeParseNum(t.estimatedCost), 0);
+      const totalActual = tasks.reduce((s: number, t: any) => s + this.safeParseNum(t.actualCost), 0);
+      const totalExpenses = expenses.reduce((s: number, e: any) => s + this.safeParseNum(e.totalAmount), 0);
       const completedTasks = tasks.filter((t: any) => t.status === 'completed').length;
-      const totalCrewWages = crews.reduce((s: number, c: any) => s + parseFloat(c.totalWages || '0'), 0);
+      const totalCrewWages = crews.reduce((s: number, c: any) => s + this.safeParseNum(c.totalWages), 0);
 
       const [proj] = await db.select({ name: projects.name }).from(projects).where(eq(projects.id, wellData.project_id));
 
@@ -1830,7 +1860,7 @@ export class DatabaseActions {
       }
 
       const crews = await db.select().from(wellWorkCrews).where(eq(wellWorkCrews.well_id, wellData.id));
-      const totalWages = crews.reduce((s: any, c: any) => s + parseFloat(c.totalWages || '0'), 0);
+      const totalWages = crews.reduce((s: any, c: any) => s + this.safeParseNum(c.totalWages), 0);
 
       return {
         success: true,
@@ -1902,24 +1932,24 @@ export class DatabaseActions {
 
       const [crewAgg] = await db.select({
         totalCrews: sql<number>`count(*)`,
-        totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
-        totalWorkDays: sql<string>`coalesce(sum(${wellWorkCrews.workDays}::numeric), 0)`,
+        totalWages: sql<string>`coalesce(sum(${NUM(wellWorkCrews.totalWages)}), 0)`,
+        totalWorkDays: sql<string>`coalesce(sum(${NUM(wellWorkCrews.workDays)}), 0)`,
       }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds));
 
       const crewByType = await db.select({
         crewType: wellWorkCrews.crewType,
         count: sql<number>`count(*)`,
-        totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+        totalWages: sql<string>`coalesce(sum(${NUM(wellWorkCrews.totalWages)}), 0)`,
       }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
         .groupBy(wellWorkCrews.crewType);
 
       const crewByTeam = await db.select({
         teamName: wellWorkCrews.teamName,
         count: sql<number>`count(*)`,
-        totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
-        totalDays: sql<string>`coalesce(sum(${wellWorkCrews.workDays}::numeric), 0)`,
+        totalWages: sql<string>`coalesce(sum(${NUM(wellWorkCrews.totalWages)}), 0)`,
+        totalDays: sql<string>`coalesce(sum(${NUM(wellWorkCrews.workDays)}), 0)`,
       }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds))
-        .groupBy(wellWorkCrews.teamName).orderBy(sql`sum(${wellWorkCrews.totalWages}::numeric) desc`);
+        .groupBy(wellWorkCrews.teamName).orderBy(sql`sum(${NUM(wellWorkCrews.totalWages)}) desc`);
 
       const [solarCount] = await db.select({
         total: sql<number>`count(*)`,
@@ -1968,18 +1998,18 @@ export class DatabaseActions {
           totalPipes,
           crews: {
             totalCrews: crewAgg?.totalCrews || 0,
-            totalWages: parseFloat(crewAgg?.totalWages || '0'),
-            totalWorkDays: parseFloat(crewAgg?.totalWorkDays || '0'),
+            totalWages: this.safeParseNum(crewAgg?.totalWages),
+            totalWorkDays: this.safeParseNum(crewAgg?.totalWorkDays),
             byType: crewByType.map((c: any) => ({
               type: c.crewType,
               count: c.count,
-              totalWages: parseFloat(c.totalWages || '0'),
+              totalWages: this.safeParseNum(c.totalWages),
             })),
             byTeam: crewByTeam.map((c: any) => ({
               name: c.teamName || '-',
               count: c.count,
-              totalWages: parseFloat(c.totalWages || '0'),
-              totalDays: parseFloat(c.totalDays || '0'),
+              totalWages: this.safeParseNum(c.totalWages),
+              totalDays: this.safeParseNum(c.totalDays),
             })),
           },
           solar: {
@@ -2046,8 +2076,8 @@ export class DatabaseActions {
           teamSummary[key] = { name: key, wellsCount: 0, totalWages: 0, totalDays: 0, steelJobs: 0, panelJobs: 0, weldingJobs: 0, wells: [] };
         }
         const ts = teamSummary[key];
-        ts.totalWages += parseFloat(c.totalWages || '0');
-        ts.totalDays += parseFloat(c.workDays || '0');
+        ts.totalWages += this.safeParseNum(c.totalWages);
+        ts.totalDays += this.safeParseNum(c.workDays);
         const wellName = wellMap[c.well_id]?.ownerName || `بئر ${c.well_id}`;
         if (!ts.wells.includes(wellName)) {
           ts.wells.push(wellName);
@@ -2109,7 +2139,7 @@ export class DatabaseActions {
 
         const totalDepth = pWells.reduce((s: any, w: any) => s + (w.wellDepth || 0), 0);
         const totalPanels = pWells.reduce((s: any, w: any) => s + (w.numberOfPanels || 0), 0);
-        const totalCrewWages = pCrews.reduce((s: any, c: any) => s + parseFloat(c.totalWages || '0'), 0);
+        const totalCrewWages = pCrews.reduce((s: any, c: any) => s + this.safeParseNum(c.totalWages), 0);
         const completed = pWells.filter((w: any) => w.status === 'completed').length;
         const hasWaterLevel = pWells.filter((w: any) => w.waterLevel != null).length;
 
@@ -2164,7 +2194,7 @@ export class DatabaseActions {
         crewCounts = await db.select({
           well_id: wellWorkCrews.well_id,
           count: sql<number>`count(*)`,
-          totalWages: sql<string>`coalesce(sum(${wellWorkCrews.totalWages}::numeric), 0)`,
+          totalWages: sql<string>`coalesce(sum(${NUM(wellWorkCrews.totalWages)}), 0)`,
         }).from(wellWorkCrews).where(inArray(wellWorkCrews.well_id, wellIds)).groupBy(wellWorkCrews.well_id);
       }
       const crewMap: Record<number, any> = {};
@@ -2181,7 +2211,7 @@ export class DatabaseActions {
         ...w,
         projectName: projectNames[w.project_id] || '-',
         crewCount: crewMap[w.id]?.count || 0,
-        totalCrewWages: parseFloat(crewMap[w.id]?.totalWages || '0'),
+        totalCrewWages: this.safeParseNum(crewMap[w.id]?.totalWages),
       }));
 
       return {
@@ -2211,16 +2241,16 @@ export class DatabaseActions {
         type: workers.type,
         dailyWage: workers.dailyWage,
         totalEarned: sql<string>`coalesce(sum(
-          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${workerAttendance.actualWage}::numeric else COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0')::numeric * COALESCE(NULLIF(${workerAttendance.workDays},''),'0')::numeric end
+          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${NUM(workerAttendance.actualWage)} else ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} end
         ), 0)`,
-        totalPaid: sql<string>`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`,
-        totalDays: sql<string>`coalesce(sum(case when ${workerAttendance.workDays}::text != 'NaN' then ${workerAttendance.workDays}::numeric else 0 end), 0)`,
+        totalPaid: sql<string>`coalesce(sum(${NUM(workerAttendance.paidAmount)}), 0)`,
+        totalDays: sql<string>`coalesce(sum(${NUM(workerAttendance.workDays)}), 0)`,
       })
       .from(workers)
       .leftJoin(workerAttendance, joinCondition)
       .groupBy(workers.id, workers.name, workers.type, workers.dailyWage)
       .orderBy(sql`sum(
-        case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${workerAttendance.actualWage}::numeric else COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0')::numeric * COALESCE(NULLIF(${workerAttendance.workDays},''),'0')::numeric end
+        case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${NUM(workerAttendance.actualWage)} else ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} end
       ) desc nulls last`)
       .limit(limit);
 
@@ -2247,21 +2277,21 @@ export class DatabaseActions {
       const analysis: any[] = [];
 
       for (const project of allProjects) {
-        const budget = parseFloat(project.budget || '0');
+        const budget = this.safeParseNum(project.budget);
 
-        const [funds] = await db.select({ total: sql<string>`coalesce(sum(${fundTransfers.amount}::numeric), 0)` })
+        const [funds] = await db.select({ total: sql<string>`coalesce(sum(${NUM(fundTransfers.amount)}), 0)` })
           .from(fundTransfers).where(eq(fundTransfers.project_id, project.id));
         const [wages] = await db.select({ total: sql<string>`coalesce(sum(
-          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${workerAttendance.actualWage}::numeric else COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0')::numeric * COALESCE(NULLIF(${workerAttendance.workDays},''),'0')::numeric end
+          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${NUM(workerAttendance.actualWage)} else ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} end
         ), 0)` })
           .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
-        const [mats] = await db.select({ total: sql<string>`coalesce(sum(case when ${materialPurchases.totalAmount}::text != 'NaN' then ${materialPurchases.totalAmount}::numeric else 0 end), 0)` })
+        const [mats] = await db.select({ total: sql<string>`coalesce(sum(${NUM(materialPurchases.totalAmount)}), 0)` })
           .from(materialPurchases).where(eq(materialPurchases.project_id, project.id));
-        const [trans] = await db.select({ total: sql<string>`coalesce(sum(case when ${transportationExpenses.amount}::text != 'NaN' then ${transportationExpenses.amount}::numeric else 0 end), 0)` })
+        const [trans] = await db.select({ total: sql<string>`coalesce(sum(${NUM(transportationExpenses.amount)}), 0)` })
           .from(transportationExpenses).where(eq(transportationExpenses.project_id, project.id));
 
-        const totalExpenses = parseFloat(wages.total || '0') + parseFloat(mats.total || '0') + parseFloat(trans.total || '0');
-        const totalFundsVal = parseFloat(funds.total || '0');
+        const totalExpenses = this.safeParseNum(wages.total) + this.safeParseNum(mats.total) + this.safeParseNum(trans.total);
+        const totalFundsVal = this.safeParseNum(funds.total);
         const effectiveBudget = budget > 0 ? budget : totalFundsVal;
         const usagePercent = effectiveBudget > 0 ? Math.round((totalExpenses / effectiveBudget) * 100) : 0;
         const remaining = effectiveBudget - totalExpenses;
@@ -2392,9 +2422,9 @@ export class DatabaseActions {
         )
         SELECT 
           to_char(m.month, 'YYYY-MM') as month,
-          coalesce((SELECT sum(case when actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' then actual_wage::numeric else COALESCE(NULLIF(daily_wage,''),'0')::numeric * COALESCE(NULLIF(work_days,''),'0')::numeric end) FROM worker_attendance WHERE date_trunc('month', COALESCE(NULLIF(date,''), attendance_date)::date) = m.month ${projectFilter}), 0) as wages,
-          coalesce((SELECT sum(case when total_amount::text != 'NaN' then total_amount::numeric else 0 end) FROM material_purchases WHERE date_trunc('month', purchase_date::date) = m.month ${projectFilter}), 0) as materials,
-          coalesce((SELECT sum(case when amount::text != 'NaN' then amount::numeric else 0 end) FROM transportation_expenses WHERE date_trunc('month', date::date) = m.month ${projectFilter}), 0) as transport
+          coalesce((SELECT sum(case when actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' then safe_numeric(actual_wage::text, 0) else safe_numeric(daily_wage::text, 0) * safe_numeric(work_days::text, 0) end) FROM worker_attendance WHERE date_trunc('month', COALESCE(NULLIF(date,''), attendance_date)::date) = m.month ${projectFilter}), 0) as wages,
+          coalesce((SELECT sum(safe_numeric(total_amount::text, 0)) FROM material_purchases WHERE date_trunc('month', purchase_date::date) = m.month ${projectFilter}), 0) as materials,
+          coalesce((SELECT sum(safe_numeric(amount::text, 0)) FROM transportation_expenses WHERE date_trunc('month', date::date) = m.month ${projectFilter}), 0) as transport
         FROM months m
         ORDER BY m.month
       `, params);
@@ -2478,9 +2508,9 @@ export class DatabaseActions {
         : eq(workers.id, workerAttendance.worker_id);
 
       const earnedExpr = sql`coalesce(sum(
-        case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${workerAttendance.actualWage}::numeric else COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0')::numeric * COALESCE(NULLIF(${workerAttendance.workDays},''),'0')::numeric end
+        case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${NUM(workerAttendance.actualWage)} else ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} end
       ), 0)`;
-      const paidExpr = sql`coalesce(sum(case when ${workerAttendance.paidAmount}::text != 'NaN' then ${workerAttendance.paidAmount}::numeric else 0 end), 0)`;
+      const paidExpr = sql`coalesce(sum(${NUM(workerAttendance.paidAmount)}), 0)`;
 
       const result = await db.select({
         id: workers.id,
@@ -2497,7 +2527,7 @@ export class DatabaseActions {
       .having(sql`${earnedExpr} - ${paidExpr} > 0`)
       .orderBy(sql`${earnedExpr} - ${paidExpr} desc`);
 
-      const totalUnpaid = result.reduce((s: number, r: any) => s + parseFloat(r.balance || '0'), 0);
+      const totalUnpaid = result.reduce((s: number, r: any) => s + this.safeParseNum(r.balance), 0);
 
       return {
         success: true,
@@ -2524,31 +2554,31 @@ export class DatabaseActions {
       const comparison: any[] = [];
 
       for (const project of allProjects) {
-        const [funds] = await db.select({ total: sql<string>`coalesce(sum(${fundTransfers.amount}::numeric), 0)` })
+        const [funds] = await db.select({ total: sql<string>`coalesce(sum(${NUM(fundTransfers.amount)}), 0)` })
           .from(fundTransfers).where(eq(fundTransfers.project_id, project.id));
         const [wages] = await db.select({ total: sql<string>`coalesce(sum(
-          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${workerAttendance.actualWage}::numeric else COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0')::numeric * COALESCE(NULLIF(${workerAttendance.workDays},''),'0')::numeric end
+          case when ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' then ${NUM(workerAttendance.actualWage)} else ${NUM(workerAttendance.dailyWage)} * ${NUM(workerAttendance.workDays)} end
         ), 0)` })
           .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
-        const [mats] = await db.select({ total: sql<string>`coalesce(sum(case when ${materialPurchases.totalAmount}::text != 'NaN' then ${materialPurchases.totalAmount}::numeric else 0 end), 0)` })
+        const [mats] = await db.select({ total: sql<string>`coalesce(sum(${NUM(materialPurchases.totalAmount)}), 0)` })
           .from(materialPurchases).where(eq(materialPurchases.project_id, project.id));
-        const [trans] = await db.select({ total: sql<string>`coalesce(sum(case when ${transportationExpenses.amount}::text != 'NaN' then ${transportationExpenses.amount}::numeric else 0 end), 0)` })
+        const [trans] = await db.select({ total: sql<string>`coalesce(sum(${NUM(transportationExpenses.amount)}), 0)` })
           .from(transportationExpenses).where(eq(transportationExpenses.project_id, project.id));
         const [workerCount] = await db.select({ count: sql<number>`count(distinct ${workerAttendance.worker_id})` })
           .from(workerAttendance).where(eq(workerAttendance.project_id, project.id));
 
-        const totalExpenses = parseFloat(wages.total) + parseFloat(mats.total) + parseFloat(trans.total);
+        const totalExpenses = this.safeParseNum(wages.total) + this.safeParseNum(mats.total) + this.safeParseNum(trans.total);
 
         comparison.push({
           name: project.name,
           status: project.status,
-          budget: parseFloat(project.budget || '0'),
-          totalFunds: parseFloat(funds.total),
+          budget: this.safeParseNum(project.budget),
+          totalFunds: this.safeParseNum(funds.total),
           totalExpenses,
-          wages: parseFloat(wages.total),
-          materials: parseFloat(mats.total),
-          transport: parseFloat(trans.total),
-          balance: parseFloat(funds.total) - totalExpenses,
+          wages: this.safeParseNum(wages.total),
+          materials: this.safeParseNum(mats.total),
+          transport: this.safeParseNum(trans.total),
+          balance: this.safeParseNum(funds.total) - totalExpenses,
           workerCount: workerCount.count,
         });
       }

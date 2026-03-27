@@ -59,6 +59,23 @@ export async function runAllStartupMigrations(): Promise<void> {
       $$;
     `);
 
+    await client.query(`
+      CREATE OR REPLACE FUNCTION safe_numeric_logged(v text, d numeric DEFAULT 0, ctx text DEFAULT 'unknown')
+      RETURNS numeric
+      LANGUAGE plpgsql
+      STABLE
+      AS $$
+      DECLARE result numeric;
+      BEGIN
+        result := safe_numeric(v, d);
+        IF result = d AND v IS NOT NULL AND btrim(v) != '' THEN
+          RAISE WARNING '[safe_numeric] fallback to default for value=% in context=%', v, ctx;
+        END IF;
+        RETURN result;
+      END;
+      $$;
+    `);
+
     console.log("✅ [Migrations] تم تنفيذ جميع migrations بنجاح");
   } catch (error) {
     console.error("❌ [Migrations] خطأ أثناء تنفيذ migrations:", error);

@@ -1361,6 +1361,33 @@ export class DeploymentEngine {
     }
   }
 
+  private validateSSHParam(param: string, type: 'host' | 'user' | 'port' | 'path'): string {
+    switch (type) {
+      case 'host':
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9.\-]+$/.test(param)) {
+          throw new Error(`SSH host contains invalid characters: ${param}`);
+        }
+        return param;
+      case 'user':
+        if (!/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(param)) {
+          throw new Error(`SSH user contains invalid characters: ${param}`);
+        }
+        return param;
+      case 'port': {
+        const portNum = Number(param);
+        if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) {
+          throw new Error(`SSH port must be numeric 1-65535, got: ${param}`);
+        }
+        return String(portNum);
+      }
+      case 'path':
+        if (!/^[a-zA-Z0-9/_.\-]+$/.test(param)) {
+          throw new Error(`SSH path contains invalid characters: ${param}`);
+        }
+        return param;
+    }
+  }
+
   private sanitizeShellArg(value: string): string {
     return value.replace(/[^a-zA-Z0-9._\-@\/]/g, '').replace(/\.\./g, '');
   }
@@ -1550,6 +1577,10 @@ export class DeploymentEngine {
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
 
+    this.validateSSHParam(host, 'host');
+    this.validateSSHParam(user, 'user');
+    this.validateSSHParam(port, 'port');
+
     const authMethod = this.getSSHAuthMethod();
 
     if (authMethod === "key") {
@@ -1569,6 +1600,10 @@ export class DeploymentEngine {
     const host = this.sanitizeShellArg(process.env.SSH_HOST || "93.127.142.144");
     const user = this.sanitizeShellArg(process.env.SSH_USER || "administrator");
     const port = this.sanitizeShellArg(process.env.SSH_PORT || "22");
+
+    this.validateSSHParam(host, 'host');
+    this.validateSSHParam(user, 'user');
+    this.validateSSHParam(port, 'port');
 
     const authMethod = this.getSSHAuthMethod();
 

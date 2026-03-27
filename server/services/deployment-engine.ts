@@ -94,6 +94,10 @@ export class DeploymentEngine {
   private static RECOVERY_INTERVAL = 30000;
   private healthCheckResults = new Map<string, Record<string, any>>();
   private cleanupResults = new Map<string, { totalReclaimedBytes: number; steps: { name: string; reclaimedBytes: number; detail: string }[]; errors: string[] }>();
+  private heartbeats = new Map<string, number>();
+  private heartbeatTimers = new Map<string, NodeJS.Timeout>();
+  private static HEARTBEAT_INTERVAL = 8000;
+  private static HEARTBEAT_STALE_THRESHOLD = 45000;
 
   constructor() {
     this.notificationPublisher = DeploymentNotificationPublisher.getInstance();
@@ -110,6 +114,7 @@ export class DeploymentEngine {
         for (const d of orphaned) {
           if (this.remoteMonitors.has(d.id)) continue;
           if (this.isDeploymentLocallyActive(d.id)) continue;
+          if (this.isHeartbeatAlive(d.id)) continue;
 
           const steps = Array.isArray(d.steps) ? d.steps as StepEntry[] : [];
           const runningStep = steps.find(s => s.status === "running");
@@ -129,15 +134,17 @@ export class DeploymentEngine {
                 if (s.status === "running") return { ...s, status: "failed" as const };
                 return s;
               });
-              await db.update(buildDeployments).set({
+              const casDone = await this.casUpdateStatus(d.id, "running", {
                 status: "failed",
                 errorMessage: "توقفت العملية بعد إعادة تشغيل الخادم (خطوة محلية)",
                 endTime: new Date(),
                 duration: deploymentAge,
                 steps: recoveredSteps,
-              }).where(eq(buildDeployments.id, d.id));
-              broadcastGlobalEvent({ type: "deployment_completed", deploymentId: d.id, data: { status: "failed" } });
-              console.log(`[RecoverySupervisor] ❌ Marked local-step deployment #${d.buildNumber} as failed (step age: ${Math.round(effectiveAge / 1000)}s)`);
+              });
+              if (casDone) {
+                broadcastGlobalEvent({ type: "deployment_completed", deploymentId: d.id, data: { status: "failed" } });
+                console.log(`[RecoverySupervisor] ❌ Marked local-step deployment #${d.buildNumber} as failed (step age: ${Math.round(effectiveAge / 1000)}s)`);
+              }
             }
           }
         }
@@ -353,23 +360,25 @@ export class DeploymentEngine {
             if (s.status === "running") return { ...s, status: "failed" as const };
             return s;
           });
-          await db.update(buildDeployments).set({
+          const casDone = await this.casUpdateStatus(d.id, "running", {
             status: "failed",
             errorMessage: "توقفت العملية بسبب انتهاء المهلة الزمنية",
             endTime: new Date(),
             duration: deploymentAge,
             steps: recoveredSteps,
-          }).where(eq(buildDeployments.id, d.id));
-
-          await db.insert(deploymentEvents).values({
-            deploymentId: d.id,
-            eventType: "deployment_failed",
-            message: "توقفت العملية بسبب انتهاء المهلة الزمنية (recovery)",
-            metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep, stepAge: effectiveAge, deploymentAge },
           });
 
-          broadcastGlobalEvent({ type: "deployment_completed", deploymentId: d.id, data: { status: "failed" } });
-          console.log(`[DeploymentEngine] ❌ Deployment #${d.buildNumber} timed out (step age: ${Math.round(effectiveAge / 1000)}s, deployment age: ${Math.round(deploymentAge / 60000)}min)`);
+          if (casDone) {
+            await db.insert(deploymentEvents).values({
+              deploymentId: d.id,
+              eventType: "deployment_failed",
+              message: "توقفت العملية بسبب انتهاء المهلة الزمنية (recovery)",
+              metadata: { recoveredAt: new Date().toISOString(), lastStep: d.currentStep, stepAge: effectiveAge, deploymentAge },
+            });
+
+            broadcastGlobalEvent({ type: "deployment_completed", deploymentId: d.id, data: { status: "failed" } });
+            console.log(`[DeploymentEngine] ❌ Deployment #${d.buildNumber} timed out (step age: ${Math.round(effectiveAge / 1000)}s, deployment age: ${Math.round(deploymentAge / 60000)}min)`);
+          }
         } else {
           console.log(`[DeploymentEngine] ⏳ Deployment #${d.buildNumber} effectiveAge=${Math.round(effectiveAge / 1000)}s — starting background monitor`);
           this.startRemoteMonitor(d);
@@ -423,14 +432,19 @@ export class DeploymentEngine {
         if (s.status === "running" || s.status === "pending") return { ...s, status: "success" as const };
         return s;
       });
-      await db.update(buildDeployments).set({
+      const casDone = await this.casUpdateStatus(d.id, "running", {
         status: "success",
         errorMessage: null,
         endTime: new Date(),
         duration: age,
         steps: recoveredSteps,
         currentStep: "done",
-      }).where(eq(buildDeployments.id, d.id));
+      });
+
+      if (!casDone) {
+        console.log(`[DeploymentEngine] handleRecoveredSuccess CAS failed for ${d.id} — already transitioned`);
+        return;
+      }
 
       await db.insert(deploymentEvents).values({
         deploymentId: d.id,
@@ -504,31 +518,35 @@ export class DeploymentEngine {
             await this.flushLogs(id);
           }
           if (checkCount >= maxChecks) {
-            await db.update(buildDeployments).set({
+            const casDone = await this.casUpdateStatus(id, "running", {
               status: "failed",
               errorMessage: "انتهت مهلة المراقبة — النشر لا يزال يعمل لكن تجاوز الحد الزمني",
               endTime: new Date(),
               duration: age,
-            }).where(eq(buildDeployments.id, id));
-            await this.addLog(id, "❌ انتهت مهلة المراقبة بعد " + Math.round(age / 60000) + " دقيقة (لا يزال يعمل)", "error");
-            await this.flushLogs(id);
-            broadcastGlobalEvent({ type: "deployment_completed", deploymentId: id, data: { status: "failed" } });
-            console.log(`[DeploymentEngine] ❌ Remote monitor: Deployment #${freshDeployment.buildNumber} still_running but timed out`);
+            });
+            if (casDone) {
+              await this.addLog(id, "❌ انتهت مهلة المراقبة بعد " + Math.round(age / 60000) + " دقيقة (لا يزال يعمل)", "error");
+              await this.flushLogs(id);
+              broadcastGlobalEvent({ type: "deployment_completed", deploymentId: id, data: { status: "failed" } });
+              console.log(`[DeploymentEngine] ❌ Remote monitor: Deployment #${freshDeployment.buildNumber} still_running but timed out`);
+            }
             this.stopRemoteMonitor(id);
             return;
           }
         } else {
           if (checkCount >= maxChecks) {
-            await db.update(buildDeployments).set({
+            const casDone = await this.casUpdateStatus(id, "running", {
               status: "failed",
               errorMessage: "انتهت مهلة المراقبة — لم يُستكمل النشر",
               endTime: new Date(),
               duration: age,
-            }).where(eq(buildDeployments.id, id));
-            await this.addLog(id, "❌ انتهت مهلة المراقبة بعد " + Math.round(age / 60000) + " دقيقة", "error");
-            await this.flushLogs(id);
-            broadcastGlobalEvent({ type: "deployment_completed", deploymentId: id, data: { status: "failed" } });
-            console.log(`[DeploymentEngine] ❌ Remote monitor: Deployment #${freshDeployment.buildNumber} timed out`);
+            });
+            if (casDone) {
+              await this.addLog(id, "❌ انتهت مهلة المراقبة بعد " + Math.round(age / 60000) + " دقيقة", "error");
+              await this.flushLogs(id);
+              broadcastGlobalEvent({ type: "deployment_completed", deploymentId: id, data: { status: "failed" } });
+              console.log(`[DeploymentEngine] ❌ Remote monitor: Deployment #${freshDeployment.buildNumber} timed out`);
+            }
             this.stopRemoteMonitor(id);
             return;
           }
@@ -550,9 +568,10 @@ export class DeploymentEngine {
     try {
       await this.ensureSSHKeyProvisioned();
       const sshCmd = this.buildSSHCommand();
-      const pidFile = "/tmp/axion_build.pid";
-      const exitFile = "/tmp/axion_build.exit";
-      const logFile = "/tmp/build_deploy.log";
+      const buildId = deploymentId.substring(0, 8);
+      const pidFile = `/tmp/axion_build_${buildId}.pid`;
+      const exitFile = `/tmp/axion_build_${buildId}.exit`;
+      const logFile = `/tmp/axion_build_${buildId}.log`;
       const remoteDir = "/home/administrator/app2";
 
       const { stdout } = await execAsync(
@@ -610,6 +629,42 @@ export class DeploymentEngine {
     } catch {
       return null;
     }
+  }
+
+  private startHeartbeat(deploymentId: string) {
+    this.stopHeartbeat(deploymentId);
+    this.heartbeats.set(deploymentId, Date.now());
+    const timer = setInterval(() => {
+      this.heartbeats.set(deploymentId, Date.now());
+    }, DeploymentEngine.HEARTBEAT_INTERVAL);
+    this.heartbeatTimers.set(deploymentId, timer);
+  }
+
+  private stopHeartbeat(deploymentId: string) {
+    const timer = this.heartbeatTimers.get(deploymentId);
+    if (timer) {
+      clearInterval(timer);
+      this.heartbeatTimers.delete(deploymentId);
+    }
+    this.heartbeats.delete(deploymentId);
+  }
+
+  private isHeartbeatAlive(deploymentId: string): boolean {
+    const lastBeat = this.heartbeats.get(deploymentId);
+    if (!lastBeat) return false;
+    return (Date.now() - lastBeat) < DeploymentEngine.HEARTBEAT_STALE_THRESHOLD;
+  }
+
+  private async casUpdateStatus(
+    deploymentId: string,
+    expectedStatus: string,
+    updates: Record<string, any>
+  ): Promise<boolean> {
+    const result = await db.update(buildDeployments)
+      .set(updates)
+      .where(and(eq(buildDeployments.id, deploymentId), eq(buildDeployments.status, expectedStatus)))
+      .returning({ id: buildDeployments.id });
+    return result.length > 0;
   }
 
   private stopRemoteMonitor(deploymentId: string) {
@@ -949,6 +1004,7 @@ export class DeploymentEngine {
     const startTime = Date.now();
     const logger = this.getLogger(deploymentId);
 
+    this.startHeartbeat(deploymentId);
     try {
       logger.info("pipeline", `Pipeline started: ${config.pipeline}`, {
         pipeline: config.pipeline,
@@ -1132,6 +1188,7 @@ export class DeploymentEngine {
       await logger.persistStructuredLogs().catch(() => {});
       this.cleanupLogger(deploymentId);
     } finally {
+      this.stopHeartbeat(deploymentId);
       this.cleanupDeploymentState(deploymentId);
     }
   }
@@ -3539,9 +3596,10 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "تنظيف مخرجات البناء السابقة...", "info");
     this.updateStepProgress(deploymentId, "build-server", 5, "تنظيف المخرجات السابقة...");
     const remoteDir = "/home/administrator/app2";
-    const pidFile = "/tmp/axion_build.pid";
-    const exitFile = "/tmp/axion_build.exit";
-    const logFile = "/tmp/build_deploy.log";
+    const buildId = deploymentId.substring(0, 8);
+    const pidFile = `/tmp/axion_build_${buildId}.pid`;
+    const exitFile = `/tmp/axion_build_${buildId}.exit`;
+    const logFile = `/tmp/axion_build_${buildId}.log`;
 
     await this.execWithLog(
       deploymentId,
@@ -4836,6 +4894,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     const pipelineSteps = getPipelineSteps(config.pipeline, bt);
     const startTime = Date.now();
 
+    this.startHeartbeat(deploymentId);
     await this.sendDeploymentNotification("started", config, deploymentId);
     await this.addLog(deploymentId, `استئناف من الخطوة ${startFromIdx + 1}/${pipelineSteps.length}: ${pipelineSteps[startFromIdx]}`, "info");
 
@@ -4936,6 +4995,7 @@ echo 'MAINACTIVITY_FIXED'"`,
         await this.sendDeploymentNotification(failStatus, config, deploymentId, totalDuration, error.message);
       }
     } finally {
+      this.stopHeartbeat(deploymentId);
       this.cleanupDeploymentState(deploymentId);
     }
   }

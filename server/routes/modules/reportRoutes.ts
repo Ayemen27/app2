@@ -88,7 +88,7 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
       .where(
         and(
           eq(workerAttendance.project_id, project_id as string),
-          eq(workerAttendance.attendanceDate, dateStr)
+          sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${dateStr}`
         )
       );
 
@@ -183,8 +183,9 @@ reportRouter.get('/reports/daily', async (req: Request, res: Response) => {
         )
       );
 
-    // حساب الإجماليات - باستخدام الأجر الحالي للعامل × عدد أيام العمل
     const totalWorkerWages = attendanceData.reduce((sum: any, a: any) => {
+      const aw = a.actualWage != null ? parseFloat(String(a.actualWage) || '0') : null;
+      if (aw != null && !isNaN(aw)) return sum + aw;
       const currentDailyWage = parseFloat(a.dailyWage || '0');
       const workDays = parseFloat(a.workDays || '0');
       return sum + (currentDailyWage * workDays);
@@ -276,7 +277,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
     // جلب بيانات الحضور المجمعة - استخدام الأجر المسجل في سجل الحضور
     const attendanceSummary = await db
       .select({
-        date: workerAttendance.attendanceDate,
+        date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
         totalWages: sql<number>`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
@@ -287,12 +288,12 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .where(
         and(
           eq(workerAttendance.project_id, project_id as string),
-          gte(workerAttendance.attendanceDate, dateFromStr),
-          lte(workerAttendance.attendanceDate, dateToStr)
+          sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFromStr}`,
+          sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateToStr}`
         )
       )
-      .groupBy(workerAttendance.attendanceDate)
-      .orderBy(asc(workerAttendance.attendanceDate));
+      .groupBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)
+      .orderBy(asc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`));
 
     // جلب بيانات المشتريات المجمعة
     const materialsSummary = await db
@@ -506,18 +507,18 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       transferFilters.push(sql`1=0`);
     }
     if (dateFrom) {
-      filters.push(gte(workerAttendance.attendanceDate, dateFrom as string));
+      filters.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom as string}`);
       transferFilters.push(gte(workerTransfers.transferDate, dateFrom as string));
     }
     if (dateTo) {
-      filters.push(lte(workerAttendance.attendanceDate, dateTo as string));
+      filters.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo as string}`);
       transferFilters.push(lte(workerTransfers.transferDate, dateTo as string));
     }
 
     // جلب البيانات مع أسماء المشاريع
     const attendance = await db
       .select({
-        attendanceDate: workerAttendance.attendanceDate,
+        attendanceDate: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
         workDescription: workerAttendance.workDescription,
         actualWage: workerAttendance.actualWage,
         dailyWage: workerAttendance.dailyWage,
@@ -528,7 +529,7 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
       .from(workerAttendance)
       .leftJoin(projects, eq(workerAttendance.project_id, projects.id))
       .where(and(...filters))
-      .orderBy(asc(workerAttendance.attendanceDate));
+      .orderBy(asc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`));
 
     const transfers = await db
       .select({
@@ -630,19 +631,19 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
     let dateFilter = sql`1=1`;
     if (range === 'today') {
       const today = new Date().toISOString().split('T')[0];
-      dateFilter = sql`(CASE WHEN ${workerAttendance.attendanceDate} IS NULL OR ${workerAttendance.attendanceDate} = '' OR ${workerAttendance.attendanceDate} !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${workerAttendance.attendanceDate}::date END) = ${today}::date`;
+      dateFilter = sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})::date = ${today}::date`;
     } else if (range === 'this-month') {
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      dateFilter = sql`${workerAttendance.attendanceDate} >= ${firstDay}`;
+      dateFilter = sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${firstDay}`;
     }
 
     // تطبيق الفلاتر على الاستعلامات
     const projectFilter = project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(fundTransfers.project_id, project_id as string) : sql`1=1`;
     const attendanceFilter = and(
       project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(workerAttendance.project_id, project_id as string) : sql`1=1`,
-      range === 'today' ? sql`(CASE WHEN ${workerAttendance.attendanceDate} IS NULL OR ${workerAttendance.attendanceDate} = '' OR ${workerAttendance.attendanceDate} !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE ${workerAttendance.attendanceDate}::date END) = ${new Date().toISOString().split('T')[0]}::date` : 
-      range === 'this-month' ? sql`${workerAttendance.attendanceDate} >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
+      range === 'today' ? sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})::date = ${new Date().toISOString().split('T')[0]}::date` : 
+      range === 'this-month' ? sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]}` : sql`1=1`
     );
     const materialsFilter = and(
       project_id && project_id !== 'all' && project_id !== 'undefined' ? eq(materialPurchases.project_id, project_id as string) : sql`1=1`,
@@ -675,12 +676,12 @@ reportRouter.get('/reports/dashboard-kpis', async (req: Request, res: Response) 
 
     // بناء بيانات الرسم البياني الزمني (آخر 7 أيام كعينة)
     const chartData = await db.select({
-      date: workerAttendance.attendanceDate,
+      date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
       total: sql<number>`SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL))`
     }).from(workerAttendance)
     .where(attendanceFilter)
-    .groupBy(workerAttendance.attendanceDate)
-    .orderBy(desc(workerAttendance.attendanceDate))
+    .groupBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)
+    .orderBy(desc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`))
     .limit(15);
 
     res.json({
@@ -740,8 +741,8 @@ reportRouter.get('/reports/projects-comparison', async (req: Request, res: Respo
         // بناء شروط التاريخ
         let dateConditions: any[] = [eq(workerAttendance.project_id, project_id)];
         if (dateFrom && dateTo) {
-          dateConditions.push(gte(workerAttendance.attendanceDate, dateFrom as string));
-          dateConditions.push(lte(workerAttendance.attendanceDate, dateTo as string));
+          dateConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom as string}`);
+          dateConditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo as string}`);
         }
 
         // إحصائيات الحضور
@@ -889,17 +890,16 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
       conditions.push(sql`1=0`);
     }
     if (dateFrom) {
-      conditions.push(gte(workerAttendance.attendanceDate, dateFrom as string));
+      conditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom as string}`);
     }
     if (dateTo) {
-      conditions.push(lte(workerAttendance.attendanceDate, dateTo as string));
+      conditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo as string}`);
     }
 
-    // جلب سجلات الحضور
     const attendanceRecords = await db
       .select({
         id: workerAttendance.id,
-        date: workerAttendance.attendanceDate,
+        date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
         project_id: workerAttendance.project_id,
         projectName: projects.name,
         workDays: workerAttendance.workDays,
@@ -912,7 +912,7 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
       .from(workerAttendance)
       .leftJoin(projects, eq(workerAttendance.project_id, projects.id))
       .where(and(...conditions))
-      .orderBy(desc(workerAttendance.attendanceDate));
+      .orderBy(desc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`));
 
     // جلب حوالات العامل
     let transferConditions: any[] = [eq(workerTransfers.worker_id, worker_id)];
@@ -948,7 +948,11 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
     // حساب الإجماليات - باستخدام الأجر المسجل في كل سجل حضور (وليس الأجر الحالي)
     const totalWorkDays = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.workDays || '0'), 0);
     const totalEarned = attendanceRecords.reduce((sum: any, r: any) => {
-      return sum + parseFloat(r.actualWage || '0');
+      const aw = r.actualWage != null ? parseFloat(String(r.actualWage) || '0') : null;
+      if (aw != null && !isNaN(aw)) return sum + aw;
+      const dw = parseFloat(r.dailyWage || '0');
+      const wd = parseFloat(r.workDays || '0');
+      return sum + (dw * wd);
     }, 0);
     const totalPaid = attendanceRecords.reduce((sum: any, r: any) => sum + parseFloat(r.paidAmount || '0'), 0);
     const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);

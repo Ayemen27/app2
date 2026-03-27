@@ -620,7 +620,7 @@ export class FinancialLedgerService {
       ),
       expenses AS (
         SELECT COALESCE(SUM(CAST(paid_amount AS DECIMAL(15,2))), 0) as total
-        FROM worker_attendance WHERE project_id = $1 AND attendance_date::date <= $2::date AND CAST(paid_amount AS DECIMAL) > 0
+        FROM worker_attendance WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date)::date <= $2::date AND CAST(paid_amount AS DECIMAL) > 0
         UNION ALL
         SELECT COALESCE(SUM(
           CASE WHEN CAST(paid_amount AS DECIMAL) > 0 THEN CAST(paid_amount AS DECIMAL(15,2))

@@ -67,7 +67,7 @@ export class ReportDataService {
         })
         .from(workerAttendance)
         .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
-        .where(and(eq(workerAttendance.project_id, projectId), eq(workerAttendance.attendanceDate, date))),
+        .where(and(eq(workerAttendance.project_id, projectId), sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${date}`)),
 
       db
         .select({
@@ -397,7 +397,7 @@ export class ReportDataService {
     const [attendanceRows, transferRows, projectWageRows] = await Promise.all([
       db
         .select({
-          attendanceDate: workerAttendance.attendanceDate,
+          attendanceDate: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
           date: workerAttendance.date,
           workDescription: workerAttendance.workDescription,
           dailyWage: workerAttendance.dailyWage,
@@ -410,7 +410,7 @@ export class ReportDataService {
         .from(workerAttendance)
         .leftJoin(projects, eq(workerAttendance.project_id, projects.id))
         .where(and(...attendanceFilters))
-        .orderBy(asc(workerAttendance.attendanceDate)),
+        .orderBy(asc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)),
 
       db
         .select({
@@ -618,7 +618,7 @@ export class ReportDataService {
 
       db
         .select({
-          date: workerAttendance.attendanceDate,
+          date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
           totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
           totalWages: sql<number>`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)), 0)`,
           totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
@@ -628,12 +628,12 @@ export class ReportDataService {
         .where(
           and(
             eq(workerAttendance.project_id, projectId),
-            gte(workerAttendance.attendanceDate, dateFrom),
-            lte(workerAttendance.attendanceDate, dateTo)
+            sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`,
+            sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`
           )
         )
-        .groupBy(workerAttendance.attendanceDate)
-        .orderBy(asc(workerAttendance.attendanceDate)),
+        .groupBy(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)
+        .orderBy(asc(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`)),
 
       db
         .select({
@@ -649,8 +649,8 @@ export class ReportDataService {
         .where(
           and(
             eq(workerAttendance.project_id, projectId),
-            gte(workerAttendance.attendanceDate, dateFrom),
-            lte(workerAttendance.attendanceDate, dateTo)
+            sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) >= ${dateFrom}`,
+            sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) <= ${dateTo}`
           )
         )
         .groupBy(workerAttendance.worker_id, workers.name, workers.type),

@@ -122,6 +122,7 @@ export async function generateProjectComprehensiveExcel(data: ProjectComprehensi
     { label: 'مصاريف النقل', amount: data.totals.totalTransport },
     { label: 'مصاريف متنوعة', amount: data.totals.totalMisc },
     { label: 'حوالات العمال', amount: data.totals.totalWorkerTransfers },
+    { label: 'دفعات الموردين', amount: data.totals.totalSupplierPayments || 0 },
   ];
   expenseItems.forEach((item, i) => {
     const pct = data.totals.totalExpenses > 0 ? (item.amount / data.totals.totalExpenses * 100).toFixed(1) + '%' : '0%';

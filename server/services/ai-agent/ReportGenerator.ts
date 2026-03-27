@@ -870,9 +870,9 @@ export class ReportGenerator {
            JOIN workers w ON w.id = wa.worker_id
            JOIN projects p ON p.id = wa.project_id
            WHERE wa.project_id = $1
-             AND wa.attendance_date >= $2
-             AND wa.attendance_date <= $3
-           ORDER BY wa.attendance_date DESC, w.name ASC`,
+             AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2
+             AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
+           ORDER BY COALESCE(NULLIF(wa.date,''), wa.attendance_date) DESC, w.name ASC`,
           [projectId, fromDate, toDate]
         );
         rows = result.rows;
@@ -889,7 +889,7 @@ export class ReportGenerator {
       for (const r of rows) {
         const days = parseFloat(r.work_days || "0");
         const dw = parseFloat(r.daily_wage || "0");
-        const earned = dw * days;
+        const earned = r.earned != null && parseFloat(String(r.earned)) > 0 ? parseFloat(String(r.earned)) : dw * days;
         const paid = parseFloat(r.paid_amount || "0");
         grandTotalDays += days;
         grandTotalEarned += earned;

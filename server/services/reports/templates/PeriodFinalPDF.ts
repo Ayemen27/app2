@@ -154,6 +154,25 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     </tbody></table>`;
   }
 
+  if (data.sections.supplierPayments?.items?.length) {
+    body += pdfSectionTitle('دفعات الموردين');
+    const spRows = data.sections.supplierPayments.items.map((sp, idx) =>
+      `<tr>
+        <td>${idx + 1}</td>
+        <td>${formatDateBR(sp.paymentDate)}</td>
+        <td style="text-align:right;">${escapeHtml(sp.supplierName)}</td>
+        <td>${escapeHtml(sp.paymentMethod || '-')}</td>
+        <td style="font-weight:700;">${formatNum(sp.amount)}</td>
+      </tr>`
+    ).join('');
+    body += `<table><thead><tr>
+      <th style="width:30px;">م</th><th style="width:80px;">التاريخ</th>
+      <th>المورد</th><th style="width:80px;">طريقة الدفع</th><th style="width:90px;">المبلغ</th>
+    </tr></thead><tbody>${spRows}
+    ${pdfTotalRow(['الإجمالي', formatNum(data.sections.supplierPayments.total)], 4)}
+    </tbody></table>`;
+  }
+
   body += pdfSectionTitle('الملخص المالي الشامل');
   const summaryData = [
     ['إجمالي الدخل (التحويلات الواردة)', `${formatNum(data.totals.totalIncome)} YER`],
@@ -163,6 +182,7 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
     ['إجمالي النقل', `${formatNum(data.totals.totalTransport)} YER`],
     ['المصروفات المتنوعة', `${formatNum(data.totals.totalMisc)} YER`],
     ['حوالات العمال', `${formatNum(data.totals.totalWorkerTransfers)} YER`],
+    ['دفعات الموردين', `${formatNum(data.totals.totalSupplierPayments || 0)} YER`],
     ['ترحيل صادر لمشاريع أخرى', `${formatNum(data.totals.totalProjectTransfersOut)} YER`],
   ];
   body += `<table class="summary-table">

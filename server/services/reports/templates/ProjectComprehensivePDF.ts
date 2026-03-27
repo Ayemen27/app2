@@ -157,6 +157,7 @@ export function generateProjectComprehensiveHTML(data: ProjectComprehensiveRepor
     { label: 'مصاريف النقل', amount: data.totals.totalTransport },
     { label: 'مصاريف متنوعة', amount: data.totals.totalMisc },
     { label: 'حوالات العمال', amount: data.totals.totalWorkerTransfers },
+    { label: 'دفعات الموردين', amount: data.totals.totalSupplierPayments || 0 },
   ];
   expenseItems.forEach(item => {
     const pct = data.totals.totalExpenses > 0 ? (item.amount / data.totals.totalExpenses * 100) : 0;

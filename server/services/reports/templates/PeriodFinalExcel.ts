@@ -310,6 +310,75 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     row++;
   }
 
+  if (data.sections.supplierPayments?.items?.length) {
+    row = xlSectionHeader(ws, row, 'دفعات الموردين', COL_COUNT);
+    {
+      const hdr = ws.getRow(row);
+      ws.mergeCells(row, 5, row, 6);
+      ws.mergeCells(row, 7, row, 9);
+      const headers = [
+        { col: 1, text: '#' },
+        { col: 2, text: 'التاريخ' },
+        { col: 3, text: 'المورد' },
+        { col: 4, text: 'المبلغ' },
+        { col: 5, text: 'طريقة الدفع' },
+        { col: 7, text: 'ملاحظات' },
+      ];
+      headers.forEach(({ col, text }) => {
+        hdr.getCell(col).value = text;
+        hdr.getCell(col).font = { bold: true, size: 10, color: { argb: COLORS.white }, name: 'Calibri' };
+        hdr.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        hdr.getCell(col).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        hdr.getCell(col).border = BORDER;
+      });
+      for (let c = 1; c <= COL_COUNT; c++) {
+        if (!hdr.getCell(c).border) hdr.getCell(c).border = BORDER;
+        if (!hdr.getCell(c).font?.bold) {
+          hdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        }
+      }
+      hdr.height = 26;
+      row++;
+    }
+    data.sections.supplierPayments.items.forEach((sp, idx) => {
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 5, row, 6);
+      ws.mergeCells(row, 7, row, 9);
+      r.getCell(1).value = idx + 1;
+      r.getCell(2).value = formatDateBR(sp.paymentDate);
+      r.getCell(3).value = sp.supplierName;
+      r.getCell(4).value = formatNum(sp.amount);
+      r.getCell(5).value = sp.paymentMethod || '-';
+      r.getCell(7).value = sp.notes || '-';
+      for (let c = 1; c <= COL_COUNT; c++) {
+        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        r.getCell(c).font = { size: 10, name: 'Calibri' };
+        r.getCell(c).border = BORDER;
+        if (idx % 2 === 1) {
+          r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+        }
+      }
+      r.height = 24;
+      row++;
+    });
+    {
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 3);
+      ws.mergeCells(row, 5, row, 9);
+      r.getCell(1).value = 'الإجمالي';
+      r.getCell(4).value = formatNum(data.sections.supplierPayments.total);
+      for (let c = 1; c <= COL_COUNT; c++) {
+        r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        r.getCell(c).border = BORDER;
+      }
+      r.height = 28;
+      row++;
+    }
+    row++;
+  }
+
   row = xlSectionHeader(ws, row, 'الملخص الشامل', COL_COUNT);
   const summaryItems = [
     ['إجمالي الإيرادات', formatNum(data.totals.totalIncome)],
@@ -319,6 +388,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     ['إجمالي النقل', formatNum(data.totals.totalTransport)],
     ['إجمالي النثريات', formatNum(data.totals.totalMisc)],
     ['إجمالي حوالات العمال', formatNum(data.totals.totalWorkerTransfers)],
+    ['دفعات الموردين', formatNum(data.totals.totalSupplierPayments || 0)],
     ['ترحيل صادر لمشاريع أخرى', formatNum(data.totals.totalProjectTransfersOut)],
     ['إجمالي المصروفات', formatNum(data.totals.totalExpenses)],
     ['الرصيد النهائي', formatNum(data.totals.balance)],

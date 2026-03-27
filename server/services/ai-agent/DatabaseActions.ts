@@ -507,7 +507,7 @@ export class DatabaseActions {
         .from(workerAttendance)
         .where(and(
           eq(workerAttendance.project_id, projectId),
-          sql`(CASE WHEN attendance_date IS NULL OR attendance_date = '' THEN NULL ELSE attendance_date::date END) = ${date}`
+          sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})::date = ${date}::date`
         ));
 
       const purchases = await db
@@ -2390,7 +2390,7 @@ export class DatabaseActions {
         )
         SELECT 
           to_char(m.month, 'YYYY-MM') as month,
-          coalesce((SELECT sum(case when actual_wage::text != 'NaN' then actual_wage::numeric else 0 end) FROM worker_attendance WHERE date_trunc('month', attendance_date::date) = m.month ${projectFilter}), 0) as wages,
+          coalesce((SELECT sum(case when actual_wage::text != 'NaN' then actual_wage::numeric else 0 end) FROM worker_attendance WHERE date_trunc('month', COALESCE(NULLIF(date,''), attendance_date)::date) = m.month ${projectFilter}), 0) as wages,
           coalesce((SELECT sum(case when total_amount::text != 'NaN' then total_amount::numeric else 0 end) FROM material_purchases WHERE date_trunc('month', purchase_date::date) = m.month ${projectFilter}), 0) as materials,
           coalesce((SELECT sum(case when amount::text != 'NaN' then amount::numeric else 0 end) FROM transportation_expenses WHERE date_trunc('month', date::date) = m.month ${projectFilter}), 0) as transport
         FROM months m

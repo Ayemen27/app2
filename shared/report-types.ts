@@ -85,6 +85,17 @@ export interface InventoryIssuedRecord {
   notes: string;
 }
 
+export interface SupplierPaymentRecord {
+  id: string;
+  supplierName: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  referenceNumber: string;
+  purchaseMaterial?: string;
+  notes: string;
+}
+
 export interface DailyReportData {
   reportType: 'daily';
   generatedAt: string;
@@ -263,6 +274,11 @@ export interface PeriodFinalReportData {
         direction: 'incoming' | 'outgoing';
       }>;
     };
+    supplierPayments?: {
+      total: number;
+      count: number;
+      items: SupplierPaymentRecord[];
+    };
   };
   totals: {
     totalIncome: number;
@@ -274,6 +290,7 @@ export interface PeriodFinalReportData {
     totalWorkerTransfers: number;
     totalProjectTransfersOut: number;
     totalProjectTransfersIn: number;
+    totalSupplierPayments?: number;
     balance: number;
     budgetUtilization?: number;
   };
@@ -458,6 +475,10 @@ export interface ProjectComprehensiveReportData {
       count: number;
     };
     workerTransfers: {
+      total: number;
+      count: number;
+    };
+    supplierPayments?: {
       total: number;
       count: number;
     };

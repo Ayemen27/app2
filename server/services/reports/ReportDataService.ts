@@ -217,7 +217,7 @@ export class ReportDataService {
     const attendance: AttendanceRecord[] = attendanceData.map((a: any) => {
       const dw = safeNum(a.dailyWage);
       const wd = safeNum(a.workDays);
-      const totalWage = dw * wd;
+      const totalWage = a.actualWage != null ? safeNum(a.actualWage) : dw * wd;
       const paid = safeNum(a.paidAmount);
       return {
         workerId: a.worker_id,
@@ -384,12 +384,13 @@ export class ReportDataService {
       transferFilters.push(sql`1=0`);
     }
 
+    const effectiveAttDate = sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`;
     if (dateFrom) {
-      attendanceFilters.push(gte(workerAttendance.attendanceDate, dateFrom));
+      attendanceFilters.push(gte(effectiveAttDate, dateFrom));
       transferFilters.push(gte(workerTransfers.transferDate, dateFrom));
     }
     if (dateTo) {
-      attendanceFilters.push(lte(workerAttendance.attendanceDate, dateTo));
+      attendanceFilters.push(lte(effectiveAttDate, dateTo));
       transferFilters.push(lte(workerTransfers.transferDate, dateTo));
     }
 
@@ -397,8 +398,10 @@ export class ReportDataService {
       db
         .select({
           attendanceDate: workerAttendance.attendanceDate,
+          date: workerAttendance.date,
           workDescription: workerAttendance.workDescription,
           dailyWage: workerAttendance.dailyWage,
+          actualWage: workerAttendance.actualWage,
           paidAmount: workerAttendance.paidAmount,
           workDays: workerAttendance.workDays,
           projectName: projects.name,
@@ -455,12 +458,13 @@ export class ReportDataService {
     for (const a of attendanceRows) {
       const days = safeNum(a.workDays);
       const wage = safeNum(a.dailyWage);
-      const earned = days * wage;
+      const earned = (a as any).actualWage != null ? safeNum((a as any).actualWage) : days * wage;
       const paid = safeNum(a.paidAmount);
+      const effectiveDate = (a as any).date || a.attendanceDate;
 
       if (days > 0) {
         rawEntries.push({
-          date: a.attendanceDate,
+          date: effectiveDate,
           type: 'عمل',
           description: a.workDescription || 'تنفيذ مهام العمل الموكلة',
           projectName: a.projectName || '-',
@@ -473,7 +477,7 @@ export class ReportDataService {
 
       if (paid > 0) {
         rawEntries.push({
-          date: a.attendanceDate,
+          date: effectiveDate,
           type: 'دفعة',
           description: 'دفعة نقدية',
           projectName: a.projectName || '-',
@@ -525,7 +529,7 @@ export class ReportDataService {
       const days = safeNum(a.workDays);
       const wage = safeNum(a.dailyWage);
       existing.totalDays += days;
-      existing.totalEarned += days * wage;
+      existing.totalEarned += (a as any).actualWage != null ? safeNum((a as any).actualWage) : days * wage;
       existing.totalPaid += safeNum(a.paidAmount);
       projectMap.set(key, existing);
     }
@@ -786,6 +790,18 @@ export class ReportDataService {
         )
       )
       .orderBy(asc(projectFundTransfers.transferDate));
+
+    const supplierPaymentRows = await pool.query(`
+      SELECT sp.id, s.name AS supplier_name, sp.amount, sp.payment_method,
+        sp.payment_date, COALESCE(sp.reference_number, '') AS reference_number,
+        COALESCE(mp.material_name, '') AS purchase_material,
+        COALESCE(sp.notes, '') AS notes
+      FROM supplier_payments sp
+      LEFT JOIN suppliers s ON sp.supplier_id = s.id
+      LEFT JOIN material_purchases mp ON sp.purchase_id = mp.id
+      WHERE sp.project_id = $1 AND sp.payment_date >= $2 AND sp.payment_date <= $3
+      ORDER BY sp.payment_date
+    `, [projectId, dateFrom, dateTo]);
 
     const proj = projectInfo[0];
 
@@ -1080,6 +1096,20 @@ export class ReportDataService {
           net: projectTransfersNet,
           items: projectTransferItems,
         },
+        supplierPayments: {
+          total: totalSupplierPaymentsPeriod,
+          count: supplierPaymentRows.rows.length,
+          items: supplierPaymentRows.rows.map((r: any) => ({
+            id: r.id,
+            supplierName: r.supplier_name || '-',
+            amount: parseFloat(r.amount) || 0,
+            paymentMethod: r.payment_method || '-',
+            paymentDate: r.payment_date || '-',
+            referenceNumber: r.reference_number || '',
+            purchaseMaterial: r.purchase_material || undefined,
+            notes: r.notes || '',
+          })),
+        },
       },
       totals: {
         totalIncome: totalFundTransfersAmount,
@@ -1091,6 +1121,7 @@ export class ReportDataService {
         totalWorkerTransfers: workerTransfersTotal,
         totalProjectTransfersOut,
         totalProjectTransfersIn,
+        totalSupplierPayments: totalSupplierPaymentsPeriod,
         balance,
         budgetUtilization,
       },
@@ -1291,9 +1322,9 @@ export class ReportDataService {
         client.query(`
           SELECT
             COUNT(DISTINCT wa.worker_id) AS total_workers,
-            COUNT(DISTINCT CASE WHEN wa.attendance_date >= $2 THEN wa.worker_id END) AS active_workers
+            COUNT(DISTINCT CASE WHEN COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 THEN wa.worker_id END) AS active_workers
           FROM worker_attendance wa
-          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
@@ -1304,7 +1335,7 @@ export class ReportDataService {
             COALESCE(SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL)), 0) AS total_wages
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
-          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
           GROUP BY w.type ORDER BY total_wages DESC
         `, [projectId, dateFrom, dateTo]),
 
@@ -1316,7 +1347,7 @@ export class ReportDataService {
             COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
-          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
           GROUP BY w.name, w.type
           ORDER BY total_earned DESC LIMIT 20
         `, [projectId, dateFrom, dateTo]),
@@ -1344,13 +1375,13 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            wa.attendance_date AS date,
+            COALESCE(NULLIF(wa.date,''), wa.attendance_date) AS date,
             COUNT(DISTINCT wa.worker_id) AS worker_count,
             COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_work_days,
             COALESCE(SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL)), 0) AS total_wages
           FROM worker_attendance wa
-          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
-          GROUP BY wa.attendance_date ORDER BY wa.attendance_date
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
+          GROUP BY COALESCE(NULLIF(wa.date,''), wa.attendance_date) ORDER BY COALESCE(NULLIF(wa.date,''), wa.attendance_date)
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
@@ -1359,7 +1390,7 @@ export class ReportDataService {
             COALESCE(SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL)), 0) AS total_wages,
             COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
           FROM worker_attendance wa
-          WHERE wa.project_id = $1 AND wa.attendance_date >= $2 AND wa.attendance_date <= $3
+          WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
@@ -1408,15 +1439,21 @@ export class ReportDataService {
           SELECT
             COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total
           FROM fund_transfers
-          WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+          WHERE project_id = $1
+            AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) >= $2::date
+            AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) <= $3::date
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
-          SELECT transfer_date AS date, CAST(amount AS DECIMAL) AS amount,
+          SELECT
+            (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END)::text AS date,
+            CAST(amount AS DECIMAL) AS amount,
             COALESCE(sender_name, '-') AS sender_name,
             COALESCE(transfer_type, '-') AS transfer_type
           FROM fund_transfers
-          WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
+          WHERE project_id = $1
+            AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) >= $2::date
+            AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) <= $3::date
           ORDER BY transfer_date
         `, [projectId, dateFrom, dateTo]),
 
@@ -1446,6 +1483,14 @@ export class ReportDataService {
           GROUP BY status
         `, [projectId]),
       ]);
+
+      const supplierPayCompResult = await client.query(`
+        SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total, COUNT(*) AS count
+        FROM supplier_payments
+        WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3
+      `, [projectId, dateFrom, dateTo]);
+      const totalSupplierPaymentsComp = safeNum(supplierPayCompResult.rows[0]?.total);
+      const supplierPaymentsCount = safeNum(supplierPayCompResult.rows[0]?.count);
 
       const wf = workforceResult.rows[0];
       const totalWorkers = safeNum(wf?.total_workers);
@@ -1477,7 +1522,7 @@ export class ReportDataService {
       const totalProjectTransfersOut = safeNum(projectTransfersOutResult.rows[0]?.total);
 
       const totalIncome = totalFundTransfersIn + totalProjectTransfersIn;
-      const totalExpenses = totalWages + totalMaterials + totalTransport + totalMisc + totalWorkerTransfers + totalProjectTransfersOut;
+      const totalExpenses = totalWages + totalMaterials + totalTransport + totalMisc + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPaymentsComp;
       const balance = totalIncome - totalExpenses;
 
       const budget = proj.budget ? safeNum(proj.budget) : undefined;
@@ -1592,6 +1637,7 @@ export class ReportDataService {
           transport: { total: totalTransport, tripCount },
           miscExpenses: { total: totalMisc, count: miscCount },
           workerTransfers: { total: totalWorkerTransfers, count: wtCount },
+          supplierPayments: { total: totalSupplierPaymentsComp, count: supplierPaymentsCount },
         },
         cashCustody: {
           totalFundTransfersIn,

@@ -1,7 +1,7 @@
 # WhatsApp Import Pipeline — Progress Log
 
 This file is MANDATORY and append-only. Every agent MUST update it after completing each sub-task.
-See Rule 1-9 in `00-continuity-guide.md` for exact format and rules.
+See Rules 1-10 in `00-continuity-guide.md` for exact format and rules.
 
 ---
 

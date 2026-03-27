@@ -1,10 +1,10 @@
 # WhatsApp Import — Financial Extraction Engine
 
 ## What & Why
-Build the intelligent extraction engine that analyzes parsed WhatsApp messages and extracts financial transactions. This covers 6 specific patterns discovered in real data, plus 2 business-critical transaction types (inter-contractor loans and personal-account flags). Arabic NLP for amount/description parsing, context-based clustering, and a deterministic confidence scoring rubric per pattern.
+Build the intelligent extraction engine that analyzes parsed WhatsApp messages and extracts financial transactions. This covers 6 specific patterns discovered in real data, plus 4 special transaction types (inter-contractor loans, personal-account flags, custodian receipts, and settlements). Arabic NLP for amount/description parsing, context-based clustering, and a deterministic confidence scoring rubric per pattern.
 
 ## Done looks like
-- 6 pattern extractors + 2 special transaction detectors working on parsed messages from Task #1:
+- 6 pattern extractors + 4 special transaction detectors working on parsed messages from Task #1:
   - Pattern 1: Structured transfer receipts (شركه رشاد بحير format) — confidence: 0.95. Uses رقم الحوالة as primary dedup key
   - Pattern 2: Inline cash expenses (10000بترول) — confidence: 0.80, penalties apply if no date context (-0.10) or ambiguous description (-0.05)
   - Pattern 3: Multi-line expense lists (each line = separate transaction) — confidence: 0.75, penalty if no project context (-0.10)

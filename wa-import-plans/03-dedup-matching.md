@@ -36,29 +36,29 @@ Build the critical dedup engine and historical matching system. This is the MOST
 ## Tasks
 1. **Build fingerprint engine** — Generate deterministic fingerprints for each candidate. For structured transfers: use رقم الحوالة as primary key. For cash expenses: hash of normalized(amount + date + first_20_chars_description). For clustered transactions: use the cluster's primary evidence fingerprint. Store fingerprints in wa_dedup_keys for cross-batch dedup. CRITICAL: Use WhatsApp message timestamp (not inline dates from العباسي) when computing fingerprints, since العباسي's inline dates are unreliable.
 
-1b. **Build cross-chat dedup engine** — The pipeline processes TWO chat exports (زين + العباسي) that reference the SAME transactions (same حوالة numbers, same amounts). For example, a 30000 حوالة from زين appears in both chats. Cross-chat dedup uses: transfer_number (exact match), amount+date±1day+counterparty_context. Mark as single transaction with evidence from both chats.
+2. **Build cross-chat dedup engine** — The pipeline processes TWO chat exports (زين + العباسي) that reference the SAME transactions (same حوالة numbers, same amounts). For example, a 30000 حوالة from زين appears in both chats. Cross-chat dedup uses: transfer_number (exact match), amount+date±1day+counterparty_context. Mark as single transaction with evidence from both chats.
 
-1c. **[REMOVED — Owned by Task #2, Rule 8]** Message-level duplicate text block detection is handled by Task #2 sub-task 5. Task #3 only handles TRANSACTION-level dedup (extracted candidates, not raw messages).
+NOTE: Message-level duplicate text block detection is owned by Task #2 (Rule 8). Task #3 only handles TRANSACTION-level dedup of extracted candidates.
 
-2. **Build historical matcher for fund_transfers** — Query existing 110+ fund_transfers across 4 projects. Match by: transfer_number (exact match = skip), or amount+sender_name+date±1day (near match = review). IMPORTANT: Same رقم الحوالة = always the SAME transaction (primary dedup key, guaranteed unique). Different transfer numbers with same amount on different dates = SEPARATE valid transactions.
+3. **Build historical matcher for fund_transfers** — Query existing 110+ fund_transfers across 4 projects. Match by: transfer_number (exact match = skip), or amount+sender_name+date±1day (near match = review). IMPORTANT: Same رقم الحوالة = always the SAME transaction (primary dedup key, guaranteed unique). Different transfer numbers with same amount on different dates = SEPARATE valid transactions.
 
-3. **Build historical matcher for material_purchases** — Query existing 155 material_purchases. Match by: amount+supplier_name_similarity(>0.8)+date±2days. Handle same supplier with different name spellings using worker alias system. Use fuzzy string matching for Arabic names.
+4. **Build historical matcher for material_purchases** — Query existing 155 material_purchases. Match by: amount+supplier_name_similarity(>0.8)+date±2days. Handle same supplier with different name spellings using worker alias system. Use fuzzy string matching for Arabic names.
 
-4. **Build historical matcher for other ERP tables** — Match against worker_attendance (worker_id+date+amount), transportation_expenses (amount+date+description), worker_misc_expenses. Ensure comprehensive coverage of all expense destinations.
+5. **Build historical matcher for other ERP tables** — Match against worker_attendance (worker_id+date+amount), transportation_expenses (amount+date+description), worker_misc_expenses. Ensure comprehensive coverage of all expense destinations.
 
-5. **Build custodian ledger reconciliation for ALL 3 custodians** — For each custodian (عمار الشيعي, عدنان/ابو فارس, العباسي): match fund receipts to subsequent disbursements, calculate total_received/total_disbursed/total_settled/unsettled_balance. For عمار: separate personal-account entries. For عدنان: mark unsettled as "pending settlement" with "بدون عمل" flag. For العباسي: parse تصفية message as final settlement — his balance after settlement should be zero. Generate per-custodian statement per batch.
+6. **Build custodian ledger reconciliation for ALL 3 custodians** — For each custodian (عمار الشيعي, عدنان/ابو فارس, العباسي): match fund receipts to subsequent disbursements, calculate total_received/total_disbursed/total_settled/unsettled_balance. For عمار: separate personal-account entries. For عدنان: mark unsettled as "pending settlement" with "بدون عمل" flag. For العباسي: parse تصفية message as final settlement — his balance after settlement should be zero. Generate per-custodian statement per batch.
 
-5b. **Build محمد حسن نجار aggregation detector** — Flag all expenses under محمد حسن نجار (d9f327e5) in الجراحي project for review. Compare against known carpenters in الجراحي (بدر نجار الجراحي 8f1dc035, نجار الجراحي 1c7ab56f, نجار الجراحي رقم 2 a95b1744, مساعد نحار الجراحي 28b939fb). Add review reason "possible_aggregated_carpenter_debt" for human decision on reclassification.
+7. **Build محمد حسن نجار aggregation detector** — Flag all expenses under محمد حسن نجار (d9f327e5) in الجراحي project for review. Compare against known carpenters in الجراحي (بدر نجار الجراحي 8f1dc035, نجار الجراحي 1c7ab56f, نجار الجراحي رقم 2 a95b1744, مساعد نحار الجراحي 28b939fb). Add review reason "possible_aggregated_carpenter_debt" for human decision on reclassification.
 
-6. **Build inter-contractor loan reconciler** — Match identified loans between contractors. Cross-reference with the other contractor's project data. Flag unbalanced loans for manual review.
+8. **Build inter-contractor loan reconciler** — Match identified loans between contractors. Cross-reference with the other contractor's project data. Flag unbalanced loans for manual review.
 
-7. **Build reconciliation report generator** — Per-batch summary with configurable tolerance (default 1%). Show breakdown by category, project, and match status. Highlight any delta > tolerance. Include per-project sub-totals for Jarahi and Tuhaita.
+9. **Build reconciliation report generator** — Per-batch summary with configurable tolerance (default 1%). Show breakdown by category, project, and match status. Highlight any delta > tolerance. Include per-project sub-totals for Jarahi and Tuhaita.
 
-8. **Build verification queue populator with priority scoring** — Route candidates to review queue. Priority scoring: P1 (critical) = conflicts + high-value (>500K YER), P2 (high) = near_matches + loans, P3 (medium) = low confidence + ambiguous project, P4 (low) = minor discrepancies. Store routing reason for reviewer context.
+10. **Build verification queue populator with priority scoring** — Route candidates to review queue. Priority scoring: P1 (critical) = conflicts + high-value (>500K YER), P2 (high) = near_matches + loans, P3 (medium) = low confidence + ambiguous project, P4 (low) = minor discrepancies. Store routing reason for reviewer context.
 
-## MANDATORY: Post-Task Completion Checklist
+## MANDATORY: Post-Task Completion Checklist (10 implementation sub-tasks: #1 through #10, plus verification steps below)
 Before marking this task complete, the agent MUST:
-1. Update `wa-import-plans/PROGRESS.md` with completion entries for ALL 8 sub-tasks
+1. Update `wa-import-plans/PROGRESS.md` with completion entries for ALL 10 sub-tasks
 2. Read `wa-import-plans/SCHEMA_CONTRACT.md` and verify all enums/types match exactly
 3. Verify fingerprint engine produces deterministic results (same input = same fingerprint)
 4. Verify cross-chat dedup correctly merges transactions appearing in both زين and العباسي chats

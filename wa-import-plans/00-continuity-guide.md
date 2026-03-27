@@ -20,14 +20,10 @@ Run these checks:
 -- Check if wa_import tables exist
 SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'wa_%' ORDER BY table_name;
 ```
-```bash
-# Check if services exist
-ls -la server/services/whatsapp-import/
-# Check if routes exist
-grep -r "wa-import" server/routes/
-# Check if frontend page exists
-ls -la client/src/pages/wa-import/
-```
+Then use agent tools to verify files:
+- Use glob tool with pattern `server/services/whatsapp-import/**/*` to check if services exist
+- Use grep tool to search for `wa-import` in `server/routes/` to check if routes exist
+- Use glob tool with pattern `client/src/pages/wa-import/**/*` to check if frontend page exists
 
 ### Step 2: Determine Which Task to Resume
 | If you see... | Status | Resume from |
@@ -51,12 +47,10 @@ Plans are in this directory:
 - `wa-import-plans/04-review-posting.md`
 
 ### Step 5: Check What's Already Built
-```bash
-# List all WhatsApp import related files
-find server/services/whatsapp-import/ -type f 2>/dev/null
-find client/src/pages/wa-import/ -type f 2>/dev/null
-grep "wa_" shared/schema.ts | head -20
-```
+Use the glob tool to search for files:
+- Pattern `server/services/whatsapp-import/**/*` — list all backend import service files
+- Pattern `client/src/pages/wa-import/**/*` — list all frontend import page files
+- Use the grep tool to search for `wa_` in `shared/schema.ts` to see defined tables
 
 ---
 
@@ -185,7 +179,7 @@ All 3 transfer companies MUST have explicit parser rules:
 | شركه رشاد بحير | Structured multi-line receipt | رقم الحوالة followed by digits |
 | الحوشبي | 12-digit transfer number | `رقم\s*:?\s*(202\d{9})` |
 | النجم | Variable format | `رقم\s*:?\s*(\d{6,12})` with company name النجم in context |
-Each parser extracts: transfer_number, amount, sender_name, recipient_name, date, company_name. All three parsers share the same output schema for uniform downstream processing.
+Each parser extracts: transfer_number, amount, fee (if available), sender_name, recipient_name, date, company_name. All three parsers share the same TransferReceiptResult output schema for uniform downstream processing.
 
 ## CRITICAL: Database Entity Mappings (Exact IDs from Production)
 

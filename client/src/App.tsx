@@ -75,6 +75,7 @@ import { SyncStatusIndicator } from "./components/sync-status";
 import { EnvironmentBadge } from "./components/layout/EnvironmentBadge";
 
 const WorkerAccountsPage = lazy(() => import("./pages/worker-accounts"));
+const WAImportDashboard = lazy(() => import("./pages/wa-import"));
 const WorkerSettlementsPage = lazy(() => import("./pages/worker-settlements"));
 const SuppliersProPage = lazy(() => import("./pages/suppliers-professional"));
 const CustomersPage = lazy(() => import("./pages/customers"));
@@ -568,6 +569,13 @@ function Router() {
         <AdminRoute>
           <Suspense fallback={<PageLoader />}>
             <CentralLogsPage />
+          </Suspense>
+        </AdminRoute>
+      </Route>
+      <Route path="/wa-import">
+        <AdminRoute requiredRole="editor">
+          <Suspense fallback={<PageLoader />}>
+            <WAImportDashboard />
           </Suspense>
         </AdminRoute>
       </Route>

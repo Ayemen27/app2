@@ -11,7 +11,7 @@ See Rules 1-10 in `00-continuity-guide.md` for exact format and rules.
 | #1 | Schema & Ingestion Engine | COMPLETE | main_agent | 2026-03-27 |
 | #2 | Financial Extraction Engine | COMPLETE | main_agent | 2026-03-27 |
 | #3 | Dedup, Matching & Reconciliation | COMPLETE | main_agent | 2026-03-27 |
-| #4 | Review Dashboard & Posting Engine | NOT STARTED (depends on #3) | — | — |
+| #4 | Review Dashboard & Posting Engine | COMPLETE | main_agent | 2026-03-27 |
 | #5 | AI Learning Engine | NOT STARTED (depends on #1,#2,#4) | — | — |
 | #6 | Interactive Clarification via Bot | NOT STARTED (depends on #1,#2,#4) | — | — |
 
@@ -72,4 +72,35 @@ See Rules 1-10 in `00-continuity-guide.md` for exact format and rules.
 - **Architect rounds**: 3 rounds (6/10 → 7/10 → 8.6/10 PASS)
 - **Key fixes**: Cross-chat in-memory dedup, carpenter description-based detection, 3 custodians explicit, WA timestamp resolution
 - **Status**: Task #3 COMPLETE. Task #4 (Review Dashboard & Posting Engine) is now unblocked.
+
+### 2026-03-27 — Task #4: Review Dashboard & Posting Engine COMPLETE (Architect Gate PASS after fixes)
+- **WhatsAppPostingService.ts** — Atomic posting engine:
+  - `postApprovedTransaction()` — raw pool/client with BEGIN/COMMIT/ROLLBACK
+  - 4 target tables: fund_transfers, material_purchases, transportation_expenses, worker_misc_expenses
+  - ALL targets write ERP + ledger + wa_posting_results in same transaction (including misc expenses)
+  - Dual idempotency guard: check success → insert skipped_duplicate (never silent)
+  - `approveCandidate()` — creates confirmed canonical, guards re-approval
+  - `rejectCandidate()` — creates excluded canonical with reason
+  - `bulkApprove()` — batch approve ≥95% confidence, skips already-reviewed
+  - `generatePostingPlan()` — dry-run from approved canonicals only (not raw candidates)
+- **7 new API routes** in waImportRoutes.ts:
+  - POST /candidate/:id/approve (admin/editor)
+  - POST /candidate/:id/reject (admin/editor)
+  - POST /batch/:id/bulk-approve (admin/editor)
+  - POST /batch/:id/dry-run (admin only)
+  - POST /canonical/:id/post (admin only)
+  - GET /custodian-statements (admin/editor)
+  - GET /review-actions/:candidateId (admin/editor)
+- **wa-import.tsx** — React review dashboard with 4 tabs:
+  - Batches tab: list all import batches with extract/reconcile actions
+  - Review tab: candidate table with confidence colors, match status badges, approve/reject dialogs
+  - Reconciliation tab: summary stats + verification queue
+  - Custodians tab: statement cards for all custodians (received/disbursed/settled/unsettled/personal)
+- **Navigation**: Sidebar entry "استيراد واتساب" + App.tsx route /wa-import with editor-level access
+- **Architect fixes applied**:
+  - AdminRoute requiredRole="editor" (allows editors, not just admins)
+  - Ledger call added for worker_misc_expenses (was missing)
+  - Dry-run plan sourced from approved canonicals only (was using raw candidates)
+  - Re-approval guard: throws error if candidate already has canonicalTransactionId
+- **Status**: Task #4 COMPLETE. Tasks #5 and #6 are now unblocked.
 

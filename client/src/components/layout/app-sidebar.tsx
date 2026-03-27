@@ -2,7 +2,7 @@ import {
   Home, Building2, Users, Package, Truck, 
   UserCheck, Calculator, Settings, LogOut,
   ChevronDown, BarChart3, ShieldCheck, Database, Wrench, Wallet, MessageSquare, Activity, RefreshCw, FileText, KeyRound,
-  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale, ScrollText, FileSpreadsheet
+  MapPin, Bell, CreditCard, ArrowLeftRight, DollarSign, Terminal, Sparkles, GitCompare, AlertTriangle, BrainCircuit, Scale, ScrollText, FileSpreadsheet, FileUp
 } from "lucide-react";
 import { 
   Sidebar,
@@ -118,6 +118,7 @@ const sections: SidebarSection[] = [
       { title: "صحة البيانات", icon: Activity, url: "/admin/data-health" },
       { title: "مقارنة المزامنة", icon: GitCompare, url: "/sync-comparison" },
       { title: "بنك السجلات", icon: ScrollText, url: "/admin/central-logs" },
+      { title: "استيراد واتساب", icon: FileUp, url: "/wa-import" },
     ]
   },
   {

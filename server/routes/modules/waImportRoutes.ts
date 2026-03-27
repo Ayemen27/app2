@@ -1,11 +1,19 @@
 import { Router } from "express";
 import multer from "multer";
-import { requireAuth, requireAdminOrEditor, type AuthenticatedRequest } from "../../middleware/auth.js";
+import { requireAuth, requireAdminOrEditor, requireRole, type AuthenticatedRequest } from "../../middleware/auth.js";
 import { waIngestionService } from "../../services/whatsapp-import/WhatsAppIngestionService.js";
 import { waAliasService } from "../../services/whatsapp-import/WhatsAppAliasService.js";
 import { waCustodianService } from "../../services/whatsapp-import/WhatsAppCustodianService.js";
 import { waExtractionService } from "../../services/whatsapp-import/WhatsAppExtractionService.js";
 import { runReconciliation } from "../../services/whatsapp-import/ReconciliationService.js";
+import {
+  approveCandidate,
+  rejectCandidate,
+  bulkApprove,
+  postApprovedTransaction,
+  generatePostingPlan,
+} from "../../services/whatsapp-import/WhatsAppPostingService.js";
+import { reconcileAllCustodians } from "../../services/whatsapp-import/CustodianReconciliation.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -268,6 +276,107 @@ waImportRouter.get("/batch/:id/verification-queue", requireAuth, requireAdminOrE
   } catch (error) {
     console.error("[WAImport] Verification queue error:", error);
     res.status(500).json({ error: "Failed to get verification queue" });
+  }
+});
+
+waImportRouter.post("/candidate/:id/approve", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const candidateId = parseInt(req.params.id);
+    const { projectId, notes } = req.body;
+    const reviewerId = (req as any).user?.user_id;
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+    if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
+
+    const result = await approveCandidate(candidateId, reviewerId, projectId, notes);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Approve error:", error);
+    res.status(500).json({ error: error.message || "Failed to approve candidate" });
+  }
+});
+
+waImportRouter.post("/candidate/:id/reject", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const candidateId = parseInt(req.params.id);
+    const { reason } = req.body;
+    const reviewerId = (req as any).user?.user_id;
+    if (!reason) return res.status(400).json({ error: "reason is required" });
+    if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
+
+    await rejectCandidate(candidateId, reviewerId, reason);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("[WAImport] Reject error:", error);
+    res.status(500).json({ error: error.message || "Failed to reject candidate" });
+  }
+});
+
+waImportRouter.post("/batch/:id/bulk-approve", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const batchId = parseInt(req.params.id);
+    const { minConfidence = 0.95, projectId } = req.body;
+    const reviewerId = (req as any).user?.user_id;
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+    if (!reviewerId) return res.status(401).json({ error: "Reviewer not identified" });
+
+    const result = await bulkApprove(batchId, reviewerId, minConfidence, projectId);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Bulk approve error:", error);
+    res.status(500).json({ error: error.message || "Failed to bulk approve" });
+  }
+});
+
+waImportRouter.post("/batch/:id/dry-run", requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const batchId = parseInt(req.params.id);
+    const plan = await generatePostingPlan(batchId);
+    res.json({ dryRun: true, items: plan, totalAmount: plan.reduce((sum, p) => sum + p.amount, 0) });
+  } catch (error: any) {
+    console.error("[WAImport] Dry-run error:", error);
+    res.status(500).json({ error: error.message || "Failed to generate posting plan" });
+  }
+});
+
+waImportRouter.post("/canonical/:id/post", requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const canonicalId = parseInt(req.params.id);
+    const postedBy = (req as any).user?.user_id;
+    if (!postedBy) return res.status(401).json({ error: "User not identified" });
+
+    const result = await postApprovedTransaction(canonicalId, postedBy);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[WAImport] Posting error:", error);
+    res.status(500).json({ error: error.message || "Failed to post transaction" });
+  }
+});
+
+waImportRouter.get("/custodian-statements", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const statements = await reconcileAllCustodians();
+    res.json(statements);
+  } catch (error: any) {
+    console.error("[WAImport] Custodian statements error:", error);
+    res.status(500).json({ error: "Failed to get custodian statements" });
+  }
+});
+
+waImportRouter.get("/review-actions/:candidateId", requireAuth, requireAdminOrEditor, async (req, res) => {
+  try {
+    const candidateId = parseInt(req.params.candidateId);
+    const { db: database } = await import("../../db.js");
+    const { waReviewActions } = await import("@shared/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const actions = await database.select()
+      .from(waReviewActions)
+      .where(eq(waReviewActions.candidateId, candidateId));
+
+    res.json(actions);
+  } catch (error) {
+    console.error("[WAImport] Review actions error:", error);
+    res.status(500).json({ error: "Failed to get review actions" });
   }
 });
 

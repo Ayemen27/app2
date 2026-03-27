@@ -4102,7 +4102,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
     const scopeFilter = isAdminUser ? '' : ' AND sub.project_id = ANY($2)';
     const scopeParams = isAdminUser ? [cleanDate] : [cleanDate, accessibleIds];
 
-    const [cumFundsR, cumWagesR, cumTransportR, cumMiscR, cumWorkerTransR, cumPurchasesR] = await Promise.all([
+    const [cumFundsR, cumWagesR, cumTransportR, cumMiscR, cumWorkerTransR, cumPurchasesR, cumIncomingProjTransR, cumOutgoingProjTransR, cumSupplierPayR] = await Promise.all([
       pool.query(
         `SELECT ft.project_id, p.name as project_name, COALESCE(SUM(ft.amount), 0) as total
          FROM fund_transfers ft JOIN projects p ON p.id = ft.project_id
@@ -4139,6 +4139,24 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
          WHERE mp.purchase_date <= $1${scopeFilter}`.replace('sub.project_id', 'mp.project_id') + ` GROUP BY mp.project_id`,
         scopeParams
       ),
+      pool.query(
+        `SELECT pft.to_project_id as project_id, COALESCE(SUM(pft.amount), 0) as total
+         FROM project_fund_transfers pft
+         WHERE pft.transfer_date <= $1${scopeFilter}`.replace('sub.project_id', 'pft.to_project_id') + ` GROUP BY pft.to_project_id`,
+        scopeParams
+      ),
+      pool.query(
+        `SELECT pft.from_project_id as project_id, COALESCE(SUM(pft.amount), 0) as total
+         FROM project_fund_transfers pft
+         WHERE pft.transfer_date <= $1${scopeFilter}`.replace('sub.project_id', 'pft.from_project_id') + ` GROUP BY pft.from_project_id`,
+        scopeParams
+      ),
+      pool.query(
+        `SELECT sp.project_id, COALESCE(SUM(sp.amount), 0) as total
+         FROM supplier_payments sp
+         WHERE sp.payment_date <= $1${scopeFilter}`.replace('sub.project_id', 'sp.project_id') + ` GROUP BY sp.project_id`,
+        scopeParams
+      ),
     ]);
 
     const toMap = (rows: any[]) => {
@@ -4152,10 +4170,14 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
     const miscMap = toMap(cumMiscR.rows);
     const workerTransMap = toMap(cumWorkerTransR.rows);
     const purchasesMap = toMap(cumPurchasesR.rows);
+    const incomingProjTransMap = toMap(cumIncomingProjTransR.rows);
+    const outgoingProjTransMap = toMap(cumOutgoingProjTransR.rows);
+    const supplierPayMap = toMap(cumSupplierPayR.rows);
 
     const allProjectIds = new Set([
       ...Object.keys(fundsMap), ...Object.keys(wagesMap), ...Object.keys(transportMap),
       ...Object.keys(miscMap), ...Object.keys(workerTransMap), ...Object.keys(purchasesMap),
+      ...Object.keys(incomingProjTransMap), ...Object.keys(outgoingProjTransMap), ...Object.keys(supplierPayMap),
     ]);
 
     const projectNameMap: Record<string, string> = {};
@@ -4163,8 +4185,8 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
 
     const cumulativeMap: Record<string, { cumulative_funds: number; cumulative_expenses: number; cumulative_balance: number }> = {};
     for (const pid of allProjectIds) {
-      const funds = fundsMap[pid] || 0;
-      const expenses = (wagesMap[pid] || 0) + (transportMap[pid] || 0) + (miscMap[pid] || 0) + (workerTransMap[pid] || 0) + (purchasesMap[pid] || 0);
+      const funds = (fundsMap[pid] || 0) + (incomingProjTransMap[pid] || 0);
+      const expenses = (wagesMap[pid] || 0) + (transportMap[pid] || 0) + (miscMap[pid] || 0) + (workerTransMap[pid] || 0) + (purchasesMap[pid] || 0) + (outgoingProjTransMap[pid] || 0) + (supplierPayMap[pid] || 0);
       cumulativeMap[pid] = {
         cumulative_funds: funds,
         cumulative_expenses: expenses,

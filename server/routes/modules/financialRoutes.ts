@@ -4110,7 +4110,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
         scopeParams
       ),
       pool.query(
-        `SELECT wa.project_id, COALESCE(SUM(wa.actual_wage), 0) as total
+        `SELECT wa.project_id, COALESCE(SUM(wa.paid_amount), 0) as total
          FROM worker_attendance wa
          WHERE wa.date <= $1${scopeFilter}`.replace('sub.project_id', 'wa.project_id') + ` GROUP BY wa.project_id`,
         scopeParams

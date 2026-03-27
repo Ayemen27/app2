@@ -122,6 +122,7 @@ function ProjectCard({
   const cumFunds = num(summary.cumulative_funds);
   const cumExpenses = num(summary.cumulative_expenses);
   const cumBalance = num(summary.cumulative_balance);
+  const carriedFromPrev = cumBalance - newFunds + totalExp;
 
   return (
     <Card className="overflow-hidden" data-testid={`project-card-${summary.project_id}`}>
@@ -135,20 +136,26 @@ function ProjectCard({
           <div>
             <h3 className="font-bold text-lg" data-testid={`project-name-${summary.project_id}`}>{summary.project_name}</h3>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant={remaining >= 0 ? "default" : "destructive"} className="text-xs">
-                {remaining >= 0 ? "رصيد موجب" : "عجز"}
+              <Badge variant={cumBalance >= 0 ? "default" : "destructive"} className="text-xs">
+                {cumBalance >= 0 ? "رصيد موجب" : "عجز"}
               </Badge>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <div className="text-xs text-muted-foreground">مصروف اليوم</div>
-            <div className="font-bold text-red-600" data-testid={`expense-${summary.project_id}`}>{formatCurrency(totalExp)}</div>
+        <div className="flex items-center gap-4 text-center">
+          <div>
+            <div className="text-[10px] text-muted-foreground">المرحّل</div>
+            <div className={`font-bold text-sm ${carriedFromPrev >= 0 ? "text-blue-600" : "text-red-600"}`} data-testid={`carried-${summary.project_id}`}>
+              {formatCurrency(carriedFromPrev)}
+            </div>
           </div>
-          <div className="text-center">
-            <div className="text-xs text-muted-foreground">الرصيد التراكمي</div>
-            <div className={`font-bold text-lg ${cumBalance >= 0 ? "text-green-600" : "text-red-600"}`} data-testid={`cumulative-${summary.project_id}`}>
+          <div>
+            <div className="text-[10px] text-muted-foreground">مصروف اليوم</div>
+            <div className="font-bold text-sm text-red-600" data-testid={`expense-${summary.project_id}`}>{formatCurrency(totalExp)}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground font-bold">الرصيد</div>
+            <div className={`font-black text-base ${cumBalance >= 0 ? "text-green-600" : "text-red-600"}`} data-testid={`cumulative-${summary.project_id}`}>
               {formatCurrency(cumBalance)}
             </div>
           </div>
@@ -158,55 +165,24 @@ function ProjectCard({
 
       {expanded && (
         <CardContent className="p-4 space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-2">
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-              <DollarSign className="h-4 w-4 text-green-600" />
-              <div>
-                <div className="text-xs text-muted-foreground">إجمالي الحوالات (تراكمي)</div>
-                <div className="font-bold text-sm text-green-700">{formatCurrency(cumFunds)}</div>
-              </div>
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-center">
+              <div className="text-[10px] text-muted-foreground">المرحّل من سابق</div>
+              <div className={`font-bold text-sm ${carriedFromPrev >= 0 ? "text-amber-700" : "text-red-700"}`}>{formatCurrency(carriedFromPrev)}</div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              <div>
-                <div className="text-xs text-muted-foreground">إجمالي المصروفات (تراكمي)</div>
-                <div className="font-bold text-sm text-red-700">{formatCurrency(cumExpenses)}</div>
-              </div>
+            <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
+              <div className="text-[10px] text-muted-foreground">+ حوالات اليوم</div>
+              <div className="font-bold text-sm text-green-700">{formatCurrency(newFunds)}</div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-300 dark:border-blue-700">
-              <Wallet className="h-4 w-4 text-blue-600" />
-              <div>
-                <div className="text-xs text-muted-foreground font-bold">الرصيد التراكمي</div>
-                <div className={`font-black text-base ${cumBalance >= 0 ? "text-blue-700" : "text-red-700"}`}>{formatCurrency(cumBalance)}</div>
-              </div>
+            <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-center">
+              <div className="text-[10px] text-muted-foreground">- مصروف اليوم</div>
+              <div className="font-bold text-sm text-red-700">{formatCurrency(totalExp)}</div>
+            </div>
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border-2 border-blue-300 dark:border-blue-700 text-center">
+              <div className="text-[10px] text-muted-foreground font-bold">= الرصيد</div>
+              <div className={`font-black text-sm ${cumBalance >= 0 ? "text-blue-700" : "text-red-700"}`}>{formatCurrency(cumBalance)}</div>
             </div>
           </div>
-
-          {(newFunds > 0 || totalExp > 0) && (
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-green-50/50 dark:bg-green-950/10">
-                <TrendingUp className="h-3 w-3 text-green-500" />
-                <div>
-                  <div className="text-[10px] text-muted-foreground">حوالات اليوم</div>
-                  <div className="font-semibold text-xs">{formatCurrency(newFunds)}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50/50 dark:bg-red-950/10">
-                <TrendingDown className="h-3 w-3 text-red-500" />
-                <div>
-                  <div className="text-[10px] text-muted-foreground">مصروف اليوم</div>
-                  <div className="font-semibold text-xs">{formatCurrency(totalExp)}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-950/10">
-                <Wallet className="h-3 w-3 text-slate-500" />
-                <div>
-                  <div className="text-[10px] text-muted-foreground">متبقي اليوم</div>
-                  <div className="font-semibold text-xs">{formatCurrency(remaining)}</div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {funds.length > 0 && (
             <div>

@@ -2263,7 +2263,7 @@ projectRouter.get('/:project_id/daily-expenses/:date', requireProjectAccess('vie
       .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
       .where(and(
         eq(workerAttendance.project_id, project_id), 
-        eq(workerAttendance.date, finalDate),
+        sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${finalDate}`,
         or(
           sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
           sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`

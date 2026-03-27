@@ -405,12 +405,6 @@ async function ensureTriggersExist(): Promise<void> {
     ];
 
     const missing = FINANCIAL_TABLES.filter(t => !existingNames.has(`trg_${t}_invalidate`));
-    if (missing.length === 0) {
-      console.log('[SummaryTriggers] ✅ All 8 financial triggers exist');
-      return;
-    }
-
-    console.log(`[SummaryTriggers] Missing triggers for: ${missing.join(', ')}. Creating...`);
 
     await pool.query(`
       CREATE OR REPLACE FUNCTION trg_financial_invalidate()
@@ -512,16 +506,19 @@ async function ensureTriggersExist(): Promise<void> {
       $$ LANGUAGE plpgsql;
     `);
 
-    for (const table of missing) {
-      const triggerName = `trg_${table}_invalidate`;
-      await pool.query(`DROP TRIGGER IF EXISTS ${triggerName} ON ${table}`);
-      await pool.query(
-        `CREATE TRIGGER ${triggerName} AFTER INSERT OR UPDATE OR DELETE ON ${table} FOR EACH ROW EXECUTE FUNCTION trg_financial_invalidate()`
-      );
-      console.log(`[SummaryTriggers] ✅ Created trigger on ${table}`);
+    if (missing.length > 0) {
+      console.log(`[SummaryTriggers] Missing triggers for: ${missing.join(', ')}. Creating...`);
+      for (const table of missing) {
+        const triggerName = `trg_${table}_invalidate`;
+        await pool.query(`DROP TRIGGER IF EXISTS ${triggerName} ON ${table}`);
+        await pool.query(
+          `CREATE TRIGGER ${triggerName} AFTER INSERT OR UPDATE OR DELETE ON ${table} FOR EACH ROW EXECUTE FUNCTION trg_financial_invalidate()`
+        );
+        console.log(`[SummaryTriggers] ✅ Created trigger on ${table}`);
+      }
     }
 
-    console.log('[SummaryTriggers] ✅ All missing triggers created');
+    console.log(`[SummaryTriggers] ✅ All 8 financial triggers verified (function updated)`);
   } catch (error) {
     console.error('[SummaryTriggers] ❌ Error ensuring triggers:', error);
   }

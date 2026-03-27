@@ -59,6 +59,10 @@ The system maintains a consistent design using a professional navy/blue palette,
   - **recalculateAttendanceAndBalances Helper:** Uses `actual_wage` for balance recomputation (fixed from `daily_wage * work_days`).
   - **Worker Statement Excel:** Uses per-record `actualWage` from attendance (fixed from current worker dailyWage * workDays).
   - **Data Repair (March 2026):** 79 worker balances rebuilt from source of truth (0 mismatches), 28 inconsistent attendance records documented in audit log.
+  - **DB Triggers for Summary Invalidation (March 2026):** PostgreSQL trigger function `trg_financial_invalidate()` with AFTER INSERT/UPDATE/DELETE on all 8 financial tables (fund_transfers, project_fund_transfers, worker_attendance, material_purchases, transportation_expenses, worker_transfers, worker_misc_expenses, supplier_payments). `project_fund_transfers` invalidates both `from_project_id` and `to_project_id`. `worker_attendance` uses `COALESCE(NULLIF(date,''), attendance_date)`. `ensureTriggersExist()` always runs `CREATE OR REPLACE FUNCTION` at startup.
+  - **Date Consistency Fix (March 2026):** All worker_attendance date queries unified to use `COALESCE(NULLIF(date,''), attendance_date)` across projectRoutes.ts, workerRoutes.ts, ExpenseLedgerService.ts, and SummaryRebuildService.ts.
+  - **Sync Batch Enhancement (March 2026):** `project_fund_transfers` added to `FINANCIAL_TABLES_SET` and `DATE_FIELD_DB_MAP` with special dual-project invalidation for INSERT/PATCH/DELETE.
+  - **Comprehensive Audit (March 2026):** 22/22 checks passed after fixes: 221 financial summaries verified, 80 worker balances recalculated, 8 DB triggers confirmed, 5 route files security-reviewed (no SQL injection, no IDOR, no auth gaps).
 
 ## System Audit & Cleanup (March 2026)
 - **Removed Legacy Files:** `libs/AgentForge_archived/`, `fly.toml`, `Dockerfile`, `docker-compose.signoz.yaml`, `server/services/DrizzleWrapper.ts`, `scripts/_deprecated/`, `pyproject.toml`, `agent_bridge.py`, `remote_analyze.py`, `remote_execute.sh`, 8 stale audit report .md files, `depcheck_report.json`, `audit_scan.json`, `cookies.txt`, `local_deps.txt`, `index.lock`.

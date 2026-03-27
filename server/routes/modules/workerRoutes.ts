@@ -2580,7 +2580,7 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
       .where(and(
         eq(workerAttendance.worker_id, validationResult.data.worker_id),
         eq(workerAttendance.project_id, validationResult.data.project_id),
-        eq(workerAttendance.date, attendanceDate),
+        sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${attendanceDate}`,
         sql`CAST(COALESCE(${workerAttendance.paidAmount}, '0') AS DECIMAL(15,2)) = CAST(${paidAmount.toString()} AS DECIMAL(15,2))`,
         sql`CAST(COALESCE(${workerAttendance.workDays}, '0') AS DECIMAL(15,2)) = CAST(${workDays.toString()} AS DECIMAL(15,2))`
       ))

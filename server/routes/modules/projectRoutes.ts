@@ -258,7 +258,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
           .from(workerAttendance)
           .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
           .where(and(
-            eq(workerAttendance.date, effectiveDate),
+            sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${effectiveDate}`,
             or(
               sql`CAST(${workerAttendance.workDays} AS DECIMAL) > 0`,
               sql`CAST(${workerAttendance.paidAmount} AS DECIMAL) > 0`
@@ -444,7 +444,7 @@ projectRouter.get('/all-projects-expenses', async (req: Request, res: Response) 
       : await pool.query(`
       SELECT
         COALESCE((SELECT SUM(CAST(amount AS DECIMAL(15,2))) FROM fund_transfers WHERE (CASE WHEN transfer_date IS NULL OR CAST(transfer_date AS TEXT) = '' OR CAST(transfer_date AS TEXT) !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' THEN NULL ELSE SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) END) = $1 ${projectFilter}), 0) as total_fund_transfers,
-        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) AND date = $1 ${projectFilter}), 0) as total_worker_wages,
+        COALESCE((SELECT SUM(CAST(paid_amount AS DECIMAL(15,2))) FROM worker_attendance WHERE (CAST(work_days AS DECIMAL) > 0 OR CAST(paid_amount AS DECIMAL) > 0) AND COALESCE(NULLIF(date,''), attendance_date) = $1 ${projectFilter}), 0) as total_worker_wages,
         COALESCE((SELECT SUM(
           CASE 
             WHEN (purchase_type = 'نقداً' OR purchase_type = 'نقد') AND (CAST(paid_amount AS DECIMAL) > 0) THEN CAST(paid_amount AS DECIMAL(15,2))
@@ -1594,7 +1594,7 @@ projectRouter.get('/:project_id/worker-attendance', requireProjectAccess('view')
     // بناء شروط الـ WHERE
     const conditions = [eq(workerAttendance.project_id, project_id)];
     if (date && date !== '') {
-      conditions.push(eq(workerAttendance.date, date as string));
+      conditions.push(sql`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate}) = ${date}`);
       console.log(`🔍 [API] تطبيق فلترة التاريخ: ${date}`);
     }
 

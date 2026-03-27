@@ -894,7 +894,7 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
     const FINANCIAL_TABLES_SET = new Set([
       'fund_transfers', 'worker_attendance', 'transportation_expenses',
       'material_purchases', 'worker_transfers', 'worker_misc_expenses',
-      'supplier_payments'
+      'supplier_payments', 'project_fund_transfers'
     ]);
     const DATE_FIELD_DB_MAP: Record<string, string> = {
       'fund_transfers': 'transfer_date',
@@ -904,6 +904,7 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
       'worker_transfers': 'transfer_date',
       'worker_misc_expenses': 'date',
       'supplier_payments': 'payment_date',
+      'project_fund_transfers': 'transfer_date',
     };
     const batchInvalidations = new Map<string, string>();
     function trackInvalidation(pid: string, d: string) {
@@ -1001,6 +1002,11 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
           const dateCol = DATE_FIELD_DB_MAP[tableName];
           if (pid && dateCol && rec[dateCol]) trackInvalidation(pid, rec[dateCol]);
           if (tableName === 'worker_attendance' && pid && rec.attendance_date) trackInvalidation(pid, rec.attendance_date);
+          if (tableName === 'project_fund_transfers') {
+            const d = rec.transfer_date ? String(rec.transfer_date).substring(0, 10) : '';
+            if (rec.from_project_id && d) trackInvalidation(rec.from_project_id, d);
+            if (rec.to_project_id && d) trackInvalidation(rec.to_project_id, d);
+          }
         }
 
         auditPromises.push(SyncAuditService.logOperation({
@@ -1109,6 +1115,14 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
               if (oldPid && oldRec?.attendance_date) trackInvalidation(oldPid, oldRec.attendance_date);
               if (newPid && newRec?.attendance_date) trackInvalidation(newPid, newRec.attendance_date);
             }
+            if (tableName === 'project_fund_transfers') {
+              const oldD = oldRec?.transfer_date ? String(oldRec.transfer_date).substring(0, 10) : '';
+              const newD = newRec?.transfer_date ? String(newRec.transfer_date).substring(0, 10) : '';
+              if (oldRec?.from_project_id && oldD) trackInvalidation(oldRec.from_project_id, oldD);
+              if (oldRec?.to_project_id && oldD) trackInvalidation(oldRec.to_project_id, oldD);
+              if (newRec?.from_project_id && newD) trackInvalidation(newRec.from_project_id, newD);
+              if (newRec?.to_project_id && newD) trackInvalidation(newRec.to_project_id, newD);
+            }
           }
           auditPromises.push(SyncAuditService.logOperation({
             user_id: userId, userName, action: auditAction, endpoint, tableName,
@@ -1148,6 +1162,11 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
           const pid = oldRec.project_id;
           if (pid && dateCol && oldRec[dateCol]) trackInvalidation(pid, oldRec[dateCol]);
           if (tableName === 'worker_attendance' && pid && oldRec.attendance_date) trackInvalidation(pid, oldRec.attendance_date);
+          if (tableName === 'project_fund_transfers') {
+            const d = oldRec.transfer_date ? String(oldRec.transfer_date).substring(0, 10) : '';
+            if (oldRec.from_project_id && d) trackInvalidation(oldRec.from_project_id, d);
+            if (oldRec.to_project_id && d) trackInvalidation(oldRec.to_project_id, d);
+          }
         }
 
         auditPromises.push(SyncAuditService.logOperation({

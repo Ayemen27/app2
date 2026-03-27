@@ -477,8 +477,31 @@ export class DeploymentEngine {
         }
 
         if (verified === "still_running") {
-          if (checkCount % 4 === 0) {
+          const buildProgress = await this.getRemoteBuildProgress(id);
+          if (buildProgress) {
+            await this.addLog(id, buildProgress, "info");
+
+            const steps = (freshDeployment.steps as StepEntry[]) || [];
+            const currentRunning = steps.find(s => s.status === "running");
+            if (currentRunning) {
+              const progressPct = Math.min(90, 10 + checkCount * 3);
+              this.updateStepProgress(id, currentRunning.name, progressPct, buildProgress.split("\n")[0]);
+            }
+
+            if (buildProgress.includes("اكتمل البناء") && buildProgress.includes("موجود")) {
+              if (currentRunning?.name === "build-server") {
+                const updatedSteps = steps.map(s =>
+                  s.name === "build-server" ? { ...s, status: "success" as const, duration: age } : s
+                );
+                await db.update(buildDeployments).set({ steps: updatedSteps }).where(eq(buildDeployments.id, id));
+                broadcastToClients(id, { type: "step_update", data: { stepName: "build-server", status: "success", duration: age } });
+                await this.addLog(id, "🔄 المراقب اكتشف اكتمال البناء — سيتم التحقق من النشر الكامل", "success");
+              }
+            }
+            await this.flushLogs(id);
+          } else if (checkCount % 2 === 0) {
             await this.addLog(id, `🔄 النشر لا يزال يعمل على الخادم البعيد... (فحص #${checkCount})`, "info");
+            await this.flushLogs(id);
           }
           if (checkCount >= maxChecks) {
             await db.update(buildDeployments).set({
@@ -521,6 +544,72 @@ export class DeploymentEngine {
     const timer = setInterval(check, checkInterval);
     this.remoteMonitors.set(id, timer);
     console.log(`[DeploymentEngine] 🔍 Started remote monitor for deployment #${deployment.buildNumber} (check every ${checkInterval / 1000}s, max ${maxChecks} checks)`);
+  }
+
+  private async getRemoteBuildProgress(deploymentId: string): Promise<string | null> {
+    try {
+      await this.ensureSSHKeyProvisioned();
+      const sshCmd = this.buildSSHCommand();
+      const pidFile = "/tmp/axion_build.pid";
+      const exitFile = "/tmp/axion_build.exit";
+      const logFile = "/tmp/build_deploy.log";
+      const remoteDir = "/home/administrator/app2";
+
+      const { stdout } = await execAsync(
+        `${sshCmd} "` +
+        `BUILD_STATUS='idle'; ` +
+        `if [ -f ${exitFile} ]; then ` +
+        `  EC=\\$(cat ${exitFile}); ` +
+        `  if [ \\$EC -eq 0 ]; then BUILD_STATUS='done'; else BUILD_STATUS=\\"failed:\\$EC\\"; fi; ` +
+        `elif [ -f ${pidFile} ] && kill -0 \\$(cat ${pidFile}) 2>/dev/null; then ` +
+        `  BUILD_STATUS='building'; ` +
+        `fi; ` +
+        `LINES=\\$(wc -l < ${logFile} 2>/dev/null || echo 0); ` +
+        `LAST=\\$(tail -1 ${logFile} 2>/dev/null || echo ''); ` +
+        `PM2=\\$(pm2 jlist 2>/dev/null | python3 -c \\"import sys,json; apps=json.load(sys.stdin); print(','.join([a['name']+':'+a['pm2_env']['status'] for a in apps]))\\" 2>/dev/null || echo 'unknown'); ` +
+        `DIST=\\$(test -f ${remoteDir}/dist/public/index.html && echo 'yes' || echo 'no'); ` +
+        `echo \\"STATUS:\\$BUILD_STATUS|LINES:\\$LINES|PM2:\\$PM2|DIST:\\$DIST|LAST:\\$LAST\\"` +
+        `"`,
+        { timeout: 15000, env: { ...process.env, SSHPASS: process.env.SSH_PASSWORD || process.env.SSHPASS || '' } }
+      );
+
+      const raw = stdout.trim();
+      if (!raw || !raw.includes("STATUS:")) return null;
+
+      const statusMatch = raw.match(/STATUS:([^|]+)/);
+      const linesMatch = raw.match(/LINES:(\d+)/);
+      const pm2Match = raw.match(/PM2:([^|]+)/);
+      const distMatch = raw.match(/DIST:([^|]+)/);
+      const lastMatch = raw.match(/LAST:(.+)$/);
+
+      const status = statusMatch?.[1]?.trim() || "unknown";
+      const lines = parseInt(linesMatch?.[1] || "0");
+      const pm2 = pm2Match?.[1]?.trim() || "unknown";
+      const dist = distMatch?.[1]?.trim() === "yes";
+      const lastLine = lastMatch?.[1]?.trim()?.substring(0, 150) || "";
+
+      const parts2: string[] = [];
+
+      if (status === "building") {
+        parts2.push(`🔨 البناء جارٍ (${lines} سطر في السجل)`);
+        if (lastLine) parts2.push(`📄 ${lastLine}`);
+      } else if (status === "done") {
+        parts2.push(`✅ اكتمل البناء — dist: ${dist ? "موجود" : "مفقود"}`);
+      } else if (status.startsWith("failed:")) {
+        parts2.push(`❌ فشل البناء (exit ${status.replace("failed:", "")})`);
+        if (lastLine) parts2.push(`📄 ${lastLine}`);
+      } else {
+        parts2.push(`📊 PM2: ${pm2} | dist: ${dist ? "✅" : "❌"}`);
+      }
+
+      if (pm2 !== "unknown" && status !== "building") {
+        parts2.push(`🔧 PM2: ${pm2}`);
+      }
+
+      return parts2.join("\n");
+    } catch {
+      return null;
+    }
   }
 
   private stopRemoteMonitor(deploymentId: string) {
@@ -3450,10 +3539,13 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "تنظيف مخرجات البناء السابقة...", "info");
     this.updateStepProgress(deploymentId, "build-server", 5, "تنظيف المخرجات السابقة...");
     const remoteDir = "/home/administrator/app2";
+    const pidFile = "/tmp/axion_build.pid";
+    const exitFile = "/tmp/axion_build.exit";
+    const logFile = "/tmp/build_deploy.log";
 
     await this.execWithLog(
       deploymentId,
-      `${sshCmd} "cd ${remoteDir} && rm -rf dist www android/app/src/main/assets/public android/app/build/outputs && echo 'CLEAN_OK'"`,
+      `${sshCmd} "cd ${remoteDir} && rm -rf dist www android/app/src/main/assets/public android/app/build/outputs && rm -f ${pidFile} ${exitFile} ${logFile} && echo 'CLEAN_OK'"`,
       "Clean Previous Build",
       30000
     );
@@ -3466,41 +3558,91 @@ echo 'MAINACTIVITY_FIXED'"`,
       await this.addLog(deploymentId, `📊 موارد السيرفر قبل البناء: ${diagOut.trim()}`, "info");
     } catch { /* non-critical */ }
 
-    this.updateStepProgress(deploymentId, "build-server", 15, "بناء التطبيق (3-5 دقائق)...");
-    await this.addLog(deploymentId, "بناء التطبيق على السيرفر (قد يستغرق 3-5 دقائق)...", "info");
+    this.updateStepProgress(deploymentId, "build-server", 10, "بدء البناء في الخلفية...");
+    await this.addLog(deploymentId, "🚀 بدء البناء في الخلفية على السيرفر (SSH-resilient)...", "info");
 
-    try {
-      await this.execWithLog(
-        deploymentId,
-        `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tee /tmp/build_deploy.log | tail -40 && echo 'BUILD_OK'"`,
-        "Server Build",
-        600000
-      );
-    } catch (buildErr: any) {
-      const isSSH = buildErr.message?.includes("exit 255") || buildErr.message?.includes("Exit code: 255");
-      if (isSSH) {
-        await this.addLog(deploymentId, "⚠️ فشل اتصال SSH أثناء البناء — سيتم محاولة تنظيف الذاكرة وإعادة البناء تلقائياً", "warn");
+    await execAsync(
+      `${sshCmd} "cd ${remoteDir} && nohup bash -c 'export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build > ${logFile} 2>&1; echo \\$? > ${exitFile}' & echo \\$! > ${pidFile} && cat ${pidFile}"`,
+      { timeout: 30000 }
+    );
+
+    await this.addLog(deploymentId, "⏳ بناء التطبيق جارٍ... مراقبة دورية كل 15 ثانية", "info");
+
+    const maxWaitMs = 600000;
+    const pollInterval = 15000;
+    const startTime = Date.now();
+    let lastLogLine = 0;
+
+    while (Date.now() - startTime < maxWaitMs) {
+      if (this.isCancelled(deploymentId)) {
         try {
-          await execAsync(
-            `${sshCmd} "sync && echo 3 | sudo tee /proc/sys/vm/drop_caches 2>/dev/null; npm cache verify --silent 2>/dev/null; echo 'CLEANUP_DONE'"`,
-            { timeout: 15000 }
-          );
+          await execAsync(`${sshCmd} "kill \\$(cat ${pidFile}) 2>/dev/null; rm -f ${pidFile} ${exitFile}"`, { timeout: 10000 });
         } catch { /* best-effort */ }
+        throw new (class extends Error { constructor() { super("Cancelled by user"); this.name = "CancellationError"; } })();
       }
+
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      const progress = Math.min(85, 15 + Math.round((elapsed / (maxWaitMs / 1000)) * 70));
+
       try {
-        const { stdout: buildLog } = await execAsync(
-          `${sshCmd} "tail -60 /tmp/build_deploy.log 2>/dev/null || echo 'NO_BUILD_LOG'"`,
-          { timeout: 10000 }
+        const { stdout: status } = await execAsync(
+          `${sshCmd} "if [ -f ${exitFile} ]; then echo \\"EXIT:\\$(cat ${exitFile})\\"; elif [ -f ${pidFile} ] && kill -0 \\$(cat ${pidFile}) 2>/dev/null; then WC=\\$(wc -l < ${logFile} 2>/dev/null || echo 0); echo \\"RUNNING:\\$WC\\"; else echo 'LOST'; fi"`,
+          { timeout: 15000 }
         );
-        if (buildLog.trim() && !buildLog.includes("NO_BUILD_LOG")) {
-          const errorLines = buildLog.split("\n").filter(l => /error|fail|killed|cannot|oom/i.test(l)).slice(-10);
-          if (errorLines.length > 0) {
-            await this.addLog(deploymentId, `📋 أسطر الخطأ من سجل البناء:\n${errorLines.join("\n")}`, "warn");
+
+        const trimmed = status.trim();
+
+        if (trimmed.startsWith("EXIT:")) {
+          const exitCode = parseInt(trimmed.replace("EXIT:", "").trim());
+          if (exitCode === 0) {
+            await this.addLog(deploymentId, `✅ اكتمل البناء بنجاح (${elapsed}s)`, "success");
+            break;
+          } else {
+            const { stdout: errLog } = await execAsync(`${sshCmd} "tail -40 ${logFile} 2>/dev/null"`, { timeout: 10000 }).catch(() => ({ stdout: "" }));
+            const errorLines = errLog.split("\n").filter((l: string) => /error|fail|killed|cannot|oom/i.test(l)).slice(-10);
+            if (errorLines.length > 0) {
+              await this.addLog(deploymentId, `📋 أسطر الخطأ:\n${errorLines.join("\n")}`, "error");
+            }
+            throw new Error(`فشل البناء على السيرفر (exit code: ${exitCode})`);
           }
+        } else if (trimmed.startsWith("RUNNING:")) {
+          const lines = parseInt(trimmed.replace("RUNNING:", "").trim()) || 0;
+          if (lines > lastLogLine) {
+            const newLines = lines - lastLogLine;
+            this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s (${lines} سطر)`);
+            lastLogLine = lines;
+            try {
+              const { stdout: tailOut } = await execAsync(`${sshCmd} "tail -3 ${logFile} 2>/dev/null"`, { timeout: 10000 });
+              const lastLine = tailOut.trim().split("\n").pop()?.trim();
+              if (lastLine && lastLine.length > 5) {
+                await this.addLog(deploymentId, `📄 [${elapsed}s] ${lastLine.substring(0, 200)}`, "info");
+              }
+            } catch { /* non-critical */ }
+          } else {
+            this.updateStepProgress(deploymentId, "build-server", progress, `جارٍ البناء... ${elapsed}s`);
+          }
+        } else if (trimmed === "LOST") {
+          const { stdout: errLog } = await execAsync(`${sshCmd} "tail -30 ${logFile} 2>/dev/null"`, { timeout: 10000 }).catch(() => ({ stdout: "" }));
+          await this.addLog(deploymentId, `❌ عملية البناء توقفت بشكل غير متوقع\n${errLog.trim().split("\n").slice(-5).join("\n")}`, "error");
+          throw new Error("عملية البناء توقفت — قد يكون السبب نفاد الذاكرة (OOM killed)");
         }
-      } catch { /* non-critical */ }
-      throw buildErr;
+      } catch (pollErr: any) {
+        if (pollErr.message?.includes("exit 255") || pollErr.message?.includes("Exit code: 255")) {
+          await this.addLog(deploymentId, `⚠️ انقطاع SSH مؤقت (${elapsed}s) — إعادة المحاولة...`, "warn");
+          continue;
+        }
+        throw pollErr;
+      }
     }
+
+    if (Date.now() - startTime >= maxWaitMs) {
+      try {
+        await execAsync(`${sshCmd} "kill \\$(cat ${pidFile}) 2>/dev/null"`, { timeout: 10000 });
+      } catch { /* best-effort */ }
+      throw new Error(`تجاوز وقت البناء الأقصى (${maxWaitMs / 1000}s)`);
+    }
+
     this.updateStepProgress(deploymentId, "build-server", 90, "التحقق من المخرجات...");
 
     const verifyBuild = await this.execWithLog(
@@ -3514,6 +3656,10 @@ echo 'MAINACTIVITY_FIXED'"`,
       throw new Error("❌ فشل البناء — dist/public/index.html غير موجود");
     }
     await this.addLog(deploymentId, `✅ تم التحقق من مخرجات البناء`, "success");
+
+    try {
+      await execAsync(`${sshCmd} "rm -f ${pidFile} ${exitFile}"`, { timeout: 10000 });
+    } catch { /* cleanup */ }
   }
 
   private async stepDbMigrate(deploymentId: string, sshCmd: string) {

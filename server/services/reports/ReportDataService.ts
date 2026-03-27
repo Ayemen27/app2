@@ -296,7 +296,7 @@ export class ReportDataService {
     const totalWorkerTransfers = workerTransfersList.reduce((s, t) => s + t.amount, 0);
     const totalFundTransfers = fundTransfersList.reduce((s, f) => s + f.amount, 0);
     const totalProjectTransfersOut = projectFundTransfersOutData.reduce((s: number, f: any) => s + safeNum(f.amount), 0);
-    const supplierPaymentsResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [projectId, date]);
+    const supplierPaymentsResult = await pool.query(`SELECT COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date = $2`, [projectId, date]);
     const totalSupplierPayments = parseFloat(supplierPaymentsResult.rows[0]?.total || '0');
     const totalExpenses = totalPaidWages + totalMaterials + totalTransport + totalMiscExpenses + totalWorkerTransfers + totalProjectTransfersOut + totalSupplierPayments;
     const balance = totalFundTransfers - totalExpenses;
@@ -923,8 +923,8 @@ export class ReportDataService {
     const totalMaterialsAmount = materialItems.reduce((s: number, m: any) => s + m.totalAmount, 0);
     const totalMaterialsPaid = materialsRows.reduce((s: number, r: any) => s + safeNum(r.totalPaid), 0);
     const cashMaterialsResult = await pool.query(`SELECT COALESCE(SUM(
-      CASE WHEN CAST(paid_amount AS DECIMAL) > 0 THEN CAST(paid_amount AS DECIMAL(15,2))
-           ELSE CAST(total_amount AS DECIMAL(15,2)) END
+      CASE WHEN CAST(COALESCE(NULLIF(paid_amount::text,''),'0') AS DECIMAL) > 0 THEN CAST(COALESCE(NULLIF(paid_amount::text,''),'0') AS DECIMAL(15,2))
+           ELSE CAST(COALESCE(NULLIF(total_amount::text,''),'0') AS DECIMAL(15,2)) END
     ), 0) as total FROM material_purchases WHERE project_id = $1 AND (purchase_type = 'نقد' OR purchase_type = 'نقداً') AND purchase_date >= $2 AND purchase_date <= $3`, [projectId, dateFrom, dateTo]);
     const totalMaterialsCash = parseFloat(cashMaterialsResult.rows[0]?.total || '0');
 
@@ -968,19 +968,19 @@ export class ReportDataService {
     const totalProjectTransfersIn = projectTransferInRows.reduce((s: number, r: any) => s + safeNum(r.amount), 0);
     const projectTransfersNet = totalProjectTransfersIn - totalProjectTransfersOut;
 
-    const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3`, [projectId, dateFrom, dateTo]);
+    const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3`, [projectId, dateFrom, dateTo]);
     const totalSupplierPaymentsPeriod = parseFloat(supplierPayPeriodResult.rows[0]?.total || '0');
 
     const inventoryPeriodResult = await pool.query(`
       WITH lot_totals AS (
         SELECT item_id,
-          COALESCE(SUM(CAST(received_qty AS DECIMAL(15,2))), 0) AS received_qty,
-          COALESCE(SUM(CAST(remaining_qty AS DECIMAL(15,2))), 0) AS remaining_qty
+          COALESCE(SUM(CAST(COALESCE(NULLIF(received_qty::text,''),'0') AS DECIMAL(15,2))), 0) AS received_qty,
+          COALESCE(SUM(CAST(COALESCE(NULLIF(remaining_qty::text,''),'0') AS DECIMAL(15,2))), 0) AS remaining_qty
         FROM inventory_lots
         GROUP BY item_id
       )
       SELECT t.id, i.name AS item_name, i.category, i.unit,
-        CAST(t.quantity AS DECIMAL(15,2)) AS issued_qty,
+        CAST(COALESCE(NULLIF(t.quantity::text,''),'0') AS DECIMAL(15,2)) AS issued_qty,
         COALESCE(lt.received_qty, 0) AS received_qty,
         COALESCE(lt.remaining_qty, 0) AS remaining_qty,
         COALESCE(p.name, '') AS project_name,
@@ -1425,8 +1425,8 @@ export class ReportDataService {
           SELECT
             COALESCE(w.type, 'غير محدد') AS type,
             COUNT(DISTINCT wa.worker_id) AS count,
-            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_days,
-            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL) END), 0) AS total_wages
+            COALESCE(SUM(CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL)), 0) AS total_days,
+            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(COALESCE(NULLIF(wa.actual_wage::text,''),'0') AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage::text,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL) END), 0) AS total_wages
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
@@ -1436,9 +1436,9 @@ export class ReportDataService {
         client.query(`
           SELECT
             w.name, w.type,
-            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_days,
-            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL) END), 0) AS total_earned,
-            COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
+            COALESCE(SUM(CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL)), 0) AS total_days,
+            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(COALESCE(NULLIF(wa.actual_wage::text,''),'0') AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage::text,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL) END), 0) AS total_earned,
+            COALESCE(SUM(CAST(COALESCE(NULLIF(wa.paid_amount::text,''),'0') AS DECIMAL)), 0) AS total_paid
           FROM worker_attendance wa
           LEFT JOIN workers w ON wa.worker_id = w.id
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
@@ -1448,7 +1448,7 @@ export class ReportDataService {
 
         client.query(`
           SELECT id, well_number, owner_name, region, well_depth, status,
-            COALESCE(CAST(completion_percentage AS DECIMAL), 0) AS completion_percentage
+            COALESCE(CAST(COALESCE(NULLIF(completion_percentage::text,''),'0') AS DECIMAL), 0) AS completion_percentage
           FROM wells WHERE project_id = $1
           ORDER BY well_number
         `, [projectId]),
@@ -1460,7 +1460,7 @@ export class ReportDataService {
         client.query(`
           SELECT wc.well_id,
             COUNT(*) AS crew_count,
-            COALESCE(SUM(CAST(wc.total_wages AS DECIMAL)), 0) AS total_wages
+            COALESCE(SUM(CAST(COALESCE(NULLIF(wc.total_wages::text,''),'0') AS DECIMAL)), 0) AS total_wages
           FROM well_work_crews wc
           JOIN wells w ON wc.well_id = w.id
           WHERE w.project_id = $1
@@ -1471,8 +1471,8 @@ export class ReportDataService {
           SELECT
             COALESCE(NULLIF(wa.date,''), wa.attendance_date) AS date,
             COUNT(DISTINCT wa.worker_id) AS worker_count,
-            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_work_days,
-            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL) END), 0) AS total_wages
+            COALESCE(SUM(CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL)), 0) AS total_work_days,
+            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(COALESCE(NULLIF(wa.actual_wage::text,''),'0') AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage::text,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL) END), 0) AS total_wages
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
           GROUP BY COALESCE(NULLIF(wa.date,''), wa.attendance_date) ORDER BY COALESCE(NULLIF(wa.date,''), wa.attendance_date)
@@ -1480,17 +1480,17 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            COALESCE(SUM(CAST(wa.work_days AS DECIMAL)), 0) AS total_work_days,
-            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL) END), 0) AS total_wages,
-            COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL)), 0) AS total_paid
+            COALESCE(SUM(CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL)), 0) AS total_work_days,
+            COALESCE(SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(COALESCE(NULLIF(wa.actual_wage::text,''),'0') AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage::text,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days::text,''),'0') AS DECIMAL) END), 0) AS total_wages,
+            COALESCE(SUM(CAST(COALESCE(NULLIF(wa.paid_amount::text,''),'0') AS DECIMAL)), 0) AS total_paid
           FROM worker_attendance wa
           WHERE wa.project_id = $1 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) >= $2 AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) <= $3
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
           SELECT
-            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) AS total,
-            COALESCE(SUM(CAST(paid_amount AS DECIMAL)), 0) AS total_paid
+            COALESCE(SUM(CAST(COALESCE(NULLIF(total_amount::text,''),'0') AS DECIMAL)), 0) AS total,
+            COALESCE(SUM(CAST(COALESCE(NULLIF(paid_amount::text,''),'0') AS DECIMAL)), 0) AS total_paid
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
         `, [projectId, dateFrom, dateTo]),
@@ -1498,7 +1498,7 @@ export class ReportDataService {
         client.query(`
           SELECT
             COALESCE(material_category, 'غير مصنف') AS category,
-            COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) AS total,
+            COALESCE(SUM(CAST(COALESCE(NULLIF(total_amount::text,''),'0') AS DECIMAL)), 0) AS total,
             COUNT(*) AS count
           FROM material_purchases
           WHERE project_id = $1 AND purchase_date >= $2 AND purchase_date <= $3
@@ -1507,7 +1507,7 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total,
+            COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL)), 0) AS total,
             COUNT(*) AS trip_count
           FROM transportation_expenses
           WHERE project_id = $1 AND date >= $2 AND date <= $3
@@ -1515,7 +1515,7 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total,
+            COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL)), 0) AS total,
             COUNT(*) AS count
           FROM worker_misc_expenses
           WHERE project_id = $1 AND date >= $2 AND date <= $3
@@ -1523,7 +1523,7 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total,
+            COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL)), 0) AS total,
             COUNT(*) AS count
           FROM worker_transfers
           WHERE project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
@@ -1531,7 +1531,7 @@ export class ReportDataService {
 
         client.query(`
           SELECT
-            COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total
+            COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL)), 0) AS total
           FROM fund_transfers
           WHERE project_id = $1
             AND (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END) >= $2::date
@@ -1541,7 +1541,7 @@ export class ReportDataService {
         client.query(`
           SELECT
             (CASE WHEN transfer_date IS NULL OR transfer_date::text = '' OR transfer_date::text !~ '^\\d{4}-\\d{2}-\\d{2}' THEN NULL ELSE transfer_date::date END)::text AS date,
-            CAST(amount AS DECIMAL) AS amount,
+            CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL) AS amount,
             COALESCE(sender_name, '-') AS sender_name,
             COALESCE(transfer_type, '-') AS transfer_type
           FROM fund_transfers
@@ -1552,13 +1552,13 @@ export class ReportDataService {
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total
+          SELECT COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL)), 0) AS total
           FROM project_fund_transfers
           WHERE to_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
         `, [projectId, dateFrom, dateTo]),
 
         client.query(`
-          SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total
+          SELECT COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL)), 0) AS total
           FROM project_fund_transfers
           WHERE from_project_id = $1 AND transfer_date >= $2 AND transfer_date <= $3
         `, [projectId, dateFrom, dateTo]),
@@ -1579,7 +1579,7 @@ export class ReportDataService {
       ]);
 
       const supplierPayCompResult = await client.query(`
-        SELECT COALESCE(SUM(CAST(amount AS DECIMAL)), 0) AS total, COUNT(*) AS count
+        SELECT COALESCE(SUM(CAST(COALESCE(NULLIF(amount::text,''),'0') AS DECIMAL)), 0) AS total, COUNT(*) AS count
         FROM supplier_payments
         WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3
       `, [projectId, dateFrom, dateTo]);

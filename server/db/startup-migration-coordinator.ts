@@ -39,8 +39,24 @@ export async function runAllStartupMigrations(): Promise<void> {
     await client.query(`
       CREATE OR REPLACE FUNCTION safe_numeric(v text, d numeric DEFAULT 0)
       RETURNS numeric
-      LANGUAGE sql IMMUTABLE
-      AS $$ SELECT CASE WHEN v IS NULL OR trim(v) = '' THEN d ELSE trim(v)::numeric END $$;
+      LANGUAGE plpgsql
+      IMMUTABLE
+      AS $$
+      DECLARE t text;
+      BEGIN
+        IF v IS NULL THEN RETURN d; END IF;
+        t := replace(btrim(v), ',', '');
+        IF t = '' OR lower(t) IN ('nan','inf','+inf','-inf','infinity','+infinity','-infinity') THEN
+          RETURN d;
+        END IF;
+        IF t ~ '^[+-]?((\\d+(\\.\\d*)?)|(\\.\\d+))([eE][+-]?\\d+)?$' THEN
+          RETURN t::numeric;
+        END IF;
+        RETURN d;
+      EXCEPTION WHEN others THEN
+        RETURN d;
+      END;
+      $$;
     `);
 
     console.log("✅ [Migrations] تم تنفيذ جميع migrations بنجاح");

@@ -314,7 +314,6 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     row = xlSectionHeader(ws, row, 'دفعات الموردين', COL_COUNT);
     {
       const hdr = ws.getRow(row);
-      ws.mergeCells(row, 5, row, 6);
       ws.mergeCells(row, 7, row, 9);
       const headers = [
         { col: 1, text: '#' },
@@ -322,6 +321,7 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
         { col: 3, text: 'المورد' },
         { col: 4, text: 'المبلغ' },
         { col: 5, text: 'طريقة الدفع' },
+        { col: 6, text: 'رقم المرجع' },
         { col: 7, text: 'ملاحظات' },
       ];
       headers.forEach(({ col, text }) => {
@@ -342,13 +342,13 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
     }
     data.sections.supplierPayments.items.forEach((sp, idx) => {
       const r = ws.getRow(row);
-      ws.mergeCells(row, 5, row, 6);
       ws.mergeCells(row, 7, row, 9);
       r.getCell(1).value = idx + 1;
       r.getCell(2).value = formatDateBR(sp.paymentDate);
       r.getCell(3).value = sp.supplierName;
       r.getCell(4).value = formatNum(sp.amount);
       r.getCell(5).value = sp.paymentMethod || '-';
+      r.getCell(6).value = sp.referenceNumber || '-';
       r.getCell(7).value = sp.notes || '-';
       for (let c = 1; c <= COL_COUNT; c++) {
         r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -367,6 +367,75 @@ export async function generatePeriodFinalExcel(data: PeriodFinalReportData): Pro
       ws.mergeCells(row, 5, row, 9);
       r.getCell(1).value = 'الإجمالي';
       r.getCell(4).value = formatNum(data.sections.supplierPayments.total);
+      for (let c = 1; c <= COL_COUNT; c++) {
+        r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
+        r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };
+        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        r.getCell(c).border = BORDER;
+      }
+      r.height = 28;
+      row++;
+    }
+    row++;
+  }
+
+  if (data.sections.inventoryIssued?.items?.length) {
+    row = xlSectionHeader(ws, row, 'حركة المخزون (صرف)', COL_COUNT);
+    {
+      const hdr = ws.getRow(row);
+      ws.mergeCells(row, 7, row, 9);
+      const headers = [
+        { col: 1, text: '#' },
+        { col: 2, text: 'الصنف' },
+        { col: 3, text: 'الفئة' },
+        { col: 4, text: 'الوحدة' },
+        { col: 5, text: 'الكمية المصروفة' },
+        { col: 6, text: 'المتبقي' },
+        { col: 7, text: 'ملاحظات' },
+      ];
+      headers.forEach(({ col, text }) => {
+        hdr.getCell(col).value = text;
+        hdr.getCell(col).font = { bold: true, size: 10, color: { argb: COLORS.white }, name: 'Calibri' };
+        hdr.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        hdr.getCell(col).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        hdr.getCell(col).border = BORDER;
+      });
+      for (let c = 1; c <= COL_COUNT; c++) {
+        if (!hdr.getCell(c).border) hdr.getCell(c).border = BORDER;
+        if (!hdr.getCell(c).font?.bold) {
+          hdr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.navy } };
+        }
+      }
+      hdr.height = 26;
+      row++;
+    }
+    data.sections.inventoryIssued.items.forEach((item, idx) => {
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 7, row, 9);
+      r.getCell(1).value = idx + 1;
+      r.getCell(2).value = item.itemName;
+      r.getCell(3).value = item.category;
+      r.getCell(4).value = item.unit;
+      r.getCell(5).value = item.issuedQty;
+      r.getCell(6).value = item.remainingQty;
+      r.getCell(7).value = item.notes || '-';
+      for (let c = 1; c <= COL_COUNT; c++) {
+        r.getCell(c).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        r.getCell(c).font = { size: 10, name: 'Calibri' };
+        r.getCell(c).border = BORDER;
+        if (idx % 2 === 1) {
+          r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.lightBlue } };
+        }
+      }
+      r.height = 24;
+      row++;
+    });
+    {
+      const r = ws.getRow(row);
+      ws.mergeCells(row, 1, row, 4);
+      ws.mergeCells(row, 6, row, 9);
+      r.getCell(1).value = `إجمالي الأصناف: ${data.sections.inventoryIssued.totalItems}`;
+      r.getCell(5).value = data.sections.inventoryIssued.totalIssuedQty;
       for (let c = 1; c <= COL_COUNT; c++) {
         r.getCell(c).font = { bold: true, size: 10, color: { argb: COLORS.navy }, name: 'Calibri' };
         r.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.totalBg } };

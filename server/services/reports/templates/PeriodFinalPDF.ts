@@ -162,14 +162,36 @@ export function generatePeriodFinalHTML(data: PeriodFinalReportData): string {
         <td>${formatDateBR(sp.paymentDate)}</td>
         <td style="text-align:right;">${escapeHtml(sp.supplierName)}</td>
         <td>${escapeHtml(sp.paymentMethod || '-')}</td>
+        <td>${escapeHtml(sp.referenceNumber || '-')}</td>
         <td style="font-weight:700;">${formatNum(sp.amount)}</td>
       </tr>`
     ).join('');
     body += `<table><thead><tr>
       <th style="width:30px;">م</th><th style="width:80px;">التاريخ</th>
-      <th>المورد</th><th style="width:80px;">طريقة الدفع</th><th style="width:90px;">المبلغ</th>
+      <th>المورد</th><th style="width:80px;">طريقة الدفع</th><th style="width:70px;">رقم المرجع</th><th style="width:90px;">المبلغ</th>
     </tr></thead><tbody>${spRows}
-    ${pdfTotalRow(['الإجمالي', formatNum(data.sections.supplierPayments.total)], 4)}
+    ${pdfTotalRow(['الإجمالي', formatNum(data.sections.supplierPayments.total)], 5)}
+    </tbody></table>`;
+  }
+
+  if (data.sections.inventoryIssued?.items?.length) {
+    body += pdfSectionTitle('حركة المخزون (صرف)');
+    const invRows = data.sections.inventoryIssued.items.map((item, idx) =>
+      `<tr>
+        <td>${idx + 1}</td>
+        <td style="text-align:right;">${escapeHtml(item.itemName)}</td>
+        <td>${escapeHtml(item.category)}</td>
+        <td>${escapeHtml(item.unit)}</td>
+        <td style="font-weight:700;">${item.issuedQty}</td>
+        <td>${item.remainingQty}</td>
+      </tr>`
+    ).join('');
+    body += `<table><thead><tr>
+      <th style="width:30px;">م</th><th>الصنف</th>
+      <th style="width:70px;">الفئة</th><th style="width:60px;">الوحدة</th>
+      <th style="width:80px;">الكمية المصروفة</th><th style="width:70px;">المتبقي</th>
+    </tr></thead><tbody>${invRows}
+    ${pdfTotalRow([`إجمالي الأصناف: ${data.sections.inventoryIssued.totalItems}`, `${data.sections.inventoryIssued.totalIssuedQty}`], 5)}
     </tbody></table>`;
   }
 

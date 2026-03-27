@@ -138,7 +138,7 @@ export interface DailyReportData {
 
 export interface WorkerStatementEntry {
   date: string;
-  type: 'عمل' | 'حوالة' | 'دفعة';
+  type: 'عمل' | 'حوالة' | 'دفعة' | 'تصفية';
   description: string;
   projectName: string;
   workDays: number;
@@ -278,6 +278,11 @@ export interface PeriodFinalReportData {
       total: number;
       count: number;
       items: SupplierPaymentRecord[];
+    };
+    inventoryIssued?: {
+      totalItems: number;
+      totalIssuedQty: number;
+      items: InventoryIssuedRecord[];
     };
   };
   totals: {

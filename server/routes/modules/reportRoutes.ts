@@ -7,7 +7,7 @@
 import express from 'express';
 import { Request, Response } from 'express';
 import { eq, and, sql, gte, lte, desc, asc, between, inArray } from 'drizzle-orm';
-import { db } from '../../db';
+import { db, pool } from '../../db';
 import {
   projects,
   workers,
@@ -579,7 +579,36 @@ reportRouter.get('/reports/worker-statement', async (req: Request, res: Response
         projectName: t.projectName || '-',
         reference: t.transferNumber || 'حوالة'
       }))
-    ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    ];
+
+    const settlementRes = await pool.query(`
+      SELECT wsl.amount, ws.settlement_date,
+        fp.name AS from_project_name, tp.name AS to_project_name
+      FROM worker_settlement_lines wsl
+      JOIN worker_settlements ws ON ws.id = wsl.settlement_id
+      LEFT JOIN projects fp ON fp.id = wsl.from_project_id
+      LEFT JOIN projects tp ON tp.id = wsl.to_project_id
+      WHERE wsl.worker_id = $1 AND ws.status = 'completed'
+      ${dateFrom ? `AND ws.settlement_date >= $2` : ''}
+      ${dateTo ? `AND ws.settlement_date <= $${dateFrom ? '3' : '2'}` : ''}
+      ORDER BY ws.settlement_date
+    `, [worker_id, ...(dateFrom ? [dateFrom] : []), ...(dateTo ? [dateTo] : [])]);
+
+    for (const s of settlementRes.rows) {
+      const amt = parseFloat(s.amount) || 0;
+      statement.push({
+        date: s.settlement_date,
+        type: 'تصفية',
+        description: `تصفية من ${s.from_project_name || '-'} إلى ${s.to_project_name || '-'}`,
+        amount: 0,
+        paid: Math.round(amt),
+        workDays: 0,
+        projectName: s.from_project_name || '-',
+        reference: 'تصفية حساب'
+      });
+    }
+
+    statement.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // حساب الرصيد التراكمي
     let runningBalance = 0;

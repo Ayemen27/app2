@@ -502,6 +502,35 @@ export class ReportDataService {
       });
     }
 
+    const settlementResult = await pool.query(`
+      SELECT wsl.amount, wsl.balance_before, wsl.balance_after,
+        ws.settlement_date, ws.notes,
+        fp.name AS from_project_name, tp.name AS to_project_name,
+        wsl.from_project_id, wsl.to_project_id
+      FROM worker_settlement_lines wsl
+      JOIN worker_settlements ws ON ws.id = wsl.settlement_id
+      LEFT JOIN projects fp ON fp.id = wsl.from_project_id
+      LEFT JOIN projects tp ON tp.id = wsl.to_project_id
+      WHERE wsl.worker_id = $1 AND ws.status = 'completed'
+      ${dateFrom ? `AND ws.settlement_date >= $2` : ''}
+      ${dateTo ? `AND ws.settlement_date <= $${dateFrom ? '3' : '2'}` : ''}
+      ORDER BY ws.settlement_date
+    `, [workerId, ...(dateFrom ? [dateFrom] : []), ...(dateTo ? [dateTo] : [])]);
+
+    for (const s of settlementResult.rows) {
+      const amt = parseFloat(s.amount) || 0;
+      rawEntries.push({
+        date: s.settlement_date,
+        type: 'تصفية',
+        description: `تصفية من ${s.from_project_name || '-'} إلى ${s.to_project_name || '-'}`,
+        projectName: s.from_project_name || '-',
+        workDays: 0,
+        debit: 0,
+        credit: amt,
+        reference: 'تصفية حساب',
+      });
+    }
+
     rawEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     let runningBalance = 0;
@@ -918,6 +947,42 @@ export class ReportDataService {
     const supplierPayPeriodResult = await pool.query(`SELECT COALESCE(SUM(CAST(amount AS DECIMAL(15,2))), 0) as total FROM supplier_payments WHERE project_id = $1 AND payment_date >= $2 AND payment_date <= $3`, [projectId, dateFrom, dateTo]);
     const totalSupplierPaymentsPeriod = parseFloat(supplierPayPeriodResult.rows[0]?.total || '0');
 
+    const inventoryPeriodResult = await pool.query(`
+      WITH lot_totals AS (
+        SELECT item_id,
+          COALESCE(SUM(CAST(received_qty AS DECIMAL(15,2))), 0) AS received_qty,
+          COALESCE(SUM(CAST(remaining_qty AS DECIMAL(15,2))), 0) AS remaining_qty
+        FROM inventory_lots
+        GROUP BY item_id
+      )
+      SELECT t.id, i.name AS item_name, i.category, i.unit,
+        CAST(t.quantity AS DECIMAL(15,2)) AS issued_qty,
+        COALESCE(lt.received_qty, 0) AS received_qty,
+        COALESCE(lt.remaining_qty, 0) AS remaining_qty,
+        COALESCE(p.name, '') AS project_name,
+        COALESCE(t.notes, '') AS notes
+      FROM inventory_transactions t
+      JOIN inventory_items i ON i.id = t.item_id
+      LEFT JOIN lot_totals lt ON lt.item_id = t.item_id
+      LEFT JOIN projects p ON p.id = t.from_project_id
+      WHERE t.type = 'OUT'
+        AND t.transaction_date >= $2 AND t.transaction_date <= $3
+        AND (t.from_project_id = $1 OR t.to_project_id = $1)
+      ORDER BY t.transaction_date
+    `, [projectId, dateFrom, dateTo]);
+
+    const inventoryIssuedItems: InventoryIssuedRecord[] = inventoryPeriodResult.rows.map((r: any) => ({
+      id: Number(r.id),
+      itemName: r.item_name || '-',
+      category: r.category || '-',
+      unit: r.unit || '-',
+      issuedQty: Number(r.issued_qty) || 0,
+      receivedQty: Number(r.received_qty) || 0,
+      remainingQty: Number(r.remaining_qty) || 0,
+      projectName: r.project_name || '-',
+      notes: r.notes || '',
+    }));
+
     const totalWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalWages, 0);
     const totalPaidWages = attendanceSummary.reduce((s: number, a: any) => s + a.totalPaid, 0);
     const totalExpenses = totalPaidWages + totalMaterialsCash + transportTotal + miscTotal + workerTransfersTotal + totalProjectTransfersOut + totalSupplierPaymentsPeriod;
@@ -1110,6 +1175,11 @@ export class ReportDataService {
             notes: r.notes || '',
           })),
         },
+        inventoryIssued: inventoryIssuedItems.length > 0 ? {
+          totalItems: inventoryIssuedItems.length,
+          totalIssuedQty: inventoryIssuedItems.reduce((s, i) => s + i.issuedQty, 0),
+          items: inventoryIssuedItems,
+        } : undefined,
       },
       totals: {
         totalIncome: totalFundTransfersAmount,

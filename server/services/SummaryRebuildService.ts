@@ -64,7 +64,7 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
       SELECT COALESCE(SUM(CAST(paid_amount AS DECIMAL(15,2))), 0) as total
       FROM worker_attendance
       WHERE project_id = $1
-        AND date = $2
+        AND COALESCE(NULLIF(date,''), attendance_date) = $2
         AND CAST(paid_amount AS DECIMAL) > 0
     ),
     day_materials AS (
@@ -203,8 +203,8 @@ async function getActiveDatesWithClient(client: PoolClient, projectId: string, f
         AND CAST(transfer_date AS TEXT) ~ '^\\d{4}-\\d{2}-\\d{2}'
         AND SUBSTRING(CAST(transfer_date AS TEXT) FROM 1 FOR 10) <= $2
       UNION
-      SELECT date as sub_date FROM worker_attendance
-      WHERE project_id = $1 AND date IS NOT NULL AND date != '' AND date <= $2
+      SELECT COALESCE(NULLIF(date,''), attendance_date) as sub_date FROM worker_attendance
+      WHERE project_id = $1 AND COALESCE(NULLIF(date,''), attendance_date) IS NOT NULL AND COALESCE(NULLIF(date,''), attendance_date) != '' AND COALESCE(NULLIF(date,''), attendance_date) <= $2
       UNION
       SELECT purchase_date as sub_date FROM material_purchases
       WHERE project_id = $1 AND purchase_date IS NOT NULL AND purchase_date != '' AND purchase_date <= $2

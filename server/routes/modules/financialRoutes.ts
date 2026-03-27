@@ -4225,7 +4225,7 @@ financialRouter.get('/multi-project-expenses', async (req: Request, res: Respons
 
     const [workersR, transportR, miscR, fundsR, purchasesR, workerTransfersR] = await Promise.all([
       pool.query(
-        `SELECT wa.project_id, w.name as worker_name, wa.paid_amount, wa.work_days, wa.daily_wage, wa.actual_wage, wa.notes, p.name as project_name FROM worker_attendance wa JOIN projects p ON p.id = wa.project_id LEFT JOIN workers w ON w.id = wa.worker_id WHERE wa.date = $1 AND wa.project_id = ANY($2) ORDER BY p.name, w.name`,
+        `SELECT wa.project_id, w.name as worker_name, wa.paid_amount, wa.work_days, wa.daily_wage, wa.actual_wage, wa.notes, p.name as project_name FROM worker_attendance wa JOIN projects p ON p.id = wa.project_id LEFT JOIN workers w ON w.id = wa.worker_id WHERE COALESCE(NULLIF(wa.date,''), wa.attendance_date) = $1 AND wa.project_id = ANY($2) ORDER BY p.name, w.name`,
         [cleanDate, projectIds]
       ),
       pool.query(

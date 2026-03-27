@@ -2360,8 +2360,9 @@ workerRouter.delete('/worker-attendance/:id', async (req: Request, res: Response
     });
 
     try {
-      if (attendanceToDelete.project_id && attendanceToDelete.date) {
-        await SummaryRebuildService.markInvalid(attendanceToDelete.project_id, attendanceToDelete.date);
+      const deleteDate = attendanceToDelete.date || attendanceToDelete.attendance_date || attendanceToDelete.attendanceDate;
+      if (attendanceToDelete.project_id && deleteDate) {
+        await SummaryRebuildService.markInvalid(attendanceToDelete.project_id, deleteDate);
       }
     } catch (e) { console.error('[SummaryRebuild] worker-attendance/DELETE markInvalid error:', e); }
 
@@ -2741,8 +2742,9 @@ workerRouter.post('/worker-attendance', async (req: Request, res: Response) => {
     });
 
     try {
-      if (record.project_id && record.date) {
-        await SummaryRebuildService.markInvalid(record.project_id, record.date);
+      const postDate = record.date || record.attendance_date || record.attendanceDate;
+      if (record.project_id && postDate) {
+        await SummaryRebuildService.markInvalid(record.project_id, postDate);
       }
     } catch (e) { console.error('[SummaryRebuild] worker-attendance/POST markInvalid error:', e); }
 
@@ -3059,8 +3061,8 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
 
     try {
       if (updated_attendance[0].project_id) {
-        const oldDate = existingAttendance[0].date || '';
-        const newDate = updated_attendance[0].date || '';
+        const oldDate = existingAttendance[0].date || existingAttendance[0].attendance_date || existingAttendance[0].attendanceDate || '';
+        const newDate = updated_attendance[0].date || updated_attendance[0].attendance_date || updated_attendance[0].attendanceDate || '';
         const minDate = oldDate && newDate ? (oldDate < newDate ? oldDate : newDate) : (oldDate || newDate);
         if (minDate) await SummaryRebuildService.markInvalid(updated_attendance[0].project_id, minDate);
       }

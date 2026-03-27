@@ -1022,17 +1022,17 @@ export class DeploymentEngine {
       }).where(and(eq(buildDeployments.id, deploymentId), eq(buildDeployments.status, "running"))).returning({ id: buildDeployments.id });
 
       if (!casResult) {
-        logger.warn("pipeline", `CAS fail: deployment ${deploymentId} already transitioned — skipping fail update`);
+        logger.warn("pipeline", `CAS fail: deployment ${deploymentId} already transitioned — skipping fail update & notification`);
+      } else {
+        await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", failMsg);
+        await this.sendDeploymentNotification(
+          failStatus,
+          config,
+          deploymentId,
+          totalDuration,
+          isCancelled ? undefined : error.message
+        );
       }
-
-      await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", failMsg);
-      await this.sendDeploymentNotification(
-        failStatus,
-        config,
-        deploymentId,
-        totalDuration,
-        isCancelled ? undefined : error.message
-      );
       logger.error("pipeline", isCancelled ? "Pipeline cancelled" : `Pipeline failed: ${error.message}`);
       const failSummary = logger.generateSummaryWithContext(
         isCancelled ? "cancelled" : "failed",

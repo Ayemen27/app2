@@ -126,6 +126,37 @@ grep "wa_" shared/schema.ts | head -20
 5. **Running totals** (اجمالي الحساب لاهنا) are NOT transactions — exclude them
 6. **Same amount + same supplier + different dates** = TWO valid separate transactions
 7. **Same رقم الحوالة** = always the SAME transaction (primary dedup key)
+8. **العباسي date errors (CRITICAL)** — العباسي frequently writes WRONG dates and day names in his expense reports. The inline dates he writes (e.g., "الخميس29/1", "الاثنين2/2", "الخميس 5/2/2024") are UNRELIABLE:
+   - Day-of-week may not match the actual date
+   - He sometimes writes the wrong year (e.g., 2024 instead of 2026)
+   - He sometimes writes wrong month/day combinations
+   - **Resolution rule**: Use WhatsApp's message timestamp (the system-generated date at the start of each message) as the AUTHORITATIVE date. The inline dates العباسي writes are secondary evidence only. When there is a conflict between WhatsApp timestamp and العباسي's inline date, flag for human review with reason "date_mismatch_whatsapp_vs_inline". NEVER trust his inline dates without cross-checking against WhatsApp message timestamp.
+   - Example: message sent ٤/٢/٢٠٢٦ but العباسي writes "الاثنين2/2" inside — use ٤/٢ as the real date, flag the 2-day discrepancy.
+9. **Duplicate expense lines** — العباسي sometimes sends the same expense list twice (copy-paste or resend). The dedup engine must detect identical text blocks sent within a short time window and count them ONCE.
+
+## Two Chat Sources
+This pipeline processes TWO separate WhatsApp chat exports:
+1. **محادثة زين العابدين** (352 files, 2532 lines) — primary chat with the contractor
+2. **محادثة العباسي** (71 files, 1826 lines) — supervisor's expense reporting from الجراحي field
+Both chats are between the same Binarjoinanalytic account (عمار) and different counterparties. Transactions may overlap (same حوالة referenced in both chats). Cross-chat dedup is essential.
+
+### Additional People Discovered in العباسي Chat
+| Name | Role | Notes |
+|---|---|---|
+| عبدالله عادل | Field worker with العباسي | Receives daily صرفة (disbursement), meals |
+| السيد احمد | Field worker with العباسي | Receives daily صرفة, meals |
+| حاتم | Worker | Mentioned in expense lists |
+| احمد وهيب | Transport/logistics | Carries الواح (panels), paid per trip |
+| صابر / صابر الجبانة | Truck driver (جبانة) | Transports workers and panels |
+| عبود | Intermediary | Receives/passes حوالات |
+| عبدالله عبدة مشيخي | Worker | Receives عمال الصبة wages |
+
+### Transfer Companies (العباسي chat reveals more)
+| Company | Pattern |
+|---|---|
+| شركه رشاد بحير | Primary (from زين chat) |
+| الحوشبي | Used frequently: رقم format 202XXXXXXXXX (12 digits) |
+| النجم | Used occasionally: رقم format varies |
 
 ## Family Relationship Context
 - زين العابدين أخو ابرهيم = contractor for concrete/foundations/materials

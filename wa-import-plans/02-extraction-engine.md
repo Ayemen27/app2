@@ -56,7 +56,15 @@ Build the intelligent extraction engine that analyzes parsed WhatsApp messages a
 
 4. **Build context clustering engine** — Group messages within temporal windows (same sender, ±2 messages or ≤15 minutes). Link image attachments to their explanatory text messages. Ensure receipt image + "قيمة خرسان 48متر للجراحي" = ONE transaction. Store links in wa_transaction_evidence_links.
 
-5. **Build non-transaction filters** — Detect and exclude: running totals (اجمالي الحساب/لاهنا), work planning conversations, greetings, stickers (STK-*.webp), deleted messages (حذفت هذه الرسالة), system messages (مشفرة تمامًا).
+5. **Build non-transaction filters** — Detect and exclude: running totals (اجمالي الحساب/لاهنا), work planning conversations, greetings, stickers (STK-*.webp), deleted messages (حذفت هذه الرسالة), system messages (مشفرة تمامًا). Also detect duplicate text blocks (العباسي sends same expense list twice via copy-paste) — count as ONE.
+
+5b. **Build date validation engine (CRITICAL for العباسي chat)** — العباسي frequently writes WRONG inline dates/day-names in his expense reports. Rules:
+   - WhatsApp message timestamp (system-generated) = AUTHORITATIVE date. Always prefer this.
+   - العباسي's inline dates ("الخميس29/1", "الاثنين2/2") = SECONDARY evidence only.
+   - Detect date mismatches: compare inline date vs WhatsApp timestamp. If difference > 0 days, flag with reason "date_mismatch_whatsapp_vs_inline" and use WhatsApp timestamp.
+   - Detect wrong year (e.g., "5/2/2024" when WhatsApp timestamp says 2026) — auto-correct year, flag.
+   - Detect wrong day-of-week (e.g., "الاثنين" but actual date is Wednesday) — ignore day name, use date.
+   - Store both dates (wa_timestamp + inline_claimed_date) for audit trail.
 
 6. **Build project inference engine with 4-project matrix** — Map transactions to the 4 existing project IDs using: keyword matching (الجراحي, التحيتا, الحوش, الست الابيار, قواعد, منصة, ألواح), contractor context (chat is with زين = default to his projects), work type context (صب/قواعد/خرسان = زين's projects, منصة/ألواح/تركيب = المهندس محمد's projects). Store evidence in wa_project_hypotheses.
 

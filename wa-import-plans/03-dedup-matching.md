@@ -34,7 +34,11 @@ Build the critical dedup engine and historical matching system. This is the MOST
 - Audio/Excel analysis (future)
 
 ## Tasks
-1. **Build fingerprint engine** — Generate deterministic fingerprints for each candidate. For structured transfers: use رقم الحوالة as primary key. For cash expenses: hash of normalized(amount + date + first_20_chars_description). For clustered transactions: use the cluster's primary evidence fingerprint. Store fingerprints in wa_dedup_keys for cross-batch dedup.
+1. **Build fingerprint engine** — Generate deterministic fingerprints for each candidate. For structured transfers: use رقم الحوالة as primary key. For cash expenses: hash of normalized(amount + date + first_20_chars_description). For clustered transactions: use the cluster's primary evidence fingerprint. Store fingerprints in wa_dedup_keys for cross-batch dedup. CRITICAL: Use WhatsApp message timestamp (not inline dates from العباسي) when computing fingerprints, since العباسي's inline dates are unreliable.
+
+1b. **Build cross-chat dedup engine** — The pipeline processes TWO chat exports (زين + العباسي) that reference the SAME transactions (same حوالة numbers, same amounts). For example, a 30000 حوالة from زين appears in both chats. Cross-chat dedup uses: transfer_number (exact match), amount+date±1day+counterparty_context. Mark as single transaction with evidence from both chats.
+
+1c. **Build duplicate text block detector** — العباسي sometimes sends the same expense list twice (copy-paste or accidental resend). Detect identical or near-identical text blocks sent within ≤30 minutes by the same sender. Count as ONE transaction set, link duplicates via wa_transaction_evidence_links.
 
 2. **Build historical matcher for fund_transfers** — Query existing 110+ fund_transfers across 4 projects. Match by: transfer_number (exact match = skip), or amount+sender_name+date±1day (near match = review). IMPORTANT: Same رقم الحوالة = always the SAME transaction (primary dedup key, guaranteed unique). Different transfer numbers with same amount on different dates = SEPARATE valid transactions.
 

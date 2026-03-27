@@ -1,6 +1,6 @@
 import { db } from "../db.js";
 import { buildDeployments, deploymentEvents } from "@shared/schema";
-import { eq, desc, sql, count } from "drizzle-orm";
+import { eq, and, desc, sql, count } from "drizzle-orm";
 import { exec, spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, accessSync, unlinkSync, constants as fsConstants } from "fs";
@@ -1012,15 +1012,22 @@ export class DeploymentEngine {
         }
       } catch {}
 
-      await this.updateDeployment(deploymentId, {
-        status: isCancelled ? "cancelled" : "failed",
+      const failStatus = isCancelled ? "cancelled" : "failed";
+      const failMsg = isCancelled ? "Cancelled by user" : error.message;
+      const [casResult] = await db.update(buildDeployments).set({
+        status: failStatus,
         duration: totalDuration,
         endTime: new Date(),
-        errorMessage: isCancelled ? "Cancelled by user" : error.message,
-      });
-      await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", isCancelled ? "Deployment cancelled by user" : error.message);
+        errorMessage: failMsg,
+      }).where(and(eq(buildDeployments.id, deploymentId), eq(buildDeployments.status, "running"))).returning({ id: buildDeployments.id });
+
+      if (!casResult) {
+        logger.warn("pipeline", `CAS fail: deployment ${deploymentId} already transitioned — skipping fail update`);
+      }
+
+      await this.addEvent(deploymentId, isCancelled ? "deployment_cancelled" : "deployment_failed", failMsg);
       await this.sendDeploymentNotification(
-        isCancelled ? "cancelled" : "failed",
+        failStatus,
         config,
         deploymentId,
         totalDuration,
@@ -3926,7 +3933,7 @@ echo 'MAINACTIVITY_FIXED'"`,
     await this.addLog(deploymentId, "🗄️ فحص قاعدة البيانات...", "info");
     try {
       const start = Date.now();
-      const { stdout } = await execAsync(`${sshCmd} "pg_isready -h localhost -p 5432 2>&1 && psql -U newuser -d newdb -c 'SELECT 1' -t 2>&1 | head -5"`, { timeout: 15000 });
+      const { stdout } = await execAsync(`${sshCmd} "pg_isready -h localhost -p 5432 2>&1 && psql \\$DATABASE_URL -c 'SELECT 1' -t 2>&1 | head -5"`, { timeout: 15000 });
       const latencyMs = Date.now() - start;
       const isReady = stdout.includes("accepting connections");
       const queryOk = stdout.includes("1");
@@ -4771,13 +4778,17 @@ echo 'MAINACTIVITY_FIXED'"`,
     } catch (error: any) {
       const totalDuration = Date.now() - startTime;
       const isCancelled = error instanceof CancellationError;
-      await this.updateDeployment(deploymentId, {
-        status: isCancelled ? "cancelled" : "failed",
+      const failStatus = isCancelled ? "cancelled" : "failed";
+      const [casResult] = await db.update(buildDeployments).set({
+        status: failStatus,
         duration: totalDuration,
         endTime: new Date(),
         errorMessage: isCancelled ? "Cancelled by user" : error.message,
-      });
-      await this.sendDeploymentNotification(isCancelled ? "cancelled" : "failed", config, deploymentId, totalDuration, error.message);
+      }).where(and(eq(buildDeployments.id, deploymentId), eq(buildDeployments.status, "running"))).returning({ id: buildDeployments.id });
+
+      if (casResult) {
+        await this.sendDeploymentNotification(failStatus, config, deploymentId, totalDuration, error.message);
+      }
     } finally {
       this.cleanupDeploymentState(deploymentId);
     }

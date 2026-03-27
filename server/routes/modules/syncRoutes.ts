@@ -891,6 +891,28 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
     const results: unknown[] = [];
     const projectAccessCache = new Map<string, boolean>();
 
+    const FINANCIAL_TABLES_SET = new Set([
+      'fund_transfers', 'worker_attendance', 'transportation_expenses',
+      'material_purchases', 'worker_transfers', 'worker_misc_expenses',
+      'supplier_payments'
+    ]);
+    const DATE_FIELD_DB_MAP: Record<string, string> = {
+      'fund_transfers': 'transfer_date',
+      'worker_attendance': 'date',
+      'transportation_expenses': 'date',
+      'material_purchases': 'purchase_date',
+      'worker_transfers': 'transfer_date',
+      'worker_misc_expenses': 'date',
+      'supplier_payments': 'payment_date',
+    };
+    const batchInvalidations = new Map<string, string>();
+    function trackInvalidation(pid: string, d: string) {
+      const clean = String(d || '').substring(0, 10);
+      if (!clean || !/^\d{4}-\d{2}-\d{2}$/.test(clean)) return;
+      const existing = batchInvalidations.get(pid);
+      if (!existing || clean < existing) batchInvalidations.set(pid, clean);
+    }
+
     const ipAddress = req.ip || req.headers['x-forwarded-for'] as string;
     const userAgent = req.headers['user-agent'];
     const userName = getUserDisplayName(authUser);
@@ -972,6 +994,14 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         const inserted = result.rows[0];
         const status = inserted ? 'success' : 'duplicate';
         results.push({ index: i, success: true, data: inserted || payload });
+
+        if (inserted && FINANCIAL_TABLES_SET.has(tableName)) {
+          const rec = inserted as Record<string, any>;
+          const pid = rec.project_id;
+          const dateCol = DATE_FIELD_DB_MAP[tableName];
+          if (pid && dateCol && rec[dateCol]) trackInvalidation(pid, rec[dateCol]);
+          if (tableName === 'worker_attendance' && pid && rec.attendance_date) trackInvalidation(pid, rec.attendance_date);
+        }
 
         auditPromises.push(SyncAuditService.logOperation({
           user_id: userId, userName, action: auditAction, endpoint, tableName,
@@ -1067,6 +1097,19 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
           }
         } else {
           results.push({ index: i, success: true, data: result.rows[0] || payload });
+          if (FINANCIAL_TABLES_SET.has(tableName)) {
+            const dateCol = DATE_FIELD_DB_MAP[tableName];
+            const oldRec = oldValues as Record<string, any> | null;
+            const newRec = (result.rows[0] || payload) as Record<string, any>;
+            const oldPid = oldRec?.project_id;
+            const newPid = newRec?.project_id;
+            if (oldPid && dateCol && oldRec?.[dateCol]) trackInvalidation(oldPid, oldRec[dateCol]);
+            if (newPid && dateCol && newRec?.[dateCol]) trackInvalidation(newPid, newRec[dateCol]);
+            if (tableName === 'worker_attendance') {
+              if (oldPid && oldRec?.attendance_date) trackInvalidation(oldPid, oldRec.attendance_date);
+              if (newPid && newRec?.attendance_date) trackInvalidation(newPid, newRec.attendance_date);
+            }
+          }
           auditPromises.push(SyncAuditService.logOperation({
             user_id: userId, userName, action: auditAction, endpoint, tableName,
             recordId: id, status: 'success', oldValues, newValues: result.rows[0] || payload,
@@ -1099,6 +1142,14 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
         await client.query(`DELETE FROM "${tableName}" WHERE id = $1`, [id]);
         results.push({ index: i, success: true });
 
+        if (oldValues && FINANCIAL_TABLES_SET.has(tableName)) {
+          const oldRec = oldValues as Record<string, any>;
+          const dateCol = DATE_FIELD_DB_MAP[tableName];
+          const pid = oldRec.project_id;
+          if (pid && dateCol && oldRec[dateCol]) trackInvalidation(pid, oldRec[dateCol]);
+          if (tableName === 'worker_attendance' && pid && oldRec.attendance_date) trackInvalidation(pid, oldRec.attendance_date);
+        }
+
         auditPromises.push(SyncAuditService.logOperation({
           user_id: userId, userName, action: auditAction, endpoint, tableName,
           recordId: id, status: 'success', oldValues,
@@ -1112,44 +1163,7 @@ syncRouter.post('/batch', async (req: Request, res: Response) => {
 
     await client.query('COMMIT');
 
-    const FINANCIAL_TABLES = new Set([
-      'fund_transfers', 'worker_attendance', 'transportation_expenses',
-      'material_purchases', 'worker_transfers', 'worker_misc_expenses',
-      'supplier_payments'
-    ]);
-    const DATE_FIELD_MAP: Record<string, string[]> = {
-      'fund_transfers': ['transfer_date', 'transferDate'],
-      'worker_attendance': ['date', 'attendance_date', 'attendanceDate'],
-      'transportation_expenses': ['date'],
-      'material_purchases': ['purchase_date', 'purchaseDate'],
-      'worker_transfers': ['transfer_date', 'transferDate'],
-      'worker_misc_expenses': ['date'],
-      'supplier_payments': ['payment_date', 'paymentDate'],
-    };
-    const invalidations = new Map<string, string>();
-    for (const op of operations) {
-      const cleanEp = (op.endpoint || '').split('?')[0];
-      const epParts = cleanEp.split('/').filter(Boolean);
-      if (epParts[0] !== 'api' || epParts.length < 2) continue;
-      const rawTbl = epParts.slice(1).join('-');
-      const tbl = ALLOWED_BATCH_TABLES[rawTbl];
-      if (!tbl || !FINANCIAL_TABLES.has(tbl)) continue;
-      const p = op.payload as Record<string, any> | undefined;
-      if (!p) continue;
-      const projectId = p.project_id || p.projectId;
-      if (!projectId) continue;
-      const dateFields = DATE_FIELD_MAP[tbl] || ['date'];
-      let opDate = '';
-      for (const df of dateFields) {
-        if (p[df]) { opDate = String(p[df]).substring(0, 10); break; }
-      }
-      if (!opDate || !/^\d{4}-\d{2}-\d{2}$/.test(opDate)) continue;
-      const existing = invalidations.get(projectId);
-      if (!existing || opDate < existing) {
-        invalidations.set(projectId, opDate);
-      }
-    }
-    for (const [pid, fromDate] of invalidations) {
+    for (const [pid, fromDate] of batchInvalidations) {
       SummaryRebuildService.markInvalid(pid, fromDate).catch(e =>
         console.error(`[Sync-Batch] markInvalid error for ${pid}:`, e)
       );

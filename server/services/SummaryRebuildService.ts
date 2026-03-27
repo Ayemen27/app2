@@ -115,15 +115,16 @@ async function computeDaySummaryWithClient(client: PoolClient, projectId: string
   `, [projectId, date]);
 
   const row = result.rows[0];
-  const fundTransfers = Math.round(parseFloat(row.fund_transfers || '0'));
-  const incomingTransfers = Math.round(parseFloat(row.incoming_transfers || '0'));
-  const outgoingTransfers = Math.round(parseFloat(row.outgoing_transfers || '0'));
-  const workerWages = Math.round(parseFloat(row.worker_wages || '0'));
-  const materialCosts = Math.round(parseFloat(row.material_costs || '0'));
-  const transportCosts = Math.round(parseFloat(row.transport_costs || '0'));
-  const workerTransferCosts = Math.round(parseFloat(row.worker_transfer_costs || '0'));
-  const miscCosts = Math.round(parseFloat(row.misc_costs || '0'));
-  const supplierPay = Math.round(parseFloat(row.supplier_payments || '0'));
+  const toTwo = (v: string) => Math.round(parseFloat(v || '0') * 100) / 100;
+  const fundTransfers = toTwo(row.fund_transfers);
+  const incomingTransfers = toTwo(row.incoming_transfers);
+  const outgoingTransfers = toTwo(row.outgoing_transfers);
+  const workerWages = toTwo(row.worker_wages);
+  const materialCosts = toTwo(row.material_costs);
+  const transportCosts = toTwo(row.transport_costs);
+  const workerTransferCosts = toTwo(row.worker_transfer_costs);
+  const miscCosts = toTwo(row.misc_costs);
+  const supplierPay = toTwo(row.supplier_payments);
 
   const totalFundTransfers = fundTransfers + incomingTransfers;
   const totalExpenses = workerWages + materialCosts + transportCosts + workerTransferCosts + miscCosts + outgoingTransfers + supplierPay;
@@ -322,7 +323,7 @@ async function ensureValidSummary(projectId: string, targetDate: string): Promis
 
     let carriedForward = 0;
     if (lastValidResult.rows.length > 0) {
-      carriedForward = Math.round(parseFloat(lastValidResult.rows[0].remaining_balance || '0'));
+      carriedForward = Math.round(parseFloat(lastValidResult.rows[0].remaining_balance || '0') * 100) / 100;
     }
 
     const dates = await getActiveDatesWithClient(client, projectId, rebuildFromDate, targetDate);

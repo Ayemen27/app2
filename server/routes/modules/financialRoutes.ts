@@ -3439,17 +3439,14 @@ financialRouter.get('/daily-expenses-excel', async (req: Request, res: Response)
       )
       .limit(1);
 
-    const attendanceRecords = await db
-      .select()
-      .from(workerAttendance)
-      .where(
-        and(
-          eq(workerAttendance.project_id, project_id as string),
-          eq(workerAttendance.date, cleanExcelDate)
-        )
-      );
+    const attendanceRecords = await pool.query(
+      `SELECT * FROM worker_attendance
+       WHERE project_id = $1
+         AND COALESCE(NULLIF(date,''), attendance_date) = $2`,
+      [project_id, cleanExcelDate]
+    ).then(r => r.rows);
 
-    const totalWorkDays = attendanceRecords.reduce((sum: any, record: any) => sum + (parseFloat(record.workDays || '0')), 0);
+    const totalWorkDays = attendanceRecords.reduce((sum: any, record: any) => sum + (parseFloat(record.work_days || record.workDays || '0')), 0);
 
     if (summary.length === 0) {
       return res.json({
@@ -3518,26 +3515,18 @@ financialRouter.get('/daily-attendance-details', async (req: Request, res: Respo
       return res.status(403).json({ success: false, message: 'ليس لديك صلاحية للوصول لهذا المشروع' });
     }
 
-    // جلب سجلات الحضور مع بيانات العمال
-    const attendanceRecords = await db
-      .select({
-        id: workerAttendance.id,
-        worker_id: workerAttendance.worker_id,
-        workerName: workers.name,
-        workDays: workerAttendance.workDays,
-        dailyWage: workers.dailyWage,
-        actualWage: workerAttendance.actualWage,
-        paidAmount: workerAttendance.paidAmount
-      })
-      .from(workerAttendance)
-      .leftJoin(workers, eq(workerAttendance.worker_id, workers.id))
-      .where(
-        and(
-          eq(workerAttendance.project_id, project_id as string),
-          eq(workerAttendance.date, date as string)
-        )
-      )
-      .orderBy(workers.name);
+    const cleanAttDate = String(date).split('T')[0].split(' ')[0];
+    const attendanceRecords = await pool.query(
+      `SELECT wa.id, wa.worker_id, w.name as "workerName",
+              wa.work_days as "workDays", w.daily_wage as "dailyWage",
+              wa.actual_wage as "actualWage", wa.paid_amount as "paidAmount"
+       FROM worker_attendance wa
+       LEFT JOIN workers w ON wa.worker_id = w.id
+       WHERE wa.project_id = $1
+         AND COALESCE(NULLIF(wa.date,''), wa.attendance_date) = $2
+       ORDER BY w.name`,
+      [project_id, cleanAttDate]
+    ).then(r => r.rows);
 
     // حساب المتبقي لكل سجل
     const detailedRecords = attendanceRecords.map((record: any) => {

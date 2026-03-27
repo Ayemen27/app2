@@ -786,6 +786,7 @@ router.post("/delete", requireAdmin, async (req: Request, res: Response) => {
     let deletedCount = 0;
     const errors: string[] = [];
     const affectedDates = new Set<string>();
+    const otherProjectInvalidations = new Map<string, string>();
 
     await db.transaction(async (tx: any) => {
       for (const sel of selections) {
@@ -803,10 +804,18 @@ router.post("/delete", requireAdmin, async (req: Request, res: Response) => {
               continue;
             }
             if (existing.transferDate) affectedDates.add(existing.transferDate);
+            const otherProjectId = isOut ? existing.toProjectId : existing.fromProjectId;
             await tx.delete(projectFundTransfers).where(
               and(eq(projectFundTransfers.id, sel.id), eq(ownerCol, String(projectId)))
             );
             deletedCount++;
+            if (otherProjectId && existing.transferDate) {
+              const tfDate = String(existing.transferDate).substring(0, 10);
+              if (/^\d{4}-\d{2}-\d{2}$/.test(tfDate)) {
+                const prev = otherProjectInvalidations.get(String(otherProjectId));
+                if (!prev || tfDate < prev) otherProjectInvalidations.set(String(otherProjectId), tfDate);
+              }
+            }
           } catch (e: any) {
             errors.push(`فشل حذف سجل من ${TABLE_LABELS[sel.table] || sel.table}`);
           }
@@ -852,6 +861,12 @@ router.post("/delete", requireAdmin, async (req: Request, res: Response) => {
           await SummaryRebuildService.markInvalid(String(projectId), minDate);
         }
         invalidateBalanceCache(String(projectId));
+        for (const [otherPid, otherDate] of otherProjectInvalidations) {
+          SummaryRebuildService.markInvalid(otherPid, otherDate).catch(e =>
+            console.error(`[RecordTransfer] markInvalid otherProject ${otherPid} error:`, e)
+          );
+          invalidateBalanceCache(otherPid);
+        }
       } catch (recalcErr: any) {
         console.error(`[RecordTransfer] ⚠️ خطأ في إعادة حساب الملخصات بعد الحذف:`, recalcErr.message);
       }

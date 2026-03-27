@@ -12,6 +12,8 @@ See Rules 1-10 in `00-continuity-guide.md` for exact format and rules.
 | #2 | Financial Extraction Engine | NOT STARTED (depends on #1) | — | — |
 | #3 | Dedup, Matching & Reconciliation | NOT STARTED (depends on #2) | — | — |
 | #4 | Review Dashboard & Posting Engine | NOT STARTED (depends on #3) | — | — |
+| #5 | AI Learning Engine | NOT STARTED (depends on #1,#2,#4) | — | — |
+| #6 | Interactive Clarification via Bot | NOT STARTED (depends on #1,#2,#4) | — | — |
 
 ---
 

@@ -8,9 +8,10 @@ Import exported WhatsApp conversations (Arabic, Yemeni dialect) and convert them
 
 ## Task Chain (Sequential Dependencies)
 ```
-Task #1: Schema & Ingestion → Task #2: Extraction Engine → Task #3: Dedup & Matching → Task #4: Review Dashboard & Posting
+Task #1: Schema & Ingestion → Task #2: Extraction Engine → Task #3: Dedup & Matching → Task #4: Review Dashboard & Posting → Task #5: AI Learning Engine → Task #6: Interactive Clarification
 ```
-Each task MUST be completed and verified before the next can begin. A task is "complete" when all its acceptance criteria pass and the app starts without errors.
+Tasks 1-4 are the core pipeline (sequential). Tasks 5-6 are enhancement layers that depend on Tasks 1-4 but can be built independently of each other.
+Each task MUST be completed and verified before dependent tasks can begin. A task is "complete" when all its acceptance criteria pass and the app starts without errors.
 
 ## How to Resume If Agent Stops Mid-Task
 

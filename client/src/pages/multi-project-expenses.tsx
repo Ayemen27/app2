@@ -141,7 +141,8 @@ export default function MultiProjectExpenses() {
           <div className="flex flex-wrap gap-1.5">
             {allProjects.map((p: { id: string; name: string }) => {
               const isSel = selectedProjectIds.has(p.id);
-              const hasData = projectsWithData.has(p.id);
+              const s = (apiData?.summaries || []).find((s: Summary) => s.project_id === p.id);
+              const hasData = s ? (num(s.total_expenses) > 0 || num(s.total_fund_transfers) > 0) : false;
               return (
                 <Button key={p.id} variant={isSel ? "default" : "outline"} size="sm"
                   className={`h-8 text-xs gap-1.5 rounded-full transition-all ${isSel ? "shadow-md" : hasData ? "border-primary/30" : "opacity-40"}`}

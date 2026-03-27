@@ -524,6 +524,9 @@ export interface ProjectComprehensiveReportData {
     totalTransport: number;
     totalMisc: number;
     totalWorkerTransfers: number;
+    totalSupplierPayments?: number;
+    totalProjectTransfersOut?: number;
+    totalProjectTransfersIn?: number;
     balance: number;
     budgetUtilization?: number;
   };

@@ -90,7 +90,7 @@ async function calculatePreviewData(
   const earnedResult = await queryFn(
     `SELECT wa.worker_id, wa.project_id, p.name as project_name, w.name as worker_name,
             COALESCE(SUM(
-              CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL(15,2))
+              CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL(15,2)) END
             ), 0) as total_earned,
             COALESCE(SUM(CAST(wa.paid_amount AS DECIMAL(15,2))), 0) as total_paid
      FROM worker_attendance wa

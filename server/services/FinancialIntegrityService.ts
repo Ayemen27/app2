@@ -12,7 +12,7 @@ export class FinancialIntegrityService {
         COALESCE(a.total_earned, 0) - COALESCE(a.total_paid, 0) - COALESCE(t.total_transferred, 0),
         NOW(), NOW()
       FROM (
-        SELECT SUM(CAST(COALESCE(actual_wage,'0') AS DECIMAL(15,2))) as total_earned,
+        SELECT SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END) as total_earned,
                SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))) as total_paid
         FROM worker_attendance WHERE worker_id = $1 AND project_id = $2
       ) a
@@ -95,7 +95,7 @@ export class FinancialIntegrityService {
       SELECT wb.worker_id, w.name as worker_name, wb.project_id, p.name as project_name,
         CAST(wb.current_balance AS DECIMAL(15,2)) as stored_balance,
         (
-          COALESCE((SELECT SUM(CAST(COALESCE(actual_wage,'0') AS DECIMAL(15,2))) FROM worker_attendance wa WHERE wa.worker_id=wb.worker_id AND wa.project_id=wb.project_id), 0)
+          COALESCE((SELECT SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END) FROM worker_attendance wa WHERE wa.worker_id=wb.worker_id AND wa.project_id=wb.project_id), 0)
           - COALESCE((SELECT SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))) FROM worker_attendance wa WHERE wa.worker_id=wb.worker_id AND wa.project_id=wb.project_id), 0)
           - COALESCE((SELECT SUM(CAST(COALESCE(amount,'0') AS DECIMAL(15,2))) FROM worker_transfers wt WHERE wt.worker_id=wb.worker_id AND wt.project_id=wb.project_id AND COALESCE(wt.transfer_method,'')!='settlement'), 0)
         ) as computed_balance
@@ -198,7 +198,7 @@ export class FinancialIntegrityService {
           NOW(), NOW()
         FROM (
           SELECT worker_id, project_id,
-            SUM(CAST(COALESCE(actual_wage,'0') AS DECIMAL(15,2))) as total_earned,
+            SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END) as total_earned,
             SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))) as total_paid
           FROM worker_attendance GROUP BY worker_id, project_id
         ) c
@@ -225,7 +225,7 @@ export class FinancialIntegrityService {
   }> {
     const result = await pool.query(`
       SELECT
-        COALESCE(SUM(CAST(COALESCE(actual_wage,'0') AS DECIMAL(15,2))), 0)
+        COALESCE(SUM(CASE WHEN actual_wage IS NOT NULL AND actual_wage::text != '' AND actual_wage::text != 'NaN' THEN CAST(actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(work_days,''),'0') AS DECIMAL(15,2)) END), 0)
         - COALESCE(SUM(CAST(COALESCE(paid_amount,'0') AS DECIMAL(15,2))), 0) as net
       FROM worker_attendance WHERE worker_id = $1 AND project_id = $2
     `, [workerId, projectId]);

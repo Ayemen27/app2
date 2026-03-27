@@ -279,7 +279,7 @@ reportRouter.get('/reports/periodic', async (req: Request, res: Response) => {
       .select({
         date: sql<string>`COALESCE(NULLIF(${workerAttendance.date},''), ${workerAttendance.attendanceDate})`,
         totalWorkDays: sql<number>`COALESCE(SUM(CAST(${workerAttendance.workDays} AS DECIMAL)), 0)`,
-        totalWages: sql<number>`COALESCE(SUM(CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)), 0)`,
+        totalWages: sql<number>`COALESCE(SUM(CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(${workerAttendance.actualWage} AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END), 0)`,
         totalPaid: sql<number>`COALESCE(SUM(CAST(${workerAttendance.paidAmount} AS DECIMAL)), 0)`,
         workerCount: sql<number>`COUNT(DISTINCT ${workerAttendance.worker_id})`
       })
@@ -987,11 +987,53 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
     const totalTransfers = transfers.reduce((sum: any, t: any) => sum + parseFloat(t.amount || '0'), 0);
     const remainingBalance = totalEarned - totalPaid - totalTransfers;
 
+    // جلب تصفيات العمال - مع تقييد المشاريع المسموحة
+    let settlementProjectFilter = '';
+    const settlementParams: any[] = [worker_id];
+    let paramIdx = 2;
+    if (project_id) {
+      settlementProjectFilter = `AND (wsl.from_project_id = $${paramIdx} OR wsl.to_project_id = $${paramIdx})`;
+      settlementParams.push(project_id);
+      paramIdx++;
+    } else if (!isAdminUser && accessibleIds.length > 0) {
+      const placeholders = accessibleIds.map((_: string, i: number) => `$${paramIdx + i}`).join(',');
+      settlementProjectFilter = `AND (wsl.from_project_id IN (${placeholders}) OR wsl.to_project_id IN (${placeholders}))`;
+      settlementParams.push(...accessibleIds);
+      paramIdx += accessibleIds.length;
+    } else if (!isAdminUser) {
+      settlementProjectFilter = 'AND 1=0';
+    }
+    if (dateFrom) {
+      settlementProjectFilter += ` AND ws.settlement_date >= $${paramIdx}`;
+      settlementParams.push(dateFrom);
+      paramIdx++;
+    }
+    if (dateTo) {
+      settlementProjectFilter += ` AND ws.settlement_date <= $${paramIdx}`;
+      settlementParams.push(dateTo);
+      paramIdx++;
+    }
+    const settlementRes2 = await pool.query(`
+      SELECT wsl.amount, ws.settlement_date,
+        fp.name AS from_project_name, tp.name AS to_project_name
+      FROM worker_settlement_lines wsl
+      JOIN worker_settlements ws ON ws.id = wsl.settlement_id
+      LEFT JOIN projects fp ON fp.id = wsl.from_project_id
+      LEFT JOIN projects tp ON tp.id = wsl.to_project_id
+      WHERE wsl.worker_id = $1 AND ws.status = 'completed'
+      ${settlementProjectFilter}
+      ORDER BY ws.settlement_date
+    `, settlementParams);
+
+    const totalSettlements = settlementRes2.rows.reduce((s: number, r: any) => s + (parseFloat(r.amount) || 0), 0);
+
     // بيانات الرسم البياني - باستخدام الأجر المسجل في كل سجل
     const chartData = attendanceRecords.map((r: any) => {
+      const aw = r.actualWage != null ? parseFloat(String(r.actualWage) || '0') : null;
+      const earned = (aw != null && !isNaN(aw)) ? aw : parseFloat(r.dailyWage || '0') * parseFloat(r.workDays || '0');
       return {
         date: r.date,
-        earned: parseFloat(r.actualWage || '0'),
+        earned,
         paid: parseFloat(r.paidAmount || '0'),
         workDays: parseFloat(r.workDays || '0')
       };
@@ -1012,10 +1054,17 @@ reportRouter.get('/reports/worker-statement/:worker_id', async (req: Request, re
           totalEarned,
           totalPaid,
           totalTransfers,
-          remainingBalance
+          totalSettlements,
+          remainingBalance: totalEarned - totalPaid - totalTransfers - totalSettlements
         },
         attendance: attendanceRecords,
         transfers,
+        settlements: settlementRes2.rows.map((s: any) => ({
+          date: s.settlement_date,
+          amount: parseFloat(s.amount) || 0,
+          fromProject: s.from_project_name || '-',
+          toProject: s.to_project_name || '-',
+        })),
         chartData
       },
       processingTime: duration

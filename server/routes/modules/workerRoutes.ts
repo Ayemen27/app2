@@ -300,14 +300,14 @@ async function recalculateAttendanceAndBalances(
        SET
          total_earned = COALESCE((
            SELECT SUM(
-             CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL(15,2))
+             CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL(15,2)) END
            )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
          ), 0),
          current_balance = COALESCE((
            SELECT SUM(
-             CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL(15,2))
+             CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL(15,2)) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL(15,2)) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL(15,2)) END
            )
            FROM worker_attendance wa
            WHERE wa.worker_id = wb.worker_id AND wa.project_id = wb.project_id
@@ -634,7 +634,7 @@ workerRouter.get('/workers/balances', async (req: Request, res: Response) => {
       SELECT 
         w.id as worker_id,
         COALESCE((
-          SELECT SUM(CAST(COALESCE(wa.actual_wage, '0') AS DECIMAL))
+          SELECT SUM(CASE WHEN wa.actual_wage IS NOT NULL AND wa.actual_wage::text != '' AND wa.actual_wage::text != 'NaN' THEN CAST(wa.actual_wage AS DECIMAL) ELSE CAST(COALESCE(NULLIF(wa.daily_wage,''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(wa.work_days,''),'0') AS DECIMAL) END)
           FROM worker_attendance wa WHERE wa.worker_id = w.id ${waFilter}
         ), 0) as total_earnings,
         COALESCE((
@@ -3399,7 +3399,7 @@ workerRouter.get('/workers/:id/stats', async (req: Request, res: Response) => {
 
     const totalEarningsResult = await db.select({
       totalEarnings: sql`COALESCE(SUM(
-        CAST(COALESCE(${workerAttendance.actualWage}, '0') AS DECIMAL)
+        CASE WHEN ${workerAttendance.actualWage} IS NOT NULL AND ${workerAttendance.actualWage}::text != '' AND ${workerAttendance.actualWage}::text != 'NaN' THEN CAST(${workerAttendance.actualWage} AS DECIMAL) ELSE CAST(COALESCE(NULLIF(${workerAttendance.dailyWage},''),'0') AS DECIMAL) * CAST(COALESCE(NULLIF(${workerAttendance.workDays},''),'0') AS DECIMAL) END
       ), 0)`
     })
     .from(workerAttendance)

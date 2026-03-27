@@ -1335,7 +1335,7 @@ financialRouter.post('/worker-transfers', async (req: Request, res: Response) =>
         action: 'create',
         entityType: 'worker_transfer',
         entityId: wt.id,
-        newData: { worker_id: wt.worker_id, amount: wt.amount, transferDate: wt.transferDate, transfer_method: wt.transfer_method },
+        newData: { worker_id: wt.worker_id, amount: wt.amount, transferDate: wt.transferDate, transfer_method: wt.transferMethod },
         userId: getAuthUser(req)?.user_id || null,
         userEmail: getAuthUser(req)?.email || null,
         reason: 'إنشاء تحويل عامل جديد'

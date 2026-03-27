@@ -126,6 +126,7 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   "build-server": {
     name: "build-server",
     timeoutMs: 600000,
+    retryPolicy: { maxRetries: 2, delayMs: 15000 },
   },
   "build-web": {
     name: "build-web",
@@ -135,6 +136,7 @@ export const STEP_REGISTRY: Record<StepName, StepDefinition> = {
   "db-migrate": {
     name: "db-migrate",
     timeoutMs: 120000,
+    retryPolicy: { maxRetries: 1, delayMs: 10000 },
   },
   "restart-pm2": {
     name: "restart-pm2",

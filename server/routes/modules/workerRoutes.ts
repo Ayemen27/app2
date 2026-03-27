@@ -1252,7 +1252,7 @@ workerRouter.patch('/worker-transfers/:id', async (req: Request, res: Response) 
         return res.status(400).json({ success: false, message: 'يجب كتابة سبب التأكيد (5 أحرف على الأقل) عند تجاوز تنبيه الحارس المالي.' });
       }
       sanitizedTransferData.notes = ((sanitizedTransferData.notes || existingTransfer[0].notes || '') + ' | [GUARD_OVERRIDE] ' + gNote).trim();
-      console.log(`[WorkerTransferGuard] OVERRIDE PATCH for transfer ${id}: ${gNote}`);
+      console.log(`[WorkerTransferGuard] OVERRIDE PATCH for transfer ${transferId}: ${gNote}`);
       if (req.body.adjustedAmount !== undefined) {
         const adj = parseFloat(req.body.adjustedAmount);
         if (!Number.isFinite(adj) || adj < 0) {
@@ -2938,16 +2938,16 @@ workerRouter.patch('/worker-attendance/:id', async (req: Request, res: Response)
     const confirmOverpaymentPatch = req.body.confirmOverpayment === true;
     let createdAdvanceTransferPatch: any = null;
 
+    const rawPaidPatch = updateData.paidAmount !== undefined ? updateData.paidAmount : existingAttendance[0].paidAmount;
+    const parsedPaidPatch = Number(rawPaidPatch);
+    const safePaidAmount = (rawPaidPatch === '' || rawPaidPatch === null || rawPaidPatch === undefined || !Number.isFinite(parsedPaidPatch))
+      ? 0
+      : parsedPaidPatch;
+
     if (dailyWage && workDays) {
       const actualWageValue = parseFloat((parseFloat(dailyWage) * parseFloat(workDays)).toFixed(2));
       updateData.actualWage = actualWageValue.toString();
       updateData.totalPay = actualWageValue.toString();
-      
-      const rawPaid = updateData.paidAmount !== undefined ? updateData.paidAmount : existingAttendance[0].paidAmount;
-      const parsedPaidUpdate = Number(rawPaid);
-      const safePaidAmount = (rawPaid === '' || rawPaid === null || rawPaid === undefined || !Number.isFinite(parsedPaidUpdate))
-        ? 0
-        : parsedPaidUpdate;
 
       const workDaysNum = parseFloat(workDays);
 

@@ -3451,15 +3451,49 @@ echo 'MAINACTIVITY_FIXED'"`,
       30000
     );
 
+    try {
+      const { stdout: diagOut } = await execAsync(
+        `${sshCmd} "free -m | awk '/^Mem/{printf \\"RAM: %sMB/%sMB (used: %s%%)\\\\n\\", \\$3, \\$2, int(\\$3/\\$2*100)}'; df -h ${remoteDir} | tail -1 | awk '{printf \\"Disk: %s used of %s (%s)\\\\n\\", \\$3, \\$2, \\$5}'"`,
+        { timeout: 10000 }
+      );
+      await this.addLog(deploymentId, `📊 موارد السيرفر قبل البناء: ${diagOut.trim()}`, "info");
+    } catch { /* non-critical */ }
+
     this.updateStepProgress(deploymentId, "build-server", 15, "بناء التطبيق (3-5 دقائق)...");
     await this.addLog(deploymentId, "بناء التطبيق على السيرفر (قد يستغرق 3-5 دقائق)...", "info");
 
-    await this.execWithLog(
-      deploymentId,
-      `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tail -20 && echo 'BUILD_OK'"`,
-      "Server Build",
-      600000
-    );
+    try {
+      await this.execWithLog(
+        deploymentId,
+        `${sshCmd} "set -o pipefail && cd ${remoteDir} && export VITE_API_BASE_URL=https://app2.binarjoinanelytic.info && export NODE_ENV=production && npm run build 2>&1 | tee /tmp/build_deploy.log | tail -40 && echo 'BUILD_OK'"`,
+        "Server Build",
+        600000
+      );
+    } catch (buildErr: any) {
+      const isSSH = buildErr.message?.includes("exit 255") || buildErr.message?.includes("Exit code: 255");
+      if (isSSH) {
+        await this.addLog(deploymentId, "⚠️ فشل اتصال SSH أثناء البناء — سيتم محاولة تنظيف الذاكرة وإعادة البناء تلقائياً", "warn");
+        try {
+          await execAsync(
+            `${sshCmd} "sync && echo 3 | sudo tee /proc/sys/vm/drop_caches 2>/dev/null; npm cache verify --silent 2>/dev/null; echo 'CLEANUP_DONE'"`,
+            { timeout: 15000 }
+          );
+        } catch { /* best-effort */ }
+      }
+      try {
+        const { stdout: buildLog } = await execAsync(
+          `${sshCmd} "tail -60 /tmp/build_deploy.log 2>/dev/null || echo 'NO_BUILD_LOG'"`,
+          { timeout: 10000 }
+        );
+        if (buildLog.trim() && !buildLog.includes("NO_BUILD_LOG")) {
+          const errorLines = buildLog.split("\n").filter(l => /error|fail|killed|cannot|oom/i.test(l)).slice(-10);
+          if (errorLines.length > 0) {
+            await this.addLog(deploymentId, `📋 أسطر الخطأ من سجل البناء:\n${errorLines.join("\n")}`, "warn");
+          }
+        }
+      } catch { /* non-critical */ }
+      throw buildErr;
+    }
     this.updateStepProgress(deploymentId, "build-server", 90, "التحقق من المخرجات...");
 
     const verifyBuild = await this.execWithLog(
